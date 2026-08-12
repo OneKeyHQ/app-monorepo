@@ -71,6 +71,15 @@ import type { IBatchTxSignCreateItem } from '../services/ServiceBatchTxSign';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
 
+// Defensive bounds on multi-psbt `signPsbts` requests (dapp-supplied input),
+// far above any real marketplace batch: the batch flow parses and retains
+// every item upfront, so these only exist to stop a malicious dapp from
+// stalling/exhausting the JS heaps with an absurd payload.
+const MAX_SIGN_PSBTS_COUNT = 100;
+// Total hex-string length across all psbts (2 hex chars per byte): 20M chars
+// ≈ 10MB of raw psbt data.
+const MAX_SIGN_PSBTS_TOTAL_HEX_LENGTH = 20_000_000;
+
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
   public providerName = IInjectedProviderNames.btc;
@@ -707,6 +716,27 @@ class ProviderApiBtc extends ProviderApiBase {
     if (!Array.isArray(psbtHexs) || psbtHexs.length === 0) {
       throw web3Errors.rpc.invalidParams('psbtHexs must be a non-empty array');
     }
+    // Defensive bounds for multi-psbt requests, checked before anything is
+    // parsed: the batch flow decodes every item upfront and keeps the whole
+    // set alive in the background for the lifetime of the modal (mirrored
+    // into the UI runtime on split-runtime targets), so unbounded input from
+    // a connected dapp could otherwise stall or exhaust both JS heaps. The
+    // limits are far above any real marketplace batch. A single psbt keeps
+    // the unchecked legacy behavior byte-for-byte.
+    if (psbtHexs.length > 1) {
+      if (psbtHexs.length > MAX_SIGN_PSBTS_COUNT) {
+        throw web3Errors.rpc.invalidParams(
+          `too many psbts: ${psbtHexs.length} (max ${MAX_SIGN_PSBTS_COUNT})`,
+        );
+      }
+      const totalHexLength = psbtHexs.reduce(
+        (sum, hex) => sum + (typeof hex === 'string' ? hex.length : 0),
+        0,
+      );
+      if (totalHexLength > MAX_SIGN_PSBTS_TOTAL_HEX_LENGTH) {
+        throw web3Errors.rpc.invalidParams('psbts payload too large');
+      }
+    }
 
     const psbtNetwork = toPsbtNetwork(network);
 
@@ -720,32 +750,11 @@ class ProviderApiBtc extends ProviderApiBase {
         accountUtils.isHwAccount({ accountId }));
 
     if (!supportsBatchFlow) {
-      const result: string[] = [];
-      for (let i = 0; i < psbtHexs.length; i += 1) {
-        // UniSat-compatible `signPsbts` passes `options` as an array (one
-        // entry per psbt), while OneKey/legacy callers pass a single shared
-        // object. Extract per-psbt options for the array form so
-        // `toSignInputs`, `isBtcWalletProvider` and `autoFinalized` are not
-        // lost. Losing them makes `getInputsToSignFromPsbt` skip script-path
-        // inputs (e.g. Babylon staking, whose input address differs from the
-        // account address), yielding an empty `inputsToSign` that throws in
-        // `buildDecodedPsbtTx` and hangs the confirm page on an infinite
-        // loading skeleton.
-        const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
-          options,
-          index: i,
-        });
-        const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
-        const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
-        const respPsbtHex = await this._signPsbt(request, {
-          psbt,
-          psbtNetwork,
-          options: optionsForCurrentPsbt,
-        });
-        result.push(respPsbtHex);
-      }
-
-      return result;
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
     }
 
     return this._signPsbtsBatchFlow(request, {
@@ -755,6 +764,48 @@ class ProviderApiBtc extends ProviderApiBase {
       options,
       psbtNetwork,
     });
+  }
+
+  // The pre-batch sequential per-psbt confirm loop, kept byte-for-byte: one
+  // modal per psbt, each resolved through the single-psbt `_signPsbt` path.
+  private async _signPsbtsLegacyFlow(
+    request: IJsBridgeMessagePayload,
+    {
+      psbtHexs,
+      options,
+      psbtNetwork,
+    }: {
+      psbtHexs: string[];
+      options: ISignPsbtOptions | ISignPsbtOptions[];
+      psbtNetwork: BitcoinJS.networks.Network;
+    },
+  ): Promise<string[]> {
+    const result: string[] = [];
+    for (let i = 0; i < psbtHexs.length; i += 1) {
+      // UniSat-compatible `signPsbts` passes `options` as an array (one
+      // entry per psbt), while OneKey/legacy callers pass a single shared
+      // object. Extract per-psbt options for the array form so
+      // `toSignInputs`, `isBtcWalletProvider` and `autoFinalized` are not
+      // lost. Losing them makes `getInputsToSignFromPsbt` skip script-path
+      // inputs (e.g. Babylon staking, whose input address differs from the
+      // account address), yielding an empty `inputsToSign` that throws in
+      // `buildDecodedPsbtTx` and hangs the confirm page on an infinite
+      // loading skeleton.
+      const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
+        options,
+        index: i,
+      });
+      const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
+      const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
+      const respPsbtHex = await this._signPsbt(request, {
+        psbt,
+        psbtNetwork,
+        options: optionsForCurrentPsbt,
+      });
+      result.push(respPsbtHex);
+    }
+
+    return result;
   }
 
   private async _signPsbtsBatchFlow(
@@ -846,9 +897,18 @@ class ProviderApiBtc extends ProviderApiBase {
         accountAddresses: [account.address],
       });
       if (!amounts) {
-        throw web3Errors.rpc.invalidParams(
-          `psbt at index ${i} has unparseable amounts or fee`,
-        );
+        // A psbt whose amounts/fee can't be summarized honestly must never
+        // reach the batch overview with made-up numbers — but rejecting
+        // outright would regress flows the sequential loop has always
+        // handled: a SIGHASH_SINGLE|ANYONECANPAY marketplace listing psbt
+        // (seller-side, buyer adds the fee inputs later) legitimately
+        // computes a negative fee here. Fall back to the legacy per-psbt
+        // confirm for the whole request instead.
+        return this._signPsbtsLegacyFlow(request, {
+          psbtHexs,
+          options,
+          psbtNetwork,
+        });
       }
       items.push({
         unsignedTx: {

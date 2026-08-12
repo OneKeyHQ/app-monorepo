@@ -117,10 +117,24 @@ function BatchTxConfirm() {
 
   // The atom is a single global slot shared by whatever batch is currently
   // in-flight — only trust it when it is actually describing THIS route's
-  // batch, otherwise fall back to the direct seed snapshot.
+  // batch. If another batch ever preempts the slot (a second dapp request
+  // queued behind this still-open page), keep rendering the freshest
+  // progress this page has seen instead of snapping back to the mount-time
+  // seed — a stale seed could e.g. revive "Reject all" (no destructive
+  // confirm) after items were already signed.
+  const lastSeenProgressRef = useRef<IBatchTxSignProgress | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (atomProgress?.batchId === batchId) {
+      lastSeenProgressRef.current = atomProgress;
+    }
+  }, [atomProgress, batchId]);
   const batch =
     closingSnapshot ??
-    (atomProgress?.batchId === batchId ? atomProgress : seededProgress);
+    (atomProgress?.batchId === batchId
+      ? atomProgress
+      : (lastSeenProgressRef.current ?? seededProgress));
 
   const isHw = useMemo(
     () => accountUtils.isHwAccount({ accountId }),
@@ -445,12 +459,22 @@ function BatchTxConfirm() {
     [batchId, closeAndReject],
   );
 
+  // Page.FooterActions does not await onConfirm or auto-disable the button
+  // while it runs, and handleDone spans two bg round-trips — without this
+  // guard a double-click would resolve the same dapp request id twice (see
+  // the comment on handlePageClose for why a double settle is unsafe).
+  const isDoneInFlightRef = useRef(false);
+  const [isDoneLoading, setIsDoneLoading] = useState(false);
   const handleDone = useCallback(
     async (closePageStack: (extra?: { flag?: string }) => void) => {
-      // Freeze the currently-rendered (Complete) stage before
-      // takeFinalizedResults clears the shared atom, so the fallback to
-      // seededProgress below never gets a chance to flash the page back to
-      // a stale Overview for a frame while this closes.
+      if (isDoneInFlightRef.current || hasSettledRef.current) {
+        return;
+      }
+      isDoneInFlightRef.current = true;
+      setIsDoneLoading(true);
+      // Freeze the currently-rendered (Complete) stage so any atom change
+      // while this closes never gets a chance to flash the page back to a
+      // stale Overview for a frame.
       setClosingSnapshot(batch);
       try {
         const results =
@@ -464,11 +488,15 @@ function BatchTxConfirm() {
         hasSettledRef.current = true;
         closePageStack({ flag: EDAppModalPageStatus.Confirmed });
       } catch (_error) {
-        // Keep the page open on failure: takeFinalizedResults/resolve did
-        // not settle the dapp request, so the user can retry Done or fall
-        // back to Cancel request instead of silently losing the batch.
+        // Keep the page open on failure. The background keeps the batch —
+        // and the signatures already collected — alive until the provider
+        // disposes it, so retrying Done re-runs takeFinalizedResults against
+        // the intact batch; Cancel request stays available as the fallback.
         setClosingSnapshot(undefined);
         Toast.error({ title: 'Failed to collect signatures' });
+      } finally {
+        isDoneInFlightRef.current = false;
+        setIsDoneLoading(false);
       }
     },
     [batch, batchId, dappApprove],
@@ -550,7 +578,14 @@ function BatchTxConfirm() {
         <Page.Footer>
           <Page.FooterActions
             onConfirmText={isComplete ? 'Done' : 'Waiting for signature…'}
-            confirmButtonProps={{ disabled: !isComplete }}
+            confirmButtonProps={{
+              // isBlockingRisk gates EVERY path that hands signatures back
+              // to the dapp — Sign all, per-row drill-down and this Done —
+              // so a high-risk (phishing) origin cannot be worked around by
+              // signing items one at a time.
+              disabled: !isComplete || isDoneLoading || isBlockingRisk,
+              loading: isDoneLoading,
+            }}
             onConfirm={(_close, closePageStack) => {
               if (isComplete) {
                 void handleDone(closePageStack);
@@ -599,8 +634,10 @@ function BatchTxConfirm() {
               </SizableText>
             </XStack>
 
-            {/* Plain .map, no cap per product decision — migrate to FlashList
-                if batches beyond ~100 items become a real use case. */}
+            {/* Plain .map is fine: the provider rejects batches beyond its
+                defensive cap (MAX_SIGN_PSBTS_COUNT, currently 100), so the
+                row count is bounded — migrate to FlashList only if that cap
+                is ever raised substantially. */}
             {items.map((item) => (
               <TransactionRow
                 key={item.index}
@@ -611,7 +648,13 @@ function BatchTxConfirm() {
                 fiatText={formatFiat(item.amountValue)}
                 signed={item.status === EBatchTxSignItemStatus.Signed}
                 failed={item.status === EBatchTxSignItemStatus.Failed}
-                disabled={isSigningNow}
+                // isBlockingRisk: the drill-down TxConfirm intentionally gets
+                // no sourceInfo (so it can never resolve the dapp request),
+                // which also means it can't show this origin's risk warning —
+                // so per-item signing must be blocked here, alongside the
+                // Sign all and Done buttons, or a high-risk site could have
+                // every item signed one at a time with no warning shown.
+                disabled={isSigningNow || isBlockingRisk}
                 onPress={() => void handleRowPress(item)}
               />
             ))}

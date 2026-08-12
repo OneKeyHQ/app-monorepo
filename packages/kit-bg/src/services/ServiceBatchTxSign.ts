@@ -10,7 +10,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EBatchTxSignItemStatus,
   EBatchTxSignStatus,
@@ -19,6 +21,7 @@ import type {
   IBatchTxSignItemSummary,
   IBatchTxSignProgress,
 } from '@onekeyhq/shared/types/batchTxSign';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import { batchTxSignAtom } from '../states/jotai/atoms';
 
@@ -156,7 +159,13 @@ export default class ServiceBatchTxSign extends ServiceBase {
       })),
     };
     this.batches.set(batchId, state);
-    await this.publishProgress(state);
+    // Deliberately NOT published to the shared atom here: the atom is a
+    // single global slot, and ServiceDApp.openModal serializes modals — so
+    // this batch can be created while another batch's page is still live,
+    // and publishing now would knock that page back to a stale fallback
+    // snapshot. The page seeds itself via getBatchProgress on mount; the
+    // first publish happens once this batch actually changes state
+    // (signRemaining / markItemSigned / cancelBatch).
     return { batchId };
   }
 
@@ -228,7 +237,37 @@ export default class ServiceBatchTxSign extends ServiceBase {
       throw new OneKeyLocalError('batch signing already in progress');
     }
     state.isSigning = true;
+    // Software (hd/imported) wallets with protectCreateTransaction enabled
+    // would otherwise be password-prompted once per item, while the overview
+    // screen promises "Authorize once". Hardware wallets confirm each item on
+    // the device itself, so don't widen the no-re-prompt window for them.
+    let passwordSessionOpened = false;
     try {
+      // Confirm-time precheck (e.g. BTC frozen/protected inscription UTXOs)
+      // over everything this loop is about to sign — signTransaction itself
+      // never runs it, and unlike the legacy per-psbt flow there is no
+      // TxConfirm page per item to do it (drill-down items go through the
+      // real TxConfirm, which runs its own precheck). Runs before any status
+      // mutation so a rejection leaves the batch fully re-signable.
+      const unsignedTxsToSign = state.items
+        .filter((item) => item.summary.status !== EBatchTxSignItemStatus.Signed)
+        .map((item) => item.unsignedTx);
+      await this.backgroundApi.serviceSend.precheckUnsignedTxs({
+        networkId: state.networkId,
+        accountId: state.accountId,
+        unsignedTxs: unsignedTxsToSign,
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+
+      if (!accountUtils.isHwAccount({ accountId: state.accountId })) {
+        // Generous window: it has to cover the user actually typing the
+        // password at the first item's prompt, not just the signing time.
+        await this.backgroundApi.servicePassword.openPasswordSecuritySession({
+          timeout: timerUtils.getTimeDurationMs({ minute: 5 }),
+        });
+        passwordSessionOpened = true;
+      }
+
       // A previous round may have stopped on a failure; retry those items.
       state.items.forEach((item) => {
         if (item.summary.status === EBatchTxSignItemStatus.Failed) {
@@ -310,6 +349,9 @@ export default class ServiceBatchTxSign extends ServiceBase {
       }
     } finally {
       state.isSigning = false;
+      if (passwordSessionOpened) {
+        await this.backgroundApi.servicePassword.closePasswordSecuritySession();
+      }
     }
   }
 
@@ -377,13 +419,21 @@ export default class ServiceBatchTxSign extends ServiceBase {
       }
     }
 
-    this.batches.delete(batchId);
-    await this.clearAtomIfOwnedBy(batchId);
+    // Deliberately KEEP the batch (and any published atom snapshot) alive:
+    // these results still have to survive the hand-back to the dapp. The UI
+    // resolves the dapp request only after this returns, and if that resolve
+    // RPC fails the page stays open and retries Done — which re-enters this
+    // method and must find the batch intact. Finalization above is a pure
+    // function of the stored hexes, so a repeated call returns identical
+    // results. Deletion is owned by the provider's finally block
+    // (disposeBatch) once openBatchTxConfirmModal settles either way.
     return results;
   }
 
-  // No-throw cleanup, called from the provider's finally block. Must be a
-  // no-op if takeFinalizedResults already deleted the batch.
+  // No-throw cleanup, called from the provider's finally block once the
+  // modal promise settles — the single owner of batch deletion
+  // (takeFinalizedResults deliberately leaves the batch alive so a failed
+  // hand-back can retry).
   @backgroundMethod()
   async disposeBatch({ batchId }: { batchId: string }): Promise<void> {
     const state = this.batches.get(batchId);

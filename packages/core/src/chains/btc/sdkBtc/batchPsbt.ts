@@ -103,8 +103,11 @@ export function findPsbtOutpointConflicts({
 
 // Strict parsing: any input without a resolvable spent value, or a
 // non-positive fee, makes the whole psbt impossible to summarize for the
-// batch overview, so the caller should reject the batch rather than show a
-// wrong fee/amount breakdown.
+// batch overview — a negative fee is even legitimate for
+// SIGHASH_SINGLE|ANYONECANPAY marketplace listing psbts (seller-side, the
+// buyer adds fee inputs later). The caller must never show a made-up
+// fee/amount breakdown for such a psbt; it falls back to the legacy
+// sequential per-psbt confirm flow instead.
 export function computeBatchPsbtAmounts({
   psbt,
   psbtNetwork,

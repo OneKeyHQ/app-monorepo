@@ -2,8 +2,9 @@
 yarn jest packages/kit-bg/src/services/ServiceBatchTxSign.test.ts
 
 Covers the background batch-sign orchestrator: sequential signing, resume
-after a stop, drill-down (markItemSigned) skip, mid-flight cancellation, and
-the concurrent-call guard. All items use autoFinalized:false so
+after a stop, drill-down (markItemSigned) skip, mid-flight cancellation, the
+concurrent-call guard, the confirm-time precheck gate, the shared password
+session, and takeFinalizedResults retry-ability. All items use autoFinalized:false so
 takeFinalizedResults never needs a real psbt network / finalizer, keeping the
 suite free of bitcoinjs-lib fixtures.
 */
@@ -116,13 +117,28 @@ function makeService(
   }) => Promise<ISignedTxPro> = defaultSignTransaction,
 ) {
   const signTransaction = jest.fn(signTransactionImpl);
+  const precheckUnsignedTxs = jest.fn(async () => undefined);
   const getNetwork = jest.fn();
+  const openPasswordSecuritySession = jest.fn(async () => undefined);
+  const closePasswordSecuritySession = jest.fn(async () => undefined);
   const backgroundApi = {
-    serviceSend: { signTransaction },
+    serviceSend: { signTransaction, precheckUnsignedTxs },
     serviceNetwork: { getNetwork },
+    servicePassword: {
+      openPasswordSecuritySession,
+      closePasswordSecuritySession,
+    },
   };
   const service = new ServiceBatchTxSign({ backgroundApi } as any);
-  return { service, backgroundApi, signTransaction, getNetwork };
+  return {
+    service,
+    backgroundApi,
+    signTransaction,
+    precheckUnsignedTxs,
+    getNetwork,
+    openPasswordSecuritySession,
+    closePasswordSecuritySession,
+  };
 }
 
 function createDeferred<T>() {
@@ -427,6 +443,7 @@ describe('ServiceBatchTxSign', () => {
       networkId,
       items: makeItems(1),
     });
+    await serviceA.signRemaining({ batchId: batchIdA });
 
     // A second, independent batch becomes the most recently published
     // progress after batch A's.
@@ -436,6 +453,7 @@ describe('ServiceBatchTxSign', () => {
       networkId,
       items: makeItems(1),
     });
+    await serviceB.signRemaining({ batchId: batchIdB });
 
     await serviceA.disposeBatch({ batchId: batchIdA });
 
@@ -443,19 +461,108 @@ describe('ServiceBatchTxSign', () => {
     expect(current?.batchId).toBe(batchIdB);
   });
 
-  test('disposeBatch after takeFinalizedResults is a no-op', async () => {
+  test('createBatch does not publish to the shared atom slot', async () => {
+    const { service } = makeService();
+    await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    // Another batch's page may still be live when this batch is created;
+    // the first publish must wait until this batch actually changes state.
+    expect(mockAtomSet).not.toHaveBeenCalled();
+  });
+
+  test('takeFinalizedResults keeps the batch alive so a failed hand-back can retry', async () => {
     const { service } = makeService();
     const { batchId } = await service.createBatch({
       accountId,
       networkId,
-      items: makeItems(1),
+      items: makeItems(2),
     });
 
     await service.signRemaining({ batchId });
-    await service.takeFinalizedResults({ batchId });
 
+    const firstTake = await service.takeFinalizedResults({ batchId });
+    // Simulates the dapp resolve RPC failing after a successful take: the
+    // page retries Done, which re-enters with the same batchId and must get
+    // identical results instead of "unknown batchId".
+    const secondTake = await service.takeFinalizedResults({ batchId });
+    expect(secondTake).toEqual(firstTake);
+    expect(firstTake).toEqual(['signed-psbt-0', 'signed-psbt-1']);
+
+    // The provider's finally block owns the actual deletion.
     await expect(service.disposeBatch({ batchId })).resolves.toBeUndefined();
     await expect(service.getBatchProgress({ batchId })).rejects.toThrow();
+  });
+
+  test('a precheck rejection blocks signing and leaves the batch re-signable', async () => {
+    const { service, signTransaction, precheckUnsignedTxs } = makeService();
+    precheckUnsignedTxs.mockRejectedValueOnce(
+      new OneKeyLocalError('protected ordinals'),
+    );
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    await expect(service.signRemaining({ batchId })).rejects.toThrow(
+      'protected ordinals',
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
+    // The rejection happened before any status mutation/publish.
+    expect(mockAtomSet).not.toHaveBeenCalled();
+
+    // A later attempt (e.g. after the user unfreezes the utxo) still works.
+    await service.signRemaining({ batchId });
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Complete);
+  });
+
+  test('precheck only covers items that still need signing', async () => {
+    const { service, precheckUnsignedTxs } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    await service.markItemSigned({
+      batchId,
+      index: 0,
+      signedPsbtHex: 'signed-by-drilldown',
+    });
+    await service.signRemaining({ batchId });
+
+    expect(precheckUnsignedTxs).toHaveBeenCalledTimes(1);
+    const [params] = precheckUnsignedTxs.mock.calls[0] as unknown as [
+      { unsignedTxs: IUnsignedTxPro[] },
+    ];
+    expect(params.unsignedTxs.map(getMarker)).toEqual(['psbt-1']);
+  });
+
+  test('software batches share one password session; hardware batches do not', async () => {
+    const soft = makeService();
+    const { batchId: softBatchId } = await soft.service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+    await soft.service.signRemaining({ batchId: softBatchId });
+    expect(soft.openPasswordSecuritySession).toHaveBeenCalledTimes(1);
+    expect(soft.closePasswordSecuritySession).toHaveBeenCalledTimes(1);
+
+    const hw = makeService();
+    const { batchId: hwBatchId } = await hw.service.createBatch({
+      accountId: 'hw-1--btc--0',
+      networkId,
+      items: makeItems(2),
+    });
+    await hw.service.signRemaining({ batchId: hwBatchId });
+    expect(hw.openPasswordSecuritySession).not.toHaveBeenCalled();
+    expect(hw.closePasswordSecuritySession).not.toHaveBeenCalled();
   });
 
   test('rejects a concurrent signRemaining call while one is in-flight', async () => {
