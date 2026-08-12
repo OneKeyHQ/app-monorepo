@@ -230,6 +230,8 @@ export const defaultGasAccountUiState = {
   selectedPayer: 'user' as const,
   lockedUserNonce: undefined as number | undefined,
   idempotencyKey: '',
+  gasAccountScenarioReason: undefined as string | undefined,
+  sponsorDisabledByCustomRpc: false,
 };
 
 export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
@@ -240,6 +242,8 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     selectedPayer: 'user' | 'gasAccount';
     lockedUserNonce?: number;
     idempotencyKey: string;
+    gasAccountScenarioReason?: string;
+    sponsorDisabledByCustomRpc: boolean;
   }>({ ...defaultGasAccountUiState });
 
 export const {

@@ -20,19 +20,24 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchAccountAssets,
+} from '@onekeyhq/shared/types/search';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 interface IUniversalSearchAccountAssetItemProps {
   item: IUniversalSearchAccountAssets;
   allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchAccountAssetItem({
   item,
   allAggregateTokenMap,
   getSearchInput,
+  source,
 }: IUniversalSearchAccountAssetItemProps) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -56,6 +61,7 @@ export function UniversalSearchAccountAssetItem({
 
   const handlePress = useCallback(async () => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: token.address ?? token.symbol ?? '',
@@ -112,6 +118,7 @@ export function UniversalSearchAccountAssetItem({
     getSearchInput,
     item.type,
     navigation,
+    source,
     token,
     universalSearchActions,
   ]);
