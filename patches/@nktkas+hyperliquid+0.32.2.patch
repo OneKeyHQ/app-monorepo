@@ -1,0 +1,322 @@
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
+index a27bcc4..7268aca 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
+@@ -19,10 +19,22 @@ export declare const TwapOrderRequest: v.ObjectSchema<{
+             /** Is reduce-only? */
+             readonly r: v.BooleanSchema<undefined>;
+             /** TWAP duration in minutes. */
+-            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+             /** Enable random order timing. */
+             readonly t: v.BooleanSchema<undefined>;
+         }, undefined>;
++        /** Trigger and stop prices. */
++        readonly details: v.OptionalSchema<v.ObjectSchema<{
++            /** Condition that activates the order. */
++            readonly t: v.NullableSchema<v.ObjectSchema<{
++                /** Trigger price. */
++                readonly p: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>;
++                /** Activate when the mark price is above (\`true\`) or below (\`false\`) the trigger price. */
++                readonly a: v.BooleanSchema<undefined>;
++            }, undefined>, undefined>;
++            /** Price at which the order is terminated. */
++            readonly s: v.NullableSchema<v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>, undefined>;
++        }, undefined>, undefined>;
+     }, undefined>;
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     readonly nonce: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>;
+@@ -82,10 +94,22 @@ declare const TwapOrderActionSchema: v.ObjectSchema<{
+         /** Is reduce-only? */
+         readonly r: v.BooleanSchema<undefined>;
+         /** TWAP duration in minutes. */
+-        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+         /** Enable random order timing. */
+         readonly t: v.BooleanSchema<undefined>;
+     }, undefined>;
++    /** Trigger and stop prices. */
++    readonly details: v.OptionalSchema<v.ObjectSchema<{
++        /** Condition that activates the order. */
++        readonly t: v.NullableSchema<v.ObjectSchema<{
++            /** Trigger price. */
++            readonly p: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>;
++            /** Activate when the mark price is above (\`true\`) or below (\`false\`) the trigger price. */
++            readonly a: v.BooleanSchema<undefined>;
++        }, undefined>, undefined>;
++        /** Price at which the order is terminated. */
++        readonly s: v.NullableSchema<v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>, undefined>;
++    }, undefined>, undefined>;
+ }, undefined>;
+ /** Action parameters for the {@linkcode twapOrder} function. */
+ export type TwapOrderParameters = Omit<v.InferInput<typeof TwapOrderActionSchema>, "type">;
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
+index 7022cd8..73cfcc9 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
+@@ -25,10 +25,24 @@ export const TwapOrderRequest = /* @__PURE__ */ (() => {
+                 /** Is reduce-only? */
+                 r: v.boolean(),
+                 /** TWAP duration in minutes. */
+-                m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(1440)),
++                // OneKey patch: Hyperliquid now supports TWAP durations up to seven days.
++                m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(10080)),
+                 /** Enable random order timing. */
+                 t: v.boolean(),
+             }),
++            // OneKey patch: Backport trigger and stop details without upgrading the breaking SDK release.
++            /** Trigger and stop prices. */
++            details: v.optional(v.object({
++                /** Condition that activates the order. */
++                t: v.nullable(v.object({
++                    /** Trigger price. */
++                    p: UnsignedDecimal,
++                    /** Activate when the mark price is above (`true`) or below (`false`) the trigger price. */
++                    a: v.boolean(),
++                })),
++                /** Price at which the order is terminated. */
++                s: v.nullable(UnsignedDecimal),
++            })),
+         }),
+         /** Nonce (timestamp in ms) used to prevent replay attacks. */
+         nonce: UnsignedInteger,
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/_base/commonSchemas.d.ts b/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/_base/commonSchemas.d.ts
+index 23bd8d5..28a242d 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/_base/commonSchemas.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/_base/commonSchemas.d.ts
+@@ -216,6 +216,8 @@ export type TwapStateSchema = {
+     reduceOnly: boolean;
+     /** Order side ("B" = Bid/Buy, "A" = Ask/Sell). */
+     side: "B" | "A";
++    /** Price at which the order is terminated; null when unset. */
++    stopPx: string | null;
+     /**
+      * Order size.
+      * @pattern ^[0-9]+(\.[0-9]+)?$
+@@ -223,6 +225,13 @@ export type TwapStateSchema = {
+     sz: string;
+     /** Start time of the TWAP order (in ms since epoch). */
+     timestamp: number;
++    /** Condition that activates the order; null when unset. */
++    trigger: {
++        /** Trigger price. */
++        px: string;
++        /** Activates when the mark price is above or below the trigger price. */
++        above: boolean;
++    } | null;
+     /**
+      * User address.
+      * @pattern ^0x[a-fA-F0-9]{40}$
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/twapHistory.d.ts b/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/twapHistory.d.ts
+index 4621907..4dfadaf 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/twapHistory.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/api/info/_methods/twapHistory.d.ts
+@@ -29,7 +29,7 @@ export type TwapHistoryResponse = {
+      */
+     status: {
+         /** Status of the TWAP order. */
+-        status: "finished" | "activated" | "terminated";
++        status: "finished" | "activated" | "terminated" | "waitingForTrigger" | "stopped";
+     } | {
+         /** Status of the TWAP order. */
+         status: "error";
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.d.ts b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.d.ts
+index a27bcc4..7268aca 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.d.ts
++++ b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.d.ts
+@@ -19,10 +19,22 @@ export declare const TwapOrderRequest: v.ObjectSchema<{
+             /** Is reduce-only? */
+             readonly r: v.BooleanSchema<undefined>;
+             /** TWAP duration in minutes. */
+-            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+             /** Enable random order timing. */
+             readonly t: v.BooleanSchema<undefined>;
+         }, undefined>;
++        /** Trigger and stop prices. */
++        readonly details: v.OptionalSchema<v.ObjectSchema<{
++            /** Condition that activates the order. */
++            readonly t: v.NullableSchema<v.ObjectSchema<{
++                /** Trigger price. */
++                readonly p: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>;
++                /** Activate when the mark price is above (\`true\`) or below (\`false\`) the trigger price. */
++                readonly a: v.BooleanSchema<undefined>;
++            }, undefined>, undefined>;
++            /** Price at which the order is terminated. */
++            readonly s: v.NullableSchema<v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>, undefined>;
++        }, undefined>, undefined>;
+     }, undefined>;
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     readonly nonce: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>;
+@@ -82,10 +94,22 @@ declare const TwapOrderActionSchema: v.ObjectSchema<{
+         /** Is reduce-only? */
+         readonly r: v.BooleanSchema<undefined>;
+         /** TWAP duration in minutes. */
+-        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+         /** Enable random order timing. */
+         readonly t: v.BooleanSchema<undefined>;
+     }, undefined>;
++    /** Trigger and stop prices. */
++    readonly details: v.OptionalSchema<v.ObjectSchema<{
++        /** Condition that activates the order. */
++        readonly t: v.NullableSchema<v.ObjectSchema<{
++            /** Trigger price. */
++            readonly p: v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>;
++            /** Activate when the mark price is above (\`true\`) or below (\`false\`) the trigger price. */
++            readonly a: v.BooleanSchema<undefined>;
++        }, undefined>, undefined>;
++        /** Price at which the order is terminated. */
++        readonly s: v.NullableSchema<v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToStringAction<string | number, undefined>, v.StringSchema<undefined>, v.TransformAction<string, string>, v.RegexAction<string, undefined>]>, undefined>;
++    }, undefined>, undefined>;
+ }, undefined>;
+ /** Action parameters for the {@linkcode twapOrder} function. */
+ export type TwapOrderParameters = Omit<v.InferInput<typeof TwapOrderActionSchema>, "type">;
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js
+index 87cbd96..efffc7c 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js
++++ b/node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js
+@@ -62,10 +62,24 @@ exports.TwapOrderRequest = (() => {
+                 /** Is reduce-only? */
+                 r: v.boolean(),
+                 /** TWAP duration in minutes. */
+-                m: v.pipe(_schemas_js_1.UnsignedInteger, v.minValue(5), v.maxValue(1440)),
++                // OneKey patch: Hyperliquid now supports TWAP durations up to seven days.
++                m: v.pipe(_schemas_js_1.UnsignedInteger, v.minValue(5), v.maxValue(10080)),
+                 /** Enable random order timing. */
+                 t: v.boolean(),
+             }),
++            // OneKey patch: Backport trigger and stop details without upgrading the breaking SDK release.
++            /** Trigger and stop prices. */
++            details: v.optional(v.object({
++                /** Condition that activates the order. */
++                t: v.nullable(v.object({
++                    /** Trigger price. */
++                    p: _schemas_js_1.UnsignedDecimal,
++                    /** Activate when the mark price is above (`true`) or below (`false`) the trigger price. */
++                    a: v.boolean(),
++                })),
++                /** Price at which the order is terminated. */
++                s: v.nullable(_schemas_js_1.UnsignedDecimal),
++            })),
+         }),
+         /** Nonce (timestamp in ms) used to prevent replay attacks. */
+         nonce: _schemas_js_1.UnsignedInteger,
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/info/_methods/_base/commonSchemas.d.ts b/node_modules/@nktkas/hyperliquid/script/api/info/_methods/_base/commonSchemas.d.ts
+index 23bd8d5..28a242d 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/info/_methods/_base/commonSchemas.d.ts
++++ b/node_modules/@nktkas/hyperliquid/script/api/info/_methods/_base/commonSchemas.d.ts
+@@ -216,6 +216,8 @@ export type TwapStateSchema = {
+     reduceOnly: boolean;
+     /** Order side ("B" = Bid/Buy, "A" = Ask/Sell). */
+     side: "B" | "A";
++    /** Price at which the order is terminated; null when unset. */
++    stopPx: string | null;
+     /**
+      * Order size.
+      * @pattern ^[0-9]+(\.[0-9]+)?$
+@@ -223,6 +225,13 @@ export type TwapStateSchema = {
+     sz: string;
+     /** Start time of the TWAP order (in ms since epoch). */
+     timestamp: number;
++    /** Condition that activates the order; null when unset. */
++    trigger: {
++        /** Trigger price. */
++        px: string;
++        /** Activates when the mark price is above or below the trigger price. */
++        above: boolean;
++    } | null;
+     /**
+      * User address.
+      * @pattern ^0x[a-fA-F0-9]{40}$
+diff --git a/node_modules/@nktkas/hyperliquid/script/api/info/_methods/twapHistory.d.ts b/node_modules/@nktkas/hyperliquid/script/api/info/_methods/twapHistory.d.ts
+index 4621907..4dfadaf 100644
+--- a/node_modules/@nktkas/hyperliquid/script/api/info/_methods/twapHistory.d.ts
++++ b/node_modules/@nktkas/hyperliquid/script/api/info/_methods/twapHistory.d.ts
+@@ -29,7 +29,7 @@ export type TwapHistoryResponse = {
+      */
+     status: {
+         /** Status of the TWAP order. */
+-        status: "finished" | "activated" | "terminated";
++        status: "finished" | "activated" | "terminated" | "waitingForTrigger" | "stopped";
+     } | {
+         /** Status of the TWAP order. */
+         status: "error";
+diff --git a/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/twapOrder.ts b/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/twapOrder.ts
+index 9b6bab6..b8b65da 100644
+--- a/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/twapOrder.ts
++++ b/node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/twapOrder.ts
+@@ -28,10 +28,24 @@ export const TwapOrderRequest = /* @__PURE__ */ (() => {
+         /** Is reduce-only? */
+         r: v.boolean(),
+         /** TWAP duration in minutes. */
+-        m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(1440)),
++        // OneKey patch: Hyperliquid now supports TWAP durations up to seven days.
++        m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(10080)),
+         /** Enable random order timing. */
+         t: v.boolean(),
+       }),
++      // OneKey patch: Backport trigger and stop details without upgrading the breaking SDK release.
++      /** Trigger and stop prices. */
++      details: v.optional(v.object({
++        /** Condition that activates the order. */
++        t: v.nullable(v.object({
++          /** Trigger price. */
++          p: UnsignedDecimal,
++          /** Activate when the mark price is above (`true`) or below (`false`) the trigger price. */
++          a: v.boolean(),
++        })),
++        /** Price at which the order is terminated. */
++        s: v.nullable(UnsignedDecimal),
++      })),
+     }),
+     /** Nonce (timestamp in ms) used to prevent replay attacks. */
+     nonce: UnsignedInteger,
+diff --git a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
+index d58d766..cfebb35 100644
+--- a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
++++ b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
+@@ -233,6 +233,9 @@ export type TwapStateSchema = {
+   reduceOnly: boolean;
+   /** Order side ("B" = Bid/Buy, "A" = Ask/Sell). */
+   side: "B" | "A";
++  // OneKey patch: Backport TWAP trigger and stop state fields from the newer SDK.
++  /** Price at which the order is terminated; `null` when unset. */
++  stopPx: string | null;
+   /**
+    * Order size.
+    * @pattern ^[0-9]+(\.[0-9]+)?$
+@@ -240,6 +243,13 @@ export type TwapStateSchema = {
+   sz: string;
+   /** Start time of the TWAP order (in ms since epoch). */
+   timestamp: number;
++  /** Condition that activates the order; `null` when unset. */
++  trigger: {
++    /** Trigger price. */
++    px: string;
++    /** Activates when the mark price is above (`true`) or below (`false`) the trigger price. */
++    above: boolean;
++  } | null;
+   /**
+    * User address.
+    * @pattern ^0x[a-fA-F0-9]{40}$
+diff --git a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
+index e7f982d..8859f30 100644
+--- a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
++++ b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
+@@ -35,11 +35,14 @@ export type TwapHistoryResponse = {
+    * - `"finished"`: Fully executed.
+    * - `"activated"`: Active and executing.
+    * - `"terminated"`: Terminated.
++   * - `"waitingForTrigger"`: Awaiting the trigger price.
++   * - `"stopped"`: Terminated by the stop price.
+    * - `"error"`: An error occurred.
+    */
+   status: {
+     /** Status of the TWAP order. */
+-    status: "finished" | "activated" | "terminated";
++    // OneKey patch: Backport trigger lifecycle statuses from the newer SDK.
++    status: "finished" | "activated" | "terminated" | "waitingForTrigger" | "stopped";
+   } | {
+     /** Status of the TWAP order. */
+     status: "error";

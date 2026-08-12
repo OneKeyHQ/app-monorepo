@@ -65,6 +65,11 @@ import {
   getScaleOrderSizeSkew,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -100,10 +105,7 @@ import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
-import {
-  type ISizeInputDisplayValueChangePayload,
-  SizeInput,
-} from '../inputs/SizeInput';
+import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
@@ -124,7 +126,6 @@ type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 type ITwapDurationInputField = 'hours' | 'minutes';
 type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
-type ISizeInputDraft = ISizeInputDisplayValueChangePayload;
 type IOrderTypeInfoItem = {
   description: string;
   helpUrl?: string;
@@ -175,10 +176,6 @@ const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   slValue: '',
 };
 const USDC_TOKEN_SYMBOL = 'USDC';
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
-const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
 export const ORDER_TYPE_HELP_CENTER_URL =
   'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
@@ -186,6 +183,7 @@ const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '6h', minutes: 360 },
   { label: '12h', minutes: 720 },
   { label: '24h', minutes: 1440 },
+  { label: '7d', minutes: 10_080 },
 ] as const;
 
 function clampTwapDurationMinutes(minutes: number) {
@@ -478,9 +476,6 @@ function PerpTradingForm({
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const tradingComputed = useTradingFormSizeInputComputed();
   const advancedComputedSizeBN = useTradingFormComputedSize();
-  const [sizeInputDraft, setSizeInputDraft] = useState<
-    ISizeInputDraft | undefined
-  >();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const shouldUseLiveTradingPrice = Boolean(
@@ -580,28 +575,6 @@ function PerpTradingForm({
   const isSelectedTradeAssetCtxReady = isSpot
     ? isSpotActiveAssetCtxReady
     : isPerpsActiveAssetCtxReady;
-  const handleSizeInputDisplayValueChange = useCallback(
-    (payload: ISizeInputDraft) => {
-      setSizeInputDraft(payload.displayValue.trim() ? payload : undefined);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    setSizeInputDraft(undefined);
-  }, [
-    activeTradeInstrument.assetId,
-    activeTradeInstrument.mode,
-    formData.side,
-    selectedTradeAsset?.coin,
-  ]);
-
-  useEffect(() => {
-    if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
-      setSizeInputDraft(undefined);
-    }
-  }, [formData.sizeInputMode]);
-
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
       return new BigNumber(0);
@@ -672,20 +645,13 @@ function PerpTradingForm({
     () =>
       `${intl.formatMessage({
         id: ETranslations.perp_twap_duration__title,
-      })} (${TWAP_MIN_DURATION_MINUTES}m - ${TWAP_MAX_DURATION_MINUTES / 60}h)`,
+      })} (${TWAP_MIN_DURATION_MINUTES}m - ${TWAP_MAX_DURATION_MINUTES / 1440}d)`,
     [intl],
   );
   const twapHelperText = useMemo(
     () =>
       intl.formatMessage({
         id: ETranslations.perp_twap_duration_helper__desc,
-      }),
-    [intl],
-  );
-  const twapSmallSliceHelperText = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.perp_twap_small_slice__msg,
       }),
     [intl],
   );
@@ -1076,11 +1042,7 @@ function PerpTradingForm({
     }
 
     const duration = Number(rawDuration);
-    if (
-      !Number.isInteger(duration) ||
-      duration < TWAP_MIN_DURATION_MINUTES ||
-      duration > TWAP_MAX_DURATION_MINUTES
-    ) {
+    if (!isValidTwapDuration(duration)) {
       return {
         text: intl.formatMessage(
           { id: ETranslations.perp_twap_duration_range__msg },
@@ -1093,95 +1055,6 @@ function PerpTradingForm({
       };
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
-
-  const twapEstimatedOrderNotional = useMemo(() => {
-    if (!isTwapMode) {
-      return undefined;
-    }
-    if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
-      return undefined;
-    }
-
-    const draft = sizeInputDraft;
-    const draftDisplayValue = draft?.displayValue?.trim();
-    if (draft && draftDisplayValue) {
-      const draftDisplayValueBN = new BigNumber(draftDisplayValue);
-      if (draftDisplayValueBN.isFinite() && draftDisplayValueBN.gt(0)) {
-        if (draft.inputMode === 'usd') {
-          return draftDisplayValueBN;
-        }
-        if (draft.inputMode === 'margin') {
-          const leverageBN = new BigNumber(formData.leverage ?? 1);
-          return draftDisplayValueBN.multipliedBy(
-            leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : 1,
-          );
-        }
-        return draftDisplayValueBN.multipliedBy(midPriceBN);
-      }
-    }
-
-    if (!advancedComputedSizeBN.isFinite() || advancedComputedSizeBN.lte(0)) {
-      return undefined;
-    }
-
-    return advancedComputedSizeBN.multipliedBy(midPriceBN);
-  }, [
-    advancedComputedSizeBN,
-    formData.leverage,
-    isTwapMode,
-    midPriceBN,
-    sizeInputDraft,
-  ]);
-
-  const twapEstimatedSliceNotional = useMemo(() => {
-    if (!isTwapMode) {
-      return undefined;
-    }
-    const duration = Number(formData.twapDurationMinutes ?? 0);
-    if (
-      !Number.isInteger(duration) ||
-      duration < TWAP_MIN_DURATION_MINUTES ||
-      duration > TWAP_MAX_DURATION_MINUTES ||
-      !twapEstimatedOrderNotional ||
-      !twapEstimatedOrderNotional.isFinite() ||
-      twapEstimatedOrderNotional.lte(0)
-    ) {
-      return undefined;
-    }
-
-    const estimatedSlices = Math.max(
-      1,
-      Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
-    );
-    const estimatedSliceNotional =
-      twapEstimatedOrderNotional.dividedBy(estimatedSlices);
-    if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
-      return undefined;
-    }
-
-    return estimatedSliceNotional;
-  }, [formData.twapDurationMinutes, isTwapMode, twapEstimatedOrderNotional]);
-
-  const twapEstimatedSliceNotionalDisplay = useMemo(() => {
-    if (!twapEstimatedSliceNotional) {
-      return undefined;
-    }
-
-    return `${numberFormat(twapEstimatedSliceNotional.toFixed(), {
-      formatter: 'balance',
-    })} ${USDC_TOKEN_SYMBOL}`;
-  }, [twapEstimatedSliceNotional]);
-
-  const twapHelperMessage = useMemo(() => {
-    if (
-      twapEstimatedSliceNotional &&
-      twapEstimatedSliceNotional.lt(TWAP_MIN_SLICE_NOTIONAL_HINT)
-    ) {
-      return twapSmallSliceHelperText;
-    }
-
-    return undefined;
-  }, [twapEstimatedSliceNotional, twapSmallSliceHelperText]);
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
@@ -2257,26 +2130,56 @@ function PerpTradingForm({
     );
   };
 
+  const renderTwapDetailsSection = () => {
+    if (!isTwapMode) {
+      return null;
+    }
+
+    const isBuy = formData.side === 'long';
+    return (
+      <YStack gap={isMobile ? '$2.5' : '$3'}>
+        <PriceInput
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_pro_trigger_price,
+          })}
+          placeholder={intl.formatMessage({
+            id: ETranslations.perps_input_tirgger_price_place_holder,
+          })}
+          value={formData.twapTriggerPrice ?? ''}
+          onChange={(value) => updateForm({ twapTriggerPrice: value })}
+          szDecimals={sizeSzDecimals}
+          isSpot={isSpot}
+          isMobile={isMobile}
+          disabled={isSubmitting}
+        />
+        <PriceInput
+          label={intl.formatMessage({
+            id: isBuy
+              ? ETranslations.perp_scale_upper_price_label__title
+              : ETranslations.perp_scale_lower_price_label__title,
+          })}
+          placeholder={intl.formatMessage({
+            id: isBuy
+              ? ETranslations.perp_scale_upper_price_placeholder__desc
+              : ETranslations.perp_scale_lower_price_placeholder__desc,
+          })}
+          value={formData.twapStopPrice ?? ''}
+          onChange={(value) => updateForm({ twapStopPrice: value })}
+          szDecimals={sizeSzDecimals}
+          isSpot={isSpot}
+          isMobile={isMobile}
+          disabled={isSubmitting}
+        />
+      </YStack>
+    );
+  };
+
   const renderTwapDurationSection = () => {
     if (!isTwapMode) {
       return null;
     }
 
     const quickOptionHeight = isMobile ? 28 : 26;
-    const renderTwapHelperMessage = () => {
-      if (!twapHelperMessage) {
-        return null;
-      }
-
-      return (
-        <YStack gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {twapHelperMessage}
-          </SizableText>
-        </YStack>
-      );
-    };
-
     if (isMobile) {
       return (
         <YStack gap="$2.5">
@@ -2323,7 +2226,6 @@ function PerpTradingForm({
               );
             })}
           </XStack>
-          {renderTwapHelperMessage()}
           {twapDurationInputMessage ? (
             <SizableText size="$bodySm" color="$red10">
               {twapDurationInputMessage.text}
@@ -2472,7 +2374,6 @@ function PerpTradingForm({
             );
           })}
         </XStack>
-        {renderTwapHelperMessage()}
         {twapDurationInputMessage ? (
           <SizableText size="$bodySm" color="$red10">
             {twapDurationInputMessage.text}
@@ -2591,32 +2492,6 @@ function PerpTradingForm({
                 }
               />
             </XStack>
-            {twapEstimatedSliceNotionalDisplay ? (
-              <XStack
-                width="100%"
-                alignItems="center"
-                justifyContent="space-between"
-                gap="$3"
-              >
-                <SizableText
-                  size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                  color="$textSubdued"
-                  flex={1}
-                  numberOfLines={1}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_twap_child_order_size__title,
-                  })}
-                </SizableText>
-                <SizableText
-                  size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-                  color="$text"
-                  numberOfLines={1}
-                >
-                  {twapEstimatedSliceNotionalDisplay}
-                </SizableText>
-              </XStack>
-            ) : null}
           </YStack>
         </YStack>
       );
@@ -3142,6 +3017,8 @@ function PerpTradingForm({
 
       {isTwapMode ? null : renderPriceInputSection()}
 
+      {renderTwapDetailsSection()}
+
       <SizeInput
         referencePrice={referencePriceString}
         side={formData.side}
@@ -3150,7 +3027,6 @@ function PerpTradingForm({
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
-        onDisplayValueChange={handleSizeInputDisplayValueChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}

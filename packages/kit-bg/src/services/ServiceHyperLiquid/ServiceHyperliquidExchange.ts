@@ -1394,6 +1394,33 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const assetType = precision?.type;
     const reduceOnly =
       assetType === 'spot' ? false : Boolean(params.reduceOnly);
+    const formatOptionalTwapPrice = (
+      price: string | undefined,
+      fieldName: 'trigger' | 'stop',
+    ) => {
+      if (!price) {
+        return undefined;
+      }
+      const formattedPrice = formatHlPrice(
+        price,
+        szDecimals,
+        assetType ?? 'perp',
+      );
+      if (!formattedPrice) {
+        throw new OneKeyLocalError(
+          `TWAP ${fieldName} price is too small for HL tick size`,
+        );
+      }
+      return formattedPrice;
+    };
+    const triggerPrice = formatOptionalTwapPrice(
+      params.triggerPrice,
+      'trigger',
+    );
+    const stopPrice = formatOptionalTwapPrice(params.stopPrice, 'stop');
+    if (triggerPrice && typeof params.triggerAbove !== 'boolean') {
+      throw new OneKeyLocalError('TWAP trigger direction is required');
+    }
     const twap = {
       a: params.assetId,
       b: params.isBuy,
@@ -1401,6 +1428,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       r: reduceOnly,
       m: params.minutes,
       t: params.randomize,
+    };
+    const details = {
+      t: triggerPrice
+        ? { p: triggerPrice, a: params.triggerAbove as boolean }
+        : null,
+      s: stopPrice ?? null,
     };
     const client = await this.getExchangeClientForTrading();
     const context = await this._buildLogContext();
@@ -1413,12 +1446,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         minutes: params.minutes,
         randomize: params.randomize,
       },
+      details,
     };
 
     try {
       const response = await convertHyperLiquidResponse(() =>
         client.twapOrder({
           twap,
+          details,
         }),
       );
       defaultLogger.perp.hyperliquid.twapOrder({

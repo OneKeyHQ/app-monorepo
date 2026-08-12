@@ -18,6 +18,7 @@ import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
+  usePerpsTwapHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
@@ -25,6 +26,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -215,6 +217,7 @@ function PerpOpenOrdersList({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [twapHistoryState] = usePerpsTwapHistoryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
@@ -264,6 +267,45 @@ function PerpOpenOrdersList({
       twapOrdersState.twapOrders,
     ],
   );
+  const scopedTwapHistory = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: twapHistoryState.accountAddress,
+        data: twapHistoryState.history,
+      }),
+    [
+      accountScopedAddress,
+      twapHistoryState.accountAddress,
+      twapHistoryState.history,
+    ],
+  );
+  const activeTwapStatusById = useMemo(() => {
+    const latestRecordByTwapId = new Map<
+      number,
+      (typeof scopedTwapHistory)[number]
+    >();
+    scopedTwapHistory.forEach((record) => {
+      if (record.twapId === undefined) {
+        return;
+      }
+      const previous = latestRecordByTwapId.get(record.twapId);
+      if (!previous || record.time > previous.time) {
+        latestRecordByTwapId.set(record.twapId, record);
+      }
+    });
+    return new Map(
+      Array.from(latestRecordByTwapId.entries()).map(
+        ([twapId, record]) =>
+          [
+            twapId,
+            record.status.status === 'waitingForTrigger'
+              ? 'waitingForTrigger'
+              : 'activated',
+          ] as const,
+      ),
+    );
+  }, [scopedTwapHistory]);
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
@@ -486,6 +528,11 @@ function PerpOpenOrdersList({
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={getActiveTwapRuntimeStatus({
+            reportedStatus: activeTwapStatusById.get(item.order.twapId),
+            triggerPrice: item.order.state.trigger?.px,
+            executedSize: item.order.state.executedSz,
+          })}
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );

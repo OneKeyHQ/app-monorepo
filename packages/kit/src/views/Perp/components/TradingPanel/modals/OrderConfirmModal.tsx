@@ -254,10 +254,33 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
+    const triggerPrice = formData.twapTriggerPrice?.trim();
+    const stopPrice = formData.twapStopPrice?.trim();
     return {
       minutes: Number(formData.twapDurationMinutes ?? 0),
+      triggerPrice: triggerPrice
+        ? formatOrderPriceDisplay({
+            price: triggerPrice,
+            isSpot,
+            szDecimals,
+          })
+        : undefined,
+      stopPrice: stopPrice
+        ? formatOrderPriceDisplay({
+            price: stopPrice,
+            isSpot,
+            szDecimals,
+          })
+        : undefined,
     };
-  }, [formData.twapDurationMinutes, isTwapMode]);
+  }, [
+    formData.twapDurationMinutes,
+    formData.twapStopPrice,
+    formData.twapTriggerPrice,
+    isSpot,
+    isTwapMode,
+    szDecimals,
+  ]);
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -723,6 +746,33 @@ function OrderConfirmContent({
                 {twapPreview.minutes} {minuteUnit}
               </SizableText>
             </XStack>
+            {twapPreview.triggerPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_pro_trigger_price,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.triggerPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
+            {twapPreview.stopPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id:
+                      effectiveSide === 'long'
+                        ? ETranslations.perp_scale_upper_price_label__title
+                        : ETranslations.perp_scale_lower_price_label__title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.stopPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
           </>
         ) : null}
 

@@ -16,7 +16,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -25,6 +24,13 @@ import {
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  getTwapTriggerAbove,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -42,11 +48,6 @@ import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
-
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -322,11 +323,7 @@ function useOrderConfirmWithMarketDataFreshness({
 
       if (formDataSnapshot.orderMode === 'twap') {
         const duration = Number(formDataSnapshot.twapDurationMinutes ?? 0);
-        if (
-          !Number.isInteger(duration) ||
-          duration < TWAP_MIN_DURATION_MINUTES ||
-          duration > TWAP_MAX_DURATION_MINUTES
-        ) {
+        if (!isValidTwapDuration(duration)) {
           Toast.error({
             title: 'Order Failed',
             message: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
@@ -352,21 +349,51 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        const estimatedSlices = Math.max(
-          1,
-          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-        );
-        const averageSliceNotional = twapSize
-          .multipliedBy(midPriceBN)
-          .dividedBy(estimatedSlices);
+        const triggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
+        if (triggerPrice) {
+          const triggerAbove = getTwapTriggerAbove({
+            triggerPrice,
+            markPrice: midPriceBN,
+          });
+          if (typeof triggerAbove !== 'boolean') {
+            const triggerPriceBN = new BigNumber(triggerPrice);
+            Toast.error({
+              title: 'Order Failed',
+              message:
+                triggerPriceBN.isFinite() && triggerPriceBN.eq(midPriceBN)
+                  ? intl.formatMessage({
+                      id: ETranslations.perps_trigger_price_equal_current,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perps_input_trigger_price,
+                    }),
+            });
+            return;
+          }
+        }
+        const stopPrice = formDataSnapshot.twapStopPrice?.trim();
+        if (stopPrice) {
+          const stopPriceBN = new BigNumber(stopPrice);
+          if (!stopPriceBN.isFinite() || stopPriceBN.lte(0)) {
+            Toast.error({
+              title: 'Order Failed',
+              message: intl.formatMessage({
+                id: ETranslations.perps_input_price_place_holder,
+              }),
+            });
+            return;
+          }
+        }
         if (
-          !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+          !isTwapTotalNotionalValid({
+            size: twapSize,
+            price: midPriceBN,
+          })
         ) {
           Toast.error({
             title: 'Order Failed',
             message: intl.formatMessage({
-              id: ETranslations.perp_twap_small_slice__msg,
+              id: ETranslations.perp_scale_order_size_too_small__msg,
             }),
           });
           return;

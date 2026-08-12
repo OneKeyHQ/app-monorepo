@@ -61,7 +61,6 @@ import type {
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -69,6 +68,13 @@ import {
   normalizeScaleOrderCount,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  getTwapTriggerAbove,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getSpotTokenDisplayName,
   parseDexCoin,
@@ -121,10 +127,6 @@ import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog'
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 import type { LayoutChangeEvent } from 'react-native';
-
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -973,15 +975,38 @@ function SideButtonInternal({
 
       if (latestIsTwapMode) {
         const duration = Number(latestFormData.twapDurationMinutes ?? 0);
-        if (
-          !Number.isInteger(duration) ||
-          duration < TWAP_MIN_DURATION_MINUTES ||
-          duration > TWAP_MAX_DURATION_MINUTES
-        ) {
+        if (!isValidTwapDuration(duration)) {
           Toast.message({
             title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
           });
           return 'invalidTwapConfig' as const;
+        }
+        const triggerPrice = latestFormData.twapTriggerPrice?.trim();
+        if (
+          triggerPrice &&
+          typeof getTwapTriggerAbove({
+            triggerPrice,
+            markPrice: latestEffectivePriceBN,
+          }) !== 'boolean'
+        ) {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
+          return 'invalidTwapConfig' as const;
+        }
+        const stopPrice = latestFormData.twapStopPrice?.trim();
+        if (stopPrice) {
+          const stopPriceBN = new BigNumber(stopPrice);
+          if (!stopPriceBN.isFinite() || stopPriceBN.lte(0)) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.perps_input_price_place_holder,
+              }),
+            });
+            return 'invalidTwapConfig' as const;
+          }
         }
       }
 
@@ -1073,22 +1098,15 @@ function SideButtonInternal({
       }
 
       if (latestIsTwapMode) {
-        const duration = Number(latestFormData.twapDurationMinutes ?? 0);
-        const estimatedSlices = Math.max(
-          1,
-          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-        );
-        const totalNotional = latestComputedSizeForSide.multipliedBy(
-          latestEffectivePriceBN,
-        );
-        const averageSliceNotional = totalNotional.dividedBy(estimatedSlices);
         if (
-          !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(SCALE_ORDER_MIN_NOTIONAL)
+          !isTwapTotalNotionalValid({
+            size: latestComputedSizeForSide,
+            price: latestEffectivePriceBN,
+          })
         ) {
           Toast.message({
             title: intl.formatMessage({
-              id: ETranslations.perp_twap_small_slice__msg,
+              id: ETranslations.perp_scale_order_size_too_small__msg,
             }),
           });
           return 'invalidTwapConfig' as const;

@@ -1,0 +1,100 @@
+import BigNumber from 'bignumber.js';
+
+export const TWAP_MIN_DURATION_MINUTES = 5;
+export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
+export const TWAP_MIN_ORDER_NOTIONAL = 100;
+
+export type ITwapRuntimeStatus =
+  | 'activated'
+  | 'error'
+  | 'finished'
+  | 'stopped'
+  | 'terminated'
+  | 'waitingForTrigger';
+
+export function getActiveTwapRuntimeStatus({
+  reportedStatus,
+  triggerPrice,
+  executedSize,
+}: {
+  reportedStatus?: 'activated' | 'waitingForTrigger';
+  triggerPrice?: string | null;
+  executedSize: BigNumber.Value;
+}): 'activated' | 'waitingForTrigger' {
+  if (reportedStatus) {
+    return reportedStatus;
+  }
+  const executedSizeBN = new BigNumber(executedSize);
+  return triggerPrice && executedSizeBN.isFinite() && executedSizeBN.isZero()
+    ? 'waitingForTrigger'
+    : 'activated';
+}
+
+export function isValidTwapDuration(minutes: number): boolean {
+  return (
+    Number.isInteger(minutes) &&
+    minutes >= TWAP_MIN_DURATION_MINUTES &&
+    minutes <= TWAP_MAX_DURATION_MINUTES
+  );
+}
+
+export function isTwapTotalNotionalValid({
+  size,
+  price,
+}: {
+  size: BigNumber.Value;
+  price: BigNumber.Value;
+}): boolean {
+  const sizeBN = new BigNumber(size);
+  const priceBN = new BigNumber(price);
+  if (
+    !sizeBN.isFinite() ||
+    !priceBN.isFinite() ||
+    sizeBN.lte(0) ||
+    priceBN.lte(0)
+  ) {
+    return false;
+  }
+  return sizeBN.multipliedBy(priceBN).gte(TWAP_MIN_ORDER_NOTIONAL);
+}
+
+export function getTwapTriggerAbove({
+  triggerPrice,
+  markPrice,
+}: {
+  triggerPrice: BigNumber.Value;
+  markPrice: BigNumber.Value;
+}): boolean | undefined {
+  const triggerPriceBN = new BigNumber(triggerPrice);
+  const markPriceBN = new BigNumber(markPrice);
+  if (
+    !triggerPriceBN.isFinite() ||
+    !markPriceBN.isFinite() ||
+    triggerPriceBN.lte(0) ||
+    markPriceBN.lte(0) ||
+    triggerPriceBN.eq(markPriceBN)
+  ) {
+    return undefined;
+  }
+  return triggerPriceBN.gt(markPriceBN);
+}
+
+export function getTwapElapsedMs({
+  status,
+  timestamp,
+  now,
+  endTime,
+  minutes,
+}: {
+  status?: ITwapRuntimeStatus;
+  timestamp: number;
+  now: number;
+  endTime?: number;
+  minutes: number;
+}): number {
+  if (status === 'waitingForTrigger') {
+    return 0;
+  }
+  const totalMs = Math.max(0, minutes) * 60_000;
+  return Math.min(Math.max((endTime ?? now) - timestamp, 0), totalMs);
+}
