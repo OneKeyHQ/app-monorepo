@@ -5,6 +5,11 @@ import {
   PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   PBKDF2_LEGACY_NUM_OF_ITERATIONS,
 } from '@onekeyhq/shared/src/appCrypto/consts';
+import {
+  clearPbkdf2InvocationByProbeId,
+  getPbkdf2InvocationByProbeId,
+  isWebCryptoPbkdf2Supported,
+} from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -304,6 +309,34 @@ describe('AES256 Encryption Tests', () => {
       expect(decoded).toBe(TEST_PASSWORD);
     });
 
+    it('should forward an explicit WebCrypto KDF when decoding a password', async () => {
+      if (!isWebCryptoPbkdf2Supported()) {
+        return;
+      }
+
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_PASSWORD,
+        key: 'test-key',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: false,
+      });
+      const debugCryptoProbeId = 'decode-password-explicit-webcrypto-test';
+      clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+
+      const decoded = await decodePasswordAsync({
+        password: encoded,
+        key: 'test-key',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: false,
+        debugCryptoProbeId,
+      });
+
+      expect(decoded).toBe(TEST_PASSWORD);
+      expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.backend).toBe(
+        'webcrypto',
+      );
+    });
+
     it('should throw on incorrect key (sync)', async () => {
       const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
@@ -393,6 +426,57 @@ describe('AES256 Encryption Tests', () => {
         key: 'test-key',
       });
       expect(decoded).toBe(TEST_DATA);
+    });
+
+    it('should forward an explicit WebCrypto KDF when encoding sensitive text', async () => {
+      if (!isWebCryptoPbkdf2Supported()) {
+        return;
+      }
+
+      const debugCryptoProbeId =
+        'encode-sensitive-text-explicit-webcrypto-test';
+      clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+
+      await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: 'test-key',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: false,
+        debugCryptoProbeId,
+      });
+
+      expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.backend).toBe(
+        'webcrypto',
+      );
+    });
+
+    it('should forward an explicit WebCrypto KDF when decoding sensitive text', async () => {
+      if (!isWebCryptoPbkdf2Supported()) {
+        return;
+      }
+
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: 'test-key',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: false,
+      });
+      const debugCryptoProbeId =
+        'decode-sensitive-text-explicit-webcrypto-test';
+      clearPbkdf2InvocationByProbeId(debugCryptoProbeId);
+
+      const decoded = await decodeSensitiveTextAsync({
+        encodedText: encoded,
+        key: 'test-key',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: false,
+        debugCryptoProbeId,
+      });
+
+      expect(decoded).toBe(TEST_DATA);
+      expect(getPbkdf2InvocationByProbeId(debugCryptoProbeId)?.backend).toBe(
+        'webcrypto',
+      );
     });
 
     it('should return metadata for current sensitive text encoding', async () => {

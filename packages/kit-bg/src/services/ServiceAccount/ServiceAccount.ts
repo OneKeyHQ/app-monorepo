@@ -1838,8 +1838,14 @@ class ServiceAccount extends ServiceBase {
     params: ICoreHyperLiquidAgentCredential,
   ) {
     ensureSensitiveTextEncoded(params.privateKey);
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
+    const webCryptoKdfParams =
+      kdfParams.kdfBackend === 'webcrypto'
+        ? { ...kdfParams, enablePbkdf2Cache: false }
+        : undefined;
     const decodedPrivateKey = await decodeSensitiveTextAsync({
       encodedText: params.privateKey,
+      ...webCryptoKdfParams,
     });
     const agentWallet = new ethers.Wallet(decodedPrivateKey);
     const credential: ICoreHyperLiquidAgentCredential = {
