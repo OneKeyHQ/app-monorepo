@@ -1,8 +1,10 @@
 import {
+  QR_CODE_PLATE_BORDER_RADIUS,
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeLayoutMetrics,
   getQRCodeLogoClearArenaSize,
+  getQRCodePlateBorderRadius,
 } from './QRCode.utils';
 
 const QR_SIZE = 190;
@@ -48,6 +50,50 @@ describe('QRCode layout metrics', () => {
       ).toBeCloseTo((LOGO_SIZE + LOGO_MARGIN * 2) / QR_SIZE, 10);
     },
   );
+});
+
+describe('QRCode plate border radius', () => {
+  // Real (size, padding) pairs from the call sites, smallest margin first.
+  it.each([
+    ['RookieShare', 78, 5],
+    ['Perp PositionShare', 115, 8],
+    ['Receive', 176, 10],
+    ['OpenInApp', 224, 10],
+  ])(
+    'never lets the symbol corner escape the rounded plate for %s',
+    (_surface, size, padding) => {
+      const { canvasSize, qrCodeSize, quietZoneSize } = getQRCodeLayoutMetrics({
+        value: 'https://onekey.so/r/A1B2C3/app',
+        ecl: 'H',
+        size,
+        padding,
+        quietZoneModules: 0,
+      });
+      const radius = getQRCodePlateBorderRadius(quietZoneSize);
+
+      expect(radius).toBeGreaterThan(0);
+      expect(radius).toBeLessThanOrEqual(QR_CODE_PLATE_BORDER_RADIUS);
+      expect(radius).toBeLessThanOrEqual(canvasSize / 2);
+
+      // the symbol's own corner must sit inside the plate's corner arc
+      const inset = (canvasSize - qrCodeSize) / 2;
+      const distanceToArcCentre = Math.SQRT2 * Math.max(radius - inset, 0);
+      expect(distanceToArcCentre).toBeLessThanOrEqual(radius + 1e-9);
+    },
+  );
+
+  it('gives the full radius once the plate margin can carry it', () => {
+    const { quietZoneSize } = getQRCodeLayoutMetrics({
+      value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+      ecl: 'H',
+      size: 176,
+      padding: 10,
+      quietZoneModules: 0,
+    });
+    expect(getQRCodePlateBorderRadius(quietZoneSize)).toBe(
+      QR_CODE_PLATE_BORDER_RADIUS,
+    );
+  });
 });
 
 describe('QRCode dot rendering', () => {

@@ -26,6 +26,7 @@ import {
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeLayoutMetrics,
+  getQRCodePlateBorderRadius,
 } from './QRCode.utils';
 
 import type { IIconProps } from '../../primitives';
@@ -329,22 +330,26 @@ export function QRCode({
     // TODO return Skeleton
     return null;
   }
-  const { canvasSize, qrCodeSize, symbolScale } = getQRCodeLayoutMetrics({
-    value: displayValue,
-    ecl: props.ecl ?? 'H',
-    size: props.size,
-    padding,
-    quietZoneModules,
-  });
+  const { canvasSize, qrCodeSize, symbolScale, quietZoneSize } =
+    getQRCodeLayoutMetrics({
+      value: displayValue,
+      ecl: props.ecl ?? 'H',
+      size: props.size,
+      padding,
+      quietZoneModules,
+    });
   const scaledLogoSize = (props.logoSize ?? DEFAULT_LOGO_SIZE) * symbolScale;
   const scaledLogoMargin =
     (props.logoMargin ?? DEFAULT_LOGO_MARGIN) * symbolScale;
+  const plateBorderRadius = getQRCodePlateBorderRadius(quietZoneSize);
   return (
     <Theme name="light">
       <Stack
         width={canvasSize}
         height={canvasSize}
         bg="$bgApp"
+        borderRadius={plateBorderRadius}
+        borderCurve="continuous"
         jc="center"
         ai="center"
       >

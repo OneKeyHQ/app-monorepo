@@ -66,6 +66,19 @@ export function getQRCodeLogoClearArenaSize({
   return Math.ceil((logoSize + logoMargin * 2 + 3) / cellSize);
 }
 
+export const QR_CODE_PLATE_BORDER_RADIUS = 16;
+
+// The symbol is centred on the white plate with `quietZoneSize` of plate
+// showing on every side, and that margin is all a rounded corner has to eat
+// into. A corner of radius r sweeps an arc centred at (r, r), so the symbol's
+// own square corner at (q, q) only stays inside the rounded plate while
+// sqrt(2) * (r - q) <= r, i.e. r <= (2 + sqrt(2)) * q. Past that the symbol
+// pokes out of the corner, which is visible on the smallest share codes where
+// the plate margin is only a couple of pixels.
+export function getQRCodePlateBorderRadius(quietZoneSize: number) {
+  return Math.min(QR_CODE_PLATE_BORDER_RADIUS, (2 + Math.SQRT2) * quietZoneSize);
+}
+
 // Dark modules the dot renderer has to draw, in matrix coordinates where
 // x is the column and y is the row. The three finder patterns are excluded
 // because they are drawn separately as rounded squares, and the modules under
