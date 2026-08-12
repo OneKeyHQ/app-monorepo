@@ -28,9 +28,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOrderConfirm, usePerpsAccountDisplayState } from '../../hooks';
+import { useOrderConfirm } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { usePerpsAccountDisplayState } from '../../hooks/usePerpsAccountDisplayState';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
