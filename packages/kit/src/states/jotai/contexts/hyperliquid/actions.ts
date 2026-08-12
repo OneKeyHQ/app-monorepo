@@ -59,6 +59,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapPriceForOrder,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
   isTwapStopPriceValid,
@@ -73,7 +74,6 @@ import {
 import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
-  formatHlPrice,
   formatPriceToSignificantDigits,
   formatSpotAssetCtx,
   getTriggerEffectivePrice,
@@ -2930,14 +2930,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 2)
               : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
             const rawTriggerPrice = formData.twapTriggerPrice?.trim();
-            const triggerPrice = rawTriggerPrice
-              ? formatHlPrice(
-                  rawTriggerPrice,
-                  szDecimals,
-                  isSpot ? 'spot' : 'perp',
-                )
-              : undefined;
-            const stopPrice = formData.twapStopPrice?.trim();
+            const triggerPrice = formatTwapPriceForOrder({
+              price: rawTriggerPrice,
+              szDecimals,
+              assetType: isSpot ? 'spot' : 'perp',
+            });
+            const rawStopPrice = formData.twapStopPrice?.trim();
+            const stopPrice = formatTwapPriceForOrder({
+              price: rawStopPrice,
+              szDecimals,
+              assetType: isSpot ? 'spot' : 'perp',
+            });
             let triggerAbove: boolean | undefined;
             if (rawTriggerPrice && !triggerPrice) {
               throw new OneKeyLocalError(
@@ -2954,6 +2957,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   'TWAP trigger price must be positive and differ from the market price',
                 );
               }
+            }
+            if (rawStopPrice && !stopPrice) {
+              throw new OneKeyLocalError(
+                'TWAP stop price is too small for HL tick size',
+              );
             }
             if (
               stopPrice &&

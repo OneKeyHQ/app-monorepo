@@ -72,6 +72,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  formatTwapPriceForOrder,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
   isTwapStopPriceValid,
@@ -1004,13 +1005,19 @@ function SideButtonInternal({
           Toast.error({ title: 'Market price unavailable, please try again' });
           return 'marketDataUnavailable' as const;
         }
-        const triggerPrice = latestFormData.twapTriggerPrice?.trim();
+        const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
+        const triggerPrice = formatTwapPriceForOrder({
+          price: rawTriggerPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
         if (
-          triggerPrice &&
-          typeof getTwapTriggerAbove({
-            triggerPrice,
-            markPrice: latestTwapTriggerReferencePriceBN,
-          }) !== 'boolean'
+          rawTriggerPrice &&
+          (!triggerPrice ||
+            typeof getTwapTriggerAbove({
+              triggerPrice,
+              markPrice: latestTwapTriggerReferencePriceBN,
+            }) !== 'boolean')
         ) {
           Toast.message({
             title: intl.formatMessage({
@@ -1019,15 +1026,21 @@ function SideButtonInternal({
           });
           return 'invalidTwapConfig' as const;
         }
-        const stopPrice = latestFormData.twapStopPrice?.trim();
+        const rawStopPrice = latestFormData.twapStopPrice?.trim();
+        const stopPrice = formatTwapPriceForOrder({
+          price: rawStopPrice,
+          szDecimals: latestSzDecimals,
+          assetType: latestIsSpot ? 'spot' : 'perp',
+        });
         if (
-          stopPrice &&
-          !isTwapStopPriceValid({
-            isBuy: validationSide === 'long',
-            stopPrice,
-            referencePrice: latestTwapTriggerReferencePriceBN,
-            triggerPrice,
-          })
+          rawStopPrice &&
+          (!stopPrice ||
+            !isTwapStopPriceValid({
+              isBuy: validationSide === 'long',
+              stopPrice,
+              referencePrice: latestTwapTriggerReferencePriceBN,
+              triggerPrice,
+            }))
         ) {
           Toast.message({
             title:

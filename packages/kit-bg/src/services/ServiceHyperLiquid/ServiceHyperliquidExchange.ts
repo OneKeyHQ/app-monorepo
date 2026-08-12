@@ -35,7 +35,10 @@ import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
-import { isTwapStopPriceValid } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
+  formatTwapPriceForOrder,
+  isTwapStopPriceValid,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   MAX_DECIMALS_PERP,
@@ -1402,11 +1405,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       if (!price) {
         return undefined;
       }
-      const formattedPrice = formatHlPrice(
+      const formattedPrice = formatTwapPriceForOrder({
         price,
         szDecimals,
-        assetType ?? 'perp',
-      );
+        assetType: assetType ?? 'perp',
+      });
       if (!formattedPrice) {
         throw new OneKeyLocalError(
           `TWAP ${fieldName} price is too small for HL tick size`,

@@ -30,6 +30,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  formatTwapPriceForOrder,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
   isTwapStopPriceValid,
@@ -346,6 +347,9 @@ function useOrderConfirmWithMarketDataFreshness({
           return;
         }
         const isSpotOrder = activeTradeInstrument.mode === 'spot';
+        const szDecimals = isSpotOrder
+          ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
+          : (activeTradeInstrument.universe?.szDecimals ?? 2);
         const twapSize =
           side === 'long'
             ? longCalculations.computedSizeForSide
@@ -364,8 +368,22 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        const triggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
-        if (triggerPrice) {
+        const rawTriggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
+        const triggerPrice = formatTwapPriceForOrder({
+          price: rawTriggerPrice,
+          szDecimals,
+          assetType: isSpotOrder ? 'spot' : 'perp',
+        });
+        if (rawTriggerPrice) {
+          if (!triggerPrice) {
+            Toast.error({
+              title: 'Order Failed',
+              message: intl.formatMessage({
+                id: ETranslations.perps_input_trigger_price,
+              }),
+            });
+            return;
+          }
           const triggerAbove = getTwapTriggerAbove({
             triggerPrice,
             markPrice: twapReferencePriceBN,
@@ -387,9 +405,15 @@ function useOrderConfirmWithMarketDataFreshness({
             return;
           }
         }
-        const stopPrice = formDataSnapshot.twapStopPrice?.trim();
-        if (stopPrice) {
+        const rawStopPrice = formDataSnapshot.twapStopPrice?.trim();
+        const stopPrice = formatTwapPriceForOrder({
+          price: rawStopPrice,
+          szDecimals,
+          assetType: isSpotOrder ? 'spot' : 'perp',
+        });
+        if (rawStopPrice) {
           if (
+            !stopPrice ||
             !isTwapStopPriceValid({
               isBuy: side === 'long',
               stopPrice,
@@ -464,6 +488,8 @@ function useOrderConfirmWithMarketDataFreshness({
           price: '',
           bboPriceMode: null,
           hasTpsl: false,
+          twapTriggerPrice: triggerPrice ?? '',
+          twapStopPrice: stopPrice ?? '',
           twapReduceOnly: isSpotOrder ? false : formDataSnapshot.twapReduceOnly,
         };
 

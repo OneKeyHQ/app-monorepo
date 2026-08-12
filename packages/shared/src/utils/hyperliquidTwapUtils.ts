@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { formatLocalizedNumberString } from './numberUtils';
+import { formatHlPrice } from './perpsUtils';
 
 export const TWAP_MIN_DURATION_MINUTES = 5;
 export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
@@ -107,6 +108,21 @@ export function formatTwapPriceForDisplay(price?: string | null): string {
     return '--';
   }
   return formatLocalizedNumberString(priceBN.toFixed());
+}
+
+export function formatTwapPriceForOrder({
+  price,
+  szDecimals,
+  assetType,
+}: {
+  price?: string;
+  szDecimals: number;
+  assetType: 'perp' | 'spot';
+}): string | undefined {
+  const trimmedPrice = price?.trim();
+  return trimmedPrice
+    ? formatHlPrice(trimmedPrice, szDecimals, assetType) || undefined
+    : undefined;
 }
 
 export function isValidTwapDuration(minutes: number): boolean {

@@ -4,6 +4,7 @@ import {
   TWAP_MIN_ORDER_NOTIONAL,
   buildActiveTwapRuntimeInfoByKey,
   formatTwapPriceForDisplay,
+  formatTwapPriceForOrder,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
   getTwapTriggerAbove,
@@ -139,6 +140,23 @@ describe('hyperliquidTwapUtils', () => {
     expect(formatTwapPriceForDisplay('0.000012345')).toBe('0.000012345');
     expect(formatTwapPriceForDisplay('12345.678')).toBe('12,345.678');
     expect(formatTwapPriceForDisplay('invalid')).toBe('--');
+  });
+
+  it('uses Hyperliquid wire precision before validating TWAP boundaries', () => {
+    expect(
+      formatTwapPriceForOrder({
+        price: '123450.5',
+        szDecimals: 5,
+        assetType: 'perp',
+      }),
+    ).toBe('123450');
+    expect(
+      formatTwapPriceForOrder({
+        price: '0.123456',
+        szDecimals: 2,
+        assetType: 'spot',
+      }),
+    ).toBe('0.12345');
   });
 
   it('does not advance running time while waiting for a trigger', () => {
