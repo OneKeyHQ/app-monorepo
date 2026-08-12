@@ -98,6 +98,10 @@ function FlowDemoStage(props: ComponentProps<typeof DeviceStage>) {
   }, []);
   const handleConnecting = useCallback(() => setStep('connecting'), []);
   const handleEnterPin = useCallback(() => setStep('enterPin'), []);
+  const handleEnterPassphrase = useCallback(
+    () => setStep('enterPassphrase'),
+    [],
+  );
   const handleConfirm = useCallback(() => setStep('confirm'), []);
   return (
     <YStack gap="$4" alignItems="flex-start">
@@ -114,6 +118,12 @@ function FlowDemoStage(props: ComponentProps<typeof DeviceStage>) {
           onPress={handleEnterPin}
         >
           Enter PIN
+        </Button>
+        <Button
+          variant={step === 'enterPassphrase' ? 'primary' : undefined}
+          onPress={handleEnterPassphrase}
+        >
+          Passphrase
         </Button>
         <Button
           variant={step === 'confirm' ? 'primary' : undefined}
@@ -134,11 +144,12 @@ function FlowDemoStage(props: ComponentProps<typeof DeviceStage>) {
 }
 
 /**
- * Manual drive: present, then walk connecting → enter PIN → confirm with
- * the buttons at the top of the host screen — the sheet keeps the app
- * behind it interactive, so they stay pressable while it is up. Closing
- * resets the stage to its dark start. Native only: on web the modal
- * backdrop covers the buttons, so drive Playground from the panel there.
+ * Manual drive: present, then walk connecting → enter PIN → passphrase →
+ * confirm with the buttons at the top of the host screen — the sheet
+ * keeps the app behind it interactive, so they stay pressable while it
+ * is up. Closing resets the stage to its dark start. Native only: on web
+ * the modal backdrop covers the buttons, so drive Playground from the
+ * panel there.
  */
 export const FlowDemo: Story = {
   render: FlowDemoStage,

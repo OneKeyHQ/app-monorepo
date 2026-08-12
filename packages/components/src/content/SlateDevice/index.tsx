@@ -28,9 +28,9 @@ export { SCREEN_SWAP_MS } from './animation';
  * live.
  *
  *   <SlateDevice animation="connecting" />       the idle wallpaper
- *   <SlateDevice animation="enterPin" />         the keyboard loop
+ *   <SlateDevice animation="enterPin" />         the keypad loop
+ *   <SlateDevice animation="enterPassphrase" />  the ASCII keyboard loop
  *   <SlateDevice animation="confirm" />          the light sweep
- *   <SlateDevice animation="enterPassphrase" />  no design yet: dark glass
  *   <SlateDevice />                              static shell, screen dark
  *
  * The glass stays pure black; "lighting up" is only content rendering onto

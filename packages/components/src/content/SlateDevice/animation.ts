@@ -58,25 +58,49 @@ export const SCREEN_SWAP_OUT_MS = 300;
 /** A full lit-to-lit handover, out then in — the beat callers queue after. */
 export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
 
-/* ------------------------- enter PIN ------------------------- *
- * The keyboard sheen and the entry dots. One soft light crosses the keypad
- * from its top-left to its bottom-right corner - every key pulses as the
- * wavefront passes, staggered by grid diagonal, which reads as a single
- * gradient light in motion - then the four entry dots land one by one.
- * Deliberately no key ever lights alone: the scene shows that entry
- * happens on the device without performing an actual PIN. */
+/* ------------------- the traveling glass light ------------------- *
+ * One gradient band crossing a region top-left corner to bottom-right
+ * corner, linear: 0 parked off past one corner, 1 off past the other.
+ * It lives on the glass, not on the content — a still stays a still and
+ * the band passes over it, the way a reflection travels. Confirm plays
+ * it across the whole screen; enterPassphrase plays it clipped inside
+ * the keyboard panel (GlassSweep in ./scenes.tsx). */
 
-const PIN_SWEEP_START_MS = 300;
-/** Wavefront stagger per grid diagonal (col + row, 0..5). */
-const PIN_SWEEP_STEP_MS = 140;
-const PIN_SWEEP_PULSE_MS = 500;
-const PIN_DOT_START_MS = 1800;
-const PIN_DOT_STEP_MS = 300;
-const PIN_DOT_IN_MS = 180;
-const PIN_DOTS_OUT_START_MS = 4000;
-const PIN_DOTS_OUT_MS = 300;
-/** Scene loop for the registry; rest = all four dots shown, keyboard quiet. */
-export const PIN_LOOP = { loopMs: 4800, restMs: 3200 };
+/** Every scene's light holds this long before it starts to move. */
+const LIGHT_START_MS = 300;
+/** Corner-to-corner travel of the band. */
+const SWEEP_TRAVEL_MS = 900;
+export const GLASS_SWEEP_TRACK: IKeyframe[] = [
+  { t: 0, v: 0 },
+  { t: LIGHT_START_MS, v: 0 },
+  { t: LIGHT_START_MS + SWEEP_TRAVEL_MS, v: 1 },
+];
+
+/* ------------------ entry scenes (PIN / passphrase) ------------------ *
+ * The PIN keypad plays a traveling sheen: every key pulses as a
+ * wavefront passes, staggered by grid diagonal (col + row), which reads
+ * as a single gradient light in motion. The passphrase keyboard plays
+ * the glass sweep above, clipped to its panel. Then both land their
+ * entered marks one by one — growing from the center, each landing
+ * nudging the earlier marks half a slot leftward so the cluster stays
+ * centered until it settles on the full row's natural layout.
+ * Deliberately no key ever lights alone: the scenes show that entry
+ * happens on the device without performing an actual secret. */
+
+/** PIN wavefront stagger per grid diagonal. */
+const SHEEN_STEP_MS = 140;
+const SHEEN_PULSE_MS = 500;
+const MARK_STEP_MS = 300;
+const MARK_IN_MS = 180;
+const MARKS_OUT_MS = 300;
+/** Complete row held before the marks leave together. */
+const MARKS_HOLD_MS = 1120;
+/** Quiet beat after the marks leave, closing the loop. */
+const LOOP_TAIL_MS = 500;
+/** The reduced-motion rest sits this far before the marks leave. */
+const REST_LEAD_MS = 800;
+/** Half a marks-row slot (disc 5.5 + gap 7.5), the nudge per landing. */
+const MARK_HALF_STEP = 6.5;
 
 /** One pass of the traveling sheen over one element: a soft pulse. */
 function sheenPulseTrack(startMs: number, pulseMs: number): IKeyframe[] {
@@ -89,50 +113,95 @@ function sheenPulseTrack(startMs: number, pulseMs: number): IKeyframe[] {
 }
 
 /** Sheen opacity of the key at grid diagonal `diagonal` (col + row). */
-function pinKeySheenTrack(diagonal: number): IKeyframe[] {
+function keySheenTrack(diagonal: number): IKeyframe[] {
   return sheenPulseTrack(
-    PIN_SWEEP_START_MS + diagonal * PIN_SWEEP_STEP_MS,
-    PIN_SWEEP_PULSE_MS,
+    LIGHT_START_MS + diagonal * SHEEN_STEP_MS,
+    SHEEN_PULSE_MS,
   );
 }
 
-/** Opacity of entry dot `index`: dots land in order, all leave together. */
-function pinDotTrack(index: number): IKeyframe[] {
-  const landAt = PIN_DOT_START_MS + index * PIN_DOT_STEP_MS;
+/** Opacity of entered mark `index`: marks land in order, leave together. */
+function entryMarkTrack(
+  markStartMs: number,
+  marksOutStartMs: number,
+  index: number,
+): IKeyframe[] {
+  const landAt = markStartMs + index * MARK_STEP_MS;
   return [
     { t: 0, v: 0 },
     { t: landAt, v: 0, e: easeOutFn },
-    { t: landAt + PIN_DOT_IN_MS, v: 1 },
-    { t: PIN_DOTS_OUT_START_MS, v: 1, e: easeInFn },
-    { t: PIN_DOTS_OUT_START_MS + PIN_DOTS_OUT_MS, v: 0 },
+    { t: landAt + MARK_IN_MS, v: 1 },
+    { t: marksOutStartMs, v: 1, e: easeInFn },
+    { t: marksOutStartMs + MARKS_OUT_MS, v: 0 },
   ];
 }
 
-/* The scene's tracks are pure functions of the constants above and there
- * are only a handful of each, so they are built once here rather than per
- * key and per dot on every mount. Indexed by grid diagonal and by landing
- * order respectively. */
-export const PIN_SHEEN_TRACKS = [0, 1, 2, 3, 4, 5].map(pinKeySheenTrack);
-export const PIN_DOT_TRACKS = [0, 1, 2, 3].map(pinDotTrack);
-
-/* ------------------------- confirm ------------------------- *
- * The one gradient light crossing the glass, top-left corner to
- * bottom-right corner. It lives on the screen, not on the content: the
- * skeleton stays a still and the band passes over it, the way a
- * reflection travels across glass. */
-
-const CONFIRM_SWEEP_START_MS = 300;
-/** Corner-to-corner travel of the band. */
-const CONFIRM_SWEEP_MS = 900;
-/** Scene loop for the registry; rest = the plain still, the light gone. */
-export const CONFIRM_LOOP = { loopMs: 3200, restMs: 2000 };
+/**
+ * TranslateX of mark `index`, over its final layout slot in the full
+ * centered row: a cluster of k marks sits (marks - k) half-slots right
+ * of that, so every later landing eases the mark half a slot leftward,
+ * reaching 0 as the row completes.
+ */
+function entryMarkShiftTrack(
+  markStartMs: number,
+  marks: number,
+  index: number,
+): IKeyframe[] {
+  const kfs: IKeyframe[] = [{ t: 0, v: (marks - index - 1) * MARK_HALF_STEP }];
+  for (let later = index + 1; later < marks; later += 1) {
+    const landAt = markStartMs + later * MARK_STEP_MS;
+    kfs.push(
+      { t: landAt, v: (marks - later) * MARK_HALF_STEP, e: easeOutFn },
+      { t: landAt + MARK_IN_MS, v: (marks - later - 1) * MARK_HALF_STEP },
+    );
+  }
+  return kfs;
+}
 
 /**
- * Travel of the light: 0 parked off past the top-left corner, 1 off past
- * the bottom-right, linear in between.
+ * An entry scene's whole schedule from its light phase and mark count:
+ * the marks start a beat after the light has passed, hold the complete
+ * row, leave together, and the loop closes a quiet tail later. Rest is
+ * the completed row, keyboard quiet. Tracks are pure functions of the
+ * constants and there are only a handful, so they are built once here
+ * rather than per mark on every mount; indexed by landing order.
  */
-export const CONFIRM_SWEEP_TRACK: IKeyframe[] = [
-  { t: 0, v: 0 },
-  { t: CONFIRM_SWEEP_START_MS, v: 0 },
-  { t: CONFIRM_SWEEP_START_MS + CONFIRM_SWEEP_MS, v: 1 },
-];
+function entrySchedule(lightMs: number, marks: number) {
+  const markStartMs = LIGHT_START_MS + lightMs + MARK_STEP_MS;
+  const marksOutStartMs =
+    markStartMs + (marks - 1) * MARK_STEP_MS + MARK_IN_MS + MARKS_HOLD_MS;
+  return {
+    loop: {
+      loopMs: marksOutStartMs + MARKS_OUT_MS + LOOP_TAIL_MS,
+      restMs: marksOutStartMs - REST_LEAD_MS,
+    },
+    markTracks: Array.from({ length: marks }, (_, i) =>
+      entryMarkTrack(markStartMs, marksOutStartMs, i),
+    ),
+    markShiftTracks: Array.from({ length: marks }, (_, i) =>
+      entryMarkShiftTrack(markStartMs, marks, i),
+    ),
+  };
+}
+
+/* enterPin: 3x4 keypad wavefront (diagonals 0..5), four entered marks. */
+const PIN_LIGHT_MS = 5 * SHEEN_STEP_MS + SHEEN_PULSE_MS;
+const PIN_ENTRY = entrySchedule(PIN_LIGHT_MS, 4);
+/** Scene loop for the registry (4800ms, resting on the complete row). */
+export const PIN_LOOP = PIN_ENTRY.loop;
+export const PIN_SHEEN_TRACKS = [0, 1, 2, 3, 4, 5].map(keySheenTrack);
+export const PIN_DOT_TRACKS = PIN_ENTRY.markTracks;
+export const PIN_DOT_SHIFT_TRACKS = PIN_ENTRY.markShiftTracks;
+
+/* enterPassphrase: the panel sweep, six entered marks. */
+const PASSPHRASE_ENTRY = entrySchedule(SWEEP_TRAVEL_MS, 6);
+/** Scene loop for the registry (5100ms, resting on the complete row). */
+export const PASSPHRASE_LOOP = PASSPHRASE_ENTRY.loop;
+export const PASSPHRASE_DOT_TRACKS = PASSPHRASE_ENTRY.markTracks;
+export const PASSPHRASE_DOT_SHIFT_TRACKS = PASSPHRASE_ENTRY.markShiftTracks;
+
+/* ------------------------- confirm ------------------------- *
+ * The glass sweep across the whole screen, over the still skeleton. */
+
+/** Scene loop for the registry; rest = the plain still, the light gone. */
+export const CONFIRM_LOOP = { loopMs: 3200, restMs: 2000 };
