@@ -13,7 +13,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useConnectionStateAtom,
@@ -25,19 +24,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  getPerpsAccountDisplaySnapshotEntry,
-  usePerpsAccountDisplayReadyAtom,
-  usePerpsAccountDisplaySnapshotAtom,
-  usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
-  usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -48,8 +40,8 @@ import {
   normalizeL2BookData,
   useL2Book,
 } from '../hooks/usePerpMarketData';
+import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
-import { isPerpsAccountSelectionResolved } from '../utils/accountScopedData';
 import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
   getFreshL2BookSnapshotFromColdCache,
@@ -527,61 +519,12 @@ export function PerpOrderBook({
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [displayReady] = usePerpsAccountDisplayReadyAtom();
-  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
-  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const {
+    isLiveStatusPending,
+    perpsAccountStatus,
+    shouldShowConnectWalletPrompt: shouldCompactOrderBookForConnectWallet,
+  } = usePerpsAccountDisplayState();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
-  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.indexedAccount?.id
-    : perpsActiveAccount?.indexedAccountId;
-  const snapshotLookupAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.account?.id
-    : perpsActiveAccount?.accountId;
-  const snapshotLookupAccountAddress =
-    !selectedWalletAccount.ready ||
-    snapshotLookupIndexedAccountId ||
-    snapshotLookupAccountId
-      ? perpsActiveAccount?.accountAddress
-      : undefined;
-  const snapshotEntry = useMemo(
-    () =>
-      getPerpsAccountDisplaySnapshotEntry({
-        snapshot: displaySnapshot,
-        accountAddress: snapshotLookupAccountAddress,
-        indexedAccountId: snapshotLookupIndexedAccountId,
-        accountId: snapshotLookupAccountId,
-        deriveType:
-          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
-      }),
-    [
-      displaySnapshot,
-      perpsActiveAccount.deriveType,
-      selectedWalletAccount.deriveType,
-      snapshotLookupAccountAddress,
-      snapshotLookupAccountId,
-      snapshotLookupIndexedAccountId,
-    ],
-  );
-  const isLiveStatusPending = Boolean(
-    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
-  );
-  const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
-    selectedWalletReady: selectedWalletAccount.ready,
-    selectAccountLoading: perpsAccountLoading.selectAccountLoading,
-    selectedAccountId: selectedWalletAccount.account?.id,
-    selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
-    activeAccountId: perpsActiveAccount.accountId,
-    activeIndexedAccountId: perpsActiveAccount.indexedAccountId,
-  });
-  const shouldCompactOrderBookForConnectWallet =
-    (platformEnv.isWeb || platformEnv.isDesktop) &&
-    isAccountSelectionResolved &&
-    (!perpsActiveAccount?.accountAddress ||
-      perpsAccountStatus.accountNotSupport) &&
-    !perpsAccountStatus.canCreateAddress;
   const shouldCompactOrderBookForFirstDeposit = Boolean(
     !perpConfigCommon?.ipDisablePerp &&
     shouldShowPerpsFirstDepositPrompt({

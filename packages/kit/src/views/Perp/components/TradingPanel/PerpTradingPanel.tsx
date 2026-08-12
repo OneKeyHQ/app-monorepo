@@ -11,7 +11,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
@@ -19,13 +18,8 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  getPerpsAccountDisplaySnapshotEntry,
-  usePerpsAccountDisplayReadyAtom,
-  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
-  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
@@ -34,10 +28,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOrderConfirm } from '../../hooks';
+import { useOrderConfirm, usePerpsAccountDisplayState } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
-import { isPerpsAccountSelectionResolved } from '../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
@@ -256,66 +249,25 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const minimumOrderActionRef = useRef<
     ISizeInputMinimumOrderAction | undefined
   >(undefined);
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [displayReady] = usePerpsAccountDisplayReadyAtom();
-  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
-  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
-  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const {
+    displayReady,
+    displaySnapshot,
+    isLiveStatusPending,
+    perpsAccountLoading,
+    perpsAccountStatus,
+    selectedWalletAccount,
+    shouldShowConnectWalletPrompt,
+    snapshotEntry,
+    snapshotLookupAccountAddress,
+    snapshotLookupAccountId,
+    snapshotLookupIndexedAccountId,
+  } = usePerpsAccountDisplayState();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
-  const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
-    selectedWalletReady: selectedWalletAccount.ready,
-    selectAccountLoading: perpsAccountLoading.selectAccountLoading,
-    selectedAccountId: selectedWalletAccount.account?.id,
-    selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
-    activeAccountId: perpsActiveAccount.accountId,
-    activeIndexedAccountId: perpsActiveAccount.indexedAccountId,
-  });
-  const shouldShowConnectWalletPrompt =
-    (platformEnv.isWeb || platformEnv.isDesktop) &&
-    isAccountSelectionResolved &&
-    (!perpsActiveAccount?.accountAddress ||
-      perpsAccountStatus.accountNotSupport) &&
-    !perpsAccountStatus.canCreateAddress;
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.indexedAccount?.id
-    : perpsActiveAccount?.indexedAccountId;
-  const snapshotLookupAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.account?.id
-    : perpsActiveAccount?.accountId;
-  const snapshotLookupAccountAddress =
-    !selectedWalletAccount.ready ||
-    snapshotLookupIndexedAccountId ||
-    snapshotLookupAccountId
-      ? perpsActiveAccount?.accountAddress
-      : undefined;
-  const snapshotEntry = useMemo(
-    () =>
-      getPerpsAccountDisplaySnapshotEntry({
-        snapshot: displaySnapshot,
-        accountAddress: snapshotLookupAccountAddress,
-        indexedAccountId: snapshotLookupIndexedAccountId,
-        accountId: snapshotLookupAccountId,
-        deriveType:
-          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
-      }),
-    [
-      displaySnapshot,
-      perpsActiveAccount?.deriveType,
-      selectedWalletAccount.deriveType,
-      snapshotLookupAccountAddress,
-      snapshotLookupAccountId,
-      snapshotLookupIndexedAccountId,
-    ],
-  );
-  const canShowCachedTradingButtons = Boolean(
-    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
-  );
-  const isLiveStatusPending = canShowCachedTradingButtons;
+  const canShowCachedTradingButtons = isLiveStatusPending;
   const coldStartEnableTradingMode = useMemo(() => {
     if (!isLiveStatusPending) {
       return undefined;
