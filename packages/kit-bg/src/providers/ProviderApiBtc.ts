@@ -906,6 +906,9 @@ class ProviderApiBtc extends ProviderApiBase {
         // here — only affects the isChange display flag, never signing.
         address: account.address,
         account,
+        // Same set computeBatchPsbtAmounts uses below, so the drill-down
+        // TxConfirm and the batch overview classify change identically.
+        ownedAddresses,
       });
       if (!inputsToSign.length) {
         throw web3Errors.rpc.invalidParams(
@@ -988,6 +991,7 @@ class ProviderApiBtc extends ProviderApiBase {
     networkId,
     address,
     account: providedAccount,
+    ownedAddresses,
   }: {
     psbt: Psbt;
     psbtNetwork: BitcoinJS.networks.Network;
@@ -999,6 +1003,11 @@ class ProviderApiBtc extends ProviderApiBase {
     // passes it here to avoid a redundant getAccount call per item. Legacy
     // `_signPsbt` does not pass it, so its behavior is unchanged.
     account?: INetworkAccount;
+    // Batch flow passes the same wallet-owned address set it feeds to
+    // computeBatchPsbtAmounts, so the drill-down TxConfirm's isChange
+    // classification matches the batch overview's change-vs-external split.
+    // Legacy `_signPsbt` omits it and keeps the single-address behavior.
+    ownedAddresses?: string[];
   }): Promise<{
     encodedTx: IEncodedTxBtc;
     inputsToSign: ITxInputToSign[];
@@ -1060,14 +1069,21 @@ class ProviderApiBtc extends ProviderApiBase {
 
     // Check for change address:
     // 1. More than one output
-    // 2. Not all output addresses are the same as the current account address
+    // 2. Not all output addresses are owned by the current account
     // This often happens in BRC-20 transfer transactions
+    const ownedAddressSet = new Set(
+      ownedAddresses ?? (address ? [address] : []),
+    );
     const hasChangeAddress =
       decodedPsbt.outputInfos.length > 1 &&
-      !(decodedPsbt.outputInfos ?? []).every((v) => v.address === address);
+      !(decodedPsbt.outputInfos ?? []).every((v) =>
+        ownedAddressSet.has(v.address ?? ''),
+      );
 
     const outputs: IBtcOutput[] = (decodedPsbt.outputInfos ?? []).map((v) => {
-      const isChange = hasChangeAddress ? v.address === address : false;
+      const isChange = hasChangeAddress
+        ? ownedAddressSet.has(v.address ?? '')
+        : false;
       // check if the output is an inscription structure output
       const inputValue =
         inputAddresses.get(v.address ?? '') || new BigNumber(0);
