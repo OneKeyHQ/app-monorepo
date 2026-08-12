@@ -180,10 +180,38 @@ export function shouldShowSwapRecipientEntry({
   );
 }
 
-type ISettledSwapRecipientRequired = {
+export type ISettledSwapRecipientRequired = {
   scopeKey: string;
   value: boolean;
 };
+
+type IBuildSwapRecipientRequiredScopeKeyParams = {
+  swapType: ESwapTabSwitchType;
+  fromToken?: { networkId?: string; contractAddress?: string };
+  toToken?: { networkId?: string; contractAddress?: string };
+  sourceAccountId?: string;
+};
+
+/**
+ * Identity of the quote round that a "recipient required" verdict belongs to.
+ * Every input that can change whether a recipient is needed must be part of
+ * this key, otherwise a verdict from the previous round leaks into the next.
+ */
+export function buildSwapRecipientRequiredScopeKey({
+  swapType,
+  fromToken,
+  toToken,
+  sourceAccountId,
+}: IBuildSwapRecipientRequiredScopeKeyParams) {
+  return [
+    swapType,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
+    sourceAccountId,
+  ].join('|');
+}
 
 type IResolveSettledSwapRecipientRequiredParams = {
   previous: ISettledSwapRecipientRequired;
