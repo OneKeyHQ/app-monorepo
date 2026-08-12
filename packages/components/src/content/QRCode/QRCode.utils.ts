@@ -193,10 +193,13 @@ export const QR_CODE_DOT_RADIUS_RATIO = 1 / 3;
 // be a single path instead of one element per module. That matters on the
 // air-gap flow, where the code is rebuilt every 500ms as UR frames cycle and
 // a typical frame has ~900 dark modules.
-export function getQRCodeDotsPath(
-  cells: { x: number; y: number }[],
-  cellSize: number,
-) {
+export function getQRCodeDotsPath({
+  cells,
+  cellSize,
+}: {
+  cells: { x: number; y: number }[];
+  cellSize: number;
+}) {
   const radius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
   const r = radius.toFixed(2);
   const diameter = (radius * 2).toFixed(2);

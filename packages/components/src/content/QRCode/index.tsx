@@ -103,10 +103,10 @@ function BasicQRCode({
         : 0;
       // one path for the whole dot field: the dots share a fill and never
       // overlap, so this is a single node instead of one per dark module
-      const dotsPath = getQRCodeDotsPath(
-        getQRCodeDotCells({ matrix, clearArenaModules }),
+      const dotsPath = getQRCodeDotsPath({
+        cells: getQRCodeDotCells({ matrix, clearArenaModules }),
         cellSize,
-      );
+      });
       return (
         <>
           {getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).map(

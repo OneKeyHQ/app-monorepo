@@ -2,6 +2,8 @@ import {
   QR_CODE_PLATE_BORDER_RADIUS,
   generateMatrix,
   getQRCodeDotCells,
+  getQRCodeDotsPath,
+  getQRCodeFinderRings,
   getQRCodeLayoutMetrics,
   getQRCodeLogoClearArenaSize,
   getQRCodePlateBorderRadius,
@@ -119,6 +121,67 @@ describe('QRCode dot rendering', () => {
       0,
     );
     expect(cells).toHaveLength(darkModules - darkInsideFinders);
+  });
+
+  it('emits one closed circle per dot, centered on its module', () => {
+    const matrix = generateMatrix(
+      'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+      'H',
+    );
+    const cellSize = 6;
+    const cells = getQRCodeDotCells({ matrix });
+    const path = getQRCodeDotsPath({ cells, cellSize });
+
+    // one subpath per dot, each a moveto plus two half-arcs back to the start
+    const subpaths = path.split('M').filter(Boolean);
+    expect(subpaths).toHaveLength(cells.length);
+
+    const radius = cellSize / 3;
+    const [first] = cells;
+    const startX = first.x * cellSize + cellSize / 2 - radius;
+    const startY = first.y * cellSize + cellSize / 2;
+    expect(subpaths[0]).toContain(`${startX.toFixed(2)} ${startY.toFixed(2)}`);
+    // the two arcs must travel a full diameter out and back, or the circle
+    // does not close and the fill leaks into the next subpath
+    const arcs = subpaths[0].match(/a[\d.]+ [\d.]+ 0 1 0 (-?[\d.]+) 0/g) ?? [];
+    expect(arcs).toHaveLength(2);
+    expect(subpaths[0]).toContain(`${(radius * 2).toFixed(2)} 0`);
+    expect(subpaths[0]).toContain(`-${(radius * 2).toFixed(2)} 0`);
+  });
+
+  it('places three finder patterns as alternating nested rings', () => {
+    const cellSize = 6;
+    const matrixSize = 37;
+    const rings = getQRCodeFinderRings({ matrixSize, cellSize });
+
+    expect(rings).toHaveLength(9);
+    // dark, light, dark for each of the three corners
+    expect(rings.map((r) => r.isDark)).toEqual([
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+    ]);
+
+    const outers = rings.filter((r) => r.size === 7 * cellSize);
+    expect(outers).toHaveLength(3);
+    const farEdge = (matrixSize - 7) * cellSize;
+    expect(outers.map((r) => [r.x, r.y])).toEqual([
+      [0, 0],
+      [farEdge, 0],
+      [0, farEdge],
+    ]);
+
+    // rings nest inward by one module a side and never round past a semicircle
+    for (const ring of rings) {
+      expect(ring.radius).toBeLessThanOrEqual(ring.size / 2);
+      expect(ring.radius).toBeGreaterThan(0);
+    }
   });
 
   it('drops the modules a logo would cover', () => {

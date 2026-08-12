@@ -5,13 +5,47 @@ import {
   getQRCodeDotCells,
   getQRCodeFinderRings,
 } from '@onekeyhq/components/src/content/QRCode/QRCode.utils';
-import { drawRoundRectPath } from '@onekeyhq/shared/src/utils/imageUtils';
 
 // Canvas twin of the dot renderer in the QRCode component. Share images on
 // web and desktop are painted straight onto a 2D context instead of mounting
 // the component, so the drawing calls have to be written a second time here.
 // Every position, size and radius comes from the same helpers the component
 // uses, so only the primitives differ: <Rect>/<Path> there, roundRect/arc here.
+
+const PLATE_COLOR = '#FFFFFF';
+
+// Kept local rather than pulling the equivalent out of shared/utils/imageUtils:
+// that module statically imports expo-file-system, expo-image-manipulator and
+// a canvas blur library, which is a lot of graph to drag into three
+// share-image screens for one path builder.
+function traceRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  radius: number,
+) {
+  const r = Math.max(0, Math.min(radius, size / 2));
+  ctx.beginPath();
+  if (r === 0) {
+    ctx.rect(x, y, size, size);
+    ctx.closePath();
+    return;
+  }
+  const right = x + size;
+  const bottom = y + size;
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(right - r, y);
+  ctx.quadraticCurveTo(right, y, right, y + r);
+  ctx.lineTo(right, bottom - r);
+  ctx.quadraticCurveTo(right, bottom, right - r, bottom);
+  ctx.lineTo(x + r, bottom);
+  ctx.quadraticCurveTo(x, bottom, x, bottom - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 export function drawDotQRCodeOnCanvas(
   ctx: CanvasRenderingContext2D,
   {
@@ -20,52 +54,57 @@ export function drawDotQRCodeOnCanvas(
     y: originY,
     size,
     darkColor = '#000000',
-    lightColor = '#FFFFFF',
-    ecl = 'H',
+    // node-qrcode defaulted to 'M' for the callers that never named a level,
+    // so this stays 'M' to keep their symbols the same size. Pass 'H' where
+    // something is drawn on top of the code.
+    ecl = 'M',
   }: {
     value: string;
     x: number;
     y: number;
     size: number;
     darkColor?: string;
-    lightColor?: string;
     ecl?: IQRCodeErrorCorrectionLevel;
   },
 ) {
   const matrix = generateMatrix(value, ecl);
   const cellSize = size / matrix.length;
+  const dotRadius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
 
   ctx.save();
-  ctx.fillStyle = lightColor;
-  ctx.fillRect(originX, originY, size, size);
+  try {
+    ctx.fillStyle = PLATE_COLOR;
+    ctx.fillRect(originX, originY, size, size);
 
-  getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).forEach(
-    (ring) => {
-      ctx.fillStyle = ring.isDark ? darkColor : lightColor;
-      drawRoundRectPath(
-        ctx,
-        ring.size,
-        ring.size,
-        ring.radius,
-        originX + ring.x,
-        originY + ring.y,
-      );
-      ctx.fill();
-    },
-  );
+    getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).forEach(
+      (ring) => {
+        ctx.fillStyle = ring.isDark ? darkColor : PLATE_COLOR;
+        traceRoundedRect(
+          ctx,
+          originX + ring.x,
+          originY + ring.y,
+          ring.size,
+          ring.radius,
+        );
+        ctx.fill();
+      },
+    );
 
-  // one path for every dot: they share a fill and never overlap, so a single
-  // fill() is equivalent to one per module and far cheaper
-  const radius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
-  ctx.fillStyle = darkColor;
-  ctx.beginPath();
-  getQRCodeDotCells({ matrix }).forEach(({ x, y }) => {
-    const cx = originX + x * cellSize + cellSize / 2;
-    const cy = originY + y * cellSize + cellSize / 2;
-    // move first, otherwise arc() joins each circle to the previous one
-    ctx.moveTo(cx + radius, cy);
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  });
-  ctx.fill();
-  ctx.restore();
+    // one path for every dot: they share a fill and never overlap, so a single
+    // fill() is equivalent to one per module and far cheaper
+    ctx.fillStyle = darkColor;
+    ctx.beginPath();
+    getQRCodeDotCells({ matrix }).forEach(({ x, y }) => {
+      const cx = originX + x * cellSize + cellSize / 2;
+      const cy = originY + y * cellSize + cellSize / 2;
+      // move first, otherwise arc() joins each circle to the previous one
+      ctx.moveTo(cx + dotRadius, cy);
+      ctx.arc(cx, cy, dotRadius, 0, Math.PI * 2);
+    });
+    ctx.fill();
+  } finally {
+    // callers catch draw failures and carry on painting the rest of the card,
+    // so the context has to come back balanced even when this throws
+    ctx.restore();
+  }
 }

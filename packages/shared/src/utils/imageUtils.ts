@@ -228,33 +228,29 @@ async function convertSvgToJpegBase64(uri: string): Promise<string> {
   }
 }
 
-export function drawRoundRectPath(
+function drawRoundRectPath(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   radius: number,
-  x = 0,
-  y = 0,
 ) {
   const r = Math.max(0, Math.min(radius, width / 2, height / 2));
   if (r === 0) {
     ctx.beginPath();
-    ctx.rect(x, y, width, height);
+    ctx.rect(0, 0, width, height);
     ctx.closePath();
     return;
   }
-  const right = x + width;
-  const bottom = y + height;
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(right - r, y);
-  ctx.quadraticCurveTo(right, y, right, y + r);
-  ctx.lineTo(right, bottom - r);
-  ctx.quadraticCurveTo(right, bottom, right - r, bottom);
-  ctx.lineTo(x + r, bottom);
-  ctx.quadraticCurveTo(x, bottom, x, bottom - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.quadraticCurveTo(width, 0, width, r);
+  ctx.lineTo(width, height - r);
+  ctx.quadraticCurveTo(width, height, width - r, height);
+  ctx.lineTo(r, height);
+  ctx.quadraticCurveTo(0, height, 0, height - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
   ctx.closePath();
 }
 
