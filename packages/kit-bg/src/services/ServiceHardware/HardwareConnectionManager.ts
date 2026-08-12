@@ -370,6 +370,23 @@ export class HardwareConnectionManager {
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
+      const resolvedHardwareCallContext =
+        hardwareCallContext || EHardwareCallContext.USER_INTERACTION;
+      const isDesktopBackgroundCall =
+        platformEnv.isSupportDesktopBle &&
+        [
+          EHardwareCallContext.BACKGROUND_TASK,
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        ].includes(resolvedHardwareCallContext);
+
+      if (isDesktopBackgroundCall) {
+        const targetType = await this.getCurrentTransportType();
+        return {
+          shouldSwitch: false,
+          targetType,
+        };
+      }
+
       // Get force transport type from global atom first
       const hardwareForceTransportAtomState =
         await hardwareForceTransportAtom.get();
@@ -408,15 +425,13 @@ export class HardwareConnectionManager {
       // only if context is not background task or sdk initialization, we will detect optimal transport type
       if (
         [
-          EHardwareCallContext.BACKGROUND_TASK,
-          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
           EHardwareCallContext.SDK_INITIALIZATION,
           EHardwareCallContext.SILENT_CALL,
-        ].includes(hardwareCallContext || EHardwareCallContext.USER_INTERACTION)
+        ].includes(resolvedHardwareCallContext)
       ) {
         console.log(
           '❌ Skip transport type detection: ',
-          hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+          resolvedHardwareCallContext,
         );
         const currentSettingType =
           await this.backgroundApi.serviceSetting.getHardwareTransportType();

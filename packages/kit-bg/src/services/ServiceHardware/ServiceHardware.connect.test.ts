@@ -1001,6 +1001,59 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
+  it('桌面后台调用忽略遗留的 BLE force transport', async () => {
+    mutablePlatformEnv.isSupportDesktopBle = true;
+    mockedHardwareForceTransportAtomGet.mockResolvedValue({
+      forceTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    const sdkInstance = { name: 'active-webusb-sdk' };
+    jest
+      .mocked(hardwareInstance.getHardwareSDKInstance)
+      .mockResolvedValue(sdkInstance as never);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.registerSdkEvents = jest.fn();
+    jest
+      .spyOn(service.connectionManager, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(service.connectionManager, 'shouldSwitchTransportType')
+      .mockResolvedValue({
+        shouldSwitch: false,
+        targetType: EHardwareTransportType.WEBUSB,
+      });
+    const setCurrentTransportType = jest
+      .spyOn(service.connectionManager, 'setCurrentTransportType')
+      .mockResolvedValue(undefined);
+    const internals = service as unknown as {
+      activeHardwareTransportType: EHardwareTransportType;
+    };
+    internals.activeHardwareTransportType = EHardwareTransportType.WEBUSB;
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      }),
+    ).resolves.toBe(sdkInstance);
+
+    expect(hardwareInstance.getHardwareSDKInstance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(setCurrentTransportType).toHaveBeenCalledWith(
+      EHardwareTransportType.WEBUSB,
+    );
+    expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {
     const uiResponse = jest.fn();
     const service = new ServiceHardware({

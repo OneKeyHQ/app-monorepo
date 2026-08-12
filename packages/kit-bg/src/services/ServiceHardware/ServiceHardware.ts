@@ -240,6 +240,8 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
+  /** 桌面端仅复用仍连接的 BLE 链路；链路失效时禁止扫描或重连。 */
+  desktopBleReuseConnectedOnly?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -978,12 +980,18 @@ class ServiceHardware extends ServiceBase {
     const currentTransportType =
       await this.connectionManager.getCurrentTransportType();
     const { forceTransportType } = await hardwareForceTransportAtom.get();
-    const normalizedForceTransportType = forceTransportType
-      ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
-          transportType: forceTransportType,
-          connectProtocol: resolvedConnectProtocol,
-        })
-      : undefined;
+    const isDesktopBackgroundCall =
+      platformEnv.isSupportDesktopBle &&
+      (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+        hardwareCallContext ===
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
+    const normalizedForceTransportType =
+      forceTransportType && !isDesktopBackgroundCall
+        ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
+            transportType: forceTransportType,
+            connectProtocol: resolvedConnectProtocol,
+          })
+        : undefined;
     let hardwareTransportType =
       normalizedForceTransportType ??
       options.hardwareTransportType ??
@@ -2681,6 +2689,7 @@ class ServiceHardware extends ServiceBase {
   _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
     const {
       connectId,
+      desktopBleReuseConnectedOnly,
       params,
       silentMode,
       hardwareCallContext,
@@ -2700,10 +2709,13 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
     }
     const normalizedSdkParams =
-      params || knownProtocol
+      params || knownProtocol || desktopBleReuseConnectedOnly
         ? {
             ...sdkParams,
             ...(knownProtocol ? { connectProtocol: knownProtocol } : {}),
+            ...(desktopBleReuseConnectedOnly
+              ? { reuseConnectedOnly: true }
+              : {}),
           }
         : undefined;
     const hardwareSDK = await this.getSDKInstance({
@@ -2741,10 +2753,35 @@ class ServiceHardware extends ServiceBase {
     const hardwareCallContext =
       options.hardwareCallContext ??
       EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const isDesktopBackgroundCall =
+      platformEnv.isSupportDesktopBle &&
+      (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+        hardwareCallContext ===
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
+    const isDesktopBleConnectedOnlyReuse = Boolean(
+      options.desktopBleReuseConnectedOnly &&
+      options.connectId &&
+      options.hardwareTransportType === EHardwareTransportType.DesktopWebBle,
+    );
+    if (
+      isDesktopBackgroundCall &&
+      !isDesktopBleConnectedOnlyReuse &&
+      (options.hardwareTransportType ??
+        (await this.getCurrentTransportType())) ===
+        EHardwareTransportType.DesktopWebBle
+    ) {
+      throw new deviceErrors.DeviceNotFound({
+        payload: {
+          connectId: options.connectId,
+          inBluetoothCommunication: true,
+        },
+      });
+    }
     const compatibleConnectId = options.connectId
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
           hardwareCallContext,
+          hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
     return this._getDeviceStateWithMutex({
@@ -3292,23 +3329,39 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPortfolioPackage({
     connectId,
+    desktopBleReuseConnectedOnly,
+    hardwareTransportType,
     packageBase64,
   }: {
     connectId: string;
+    desktopBleReuseConnectedOnly?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
     packageBase64: string;
   }) {
+    if (
+      desktopBleReuseConnectedOnly &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only reuse requires a pinned BLE transport',
+      );
+    }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
+    const uploadParams = {
+      packageBase64,
+      ...(desktopBleReuseConnectedOnly ? { reuseConnectedOnly: true } : {}),
+    };
     return convertDeviceResponse(() =>
-      hardwareSDK.uploadPortfolio(compatibleConnectId, {
-        packageBase64,
-      }),
+      hardwareSDK.uploadPortfolio(compatibleConnectId, uploadParams),
     );
   }
 
@@ -4194,7 +4247,8 @@ class ServiceHardware extends ServiceBase {
           hardwareCallContext ===
             EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
         ) {
-          const currentTransportType = await this.getCurrentTransportType();
+          const currentTransportType =
+            hardwareTransportType ?? (await this.getCurrentTransportType());
           const preferredBle = await this.resolveTrezorPreferredBleConnectId({
             device,
             bleConnectId: persistedDesktopBleConnectId,
@@ -4241,7 +4295,8 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
       hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
     ) {
-      const currentTransportType = await this.getCurrentTransportType();
+      const currentTransportType =
+        hardwareTransportType ?? (await this.getCurrentTransportType());
       if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
         if (persistedDesktopBleConnectId) {
           return persistedDesktopBleConnectId;

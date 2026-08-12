@@ -23,6 +23,7 @@ import type { IOneKeyDeviceFeaturesWithAppParams } from '@onekeyhq/shared/types/
 
 import localDb from '../../dbs/local/localDb';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
+import { hardwareForceTransportAtom as desktopHardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
@@ -179,6 +180,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     jest.mocked(hardwareForceTransportAtom.get).mockResolvedValue({
       forceTransportType: undefined,
     });
+    jest.mocked(desktopHardwareForceTransportAtom.get).mockResolvedValue({
+      forceTransportType: undefined,
+    });
   });
 
   it.each([
@@ -313,6 +317,149 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       }),
     ).resolves.toBe(dbDevice.connectId);
+  });
+
+  it('keeps an explicitly pinned USB transport and endpoint together in a background call', async () => {
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRO2_USB_ID',
+      usbConnectId: 'PRO2_USB_ID',
+      bleConnectId: 'PRO2_BLE_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      connectProtocol: 'V2',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    ).resolves.toBe(dbDevice.usbConnectId);
+  });
+
+  it('keeps the active USB transport for a desktop background task', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.connectionManager.setCurrentTransportType(
+      EHardwareTransportType.WEBUSB,
+    );
+    jest.mocked(desktopHardwareForceTransportAtom.get).mockResolvedValue({
+      forceTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    const detectUSBDeviceAvailability = jest.spyOn(
+      service.connectionManager,
+      'detectUSBDeviceAvailability',
+    );
+    const detectBluetoothAvailability = jest.spyOn(
+      service.connectionManager,
+      'detectBluetoothAvailability',
+    );
+
+    await expect(
+      service.connectionManager.shouldSwitchTransportType({
+        connectId: 'USB_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      }),
+    ).resolves.toEqual({
+      shouldSwitch: false,
+      targetType: EHardwareTransportType.WEBUSB,
+    });
+    expect(detectUSBDeviceAvailability).not.toHaveBeenCalled();
+    expect(detectBluetoothAvailability).not.toHaveBeenCalled();
+  });
+
+  it('does not enter the SDK when a desktop BLE background call is suspended', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const getDeviceStateWithMutex = jest.spyOn(
+      service as unknown as {
+        _getDeviceStateWithMutex: ServiceHardware['getDeviceState'];
+      },
+      '_getDeviceStateWithMutex',
+    );
+
+    await expect(
+      service.getDeviceState({
+        connectId: 'USB_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      }),
+    ).rejects.toThrow();
+    expect(getDeviceStateWithMutex).not.toHaveBeenCalled();
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+  });
+
+  it('allows only the scoped connected-only desktop BLE background call', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest
+      .spyOn(service, 'getCompatibleConnectId')
+      .mockResolvedValue('PRO2_BLE_ID');
+    const getDeviceStateWithMutex = jest
+      .spyOn(
+        service as unknown as {
+          _getDeviceStateWithMutex: ServiceHardware['getDeviceState'];
+        },
+        '_getDeviceStateWithMutex',
+      )
+      .mockResolvedValue({
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        protocol: 'V2',
+      } as never);
+
+    await expect(
+      service.getDeviceState({
+        connectId: 'PRO2_BLE_ID',
+        desktopBleReuseConnectedOnly: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ protocol: 'V2' }));
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    expect(getDeviceStateWithMutex).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: 'PRO2_BLE_ID',
+        desktopBleReuseConnectedOnly: true,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    );
   });
 
   it('returns the resolved BLE connectId after the firmware preflight', async () => {
@@ -1483,6 +1630,46 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
     expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
       packageBase64,
+    });
+  });
+
+  it('pins desktop BLE portfolio upload to connected-only reuse', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_BLE_ID');
+    const uploadPortfolio = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { portfolioUpdated: true },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = getSDKInstance;
+
+    await expect(
+      service.uploadPortfolioPackage({
+        connectId: 'PRO2_BLE_ID',
+        desktopBleReuseConnectedOnly: true,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        packageBase64: 'AQID',
+      }),
+    ).resolves.toEqual({ portfolioUpdated: true });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
+      packageBase64: 'AQID',
+      reuseConnectedOnly: true,
     });
   });
 

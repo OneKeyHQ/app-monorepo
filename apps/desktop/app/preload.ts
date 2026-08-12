@@ -234,8 +234,16 @@ const desktopApi = {
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
     getDevice: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
-    connect: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+    connect: (uuid: string, options?: { reuseConnectedOnly?: boolean }) =>
+      ipcRenderer.invoke(
+        EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+        uuid,
+        options,
+      ),
+    connectConnectedOnly: (uuid: string) =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid, {
+        reuseConnectedOnly: true,
+      }),
     release: (uuid: string, keepSession?: boolean) =>
       ipcRenderer.invoke(
         EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,

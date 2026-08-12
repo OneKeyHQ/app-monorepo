@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
@@ -44,7 +45,7 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isJest: true, isNative: false },
+  default: { isDesktop: false, isJest: true, isNative: false },
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
@@ -289,20 +290,29 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
 
 describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
   beforeEach(() => {
-    (platformEnv as { isNative: boolean }).isNative = true;
+    Object.assign(platformEnv, { isDesktop: false, isNative: true });
   });
 
   afterEach(() => {
-    (platformEnv as { isNative: boolean }).isNative = false;
+    Object.assign(platformEnv, { isDesktop: false, isNative: false });
   });
 
   function prepareService() {
+    const notifyInteractiveHardwareOperationStarted = jest
+      .fn()
+      .mockResolvedValue(1);
     const notifyInteractiveHardwareOperationSucceeded = jest
       .fn()
       .mockResolvedValue(true);
     const service = new ServiceHardwareUI({
       backgroundApi: {
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
         serviceHardwarePortfolioSync: {
+          notifyInteractiveHardwareOperationStarted,
           notifyInteractiveHardwareOperationSucceeded,
         },
       },
@@ -319,7 +329,11 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
       operation({ owner: Symbol('test') });
     serviceInternals.withHardwareProcessingInternal = async (operation) =>
       operation();
-    return { notifyInteractiveHardwareOperationSucceeded, service };
+    return {
+      notifyInteractiveHardwareOperationStarted,
+      notifyInteractiveHardwareOperationSucceeded,
+      service,
+    };
   }
 
   it('resumes Portfolio only after a successful native user operation', async () => {
@@ -364,6 +378,108 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
         },
       ),
     ).rejects.toThrow('link disabled');
+
+    expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
+  });
+
+  it('arms desktop Portfolio sync only after a successful BLE operation', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    const {
+      notifyInteractiveHardwareOperationStarted,
+      notifyInteractiveHardwareOperationSucceeded,
+      service,
+    } = prepareService();
+
+    await expect(
+      service.withHardwareProcessing(async () => 'address', {
+        deviceParams: {
+          dbDevice: {
+            connectId: 'PRO2_USB_ID',
+            id: 'db-device-1',
+            vendor: EHardwareVendor.onekey,
+          },
+        } as never,
+      }),
+    ).resolves.toBe('address');
+    await Promise.resolve();
+
+    expect(notifyInteractiveHardwareOperationStarted).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB_ID',
+      deviceDbId: 'db-device-1',
+    });
+    expect(notifyInteractiveHardwareOperationSucceeded).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB_ID',
+      deviceDbId: 'db-device-1',
+      interactionGeneration: 1,
+      transportType: EHardwareTransportType.DesktopWebBle,
+    });
+  });
+
+  it('arms desktop Portfolio sync only after the outer leased operation finishes', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    const {
+      notifyInteractiveHardwareOperationStarted,
+      notifyInteractiveHardwareOperationSucceeded,
+      service,
+    } = prepareService();
+    const deviceParams = {
+      dbDevice: {
+        connectId: 'PRO2_BLE_ID',
+        id: 'db-device-1',
+        vendor: EHardwareVendor.onekey,
+      },
+    } as never;
+
+    await service.withHardwareProcessing(
+      async (oneKeyOperationLease) => {
+        await service.withHardwareProcessing(async () => 'inner', {
+          deviceParams,
+          oneKeyOperationLease,
+        });
+        expect(
+          notifyInteractiveHardwareOperationSucceeded,
+        ).not.toHaveBeenCalled();
+        return 'outer';
+      },
+      { deviceParams },
+    );
+    await Promise.resolve();
+
+    expect(notifyInteractiveHardwareOperationStarted).toHaveBeenCalledTimes(1);
+    expect(notifyInteractiveHardwareOperationSucceeded).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(notifyInteractiveHardwareOperationSucceeded).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      deviceDbId: 'db-device-1',
+      interactionGeneration: 1,
+      transportType: EHardwareTransportType.DesktopWebBle,
+    });
+  });
+
+  it('keeps native Portfolio suspended when an outer leased operation fails', async () => {
+    const { notifyInteractiveHardwareOperationSucceeded, service } =
+      prepareService();
+    const deviceParams = {
+      dbDevice: {
+        connectId: 'PRO2_BLE_ID',
+        id: 'db-device-1',
+        vendor: EHardwareVendor.onekey,
+      },
+    } as never;
+
+    await expect(
+      service.withHardwareProcessing(
+        async (oneKeyOperationLease) => {
+          await service.withHardwareProcessing(async () => 'inner', {
+            deviceParams,
+            oneKeyOperationLease,
+          });
+          throw new OneKeyLocalError('outer failed');
+        },
+        { deviceParams },
+      ),
+    ).rejects.toThrow('outer failed');
 
     expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
   });
