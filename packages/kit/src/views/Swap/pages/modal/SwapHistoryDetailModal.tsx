@@ -40,6 +40,7 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -1665,7 +1666,10 @@ const SwapHistoryDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.Limit_order_history_order_id,
                 })}
-                renderContent={providerOrderId}
+                renderContent={accountUtils.shortenAddress({
+                  address: providerOrderId,
+                })}
+                copyContent={providerOrderId}
                 showCopy
                 openWithUrl={() =>
                   onViewInBrowser(
