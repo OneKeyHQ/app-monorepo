@@ -318,12 +318,16 @@ export default function TrezorConnectionFlow() {
         transportLabel === 'BLE'
           ? EConnectDeviceChannel.bluetooth
           : EConnectDeviceChannel.usbOrBle;
-      const correctedTransportType =
-        await getForceTransportType(selectedChannel);
-      if (correctedTransportType) {
-        await backgroundApiProxy.serviceHardware.setForceTransportType({
-          forceTransportType: correctedTransportType,
-        });
+      try {
+        const correctedTransportType =
+          await getForceTransportType(selectedChannel);
+        if (correctedTransportType) {
+          await backgroundApiProxy.serviceHardware.setForceTransportType({
+            forceTransportType: correctedTransportType,
+          });
+        }
+      } catch {
+        // Transport pinning is best-effort; never block device selection.
       }
 
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
