@@ -86,6 +86,12 @@ const BODY_W = 346;
 /** Touchscreen size; scene screen content is laid out on this canvas. */
 export const PRO_SCREEN_W = 288;
 export const PRO_SCREEN_H = 484;
+/**
+ * The screen panel surface (see `screen` below for the derivation) —
+ * also what scene content composites over, so a scene repainting the
+ * bare surface (the passphrase gap grille) uses this exact value.
+ */
+export const PRO_SCREEN_BG = '#0D0D0D';
 
 const styles = StyleSheet.create({
   frame: {
@@ -117,7 +123,7 @@ const styles = StyleSheet.create({
     top: 26,
     width: PRO_SCREEN_W,
     height: PRO_SCREEN_H,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: PRO_SCREEN_BG,
     overflow: 'hidden',
   },
   screenSlot: {

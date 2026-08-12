@@ -144,8 +144,8 @@ export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
  * It lives on the glass, not on the content — a still stays a still and
  * the band passes over it, the way a reflection travels. Confirm plays
  * it across the whole screen on both devices; enterPassphrase plays it
- * over the keyboard (clipped to the Slate's panel box, windowed onto
- * the Pro's key caps). */
+ * over the keyboard (clipped to the Slate's panel box, under the Pro's
+ * gap grille). */
 
 /** Every scene's light holds this long before it starts to move. */
 const LIGHT_START_MS = 300;

@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -133,27 +134,27 @@ const SWEEP_TRAVEL_FACTOR = 0.75;
  * diagonal while the carrier's edges — where a diagonal band tapers
  * toward the rectangle's corners — never enter it mid-crossing.
  *
- * `offsetX`/`offsetY` window the band from inside a clip that sits that
- * far down-right of the region's origin, all windows sharing one band:
- * how the Pro's key caps each catch their slice of a keyboard-wide light.
- * Confirm plays the sweep across the whole screen; enterPassphrase over
- * the keyboard (the Slate clips it to its panel box, the Pro windows it
- * onto the caps).
+ * The gradient is painted at 1x region size and scaled up onto the
+ * carrier: expo-linear-gradient rasterizes its full bounds into a
+ * CPU-drawn bitmap on iOS (a main-thread CGContext draw at screen
+ * scale), so painting the carrier directly costs nine region areas of
+ * raster right at scene mount — main-thread time the entry ramp is
+ * running on. The paint box keeps the carrier's aspect ratio, so the
+ * axis and locations are unchanged, and a smooth ramp magnifies
+ * losslessly. Confirm plays the sweep across the whole screen;
+ * enterPassphrase over the keyboard (the Slate clips it to its panel
+ * box, the Pro paints its gap grille back over it).
  */
 export function GlassSweep({
   clock,
   width,
   height,
   clipStyle,
-  offsetX = 0,
-  offsetY = 0,
 }: {
   clock: SharedValue<number>;
   width: number;
   height: number;
   clipStyle: ViewStyle;
-  offsetX?: number;
-  offsetY?: number;
 }) {
   const animatedStyle = useAnimatedStyle(() => {
     const shift =
@@ -169,25 +170,38 @@ export function GlassSweep({
     () => [
       {
         position: 'absolute' as const,
-        left: -width - offsetX,
-        top: -height - offsetY,
+        left: -width,
+        top: -height,
         width: width * 3,
         height: height * 3,
       },
       animatedStyle,
     ],
-    [animatedStyle, height, offsetX, offsetY, width],
+    [animatedStyle, height, width],
+  );
+  const paintStyle = useMemo(
+    () => ({
+      position: 'absolute' as const,
+      left: width,
+      top: height,
+      width,
+      height,
+      transform: [{ scale: 3 }],
+    }),
+    [height, width],
   );
   return (
     <View pointerEvents="none" style={clipStyle}>
       <Animated.View style={style}>
-        <LinearGradient
-          colors={SWEEP_COLORS}
-          locations={SWEEP_LOCATIONS}
-          start={SWEEP_START}
-          end={SWEEP_END}
-          style={SWEEP_GRADIENT_FILL}
-        />
+        <View style={paintStyle}>
+          <LinearGradient
+            colors={SWEEP_COLORS}
+            locations={SWEEP_LOCATIONS}
+            start={SWEEP_START}
+            end={SWEEP_END}
+            style={SWEEP_GRADIENT_FILL}
+          />
+        </View>
       </Animated.View>
     </View>
   );
@@ -247,12 +261,27 @@ export function useSceneScreen<TScene extends string>(
     if (target === displayed) return undefined;
     if (displayed && scenes[displayed].content && !reducedMotion) {
       cancelAnimation(screenIn);
-      screenIn.value = withTiming(0, {
-        duration: SCREEN_SWAP_OUT_MS,
-        easing: easeInFn,
-      });
-      const id = setTimeout(() => setDisplayed(target), SCREEN_SWAP_OUT_MS);
-      return () => clearTimeout(id);
+      // The swap fires from the fade's own completion, never a parallel
+      // timer. A timer races the UI-thread animation, which starts a
+      // dispatch or two later, so it fires while the ease-in fade still
+      // holds its last 10-30% of opacity — the incoming scene's entry
+      // then ramps up from that leftover floor instead of from black.
+      // The dim keyboard stills hid the floor; confirm's bright blocks
+      // showed it (and the lighter the scene, the sooner the mount cut
+      // the fade short, the higher the floor).
+      screenIn.value = withTiming(
+        0,
+        { duration: SCREEN_SWAP_OUT_MS, easing: easeInFn },
+        (finished) => {
+          'worklet';
+          if (finished) runOnJS(setDisplayed)(target);
+        },
+      );
+      // Covers the fold-back (target returns to `displayed` mid-exit):
+      // kill the flying fade so its callback cannot land a stale swap;
+      // the arm effect below then ramps the entry back up from wherever
+      // the fade stopped.
+      return () => cancelAnimation(screenIn);
     }
     screenIn.value = 0;
     setDisplayed(target);
@@ -284,8 +313,8 @@ export function useSceneScreen<TScene extends string>(
   const tryEnter = useCallback(() => {
     const gate = gateRef.current;
     if (!gate.armed || !gate.laidOut) return;
-    const defersEntry = Boolean(gate.scene && scenes[gate.scene].defersEntry);
-    if (defersEntry && !gate.pixels) return;
+    const spec = gate.scene ? scenes[gate.scene] : undefined;
+    if (spec?.defersEntry && !gate.pixels) return;
     gate.armed = false;
     cancelAnimation(screenIn);
     screenIn.value = withTiming(1, {
