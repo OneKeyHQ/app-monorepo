@@ -49,6 +49,7 @@ import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
 import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { PerpTestIDs } from '../testIDs';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -294,6 +295,9 @@ function MobilePerpMarket() {
     isSplitDetailActive && platformEnv.isNativeAndroid
       ? windowHeight
       : undefined;
+  // Android split view allows pair selection from either pane.
+  const isTokenSelectorEnabled =
+    !isSplitDetailActive || platformEnv.isNativeAndroid;
 
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewInteractionOverlayOpen(isOpen);
@@ -317,22 +321,29 @@ function MobilePerpMarket() {
     // container on iOS 26.
     return (
       <XStack
+        testID={PerpTestIDs.TokenSelectorMobile}
         alignItems="center"
         gap="$2"
-        onPress={isSplitDetailActive ? undefined : onPressTokenSelector}
-        hoverStyle={isSplitDetailActive ? undefined : { opacity: 0.8 }}
-        pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
+        onPress={isTokenSelectorEnabled ? onPressTokenSelector : undefined}
+        hoverStyle={isTokenSelectorEnabled ? { opacity: 0.8 } : undefined}
+        pressStyle={isTokenSelectorEnabled ? { opacity: 0.6 } : undefined}
         cursor="default"
       >
         <SizableText size="$headingMd">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
         <PerpDexBadge dexLabel={dexLabel} />
-        {isSplitDetailActive ? null : (
+        {isTokenSelectorEnabled ? (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
-        )}
+        ) : null}
       </XStack>
     );
-  }, [dexLabel, displayName, isSplitDetailActive, mode, onPressTokenSelector]);
+  }, [
+    dexLabel,
+    displayName,
+    isTokenSelectorEnabled,
+    mode,
+    onPressTokenSelector,
+  ]);
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
