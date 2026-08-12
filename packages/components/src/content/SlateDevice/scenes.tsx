@@ -1,28 +1,26 @@
-import type { ComponentType, ReactNode } from 'react';
-import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { Image, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
 import { SizableText } from '../../primitives';
-import { trackAt } from '../deviceScene';
-import { LinearGradient } from '../LinearGradient';
+import { CONFIRM_LOOP, PIN_SHEEN_TRACKS } from '../deviceScene';
+import { GlassSweep, SHEEN_COLOR, TrackedLayer } from '../deviceSceneHost';
 
 import {
-  CONFIRM_LOOP,
-  GLASS_SWEEP_TRACK,
   PASSPHRASE_DOT_SHIFT_TRACKS,
   PASSPHRASE_DOT_TRACKS,
   PASSPHRASE_LOOP,
   PIN_DOT_SHIFT_TRACKS,
   PIN_DOT_TRACKS,
   PIN_LOOP,
-  PIN_SHEEN_TRACKS,
 } from './animation';
 import { SLATE_SCREEN_H, SLATE_SCREEN_W } from './shell';
 
-import type { IKeyframe } from '../deviceScene';
+import type {
+  IDeviceSceneContentProps,
+  IDeviceSceneSpec,
+} from '../deviceSceneHost';
 import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -40,39 +38,14 @@ import type { SharedValue } from 'react-native-reanimated';
  *
  * A scene is nothing but screen content plus the SCENES registry entry
  * declaring how SlateDevice runs it; entrances, exits and the clock are
- * the device's shared machinery, so no scene carries transition code.
+ * the shared presence machinery (../deviceSceneHost), so no scene carries
+ * transition code.
  */
 export type ISlateDeviceScene =
   | 'connecting'
   | 'enterPin'
   | 'enterPassphrase'
   | 'confirm';
-
-/** What a scene's content component receives. */
-export interface ISlateSceneContentProps {
-  /** Scene clock for looping choreography, held at 0 through the entry. */
-  clock: SharedValue<number>;
-  /** Report the pixels on the glass; only `defersEntry` scenes need to. */
-  onReady: () => void;
-}
-
-interface ISlateSceneSpec {
-  /**
-   * Screen content on the 288x484 canvas, or null for a scene the
-   * physical device spends with a dark screen: the glass just stays
-   * dark, and a swap treats the scene as having nothing to fade.
-   */
-  content: ComponentType<ISlateSceneContentProps> | null;
-  /**
-   * The content's pixels land later than its layout (an image is decoded
-   * asynchronously, well after the layout event), so the entrance must
-   * additionally wait for the content's own `onReady` — otherwise the
-   * ramp plays over an empty view and the picture lands already bright.
-   */
-  defersEntry?: true;
-  /** Looping choreography, evaluated on the scene clock after the entry. */
-  loop?: { loopMs: number; restMs: number };
-}
 
 /* --------------------------- palette --------------------------- *
  * The screens' design tokens over the shell's own black: labels/primary
@@ -88,8 +61,6 @@ const PANEL_BG = '#2C2C2E';
 const PANEL_BORDER = 'rgba(60,60,67,0.29)';
 const FILL_STRONG = 'rgba(255,255,255,0.7)';
 const FILL_FAINT = 'rgba(255,255,255,0.2)';
-/** The traveling light's peak brightness, shared by every sheen layer. */
-const SHEEN_COLOR = 'rgba(255,255,255,0.22)';
 
 const CENTER: ViewStyle = { alignItems: 'center', justifyContent: 'center' };
 
@@ -302,40 +273,6 @@ function PinDigitGlyph({ digit }: { digit: string }) {
 
 const PIN_TITLE = screenTitle('Enter PIN');
 
-/**
- * A layer following keyframe tracks of the scene clock: opacity always,
- * and with `shiftTrack` a horizontal slide too. Every animated part of
- * the entry screens — a key's slice of the traveling sheen, an entered
- * mark riding its cluster — is exactly that.
- */
-function TrackedLayer({
-  clock,
-  track,
-  shiftTrack,
-  baseStyle,
-}: {
-  clock: SharedValue<number>;
-  track: IKeyframe[];
-  shiftTrack?: IKeyframe[];
-  baseStyle: ViewStyle;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const opacity = trackAt(clock.value, track);
-    if (!shiftTrack) {
-      return { opacity };
-    }
-    return {
-      opacity,
-      transform: [{ translateX: trackAt(clock.value, shiftTrack) }],
-    };
-  }, [clock, track, shiftTrack]);
-  const style = useMemo(
-    () => [baseStyle, animatedStyle],
-    [animatedStyle, baseStyle],
-  );
-  return <Animated.View pointerEvents="none" style={style} />;
-}
-
 function PinScreen({ clock }: { clock: SharedValue<number> }) {
   return (
     <View style={sceneStyles.screen}>
@@ -416,82 +353,6 @@ const CONFIRM_SKELETON = (
     <View style={confirmStyles.confirmPill} />
   </>
 );
-
-// The gradient wrapper runs style through Tamagui's usePropsAndStyle, which
-// expects a plain object (same note as the Classic shell).
-const SWEEP_GRADIENT_FILL = { flex: 1 };
-// Gradient axis pinned corner to corner; white-transparent ends so nothing
-// darkens through the fade. The center tenth of the 3x carrier is the same
-// ~30% of the glass diagonal the band always spanned.
-const SWEEP_START = { x: 0, y: 0 } as const;
-const SWEEP_END = { x: 1, y: 1 } as const;
-const SWEEP_COLORS = [
-  'rgba(255,255,255,0)',
-  SHEEN_COLOR,
-  'rgba(255,255,255,0)',
-];
-const SWEEP_LOCATIONS = [0.45, 0.5, 0.55] as const;
-/** Carrier shift each way, in screen sizes: parks the band past a corner. */
-const SWEEP_TRAVEL_FACTOR = 0.75;
-
-/**
- * The traveling glass light over a `width` x `height` region, inside
- * `clipStyle` (the region's own box, overflow hidden): a region-sized
- * band translated along the diagonal. The band's carrier is the region
- * scaled 3x and centered, so the gradient axis stays parallel to the
- * region's diagonal while the carrier's edges — where a diagonal band
- * tapers toward the rectangle's corners — never enter it mid-crossing.
- * Confirm plays it across the whole screen; enterPassphrase inside the
- * keyboard panel.
- */
-function GlassSweep({
-  clock,
-  width,
-  height,
-  clipStyle,
-}: {
-  clock: SharedValue<number>;
-  width: number;
-  height: number;
-  clipStyle: ViewStyle;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const shift =
-      (trackAt(clock.value, GLASS_SWEEP_TRACK) * 2 - 1) * SWEEP_TRAVEL_FACTOR;
-    return {
-      transform: [
-        { translateX: shift * width },
-        { translateY: shift * height },
-      ],
-    };
-  }, [clock, height, width]);
-  const style = useMemo(
-    () => [
-      {
-        position: 'absolute' as const,
-        left: -width,
-        top: -height,
-        width: width * 3,
-        height: height * 3,
-      },
-      animatedStyle,
-    ],
-    [animatedStyle, height, width],
-  );
-  return (
-    <View pointerEvents="none" style={clipStyle}>
-      <Animated.View style={style}>
-        <LinearGradient
-          colors={SWEEP_COLORS}
-          locations={SWEEP_LOCATIONS}
-          start={SWEEP_START}
-          end={SWEEP_END}
-          style={SWEEP_GRADIENT_FILL}
-        />
-      </Animated.View>
-    </View>
-  );
-}
 
 function ConfirmScreen({ clock }: { clock: SharedValue<number> }) {
   return (
@@ -738,7 +599,7 @@ function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
 
 /* --------------------------- registry --------------------------- */
 
-function ConnectingContent({ onReady }: ISlateSceneContentProps) {
+function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
   return (
     <Image
       source={WALLPAPER_SOURCE}
@@ -754,7 +615,7 @@ function ConnectingContent({ onReady }: ISlateSceneContentProps) {
  * Adding a scene is adding one entry; nothing else consults a scene by
  * name.
  */
-export const SCENES: Record<ISlateDeviceScene, ISlateSceneSpec> = {
+export const SCENES: Record<ISlateDeviceScene, IDeviceSceneSpec> = {
   connecting: { content: ConnectingContent, defersEntry: true },
   enterPin: { content: PinScreen, loop: PIN_LOOP },
   enterPassphrase: { content: PassphraseScreen, loop: PASSPHRASE_LOOP },

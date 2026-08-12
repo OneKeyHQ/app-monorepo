@@ -1,3 +1,5 @@
+import { useSceneScreen } from '../deviceSceneHost';
+
 import { SCENES } from './scenes';
 import { ProDeviceShell } from './shell';
 
@@ -13,16 +15,20 @@ export type { IProDeviceAnimation } from './animation';
  * what call sites use; this layer is where the Pro's own scenes and screen
  * live.
  *
- *   <ProDevice animation="confirm" />          built-in scene loop
- *   <ProDevice animation="enterPin" />
- *   <ProDevice animation="enterPassphrase" />
+ *   <ProDevice animation="connecting" />       the idle wallpaper
+ *   <ProDevice animation="enterPin" />         the keypad loop
+ *   <ProDevice animation="enterPassphrase" />  the qwerty keyboard loop
+ *   <ProDevice animation="confirm" />          the light sweep
  *   <ProDevice />                              static shell, screen dark
  *
- * `animation` also accepts a custom IProDeviceAnimation contract (see
- * ./animation.ts) paired with your own `screenContent` - the way live content
- * would go on the 288x484 touchscreen, which is the whole point of drawing
- * the device in code rather than shipping a Lottie. Switching scene names
- * remounts, so the loop restarts from the top.
+ * Scenes run on the shared presence machinery (../deviceSceneHost), the
+ * same way the Slate's do: content renders in as the whole of an entry,
+ * stays lit while the scene is on, and a scene change plays the lit-to-lit
+ * handover (callers sequence anything else after SCREEN_SWAP_MS, see
+ * ../deviceScene). The shell chrome mounts once here; a scene change only
+ * swaps the screen slot's content. `animation` also accepts a custom
+ * IProDeviceAnimation contract (see ./animation.ts) paired with your own
+ * `screenContent` on the 288x484 touchscreen canvas.
  */
 export interface IProDeviceProps extends Omit<
   IProDeviceShellProps,
@@ -40,15 +46,28 @@ export function ProDevice({
   animation,
   screenContent,
 }: IProDeviceProps) {
-  if (typeof animation === 'string') {
-    const Scene = SCENES[animation];
-    return <Scene width={width} />;
+  const target = typeof animation === 'string' ? animation : undefined;
+  const {
+    displayed,
+    slot,
+    animation: sceneAnimation,
+  } = useSceneScreen(target, SCENES);
+  if (displayed) {
+    return (
+      <ProDeviceShell
+        width={width}
+        animation={sceneAnimation}
+        screenContent={slot}
+      />
+    );
   }
+  // Anything else counts as dark: the bare shell is dark, and whether a
+  // custom contract lights the glass is its caller's business.
   return (
     <ProDeviceShell
       width={width}
-      animation={animation}
-      screenContent={screenContent}
+      animation={typeof animation === 'string' ? undefined : animation}
+      screenContent={typeof animation === 'string' ? undefined : screenContent}
     />
   );
 }

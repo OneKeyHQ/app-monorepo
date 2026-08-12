@@ -1,9 +1,7 @@
 import { ClassicDevice } from '../ClassicDevice';
+import { SCREEN_SWAP_MS } from '../deviceScene';
 import { ProDevice } from '../ProDevice';
-import {
-  SCREEN_SWAP_MS as SLATE_SCREEN_SWAP_MS,
-  SlateDevice,
-} from '../SlateDevice';
+import { SlateDevice } from '../SlateDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IProDeviceScene } from '../ProDevice';
@@ -76,17 +74,18 @@ export interface IHardwareDeviceProps {
 /**
  * How long this model takes to hand its screen from one scene to the next,
  * so a caller sequencing its own moves after the replica's can queue behind
- * it. Only the Slate plays a handover (its content fades off the glass
- * before the next scene renders in); the others cut straight over.
+ * it. The presence-model replicas (Pro, Slate) play a handover — content
+ * fades off the glass before the next scene renders in — while the Classic
+ * cuts straight over.
  *
  * Part of the routing contract on purpose: reading it off a per-model
- * module would both go around this entry point and, since only one model
- * has a handover, make every other model wait for a beat it never plays.
+ * module would both go around this entry point and, since not every model
+ * has a handover, make the Classic wait for a beat it never plays.
  */
 export function hardwareDeviceSwapMs(
   deviceType?: IHardwareDeviceType | null,
 ): number {
-  return deviceType === 'slate' ? SLATE_SCREEN_SWAP_MS : 0;
+  return deviceType === 'pro' || deviceType === 'slate' ? SCREEN_SWAP_MS : 0;
 }
 
 export function HardwareDevice({
