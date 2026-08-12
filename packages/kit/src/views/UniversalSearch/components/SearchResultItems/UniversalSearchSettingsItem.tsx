@@ -10,16 +10,21 @@ import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IUniversalSearchSettings } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchSettings,
+} from '@onekeyhq/shared/types/search';
 
 interface IUniversalSearchSettingsItemProps {
   item: IUniversalSearchSettings;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchSettingsItem({
   item,
   getSearchInput,
+  source,
 }: IUniversalSearchSettingsItemProps) {
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
@@ -27,6 +32,7 @@ export function UniversalSearchSettingsItem({
     item.payload;
   const handlePress = useCallback(async () => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: settingRoute ?? sectionName ?? title,
@@ -74,6 +80,7 @@ export function UniversalSearchSettingsItem({
     title,
     item.type,
     getSearchInput,
+    source,
   ]);
 
   return (
