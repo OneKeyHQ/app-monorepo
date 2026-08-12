@@ -226,10 +226,10 @@ export function AutoLockListItem({
 
   const isDisabled = disabled || stateful.loading;
   const handleOpen = useCallback(() => {
-    if (!isDisabled) {
+    if (!isDisabled && !isOpen) {
       setIsOpen(true);
     }
-  }, [isDisabled]);
+  }, [isDisabled, isOpen]);
 
   return (
     <ListItem
@@ -323,10 +323,10 @@ export function AutoShutDownListItem({
 
   const isDisabled = disabled || stateful.loading;
   const handleOpen = useCallback(() => {
-    if (!isDisabled) {
+    if (!isDisabled && !isOpen) {
       setIsOpen(true);
     }
-  }, [isDisabled]);
+  }, [isDisabled, isOpen]);
 
   return (
     <ListItem
