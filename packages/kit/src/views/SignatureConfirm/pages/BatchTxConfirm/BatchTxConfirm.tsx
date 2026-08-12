@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
+  Checkbox,
   Dialog,
   Icon,
   Page,
@@ -28,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalSignatureConfirmRoutes,
   type IModalSignatureConfirmParamList,
@@ -51,6 +54,8 @@ import {
   shouldHideDAppSiteRiskStyle,
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import { SecurityCheckCard } from '../../components/SecurityCheckCard';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import {
   BatchSigningProgress,
@@ -75,16 +80,27 @@ function BatchTxConfirm() {
     >();
   const { batchId, accountId, networkId, sourceInfo } = route.params;
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
 
-  const { urlSecurityInfo } = useRiskDetection({
+  const {
+    urlSecurityInfo,
+    showContinueOperate,
+    continueOperate,
+    setContinueOperate,
+  } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
   });
   const isBlockingRisk = urlSecurityInfo?.level === EHostSecurityLevel.High;
+  // Mirrors TxConfirm's `showTakeRiskAlert && !continueOperate` gate: a
+  // flagged (High/Medium) origin keeps every signing exit disabled until the
+  // user explicitly ticks "Proceed at my own risk". High-risk origins stay
+  // hard-blocked via isBlockingRisk even after ticking.
+  const isRiskUnacknowledged = showContinueOperate && !continueOperate;
 
   const [settings] = useSettingsPersistAtom();
   const [atomProgress] = useBatchTxSignAtom();
@@ -525,6 +541,23 @@ function BatchTxConfirm() {
   );
   usePreventRemove(isSigningNow, handlePreventRemove);
 
+  // Shared by the overview and progress/complete footers so a flagged origin
+  // requires the same explicit acknowledgement on every exit — including a
+  // page remounted directly into the Complete stage, where continueOperate
+  // state starts over.
+  const riskAcknowledgement = showContinueOperate ? (
+    <Stack pb="$5">
+      <Checkbox
+        testID={SignatureConfirmTestIDs.BatchTxConfirmRiskCheckbox}
+        label={intl.formatMessage({
+          id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+        })}
+        value={continueOperate}
+        onChange={(checked) => setContinueOperate(checked === true)}
+      />
+    </Stack>
+  ) : null;
+
   if (loadError) {
     return (
       <Page onClose={handlePageClose}>
@@ -579,11 +612,16 @@ function BatchTxConfirm() {
           <Page.FooterActions
             onConfirmText={isComplete ? 'Done' : 'Waiting for signature…'}
             confirmButtonProps={{
-              // isBlockingRisk gates EVERY path that hands signatures back
-              // to the dapp — Sign all, per-row drill-down and this Done —
-              // so a high-risk (phishing) origin cannot be worked around by
-              // signing items one at a time.
-              disabled: !isComplete || isDoneLoading || isBlockingRisk,
+              // isBlockingRisk / isRiskUnacknowledged gate EVERY path that
+              // hands signatures back to the dapp — Sign all, per-row
+              // drill-down and this Done — so a flagged origin cannot be
+              // worked around by signing items one at a time or by reaching
+              // the Complete stage without accepting the risk.
+              disabled:
+                !isComplete ||
+                isDoneLoading ||
+                isBlockingRisk ||
+                isRiskUnacknowledged,
               loading: isDoneLoading,
             }}
             onConfirm={(_close, closePageStack) => {
@@ -591,7 +629,9 @@ function BatchTxConfirm() {
                 void handleDone(closePageStack);
               }
             }}
-          />
+          >
+            {riskAcknowledgement}
+          </Page.FooterActions>
         </Page.Footer>
       </Page>
     );
@@ -607,6 +647,18 @@ function BatchTxConfirm() {
               origin={sourceInfo.origin}
               urlSecurityInfo={urlSecurityInfo}
               hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
+            />
+          ) : null}
+
+          {/* hideRiskStyle above is only safe because this card carries the
+              origin's risk finding (critical for High, warning for Medium) —
+              the same split TxConfirm uses. */}
+          {sourceInfo?.origin ? (
+            <SecurityCheckCard
+              kind="transaction"
+              requestKey={batchId}
+              origin={sourceInfo.origin}
+              urlSecurityInfo={urlSecurityInfo}
             />
           ) : null}
 
@@ -648,13 +700,16 @@ function BatchTxConfirm() {
                 fiatText={formatFiat(item.amountValue)}
                 signed={item.status === EBatchTxSignItemStatus.Signed}
                 failed={item.status === EBatchTxSignItemStatus.Failed}
-                // isBlockingRisk: the drill-down TxConfirm intentionally gets
-                // no sourceInfo (so it can never resolve the dapp request),
-                // which also means it can't show this origin's risk warning —
-                // so per-item signing must be blocked here, alongside the
-                // Sign all and Done buttons, or a high-risk site could have
-                // every item signed one at a time with no warning shown.
-                disabled={isSigningNow || isBlockingRisk}
+                // isBlockingRisk / isRiskUnacknowledged: the drill-down
+                // TxConfirm intentionally gets no sourceInfo (so it can never
+                // resolve the dapp request), which also means it can't show
+                // this origin's risk warning — so per-item signing must be
+                // gated here, alongside the Sign all and Done buttons, or a
+                // flagged site could have every item signed one at a time
+                // with no warning shown and no risk accepted.
+                disabled={
+                  isSigningNow || isBlockingRisk || isRiskUnacknowledged
+                }
                 onPress={() => void handleRowPress(item)}
               />
             ))}
@@ -671,7 +726,14 @@ function BatchTxConfirm() {
           }
           confirmButtonProps={{
             loading: isSigningNow,
-            disabled: isSigningNow || isBlockingRisk || remainingCount === 0,
+            // Destructive styling mirrors TxConfirmActions' showTakeRiskAlert
+            // treatment for flagged origins.
+            variant: showContinueOperate ? 'destructive' : 'primary',
+            disabled:
+              isSigningNow ||
+              isBlockingRisk ||
+              isRiskUnacknowledged ||
+              remainingCount === 0,
           }}
           onConfirm={showSigningNotice}
           onCancelText={hasSignedAny ? 'Cancel request' : 'Reject all'}
@@ -683,7 +745,9 @@ function BatchTxConfirm() {
               handleRejectAll(closePageStack);
             }
           }}
-        />
+        >
+          {riskAcknowledgement}
+        </Page.FooterActions>
       </Page.Footer>
     </Page>
   );
