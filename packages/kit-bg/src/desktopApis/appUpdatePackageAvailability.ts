@@ -51,8 +51,7 @@ export function getDownloadedFileAvailability(
       options.preparedDownloadedFile !== downloadedFile
     ) {
       return {
-        status: EAppUpdatePackageAvailabilityStatus.unavailable,
-        errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+        status: EAppUpdatePackageAvailabilityStatus.notPrepared,
       };
     }
     return { status: EAppUpdatePackageAvailabilityStatus.available };

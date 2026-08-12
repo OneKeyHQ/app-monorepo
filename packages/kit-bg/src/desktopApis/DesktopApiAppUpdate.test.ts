@@ -2,10 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import {
-  EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 const mockUpdaterHandlers = new Map<string, (...args: unknown[]) => void>();
 const mockDownloadUpdate = jest.fn<Promise<string[]>, [unknown]>();
@@ -15,6 +12,7 @@ const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
 };
+const mockOpenPath = jest.fn();
 const mockAutoUpdater = {
   app: { baseCachePath: '' },
   autoDownload: false,
@@ -49,6 +47,7 @@ jest.mock('electron', () => ({
   },
   autoUpdater: { once: jest.fn() },
   dialog: { showMessageBox: jest.fn() },
+  shell: { openPath: mockOpenPath },
 }));
 
 jest.mock('electron-is-dev', () => ({ __esModule: true, default: false }));
@@ -91,6 +90,7 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 
 let DesktopApiAppUpdate: typeof import('./DesktopApiAppUpdate').default;
 let originalPlatformDescriptor: PropertyDescriptor | undefined;
+let originalSkipGPGVerification: string | undefined;
 let tempDir: string;
 
 const mainWindow = {
@@ -132,6 +132,7 @@ beforeEach(() => {
   mockDownloadUpdate.mockReset();
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-update-'));
   mockAutoUpdater.app.baseCachePath = tempDir;
+  originalSkipGPGVerification = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
   (
     globalThis as unknown as {
       $desktopMainAppFunctions: {
@@ -147,6 +148,12 @@ afterEach(() => {
   jest.runOnlyPendingTimers();
   jest.useRealTimers();
   jest.restoreAllMocks();
+  if (originalSkipGPGVerification === undefined) {
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  } else {
+    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION =
+      originalSkipGPGVerification;
+  }
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -168,14 +175,14 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     });
 
     expect(availability).toEqual({
-      status: EAppUpdatePackageAvailabilityStatus.unavailable,
-      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
     });
 
     await api.downloadUpdate();
 
     expect(removeSpy).not.toHaveBeenCalled();
     expect(api.downloadedEvent?.downloadedFile).toBe(downloadedFile);
+    expect(api.downloadedEvent?.isUpdaterRehydrated).toBe(true);
     expect(mockLogger.info).toHaveBeenCalledWith(
       'auto-updater',
       expect.arrayContaining(['Mac updater cache rehydrate prepared:']),
@@ -259,5 +266,23 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     await api.downloadUpdate();
 
     expect(removeSpy).not.toHaveBeenCalled();
+  });
+
+  test('manual install can open a valid package without MacUpdater preparation', async () => {
+    const downloadedFile = createCachedPackage();
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+    mockOpenPath.mockResolvedValueOnce('');
+
+    await expect(
+      api.manualInstallPackage({
+        buildNumber: '1',
+        downloadedFile,
+        downloadUrl: 'https://example.com/app.zip',
+        skipGPGVerification: true,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(downloadedFile));
   });
 });

@@ -337,6 +337,7 @@ class DesktopApiAppUpdate {
         this.downloadedEvent = {
           downloadedFile,
           downloadUrl,
+          isUpdaterRehydrated: Boolean(rehydrateAttempt),
         };
 
         if (rehydrateAttempt) {
@@ -363,6 +364,7 @@ class DesktopApiAppUpdate {
             version,
             downloadedFile,
             downloadUrl,
+            isUpdaterRehydrated: Boolean(rehydrateAttempt),
           },
         );
         setTimeout(() => {
@@ -396,9 +398,7 @@ class DesktopApiAppUpdate {
     });
     if (isMac && downloadedFile) {
       if (
-        availability.status ===
-          EAppUpdatePackageAvailabilityStatus.unavailable &&
-        availability.errorCode === EAppUpdatePackageErrorCode.packageNotPrepared
+        availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared
       ) {
         if (
           this.macUpdaterRehydrateCandidate?.downloadedFile !== downloadedFile
@@ -421,9 +421,12 @@ class DesktopApiAppUpdate {
 
   private async assertDownloadedFileAvailable(
     downloadedFile?: string,
+    options?: { requireCurrentProcessPreparation?: boolean },
   ): Promise<string> {
     const availability =
-      await this.getDownloadedFileAvailability(downloadedFile);
+      options?.requireCurrentProcessPreparation === false
+        ? resolveDownloadedFileAvailability(downloadedFile)
+        : await this.getDownloadedFileAvailability(downloadedFile);
     if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
       throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
     }
@@ -435,6 +438,11 @@ class DesktopApiAppUpdate {
           availability.errorCode || 'IO_ERROR'
         }`,
       );
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared
+    ) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
     }
     if (!downloadedFile) {
       throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
@@ -713,14 +721,19 @@ class DesktopApiAppUpdate {
     return !!sha256;
   }
 
-  async verifyFile(verifyParams: IInstallUpdateParams): Promise<boolean> {
+  async verifyFile(
+    verifyParams: IInstallUpdateParams,
+    options?: { requireCurrentProcessPreparation?: boolean },
+  ): Promise<boolean> {
     const { downloadedFile, downloadUrl } = verifyParams;
     if (!downloadUrl) {
       logger.info('auto-updater', 'no such file');
       return false;
     }
-    const verifiedDownloadedFile =
-      await this.assertDownloadedFileAvailable(downloadedFile);
+    const verifiedDownloadedFile = await this.assertDownloadedFileAvailable(
+      downloadedFile,
+      options,
+    );
     if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
       logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
       return true;
@@ -886,13 +899,17 @@ class DesktopApiAppUpdate {
       verifyParams.buildNumber,
       verifyParams,
     );
-    const verified = await this.verifyFile(verifyParams);
+    const verified = await this.verifyFile(verifyParams, {
+      requireCurrentProcessPreparation: false,
+    });
     if (!verified) {
       throw new OneKeyLocalError(
         ElectronTranslations.update_installation_not_safe_alert_text,
       );
     }
-    await this.assertDownloadedFileAvailable(verifyParams.downloadedFile);
+    await this.assertDownloadedFileAvailable(verifyParams.downloadedFile, {
+      requireCurrentProcessPreparation: false,
+    });
     logger.info(
       'auto-updater',
       'Manual installation request',

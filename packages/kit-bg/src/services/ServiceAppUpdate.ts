@@ -436,7 +436,8 @@ class ServiceAppUpdate extends ServiceBase {
     }
     if (
       availability.status !== EAppUpdatePackageAvailabilityStatus.missing &&
-      availability.status !== EAppUpdatePackageAvailabilityStatus.unavailable
+      availability.status !== EAppUpdatePackageAvailabilityStatus.unavailable &&
+      availability.status !== EAppUpdatePackageAvailabilityStatus.notPrepared
     ) {
       return snapshot;
     }

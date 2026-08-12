@@ -129,6 +129,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     isNative: false,
     isNativeAndroid: false,
     isDesktop: false,
+    isDesktopMac: false,
     isExtension: false,
     isE2E: false,
     buildNumber: 1,
@@ -377,6 +378,7 @@ function resetAllMocks() {
   mockPlatformEnv.isExtensionUiStandaloneWindow = false;
   mockPlatformEnv.isExtensionUiSidePanel = false;
   mockPlatformEnv.isDesktop = false;
+  mockPlatformEnv.isDesktopMac = false;
   sidePanelUiState.hasReceivedPushedModal = false;
   dappSvc.hasPendingDappRequest.mockResolvedValue(false);
 
@@ -1039,6 +1041,12 @@ describe('extractUpdateErrorCode', () => {
     ).toBe('APP_PACKAGE_UNAVAILABLE');
     expect(extractUpdateErrorCode(new Error('EBUSY: file is locked'))).toBe(
       'APP_PACKAGE_UNAVAILABLE',
+    );
+  });
+
+  test('keeps updater preparation failures distinct from unreadable packages', () => {
+    expect(extractUpdateErrorCode(new Error('APP_PACKAGE_NOT_PREPARED'))).toBe(
+      'APP_PACKAGE_NOT_PREPARED',
     );
   });
 
@@ -2809,6 +2817,33 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(mockDialogShow).not.toHaveBeenCalled();
       expect(nav.pushModal).not.toHaveBeenCalled();
       expect(nav.pushFullModal).not.toHaveBeenCalled();
+      expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
+    });
+
+    test('rehydrated macOS silent package installs in the prepared process', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.silent,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          isUpdaterRehydrated: true,
+        },
+      });
+      mockPlatformEnv.isDesktop = true;
+      mockPlatformEnv.isDesktopMac = true;
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
     });
 
     test('ready + manual strategy → shows regular update dialog', async () => {

@@ -1,5 +1,8 @@
 import { AppUpdate } from './index.desktop';
-import { EAppUpdatePackageErrorCode } from './type';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+} from './type';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -111,8 +114,7 @@ describe('desktop app update adapter', () => {
 
   test('does not start installation for a macOS package not prepared in the current process', async () => {
     getDownloadedFileAvailability.mockResolvedValueOnce({
-      status: 'unavailable',
-      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
     });
 
     await expect(
@@ -122,9 +124,7 @@ describe('desktop app update adapter', () => {
           downloadUrl: 'https://example.com/app.zip',
         },
       } as any),
-    ).rejects.toThrow(
-      `${EAppUpdatePackageErrorCode.packageUnavailable}:${EAppUpdatePackageErrorCode.packageNotPrepared}`,
-    );
+    ).rejects.toThrow(EAppUpdatePackageErrorCode.packageNotPrepared);
     expect(installPackage).not.toHaveBeenCalled();
   });
 });

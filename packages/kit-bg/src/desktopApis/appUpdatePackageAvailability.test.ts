@@ -2,10 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import {
-  EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
 
@@ -50,8 +47,7 @@ describe('getDownloadedFileAvailability', () => {
         requireCurrentProcessPreparation: true,
       }),
     ).toEqual({
-      status: EAppUpdatePackageAvailabilityStatus.unavailable,
-      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
     });
     expect(
       getDownloadedFileAvailability(packagePath, {
@@ -73,8 +69,7 @@ describe('getDownloadedFileAvailability', () => {
         preparedDownloadedFile: path.join(tempDir, 'other.zip'),
       }),
     ).toEqual({
-      status: EAppUpdatePackageAvailabilityStatus.unavailable,
-      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
     });
   });
 

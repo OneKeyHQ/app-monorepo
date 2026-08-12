@@ -13,6 +13,8 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
+  /** Desktop macOS only: MacUpdater was prepared from its persisted cache. */
+  isUpdaterRehydrated?: boolean;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
   skipGPGVerification?: boolean;
 }
@@ -33,6 +35,7 @@ export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
 export enum EAppUpdatePackageAvailabilityStatus {
   available = 'available',
   missing = 'missing',
+  notPrepared = 'notPrepared',
   unavailable = 'unavailable',
   notApplicable = 'notApplicable',
 }
@@ -49,6 +52,9 @@ export type IAppUpdatePackageAvailability =
     }
   | {
       status: EAppUpdatePackageAvailabilityStatus.missing;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared;
     }
   | {
       status: EAppUpdatePackageAvailabilityStatus.unavailable;

@@ -58,7 +58,8 @@ const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 function isAppShellPackageInvalidError(errorCode?: string) {
   return (
     errorCode === EAppUpdatePackageErrorCode.packageMissing ||
-    errorCode === EAppUpdatePackageErrorCode.packageUnavailable
+    errorCode === EAppUpdatePackageErrorCode.packageUnavailable ||
+    errorCode === EAppUpdatePackageErrorCode.packageNotPrepared
   );
 }
 

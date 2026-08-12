@@ -20,7 +20,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -491,8 +491,7 @@ describe('ServiceAppUpdate state transitions', () => {
         AppUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
       AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
-        status: 'unavailable',
-        errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+        status: EAppUpdatePackageAvailabilityStatus.notPrepared,
       });
       resetAtom({
         latestVersion: '2.0.0',

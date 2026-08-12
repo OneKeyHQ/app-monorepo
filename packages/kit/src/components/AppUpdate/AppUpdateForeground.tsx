@@ -433,8 +433,15 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           // already queued a pending install task (silent is allowed past the
           // strategy gate), applied on the next restart; the update button
           // offers an immediate restart-install. Keep the guard set so the
-          // (now no-op) silent-ready watcher below stays consistent.
+          // silent-ready watcher below cannot process the same state twice.
+          const shouldProcessRehydratedPackage =
+            !silentReadyDialogShown &&
+            platformEnv.isDesktopMac &&
+            info.downloadedEvent?.isUpdaterRehydrated;
           silentReadyDialogShown = true;
+          if (shouldProcessRehydratedPackage) {
+            void backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
+          }
           // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
@@ -487,8 +494,15 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
     silentReadyDialogShown = true;
-    // OK-55397: silent-ready dialog removed — apply-on-restart is handled by
-    // the pending install task queued in readyToInstall. Nothing to show here.
+    if (
+      platformEnv.isDesktopMac &&
+      appUpdateInfo.downloadedEvent?.isUpdaterRehydrated
+    ) {
+      void backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
+    }
+    // OK-55397: regular silent packages remain queued for the next restart.
+    // A rehydrated macOS package must run now because MacUpdater preparation
+    // belongs to this process and is lost on another restart.
     // showSilentUpdateDialog();
     // deps: only re-run on status / strategy transitions.
     // appUpdateInfo is omitted intentionally — including the object ref

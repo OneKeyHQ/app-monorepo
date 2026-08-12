@@ -91,6 +91,9 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
       : ((error as { message?: string } | null)?.message ?? '');
   if (!msg) return undefined;
 
+  if (/\bAPP_PACKAGE_NOT_PREPARED\b/i.test(msg)) {
+    return EAppUpdatePackageErrorCode.packageNotPrepared;
+  }
   if (
     /\b(?:APP_PACKAGE_MISSING|NOT_FOUND_PACKAGE|NOT_FOUND_FILE|ENOENT|ENOTDIR)\b/i.test(
       msg,

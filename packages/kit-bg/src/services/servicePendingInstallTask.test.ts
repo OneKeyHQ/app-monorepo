@@ -63,6 +63,7 @@ const appEventBus = {
 
 const EAppEventBusNames = {
   PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
+  StartAutoDownloadUpdate: 'StartAutoDownloadUpdate',
 };
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
@@ -539,6 +540,44 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.status).toBe('notify');
     expect(appUpdateState.downloadedEvent).toBeUndefined();
+  });
+
+  test('unprepared macOS package triggers rehydrate without consuming failure budget', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+      status: 'notPrepared',
+    });
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.silent,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      payload: {
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.silent,
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe('notify');
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']).toBeUndefined();
+    expect(appUpdateState.freezeUntil).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'appShellPackageRehydrate' },
+    );
   });
 
   test('bundle missing triggers full-flow retry and clears task', async () => {

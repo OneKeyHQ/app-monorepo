@@ -135,6 +135,9 @@ const installPackage: IInstallPackage = async (params) => {
   if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
     throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
   }
+  if (availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared) {
+    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+  }
   if (availability.status === EAppUpdatePackageAvailabilityStatus.unavailable) {
     throw new OneKeyLocalError(
       `${EAppUpdatePackageErrorCode.packageUnavailable}:${

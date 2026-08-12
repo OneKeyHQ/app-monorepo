@@ -906,6 +906,48 @@ class ServicePendingInstallTask {
     requestSeq?: number,
   ) {
     const targetKey = this.getTargetKey(task);
+    const isAppPackageNotPrepared =
+      platformEnv.isDesktop &&
+      task.type === EPendingInstallTaskType.appInstall &&
+      message.includes(EAppUpdatePackageErrorCode.packageNotPrepared);
+    if (isAppPackageNotPrepared) {
+      await appUpdatePersistAtom.set((current) => {
+        if (
+          current.latestVersion !== task.targetAppVersion ||
+          current.status !== EAppUpdateStatus.ready
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          status: EAppUpdateStatus.notify,
+          errorText: undefined,
+          downloadedEvent: undefined,
+        };
+      });
+      await this.clearPendingTaskWithLog({
+        traceId,
+        requestSeq,
+        task,
+        clearReason: 'app_package_rehydrate_required',
+      });
+      const current = await appUpdatePersistAtom.get();
+      if (
+        current.latestVersion === task.targetAppVersion &&
+        current.status === EAppUpdateStatus.notify &&
+        !current.downloadedEvent &&
+        (current.updateStrategy === EUpdateStrategy.seamless ||
+          current.updateStrategy === EUpdateStrategy.silent)
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `pending app install requires updater cache rehydrate for ${task.targetAppVersion}`,
+        );
+        appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+          decision: 'appShellPackageRehydrate',
+        });
+      }
+      return;
+    }
     const isAppPackageMissing =
       platformEnv.isDesktop &&
       message.includes(EAppUpdatePackageErrorCode.packageMissing);
@@ -1141,6 +1183,11 @@ class ServicePendingInstallTask {
     const availability = await AppUpdate.checkPackageAvailability(appInfo);
     if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
       throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared
+    ) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
     }
     if (
       availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
