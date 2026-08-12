@@ -3,53 +3,79 @@ import type { ReactNode } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { G, Path, Svg } from 'react-native-svg';
-
-import { LinearGradient } from '../LinearGradient';
+import {
+  Defs,
+  FeGaussianBlur,
+  Filter,
+  G,
+  Path,
+  Rect,
+  Svg,
+} from 'react-native-svg';
 
 import { PRO_DEVICE_SCREEN_OFF, PRO_DEVICE_SCREEN_ON } from './animation';
 
 import type { IProDeviceAnimation } from './animation';
 
 /**
- * PoC: code-drawn OneKey Pro device, 1:1 against Figma node 20320:27410
- * (350x569 @1x: a 346-wide body plus the 4pt power tab on the right edge).
- * Not exported from the components barrel yet.
+ * PoC: code-drawn OneKey Pro device, 1:1 against Figma node 20620:967
+ * (350x569 @1x: a 346-wide body plus the 4pt power tab on the right edge;
+ * the 2026-08-12 shell revision - highlights and bottom shadow reworked -
+ * of the original 20320:27410). Not exported from the components barrel yet.
  *
  * Every value is transcribed from the raw Figma node dump (same workflow as
- * ../ClassicDevice). Unlike the Classic, the Pro spec has no NOISE and no
- * LAYER_BLUR, so the whole device is plain Views plus one Svg for the
- * wordmark - no filters anywhere.
+ * ../ClassicDevice). The old recipe - five inner-shadow rim entries plus a
+ * full-body sheen gradient - is gone from the spec: this revision paints a
+ * flat black slab and puts all light into five explicit layers:
  *
- * Two findings baked in, both profile-verified against the Figma render:
- * - The body's 1px INSIDE black stroke paints *above* its inner shadows
- *   (Figma's outermost ring is pure black over the rim lights), so it is the
- *   topmost entry of the rim boxShadow rather than a border.
- * - The bottom black shade (Figma offset -1 / spread 1) nets out to the two
- *   bottom rows, the outer one hidden by the stroke; it is transcribed as
- *   offset -2 / no spread, which measures identical.
+ * - Glass: an inset-8 r12 plate, white 5% with a 1px black center-aligned
+ *   seam stroke (an Svg Rect, not a View border, for the center alignment).
+ *   It paints above the screen, so its fill IS the reflection film over
+ *   whatever the panel shows - flat now, the gradient film retired with the
+ *   body sheen it used to sample. The Screen frame's own white 5% stays
+ *   baked into the panel color underneath, keeping the old split of light
+ *   by which side of the glass it lives on. Screen-off glass composites to
+ *   25/255, matching the Figma render.
+ * - Frame edge light: a 2px white 75% stroke ring on the frame line (the
+ *   inset-3 r17 rounded rect), Figma layer blur 5 - the one soft rim light.
+ * - Frame top light and Glass top light: 1px white 25% crescents hugging
+ *   the top edge and top corners of the frame line and the glass seam,
+ *   tapering to nothing at the corner tangents. The taper lives in the path
+ *   data, so both paths are transcribed verbatim rather than re-derived as
+ *   strokes.
+ * - Frame bottom shadow: a black crescent riding the frame line's bottom
+ *   arc (2px mid-run, tapering into the corners), Figma layer blur 3. It
+ *   sits above the edge light and eats it across the bottom, so the device
+ *   grounds into shadow instead of sitting in an even ring of light.
  *
- * The rim inner shadows use spread distances (6, 2.5, 1), which the Classic
- * never needed - first in-repo use of inset boxShadow spread on native,
- * verified on an iOS 26.5 simulator against the Figma render.
+ * Blur quantization: iOS react-native-svg silently degrades fractional
+ * FeGaussianBlur sigmas (see ../ClassicDevice), so every sigma is an
+ * integer literal, chosen by pixel-fitting the Figma render rather than
+ * blind radius/2 rounding. The edge light (sigma 2.5 nominal) renders at
+ * 2: its peak lands 73/255 against 68 measured, while 3 dulls it to 47.
+ * The bottom shadow (1.5 nominal) renders at 2, matching the measured
+ * residual glow through the shade. The radius-1 top lights measure no
+ * different from plain antialiasing in Figma's own raster, so both paint
+ * crisp with no filter at all.
  *
- * Plain RN View + StyleSheet rather than Tamagui Stack is forced, not
- * stylistic: @tamagui/web lists `boxShadow` in webPropsToSkip.native, so a
- * Stack drops every shadow layer on iOS and Android. Sizing reuses the
- * Classic's paint-only transform; with no blur filters involved, scaling has
- * no sigma caveat here - only the wordmark rasterizes above 1x on native.
+ * This Figma revision nests the power button inside the clipping Body
+ * frame, so Figma's own render drops it; the outer frame still reserves
+ * the 4pt tab and the node keeps its full paint spec, so that is read as
+ * an authoring accident and the tab stays rendered here, as a body
+ * sibling, spec unchanged.
+ *
+ * Plain RN View + StyleSheet rather than Tamagui Stack is forced for the
+ * power button, not stylistic: @tamagui/web lists `boxShadow` in
+ * webPropsToSkip.native, so a Stack drops its shadow layers on iOS and
+ * Android. Sizing reuses the Classic's paint-only transform, which with
+ * blurs now in the tree inherits the Classic's caveat too: above 1x the
+ * SVG layers magnify as bitmaps on native, so enlarging visibly softens;
+ * shrinking is free.
  *
  * Animation attaches through two optional props: `screenContent` fills the
  * 288x484 touchscreen, `animation` (see ./animation.ts) drives the screen
  * power pair. Tap feedback lives inside scene screen content - the Pro has
  * no face keys. Everything animated is opacity only.
- *
- * The Figma screen is empty, so it says nothing about where content sits in
- * the stack; the device does. Its three white layers split by which side of
- * the glass they are on: the reflection film and the wake glow are light on
- * the outside, so they paint above `screenContent`, while the Screen frame's
- * own fill is the panel surface and is baked into the opaque panel color
- * underneath it.
  */
 
 const DEVICE_W = 350;
@@ -79,23 +105,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     overflow: 'hidden',
   },
-  // Metal rim, top to bottom: 1px inside stroke over 1px top catch light,
-  // 2px bottom shade, then the two soft light bands (2.5px blurred, 6px hard).
-  bodyRim: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-    boxShadow:
-      'inset 0 0 0 1px #000,' +
-      ' inset 0 1px 0 1px rgba(255,255,255,0.5),' +
-      ' inset 0 -2px 0 0 rgba(0,0,0,0.2),' +
-      ' inset 0 0 1px 2.5px rgba(255,255,255,0.2),' +
-      ' inset 0 0 0 6px rgba(255,255,255,0.2)',
-  },
-  // Square-cornered glass, opaque so the body sheen cannot show through from
+  // Square-cornered panel, opaque so the rim glow cannot show through from
   // underneath. #0D0D0D is black carrying the Screen frame's own white 5%
-  // fill (0.05 * 255 = 12.75 -> 13): that fill is the panel surface the UI is
-  // drawn on, so it belongs under the content. The light that belongs *on*
-  // the glass goes above it - see GLASS_FILM_COLORS.
+  // fill (0.05 * 255 = 12.75 -> 13): that fill is the panel surface the UI
+  // is drawn on, so it belongs under the content. The light that belongs
+  // *on* the glass is the Glass plate's fill, painted above.
   screen: {
     position: 'absolute',
     left: 29,
@@ -109,23 +123,42 @@ const styles = StyleSheet.create({
   // it washes the content too. Kept subtle: the Lottie's lit screen is a
   // near-black #101112 UI, so the content is the signal, not the lift.
   screenGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   screenSlot: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  // Recess seam of the cutout. Topmost, like the bezel edge it stands for:
-  // it darkens the film rather than being washed out by it. A plain View,
-  // not the LinearGradient - Tamagui drops boxShadow on native.
-  screenSeam: {
-    ...StyleSheet.absoluteFillObject,
-    boxShadow: 'inset 0 0 1px 1px rgba(0,0,0,0.5)',
+    ...StyleSheet.absoluteFill,
   },
   logo: {
     position: 'absolute',
     left: 140,
     top: 520,
+  },
+  // Shell light layers: node origin minus the canvas padding noted on each.
+  glass: {
+    position: 'absolute',
+    left: 7,
+    top: 7,
+  },
+  glassTopLight: {
+    position: 'absolute',
+    left: 7,
+    top: 6.5,
+  },
+  edgeLight: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  bottomShadow: {
+    position: 'absolute',
+    left: -3,
+    top: 543,
+  },
+  frameTopLight: {
+    position: 'absolute',
+    left: 2,
+    top: 1.5,
   },
   // Side power button: #000 + white 20% = #333, lit at both ends, 1px dark
   // seam against the body.
@@ -143,27 +176,141 @@ const styles = StyleSheet.create({
   },
 });
 
-const ABSOLUTE_FILL = { ...StyleSheet.absoluteFillObject };
-const GRAD_BOTTOM = { x: 0.5, y: 1 } as const;
-const GRAD_TOP = { x: 0.5, y: 0 } as const;
-const BODY_SHEEN_COLORS = ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0)'];
+// The shell light layers take no props, so they are built once at module
+// scope like the Classic's chrome - react-native-svg re-runs transform and
+// viewBox extraction in render() otherwise. Each canvas pads its node rect
+// (3 sigma where blurred, 1pt of antialias headroom where crisp) through a
+// negative-origin viewBox, keeping Figma's path data verbatim; bleed past
+// the body edge is clipped by the body, as Figma's Body frame clips too.
 
-// Reflection film: the body's white-10% top-down sheen as it falls across the
-// screen band (body y 26..510 of 569), so alpha 0.1 * (1 - y/569) sampled at
-// both edges. This is light on the outer glass, so it paints above the UI -
-// the Screen frame's own flat 5% does not, it is baked into the panel color
-// instead. Splitting the two rather than merging them keeps the panel tint off
-// the content: the veil over the keyboard drops from ~6% to ~1%, which is what
-// keeps brand green reading as brand green down there.
-//
-// The decimals record the derivation, not precision anything can paint: alpha
-// is quantized to 8 bits by processColor on native and further to 2 decimals
-// by react-native-web's normalizeColor, so the screen-off composite is
-// preserved to within 1/255, not bit-exactly.
-const GLASS_FILM_COLORS = [
-  'rgba(255,255,255,0.09543)',
-  'rgba(255,255,255,0.01037)',
-];
+// Glass plate at (8,8) 330x553 r12: the flat reflection film and its seam.
+const GLASS_PLATE = (
+  <Svg
+    pointerEvents="none"
+    width={332}
+    height={555}
+    viewBox="0 0 332 555"
+    fill="none"
+    style={styles.glass}
+  >
+    <Rect
+      x={1}
+      y={1}
+      width={330}
+      height={553}
+      rx={12}
+      fill="#fff"
+      fillOpacity={0.05}
+      stroke="#000"
+      strokeWidth={1}
+    />
+  </Svg>
+);
+
+// 1px catch light along the glass seam's top edge and corners, crisp.
+const GLASS_TOP_LIGHT = (
+  <Svg
+    pointerEvents="none"
+    width={332}
+    height={14.5}
+    viewBox="-1 -1 332 14.5"
+    fill="none"
+    style={styles.glassTopLight}
+  >
+    <Path
+      d="M165.004 0 C216.004 0 267.004 0.132267 318.004 0.396484 C318.565 0.399424 319.122 0.439767 319.677 0.519531 C325.475 1.25059 330.154 6.70274 330.004 12.5 C330.083 6.69886 325.361 1.36466 319.651 0.708008 C319.104 0.635235 318.556 0.600704 318.004 0.603516 C267.004 0.867733 216.004 1 165.004 1 C114.004 1 63.0035 0.867733 12.0035 0.603516 C11.4511 0.600704 10.9035 0.635236 10.3561 0.708008 C4.64565 1.36466 -0.0760291 6.69887 0.00352227 12.5 C-0.146765 6.70274 4.53161 1.25059 10.3297 0.519531 C10.8851 0.439767 11.4416 0.399424 12.0035 0.396484 C63.0035 0.132267 114.004 0 165.004 0 Z"
+      fill="#fff"
+      opacity={0.25}
+    />
+  </Svg>
+);
+
+// The rim light: 2px white ring on the frame line, layer blur 5 -> sigma 2.
+// Full-body canvas, so the outward bleed clips at the body edge like Figma.
+const FRAME_EDGE_LIGHT = (
+  <Svg
+    pointerEvents="none"
+    width={BODY_W}
+    height={DEVICE_H}
+    viewBox="0 0 346 569"
+    fill="none"
+    style={styles.edgeLight}
+  >
+    <G opacity={0.75} filter="url(#pd-edge-light-blur)">
+      <Rect
+        x={3}
+        y={3}
+        width={340}
+        height={563}
+        rx={17}
+        fill="none"
+        stroke="#fff"
+        strokeWidth={2}
+      />
+    </G>
+    <Defs>
+      <Filter
+        id="pd-edge-light-blur"
+        x={0}
+        y={0}
+        width={346}
+        height={569}
+        filterUnits="userSpaceOnUse"
+      >
+        <FeGaussianBlur stdDeviation={2} />
+      </Filter>
+    </Defs>
+  </Svg>
+);
+
+// Black crescent over the frame line's bottom arc, layer blur 3 -> sigma 2.
+const FRAME_BOTTOM_SHADOW = (
+  <Svg
+    pointerEvents="none"
+    width={352}
+    height={30}
+    viewBox="-6 -6 352 30"
+    fill="none"
+    style={styles.bottomShadow}
+  >
+    <G filter="url(#pd-bottom-shadow-blur)">
+      <Path
+        d="M340 0 C340.129 6.01563 336.734 11.9687 331.449 14.9736 C328.902 16.4524 325.961 17.2527 323 17.2754 C272 17.7586 221 18 170 18 C119 18 68 17.7586 17 17.2754 C14.0393 17.2527 11.0983 16.4526 8.55078 14.9736 C3.39909 12.0402 0.0295428 6.30809 0.000976562 0.438477 C0.000646175 0.292318 0.000326418 0.146159 0 0 C0.00357978 0.146137 0.0071675 0.292398 0.0107422 0.438477 C0.171853 6.30466 3.64491 11.8775 8.7373 14.6426 C11.2574 16.0387 14.132 16.7568 17 16.7246 C68 16.2414 119 16 170 16 C221 16 272 16.2414 323 16.7246 C325.868 16.7569 328.743 16.0385 331.263 14.6426 C336.486 11.8104 339.992 6.01949 340 0 Z"
+        fill="#000"
+      />
+    </G>
+    <Defs>
+      <Filter
+        id="pd-bottom-shadow-blur"
+        x={-6}
+        y={-6}
+        width={352}
+        height={30}
+        filterUnits="userSpaceOnUse"
+      >
+        <FeGaussianBlur stdDeviation={2} />
+      </Filter>
+    </Defs>
+  </Svg>
+);
+
+// 1px catch light along the frame line's top edge and corners, crisp.
+const FRAME_TOP_LIGHT = (
+  <Svg
+    pointerEvents="none"
+    width={342}
+    height={19.5}
+    viewBox="-1 -1 342 19.5"
+    fill="none"
+    style={styles.frameTopLight}
+  >
+    <Path
+      d="M170.002 0 C221.002 0 272.002 0.120679 323.002 0.362305 C325.939 0.371231 328.864 1.15131 331.404 2.60938 C336.673 5.57108 340.097 11.4834 340.002 17.5 C340.028 11.4815 336.55 5.64978 331.311 2.77441 C328.785 1.35772 325.893 0.619173 323.002 0.637695 C272.002 0.879321 221.002 1 170.002 1 C119.002 1 68.0019 0.879321 17.0019 0.637695 C14.1107 0.619173 11.2191 1.35772 8.69235 2.77441 C3.45361 5.64978 -0.0245878 11.4815 0.00191685 17.5 C-0.0928025 11.4834 3.33035 5.57108 8.59957 2.60938 C11.14 1.1513 14.0644 0.371231 17.0019 0.362305 C68.0019 0.120679 119.002 0 170.002 0 Z"
+      fill="#fff"
+      opacity={0.25}
+    />
+  </Svg>
+);
 
 // "OneKey" wordmark, paths verbatim from the Figma SVG export (opacity of the
 // LogoType frame baked into the group by the export).
@@ -232,34 +379,24 @@ const DeviceBody = memo(function DeviceBody({
   return (
     <>
       <View style={styles.body}>
-        <LinearGradient
-          colors={BODY_SHEEN_COLORS}
-          start={GRAD_TOP}
-          end={GRAD_BOTTOM}
-          style={ABSOLUTE_FILL}
-        />
         <View style={styles.screen}>
           {screenContent ? (
             <Animated.View pointerEvents="none" style={slotLayerStyle}>
               {screenContent}
             </Animated.View>
           ) : null}
-          {/* Everything below is light on the glass, so it stays above
-              whatever the panel is showing: the lit panel's own wash, then
-              the reflected film, then the recess seam. */}
+          {/* The lit panel's own wash reads on the panel, under the glass. */}
           <Animated.View pointerEvents="none" style={glowLayerStyle} />
-          <LinearGradient
-            pointerEvents="none"
-            colors={GLASS_FILM_COLORS}
-            start={GRAD_TOP}
-            end={GRAD_BOTTOM}
-            style={ABSOLUTE_FILL}
-          />
-          <View pointerEvents="none" style={styles.screenSeam} />
         </View>
         {LOGOTYPE}
-        {/* Figma frame inner shadows render above children. */}
-        <View pointerEvents="none" style={styles.bodyRim} />
+        {/* Figma z order: the glass plate (film + seam) above the wordmark,
+            the frame's edge light above the glass lights, the bottom shadow
+            above the edge light it eats, the frame top light last. */}
+        {GLASS_PLATE}
+        {GLASS_TOP_LIGHT}
+        {FRAME_EDGE_LIGHT}
+        {FRAME_BOTTOM_SHADOW}
+        {FRAME_TOP_LIGHT}
       </View>
       <View style={styles.power} />
     </>
