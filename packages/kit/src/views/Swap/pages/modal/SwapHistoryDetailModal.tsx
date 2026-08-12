@@ -1668,6 +1668,10 @@ const SwapHistoryDetailModal = () => {
                 })}
                 renderContent={accountUtils.shortenAddress({
                   address: providerOrderId,
+                  // Roughly one full line in the detail modal, matching the
+                  // width of a wrapped 66-char tx hash line.
+                  leadingLength: 24,
+                  trailingLength: 20,
                 })}
                 copyContent={providerOrderId}
                 showCopy
