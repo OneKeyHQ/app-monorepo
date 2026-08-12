@@ -231,13 +231,34 @@ const SwapActionsState = ({
   const providerSupportReceiveAddressSettled =
     settledProviderSupportRef.current;
 
+  // Hold the "recipient required" verdict the same way as provider support
+  // above: the action button's shouldEnterRecipient flips false during every
+  // quote refresh/loading window, which would collapse and re-expand the
+  // recipient entry on each quote cycle. Adopt a new verdict only when a
+  // quote settles and the target address resolution is ready, so the row
+  // keeps its pre-quote state while quoting and only moves when the settled
+  // outcome actually changed. (OK-58326)
+  const recipientRequiredNow = Boolean(
+    currentQuoteRes?.toAmount &&
+    !swapToAddressInfo.address &&
+    !swapActionState.noConnectWallet,
+  );
+  const settledRecipientRequiredRef = useRef(recipientRequiredNow);
+  if (
+    (currentQuoteRes || isQuoteSettledWithoutResult) &&
+    swapToAddressInfo.isAddressInfoReady
+  ) {
+    settledRecipientRequiredRef.current = recipientRequiredNow;
+  }
+  const recipientRequiredSettled = settledRecipientRequiredRef.current;
+
   const shouldShowRecipient = useMemo(
     () =>
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
         incognitoMode: swapIncognitoMode,
         recipientAddressSettingOn: swapEnableRecipientAddress,
-        recipientRequired: Boolean(swapActionState.shouldEnterRecipient),
+        recipientRequired: recipientRequiredSettled,
         providerSupportReceiveAddress: Boolean(
           providerSupportReceiveAddressSettled,
         ),
@@ -247,7 +268,7 @@ const SwapActionsState = ({
     [
       swapIncognitoMode,
       swapEnableRecipientAddress,
-      swapActionState.shouldEnterRecipient,
+      recipientRequiredSettled,
       providerSupportReceiveAddressSettled,
       fromToken,
       swapTypeSwitch,
