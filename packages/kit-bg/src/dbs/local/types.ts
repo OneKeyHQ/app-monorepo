@@ -207,10 +207,7 @@ export type IDBCreateHDWalletParams = {
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
-  device: Omit<SearchDevice, 'commType'> & {
-    /** 仅用于本次创建流程，不会写入数据库。 */
-    commType?: SearchDevice['commType'];
-  };
+  device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
   connectProtocol?: HardwareConnectProtocol;
   /** Unified OneKey SDK state snapshot populated only by background services. */

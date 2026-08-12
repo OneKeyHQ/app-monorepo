@@ -252,17 +252,17 @@ describe('FirmwareArtifactSelfTest', () => {
     expect(sdkFixture.firmwareUpdateV3).toHaveBeenCalledTimes(1);
     expect(sdkFixture.firmwareUpdateV3).toHaveBeenCalledWith(
       '__firmware_sdk_self_test_no_device__',
-      expect.objectContaining({
+      {
         preparedPlan: expect.any(Object),
         platform: expect.any(String),
-        firmwareVersion: [4, 21, 0],
+        firmwareType: expect.any(String),
         hostBindingGeneration: 7,
         artifacts: expect.objectContaining({
           firmware: expect.objectContaining({
             size: fixture.artifact.expectedSize,
           }),
         }),
-      }),
+      },
     );
     expect(progress).toHaveBeenLastCalledWith(
       expect.objectContaining({ phase: 'sweeping', progress: 99 }),

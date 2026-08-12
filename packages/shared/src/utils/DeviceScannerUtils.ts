@@ -2,6 +2,8 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { convertDeviceError } from '../errors/utils/deviceErrorUtils';
+
 import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
@@ -21,6 +23,7 @@ type IDeviceScanOptions = {
   resetSession?: boolean;
   waitForAllTransports?: boolean;
   transportType?: 'usb' | 'ble';
+  onError?: (error: Error) => void;
 };
 type IDeviceScannerBackgroundApi = {
   serviceHardware: {
@@ -56,6 +59,8 @@ export class DeviceScannerUtils {
 
   currentSearchIdentity: string | null = null;
 
+  currentSearchOwnerIndex: number | null = null;
+
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
     onSearchStateChange: (state: 'start' | 'stop') => void,
@@ -76,21 +81,68 @@ export class DeviceScannerUtils {
       transportType: options?.transportType,
     });
     let shouldResetSession = options?.resetSession ?? false;
+    const reportError = (error: unknown) => {
+      const normalizedError =
+        error instanceof Error
+          ? error
+          : Object.assign(
+              new Error(
+                typeof (error as { message?: unknown })?.message === 'string'
+                  ? (error as { message: string }).message
+                  : String(error),
+              ),
+              typeof error === 'object' && error !== null ? error : {},
+            );
+      try {
+        if (options?.onError) {
+          options.onError(normalizedError);
+        } else {
+          console.error('Device scan failed:', normalizedError);
+        }
+      } catch (handlerError) {
+        console.error('Device scan error handler failed:', handlerError);
+      }
+    };
+    const deliverSearchResponse = (searchResponse: ISearchResponse) => {
+      if (!searchResponse.success && options?.onError) {
+        reportError(
+          convertDeviceError(searchResponse.payload, {
+            vendor,
+          }),
+        );
+        return;
+      }
+      callback(searchResponse);
+    };
     const searchDevices = async () => {
       const currentSearchTask = this.currentSearchTask;
       if (currentSearchTask) {
         const currentSearchIdentity = this.currentSearchIdentity;
-        const sharedSearchResponse = await currentSearchTask;
-        shouldResetSession = false;
+        const currentSearchOwnerIndex = this.currentSearchOwnerIndex;
+        const shouldStartOwnSearch = () =>
+          this.scanMap[scanIndex] &&
+          (currentSearchIdentity !== searchIdentity ||
+            (currentSearchOwnerIndex !== null &&
+              !this.scanMap[currentSearchOwnerIndex]));
+        let sharedSearchResponse: ISearchResponse;
+        try {
+          sharedSearchResponse = await currentSearchTask;
+        } catch (error) {
+          if (shouldStartOwnSearch()) {
+            return searchDevices();
+          }
+          throw error;
+        }
         if (!this.scanMap[scanIndex]) {
           return sharedSearchResponse;
         }
-        if (currentSearchIdentity === searchIdentity) {
-          callback(sharedSearchResponse);
-          this.tryCount += 1;
-          return sharedSearchResponse;
+        if (shouldStartOwnSearch()) {
+          return searchDevices();
         }
-        return searchDevices();
+        shouldResetSession = false;
+        deliverSearchResponse(sharedSearchResponse);
+        this.tryCount += 1;
+        return sharedSearchResponse;
       }
 
       onSearchStateChange('start');
@@ -123,10 +175,12 @@ export class DeviceScannerUtils {
           if (this.currentSearchTask === searchTask) {
             this.currentSearchTask = null;
             this.currentSearchIdentity = null;
+            this.currentSearchOwnerIndex = null;
           }
         });
       this.currentSearchTask = searchTask;
       this.currentSearchIdentity = searchIdentity;
+      this.currentSearchOwnerIndex = scanIndex;
 
       const searchResponse = await searchTask;
       shouldResetSession = false;
@@ -134,7 +188,7 @@ export class DeviceScannerUtils {
       if (!this.scanMap[scanIndex]) {
         return searchResponse;
       }
-      callback(searchResponse);
+      deliverSearchResponse(searchResponse);
 
       this.tryCount += 1;
       onSearchStateChange('stop');
@@ -154,7 +208,17 @@ export class DeviceScannerUtils {
         return;
       }
 
-      await searchDevices();
+      try {
+        await searchDevices();
+      } catch (error) {
+        if (!this.scanMap[searchIndex]) {
+          return;
+        }
+        reportError(error);
+        this.stopScan();
+        onSearchStateChange('stop');
+        return;
+      }
       const nextTime = isThirdPartyVendor
         ? Math.min(time * rate, MAX_POLL_INTERVAL)
         : time * rate;

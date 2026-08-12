@@ -266,7 +266,7 @@ describe('prepared firmware execution', () => {
     );
   });
 
-  test('logs and passes matching prepared firmware and resource inputs to V3', async () => {
+  test('passes prepared V3 inputs without legacy version fields', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
     const firmware = {
@@ -303,22 +303,21 @@ describe('prepared firmware execution', () => {
       ...executionArtifacts,
       platform: 'native',
       firmwareType: EFirmwareType.Universal,
-      bleVersion: undefined,
+      bleVersion: [2, 3, 7],
       firmwareVersion: [4, 21, 0],
-      bootloaderVersion: undefined,
+      bootloaderVersion: [2, 8, 4],
     });
 
-    expect(firmwareUpdateV3).toHaveBeenCalledWith(
-      'device',
-      expect.objectContaining({
-        preparedPlan: prepared.preparedPlan,
-        hostBindingGeneration: 105,
-        artifacts: {
-          firmware,
-          resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
-        },
-      }),
-    );
+    expect(firmwareUpdateV3).toHaveBeenCalledWith('device', {
+      preparedPlan: prepared.preparedPlan,
+      platform: 'native',
+      firmwareType: EFirmwareType.Universal,
+      hostBindingGeneration: 105,
+      artifacts: {
+        firmware,
+        resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
+      },
+    });
     expect(localLog).toHaveBeenCalledWith(
       expect.stringContaining(
         '"stage":"sdk-handoff","executor":"v3","sdkMethod":"firmwareUpdateV3"',
@@ -356,7 +355,57 @@ describe('prepared firmware execution', () => {
     });
   });
 
-  test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
+  test('keeps Extension V2, V3 and V4 firmware handoffs JSON-safe', async () => {
+    const firmwareUpdateV2 = jest.fn();
+    const firmwareUpdateV3 = jest.fn();
+    const firmwareUpdateV4 = jest.fn();
+    const sdk = {
+      firmwareUpdateV2,
+      firmwareUpdateV3,
+      firmwareUpdateV4,
+    } as unknown as CoreApi;
+
+    await executePreparedFirmwareUpdateV2({
+      sdk,
+      connectId: 'device',
+      updateType: 'firmware',
+      forcedUpdateRes: false,
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      version: [1, 2, 3],
+    });
+    await executePreparedFirmwareUpdateV3({
+      sdk,
+      connectId: 'device',
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      bleVersion: [1, 0, 0],
+      firmwareVersion: [2, 0, 0],
+      bootloaderVersion: [3, 0, 0],
+    });
+    await executePreparedFirmwareUpdateV4({
+      sdk,
+      connectId: 'device',
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      targetsToUpdate: ['resource'],
+      forcedUpdateRes: false,
+    });
+
+    const handoffs = [
+      firmwareUpdateV2.mock.calls[0][1],
+      firmwareUpdateV3.mock.calls[0][1],
+      firmwareUpdateV4.mock.calls[0][1],
+    ];
+    for (const handoff of handoffs) {
+      expect(JSON.parse(JSON.stringify(handoff))).toEqual(handoff);
+      expect(Object.keys(handoff).some((key) => /binary/i.test(key))).toBe(
+        false,
+      );
+    }
+  });
+
+  test('passes Desktop Bridge binaries with legacy version fields', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
     const firmware = new ArrayBuffer(4);
@@ -385,12 +434,14 @@ describe('prepared firmware execution', () => {
       bootloaderVersion: undefined,
     });
 
-    expect(firmwareUpdateV3).toHaveBeenCalledWith(
-      'device',
-      expect.objectContaining({
-        firmwareBinary: firmware,
-      }),
-    );
+    expect(firmwareUpdateV3).toHaveBeenCalledWith('device', {
+      platform: 'desktop',
+      bleVersion: undefined,
+      firmwareVersion: [4, 21, 0],
+      bootloaderVersion: undefined,
+      firmwareType: EFirmwareType.Universal,
+      firmwareBinary: firmware,
+    });
     expect(firmwareUpdateV3.mock.calls[0][1]).not.toHaveProperty(
       'resourceBinary',
     );
@@ -569,6 +620,66 @@ describe('prepared firmware execution', () => {
       ).rejects.toThrow(
         'Firmware prepared artifact capability is unavailable on this runtime',
       );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('keeps Protocol V2 plans SDK-managed on Extension', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      isNative: platformEnv.isNative,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: false,
+      isNative: false,
+      appPlatform: 'ext',
+      symbol: 'ext',
+    });
+    try {
+      const getCapabilities = jest
+        .spyOn(firmwareArtifactAdapter, 'getCapabilities')
+        .mockRejectedValue(new Error('artifact module unavailable'));
+      const controller = createController();
+      const plan = {
+        executor: 'v4',
+        planDigest: 'e'.repeat(64),
+        deviceIdentity: 'unavailable',
+        deviceModel: 'pro2',
+        platform: 'ext',
+        artifacts: [
+          {
+            artifactId: 'component:app_v1',
+            role: 'component',
+            target: 'app_v1',
+            url: 'https://firmware.example/application-p1.okpkg',
+            container: 'raw',
+            expectedSize: 1024,
+            expectedSha256: '1'.repeat(64),
+          },
+        ],
+        targetsToUpdate: ['app_v1'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.WEBUSB,
+          expectedTargets: ['app_v1'],
+          requirePreparedPlan: true,
+        }),
+      ).resolves.toBe(plan.planDigest);
+      await expect(
+        controller.prepareWorkflowArtifacts({
+          deviceType: 'pro2',
+          firmwareUpdatePlanDigest: plan.planDigest,
+        } as ICheckAllFirmwareReleaseResult),
+      ).resolves.toBeUndefined();
+      expect(getCapabilities).not.toHaveBeenCalled();
     } finally {
       Object.assign(platformEnv, previousPlatform);
     }

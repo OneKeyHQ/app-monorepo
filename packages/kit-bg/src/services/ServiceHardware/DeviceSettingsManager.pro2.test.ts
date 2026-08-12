@@ -30,14 +30,6 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   default: {},
 }));
 
-jest.mock('jpeg-js', () => ({
-  decode: jest.fn(() => ({
-    width: 604,
-    height: 1024,
-    data: new Uint8Array(604 * 1024 * 4),
-  })),
-}));
-
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
@@ -427,7 +419,7 @@ describe('DeviceSettingsManager device adapters', () => {
     });
   });
 
-  test('decodes the compressed Pro2 wallpaper in background before upload', async () => {
+  test('passes the compressed Pro2 wallpaper Base64 to the SDK', async () => {
     const device = buildDevice(EDeviceType.Pro2);
     jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
     const deviceUploadWallpaper = jest.fn(async () => ({
@@ -455,15 +447,13 @@ describe('DeviceSettingsManager device adapters', () => {
       screenItem: {
         id: 'custom wallpaper',
         resType: 'custom',
-        screenHex: 'ffd8ff',
+        screenBase64: '/9j/',
         isUserUpload: true,
       },
     });
 
     expect(deviceUploadWallpaper).toHaveBeenCalledWith(device.connectId, {
-      width: 604,
-      height: 1024,
-      rgba: expect.any(Uint8Array),
+      jpegBase64: '/9j/',
       fileName: 'custom-wallpaper',
     });
     expect(result).toMatchObject({ message: 'Success', applyScreen: true });

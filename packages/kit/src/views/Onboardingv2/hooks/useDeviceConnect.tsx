@@ -221,12 +221,14 @@ export function useDeviceConnect({
       hardwareCallContext?: EHardwareCallContext,
       connectProtocol?: HardwareConnectProtocol,
       forceProtocolDetection?: boolean,
+      forceFeaturesRefresh?: boolean,
     ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
           connectProtocol,
           device,
+          forceFeaturesRefresh,
           forceProtocolDetection,
           hardwareCallContext,
         });
@@ -309,6 +311,7 @@ export function useDeviceConnect({
         hardwareCallContext,
         options?.connectProtocol,
         options?.forceProtocolDetection,
+        Boolean(shouldForceReconnect),
       );
       let isConnectedBootloaderMode = false;
       if (features) {

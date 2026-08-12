@@ -195,8 +195,8 @@ type IProtocolV2NftCoreApi = CoreApi & {
   deviceUploadNft?: (
     connectId: string,
     params: {
-      image: { width: number; height: number; rgba: Uint8Array };
-      thumbnail: { width: number; height: number; rgba: Uint8Array };
+      imageJpegBase64: string;
+      thumbnailJpegBase64: string;
       title: string;
       subtitle: string;
       timestampMs?: number;
@@ -251,8 +251,8 @@ export type IDeviceManagementSnapshot = {
 
 export type IUploadPro2NftParams = {
   connectId: string;
-  imageHex: string;
-  thumbnailHex: string;
+  imageJpegBase64: string;
+  thumbnailJpegBase64: string;
   title: string;
   subtitle: string;
   timestampMs?: number;
@@ -783,6 +783,73 @@ class ServiceHardware extends ServiceBase {
 
   private connectedDeviceTracked = new Set<string>();
 
+  private connectedDeviceIdentityKeysByConnection = new Map<
+    string,
+    Set<string>
+  >();
+
+  private deviceSearchInProgressCount = 0;
+
+  private getConnectedDeviceIdentityKeys(device: KnownDevice | undefined) {
+    if (!device) {
+      return [];
+    }
+    const deviceWithSerial = device as KnownDevice & { serialNo?: string };
+    let deviceId: string | undefined;
+    if (device.features) {
+      try {
+        deviceId = deviceUtils.getRawDeviceId({
+          device: device as any,
+          features: device.features,
+        });
+      } catch {
+        // Connect events can arrive before features are complete, so fall back
+        // to connectId, uuid, or serialNo.
+      }
+    }
+    return uniq(
+      [
+        device.connectId,
+        device.uuid,
+        deviceWithSerial.serialNo,
+        deviceId,
+      ].filter((value): value is string => Boolean(value)),
+    );
+  }
+
+  private trackConnectedDevice(device: KnownDevice | undefined) {
+    const identityKeys = this.getConnectedDeviceIdentityKeys(device);
+    const connectionKey = device?.connectId || identityKeys[0];
+    if (connectionKey && identityKeys.length > 0) {
+      this.connectedDeviceIdentityKeysByConnection.set(
+        connectionKey,
+        new Set(identityKeys),
+      );
+    }
+    return identityKeys;
+  }
+
+  private untrackConnectedDevice(device: KnownDevice | undefined) {
+    const disconnectedKeys = new Set(
+      this.getConnectedDeviceIdentityKeys(device),
+    );
+    const removedIdentityKeys = new Set(disconnectedKeys);
+    for (const [connectionKey, identityKeys] of this
+      .connectedDeviceIdentityKeysByConnection) {
+      if (
+        disconnectedKeys.has(connectionKey) ||
+        [...disconnectedKeys].some((key) => identityKeys.has(key))
+      ) {
+        removedIdentityKeys.add(connectionKey);
+        for (const identityKey of identityKeys) {
+          removedIdentityKeys.add(identityKey);
+        }
+        this.connectedDeviceIdentityKeysByConnection.delete(connectionKey);
+      }
+    }
+    return [...removedIdentityKeys];
+  }
+
   private resetHardwareUiEventQueue() {
     this.hardwareUiEventQueue.reset();
     this.hardwareUiEventState = createHardwareUiEventState();
@@ -1163,6 +1230,7 @@ class ServiceHardware extends ServiceBase {
   ) {
     if (this.registeredSdkEventsInstance !== instance) {
       this.resetHardwareUiEventQueue();
+      this.connectedDeviceIdentityKeysByConnection.clear();
       this.registeredEvents = false;
     }
 
@@ -1380,16 +1448,12 @@ class ServiceHardware extends ServiceBase {
               );
             }
             if (persistenceResult?.kind === 'identity-mismatch') {
-              try {
-                await this.deprecateWalletsForResetDevice(
-                  persistenceResult.deviceDbId,
-                );
-              } catch (error) {
-                serviceHardwareUtils.hardwareLog(
-                  'device reset wallet isolation failed',
-                  error,
-                );
-              }
+              await this.backgroundApi.serviceHardwarePortfolioSync
+                ?.notifyHardwareDeviceIdentityMismatch({
+                  deviceDbId: persistenceResult.deviceDbId,
+                  expectedDeviceId: persistenceResult.currentDeviceId,
+                })
+                .catch(() => undefined);
               return;
             }
             if (
@@ -1452,6 +1516,14 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const connectedIdentityKeys = this.trackConnectedDevice(message.device);
+        if (connectedIdentityKeys.length > 0) {
+          void this.backgroundApi.serviceHardwarePortfolioSync
+            ?.notifyHardwareDeviceConnected({
+              identityKeys: connectedIdentityKeys,
+            })
+            .catch(() => undefined);
+        }
         const activeConnectId = message.device?.connectId;
         const serialNo = (
           message.device as KnownDevice & {
@@ -1510,6 +1582,16 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        const disconnectedIdentityKeys = this.untrackConnectedDevice(
+          message.device,
+        );
+        if (disconnectedIdentityKeys.length > 0) {
+          void this.backgroundApi.serviceHardwarePortfolioSync
+            ?.notifyHardwareDeviceDisconnected({
+              identityKeys: disconnectedIdentityKeys,
+            })
+            .catch(() => undefined);
+        }
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           if (this.hardwareUiEventState.connectId === activeConnectId) {
@@ -1579,34 +1661,6 @@ class ServiceHardware extends ServiceBase {
           }
         },
       );
-    }
-  }
-
-  private async deprecateWalletsForResetDevice(deviceDbId: string) {
-    const allHwWallets =
-      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: false,
-        filterQrWallet: true,
-      });
-    const willUpdateDeprecateMap: Record<string, boolean> = {};
-    for (const walletWithDevice of Object.values(allHwWallets)) {
-      const { wallet, device } = walletWithDevice;
-      if (
-        wallet?.id &&
-        (wallet.associatedDevice === deviceDbId || device?.id === deviceDbId)
-      ) {
-        willUpdateDeprecateMap[wallet.id] = true;
-      }
-    }
-    if (Object.keys(willUpdateDeprecateMap).length === 0) {
-      return;
-    }
-    const updated =
-      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
-        willUpdateDeprecateMap,
-      });
-    if (updated) {
-      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
   }
 
@@ -1718,6 +1772,69 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isDeviceSearchInProgress() {
+    return this.deviceSearchInProgressCount > 0;
+  }
+
+  @backgroundMethod()
+  async isHardwareDeviceConnected({
+    deviceDbId,
+    connectId,
+  }: {
+    deviceDbId?: string;
+    connectId?: string;
+  }) {
+    const dbDevice = deviceDbId
+      ? await localDb.getDeviceSafe(deviceDbId)
+      : undefined;
+    const targetIdentityKeys = new Set(
+      uniq(
+        [
+          connectId,
+          dbDevice?.connectId,
+          dbDevice?.usbConnectId,
+          dbDevice?.bleConnectId,
+          dbDevice?.deviceId,
+          dbDevice?.uuid,
+        ].filter((value): value is string => Boolean(value)),
+      ),
+    );
+    if (targetIdentityKeys.size === 0) {
+      return false;
+    }
+
+    const isTrackedAsConnected = [
+      ...this.connectedDeviceIdentityKeysByConnection.values(),
+    ].some((connectedIdentityKeys) =>
+      [...targetIdentityKeys].some((key) => connectedIdentityKeys.has(key)),
+    );
+    if (isTrackedAsConnected) {
+      return true;
+    }
+
+    // Match the wallet-list connection dot: WebUSB must enumerate the target
+    // device itself, not just "any OneKey device", otherwise connecting device
+    // B would wrongly authorize device A.
+    if (platformEnv.isSupportWebUSB) {
+      try {
+        const usb = globalThis?.navigator?.usb;
+        if (usb && typeof usb.getDevices === 'function') {
+          const devices = await usb.getDevices();
+          return devices.some(
+            (device) =>
+              Boolean(device.serialNumber) &&
+              targetIdentityKeys.has(device.serialNumber as string),
+          );
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  @backgroundMethod()
   async searchDevices(params?: {
     connectProtocol?: HardwareConnectProtocol;
     vendor?: EHardwareVendor;
@@ -1725,56 +1842,67 @@ class ServiceHardware extends ServiceBase {
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
   }) {
-    const vendorProfile = params?.vendor
-      ? getVendorProfile(params.vendor)
-      : undefined;
-    if (params?.vendor && vendorProfile?.isThirdParty) {
-      // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
-      return this.backgroundApi.serviceThirdPartyHardware.searchDevices({
-        vendor: params.vendor,
-        resetSession: params.resetSession,
-        waitForAllTransports: params.waitForAllTransports,
-        transportType: params.transportType,
-      });
-    }
-
-    // OneKey 设备搜索也必须先通过统一连接管理器确定 transport。
-    // searchDevices 本身只枚举当前 SDK transport，不负责 USB -> BLE 切换；
-    // 因此必须在创建 SDK 实例前完成 USB 优先、无 USB 再 BLE 的预探测。
-    const hardwareTransportType = await this.prepareHardwareTransport({
-      connectProtocol: params?.connectProtocol,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      ...(params?.transportType
-        ? { requestedTransportType: params.transportType }
-        : {}),
-    });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: undefined,
-      connectProtocol: params?.connectProtocol,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      hardwareTransportType,
-    });
-    const response = await hardwareSDK?.searchDevices();
-    defaultLogger.hardware.sdkLog.log(
-      'searchDevices response: ',
-      JSON.stringify(response),
-    );
-
-    // Linux may surface missing udev rules either through libusb or Chromium
-    // WebUSB errors, depending on the active transport path.
-    if (response?.success === false) {
-      // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
-      // and retry once, so the user doesn't have to restart the app.
-      if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
-        const retryResponse = await hardwareSDK?.searchDevices();
-        defaultLogger.hardware.sdkLog.log(
-          'searchDevices response after udev rules: ',
-          JSON.stringify(retryResponse),
+    this.deviceSearchInProgressCount += 1;
+    try {
+      const vendorProfile = params?.vendor
+        ? getVendorProfile(params.vendor)
+        : undefined;
+      if (params?.vendor && vendorProfile?.isThirdParty) {
+        // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+        return await this.backgroundApi.serviceThirdPartyHardware.searchDevices(
+          {
+            vendor: params.vendor,
+            resetSession: params.resetSession,
+            waitForAllTransports: params.waitForAllTransports,
+            transportType: params.transportType,
+          },
         );
-        return retryResponse;
       }
+
+      // OneKey device discovery must also resolve the transport through the
+      // unified connection manager. searchDevices enumerates only the current
+      // SDK transport and does not switch from USB to BLE, so probe USB first
+      // and fall back to BLE before creating the SDK instance.
+      const hardwareTransportType = await this.prepareHardwareTransport({
+        connectProtocol: params?.connectProtocol,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        ...(params?.transportType
+          ? { requestedTransportType: params.transportType }
+          : {}),
+      });
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: undefined,
+        connectProtocol: params?.connectProtocol,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType,
+      });
+      const response = await hardwareSDK?.searchDevices();
+      defaultLogger.hardware.sdkLog.log(
+        'searchDevices response: ',
+        JSON.stringify(response),
+      );
+
+      // Linux may surface missing udev rules either through libusb or Chromium
+      // WebUSB errors, depending on the active transport path.
+      if (response?.success === false) {
+        // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
+        // and retry once, so the user doesn't have to restart the app.
+        if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
+          const retryResponse = await hardwareSDK?.searchDevices();
+          defaultLogger.hardware.sdkLog.log(
+            'searchDevices response after udev rules: ',
+            JSON.stringify(retryResponse),
+          );
+          return retryResponse;
+        }
+      }
+      return response;
+    } finally {
+      this.deviceSearchInProgressCount = Math.max(
+        this.deviceSearchInProgressCount - 1,
+        0,
+      );
     }
-    return response;
   }
 
   private async ensureLinuxUdevRules() {
@@ -2145,12 +2273,15 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext,
     connectProtocol,
     forceProtocolDetection,
+    forceFeaturesRefresh,
     hardwareTransportType,
   }: {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
     connectProtocol?: HardwareConnectProtocol;
     forceProtocolDetection?: boolean;
+    /** Bypass SearchDevice.features after a firmware reboot and read the live device state. */
+    forceFeaturesRefresh?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
@@ -2210,7 +2341,12 @@ class ServiceHardware extends ServiceBase {
         (await this.getKnownDeviceProtocol(compatibleConnectId)));
 
     const knownFeatures = (device as KnownDevice).features;
-    if (!platformEnv.isNative && knownFeatures && !isDesktopBleSearchDevice) {
+    if (
+      !forceFeaturesRefresh &&
+      !platformEnv.isNative &&
+      knownFeatures &&
+      !isDesktopBleSearchDevice
+    ) {
       // WebUSB 搜索已完成真实通讯；复用结果，并在成功后保存已确认协议。
       await this.rememberDeviceProtocol({
         connectIds: [
@@ -2907,24 +3043,7 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async wipeDevice(p: IWipeDeviceParams) {
-    let deviceDbId: string | undefined;
-    if (p.walletId) {
-      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
-        walletId: p.walletId,
-      });
-      deviceDbId = device?.id;
-    } else if (p.connectId || p.featuresDeviceId) {
-      const device = await localDb.getDeviceByQuery({
-        connectId: p.connectId,
-        featuresDeviceId: p.featuresDeviceId,
-      });
-      deviceDbId = device?.id;
-    }
-    const result = await this.deviceSettingsManager.wipeDevice(p);
-    if (deviceDbId) {
-      await this.deprecateWalletsForResetDevice(deviceDbId);
-    }
-    return result;
+    return this.deviceSettingsManager.wipeDevice(p);
   }
 
   @backgroundMethod()
@@ -3066,15 +3185,26 @@ class ServiceHardware extends ServiceBase {
   }: {
     dbDeviceId: string | undefined;
   }): Promise<IDeviceHomeScreenConfig> {
+    const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size = serviceHardwareUtils.getPro2NftSizeFallback({
-      deviceType: device.deviceType,
-      thumbnail: false,
-    });
-    const thumbnailSize = serviceHardwareUtils.getPro2NftSizeFallback({
-      deviceType: device.deviceType,
-      thumbnail: true,
-    });
+    const size =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      });
+    const thumbnailSize =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      });
 
     return { names: [], size, thumbnailSize };
   }
@@ -3127,25 +3257,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPro2Nft({
     connectId,
-    imageHex,
-    thumbnailHex,
+    imageJpegBase64,
+    thumbnailJpegBase64,
     title,
     subtitle,
     timestampMs,
   }: IUploadPro2NftParams) {
-    const { decodeJpegToRgba } = await import('./jpegRgbaUtils');
-    const image = decodeJpegToRgba({
-      imageHex,
-      expectedWidth: 540,
-      expectedHeight: 540,
-      label: 'Pro2 NFT image',
-    });
-    const thumbnail = decodeJpegToRgba({
-      imageHex: thumbnailHex,
-      expectedWidth: 263,
-      expectedHeight: 263,
-      label: 'Pro2 NFT thumbnail',
-    });
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
@@ -3163,12 +3280,8 @@ class ServiceHardware extends ServiceBase {
     }
     return convertDeviceResponse(() =>
       uploadNft(compatibleConnectId, {
-        image: { width: image.width, height: image.height, rgba: image.data },
-        thumbnail: {
-          width: thumbnail.width,
-          height: thumbnail.height,
-          rgba: thumbnail.data,
-        },
+        imageJpegBase64,
+        thumbnailJpegBase64,
         title,
         subtitle,
         timestampMs,
@@ -3179,10 +3292,10 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPortfolioPackage({
     connectId,
-    packageBytes,
+    packageBase64,
   }: {
     connectId: string;
-    packageBytes: ArrayBuffer;
+    packageBase64: string;
   }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
@@ -3194,7 +3307,7 @@ class ServiceHardware extends ServiceBase {
     });
     return convertDeviceResponse(() =>
       hardwareSDK.uploadPortfolio(compatibleConnectId, {
-        packageBytes,
+        packageBase64,
       }),
     );
   }

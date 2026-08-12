@@ -1464,12 +1464,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     service.getCompatibleConnectId = getCompatibleConnectId;
     service.getSDKInstance = getSDKInstance;
 
-    const packageBytes = new Uint8Array([1, 2, 3]).buffer;
+    const packageBase64 = 'AQID';
 
     await expect(
       service.uploadPortfolioPackage({
         connectId: 'ONEKEY_USB',
-        packageBytes,
+        packageBase64,
       }),
     ).resolves.toEqual({ portfolioUpdated: true });
 
@@ -1482,7 +1482,40 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
     });
     expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
-      packageBytes,
+      packageBase64,
+    });
+  });
+
+  it('forwards Pro2 NFT JPEG Base64 without decoding it in background', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    const deviceUploadNft = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { nftUpdated: true },
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      deviceUploadNft,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    await expect(
+      service.uploadPro2Nft({
+        connectId: 'ONEKEY_USB',
+        imageJpegBase64: 'full-image-base64',
+        thumbnailJpegBase64: 'thumbnail-base64',
+        title: 'NFT #1',
+        subtitle: 'Collection',
+        timestampMs: 123,
+      }),
+    ).resolves.toEqual({ nftUpdated: true });
+
+    expect(deviceUploadNft).toHaveBeenCalledWith('ONEKEY_USB', {
+      imageJpegBase64: 'full-image-base64',
+      thumbnailJpegBase64: 'thumbnail-base64',
+      title: 'NFT #1',
+      subtitle: 'Collection',
+      timestampMs: 123,
     });
   });
 
@@ -1518,6 +1551,37 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
+  });
+
+  it('marks the hardware channel busy while device discovery is running', async () => {
+    let resolveSearch:
+      | ((result: { success: true; payload: SearchDevice[] }) => void)
+      | undefined;
+    const sdkSearchDevices = jest.fn(
+      () =>
+        new Promise<{ success: true; payload: SearchDevice[] }>((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices: sdkSearchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.prepareHardwareTransport = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+
+    const searchTask = service.searchDevices({ transportType: 'usb' });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    await expect(service.isDeviceSearchInProgress()).resolves.toBe(true);
+
+    resolveSearch?.({ success: true, payload: [] });
+    await searchTask;
+    await expect(service.isDeviceSearchInProgress()).resolves.toBe(false);
   });
 
   it('locks an explicit BLE discovery to the BLE SDK transport', async () => {

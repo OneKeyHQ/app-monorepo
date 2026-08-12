@@ -815,6 +815,7 @@ export default function HardwareHomeScreenModal({
             let buildCustomHexError: string | undefined = '';
 
             let finallyScreenHex = '';
+            let finallyScreenBase64: string | undefined;
             let finallyThumbnailHex: string | undefined;
             let finallyBlurScreenHex: string | undefined;
             try {
@@ -823,6 +824,7 @@ export default function HardwareHomeScreenModal({
                 // case 2: server custom wallpaper from url
                 const {
                   screenHex: customScreenHex,
+                  screenBase64: customScreenBase64,
                   thumbnailHex: customThumbnailHex,
                   blurScreenHex: customBlurScreenHex,
                 } = await deviceHomeScreenUtils.buildCustomScreenHex({
@@ -834,10 +836,12 @@ export default function HardwareHomeScreenModal({
                 });
 
                 finallyScreenHex = customScreenHex || '';
+                finallyScreenBase64 = customScreenBase64;
                 finallyThumbnailHex = customThumbnailHex;
                 finallyBlurScreenHex = customBlurScreenHex;
               } else {
                 finallyScreenHex = screenHex || nameHex || '';
+                finallyScreenBase64 = selectedItem.screenBase64;
                 finallyThumbnailHex = thumbnailHex;
                 finallyBlurScreenHex = blurScreenHex;
               }
@@ -870,6 +874,7 @@ export default function HardwareHomeScreenModal({
                 screenItem: {
                   ...selectedItem,
                   screenHex: finallyScreenHex,
+                  screenBase64: finallyScreenBase64,
                   thumbnailHex: finallyThumbnailHex,
                   blurScreenHex: finallyBlurScreenHex,
                 },

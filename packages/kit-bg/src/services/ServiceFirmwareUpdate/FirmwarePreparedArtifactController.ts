@@ -263,6 +263,9 @@ export class FirmwarePreparedArtifactController {
         this.plans.delete(oldestDigest);
       }
     }
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return true;
+    }
     const externalSdk = await this.getExternalSdk(connectId);
     const bridgeCapabilityReady =
       platformEnv.isDesktop &&
@@ -561,6 +564,7 @@ export class FirmwarePreparedArtifactController {
     releaseResult: ICheckAllFirmwareReleaseResult,
   ): Promise<IFirmwareWorkflowArtifacts | undefined> {
     if (!releaseResult.firmwareUpdatePlanDigest) return undefined;
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return undefined;
     if (platformEnv.isDesktop) {
       const transportType = await this.dependencies.getHardwareTransportType();
       if (transportType === EHardwareTransportType.Bridge) {

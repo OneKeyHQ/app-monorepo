@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -1268,5 +1269,64 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       }),
       undefined,
     );
+  });
+
+  test('lets Extension execute a Protocol V2 Plan through SDK-managed V4', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      isNative: platformEnv.isNative,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: false,
+      isNative: false,
+      symbol: 'ext',
+    });
+    try {
+      const service = createService();
+      const plan = {
+        executor: 'v4',
+        targetsToUpdate: ['app_v1'],
+      };
+      jest
+        .spyOn(
+          service as unknown as {
+            getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+          },
+          'getFirmwareUpdateRuntimeHost',
+        )
+        .mockResolvedValue({
+          artifacts: {
+            getPlan: jest.fn(() => plan),
+          },
+        });
+      jest
+        .spyOn(service, 'createRunTaskWithRetry')
+        .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+      const updatingFirmwareV4 = jest
+        .spyOn(service, 'updatingFirmwareV4')
+        .mockResolvedValue({ message: 'ok' });
+
+      await service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          firmwareUpdatePlanDigest: 'd'.repeat(64),
+          pro2TargetsToUpdate: ['app_v1'],
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      });
+
+      expect(updatingFirmwareV4).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requirePreparedArtifacts: false,
+          targetsToUpdate: ['app_v1'],
+        }),
+        undefined,
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
   });
 });

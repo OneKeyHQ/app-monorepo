@@ -41,9 +41,13 @@ export function isCheckAndUpdateReady(steps: ICheckAndUpdateStep[]) {
   );
 }
 
-export function isCheckAndUpdateRetryDisabled(steps: ICheckAndUpdateStep[]) {
-  return steps.some(
-    (step) => step.state === ECheckAndUpdateStepState.InProgress,
+export function isCheckAndUpdateRetryDisabled(
+  steps: ICheckAndUpdateStep[],
+  isFirmwareRecheckPending = false,
+) {
+  return (
+    isFirmwareRecheckPending ||
+    steps.some((step) => step.state === ECheckAndUpdateStepState.InProgress)
   );
 }
 
@@ -54,18 +58,10 @@ export function keepPostUpdateGenuineRecheckArmed(
   return wasArmed || genuineStepState === ECheckAndUpdateStepState.Error;
 }
 
-export function beginPostUpdateRecheck<T extends ICheckAndUpdateStep>(
+export function armPostUpdateRecheck<T extends ICheckAndUpdateStep>(
   steps: T[],
 ) {
   return steps.map((step) => {
-    if (step.id === ECheckAndUpdateStepId.FirmwareCheck) {
-      return {
-        ...step,
-        state: ECheckAndUpdateStepState.InProgress,
-        errorMessage: undefined,
-      };
-    }
-
     if (
       step.id === ECheckAndUpdateStepId.GenuineCheck &&
       step.state === ECheckAndUpdateStepState.Error
@@ -73,6 +69,22 @@ export function beginPostUpdateRecheck<T extends ICheckAndUpdateStep>(
       return {
         ...step,
         state: ECheckAndUpdateStepState.Idle,
+        errorMessage: undefined,
+      };
+    }
+
+    return step;
+  });
+}
+
+export function beginPostUpdateRecheck<T extends ICheckAndUpdateStep>(
+  steps: T[],
+) {
+  return armPostUpdateRecheck(steps).map((step) => {
+    if (step.id === ECheckAndUpdateStepId.FirmwareCheck) {
+      return {
+        ...step,
+        state: ECheckAndUpdateStepState.InProgress,
         errorMessage: undefined,
       };
     }

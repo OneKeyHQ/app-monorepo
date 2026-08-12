@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
@@ -38,6 +40,11 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
     },
     onLocaleChange: jest.fn(),
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isJest: true, isNative: false },
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
@@ -277,5 +284,87 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
     releaseFirmwareOperation?.('updated');
     await expect(firmwarePromise).resolves.toBe('updated');
     expect(service.processingNestedNum).toBe(0);
+  });
+});
+
+describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
+  beforeEach(() => {
+    (platformEnv as { isNative: boolean }).isNative = true;
+  });
+
+  afterEach(() => {
+    (platformEnv as { isNative: boolean }).isNative = false;
+  });
+
+  function prepareService() {
+    const notifyInteractiveHardwareOperationSucceeded = jest
+      .fn()
+      .mockResolvedValue(true);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardwarePortfolioSync: {
+          notifyInteractiveHardwareOperationSucceeded,
+        },
+      },
+    });
+    const serviceInternals = service as unknown as {
+      runExclusiveOneKeyOperation: (
+        operation: (lease: object) => Promise<unknown>,
+      ) => Promise<unknown>;
+      withHardwareProcessingInternal: (
+        operation: () => Promise<unknown>,
+      ) => Promise<unknown>;
+    };
+    serviceInternals.runExclusiveOneKeyOperation = async (operation) =>
+      operation({ owner: Symbol('test') });
+    serviceInternals.withHardwareProcessingInternal = async (operation) =>
+      operation();
+    return { notifyInteractiveHardwareOperationSucceeded, service };
+  }
+
+  it('resumes Portfolio only after a successful native user operation', async () => {
+    const { notifyInteractiveHardwareOperationSucceeded, service } =
+      prepareService();
+
+    await expect(
+      service.withHardwareProcessing(async () => 'address', {
+        deviceParams: {
+          dbDevice: {
+            connectId: 'PRO2_BLE_ID',
+            id: 'db-device-1',
+            vendor: EHardwareVendor.onekey,
+          },
+        } as never,
+      }),
+    ).resolves.toBe('address');
+
+    expect(notifyInteractiveHardwareOperationSucceeded).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      deviceDbId: 'db-device-1',
+    });
+  });
+
+  it('keeps Portfolio suspended when the native user operation fails', async () => {
+    const { notifyInteractiveHardwareOperationSucceeded, service } =
+      prepareService();
+
+    await expect(
+      service.withHardwareProcessing(
+        async () => {
+          throw new OneKeyLocalError('link disabled');
+        },
+        {
+          deviceParams: {
+            dbDevice: {
+              connectId: 'PRO2_BLE_ID',
+              id: 'db-device-1',
+              vendor: EHardwareVendor.onekey,
+            },
+          } as never,
+        },
+      ),
+    ).rejects.toThrow('link disabled');
+
+    expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
   });
 });
