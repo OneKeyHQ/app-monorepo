@@ -41,6 +41,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -54,6 +55,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IGasAccountActionParams,
+  IGasAccountAnalyticsContext,
+} from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
@@ -77,6 +82,7 @@ import {
 } from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
+import { isGasSponsoredAnalyticsContext } from '../../utils/gasAccountAnalytics';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
@@ -107,6 +113,11 @@ type IProps = {
   // peer can't push through an `eth_sendTransaction` without acknowledgement.
   forceTakeRiskAlert?: boolean;
 };
+
+type IGasAccountActionDetails = Omit<
+  IGasAccountActionParams,
+  keyof IGasAccountAnalyticsContext
+>;
 
 function TxConfirmActions(props: IProps) {
   const {
@@ -186,6 +197,58 @@ function TxConfirmActions(props: IProps) {
     effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
   const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
   const isFeeSponsored = isMegafuelSponsored || isGasAccountSponsored;
+  const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
+    networkId,
+    gasAccountScenario,
+    isPrivateSend: transferPayload?.isPrivateSend === true,
+  });
+  const gasAccountAnalyticsContextRef = useRef(gasAccountAnalyticsContext);
+  gasAccountAnalyticsContextRef.current = gasAccountAnalyticsContext;
+
+  const logGasAccountAction = useCallback(
+    (details: IGasAccountActionDetails) => {
+      const context = gasAccountAnalyticsContextRef.current;
+      if (!isGasSponsoredAnalyticsContext(context)) {
+        return;
+      }
+      defaultLogger.transaction.send.gasAccountAction({
+        ...context,
+        ...details,
+      });
+    },
+    [],
+  );
+
+  const logGasAccountSubmitFailed = useCallback(
+    (
+      error: unknown,
+      failureStage: NonNullable<IGasAccountActionParams['failureStage']>,
+    ) => {
+      logGasAccountAction({
+        action: 'submitFailed',
+        failureStage,
+        errorCode: getGasAccountErrorCode(error),
+      });
+    },
+    [logGasAccountAction],
+  );
+
+  const gasAccountDecisionKeyRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!gasAccountAnalyticsContext) {
+      return;
+    }
+    const decisionKey =
+      unsignedTxs[0]?.uuid ??
+      `${networkId}:${gasAccountAnalyticsContext.scenario ?? 'unknown'}`;
+    if (gasAccountDecisionKeyRef.current === decisionKey) {
+      return;
+    }
+    gasAccountDecisionKeyRef.current = decisionKey;
+    defaultLogger.transaction.send.gasAccountDecision(
+      gasAccountAnalyticsContext,
+    );
+  }, [gasAccountAnalyticsContext, networkId, unsignedTxs]);
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -242,6 +305,14 @@ function TxConfirmActions(props: IProps) {
 
       if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
         muteHandledErrorToast(error);
+        logGasAccountAction({
+          action: 'payerChanged',
+          fromPayer: 'gasAccount',
+          toPayer: 'user',
+          changeSource: 'system',
+          changeReason: 'submitFailed',
+          errorCode: code,
+        });
         updateEffectiveFeePayer('user');
         updateGasAccountTemporarilyDisabled(true);
         resetGasAccountUiState();
@@ -271,6 +342,7 @@ function TxConfirmActions(props: IProps) {
     },
     [
       gasAccountUiState.selectedPayer,
+      logGasAccountAction,
       networkId,
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
@@ -337,6 +409,7 @@ function TxConfirmActions(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
     } catch (e: any) {
+      logGasAccountSubmitFailed(e, 'precheck');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -360,6 +433,7 @@ function TxConfirmActions(props: IProps) {
         navigation.popStack();
       }
     } catch (e: any) {
+      logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -399,6 +473,7 @@ function TxConfirmActions(props: IProps) {
         tronResourceRentalInfo,
       });
     } catch (e: any) {
+      logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
@@ -432,6 +507,7 @@ function TxConfirmActions(props: IProps) {
       }
     }
 
+    let transactionSubmitted = false;
     try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
@@ -495,6 +571,9 @@ function TxConfirmActions(props: IProps) {
         isSubmitted.current = false;
         return;
       }
+
+      transactionSubmitted = true;
+      logGasAccountAction({ action: 'submitSucceeded' });
 
       if (vaultSettings?.afterSendTxActionEnabled) {
         await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
@@ -639,6 +718,9 @@ function TxConfirmActions(props: IProps) {
         gasAccountSubmitIdRef.current = null;
         return;
       }
+      if (!transactionSubmitted) {
+        logGasAccountSubmitFailed(e, 'submit');
+      }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
       // Refresh and Fallback both keep the user on the confirm page with a
       // fresh estimate in flight, so the dApp caller should also keep waiting.
@@ -695,6 +777,8 @@ function TxConfirmActions(props: IProps) {
     signOnly,
     transferPayload,
     handleGasAccountSubmitError,
+    logGasAccountAction,
+    logGasAccountSubmitFailed,
     intl,
     onSuccess,
     isQueueMode,
@@ -709,6 +793,7 @@ function TxConfirmActions(props: IProps) {
   ]);
 
   const handleOnConfirm = useCallback(async () => {
+    logGasAccountAction({ action: 'confirmClicked' });
     if (decodedTxs[0]?.isCustomHexData) {
       showCustomHexDataAlert({
         decodedTx: decodedTxs[0],
@@ -720,7 +805,12 @@ function TxConfirmActions(props: IProps) {
     } else {
       await submitTxs();
     }
-  }, [decodedTxs, submitTxs, transferPayload?.originalRecipient]);
+  }, [
+    decodedTxs,
+    logGasAccountAction,
+    submitTxs,
+    transferPayload?.originalRecipient,
+  ]);
 
   const cancelCalledRef = useRef(false);
   // If a 90212 retry loop is in flight, tear it down before the flow
@@ -744,9 +834,12 @@ function TxConfirmActions(props: IProps) {
       return;
     }
     cancelCalledRef.current = true;
+    if (!isSubmitted.current) {
+      logGasAccountAction({ action: 'exited' });
+    }
     abortPendingGasAccountSubmit();
     onCancel?.();
-  }, [abortPendingGasAccountSubmit, onCancel]);
+  }, [abortPendingGasAccountSubmit, logGasAccountAction, onCancel]);
 
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
@@ -896,13 +989,25 @@ function TxConfirmActions(props: IProps) {
     if (isGasAccountQuoteExpired) {
       if (quoteExpiredHandledRef.current) return;
       quoteExpiredHandledRef.current = true;
+      logGasAccountAction({
+        action: 'payerChanged',
+        fromPayer: 'gasAccount',
+        toPayer: 'user',
+        changeSource: 'system',
+        changeReason: 'quoteExpired',
+      });
       resetGasAccountUiState();
       updateTxFeeInfoInit(false);
       appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
     } else {
       quoteExpiredHandledRef.current = false;
     }
-  }, [isGasAccountQuoteExpired, resetGasAccountUiState, updateTxFeeInfoInit]);
+  }, [
+    isGasAccountQuoteExpired,
+    logGasAccountAction,
+    resetGasAccountUiState,
+    updateTxFeeInfoInit,
+  ]);
 
   const isConfirmInitializing = useMemo(
     () => !txFeeInfoInit || !decodedTxsInit || isBuildingDecodedTxs,

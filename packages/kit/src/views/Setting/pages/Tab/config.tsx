@@ -148,6 +148,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       updateStatus: appUpdateInfo.data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -724,13 +725,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
-        showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
+        showDot: shouldShowUpdate,
         configs: [
           [
             {
               icon: 'InfoCircleOutline',
               title: intl.formatMessage({
-                id: appUpdateInfo.isNeedUpdate
+                id: shouldShowUpdate
                   ? ETranslations.settings_app_update_available
                   : ETranslations.settings_whats_new,
               }),
@@ -895,8 +896,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
       settings.hardwareTransportType,
-      isShowAppUpdateUI,
-      appUpdateInfo.isNeedUpdate,
+      shouldShowUpdate,
       devSettings.enabled,
       isKeylessWalletExistsLocal,
       startBackup,

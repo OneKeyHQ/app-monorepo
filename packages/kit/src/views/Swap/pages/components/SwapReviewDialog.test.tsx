@@ -12,6 +12,7 @@ import { SwapReviewDialog } from './SwapReviewDialog';
 
 const useSwapReviewActionsMock = jest.fn();
 const removeStoreMock = jest.fn();
+const reviewConfirmMock = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore', () => ({
   jotaiContextStore: {
@@ -102,8 +103,9 @@ jest.mock('./SwapReviewInitializer', () => ({
 describe('SwapReviewDialog', () => {
   beforeEach(() => {
     removeStoreMock.mockClear();
+    reviewConfirmMock.mockClear();
     useSwapReviewActionsMock.mockReturnValue({
-      onConfirm: jest.fn(),
+      onConfirm: reviewConfirmMock,
       preSwapBeforeStepActions: jest.fn(),
       preSwapStepsStart: jest.fn(),
     });
@@ -111,6 +113,7 @@ describe('SwapReviewDialog', () => {
 
   it('renders the reusable swap review shell with the provided store and adapter', () => {
     const onDone = jest.fn();
+    const onConfirmStart = jest.fn();
     const adapter = {
       prepareReview: jest.fn(),
       sendApproveTx: jest.fn(),
@@ -123,6 +126,7 @@ describe('SwapReviewDialog', () => {
     render(
       <SwapReviewDialog
         onDone={onDone}
+        onConfirmStart={onConfirmStart}
         adapter={adapter}
         reviewState={{
           steps: [],
@@ -157,6 +161,11 @@ describe('SwapReviewDialog', () => {
     fireEvent.click(screen.getByTestId('review-confirm'));
     fireEvent.click(screen.getByTestId('review-done'));
 
+    expect(onConfirmStart).toHaveBeenCalledTimes(1);
+    expect(reviewConfirmMock).toHaveBeenCalledTimes(1);
+    expect(onConfirmStart.mock.invocationCallOrder[0]).toBeLessThan(
+      reviewConfirmMock.mock.invocationCallOrder[0],
+    );
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 

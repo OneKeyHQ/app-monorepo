@@ -20,6 +20,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
   ISwapReviewAdapter,
@@ -54,6 +55,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IGasAccountAnalyticsContext } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
@@ -149,6 +151,8 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
+  gasAccountAnalyticsContext?: IGasAccountAnalyticsContext;
+  gasAccountAnalyticsNativeBalance?: string;
   // customPriorityFee is owned by the swapStepNetFeeLevel atom; never snapshot
   // it here, or a cleared preset fee would resurrect via `?? snapshot.value`.
 };
@@ -387,6 +391,9 @@ export function useSpeedSwapActions(props: {
   const reviewExecutionSnapshotRef = useRef<
     IMarketReviewExecutionSnapshot | undefined
   >(undefined);
+  const gasAccountDecisionSnapshotsRef = useRef(
+    new WeakSet<IMarketReviewExecutionSnapshot>(),
+  );
   const defaultMarketSpeedCheckState = useMemo(
     () => buildDefaultMarketSpeedCheckState(),
     [],
@@ -1239,6 +1246,13 @@ export function useSpeedSwapActions(props: {
             approveUnsignedTxArr,
             networkFeeLevel,
             customPriorityFee,
+            gasAccountAnalytics:
+              snapshot.kind === 'swap'
+                ? {
+                    fiatCurrency: settingsAtom.currencyInfo.id,
+                    useGasAccountByDefault: settingsAtom.useGasAccountByDefault,
+                  }
+                : undefined,
           });
 
           if (
@@ -1249,6 +1263,16 @@ export function useSpeedSwapActions(props: {
               ...snapshot.buildUnsignedParams,
               encodedTx: feeState.preparedUnsignedTx.encodedTx,
             };
+          }
+
+          if (
+            feeState.gasAccountAnalyticsContext &&
+            reviewExecutionSnapshotRef.current === snapshot
+          ) {
+            snapshot.gasAccountAnalyticsContext =
+              feeState.gasAccountAnalyticsContext;
+            snapshot.gasAccountAnalyticsNativeBalance =
+              feeState.gasAccountAnalyticsNativeBalance;
           }
 
           netWorkFee = {
@@ -1279,6 +1303,7 @@ export function useSpeedSwapActions(props: {
       buildReviewStepTexts,
       currencyMap,
       settingsAtom.currencyInfo.id,
+      settingsAtom.useGasAccountByDefault,
       slippage,
     ],
   );
@@ -1586,6 +1611,19 @@ export function useSpeedSwapActions(props: {
     },
     [],
   );
+
+  const logMarketReviewGasAccountDecision = useCallback(() => {
+    const snapshot = reviewExecutionSnapshotRef.current;
+    if (snapshot?.kind !== 'swap' || !snapshot.gasAccountAnalyticsContext) {
+      return;
+    }
+
+    if (!gasAccountDecisionSnapshotsRef.current.has(snapshot)) {
+      gasAccountDecisionSnapshotsRef.current.add(snapshot);
+      logDirectSwapGasAccountDecision(snapshot.gasAccountAnalyticsContext);
+    }
+    return snapshot.gasAccountAnalyticsContext;
+  }, []);
 
   const openMarketFallbackTxConfirm = useCallback(
     async ({
@@ -2175,6 +2213,11 @@ export function useSpeedSwapActions(props: {
           gasInfos,
           networkFeeLevel,
           customPriorityFee,
+          gasAccountAnalytics: {
+            fiatCurrency: settingsAtom.currencyInfo.id,
+            nativeBalance: snapshot.gasAccountAnalyticsNativeBalance,
+            useGasAccountByDefault: settingsAtom.useGasAccountByDefault,
+          },
         });
         const result = await handleMarketSwapBuildTxSuccess(data);
         if (result) {
@@ -2231,6 +2274,8 @@ export function useSpeedSwapActions(props: {
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
+      settingsAtom.currencyInfo.id,
+      settingsAtom.useGasAccountByDefault,
     ],
   );
 
@@ -3036,6 +3081,7 @@ export function useSpeedSwapActions(props: {
     speedCheckLoading,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
+    logMarketReviewGasAccountDecision,
     sendMarketApproveTx,
     sendMarketSwapTx,
     sendMarketWrappedTx,
