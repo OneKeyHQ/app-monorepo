@@ -20,6 +20,7 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
+import { useSettledHeaderHeight } from '../hooks/useSettledHeaderHeight';
 import { EarnTestIDs } from '../testIDs';
 
 import type { RefreshControlProps } from 'react-native';
@@ -117,7 +118,15 @@ export function EarnPageContainer({
   // under it, so the ScrollView needs a top inset equal to the bar
   // height — without it, the first content item sits clipped behind
   // the navbar at scroll offset 0.
-  const nativeHeaderHeight = useHeaderHeight();
+  const headerHeight = useHeaderHeight();
+  // OK-59841: useHeaderHeight() reports react-navigation's synchronous estimate
+  // (97.67 on a Dynamic Island device) before the native measurement (113)
+  // lands, so a body laid out against the raw value drops by 15.33pt a beat
+  // later — the whole-page jump QA sees when re-entering a pushed Earn page.
+  // Same gate EarnPositions already uses; the settled height is remembered per
+  // device, so only the first push of a session is ever held.
+  const { paddingTop: nativeHeaderHeight, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(headerHeight, { enabled: useNativeHeader });
 
   const renderNativeHeaderTitle = useCallback(
     () =>
@@ -157,12 +166,17 @@ export function EarnPageContainer({
     [hasNativeHeaderRight, customHeaderRightItems],
   );
 
+  // Hidden only while the very first header measurement of the app session is
+  // still moving (see useSettledHeaderHeight); off-target platforms and every
+  // later mount are settled from the first render and never hide.
+  const bodyOpacity = isHeaderHeightSettled ? 1 : 0;
+
   // List mode: children (a virtualized list) own the scrolling. The iOS 26
   // translucent native header inset becomes top padding here — the list is
   // clipped at the bar's bottom edge instead of scrolling under the glass,
   // which is visually equivalent since nothing scrolls behind it.
   const body = bodyListMode ? (
-    <Page.Body>
+    <Page.Body opacity={bodyOpacity}>
       <Page.Container
         testID={EarnTestIDs.earnPage}
         padded={false}
@@ -174,7 +188,7 @@ export function EarnPageContainer({
       </Page.Container>
     </Page.Body>
   ) : (
-    <Page.Body>
+    <Page.Body opacity={bodyOpacity}>
       <ScrollView
         testID={EarnTestIDs.earnPage}
         contentContainerStyle={{
