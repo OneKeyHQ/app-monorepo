@@ -74,8 +74,9 @@ import type { IProDeviceAnimation } from './animation';
  *
  * Animation attaches through two optional props: `screenContent` fills the
  * 288x484 touchscreen, `animation` (see ./animation.ts) drives the screen
- * power pair. Tap feedback lives inside scene screen content - the Pro has
- * no face keys. Everything animated is opacity only.
+ * content's opacity - the presence model shared with the Slate, so there
+ * is no wake glow layer. Tap feedback lives inside scene screen content -
+ * the Pro has no face keys. Everything animated is opacity only.
  */
 
 const DEVICE_W = 350;
@@ -118,13 +119,6 @@ const styles = StyleSheet.create({
     height: PRO_SCREEN_H,
     backgroundColor: '#0D0D0D',
     overflow: 'hidden',
-  },
-  // The lit panel's light, read off the glass rather than out of the UI, so
-  // it washes the content too. Kept subtle: the Lottie's lit screen is a
-  // near-black #101112 UI, so the content is the signal, not the lift.
-  screenGlow: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   screenSlot: {
     ...StyleSheet.absoluteFill,
@@ -360,17 +354,9 @@ const DeviceBody = memo(function DeviceBody({
   animation: IProDeviceAnimation;
   screenContent?: ReactNode;
 }) {
-  const glowStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenGlow.value }),
-    [animation],
-  );
   const slotStyle = useAnimatedStyle(
     () => ({ opacity: animation.screenContent.value }),
     [animation],
-  );
-  const glowLayerStyle = useMemo(
-    () => [styles.screenGlow, glowStyle],
-    [glowStyle],
   );
   const slotLayerStyle = useMemo(
     () => [styles.screenSlot, slotStyle],
@@ -385,8 +371,6 @@ const DeviceBody = memo(function DeviceBody({
               {screenContent}
             </Animated.View>
           ) : null}
-          {/* The lit panel's own wash reads on the panel, under the glass. */}
-          <Animated.View pointerEvents="none" style={glowLayerStyle} />
         </View>
         {LOGOTYPE}
         {/* Figma z order: the glass plate (film + seam) above the wordmark,
