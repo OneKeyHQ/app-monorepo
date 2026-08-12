@@ -14,7 +14,6 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -23,43 +22,21 @@ import { PortfolioTabContent } from '../../components/PortfolioTabContent';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnHideSmallAssets } from '../../hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
+import { useSettledHeaderHeight } from '../../hooks/useSettledHeaderHeight';
 import { useStakingPendingTxsByInfo } from '../../hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from '../../hooks/useStakingPendingTxs';
-
-// OK-59958: useHeaderHeight() reports react-navigation's synchronous estimate
-// for the first renders (97.67 on a Dynamic Island device) and the natively
-// measured height (113) only once the header lays out. bodyPaddingTop follows
-// it, so painting straight away dropped the whole body by that 15.33pt
-// difference a beat after entering the page.
-//
-// A frame-count gate is not enough — the measured value can arrive several
-// renders in — so hold until the value stops changing. The window is a settle
-// timeout, not a layout metric: it re-arms on every change and only releases
-// once the height has been quiet for it.
-const HEADER_HEIGHT_SETTLE_MS = 64;
 
 function EarnPositionsContent() {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
-  // Only iOS 26 has a settling header height; everywhere else the padding is a
-  // constant 0 and there is nothing to wait for.
-  const [isHeaderHeightSettled, setIsHeaderHeightSettled] = useState(
-    !platformEnv.isNativeIOS26Plus,
-  );
-  useEffect(() => {
-    if (!platformEnv.isNativeIOS26Plus) {
-      return undefined;
-    }
-    const timer = setTimeout(
-      () => setIsHeaderHeightSettled(true),
-      HEADER_HEIGHT_SETTLE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [headerHeight]);
+  // Owns both the inset and whether it can be trusted yet (OK-59958): on
+  // re-entry it returns the height this device already settled on, so the body
+  // is never hidden a second time.
+  const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(headerHeight);
   const portfolioData = useEarnPortfolio({ isActive: isFocused });
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
   const { refresh } = portfolioData;
