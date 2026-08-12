@@ -257,6 +257,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private static readonly FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS = 250;
 
+  private static readonly FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS = 6;
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
@@ -288,9 +290,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _refreshActivationFromFundedState({
     eventAddress,
     hasFundedBalance,
+    isRetry = false,
+    refreshAttempt = 1,
   }: {
     eventAddress: string | null | undefined;
     hasFundedBalance: boolean;
+    isRetry?: boolean;
+    refreshAttempt?: number;
   }): Promise<void> {
     const normalizedEventAddress = eventAddress?.toLowerCase();
     if (!normalizedEventAddress || !hasFundedBalance) {
@@ -299,11 +305,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this._fundedActivationConfirmedAddress === normalizedEventAddress) {
       return;
     }
+    if (
+      !isRetry &&
+      this._fundedActivationRefreshPendingAddress === normalizedEventAddress &&
+      (this._fundedActivationRefreshRetryTimer ||
+        this._fundedActivationRefreshInFlightAddress)
+    ) {
+      return;
+    }
     if (this._fundedActivationRefreshInFlightAddress) {
       this._scheduleFundedActivationRefreshRetry({
         address: normalizedEventAddress,
         delayMs:
           ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+        refreshAttempt: refreshAttempt + 1,
       });
       return;
     }
@@ -311,6 +326,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Claim synchronously before reading atoms so concurrent funded events
     // cannot start overlapping activation checks.
     this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
+    let shouldScheduleRetry = true;
     try {
       const activeAccount = await perpsActiveAccountAtom.get();
       const activeAddress = activeAccount?.accountAddress?.toLowerCase();
@@ -359,6 +375,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           address: normalizedEventAddress,
           delayMs:
             ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+          refreshAttempt: refreshAttempt + 1,
         });
         return;
       }
@@ -378,6 +395,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._clearFundedActivationRefreshRetry(normalizedEventAddress);
       }
     } catch (error) {
+      // Stop this automatic retry chain after a network/status-check failure.
+      // A later real funded WebSocket event may start a fresh bounded chain.
+      shouldScheduleRetry = false;
       defaultLogger.perp.hyperliquid.subscriptionHandlerError({
         type: 'fundedActivationRefresh',
         error,
@@ -391,7 +411,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (
         this._fundedActivationRefreshPendingAddress ===
           normalizedEventAddress &&
-        this._fundedActivationConfirmedAddress !== normalizedEventAddress
+        this._fundedActivationConfirmedAddress !== normalizedEventAddress &&
+        shouldScheduleRetry
       ) {
         const lastAttempt = this._fundedActivationRefreshLastAttempt;
         const remainingCooldown =
@@ -405,6 +426,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             remainingCooldown,
             ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
           ),
+          refreshAttempt: refreshAttempt + 1,
         });
       }
     }
@@ -425,11 +447,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _scheduleFundedActivationRefreshRetry({
     address,
     delayMs,
+    refreshAttempt,
   }: {
     address: string;
     delayMs: number;
+    refreshAttempt: number;
   }) {
     if (this._fundedActivationConfirmedAddress === address) {
+      return;
+    }
+    if (
+      refreshAttempt >
+      ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS
+    ) {
+      this._clearFundedActivationRefreshRetry(address);
       return;
     }
     if (
@@ -450,6 +481,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       void this._refreshActivationFromFundedState({
         eventAddress: address,
         hasFundedBalance: true,
+        isRetry: true,
+        refreshAttempt,
       });
     }, delayMs);
   }
