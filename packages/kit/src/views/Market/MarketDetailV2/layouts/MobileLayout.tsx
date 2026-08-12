@@ -60,6 +60,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
+import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
@@ -164,13 +165,7 @@ const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
-
-function normalizeTradingViewSubIndicatorCount(count: number) {
-  if (!Number.isFinite(count)) {
-    return 0;
-  }
-  return Math.max(0, Math.floor(count));
-}
+const MARKET_DETAIL_IOS_INITIAL_SUB_INDICATOR_STABILIZATION_MS = 500;
 
 function MobileIndicatorQuickBar({
   children,
@@ -378,17 +373,16 @@ export function MobileLayout({
   ] = useState(false);
   const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
     useState<ReactNode | null>(null);
-  const [tradingViewSubIndicatorState, setTradingViewSubIndicatorState] =
-    useState(() => ({
-      key: marketTradingViewKey,
-      count: defaultSubIndicatorCount,
-    }));
-  const activeMarketTradingViewKeyRef = useRef(marketTradingViewKey);
-  activeMarketTradingViewKeyRef.current = marketTradingViewKey;
-  const tradingViewSubIndicatorCount =
-    tradingViewSubIndicatorState.key === marketTradingViewKey
-      ? tradingViewSubIndicatorState.count
-      : defaultSubIndicatorCount;
+  const [tradingViewSubIndicatorCount, handleNativeSubIndicatorCountChange] =
+    useTradingViewSubIndicatorCount({
+      chartKey: marketTradingViewKey,
+      defaultCount: defaultSubIndicatorCount,
+      stabilizeInitialCount: Boolean(
+        platformEnv.isNativeIOS && !useTradingViewNative,
+      ),
+      stabilizationDelayMs:
+        MARKET_DETAIL_IOS_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
+    });
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
@@ -456,25 +450,6 @@ export function MobileLayout({
     },
     [],
   );
-  const handleNativeSubIndicatorCountChange = useCallback(
-    (count: number | null) => {
-      if (activeMarketTradingViewKeyRef.current !== marketTradingViewKey) {
-        return;
-      }
-
-      const nextCount =
-        count === null
-          ? defaultSubIndicatorCount
-          : normalizeTradingViewSubIndicatorCount(count);
-      setTradingViewSubIndicatorState((prevState) =>
-        prevState.key === marketTradingViewKey && prevState.count === nextCount
-          ? prevState
-          : { key: marketTradingViewKey, count: nextCount },
-      );
-    },
-    [defaultSubIndicatorCount, marketTradingViewKey],
-  );
-
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
       const currentIndex = tabNames.indexOf(focusedTab.value);
