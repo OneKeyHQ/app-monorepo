@@ -64,11 +64,15 @@ export function SwapSmoothReveal({
           enterStyle={{ height: 0, opacity: 0 }}
           exitStyle={{ height: 0, opacity: 0 }}
         >
+          {/* Absolute positioning frees the content from the animated
+              wrapper's height:0 constraint: native Yoga measures a normal-flow
+              child of a fixed-height parent as 0, which would keep the
+              measured height stuck at 0 forever. (OK-58326) */}
           <Stack
             position="absolute"
-            top={0}
             left={0}
             right={0}
+            top={0}
             pt={isGapTop && parentGap ? parentGap : undefined}
             pb={!isGapTop && parentGap ? parentGap : undefined}
             onLayout={onContentLayout}
