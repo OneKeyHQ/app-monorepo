@@ -45,6 +45,7 @@ import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
 import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import { isDisplayableMetricText } from '../../utils/protocolListUtils';
 
 import type {
   IEarnSortDirection,
@@ -294,7 +295,10 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                 : (row.item.aprInfo?.normal?.color ?? '$text')
             }
           />
-          {row.item.tvl?.text ? (
+          {/* Guard, not a fix: the server owns this string and has shipped
+              "NaN" for some Pendle vaults. Rendering it verbatim put NaN in
+              front of users, so drop any metric copy that carries no digit. */}
+          {isDisplayableMetricText(row.item.tvl?.text) ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {`${row.item.tvl.text} ${intl.formatMessage({
                 id: ETranslations.earn_tvl,

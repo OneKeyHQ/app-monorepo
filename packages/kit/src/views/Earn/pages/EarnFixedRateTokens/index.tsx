@@ -23,6 +23,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
 import {
   EARN_LIST_ESTIMATED_ITEM_SIZE,
   EARN_LIST_ROW_GAP,
@@ -286,7 +287,17 @@ function EarnFixedRateTokensContent() {
         renderItem={renderItem}
         ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={isLoading ? <EarnFixedRateTokensSkeleton /> : null}
+        ListEmptyComponent={
+          isLoading ? (
+            <EarnFixedRateTokensSkeleton />
+          ) : (
+            <EarnListEmptyState
+              isFiltered={
+                searchText.trim().length > 0 || selectedNetworkIds.length > 0
+              }
+            />
+          )
+        }
         contentContainerStyle={{ pb: tabBarHeight }}
       />
     </EarnPageContainer>

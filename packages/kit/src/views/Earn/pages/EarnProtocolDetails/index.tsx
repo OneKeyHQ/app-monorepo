@@ -166,17 +166,27 @@ const ProtocolHeader = ({
   return (
     <YStack gap="$2.5">
       <XStack jc="space-between" ai="center">
+        {/* Vault symbols can be as long as
+            "Morpho-cbBTC-USDC-wrapper". The name group used to be
+            flexShrink={0} with no truncation on its text, so it pushed the
+            divider and the maturity date off the right edge. The date is
+            short and load-bearing, so it and the divider hold their size and
+            the name truncates into whatever is left. */}
         <XStack gap="$3" ai="center" minWidth={0} flex={1}>
-          <XStack gap="$2" ai="center" flexShrink={0}>
+          <XStack gap="$2" ai="center" flexShrink={1} minWidth={0}>
             <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-            <SizableText size="$bodyLgMedium">
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
               {tokenInfo?.token.symbol || symbol}
             </SizableText>
           </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$6" />
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              <Divider vertical h="$6" flexShrink={0} />
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={0}
+              >
                 {formattedMaturityDate}
               </SizableText>
             </>

@@ -1,6 +1,7 @@
 import { Fragment, isValidElement, useCallback, useMemo } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
+import { useWindowDimensions } from 'react-native';
 
 import type { IBreadcrumbProps, IScrollViewProps } from '@onekeyhq/components';
 import {
@@ -24,6 +25,16 @@ import { useSettledHeaderHeight } from '../hooks/useSettledHeaderHeight';
 import { EarnTestIDs } from '../testIDs';
 
 import type { RefreshControlProps } from 'react-native';
+
+// Leading back button and trailing action button each occupy roughly a 44pt
+// glass control plus its margins; reserving both keeps the centred title clear
+// of them on every device width.
+const NATIVE_HEADER_BUTTON_ZONE = 64;
+// Reserving only the buttons let a truncated title stop exactly at the trailing
+// button's edge, so the ellipsis sat flush against the share icon. Keep a
+// visible gap between the two.
+const NATIVE_HEADER_TITLE_GAP = 16;
+const NATIVE_HEADER_TITLE_MIN_WIDTH = 120;
 
 interface IEarnPageContainerProps {
   pageTitle?: React.ReactNode;
@@ -72,6 +83,7 @@ export function EarnPageContainer({
   bodyListMode = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
+  const { width: windowWidth } = useWindowDimensions();
   const navigation = useAppNavigation();
   const { top: safeAreaTop } = useSafeAreaInsets();
 
@@ -81,21 +93,39 @@ export function EarnPageContainer({
 
   const shouldCenterTitle = centerPageTitle && !!pageTitle;
 
+  // TabPageHeader lays its left group out in a plain <View> with no flex and no
+  // minWidth (MDHeader), and React Native defaults flexShrink to 0, so the
+  // group sizes to its content and never yields — a long page title runs
+  // straight into the trailing actions. Bound the group here instead of
+  // touching the shared header, which every mobile tab depends on. Only the
+  // trailing actions have to be cleared; the back button lives inside this
+  // group and is already accounted for by its own width.
+  const headerLeftMaxWidth = Math.max(
+    windowWidth - NATIVE_HEADER_BUTTON_ZONE - NATIVE_HEADER_TITLE_GAP * 2,
+    NATIVE_HEADER_TITLE_MIN_WIDTH,
+  );
+
   const customHeaderLeft = useMemo(() => {
     if (showBackButton) {
       return (
-        <XStack gap="$3" ai="center">
+        <XStack gap="$3" ai="center" maxWidth={headerLeftMaxWidth} minWidth={0}>
           <NavBackButton onPress={handleBack} />
           {shouldCenterTitle ? null : pageTitle}
         </XStack>
       );
     }
     return pageTitle ? (
-      <XStack gap="$3" ai="center">
+      <XStack gap="$3" ai="center" maxWidth={headerLeftMaxWidth} minWidth={0}>
         {pageTitle}
       </XStack>
     ) : null;
-  }, [pageTitle, showBackButton, handleBack, shouldCenterTitle]);
+  }, [
+    pageTitle,
+    showBackButton,
+    handleBack,
+    shouldCenterTitle,
+    headerLeftMaxWidth,
+  ]);
 
   const showBreadcrumb = useMemo(
     () => breadcrumbProps && media.gtSm,
@@ -128,14 +158,32 @@ export function EarnPageContainer({
   const { paddingTop: nativeHeaderHeight, isSettled: isHeaderHeightSettled } =
     useSettledHeaderHeight(headerHeight, { enabled: useNativeHeader });
 
+  // This element becomes UIKit's custom titleView, and a titleView
+  // inherits no width constraint from the bar. Without an explicit bound the
+  // title lays out at its intrinsic width, so a long one (e.g. the vault symbol
+  // "Morpho-cbBTC-USDC-wrapper") runs underneath the trailing bar button
+  // instead of truncating — callers' numberOfLines/flexShrink have nothing to
+  // shrink against. Reserve the leading and trailing button zones (a ~44pt
+  // glass button plus its margins on each side) and let the title ellipsize
+  // inside what is left.
+  const nativeHeaderTitleMaxWidth = Math.max(
+    windowWidth - NATIVE_HEADER_BUTTON_ZONE * 2 - NATIVE_HEADER_TITLE_GAP * 2,
+    NATIVE_HEADER_TITLE_MIN_WIDTH,
+  );
+
   const renderNativeHeaderTitle = useCallback(
     () =>
       pageTitle ? (
-        <XStack gap="$2" ai="center">
+        <XStack
+          gap="$2"
+          ai="center"
+          maxWidth={nativeHeaderTitleMaxWidth}
+          minWidth={0}
+        >
           {pageTitle}
         </XStack>
       ) : null,
-    [pageTitle],
+    [pageTitle, nativeHeaderTitleMaxWidth],
   );
 
   // Callers (e.g. EarnProtocols) pass <></> on native to mean "hide the

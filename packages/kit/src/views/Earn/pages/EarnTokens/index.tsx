@@ -23,6 +23,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
 import {
   EARN_LIST_ESTIMATED_ITEM_SIZE,
   EARN_LIST_ROW_GAP,
@@ -315,26 +316,20 @@ function EarnTokensContent() {
     [navigateToAsset],
   );
 
-  const tvlLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.earn_tvl }),
-    [intl],
-  );
-
+  // Product dropped the TVL sub-line from this aggregated page. Only the
+  // display goes — symbolTvlMap still backs the TVL sort options and the
+  // TVL-desc default, so it must stay.
   const renderItem = useCallback(
     ({ item }: { item: IEarnAvailableAsset }) => (
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
         totalLiquidityLabel={totalLiquidityLabel}
-        // Walkthrough r3: show the summed provider TVL under APY so the
-        // default TVL-desc sort is visible on the row
-        tvlValue={symbolTvlMap.get(item.symbol.toLowerCase())}
-        tvlLabel={tvlLabel}
         testID={EarnTestIDs.tokensPageItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel, symbolTvlMap, tvlLabel],
+    [handleAssetPress, totalLiquidityLabel],
   );
 
   const keyExtractor = useCallback(
@@ -442,7 +437,17 @@ function EarnTokensContent() {
         renderItem={renderItem}
         ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={isInitialLoading ? <EarnTokensSkeleton /> : null}
+        ListEmptyComponent={
+          isInitialLoading ? (
+            <EarnTokensSkeleton />
+          ) : (
+            <EarnListEmptyState
+              isFiltered={
+                searchText.trim().length > 0 || selectedNetworkIds.length > 0
+              }
+            />
+          )
+        }
         contentContainerStyle={{ pb: tabBarHeight }}
       />
     </EarnPageContainer>
