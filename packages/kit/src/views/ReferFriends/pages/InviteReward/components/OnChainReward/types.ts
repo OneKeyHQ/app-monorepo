@@ -20,14 +20,3 @@ export interface IUseOnChainRewardReturn {
   onChainSummaryFiat: string | undefined;
   hasEarnRewards: boolean;
 }
-
-export interface IUsePerpRewardParams {
-  onChain: IInviteSummary['Onchain'];
-}
-
-export interface IUsePerpRewardReturn {
-  perpToken: IRewardTokenMeta | null | undefined;
-  perpSummary: string | undefined;
-  perpSummaryFiat: string | undefined;
-  hasPerpRewards: boolean;
-}

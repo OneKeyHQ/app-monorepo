@@ -1,6 +1,4 @@
-import type { IRebateUserInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
-
-import { getSwapRewardSummary } from './utils';
+import { getRewardSummary } from './getRewardSummary';
 
 const token = {
   networkId: 'evm--42161',
@@ -10,7 +8,7 @@ const token = {
   symbol: 'USDC',
 };
 
-function createReward(amount: string): IRebateUserInviteSummary {
+function createReward(amount: string) {
   return {
     amount,
     fiatValue: amount,
@@ -18,34 +16,34 @@ function createReward(amount: string): IRebateUserInviteSummary {
   };
 }
 
-describe('getSwapRewardSummary', () => {
+describe('getRewardSummary', () => {
   it('adds reward amounts without losing precision and keeps token metadata', () => {
     expect(
-      getSwapRewardSummary([
+      getRewardSummary([
         createReward('9007199254740993.00000001'),
         createReward('0.00000009'),
       ]),
     ).toEqual({
+      kind: 'token',
       amount: '9007199254740993.0000001',
       hasReward: true,
-      isSingleToken: true,
       token,
     });
   });
 
   it('ignores malformed amounts and handles an empty reward list', () => {
     expect(
-      getSwapRewardSummary([createReward('invalid'), createReward('1')]),
+      getRewardSummary([createReward('invalid'), createReward('1')]),
     ).toEqual({
+      kind: 'token',
       amount: '1',
       hasReward: true,
-      isSingleToken: true,
       token,
     });
-    expect(getSwapRewardSummary([])).toEqual({
+    expect(getRewardSummary([])).toEqual({
+      kind: 'token',
       amount: '0',
       hasReward: false,
-      isSingleToken: true,
       token: undefined,
     });
   });
@@ -60,7 +58,7 @@ describe('getSwapRewardSummary', () => {
     };
 
     expect(
-      getSwapRewardSummary([
+      getRewardSummary([
         createReward('10'),
         {
           ...createReward('20'),
@@ -69,10 +67,9 @@ describe('getSwapRewardSummary', () => {
         },
       ]),
     ).toEqual({
-      amount: '14.25',
+      kind: 'fiat',
+      fiatValue: '14.25',
       hasReward: true,
-      isSingleToken: false,
-      token: undefined,
     });
   });
 });

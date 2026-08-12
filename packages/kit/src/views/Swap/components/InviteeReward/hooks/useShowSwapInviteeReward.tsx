@@ -89,7 +89,6 @@ export function useShowSwapInviteeReward({
             <SwapInviteeRewardContent
               accountId={accountId}
               currentEvmAddress={currentEvmAddress}
-              indexedAccountId={indexedAccountId}
             />
           ),
           showFooter: false,
@@ -109,7 +108,6 @@ export function useShowSwapInviteeReward({
         params: {
           accountId,
           currentEvmAddress,
-          indexedAccountId,
         },
       });
       clearOpeningTimer();
@@ -118,15 +116,7 @@ export function useShowSwapInviteeReward({
         openingTimerRef.current = null;
       }, MODAL_OPEN_LOCK_MS);
     },
-    [
-      accountId,
-      clearOpeningTimer,
-      dialogInTab,
-      gtMd,
-      indexedAccountId,
-      intl,
-      navigation,
-    ],
+    [accountId, clearOpeningTimer, dialogInTab, gtMd, intl, navigation],
   );
 
   const showSwapInviteeReward = useCallback(() => {
