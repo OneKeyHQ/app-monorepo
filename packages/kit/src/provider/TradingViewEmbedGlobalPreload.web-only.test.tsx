@@ -8,6 +8,7 @@ import {
   loadTradingViewEmbedModule,
   preloadTradingViewEmbedBootstrapAssets,
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
+import { migrateLegacyTradingViewStorage } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
 import { preloadTasksOnIdle } from './preloadComponents';
@@ -25,6 +26,13 @@ jest.mock(
   () => ({
     loadTradingViewEmbedModule: jest.fn(() => Promise.resolve()),
     preloadTradingViewEmbedBootstrapAssets: jest.fn(() => Promise.resolve()),
+  }),
+);
+
+jest.mock(
+  '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web',
+  () => ({
+    migrateLegacyTradingViewStorage: jest.fn(() => Promise.resolve()),
   }),
 );
 
@@ -55,8 +63,8 @@ describe('TradingViewEmbedGlobalPreload', () => {
     });
     const [tasks, logPrefix] = jest.mocked(preloadTasksOnIdle).mock.calls[0];
     expect(tasks.map((task) => task.name)).toEqual([
-      'MarketTradingView',
       'TradingViewEmbedModule',
+      'MarketTradingView',
       'TradingViewEmbedBootstrapAssets',
     ]);
     expect(logPrefix).toBe('TradingViewEmbedPreload');
@@ -67,6 +75,9 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
     expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
+      'http://localhost:5173/?locale=zh-CN',
+    );
+    expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',
     );
     expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(

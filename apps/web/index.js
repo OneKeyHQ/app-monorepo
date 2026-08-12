@@ -28,7 +28,6 @@ import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import App from './App';
-import { warmTradingViewEmbedAssets } from './src/tradingViewEmbedWarmup';
 
 const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
@@ -42,7 +41,6 @@ const SERVICE_WORKER_MESSAGE_TYPES = {
   VERSION_STATE: 'VERSION_STATE',
   UPDATE_READY: 'UPDATE_READY',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
-  PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
 
 let pendingVersionActivation = '';
@@ -289,7 +287,6 @@ function requestServiceWorkerVersionCheck() {
   }
   postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.GET_VERSION_STATE);
   postMessageToServiceWorker(SERVICE_WORKER_MESSAGE_TYPES.CHECK_VERSION);
-  warmTradingViewEmbedAssets();
 }
 
 function setupServiceWorkerVersionProtocol() {

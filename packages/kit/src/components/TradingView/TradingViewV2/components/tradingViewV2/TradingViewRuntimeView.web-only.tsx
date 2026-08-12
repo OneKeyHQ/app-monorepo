@@ -98,20 +98,17 @@ export default function TradingViewRuntimeView({
     > | null = null;
     onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
 
-    void loadTradingViewEmbedModule(runtimeUrl)
-      .then(async ({ assetBaseUrl, module }) => {
-        if (cancelled) {
-          return;
-        }
-        await migrateLegacyTradingViewStorage(runtimeUrl).catch(
-          (error: unknown) => {
-            defaultLogger.app.error.log(
-              `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
-                error,
-              )}`,
-            );
-          },
+    const migrationPromise = migrateLegacyTradingViewStorage(runtimeUrl).catch(
+      (error: unknown) => {
+        defaultLogger.app.error.log(
+          `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+            error,
+          )}`,
         );
+      },
+    );
+    void Promise.all([loadTradingViewEmbedModule(runtimeUrl), migrationPromise])
+      .then(async ([{ assetBaseUrl, module }]) => {
         if (cancelled) {
           return;
         }

@@ -5,6 +5,7 @@ import {
   loadTradingViewEmbedModule,
   preloadTradingViewEmbedBootstrapAssets,
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
+import { migrateLegacyTradingViewStorage } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
 import { preloadTasksOnIdle } from './preloadComponents';
@@ -19,12 +20,16 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
     return preloadTasksOnIdle(
       [
         {
-          name: 'MarketTradingView',
-          preload: preloadMarketTradingView,
+          name: 'TradingViewEmbedModule',
+          preload: () =>
+            Promise.all([
+              loadTradingViewEmbedModule(finalUrl),
+              migrateLegacyTradingViewStorage(finalUrl),
+            ]),
         },
         {
-          name: 'TradingViewEmbedModule',
-          preload: () => loadTradingViewEmbedModule(finalUrl),
+          name: 'MarketTradingView',
+          preload: preloadMarketTradingView,
         },
         ...(isLocalRuntime
           ? [
