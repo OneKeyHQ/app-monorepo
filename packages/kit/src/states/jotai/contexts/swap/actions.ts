@@ -1669,7 +1669,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toTokenAmountNumber = Number(toTokenAmount.value);
       let quoteKind = kind;
       if (reQuote) {
-        if (
+        const lockedQuoteKind = get(swapQuoteActionLockAtom()).kind;
+        if (lockedQuoteKind) {
+          quoteKind = lockedQuoteKind;
+        } else if (
           kind === ESwapQuoteKind.SELL &&
           !Number.isNaN(toTokenAmountNumber) &&
           toTokenAmountNumber > 0 &&

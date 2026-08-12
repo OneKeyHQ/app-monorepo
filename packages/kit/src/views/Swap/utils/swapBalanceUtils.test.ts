@@ -185,11 +185,24 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     });
   });
 
-  it('excludes sponsored (gasAccountEligible) gas from the requirement', () => {
+  it('excludes Gas Account sponsored gas from the requirement', () => {
     // Non-native swap fully sponsored by Gas Account: no native is needed.
     expect(
       getSwapRequiredNativeBalanceAmount({
-        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              gasAccountEligible: true,
+              payer: 'gasAccount',
+              gasAccountQuote: {
+                quoteId: 'quote-id',
+                maxFee: '1',
+                expiresAt: String(Date.now() + 60_000),
+              },
+            },
+          },
+        ],
         networkId: 'evm--1',
         fromToken: usdcToken,
         fromAmount: '12',
@@ -219,7 +232,20 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
     // Gas is sponsored, but the native token being swapped is still required.
     expect(
       getSwapRequiredNativeBalanceAmount({
-        gasInfos: [{ gasInfo: { ...evmGasInfo, gasAccountEligible: true } }],
+        gasInfos: [
+          {
+            gasInfo: {
+              ...evmGasInfo,
+              gasAccountEligible: true,
+              payer: 'gasAccount',
+              gasAccountQuote: {
+                quoteId: 'quote-id',
+                maxFee: '1',
+                expiresAt: String(Date.now() + 60_000),
+              },
+            },
+          },
+        ],
         networkId: 'evm--1',
         fromToken: ethToken,
         fromAmount: '0.1',

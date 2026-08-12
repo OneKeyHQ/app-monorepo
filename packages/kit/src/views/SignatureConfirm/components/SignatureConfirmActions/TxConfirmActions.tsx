@@ -191,7 +191,10 @@ function TxConfirmActions(props: IProps) {
   const unsignedTx = unsignedTxs[0];
   const isMegafuelSponsored =
     effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
-  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+  const isGasAccountSponsored =
+    effectiveFeePayer === 'gasAccount' &&
+    gasAccountUiState.selectedPayer === 'gasAccount' &&
+    !!gasAccountUiState.gasAccountQuote?.quoteId;
   const isFeeSponsored = isMegafuelSponsored || isGasAccountSponsored;
 
   const dappApprove = useDappApproveAction({
@@ -598,7 +601,12 @@ function TxConfirmActions(props: IProps) {
       }
 
       updateSendTxStatus({ isSubmitting: false });
-      onSuccess?.(result);
+      onSuccess?.(
+        result.map((item) => ({
+          ...item,
+          isNetworkFeeSponsored: isFeeSponsored,
+        })),
+      );
 
       // Save recent recipient for all transfer types
       const isLightningNetwork =
