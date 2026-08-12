@@ -26,7 +26,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
+  buildActiveTwapRuntimeInfoById,
+  getActiveTwapRuntimeStatus,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -42,7 +45,6 @@ import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHe
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
-import { normalizeEpochMs } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 import { shouldRenderMobileOpenOrdersNativeTree } from './mobileOpenOrdersVisibility';
@@ -281,39 +283,10 @@ function PerpOpenOrdersList({
       twapHistoryState.history,
     ],
   );
-  const activeTwapRuntimeInfoById = useMemo(() => {
-    const latestRecordByTwapId = new Map<
-      number,
-      (typeof scopedTwapHistory)[number]
-    >();
-    scopedTwapHistory.forEach((record) => {
-      if (record.twapId === undefined) {
-        return;
-      }
-      const previous = latestRecordByTwapId.get(record.twapId);
-      if (!previous || record.time > previous.time) {
-        latestRecordByTwapId.set(record.twapId, record);
-      }
-    });
-    return new Map(
-      Array.from(latestRecordByTwapId.entries()).map(
-        ([twapId, record]) =>
-          [
-            twapId,
-            {
-              reportedStatus:
-                record.status.status === 'waitingForTrigger'
-                  ? 'waitingForTrigger'
-                  : 'activated',
-              activatedAt:
-                record.status.status === 'activated'
-                  ? normalizeEpochMs(record.time)
-                  : undefined,
-            },
-          ] as const,
-      ),
-    );
-  }, [scopedTwapHistory]);
+  const activeTwapRuntimeInfoById = useMemo(
+    () => buildActiveTwapRuntimeInfoById(scopedTwapHistory),
+    [scopedTwapHistory],
+  );
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(

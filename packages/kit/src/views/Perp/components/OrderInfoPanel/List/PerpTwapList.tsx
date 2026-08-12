@@ -35,6 +35,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
+  buildActiveTwapRuntimeInfoById,
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
@@ -1394,36 +1395,10 @@ function PerpTwapList({
     return rawHistory;
   }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
-  const activeRuntimeInfoByTwapId = useMemo(() => {
-    const latestRecordByTwapId = new Map<number, ITwapHistoryRecord>();
-    historyRows.forEach((record) => {
-      if (record.twapId === undefined) {
-        return;
-      }
-      const previous = latestRecordByTwapId.get(record.twapId);
-      if (!previous || record.time > previous.time) {
-        latestRecordByTwapId.set(record.twapId, record);
-      }
-    });
-    return new Map(
-      Array.from(latestRecordByTwapId.entries()).map(
-        ([twapId, record]) =>
-          [
-            twapId,
-            {
-              reportedStatus:
-                record.status.status === 'waitingForTrigger'
-                  ? 'waitingForTrigger'
-                  : 'activated',
-              activatedAt:
-                record.status.status === 'activated'
-                  ? normalizeEpochMs(record.time)
-                  : undefined,
-            },
-          ] as const,
-      ),
-    );
-  }, [historyRows]);
+  const activeRuntimeInfoByTwapId = useMemo(
+    () => buildActiveTwapRuntimeInfoById(historyRows),
+    [historyRows],
+  );
 
   const sliceFills = useMemo(() => {
     if (

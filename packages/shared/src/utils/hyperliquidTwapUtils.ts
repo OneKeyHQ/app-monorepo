@@ -14,6 +14,49 @@ export type ITwapRuntimeStatus =
   | 'terminated'
   | 'waitingForTrigger';
 
+export type IActiveTwapRuntimeInfo = {
+  reportedStatus: 'activated' | 'waitingForTrigger';
+  activatedAt?: number;
+};
+
+function normalizeTwapHistoryTimeMs(time: number): number {
+  return time > 1_000_000_000_000 ? time : time * 1000;
+}
+
+export function buildActiveTwapRuntimeInfoById(
+  records: readonly {
+    twapId?: number;
+    time: number;
+    status: { status: ITwapRuntimeStatus };
+  }[],
+): Map<number, IActiveTwapRuntimeInfo> {
+  const latestRecordByTwapId = new Map<number, (typeof records)[number]>();
+  records.forEach((record) => {
+    if (record.twapId === undefined) {
+      return;
+    }
+    const previous = latestRecordByTwapId.get(record.twapId);
+    if (!previous || record.time > previous.time) {
+      latestRecordByTwapId.set(record.twapId, record);
+    }
+  });
+  return new Map(
+    Array.from(latestRecordByTwapId.entries()).map(([twapId, record]) => [
+      twapId,
+      {
+        reportedStatus:
+          record.status.status === 'waitingForTrigger'
+            ? 'waitingForTrigger'
+            : 'activated',
+        activatedAt:
+          record.status.status === 'activated'
+            ? normalizeTwapHistoryTimeMs(record.time)
+            : undefined,
+      },
+    ]),
+  );
+}
+
 export function getActiveTwapRuntimeStatus({
   reportedStatus,
   triggerPrice,

@@ -2,6 +2,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
+  buildActiveTwapRuntimeInfoById,
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
@@ -147,5 +148,25 @@ describe('hyperliquidTwapUtils', () => {
         executedSize: '0',
       }),
     ).toBe('activated');
+  });
+
+  it('keeps the latest reported status and activation time for each TWAP', () => {
+    expect(
+      buildActiveTwapRuntimeInfoById?.([
+        {
+          twapId: 7,
+          time: 1_718_000_000,
+          status: { status: 'waitingForTrigger' },
+        },
+        {
+          twapId: 7,
+          time: 1_718_000_120,
+          status: { status: 'activated' },
+        },
+      ]).get(7),
+    ).toEqual({
+      reportedStatus: 'activated',
+      activatedAt: 1_718_000_120_000,
+    });
   });
 });
