@@ -181,14 +181,16 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
         allowPreReleaseHosts: 'true' as never,
       }),
     ).rejects.toThrow('ARTIFACT_INVALID_INPUT');
-    // Skipping hostname pinning requires pinned content.
+    // Pre-release admission preserves the optional integrity contract used by
+    // the production config path.
     await expect(
       adapter.download({
         ...input,
+        expectedSize: undefined,
         expectedSha256: undefined,
         allowPreReleaseHosts: true,
       }),
-    ).rejects.toThrow('ARTIFACT_INVALID_INPUT');
+    ).rejects.toThrow('ARTIFACT_NETWORK_FAILED');
     // Admitted: dev flag plus a pinned SHA-256 reaches the network stage.
     await expect(
       adapter.download({ ...input, allowPreReleaseHosts: true }),

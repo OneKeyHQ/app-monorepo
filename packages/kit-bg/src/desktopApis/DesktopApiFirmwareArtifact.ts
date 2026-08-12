@@ -92,10 +92,9 @@ const assertSafeInteger = (value: number, label: string): void => {
 
 // allowPreReleaseHosts is only sent by bg while developer mode +
 // "Use pre-release config" are on: pre-release artifacts live in
-// developer-owned buckets whose hostnames cannot be pinned in advance. The
-// structural checks below still apply, and validateDownloadInput additionally
-// requires a pinned SHA-256 for these downloads, so every admitted artifact is
-// covered by a reviewed hostname or by pinned content.
+// developer-owned buckets whose hostnames cannot be pinned in advance. It only
+// widens hostname admission; all other validation, including optional integrity
+// metadata, stays identical to the production config path.
 export const isFirmwareArtifactUrlAllowed = (
   url: URL,
   options?: { allowPreReleaseHosts?: boolean },
@@ -497,14 +496,6 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
   private validateDownloadInput(input: IDownloadInput): void {
     const url = new URL(input.url);
     const allowPreReleaseHosts = input.allowPreReleaseHosts === true;
-    // Dropping hostname pinning is only acceptable against pinned content, so
-    // a pre-release artifact without a pinned digest must never be admitted.
-    if (allowPreReleaseHosts && input.expectedSha256 === undefined) {
-      throw new FirmwareArtifactDesktopError(
-        'ARTIFACT_INVALID_INPUT',
-        'Pre-release firmware artifacts require a pinned SHA-256',
-      );
-    }
     if (!isFirmwareArtifactUrlAllowed(url, { allowPreReleaseHosts })) {
       throw new FirmwareArtifactDesktopError(
         'ARTIFACT_INVALID_INPUT',
