@@ -427,6 +427,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
       skip_pages_deploy: true
+      skip_production_build: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}

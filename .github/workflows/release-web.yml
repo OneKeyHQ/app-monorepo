@@ -32,6 +32,10 @@ on:
         type: boolean
         required: false
         default: false
+      skip_production_build:
+        type: boolean
+        required: false
+        default: false
       test_endpoint:
         type: string
         required: false
@@ -294,7 +298,7 @@ jobs:
   build-production:
     runs-on: ubuntu-24.04
 
-    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ !inputs.skip_production_build && (!github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success')) }}
     steps:
       - name: Validate workflow_run source
         if: github.event_name == 'workflow_run'
