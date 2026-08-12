@@ -17,7 +17,7 @@ import {
   PIN_LOOP,
   passphraseEnteredAt,
 } from './animation';
-import { PRO_SCREEN_H, PRO_SCREEN_W } from './shell';
+import { PRO_SCREEN_BG, PRO_SCREEN_H, PRO_SCREEN_W } from './shell';
 
 import type {
   IDeviceSceneContentProps,
@@ -384,11 +384,11 @@ function ConfirmScreen({ clock }: { clock: SharedValue<number> }) {
  * Label, a large entry field with the n/50 counter under it, and a qwerty
  * keyboard with the firmware's bottom row (backspace, 123, space, submit).
  * Choreography: the glass sweep crosses the keyboard corner to corner —
- * the Pro's keyboard has no panel box, so every cap windows its slice of
- * one keyboard-wide band (the light is caught by the keys, and its edges
- * are the keys' own) — then six marks land one by one. The marks sit
- * left-aligned in the field, so they land in place, and the counter
- * follows them. */
+ * the Pro's keyboard has no panel box, so one keyboard-wide band runs
+ * under the gap grille (below), leaving the light caught by the caps
+ * alone with its edges the keys' own — then six marks land one by one.
+ * The marks sit left-aligned in the field, so they land in place, and
+ * the counter follows them. */
 
 const KB_KEY_W = 25;
 const KB_KEY_H = 38;
@@ -429,9 +429,20 @@ const passStyles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#fff',
   },
-  // A cap's window onto the keyboard-wide band; the cap itself clips.
-  sweepWindow: {
-    ...StyleSheet.absoluteFill,
+  // The band's clip: the keyboard's bounding box. What shows through is
+  // decided by the grille above it, not by this rectangle.
+  sweepClip: {
+    position: 'absolute',
+    left: KB_REGION_LEFT,
+    top: KB_REGION_TOP,
+    width: KB_REGION_W,
+    height: KB_REGION_H,
+    overflow: 'hidden',
+  },
+  grille: {
+    position: 'absolute',
+    left: KB_REGION_LEFT,
+    top: KB_REGION_TOP,
   },
 });
 
@@ -458,11 +469,12 @@ interface IKbKeySpec {
   name: string;
   left: number;
   top: number;
+  width: number;
   frame: ViewStyle;
   children?: ReactNode;
 }
 
-/** A key cap's spec on its row; left/top double as the band offsets. */
+/** A key cap's spec on its row; left/top/width double as its grille hole. */
 function kbKey(
   name: string,
   left: number,
@@ -476,6 +488,7 @@ function kbKey(
     name,
     left,
     top,
+    width,
     frame: keyFrame(left, top, width, KB_KEY_H, KB_KEY_R, background),
     children,
   };
@@ -541,6 +554,47 @@ const KB_KEYS: IKbKeySpec[] = [
   ),
 ];
 
+/* The gap grille: the bare screen surface between and around the caps,
+ * painted back over the keyboard-wide sweep, so the light exists only on
+ * the caps and its edges are the caps' own rounded corners. One static
+ * even-odd path — the region rect with a rounded hole per cap — where
+ * windowing the band inside every cap cost a carrier-sized CPU-raster
+ * gradient bitmap per key at scene mount (a main-thread burst that ate
+ * the entry ramp). Opaque panel color over panel color: invisible at
+ * every entry opacity. */
+
+function grilleHole({ left, top, width }: IKbKeySpec): string {
+  const x = left - KB_REGION_LEFT;
+  const y = top - KB_REGION_TOP;
+  const r = KB_KEY_R;
+  const rightRun = width - 2 * r;
+  const downRun = KB_KEY_H - 2 * r;
+  return (
+    `M${x + r} ${y}h${rightRun}` +
+    `a${r} ${r} 0 0 1 ${r} ${r}v${downRun}` +
+    `a${r} ${r} 0 0 1 ${-r} ${r}h${-rightRun}` +
+    `a${r} ${r} 0 0 1 ${-r} ${-r}v${-downRun}` +
+    `a${r} ${r} 0 0 1 ${r} ${-r}Z`
+  );
+}
+
+const GRILLE_D = `M0 0H${KB_REGION_W}V${KB_REGION_H}H0Z${KB_KEYS.map(
+  grilleHole,
+).join('')}`;
+
+const GRILLE = (
+  <Svg
+    pointerEvents="none"
+    width={KB_REGION_W}
+    height={KB_REGION_H}
+    viewBox={`0 0 ${KB_REGION_W} ${KB_REGION_H}`}
+    fill="none"
+    style={passStyles.grille}
+  >
+    <Path d={GRILLE_D} fill={PRO_SCREEN_BG} fillRule="evenodd" />
+  </Svg>
+);
+
 const PASS_TITLE = (
   <SizableText
     position="absolute"
@@ -571,19 +625,18 @@ function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
         ))}
       </View>
       <EntryCounter clock={clock} top={226} />
-      {KB_KEYS.map(({ name, left, top, frame, children }) => (
+      {KB_KEYS.map(({ name, frame, children }) => (
         <View key={name} style={frame}>
           {children}
-          <GlassSweep
-            clock={clock}
-            width={KB_REGION_W}
-            height={KB_REGION_H}
-            clipStyle={passStyles.sweepWindow}
-            offsetX={left - KB_REGION_LEFT}
-            offsetY={top - KB_REGION_TOP}
-          />
         </View>
       ))}
+      <GlassSweep
+        clock={clock}
+        width={KB_REGION_W}
+        height={KB_REGION_H}
+        clipStyle={passStyles.sweepClip}
+      />
+      {GRILLE}
     </View>
   );
 }
