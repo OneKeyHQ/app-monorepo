@@ -42,6 +42,7 @@ import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHe
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { normalizeEpochMs } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 import { shouldRenderMobileOpenOrdersNativeTree } from './mobileOpenOrdersVisibility';
@@ -280,7 +281,7 @@ function PerpOpenOrdersList({
       twapHistoryState.history,
     ],
   );
-  const activeTwapStatusById = useMemo(() => {
+  const activeTwapRuntimeInfoById = useMemo(() => {
     const latestRecordByTwapId = new Map<
       number,
       (typeof scopedTwapHistory)[number]
@@ -299,9 +300,16 @@ function PerpOpenOrdersList({
         ([twapId, record]) =>
           [
             twapId,
-            record.status.status === 'waitingForTrigger'
-              ? 'waitingForTrigger'
-              : 'activated',
+            {
+              reportedStatus:
+                record.status.status === 'waitingForTrigger'
+                  ? 'waitingForTrigger'
+                  : 'activated',
+              activatedAt:
+                record.status.status === 'activated'
+                  ? normalizeEpochMs(record.time)
+                  : undefined,
+            },
           ] as const,
       ),
     );
@@ -525,14 +533,19 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoById.get(item.order.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
-          status={getActiveTwapRuntimeStatus({
-            reportedStatus: activeTwapStatusById.get(item.order.twapId),
-            triggerPrice: item.order.state.trigger?.px,
-            executedSize: item.order.state.executedSz,
-          })}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );

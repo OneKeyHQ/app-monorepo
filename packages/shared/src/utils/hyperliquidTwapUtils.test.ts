@@ -2,9 +2,11 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
   getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from './hyperliquidTwapUtils';
@@ -48,6 +50,38 @@ describe('hyperliquidTwapUtils', () => {
     ).toBeUndefined();
   });
 
+  it('uses mark price for perp triggers and mid price for spot triggers', () => {
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: false,
+        midPrice: '100',
+        markPrice: '102',
+      }).toFixed(),
+    ).toBe('102');
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: true,
+        midPrice: '100',
+        markPrice: '102',
+      }).toFixed(),
+    ).toBe('100');
+  });
+
+  it('does not infer a perp trigger direction without a mark price', () => {
+    expect(
+      getTwapTriggerReferencePrice({
+        isSpot: false,
+        midPrice: '100',
+      }).isFinite(),
+    ).toBe(false);
+  });
+
+  it('preserves the wire precision of TWAP prices for display', () => {
+    expect(formatTwapPriceForDisplay('0.000012345')).toBe('0.000012345');
+    expect(formatTwapPriceForDisplay('12345.678')).toBe('12,345.678');
+    expect(formatTwapPriceForDisplay('invalid')).toBe('--');
+  });
+
   it('does not advance running time while waiting for a trigger', () => {
     const timestamp = 1000;
     expect(
@@ -66,6 +100,15 @@ describe('hyperliquidTwapUtils', () => {
         minutes: 10,
       }),
     ).toBe(60_000);
+    expect(
+      getTwapElapsedMs({
+        status: 'activated',
+        timestamp,
+        activatedAt: 31_000,
+        now: 61_000,
+        minutes: 10,
+      }),
+    ).toBe(30_000);
     expect(
       getTwapElapsedMs({
         status: 'finished',
@@ -89,6 +132,13 @@ describe('hyperliquidTwapUtils', () => {
         reportedStatus: 'activated',
         triggerPrice: '101',
         executedSize: '0',
+      }),
+    ).toBe('activated');
+    expect(
+      getActiveTwapRuntimeStatus({
+        reportedStatus: 'waitingForTrigger',
+        triggerPrice: '101',
+        executedSize: '0.01',
       }),
     ).toBe('activated');
     expect(

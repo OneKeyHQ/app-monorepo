@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { formatLocalizedNumberString } from './numberUtils';
+
 export const TWAP_MIN_DURATION_MINUTES = 5;
 export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
 export const TWAP_MIN_ORDER_NOTIONAL = 100;
@@ -21,13 +23,39 @@ export function getActiveTwapRuntimeStatus({
   triggerPrice?: string | null;
   executedSize: BigNumber.Value;
 }): 'activated' | 'waitingForTrigger' {
+  const executedSizeBN = new BigNumber(executedSize);
+  if (executedSizeBN.isFinite() && executedSizeBN.gt(0)) {
+    return 'activated';
+  }
   if (reportedStatus) {
     return reportedStatus;
   }
-  const executedSizeBN = new BigNumber(executedSize);
   return triggerPrice && executedSizeBN.isFinite() && executedSizeBN.isZero()
     ? 'waitingForTrigger'
     : 'activated';
+}
+
+export function getTwapTriggerReferencePrice({
+  isSpot,
+  midPrice,
+  markPrice,
+}: {
+  isSpot: boolean;
+  midPrice: BigNumber.Value;
+  markPrice?: BigNumber.Value;
+}): BigNumber {
+  if (isSpot) {
+    return new BigNumber(midPrice);
+  }
+  return new BigNumber(markPrice ?? '');
+}
+
+export function formatTwapPriceForDisplay(price?: string | null): string {
+  const priceBN = new BigNumber(price ?? '');
+  if (!priceBN.isFinite() || priceBN.lte(0)) {
+    return '--';
+  }
+  return formatLocalizedNumberString(priceBN.toFixed());
 }
 
 export function isValidTwapDuration(minutes: number): boolean {
@@ -82,12 +110,14 @@ export function getTwapTriggerAbove({
 export function getTwapElapsedMs({
   status,
   timestamp,
+  activatedAt,
   now,
   endTime,
   minutes,
 }: {
   status?: ITwapRuntimeStatus;
   timestamp: number;
+  activatedAt?: number;
   now: number;
   endTime?: number;
   minutes: number;
@@ -96,5 +126,8 @@ export function getTwapElapsedMs({
     return 0;
   }
   const totalMs = Math.max(0, minutes) * 60_000;
-  return Math.min(Math.max((endTime ?? now) - timestamp, 0), totalMs);
+  return Math.min(
+    Math.max((endTime ?? now) - (activatedAt ?? timestamp), 0),
+    totalMs,
+  );
 }

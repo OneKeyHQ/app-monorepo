@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,7 +11,10 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
@@ -28,6 +31,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -69,10 +73,20 @@ function useOrderConfirmWithMarketDataFreshness({
   const [formData] = useTradingFormAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const twapTriggerReferencePriceBN = useMemo(
+    () =>
+      getTwapTriggerReferencePrice({
+        isSpot: activeTradeInstrument.mode === 'spot',
+        midPrice: midPriceBN,
+        markPrice: activeAssetCtx?.ctx?.markPrice,
+      }),
+    [activeAssetCtx?.ctx?.markPrice, activeTradeInstrument.mode, midPriceBN],
+  );
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -353,14 +367,15 @@ function useOrderConfirmWithMarketDataFreshness({
         if (triggerPrice) {
           const triggerAbove = getTwapTriggerAbove({
             triggerPrice,
-            markPrice: midPriceBN,
+            markPrice: twapTriggerReferencePriceBN,
           });
           if (typeof triggerAbove !== 'boolean') {
             const triggerPriceBN = new BigNumber(triggerPrice);
             Toast.error({
               title: 'Order Failed',
               message:
-                triggerPriceBN.isFinite() && triggerPriceBN.eq(midPriceBN)
+                triggerPriceBN.isFinite() &&
+                triggerPriceBN.eq(twapTriggerReferencePriceBN)
                   ? intl.formatMessage({
                       id: ETranslations.perps_trigger_price_equal_current,
                     })
@@ -554,6 +569,7 @@ function useOrderConfirmWithMarketDataFreshness({
       shortOrderPrice,
       intl,
       shouldBlockForMarketData,
+      twapTriggerReferencePriceBN,
     ],
   );
 

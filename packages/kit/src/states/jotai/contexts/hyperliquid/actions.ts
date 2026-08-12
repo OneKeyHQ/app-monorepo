@@ -60,6 +60,7 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
   getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -71,6 +72,7 @@ import {
 import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
+  formatHlPrice,
   formatPriceToSignificantDigits,
   formatSpotAssetCtx,
   getTriggerEffectivePrice,
@@ -2901,19 +2903,38 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             }
 
-            const markPrice = isSpot
-              ? (params.price ?? env.markPrice ?? '')
-              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
-            const markPriceBN = new BigNumber(markPrice);
+            const markPriceBN = getTwapTriggerReferencePrice({
+              isSpot,
+              midPrice: params.price ?? env.markPrice ?? '',
+              markPrice:
+                activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '',
+            });
             if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
               );
             }
 
-            const triggerPrice = formData.twapTriggerPrice?.trim();
+            const szDecimals = isSpot
+              ? (activeTradeInstrument.universe?.baseSzDecimals ??
+                env.szDecimals ??
+                2)
+              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
+            const rawTriggerPrice = formData.twapTriggerPrice?.trim();
+            const triggerPrice = rawTriggerPrice
+              ? formatHlPrice(
+                  rawTriggerPrice,
+                  szDecimals,
+                  isSpot ? 'spot' : 'perp',
+                )
+              : undefined;
             const stopPrice = formData.twapStopPrice?.trim();
             let triggerAbove: boolean | undefined;
+            if (rawTriggerPrice && !triggerPrice) {
+              throw new OneKeyLocalError(
+                'TWAP trigger price is too small for HL tick size',
+              );
+            }
             if (triggerPrice) {
               triggerAbove = getTwapTriggerAbove({
                 triggerPrice,
@@ -2934,11 +2955,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               }
             }
 
-            const szDecimals = isSpot
-              ? (activeTradeInstrument.universe?.baseSzDecimals ??
-                env.szDecimals ??
-                2)
-              : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
               manualSize: formData.size,

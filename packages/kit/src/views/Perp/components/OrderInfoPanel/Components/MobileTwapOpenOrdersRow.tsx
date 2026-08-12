@@ -12,7 +12,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import { getTwapElapsedMs } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
+  formatTwapPriceForDisplay,
+  getTwapElapsedMs,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -38,6 +41,7 @@ const valueFormatter: INumberFormatProps = {
 interface IMobileTwapOpenOrdersRowProps {
   order: IPerpsActiveTwapOrder;
   status: ITwapHistoryRecord['status']['status'];
+  activatedAt?: number;
   onCancelOrder: () => void;
 }
 
@@ -65,15 +69,6 @@ function formatTotalDuration(minutes: number) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function formatTwapPrice(price?: string | null) {
-  const priceBN = new BigNumber(price ?? '');
-  if (!priceBN.isFinite() || priceBN.lte(0)) {
-    return '--';
-  }
-  const priceValue = priceBN.toFixed(getValidPriceDecimals(priceBN.toFixed()));
-  return formatLocalizedNumberString(priceValue);
-}
-
 function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <XStack width="100%" alignItems="center" justifyContent="space-between">
@@ -92,7 +87,12 @@ function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const MobileTwapOpenOrdersRow = memo(
-  ({ order, status, onCancelOrder }: IMobileTwapOpenOrdersRowProps) => {
+  ({
+    order,
+    status,
+    activatedAt,
+    onCancelOrder,
+  }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
     const [now, setNow] = useState(Date.now());
@@ -168,6 +168,7 @@ const MobileTwapOpenOrdersRow = memo(
       const elapsedMs = getTwapElapsedMs({
         status,
         timestamp: state.timestamp,
+        activatedAt,
         now,
         minutes: state.minutes,
       });
@@ -177,8 +178,8 @@ const MobileTwapOpenOrdersRow = memo(
           ? formatLocalizedNumberString(avgPriceValue)
           : '--',
         executedValueFormatted: numberFormat(state.executedNtl, valueFormatter),
-        triggerPriceFormatted: formatTwapPrice(state.trigger?.px),
-        stopPriceFormatted: formatTwapPrice(state.stopPx),
+        triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
+        stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
         execution,
         runningTimeText: isWaitingForTrigger
           ? '--'
@@ -189,7 +190,7 @@ const MobileTwapOpenOrdersRow = memo(
           ? intl.formatMessage({ id: ETranslations.perp_yes__title })
           : intl.formatMessage({ id: ETranslations.perp_no__title }),
       };
-    }, [intl, now, state, status]);
+    }, [activatedAt, intl, now, state, status]);
 
     const sideText = useMemo(() => {
       if (state.side === 'B') {

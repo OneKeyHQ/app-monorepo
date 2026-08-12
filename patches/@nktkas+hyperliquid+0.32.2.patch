@@ -273,20 +273,19 @@ index 9b6bab6..b8b65da 100644
      /** Nonce (timestamp in ms) used to prevent replay attacks. */
      nonce: UnsignedInteger,
 diff --git a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
-index d58d766..cfebb35 100644
+index d58d766..9ee2578 100644
 --- a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
 +++ b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/_base/commonSchemas.ts
-@@ -233,6 +233,9 @@ export type TwapStateSchema = {
+@@ -233,6 +233,8 @@ export type TwapStateSchema = {
    reduceOnly: boolean;
    /** Order side ("B" = Bid/Buy, "A" = Ask/Sell). */
    side: "B" | "A";
-+  // OneKey patch: Backport TWAP trigger and stop state fields from the newer SDK.
 +  /** Price at which the order is terminated; `null` when unset. */
 +  stopPx: string | null;
    /**
     * Order size.
     * @pattern ^[0-9]+(\.[0-9]+)?$
-@@ -240,6 +243,13 @@ export type TwapStateSchema = {
+@@ -240,6 +242,13 @@ export type TwapStateSchema = {
    sz: string;
    /** Start time of the TWAP order (in ms since epoch). */
    timestamp: number;
@@ -301,10 +300,10 @@ index d58d766..cfebb35 100644
     * User address.
     * @pattern ^0x[a-fA-F0-9]{40}$
 diff --git a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
-index e7f982d..8859f30 100644
+index e7f982d..2c56195 100644
 --- a/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
 +++ b/node_modules/@nktkas/hyperliquid/src/api/info/_methods/twapHistory.ts
-@@ -35,11 +35,14 @@ export type TwapHistoryResponse = {
+@@ -35,11 +35,13 @@ export type TwapHistoryResponse = {
     * - `"finished"`: Fully executed.
     * - `"activated"`: Active and executing.
     * - `"terminated"`: Terminated.
@@ -315,7 +314,6 @@ index e7f982d..8859f30 100644
    status: {
      /** Status of the TWAP order. */
 -    status: "finished" | "activated" | "terminated";
-+    // OneKey patch: Backport trigger lifecycle statuses from the newer SDK.
 +    status: "finished" | "activated" | "terminated" | "waitingForTrigger" | "stopped";
    } | {
      /** Status of the TWAP order. */

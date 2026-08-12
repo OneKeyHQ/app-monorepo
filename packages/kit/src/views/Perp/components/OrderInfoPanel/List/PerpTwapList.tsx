@@ -35,6 +35,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
+  formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -176,15 +177,6 @@ function getTwapHistoryStatusText(
   return intl.formatMessage({ id: statusTextMap[status] });
 }
 
-function formatTwapPrice(price?: string | null) {
-  const priceBN = new BigNumber(price ?? '');
-  if (!priceBN.isFinite() || priceBN.lte(0)) {
-    return '--';
-  }
-  const priceValue = priceBN.toFixed(getValidPriceDecimals(priceBN.toFixed()));
-  return formatLocalizedNumberString(priceValue);
-}
-
 function getTableRowBgColor({
   isHovered,
   index,
@@ -219,6 +211,7 @@ function getTwapBaseInfo({
   state,
   now,
   endTime,
+  activatedAt,
   status,
   spotDisplayMap,
   spotPairDisplayNameMap,
@@ -227,6 +220,7 @@ function getTwapBaseInfo({
   state: ITwapState;
   now: number;
   endTime?: number;
+  activatedAt?: number;
   status?: ITwapHistoryRecord['status']['status'];
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
@@ -256,6 +250,7 @@ function getTwapBaseInfo({
   const elapsedMs = getTwapElapsedMs({
     status,
     timestamp: state.timestamp,
+    activatedAt,
     now,
     endTime,
     minutes: state.minutes,
@@ -270,8 +265,8 @@ function getTwapBaseInfo({
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
-    triggerPriceFormatted: formatTwapPrice(state.trigger?.px),
-    stopPriceFormatted: formatTwapPrice(state.stopPx),
+    triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
+    stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
     runningTimeText:
       status === 'waitingForTrigger'
         ? '--'
@@ -458,6 +453,7 @@ function TwapEmptyState({
 function TwapActiveRow({
   order,
   status,
+  activatedAt,
   now,
   cellMinWidth,
   columnConfigs,
@@ -471,6 +467,7 @@ function TwapActiveRow({
 }: {
   order: IPerpsActiveTwapOrder;
   status: ITwapHistoryRecord['status']['status'];
+  activatedAt?: number;
   now: number;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -490,12 +487,21 @@ function TwapActiveRow({
       getTwapBaseInfo({
         state,
         status,
+        activatedAt,
         now,
         spotDisplayMap,
         spotPairDisplayNameMap,
         intl,
       }),
-    [intl, now, spotDisplayMap, spotPairDisplayNameMap, state, status],
+    [
+      activatedAt,
+      intl,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+      state,
+      status,
+    ],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -1388,7 +1394,7 @@ function PerpTwapList({
     return rawHistory;
   }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
-  const activeStatusByTwapId = useMemo(() => {
+  const activeRuntimeInfoByTwapId = useMemo(() => {
     const latestRecordByTwapId = new Map<number, ITwapHistoryRecord>();
     historyRows.forEach((record) => {
       if (record.twapId === undefined) {
@@ -1404,9 +1410,16 @@ function PerpTwapList({
         ([twapId, record]) =>
           [
             twapId,
-            record.status.status === 'waitingForTrigger'
-              ? 'waitingForTrigger'
-              : 'activated',
+            {
+              reportedStatus:
+                record.status.status === 'waitingForTrigger'
+                  ? 'waitingForTrigger'
+                  : 'activated',
+              activatedAt:
+                record.status.status === 'activated'
+                  ? normalizeEpochMs(record.time)
+                  : undefined,
+            },
           ] as const,
       ),
     );
@@ -1813,29 +1826,36 @@ function PerpTwapList({
       renderMode?: IRenderMode,
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
-    ) => (
-      <TwapActiveRow
-        order={item}
-        status={getActiveTwapRuntimeStatus({
-          reportedStatus: activeStatusByTwapId.get(item.twapId),
-          triggerPrice: item.state.trigger?.px,
-          executedSize: item.state.executedSz,
-        })}
-        now={now}
-        cellMinWidth={activeMinWidth}
-        columnConfigs={activeColumns}
-        onTerminate={() => void handleTerminate(item)}
-        index={index}
-        renderMode={renderMode}
-        isHovered={isHovered}
-        onHoverChange={onHoverChange}
-        spotDisplayMap={spotDisplayMap}
-        spotPairDisplayNameMap={spotPairDisplayNameMap}
-      />
-    ),
+    ) => {
+      const runtimeInfo = activeRuntimeInfoByTwapId.get(item.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.state.trigger?.px,
+        executedSize: item.state.executedSz,
+      });
+      return (
+        <TwapActiveRow
+          order={item}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
+          now={now}
+          cellMinWidth={activeMinWidth}
+          columnConfigs={activeColumns}
+          onTerminate={() => void handleTerminate(item)}
+          index={index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          spotDisplayMap={spotDisplayMap}
+          spotPairDisplayNameMap={spotPairDisplayNameMap}
+        />
+      );
+    },
     [
       activeColumns,
-      activeStatusByTwapId,
+      activeRuntimeInfoByTwapId,
       activeMinWidth,
       handleTerminate,
       now,

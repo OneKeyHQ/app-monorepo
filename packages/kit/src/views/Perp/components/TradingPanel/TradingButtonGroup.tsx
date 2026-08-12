@@ -45,6 +45,7 @@ import {
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
@@ -72,6 +73,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -439,6 +441,7 @@ function SideButtonInternal({
       ? 'usd'
       : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const orderContextKey = useMemo(
     () =>
@@ -459,6 +462,15 @@ function SideButtonInternal({
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
+  const twapTriggerReferencePriceBN = useMemo(
+    () =>
+      getTwapTriggerReferencePrice({
+        isSpot,
+        midPrice: midPriceBN,
+        markPrice: activeAssetCtx?.ctx?.markPrice,
+      }),
+    [activeAssetCtx?.ctx?.markPrice, isSpot, midPriceBN],
+  );
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -793,6 +805,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapTriggerReferencePriceBN,
   });
   latestOrderPanelStateRef.current = {
     activeAsset,
@@ -819,6 +832,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapTriggerReferencePriceBN,
   };
 
   type ILatestOrderPanelState = typeof latestOrderPanelStateRef.current;
@@ -851,6 +865,7 @@ function SideButtonInternal({
         resolvedSizeInputUnit: latestResolvedSizeInputUnit,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
+        twapTriggerReferencePriceBN: latestTwapTriggerReferencePriceBN,
       } = orderPanelState;
 
       if (
@@ -986,7 +1001,7 @@ function SideButtonInternal({
           triggerPrice &&
           typeof getTwapTriggerAbove({
             triggerPrice,
-            markPrice: latestEffectivePriceBN,
+            markPrice: latestTwapTriggerReferencePriceBN,
           }) !== 'boolean'
         ) {
           Toast.message({
