@@ -1,37 +1,47 @@
-import { useMemo, useState } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { StyleSheet, View } from 'react-native';
-import Animated, {
-  runOnJS,
-  useAnimatedReaction,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import { Image, StyleSheet, View } from 'react-native';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { Path, Svg } from 'react-native-svg';
 
-import { SizableText, Stack } from '../../primitives';
+import { SizableText } from '../../primitives';
+import { CONFIRM_LOOP, PIN_SHEEN_TRACKS } from '../deviceScene';
+import { GlassSweep, SHEEN_COLOR, TrackedLayer } from '../deviceSceneHost';
 
 import {
-  CONFIRM_PRO_TAP_TRACK,
-  ENTRY_PRO_SUBMIT_ENABLE_TRACK,
-  ENTRY_PRO_SUBMIT_TRACK,
-  ENTRY_PRO_TAP_TRACKS,
-  useConfirmOnProAnimation,
-  useEntryOnProAnimation,
-  useTapHighlight,
+  PASSPHRASE_DOT_TRACKS,
+  PASSPHRASE_LOOP,
+  PIN_DOT_SHIFT_TRACKS,
+  PIN_DOT_TRACKS,
+  PIN_LOOP,
+  passphraseEnteredAt,
 } from './animation';
-import { ProDeviceShell } from './shell';
+import { PRO_SCREEN_H, PRO_SCREEN_W } from './shell';
 
+import type {
+  IDeviceSceneContentProps,
+  IDeviceSceneSpec,
+} from '../deviceSceneHost';
 import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Built-in scenes of the Pro device, keyed by the name its `animation` prop
- * takes. Layouts and the tap choreography are transcribed from the Pro
- * Lottie files (confirm / enter-pin / enter-passphrase, dark theme): every
- * interaction is a tap on the touchscreen - the tapped key snaps to the
- * brand green, holds, and fades back while the entry row grows a dot.
- * All tap feedback is opacity cross-fades, never color animation.
+ * takes. Screen layouts are transcribed from the Pro Lottie files (confirm /
+ * enter-pin / enter-passphrase, dark theme) with surface grays and the red
+ * PIN backspace from real firmware screenshots; the choreography is the
+ * shared presence vocabulary (../deviceScene), aligned with the Slate by
+ * design call (2026-08-12): no key is ever pressed — the keypad plays the
+ * traveling sheen, the keyboard catches the glass sweep on its caps, the
+ * confirm still takes the sweep across the whole screen, and the entered
+ * marks land on their own. connecting shows the wallpaper the device idles
+ * on (the Slate's asset, same by design call).
+ *
+ * A scene is nothing but screen content plus the SCENES registry entry
+ * declaring how ProDevice runs it; entrances, exits and the clock are the
+ * shared presence machinery (../deviceSceneHost), so no scene carries
+ * transition code.
  */
 export type IProDeviceScene =
   | 'connecting'
@@ -39,22 +49,20 @@ export type IProDeviceScene =
   | 'enterPin'
   | 'enterPassphrase';
 
-interface ISceneProps {
-  width?: number;
-}
-
 /* --------------------------- palette --------------------------- *
- * Key/tap colors from the Lottie keyframes; surface grays and the red
- * PIN backspace from real firmware screenshots. */
+ * Key colors from the Lottie keyframes; surface grays and the red PIN
+ * backspace from real firmware screenshots. Skeleton fills are the shared
+ * confirm-still whites (the Slate's), baked into rgba. */
 
 const KEY_BG = '#1F1F21';
 const KEY_LIT = '#00FF33';
 const PRESSED_BG = '#2C2C2C';
-const CONFIRM_PRESSED_BG = '#4A4A4A';
 const PIN_BSP_BG = '#FF3B30';
 const SUBMIT_DISABLED_BG = '#219A39';
 const GLYPH = '#EEEEEE';
 const GLYPH_LIT = '#202020';
+const FILL_STRONG = 'rgba(255,255,255,0.7)';
+const FILL_FAINT = 'rgba(255,255,255,0.2)';
 
 const CENTER: ViewStyle = { alignItems: 'center', justifyContent: 'center' };
 
@@ -79,191 +87,15 @@ function keyFrame(
   };
 }
 
-const sharedStyles = StyleSheet.create({
-  litFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: KEY_LIT,
+const sceneStyles = StyleSheet.create({
+  screen: {
+    flex: 1,
   },
-  pressedFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: PRESSED_BG,
-  },
-  glyphFill: {
-    ...StyleSheet.absoluteFillObject,
-    ...CENTER,
+  wallpaper: {
+    width: PRO_SCREEN_W,
+    height: PRO_SCREEN_H,
   },
 });
-
-/* ------------------------ key primitives ------------------------ */
-
-/** A key the scene never taps: base fill and an optional glyph. */
-function StaticKey({
-  frame,
-  children,
-}: {
-  frame: ViewStyle;
-  children?: ReactNode;
-}) {
-  return <View style={frame}>{children}</View>;
-}
-
-/**
- * A scripted key: on tap the green fill snaps in above the base and the
- * glyph cross-fades to its lit variant, both driven by one highlight value.
- */
-function TapKey({
-  frame,
-  highlight,
-  children,
-  litChildren,
-}: {
-  frame: ViewStyle;
-  highlight: Readonly<SharedValue<number>>;
-  children: ReactNode;
-  litChildren: ReactNode;
-}) {
-  const litOp = useAnimatedStyle(
-    () => ({ opacity: highlight.value }),
-    [highlight],
-  );
-  const baseOp = useAnimatedStyle(
-    () => ({ opacity: 1 - highlight.value }),
-    [highlight],
-  );
-  const litFillStyle = useMemo(() => [sharedStyles.litFill, litOp], [litOp]);
-  const baseGlyphStyle = useMemo(
-    () => [sharedStyles.glyphFill, baseOp],
-    [baseOp],
-  );
-  const litGlyphStyle = useMemo(() => [sharedStyles.glyphFill, litOp], [litOp]);
-  return (
-    <View style={frame}>
-      <Animated.View pointerEvents="none" style={litFillStyle} />
-      <Animated.View pointerEvents="none" style={baseGlyphStyle}>
-        {children}
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={litGlyphStyle}>
-        {litChildren}
-      </Animated.View>
-    </View>
-  );
-}
-
-/**
- * The green submit key of the entry scenes. Disabled (dim green) until the
- * first character, then bright; the final tap swaps it to the pressed fill
- * with a light check, exactly as in the Lottie.
- */
-function SubmitKey({
-  frame,
-  enable,
-  press,
-  glyph,
-  litGlyph,
-}: {
-  frame: ViewStyle;
-  enable: Readonly<SharedValue<number>>;
-  press: Readonly<SharedValue<number>>;
-  glyph: ReactNode;
-  litGlyph: ReactNode;
-}) {
-  const enableOp = useAnimatedStyle(
-    () => ({ opacity: enable.value }),
-    [enable],
-  );
-  const pressOp = useAnimatedStyle(() => ({ opacity: press.value }), [press]);
-  const baseOp = useAnimatedStyle(
-    () => ({ opacity: 1 - press.value }),
-    [press],
-  );
-  const enabledFillStyle = useMemo(
-    () => [sharedStyles.litFill, enableOp],
-    [enableOp],
-  );
-  const pressedFillStyle = useMemo(
-    () => [sharedStyles.pressedFill, pressOp],
-    [pressOp],
-  );
-  const baseGlyphStyle = useMemo(
-    () => [sharedStyles.glyphFill, baseOp],
-    [baseOp],
-  );
-  const litGlyphStyle = useMemo(
-    () => [sharedStyles.glyphFill, pressOp],
-    [pressOp],
-  );
-  return (
-    <View style={frame}>
-      <Animated.View pointerEvents="none" style={enabledFillStyle} />
-      <Animated.View pointerEvents="none" style={pressedFillStyle} />
-      <Animated.View pointerEvents="none" style={baseGlyphStyle}>
-        {glyph}
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={litGlyphStyle}>
-        {litGlyph}
-      </Animated.View>
-    </View>
-  );
-}
-
-/** Entry dots: one filled dot per entered character, none pending. */
-function EntryDots({
-  entered,
-  dotStyle,
-  rowStyle,
-}: {
-  entered: Readonly<SharedValue<number>>;
-  dotStyle: ViewStyle;
-  rowStyle: ViewStyle;
-}) {
-  const [count, setCount] = useState(0);
-  useAnimatedReaction(
-    () => entered.value,
-    (value, previous) => {
-      if (value !== previous) runOnJS(setCount)(value);
-    },
-    [entered],
-  );
-  return (
-    <View style={rowStyle}>
-      {Array.from({ length: count }, (_, i) => (
-        <View key={i} style={dotStyle} />
-      ))}
-    </View>
-  );
-}
-
-/** The firmware's n/50 length counter under the passphrase field. */
-function EntryCounter({
-  entered,
-  top,
-}: {
-  entered: Readonly<SharedValue<number>>;
-  top: number;
-}) {
-  const [count, setCount] = useState(0);
-  useAnimatedReaction(
-    () => entered.value,
-    (value, previous) => {
-      if (value !== previous) runOnJS(setCount)(value);
-    },
-    [entered],
-  );
-  return (
-    <SizableText
-      position="absolute"
-      top={top}
-      left={0}
-      right={0}
-      textAlign="center"
-      color="#8C8C8C"
-      fontSize={13}
-      lineHeight={17}
-    >
-      {count}/50
-    </SizableText>
-  );
-}
 
 /* --------------------------- glyphs --------------------------- */
 
@@ -298,112 +130,63 @@ function backspaceGlyph(size: number, color: string, cutColor: string) {
   );
 }
 
-/* ------------------------- confirm ------------------------- *
- * Confirmation scenarios are unbounded, so one animation abstracts them
- * all: a bright title bar and a dimmer body bar as skeletons, over the
- * real invariants of every Pro confirm screen - the Cancel / Confirm pill
- * pair (firmware reference). The tap darkens the green pill to the pressed
- * fill and flips its label light, then both ease back. */
-
-const confirmStyles = StyleSheet.create({
-  titleBar: {
-    position: 'absolute',
-    left: 24,
-    top: 44,
-    width: 180,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#565656',
-  },
-  bodyBar: {
-    position: 'absolute',
-    left: 24,
-    top: 90,
-    width: 120,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#383838',
-  },
-  cancelPill: keyFrame(10.5, 414, 127, 60, 30, PRESSED_BG),
-  confirmPill: keyFrame(150.5, 414, 127, 60, 30, KEY_LIT),
-  confirmPressed: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: CONFIRM_PRESSED_BG,
-  },
-});
-
-function ConfirmPillLabel({ lit }: { lit?: boolean }) {
+/** The firmware's n/50 length counter under the passphrase field. */
+function EntryCounter({
+  clock,
+  top,
+}: {
+  clock: SharedValue<number>;
+  top: number;
+}) {
+  const [count, setCount] = useState(0);
+  useAnimatedReaction(
+    () => passphraseEnteredAt(clock.value),
+    (value, previous) => {
+      if (value !== previous) runOnJS(setCount)(value);
+    },
+    [clock],
+  );
   return (
     <SizableText
-      color={lit ? GLYPH : GLYPH_LIT}
-      fontSize={18}
-      lineHeight={24}
-      fontWeight="600"
+      position="absolute"
+      top={top}
+      left={0}
+      right={0}
+      textAlign="center"
+      color="#8C8C8C"
+      fontSize={13}
+      lineHeight={17}
     >
-      Confirm
+      {count}/50
     </SizableText>
   );
 }
 
-function ConfirmProScreen({ tap }: { tap: Readonly<SharedValue<number>> }) {
-  const pressOp = useAnimatedStyle(() => ({ opacity: tap.value }), [tap]);
-  const idleOp = useAnimatedStyle(() => ({ opacity: 1 - tap.value }), [tap]);
-  const pressedFillStyle = useMemo(
-    () => [confirmStyles.confirmPressed, pressOp],
-    [pressOp],
-  );
-  const idleLabelStyle = useMemo(
-    () => [sharedStyles.glyphFill, idleOp],
-    [idleOp],
-  );
-  const litLabelStyle = useMemo(
-    () => [sharedStyles.glyphFill, pressOp],
-    [pressOp],
-  );
-  return (
-    <Stack flex={1}>
-      <View style={confirmStyles.titleBar} />
-      <View style={confirmStyles.bodyBar} />
-      <View style={confirmStyles.cancelPill}>
-        <SizableText
-          color={GLYPH}
-          fontSize={18}
-          lineHeight={24}
-          fontWeight="600"
-        >
-          Cancel
-        </SizableText>
-      </View>
-      <View style={confirmStyles.confirmPill}>
-        <Animated.View pointerEvents="none" style={pressedFillStyle} />
-        <Animated.View pointerEvents="none" style={idleLabelStyle}>
-          <ConfirmPillLabel />
-        </Animated.View>
-        <Animated.View pointerEvents="none" style={litLabelStyle}>
-          <ConfirmPillLabel lit />
-        </Animated.View>
-      </View>
-    </Stack>
-  );
-}
+/* ------------------------- connecting ------------------------- *
+ * The wallpaper the device idles on while the app reaches for it — the
+ * same asset the Slate shows, by design call (one file, owned there along
+ * with its decoded-size budget note), laid flat on the same 288x484. */
 
-function ConfirmScene({ width }: ISceneProps) {
-  const { animation, clock } = useConfirmOnProAnimation();
-  const tap = useTapHighlight(clock, CONFIRM_PRO_TAP_TRACK);
-  const screenContent = useMemo(() => <ConfirmProScreen tap={tap} />, [tap]);
+const WALLPAPER_SOURCE = require('../SlateDevice/screen-connecting.png');
+
+function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
   return (
-    <ProDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screenContent}
+    <Image
+      source={WALLPAPER_SOURCE}
+      style={sceneStyles.wallpaper}
+      fadeDuration={0}
+      onLoad={onReady}
     />
   );
 }
 
 /* ------------------------- enter PIN ------------------------- *
- * Numeric pad, near edge-to-edge and bottom-flush like the firmware. The
- * scene types 1-2-4-5-7-8 (the Lottie's sequence) and confirms with the
- * green key; the backspace key is the firmware's red. */
+ * Title and four entered marks up top, a numeric pad near edge-to-edge and
+ * bottom-flush like the firmware, the backspace in the firmware's red.
+ * Choreography (schedule in ../deviceScene): the sheen sweeps the keypad
+ * corner to corner, then the marks land one by one — progress without ever
+ * performing a PIN. The marks row is centered, so each landing nudges the
+ * cluster half a slot left. */
 
 const PIN_KEY_W = 90;
 const PIN_KEY_H = 74;
@@ -427,40 +210,34 @@ const pinStyles = StyleSheet.create({
     borderRadius: 4.5,
     backgroundColor: '#fff',
   },
+  // The traveling sheen's slice on one key cap: peak brightness lives in
+  // the fill, position in each key's stagger.
+  keySheen: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: PIN_KEY_R,
+    backgroundColor: SHEEN_COLOR,
+  },
 });
 
-interface IPinKeySpec {
-  digit: string;
-  frame: ViewStyle;
-  /** Index into ENTRY_PRO_TAP_TRACKS when the scene taps this key. */
-  track?: number;
-}
-
-const PIN_TAP_ORDER: Record<string, number> = {
-  '1': 0,
-  '2': 1,
-  '4': 2,
-  '5': 3,
-  '7': 4,
-  '8': 5,
-};
-
-const PIN_DIGIT_KEYS: IPinKeySpec[] = [
+const PIN_DIGIT_KEYS = [
   ...Array.from({ length: 9 }, (_, i) => String(i + 1)),
   '0',
 ].map((digit) => {
   const i = digit === '0' ? 10 : Number(digit) - 1;
+  const col = i % 3;
+  const row = Math.floor(i / 3);
   return {
     digit,
     frame: keyFrame(
-      PIN_COLS[i % 3],
-      PIN_ROWS[Math.floor(i / 3)],
+      PIN_COLS[col],
+      PIN_ROWS[row],
       PIN_KEY_W,
       PIN_KEY_H,
       PIN_KEY_R,
       KEY_BG,
     ),
-    track: PIN_TAP_ORDER[digit],
+    /** Grid diagonal, the key's position in the sheen's wavefront. */
+    diagonal: col + row,
   };
 });
 
@@ -482,125 +259,136 @@ const PIN_SUBMIT_FRAME = keyFrame(
 );
 
 const PIN_BSP_GLYPH = backspaceGlyph(28, '#fff', PIN_BSP_BG);
-const PIN_CHECK_DARK = checkGlyph(28, GLYPH_LIT);
-const PIN_CHECK_LIGHT = checkGlyph(28, GLYPH);
+const PIN_CHECK_GLYPH = checkGlyph(28, GLYPH_LIT);
 
-function PinDigitGlyph({ digit, lit }: { digit: string; lit?: boolean }) {
+function PinDigitGlyph({ digit }: { digit: string }) {
   return (
-    <SizableText
-      color={lit ? GLYPH_LIT : GLYPH}
-      fontSize={32}
-      lineHeight={40}
-      fontWeight="500"
-    >
+    <SizableText color={GLYPH} fontSize={32} lineHeight={40} fontWeight="500">
       {digit}
     </SizableText>
   );
 }
 
-// Split from the static path so untapped keys carry no per-frame work.
-function TapDigitKey({
-  spec,
-  track,
-  clock,
-}: {
-  spec: IPinKeySpec;
-  track: number;
-  clock: SharedValue<number>;
-}) {
-  const highlight = useTapHighlight(clock, ENTRY_PRO_TAP_TRACKS[track]);
-  const litGlyph = useMemo(
-    () => <PinDigitGlyph digit={spec.digit} lit />,
-    [spec.digit],
-  );
-  return (
-    <TapKey frame={spec.frame} highlight={highlight} litChildren={litGlyph}>
-      <PinDigitGlyph digit={spec.digit} />
-    </TapKey>
-  );
-}
+const PIN_TITLE = (
+  <SizableText
+    position="absolute"
+    top={40}
+    left={0}
+    right={0}
+    textAlign="center"
+    color="#fff"
+    fontSize={26}
+    lineHeight={32}
+    fontWeight="600"
+  >
+    Enter PIN Code
+  </SizableText>
+);
 
-function PinKey({
-  spec,
-  clock,
-}: {
-  spec: IPinKeySpec;
-  clock: SharedValue<number>;
-}) {
-  if (spec.track === undefined) {
-    return (
-      <StaticKey frame={spec.frame}>
-        <PinDigitGlyph digit={spec.digit} />
-      </StaticKey>
-    );
-  }
-  return <TapDigitKey spec={spec} track={spec.track} clock={clock} />;
-}
-
-function PinScreen({
-  clock,
-  entered,
-}: {
-  clock: SharedValue<number>;
-  entered: Readonly<SharedValue<number>>;
-}) {
-  const submitEnable = useTapHighlight(clock, ENTRY_PRO_SUBMIT_ENABLE_TRACK);
-  const submitPress = useTapHighlight(clock, ENTRY_PRO_SUBMIT_TRACK);
+function PinScreen({ clock }: { clock: SharedValue<number> }) {
   return (
-    <Stack flex={1}>
-      <SizableText
-        position="absolute"
-        top={40}
-        left={0}
-        right={0}
-        textAlign="center"
-        color="#fff"
-        fontSize={26}
-        lineHeight={32}
-        fontWeight="600"
-      >
-        Enter PIN Code
-      </SizableText>
-      <EntryDots
-        entered={entered}
-        rowStyle={pinStyles.dotsRow}
-        dotStyle={pinStyles.dot}
-      />
-      {PIN_DIGIT_KEYS.map((spec) => (
-        <PinKey key={spec.digit} spec={spec} clock={clock} />
+    <View style={sceneStyles.screen}>
+      {PIN_TITLE}
+      <View style={pinStyles.dotsRow}>
+        {PIN_DOT_TRACKS.map((track, index) => (
+          <TrackedLayer
+            key={index}
+            clock={clock}
+            track={track}
+            shiftTrack={PIN_DOT_SHIFT_TRACKS[index]}
+            baseStyle={pinStyles.dot}
+          />
+        ))}
+      </View>
+      {PIN_DIGIT_KEYS.map(({ digit, frame, diagonal }) => (
+        <View key={digit} style={frame}>
+          <PinDigitGlyph digit={digit} />
+          <TrackedLayer
+            clock={clock}
+            track={PIN_SHEEN_TRACKS[diagonal]}
+            baseStyle={pinStyles.keySheen}
+          />
+        </View>
       ))}
-      <StaticKey frame={PIN_BSP_FRAME}>{PIN_BSP_GLYPH}</StaticKey>
-      <SubmitKey
-        frame={PIN_SUBMIT_FRAME}
-        enable={submitEnable}
-        press={submitPress}
-        glyph={PIN_CHECK_DARK}
-        litGlyph={PIN_CHECK_LIGHT}
-      />
-    </Stack>
+      {/* Bottom-row caps, at their grid diagonals (col + row). */}
+      <View style={PIN_BSP_FRAME}>
+        {PIN_BSP_GLYPH}
+        <TrackedLayer
+          clock={clock}
+          track={PIN_SHEEN_TRACKS[3]}
+          baseStyle={pinStyles.keySheen}
+        />
+      </View>
+      <View style={PIN_SUBMIT_FRAME}>
+        {PIN_CHECK_GLYPH}
+        <TrackedLayer
+          clock={clock}
+          track={PIN_SHEEN_TRACKS[5]}
+          baseStyle={pinStyles.keySheen}
+        />
+      </View>
+    </View>
   );
 }
 
-function EnterPinScene({ width }: ISceneProps) {
-  const { animation, clock, entered } = useEntryOnProAnimation();
-  const screenContent = useMemo(
-    () => <PinScreen clock={clock} entered={entered} />,
-    [clock, entered],
-  );
+/* ------------------------- confirm ------------------------- *
+ * Confirmation scenarios are unbounded, so the design abstracts to the
+ * shared skeleton structure (the Slate's): a two-line title block, three
+ * body lines, and the Cancel / Confirm pill pair on the bottom band — the
+ * pills in the Pro firmware's own fills and geometry, label-less like the
+ * rest of the still. Choreography: one gradient light crossing the glass
+ * corner to corner, above the still — the light lives on the screen, not
+ * on its elements. */
+
+const confirmStyles = StyleSheet.create({
+  titleLine1: keyFrame(14.4, 50.4, 153, 13.8, 6.9, FILL_STRONG),
+  titleLine2: keyFrame(14.4, 80.9, 94.2, 13.8, 6.9, FILL_STRONG),
+  bodyLine1: keyFrame(14.4, 128.1, 259.2, 9.6, 4.8, FILL_FAINT),
+  bodyLine2: keyFrame(14.4, 154.4, 259.2, 9.6, 4.8, FILL_FAINT),
+  bodyLine3: keyFrame(14.4, 180.7, 126.6, 9.6, 4.8, FILL_FAINT),
+  cancelPill: keyFrame(10.5, 414, 127, 60, 30, PRESSED_BG),
+  confirmPill: keyFrame(150.5, 414, 127, 60, 30, KEY_LIT),
+  sweepClip: {
+    ...StyleSheet.absoluteFill,
+    overflow: 'hidden',
+  },
+});
+
+const CONFIRM_SKELETON = (
+  <>
+    <View style={confirmStyles.titleLine1} />
+    <View style={confirmStyles.titleLine2} />
+    <View style={confirmStyles.bodyLine1} />
+    <View style={confirmStyles.bodyLine2} />
+    <View style={confirmStyles.bodyLine3} />
+    <View style={confirmStyles.cancelPill} />
+    <View style={confirmStyles.confirmPill} />
+  </>
+);
+
+function ConfirmScreen({ clock }: { clock: SharedValue<number> }) {
   return (
-    <ProDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screenContent}
-    />
+    <View style={sceneStyles.screen}>
+      {CONFIRM_SKELETON}
+      <GlassSweep
+        clock={clock}
+        width={PRO_SCREEN_W}
+        height={PRO_SCREEN_H}
+        clipStyle={confirmStyles.sweepClip}
+      />
+    </View>
   );
 }
 
 /* ---------------------- enter passphrase ---------------------- *
  * Label, a large entry field with the n/50 counter under it, and a qwerty
  * keyboard with the firmware's bottom row (backspace, 123, space, submit).
- * The scene types g-a-i-e-t-y (the Lottie's word) and confirms with the
- * green key. */
+ * Choreography: the glass sweep crosses the keyboard corner to corner —
+ * the Pro's keyboard has no panel box, so every cap windows its slice of
+ * one keyboard-wide band (the light is caught by the keys, and its edges
+ * are the keys' own) — then six marks land one by one. The marks sit
+ * left-aligned in the field, so they land in place, and the counter
+ * follows them. */
 
 const KB_KEY_W = 25;
 const KB_KEY_H = 38;
@@ -611,6 +399,12 @@ const KB_ROW1_LEFT = 7.75;
 const KB_ROW2_LEFT = 21.5;
 const KB_ROW3_ABC_W = 38;
 const KB_ROW3_LEFT = KB_ROW1_LEFT + KB_ROW3_ABC_W + 4;
+
+/* The band's region: the keyboard's bounding box, gutter-symmetric. */
+const KB_REGION_LEFT = KB_ROW1_LEFT;
+const KB_REGION_TOP = KB_ROW_TOPS[0];
+const KB_REGION_W = PRO_SCREEN_W - 2 * KB_ROW1_LEFT;
+const KB_REGION_H = KB_ROW_TOPS[3] + KB_KEY_H - KB_ROW_TOPS[0];
 
 const passStyles = StyleSheet.create({
   field: {
@@ -635,117 +429,18 @@ const passStyles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#fff',
   },
+  // A cap's window onto the keyboard-wide band; the cap itself clips.
+  sweepWindow: {
+    ...StyleSheet.absoluteFill,
+  },
 });
 
-interface IKbKeySpec {
-  letter: string;
-  frame: ViewStyle;
-  track?: number;
-}
-
-const KB_TAP_ORDER: Record<string, number> = {
-  g: 0,
-  a: 1,
-  i: 2,
-  e: 3,
-  t: 4,
-  y: 5,
-};
-
-const KB_LETTER_KEYS: IKbKeySpec[] = [
-  ...'qwertyuiop'.split('').map((letter, i) => ({
-    letter,
-    frame: keyFrame(
-      KB_ROW1_LEFT + i * KB_PITCH,
-      KB_ROW_TOPS[0],
-      KB_KEY_W,
-      KB_KEY_H,
-      KB_KEY_R,
-      KEY_BG,
-    ),
-    track: KB_TAP_ORDER[letter],
-  })),
-  ...'asdfghjkl'.split('').map((letter, i) => ({
-    letter,
-    frame: keyFrame(
-      KB_ROW2_LEFT + i * KB_PITCH,
-      KB_ROW_TOPS[1],
-      KB_KEY_W,
-      KB_KEY_H,
-      KB_KEY_R,
-      KEY_BG,
-    ),
-    track: KB_TAP_ORDER[letter],
-  })),
-  ...'zxcvbnm'.split('').map((letter, i) => ({
-    letter,
-    frame: keyFrame(
-      KB_ROW3_LEFT + i * KB_PITCH,
-      KB_ROW_TOPS[2],
-      KB_KEY_W,
-      KB_KEY_H,
-      KB_KEY_R,
-      KEY_BG,
-    ),
-    track: KB_TAP_ORDER[letter],
-  })),
-];
-
-const KB_ABC_FRAME = keyFrame(
-  KB_ROW1_LEFT,
-  KB_ROW_TOPS[2],
-  KB_ROW3_ABC_W,
-  KB_KEY_H,
-  KB_KEY_R,
-  KEY_BG,
-);
-// Bottom row, firmware proportions: backspace, 123, a wide blank space
-// key, and the green submit on the right.
-const KB_BSP_FRAME = keyFrame(
-  KB_ROW1_LEFT,
-  KB_ROW_TOPS[3],
-  52,
-  KB_KEY_H,
-  KB_KEY_R,
-  KEY_BG,
-);
-const KB_123_FRAME = keyFrame(
-  63.75,
-  KB_ROW_TOPS[3],
-  40,
-  KB_KEY_H,
-  KB_KEY_R,
-  KEY_BG,
-);
-const KB_SPACE_FRAME = keyFrame(
-  107.75,
-  KB_ROW_TOPS[3],
-  112.5,
-  KB_KEY_H,
-  KB_KEY_R,
-  KEY_BG,
-);
-const KB_SUBMIT_FRAME = keyFrame(
-  288 - KB_ROW1_LEFT - 56,
-  KB_ROW_TOPS[3],
-  56,
-  KB_KEY_H,
-  KB_KEY_R,
-  SUBMIT_DISABLED_BG,
-);
-
 const KB_BSP_GLYPH = backspaceGlyph(20, GLYPH, KEY_BG);
-const KB_CHECK_DARK = checkGlyph(20, GLYPH_LIT);
-const KB_CHECK_LIGHT = checkGlyph(20, GLYPH);
+const KB_CHECK_GLYPH = checkGlyph(20, GLYPH_LIT);
 
-function KbLetterGlyph({ letter, lit }: { letter: string; lit?: boolean }) {
+function KbLetterGlyph({ letter }: { letter: string }) {
   return (
-    <SizableText
-      color={lit ? '#000' : '#fff'}
-      fontSize={14}
-      lineHeight={18}
-      fontWeight="500"
-    >
+    <SizableText color="#fff" fontSize={14} lineHeight={18} fontWeight="500">
       {letter}
     </SizableText>
   );
@@ -759,122 +454,150 @@ function KbFnGlyph({ label }: { label: string }) {
   );
 }
 
-// Split from the static path so untapped keys carry no per-frame work.
-function TapLetterKey({
-  spec,
-  track,
-  clock,
-}: {
-  spec: IKbKeySpec;
-  track: number;
-  clock: SharedValue<number>;
-}) {
-  const highlight = useTapHighlight(clock, ENTRY_PRO_TAP_TRACKS[track]);
-  const litGlyph = useMemo(
-    () => <KbLetterGlyph letter={spec.letter} lit />,
-    [spec.letter],
-  );
-  return (
-    <TapKey frame={spec.frame} highlight={highlight} litChildren={litGlyph}>
-      <KbLetterGlyph letter={spec.letter} />
-    </TapKey>
-  );
+interface IKbKeySpec {
+  name: string;
+  left: number;
+  top: number;
+  frame: ViewStyle;
+  children?: ReactNode;
 }
 
-function KbKey({
-  spec,
-  clock,
-}: {
-  spec: IKbKeySpec;
-  clock: SharedValue<number>;
-}) {
-  if (spec.track === undefined) {
-    return (
-      <StaticKey frame={spec.frame}>
-        <KbLetterGlyph letter={spec.letter} />
-      </StaticKey>
-    );
-  }
-  return <TapLetterKey spec={spec} track={spec.track} clock={clock} />;
+/** A key cap's spec on its row; left/top double as the band offsets. */
+function kbKey(
+  name: string,
+  left: number,
+  row: number,
+  width: number,
+  background: string,
+  children?: ReactNode,
+): IKbKeySpec {
+  const top = KB_ROW_TOPS[row];
+  return {
+    name,
+    left,
+    top,
+    frame: keyFrame(left, top, width, KB_KEY_H, KB_KEY_R, background),
+    children,
+  };
 }
 
-function PassphraseScreen({
-  clock,
-  entered,
-}: {
-  clock: SharedValue<number>;
-  entered: Readonly<SharedValue<number>>;
-}) {
-  const submitEnable = useTapHighlight(clock, ENTRY_PRO_SUBMIT_ENABLE_TRACK);
-  const submitPress = useTapHighlight(clock, ENTRY_PRO_SUBMIT_TRACK);
+// Letter rows plus the firmware's bottom rows: ABC on the third row's
+// left, then backspace, 123, a wide blank space key, and the green submit.
+const KB_KEYS: IKbKeySpec[] = [
+  ...'qwertyuiop'
+    .split('')
+    .map((letter, i) =>
+      kbKey(
+        letter,
+        KB_ROW1_LEFT + i * KB_PITCH,
+        0,
+        KB_KEY_W,
+        KEY_BG,
+        <KbLetterGlyph letter={letter} />,
+      ),
+    ),
+  ...'asdfghjkl'
+    .split('')
+    .map((letter, i) =>
+      kbKey(
+        letter,
+        KB_ROW2_LEFT + i * KB_PITCH,
+        1,
+        KB_KEY_W,
+        KEY_BG,
+        <KbLetterGlyph letter={letter} />,
+      ),
+    ),
+  ...'zxcvbnm'
+    .split('')
+    .map((letter, i) =>
+      kbKey(
+        letter,
+        KB_ROW3_LEFT + i * KB_PITCH,
+        2,
+        KB_KEY_W,
+        KEY_BG,
+        <KbLetterGlyph letter={letter} />,
+      ),
+    ),
+  kbKey(
+    'abc',
+    KB_ROW1_LEFT,
+    2,
+    KB_ROW3_ABC_W,
+    KEY_BG,
+    <KbFnGlyph label="ABC" />,
+  ),
+  kbKey('backspace', KB_ROW1_LEFT, 3, 52, KEY_BG, KB_BSP_GLYPH),
+  kbKey('123', 63.75, 3, 40, KEY_BG, <KbFnGlyph label="123" />),
+  kbKey('space', 107.75, 3, 112.5, KEY_BG),
+  kbKey(
+    'submit',
+    PRO_SCREEN_W - KB_ROW1_LEFT - 56,
+    3,
+    56,
+    SUBMIT_DISABLED_BG,
+    KB_CHECK_GLYPH,
+  ),
+];
+
+const PASS_TITLE = (
+  <SizableText
+    position="absolute"
+    top={18}
+    left={12}
+    color="#8C8C8C"
+    fontSize={22}
+    lineHeight={28}
+    fontWeight="500"
+  >
+    Enter Passphrase:
+  </SizableText>
+);
+
+function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
   return (
-    <Stack flex={1}>
-      <SizableText
-        position="absolute"
-        top={18}
-        left={12}
-        color="#8C8C8C"
-        fontSize={22}
-        lineHeight={28}
-        fontWeight="500"
-      >
-        Enter Passphrase:
-      </SizableText>
+    <View style={sceneStyles.screen}>
+      {PASS_TITLE}
       <View style={passStyles.field} />
-      <EntryDots
-        entered={entered}
-        rowStyle={passStyles.dotsRow}
-        dotStyle={passStyles.dot}
-      />
-      <EntryCounter entered={entered} top={226} />
-      {KB_LETTER_KEYS.map((spec) => (
-        <KbKey key={spec.letter} spec={spec} clock={clock} />
+      <View style={passStyles.dotsRow}>
+        {PASSPHRASE_DOT_TRACKS.map((track, index) => (
+          <TrackedLayer
+            key={index}
+            clock={clock}
+            track={track}
+            baseStyle={passStyles.dot}
+          />
+        ))}
+      </View>
+      <EntryCounter clock={clock} top={226} />
+      {KB_KEYS.map(({ name, left, top, frame, children }) => (
+        <View key={name} style={frame}>
+          {children}
+          <GlassSweep
+            clock={clock}
+            width={KB_REGION_W}
+            height={KB_REGION_H}
+            clipStyle={passStyles.sweepWindow}
+            offsetX={left - KB_REGION_LEFT}
+            offsetY={top - KB_REGION_TOP}
+          />
+        </View>
       ))}
-      <StaticKey frame={KB_ABC_FRAME}>
-        <KbFnGlyph label="ABC" />
-      </StaticKey>
-      <StaticKey frame={KB_BSP_FRAME}>{KB_BSP_GLYPH}</StaticKey>
-      <StaticKey frame={KB_123_FRAME}>
-        <KbFnGlyph label="123" />
-      </StaticKey>
-      <StaticKey frame={KB_SPACE_FRAME} />
-      <SubmitKey
-        frame={KB_SUBMIT_FRAME}
-        enable={submitEnable}
-        press={submitPress}
-        glyph={KB_CHECK_DARK}
-        litGlyph={KB_CHECK_LIGHT}
-      />
-    </Stack>
+    </View>
   );
 }
 
-function EnterPassphraseScene({ width }: ISceneProps) {
-  const { animation, clock, entered } = useEntryOnProAnimation();
-  const screenContent = useMemo(
-    () => <PassphraseScreen clock={clock} entered={entered} />,
-    [clock, entered],
-  );
-  return (
-    <ProDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screenContent}
-    />
-  );
-}
+/* --------------------------- registry --------------------------- */
 
-/* ------------------------- connecting ------------------------- *
- * While the app is reaching for the device the physical screen shows
- * nothing, so the scene is the still shell with the panel dark. */
-
-function ConnectingScene({ width }: ISceneProps) {
-  return <ProDeviceShell width={width} />;
-}
-
-export const SCENES: Record<IProDeviceScene, ComponentType<ISceneProps>> = {
-  connecting: ConnectingScene,
-  confirm: ConfirmScene,
-  enterPin: EnterPinScene,
-  enterPassphrase: EnterPassphraseScene,
+/**
+ * The scene registry — the one table every per-scene trait lives in.
+ * Adding a scene is adding one entry; nothing else consults a scene by
+ * name.
+ */
+export const SCENES: Record<IProDeviceScene, IDeviceSceneSpec> = {
+  connecting: { content: ConnectingContent, defersEntry: true },
+  enterPin: { content: PinScreen, loop: PIN_LOOP },
+  enterPassphrase: { content: PassphraseScreen, loop: PASSPHRASE_LOOP },
+  confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },
 };
