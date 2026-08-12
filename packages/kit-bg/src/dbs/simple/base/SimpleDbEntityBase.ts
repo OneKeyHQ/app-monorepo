@@ -14,6 +14,22 @@ type ISimpleDbEntitySavedData<T> = {
   data: T;
   updatedAt: number;
 };
+
+// Chromium rejects reads with exactly this signature when a value's external
+// blob file is corrupted (e.g. crash mid-write); the record then stays
+// unreadable forever. Match nothing broader: UnknownError without this
+// message and NotReadableError both cover transient IO conditions where
+// deleting would lose recoverable data (OK-59997).
+function isUnreadableStorageValueError(error: unknown): boolean {
+  const { name, message } = (error ?? {}) as {
+    name?: string;
+    message?: string;
+  };
+  return (
+    name === 'UnknownError' &&
+    Boolean(message?.includes('Failed to read large IndexedDB value'))
+  );
+}
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
   appStorage: AsyncStorageStatic =
@@ -24,6 +40,11 @@ abstract class SimpleDbEntityBase<T> {
   abstract readonly entityName: string;
 
   abstract readonly enableCache: boolean;
+
+  // Deleting an unreadable record is only safe for entities whose data can be
+  // fully rebuilt (OK-59997's perp cache); user-authored entities must keep
+  // failing loudly instead, so self-heal is opt-in per entity.
+  protected readonly enableUnreadableRecordSelfHeal: boolean = false;
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);
@@ -39,7 +60,21 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
-  protected clearRawDataCache() {
+  // Bumped when a persisted write starts so a failing read can tell whether a
+  // concurrent setRawData started after the read began.
+  private writeSeq = 0;
+
+  // Writes currently awaiting setItem; a failing read must not delete while
+  // one is in flight or was in flight when the read began.
+  private pendingWrites = 0;
+
+  // Bumped by clearRawDataCache and setRawData so a read that was already in
+  // flight cannot re-publish a stale value into the memory cache afterwards.
+  private readGeneration = 0;
+
+  @backgroundMethod()
+  clearRawDataCache() {
+    this.readGeneration += 1;
     this.cachedRawData = null;
     this.cachedRawDataPromise = null;
   }
@@ -54,7 +89,44 @@ abstract class SimpleDbEntityBase<T> {
     }
     this.cachedRawDataPromise = (async () => {
       dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
-      const savedDataStr = await this.appStorage.getItem(this.entityKey);
+      const writeSeqBefore = this.writeSeq;
+      const pendingWritesBefore = this.pendingWrites;
+      const readGenerationBefore = this.readGeneration;
+      let savedDataStr: string | null = null;
+      try {
+        savedDataStr = await this.appStorage.getItem(this.entityKey);
+      } catch (error) {
+        if (
+          !this.enableUnreadableRecordSelfHeal ||
+          !isUnreadableStorageValueError(error)
+        ) {
+          throw error;
+        }
+        try {
+          // One retry separates transient IO failures from true corruption.
+          savedDataStr = await this.appStorage.getItem(this.entityKey);
+        } catch (retryError) {
+          if (!isUnreadableStorageValueError(retryError)) {
+            throw retryError;
+          }
+          console.error(retryError);
+          // Drop the dead record so builder-based setRawData can rebuild it;
+          // use appStorage directly — clearRawData() would deadlock on the
+          // shared mutex. Any write overlapping this read vetoes the delete:
+          // pending at read start, still pending now, or started since. (A
+          // write starting after this check wins anyway — same-store ops keep
+          // issue order, so its setItem lands after this removeItem.)
+          if (
+            pendingWritesBefore === 0 &&
+            this.pendingWrites === 0 &&
+            this.writeSeq === writeSeqBefore
+          ) {
+            await this.appStorage
+              .removeItem(this.entityKey)
+              .catch(() => undefined);
+          }
+        }
+      }
       let updatedAt = 0;
       // @ts-ignore
       let data: T | undefined | null;
@@ -85,7 +157,10 @@ abstract class SimpleDbEntityBase<T> {
         }
       }
       this.updatedAt = updatedAt ?? 0;
-      if (this.enableCache) {
+      // Skip the cache when clearRawData ran while this read was in flight,
+      // otherwise the stale value would resurrect the just-cleared record on
+      // the next builder-based write.
+      if (this.enableCache && this.readGeneration === readGenerationBefore) {
         this.cachedRawData = data;
       }
       return data;
@@ -123,12 +198,19 @@ abstract class SimpleDbEntityBase<T> {
       };
 
       dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
-      await this.appStorage.setItem(
-        this.entityKey,
-        appStorageUtils.canSaveAsObject() && !isString(savedData)
-          ? (savedData as any)
-          : JSON.stringify(savedData),
-      );
+      this.writeSeq += 1;
+      this.readGeneration += 1;
+      this.pendingWrites += 1;
+      try {
+        await this.appStorage.setItem(
+          this.entityKey,
+          appStorageUtils.canSaveAsObject() && !isString(savedData)
+            ? (savedData as any)
+            : JSON.stringify(savedData),
+        );
+      } finally {
+        this.pendingWrites -= 1;
+      }
 
       this.updatedAt = updatedAt;
       return data;
