@@ -8,10 +8,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 const ERROR_COPY: Record<string, string> = {
   // User-fixable input errors. `quoteUnavailable` (backend 40003) also covers
   // below-minimum amounts — Onramper doesn't expose the limits at quote time,
-  // so the copy points at the amount as the actionable lever.
+  // so the copy points at the amount as the actionable lever. Copy shown in
+  // the amount hero slot must fit two $bodySm lines (~110 chars) INCLUDING
+  // the dev-build ` (code)` suffix, or the tail is cut to an ellipsis.
   amountOutOfRange: 'Amount is outside the provider limits. Adjust the amount',
   quoteUnavailable:
-    'No quote available for this amount. It may be outside the provider limits — adjust the amount and try again',
+    'No quote for this amount — it may be outside the provider limits. Try a different amount',
   // Transient environment errors.
   networkError: 'Network error. Check your connection and try again',
   timeout: 'Request timed out. Try again',

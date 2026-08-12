@@ -388,9 +388,10 @@ function HeadlessBuyPage() {
     ? LinearTransition.duration(MOTION_ENTER_MS).easing(MOTION_EASE_IN_OUT)
     : undefined;
 
-  // Always-mounted fade for the error line — the slot is fixed-height, so
-  // only opacity moves; the last message is retained so the text doesn't
-  // blank out mid-fade.
+  // Always-mounted fade for the error line — the slot is fixed-height (two
+  // $bodySm lines: error copy wraps, and appearance still never shifts the
+  // hero layout), so only opacity moves; the last message is retained so the
+  // text doesn't blank out mid-fade.
   const lastHeroErrorRef = useRef<string | undefined>(undefined);
   if (heroError) {
     lastHeroErrorRef.current = heroError;
@@ -520,9 +521,19 @@ function HeadlessBuyPage() {
                 }}
                 valueProps={estimateValueProps}
                 extraContent={
-                  <Stack h="$6" jc="center" ai="center">
+                  // alignSelf breaks out of the root Stack's ai="center":
+                  // without a definite slot width the text measures unbounded
+                  // and a long message runs off-screen instead of wrapping.
+                  // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
+                  // numberOfLines truncates copy that outgrows the slot.
+                  <Stack h="$8" jc="center" alignSelf="stretch">
                     <Animated.View style={heroErrorStyle}>
-                      <SizableText size="$bodySm" color="$textCritical">
+                      <SizableText
+                        size="$bodySm"
+                        color="$textCritical"
+                        textAlign="center"
+                        numberOfLines={2}
+                      >
                         {lastHeroErrorRef.current ?? ''}
                       </SizableText>
                     </Animated.View>
