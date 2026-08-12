@@ -4,14 +4,25 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 yarn jest packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.test.ts
 */
 
-// Concrete entity over a controllable in-memory appStorage so we can park a
-// setRawData mid-flight (inside the mutex) and fire clearRawData concurrently.
-// This proves clearRawData and setRawData are serialized by the shared mutex, so
-// an in-flight write can never resurrect a just-cleared cache.
+// Single configurable entity over controllable in-memory appStorage mocks —
+// oxlint allows one class per file, so cache/self-heal variants are options.
 class TestEntity extends SimpleDbEntityBase<{ v: number }> {
-  override readonly entityName = 'test-entity';
+  override readonly entityName: string;
 
-  override readonly enableCache = false;
+  override readonly enableCache: boolean;
+
+  protected override readonly enableUnreadableRecordSelfHeal: boolean;
+
+  constructor({
+    name = 'test-entity',
+    enableCache = false,
+    selfHeal = false,
+  }: { name?: string; enableCache?: boolean; selfHeal?: boolean } = {}) {
+    super();
+    this.entityName = name;
+    this.enableCache = enableCache;
+    this.enableUnreadableRecordSelfHeal = selfHeal;
+  }
 }
 
 describe('SimpleDbEntityBase clear/set mutex serialization', () => {
@@ -62,5 +73,351 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
 
     expect(order).toEqual(['setItem', 'removeItem']); // serialized, clear last
     expect(entity.entityKey in store).toBe(false); // cache stays cleared
+  });
+});
+
+// A corrupted external blob makes every read reject forever, and builder-based
+// setRawData reads first — without self-heal the record could never be repaired.
+describe('SimpleDbEntityBase unreadable-record self-heal', () => {
+  const makeHealEntity = () =>
+    new TestEntity({ name: 'test-heal-entity', selfHeal: true });
+
+  // Unreadable until removeItem drops it (or failTimes runs out), mirroring a
+  // corrupted blob record vs a transient IO failure.
+  const makeBrokenStorage = ({
+    errorName,
+    errorMessage = 'Failed to read large IndexedDB value',
+    failTimes = Number.POSITIVE_INFINITY,
+  }: {
+    errorName: string;
+    errorMessage?: string;
+    failTimes?: number;
+  }) => {
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let remainingFails = failTimes;
+    return {
+      store,
+      calls,
+      storage: {
+        getItem: async (k: string) => {
+          calls.push('getItem');
+          if (remainingFails > 0) {
+            remainingFails -= 1;
+            const error = new Error(errorMessage);
+            error.name = errorName;
+            throw error;
+          }
+          return (k in store ? store[k] : null) as string | null;
+        },
+        setItem: async (k: string, v: unknown) => {
+          calls.push('setItem');
+          store[k] = v;
+        },
+        removeItem: async (k: string) => {
+          calls.push('removeItem');
+          delete store[k];
+          remainingFails = 0;
+        },
+      },
+    };
+  };
+
+  test('getRawData drops the unreadable record and returns null', async () => {
+    const entity = makeHealEntity();
+    const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).resolves.toBeNull();
+    expect(calls).toEqual(['getItem', 'getItem', 'removeItem']);
+  });
+
+  test('setRawData(builder) rebuilds the record after a read failure', async () => {
+    const entity = makeHealEntity();
+    const { storage, store } = makeBrokenStorage({
+      errorName: 'UnknownError',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(
+      entity.setRawData((prev) => ({ v: (prev?.v ?? 0) + 1 })),
+    ).resolves.toEqual({ v: 1 });
+    expect(entity.entityKey in store).toBe(true);
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+  });
+
+  test('non-storage read errors still propagate without deleting the record', async () => {
+    const entity = makeHealEntity();
+    const { storage, calls } = makeBrokenStorage({
+      errorName: 'SomeRandomError',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']);
+  });
+
+  test('NotReadableError propagates without deleting (transient IO condition)', async () => {
+    const entity = makeHealEntity();
+    const { storage, calls } = makeBrokenStorage({
+      errorName: 'NotReadableError',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']);
+  });
+
+  test('UnknownError without the corrupted-blob message propagates without deleting', async () => {
+    const entity = makeHealEntity();
+    const { storage, calls } = makeBrokenStorage({
+      errorName: 'UnknownError',
+      errorMessage: 'Internal error opening backing store',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Internal error opening backing store',
+    );
+    expect(calls).toEqual(['getItem']);
+  });
+
+  test('a transient read failure recovers via retry and keeps the record', async () => {
+    const entity = makeHealEntity();
+    const { storage, store, calls } = makeBrokenStorage({
+      errorName: 'UnknownError',
+      failTimes: 1,
+    });
+    store[entity.entityKey] = JSON.stringify({ data: { v: 9 }, updatedAt: 1 });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 9 });
+    expect(calls).toEqual(['getItem', 'getItem']);
+    expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('self-heal delete is skipped when a write lands during the failing read', async () => {
+    const entity = makeHealEntity();
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let rejectFirstRead!: (error: Error) => void;
+    let readCount = 0;
+    const makeError = () => {
+      const error = new Error('Failed to read large IndexedDB value');
+      error.name = 'UnknownError';
+      return error;
+    };
+    (entity as any).appStorage = {
+      getItem: () => {
+        readCount += 1;
+        calls.push('getItem');
+        if (readCount === 1) {
+          return new Promise<string | null>((_, reject) => {
+            rejectFirstRead = reject;
+          });
+        }
+        return Promise.reject(makeError());
+      },
+      setItem: async (k: string, v: unknown) => {
+        calls.push('setItem');
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        calls.push('removeItem');
+        delete store[k];
+      },
+    };
+
+    const readP = entity.getRawData(); // parked on the hanging first getItem
+    await entity.setRawData({ v: 7 }); // write lands while the read is in flight
+    rejectFirstRead(makeError());
+
+    await expect(readP).resolves.toBeNull();
+    expect(calls).not.toContain('removeItem'); // guard kept the fresh write
+    expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('self-heal delete is skipped while a write is still in flight', async () => {
+    const entity = makeHealEntity();
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let releaseWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      signalWriteStarted = resolve;
+    });
+    const makeError = () => {
+      const error = new Error('Failed to read large IndexedDB value');
+      error.name = 'UnknownError';
+      return error;
+    };
+    (entity as any).appStorage = {
+      getItem: () => {
+        calls.push('getItem');
+        return Promise.reject(makeError());
+      },
+      setItem: async (k: string, v: unknown) => {
+        calls.push('setItem');
+        signalWriteStarted();
+        await writeGate; // parked mid-write while the failing read races it
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        calls.push('removeItem');
+        delete store[k];
+      },
+    };
+
+    const writeP = entity.setRawData({ v: 7 }); // non-builder: no read involved
+    await writeStarted; // setRawData is parked inside setItem, seq bumped
+    const readP = entity.getRawData(); // fails while the write is in flight
+
+    await expect(readP).resolves.toBeNull();
+    releaseWrite();
+    await writeP;
+
+    expect(calls).not.toContain('removeItem'); // in-flight write already vetoed
+    expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('entities without opt-in propagate the corrupted-blob error and keep the record', async () => {
+    const entity = new TestEntity({ name: 'test-no-heal-entity' });
+    const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']); // no retry, no delete
+  });
+
+  test('delete is skipped when a pre-existing write completes during the failing read', async () => {
+    const entity = makeHealEntity();
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let releaseWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      signalWriteStarted = resolve;
+    });
+    let rejectFirstRead!: (error: Error) => void;
+    let readCount = 0;
+    const makeError = () => {
+      const error = new Error('Failed to read large IndexedDB value');
+      error.name = 'UnknownError';
+      return error;
+    };
+    (entity as any).appStorage = {
+      getItem: () => {
+        readCount += 1;
+        calls.push('getItem');
+        if (readCount === 1) {
+          return new Promise<string | null>((_, reject) => {
+            rejectFirstRead = reject;
+          });
+        }
+        return Promise.reject(makeError());
+      },
+      setItem: async (k: string, v: unknown) => {
+        calls.push('setItem');
+        signalWriteStarted();
+        await writeGate;
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        calls.push('removeItem');
+        delete store[k];
+      },
+    };
+
+    const writeP = entity.setRawData({ v: 7 });
+    await writeStarted; // write is in flight before the read begins
+    const readP = entity.getRawData(); // snapshot sees the pending write
+    releaseWrite();
+    await writeP; // write fully lands while the read is still failing
+    rejectFirstRead(makeError());
+
+    await expect(readP).resolves.toBeNull();
+    expect(calls).not.toContain('removeItem'); // snapshot veto kept the value
+    expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('clearRawData during an in-flight read keeps the stale value out of the cache', async () => {
+    const entity = new TestEntity({
+      name: 'test-cached-heal-entity',
+      enableCache: true,
+    });
+    const store: Record<string, unknown> = {};
+    let resolveFirstRead!: (value: string) => void;
+    let readCount = 0;
+    (entity as any).appStorage = {
+      getItem: (k: string) => {
+        readCount += 1;
+        if (readCount === 1) {
+          return new Promise<string | null>((resolve) => {
+            resolveFirstRead = resolve;
+          });
+        }
+        return Promise.resolve((k in store ? store[k] : null) as string | null);
+      },
+      setItem: async (k: string, v: unknown) => {
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        delete store[k];
+      },
+    };
+
+    const staleReadP = entity.getRawData(); // parked reading the old record
+    await entity.clearRawData(); // user clears while the read is in flight
+    resolveFirstRead(JSON.stringify({ data: { v: 9 }, updatedAt: 1 }));
+    await expect(staleReadP).resolves.toEqual({ v: 9 }); // its caller still gets the old value
+
+    // The stale value must not have been cached — a fresh read sees the clear.
+    await expect(entity.getRawData()).resolves.toBeNull();
+  });
+
+  test('a slow read finishing after a save cannot revert the cached value', async () => {
+    const entity = new TestEntity({
+      name: 'test-cached-save-entity',
+      enableCache: true,
+    });
+    const store: Record<string, unknown> = {};
+    let resolveFirstRead!: (value: string) => void;
+    let readCount = 0;
+    (entity as any).appStorage = {
+      getItem: (k: string) => {
+        readCount += 1;
+        if (readCount === 1) {
+          return new Promise<string | null>((resolve) => {
+            resolveFirstRead = resolve;
+          });
+        }
+        return Promise.resolve((k in store ? store[k] : null) as string | null);
+      },
+      setItem: async (k: string, v: unknown) => {
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        delete store[k];
+      },
+    };
+
+    const slowReadP = entity.getRawData(); // parked reading the old record
+    await entity.setRawData({ v: 7 }); // save lands while the read is parked
+    resolveFirstRead(JSON.stringify({ data: { v: 1 }, updatedAt: 1 }));
+    await slowReadP; // the old value must not overwrite the cache
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 7 });
   });
 });
