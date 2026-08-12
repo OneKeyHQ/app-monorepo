@@ -1,0 +1,11 @@
+{
+  "uiViewClassName": "HomeContainer",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "state": true,
+    "onIntent": true,
+    "hybridRef": true
+  }
+}

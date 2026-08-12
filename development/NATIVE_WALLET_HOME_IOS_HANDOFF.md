@@ -5,7 +5,7 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: design handoff; implementation has not started
+- Current phase: Slice 1 accepted; Slice 2 is next
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -169,7 +169,7 @@ Deliverable:
 - Minimal `@onekeyhq/native-components` package and Nitro iOS bridge.
 - Strongly typed owner, theme, tab, header-shell, and portfolio-shell protocol.
 - A mounted Swift `HomeContainer` that displays a diagnostic shell only.
-- A Native-only loader behind a disabled-by-default development flag.
+- A Native-only loader gated by iOS main runtime and existing Home eligibility.
 - Legacy fallback for every non-eligible path and every non-mobile platform.
 - One round-trip test intent that carries the owner token but performs no
   business action.
@@ -189,8 +189,8 @@ Automated checks:
 
 Manual acceptance:
 
-- Feature off: current Home is unchanged.
-- Feature on: the diagnostic Native surface mounts only in iOS main UI.
+- Eligible Home: the diagnostic Native surface mounts only in iOS main UI.
+- Ineligible and non-iOS Home paths continue to render the Legacy surface.
 - Leaving and returning to Home creates and tears down the mounted view cleanly.
 - Web, Desktop, Extension, and Android source paths remain unchanged.
 

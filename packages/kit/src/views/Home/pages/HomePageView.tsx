@@ -82,6 +82,7 @@ import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
+import { HomeWalletRenderer } from './HomeWalletRenderer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -323,6 +324,12 @@ export function HomePageView({
     }
     return false;
   }, [wallet]);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
+    wallet,
+    account,
+  });
+  const activeWalletUnavailable =
+    accountUtils.isWalletDeprecatedOrMocked(wallet);
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -1055,7 +1062,23 @@ export function HomePageView({
       );
     }
 
-    return tabs;
+    return (
+      <HomeWalletRenderer
+        eligible={
+          ready &&
+          !!wallet?.id &&
+          !!account?.id &&
+          !!network?.id &&
+          fetchedVaultSettings !== undefined &&
+          accountNetworkNotSupported === false &&
+          !isWalletNotBackedUp &&
+          !hasNoUsableWallet &&
+          !activeWalletUnavailable
+        }
+        legacy={tabs}
+        sceneName={sceneName}
+      />
+    );
   }, [
     accountNetworkNotSupported,
     softwareAccountDisabled,
@@ -1070,6 +1093,12 @@ export function HomePageView({
     emptyAccountView,
     network?.id,
     tabs,
+    ready,
+    fetchedVaultSettings,
+    isWalletNotBackedUp,
+    hasNoUsableWallet,
+    activeWalletUnavailable,
+    sceneName,
   ]);
 
   // Initial heights based on measured header sizes on each platform.
@@ -1083,10 +1112,6 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
   const walletListWalletIds = walletListResult?.wallets.map((item) => item.id);
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
     wallets: walletListResult?.wallets,
@@ -1101,8 +1126,6 @@ export function HomePageView({
     [homePageContent],
   );
   const activeWalletId = wallet?.id;
-  const activeWalletUnavailable =
-    accountUtils.isWalletDeprecatedOrMocked(wallet);
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
