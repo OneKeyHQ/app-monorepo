@@ -158,6 +158,41 @@ export function getTwapTriggerAbove({
   return triggerPriceBN.gt(markPriceBN);
 }
 
+export function isTwapStopPriceValid({
+  isBuy,
+  stopPrice,
+  referencePrice,
+  triggerPrice,
+}: {
+  isBuy: boolean;
+  stopPrice: BigNumber.Value;
+  referencePrice: BigNumber.Value;
+  triggerPrice?: BigNumber.Value;
+}): boolean {
+  const stopPriceBN = new BigNumber(stopPrice);
+  const referencePriceBN = new BigNumber(referencePrice);
+  const triggerPriceBN =
+    triggerPrice === undefined || triggerPrice === ''
+      ? referencePriceBN
+      : new BigNumber(triggerPrice);
+  if (
+    !stopPriceBN.isFinite() ||
+    !referencePriceBN.isFinite() ||
+    !triggerPriceBN.isFinite() ||
+    stopPriceBN.lte(0) ||
+    referencePriceBN.lte(0) ||
+    triggerPriceBN.lte(0)
+  ) {
+    return false;
+  }
+  const activationBoundary = isBuy
+    ? BigNumber.max(referencePriceBN, triggerPriceBN)
+    : BigNumber.min(referencePriceBN, triggerPriceBN);
+  return isBuy
+    ? stopPriceBN.gt(activationBoundary)
+    : stopPriceBN.lt(activationBoundary);
+}
+
 export function getTwapElapsedMs({
   status,
   timestamp,

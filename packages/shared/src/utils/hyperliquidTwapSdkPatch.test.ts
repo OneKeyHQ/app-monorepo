@@ -5,14 +5,11 @@ describe('Hyperliquid TWAP SDK patch', () => {
     const output = execFileSync(
       process.execPath,
       [
+        '--input-type=module',
         '-e',
         `
-          const v = require(
-            './node_modules/@nktkas/hyperliquid/node_modules/valibot'
-          );
-          const { TwapOrderRequest } = require(
-            './node_modules/@nktkas/hyperliquid/script/api/exchange/_methods/twapOrder.js'
-          );
+          import * as v from './node_modules/@nktkas/hyperliquid/node_modules/valibot/dist/index.mjs';
+          import { TwapOrderRequest } from '@nktkas/hyperliquid/api/exchange';
           const result = v.safeParse(TwapOrderRequest, {
             action: {
               type: 'twapOrder',
@@ -41,6 +38,31 @@ describe('Hyperliquid TWAP SDK patch', () => {
         t: { p: '100', a: true },
         s: '110',
       },
+    });
+  });
+
+  it('retains the transport hooks used by subscription reconciliation', () => {
+    const output = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `
+          import { WebSocketTransport } from '@nktkas/hyperliquid';
+          const transport = new WebSocketTransport({ url: 'ws://127.0.0.1:1' });
+          process.stdout.write(JSON.stringify({
+            dispatcher: typeof transport._dispatcher?.request,
+            events: typeof transport._hlEvents?.addEventListener,
+          }));
+          transport.close();
+        `,
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+
+    expect(JSON.parse(output)).toEqual({
+      dispatcher: 'function',
+      events: 'function',
     });
   });
 });

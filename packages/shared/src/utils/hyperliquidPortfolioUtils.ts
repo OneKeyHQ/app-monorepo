@@ -18,6 +18,7 @@ import type {
 } from '../../types/hyperliquid/portfolio';
 import type {
   IClearinghouseStateResponse,
+  ISpotBalance,
   ISpotClearinghouseStateResponse,
   ISpotMetaAndAssetCtxsResponse,
 } from '../../types/hyperliquid/sdk';
@@ -32,7 +33,13 @@ const CLEARINGHOUSE_SUMMARY_FIELDS = [
 
 type IClearinghouseSummary = IClearinghouseStateResponse['marginSummary'];
 type IPerpAssetPosition = IClearinghouseStateResponse['assetPositions'][number];
-type ISpotBalance = ISpotClearinghouseStateResponse['balances'][number];
+type IRawSpotBalance = ISpotClearinghouseStateResponse['balances'][number];
+
+function isSupportedSpotBalance(
+  balance: IRawSpotBalance,
+): balance is ISpotBalance {
+  return 'token' in balance;
+}
 
 export interface IAggregateClearinghouseStateInput {
   dex?: string;
@@ -178,6 +185,7 @@ export function spotNeedsPrices(
   return Boolean(
     spot?.balances?.some(
       (b) =>
+        isSupportedSpotBalance(b) &&
         b.token !== 0 &&
         !isHyperliquidSpotStableCoin(b.coin) &&
         safeBN(b.total).gt(0),
@@ -348,7 +356,16 @@ export function assembleHyperliquidSnapshot(args: {
   const getMarkPrice = (coin: string) =>
     getSpotMarkPrice?.(coin) ?? priceMap[coin];
   const isUnified = isUnifiedPortfolioMode(args.abstractionMode);
-  const rawSpotBalances = spot?.balances ?? [];
+  const allSpotBalances = spot?.balances ?? [];
+  const rawSpotBalances = allSpotBalances.filter(isSupportedSpotBalance);
+  if (
+    allSpotBalances.some(
+      (balance) =>
+        !isSupportedSpotBalance(balance) && safeBN(balance.total).gt(0),
+    )
+  ) {
+    degraded = true;
+  }
   // Keep raw spot balances for totals; the merged USDC row is display-only
   // because non-unified clearinghouse accountValue already includes perps USDC.
   const displaySpotBalances = isUnified

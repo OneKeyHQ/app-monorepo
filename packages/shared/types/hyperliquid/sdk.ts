@@ -4,7 +4,7 @@ import type { ESubscriptionType, IPerpsFormattedAssetCtx } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket event types
-export type IWsWebData2 = HL.WebData2WsEvent;
+export type IWsWebData2 = HL.WebData2Response;
 export type IWsWebData3 = HL.WebData3WsEvent;
 export type IWsAllMids = HL.AllMidsWsEvent;
 export type IWsActiveAssetCtx = HL.ActiveAssetCtxWsEvent;
@@ -27,7 +27,10 @@ export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 export type IWsSpotState = HL.SpotStateWsEvent;
 export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
 export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
-export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
+export type ISpotBalance = Extract<
+  IWsSpotState['spotState']['balances'][number],
+  { token: number }
+>;
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
 export type IEventSpotAssetCtxsParameters = Record<string, never>;
 export type IEventActiveSpotAssetCtxParameters =
@@ -186,7 +189,7 @@ export type IEventFastL2Parameters = {
   m?: IEventL2BookParameters['mantissa'];
 };
 export type IEventBboParameters = HL.BboWsParameters;
-export type IEventWebData2Parameters = HL.WebData2WsParameters;
+export type IEventWebData2Parameters = HL.WebData2Parameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
   HL.UserNonFundingLedgerUpdatesWsParameters;

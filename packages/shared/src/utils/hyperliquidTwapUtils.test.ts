@@ -8,6 +8,7 @@ import {
   getTwapElapsedMs,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
+  isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from './hyperliquidTwapUtils';
@@ -74,6 +75,63 @@ describe('hyperliquidTwapUtils', () => {
         isSpot: false,
         midPrice: '100',
       }).isFinite(),
+    ).toBe(false);
+  });
+
+  it('keeps stop prices beyond the market and trigger activation boundary', () => {
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '101',
+        referencePrice: '100',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '99',
+        referencePrice: '100',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '111',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '105',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(false);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '89',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '95',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(false);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '101',
+        referencePrice: '100',
+        triggerPrice: 0,
+      }),
     ).toBe(false);
   });
 

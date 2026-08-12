@@ -21,6 +21,7 @@ import type {
   IHyperliquidPerpPositionSnapshot,
   IHyperliquidSpotBalanceSnapshot,
 } from '../../types/hyperliquid/portfolio';
+import type { ISpotClearinghouseStateResponse } from '../../types/hyperliquid/sdk';
 
 const meta = {
   universe: [
@@ -224,6 +225,11 @@ describe('spotHasPositiveBalance', () => {
         ],
       } as any),
     ).toBe(false);
+    expect(
+      spotHasPositiveBalance({
+        balances: [{ coin: '+1', total: '1', hold: '0', entryNtl: '1' }],
+      }),
+    ).toBe(true);
     expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
   });
 });
@@ -663,6 +669,24 @@ describe('assembleHyperliquidSnapshot', () => {
     expect(
       snap.spotBalances.find((b) => b.coin === 'HYPE')?.spotUniverseName,
     ).toBe('HYPE/USDC');
+  });
+  it('omits outcome balances that have no spot token id', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: clearing as any,
+      spot: {
+        balances: [
+          { coin: 'USDC', token: 0, total: '10', hold: '0', entryNtl: '10' },
+          { coin: '+1', total: '5', hold: '0', entryNtl: '5' },
+        ],
+      } satisfies ISpotClearinghouseStateResponse,
+      priceMap: {},
+      now: 1,
+    });
+
+    expect(snap.spotBalances.map((balance) => balance.coin)).toEqual(['USDC']);
+    expect(snap.spotTotalUsd).toBe('10');
+    expect(snap.isDegraded).toBe(true);
   });
   it('uses spot-side account value and withdrawable for unified accounts', () => {
     const snap = assembleHyperliquidSnapshot({

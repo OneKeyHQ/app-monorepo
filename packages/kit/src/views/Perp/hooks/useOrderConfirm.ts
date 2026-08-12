@@ -32,6 +32,7 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
+  isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -78,7 +79,7 @@ function useOrderConfirmWithMarketDataFreshness({
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const twapTriggerReferencePriceBN = useMemo(
+  const twapReferencePriceBN = useMemo(
     () =>
       getTwapTriggerReferencePrice({
         isSpot: activeTradeInstrument.mode === 'spot',
@@ -356,7 +357,7 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+        if (!twapReferencePriceBN.isFinite() || twapReferencePriceBN.lte(0)) {
           Toast.error({
             title: 'Order Failed',
             message: 'Market price is not available. Please try again.',
@@ -367,7 +368,7 @@ function useOrderConfirmWithMarketDataFreshness({
         if (triggerPrice) {
           const triggerAbove = getTwapTriggerAbove({
             triggerPrice,
-            markPrice: twapTriggerReferencePriceBN,
+            markPrice: twapReferencePriceBN,
           });
           if (typeof triggerAbove !== 'boolean') {
             const triggerPriceBN = new BigNumber(triggerPrice);
@@ -375,7 +376,7 @@ function useOrderConfirmWithMarketDataFreshness({
               title: 'Order Failed',
               message:
                 triggerPriceBN.isFinite() &&
-                triggerPriceBN.eq(twapTriggerReferencePriceBN)
+                triggerPriceBN.eq(twapReferencePriceBN)
                   ? intl.formatMessage({
                       id: ETranslations.perps_trigger_price_equal_current,
                     })
@@ -388,13 +389,20 @@ function useOrderConfirmWithMarketDataFreshness({
         }
         const stopPrice = formDataSnapshot.twapStopPrice?.trim();
         if (stopPrice) {
-          const stopPriceBN = new BigNumber(stopPrice);
-          if (!stopPriceBN.isFinite() || stopPriceBN.lte(0)) {
+          if (
+            !isTwapStopPriceValid({
+              isBuy: side === 'long',
+              stopPrice,
+              referencePrice: twapReferencePriceBN,
+              triggerPrice,
+            })
+          ) {
             Toast.error({
               title: 'Order Failed',
-              message: intl.formatMessage({
-                id: ETranslations.perps_input_price_place_holder,
-              }),
+              message:
+                side === 'long'
+                  ? 'Maximum price must be above the market and trigger price.'
+                  : 'Minimum price must be below the market and trigger price.',
             });
             return;
           }
@@ -402,7 +410,7 @@ function useOrderConfirmWithMarketDataFreshness({
         if (
           !isTwapTotalNotionalValid({
             size: twapSize,
-            price: midPriceBN,
+            price: twapReferencePriceBN,
           })
         ) {
           Toast.error({
@@ -464,7 +472,7 @@ function useOrderConfirmWithMarketDataFreshness({
           await hyperliquidActions.current.submitOrder({
             assetId: activeTradeInstrument.assetId,
             formData: effectiveFormData,
-            price: midPrice || '0',
+            price: twapReferencePriceBN.toFixed(),
           });
           options?.onSuccess?.();
         } catch (error) {
@@ -569,7 +577,7 @@ function useOrderConfirmWithMarketDataFreshness({
       shortOrderPrice,
       intl,
       shouldBlockForMarketData,
-      twapTriggerReferencePriceBN,
+      twapReferencePriceBN,
     ],
   );
 

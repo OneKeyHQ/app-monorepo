@@ -74,6 +74,7 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
+  isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -996,6 +997,13 @@ function SideButtonInternal({
           });
           return 'invalidTwapConfig' as const;
         }
+        if (
+          !latestTwapTriggerReferencePriceBN.isFinite() ||
+          latestTwapTriggerReferencePriceBN.lte(0)
+        ) {
+          Toast.error({ title: 'Market price unavailable, please try again' });
+          return 'marketDataUnavailable' as const;
+        }
         const triggerPrice = latestFormData.twapTriggerPrice?.trim();
         if (
           triggerPrice &&
@@ -1012,16 +1020,22 @@ function SideButtonInternal({
           return 'invalidTwapConfig' as const;
         }
         const stopPrice = latestFormData.twapStopPrice?.trim();
-        if (stopPrice) {
-          const stopPriceBN = new BigNumber(stopPrice);
-          if (!stopPriceBN.isFinite() || stopPriceBN.lte(0)) {
-            Toast.message({
-              title: intl.formatMessage({
-                id: ETranslations.perps_input_price_place_holder,
-              }),
-            });
-            return 'invalidTwapConfig' as const;
-          }
+        if (
+          stopPrice &&
+          !isTwapStopPriceValid({
+            isBuy: validationSide === 'long',
+            stopPrice,
+            referencePrice: latestTwapTriggerReferencePriceBN,
+            triggerPrice,
+          })
+        ) {
+          Toast.message({
+            title:
+              validationSide === 'long'
+                ? 'Maximum price must be above the market and trigger price.'
+                : 'Minimum price must be below the market and trigger price.',
+          });
+          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -1116,7 +1130,7 @@ function SideButtonInternal({
         if (
           !isTwapTotalNotionalValid({
             size: latestComputedSizeForSide,
-            price: latestEffectivePriceBN,
+            price: latestTwapTriggerReferencePriceBN,
           })
         ) {
           Toast.message({

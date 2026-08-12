@@ -174,6 +174,11 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     return new BigNumber(markPx ?? 0);
   }, [activeAssetData?.markPx, effectiveSpotPriceBN, isSpot]);
 
+  const calculationPriceBN = useMemo(
+    () => (formData.orderMode === 'twap' ? markPxBN : effectivePriceBN),
+    [effectivePriceBN, formData.orderMode, markPxBN],
+  );
+
   const availableMarginBN = useMemo(() => {
     if (isSpot) {
       if (side === 'long') {
@@ -247,7 +252,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     }
     return computeMaxTradeSize({
       side,
-      price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
+      price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
       markPrice: activeAssetData?.markPx,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
@@ -257,7 +262,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     });
   }, [
     side,
-    effectivePriceBN,
+    calculationPriceBN,
     activeAssetData?.markPx,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
@@ -298,7 +303,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       manualSize: formData.size,
       sizePercent: formData.sizePercent,
       side,
-      price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
+      price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
       markPrice: activeAssetData?.markPx,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
@@ -311,7 +316,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     formData.size,
     formData.sizePercent,
     side,
-    effectivePriceBN,
+    calculationPriceBN,
     activeAssetData?.markPx,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
@@ -324,8 +329,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   ]);
 
   const orderValue = useMemo(
-    () => computedSizeForSide.multipliedBy(effectivePriceBN),
-    [computedSizeForSide, effectivePriceBN],
+    () => computedSizeForSide.multipliedBy(calculationPriceBN),
+    [calculationPriceBN, computedSizeForSide],
   );
 
   const marginRequired = useMemo(
@@ -391,19 +396,20 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (
       !computedSizeForSide.isFinite() ||
       computedSizeForSide.lte(0) ||
-      !effectivePriceBN.isFinite() ||
-      effectivePriceBN.lte(0)
+      !calculationPriceBN.isFinite() ||
+      calculationPriceBN.lte(0)
     ) {
       return false;
     }
 
     const requiredMargin = computedSizeForSide
-      .multipliedBy(effectivePriceBN)
+      .multipliedBy(calculationPriceBN)
       .dividedBy(leverage || 1);
 
     return requiredMargin.isFinite() && requiredMargin.gt(availableMarginBN);
   }, [
     computedSizeForSide,
+    calculationPriceBN,
     effectivePriceBN,
     availableMarginBN,
     leverage,

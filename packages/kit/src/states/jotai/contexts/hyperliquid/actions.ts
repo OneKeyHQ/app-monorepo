@@ -61,6 +61,7 @@ import {
   TWAP_MIN_ORDER_NOTIONAL,
   getTwapTriggerAbove,
   getTwapTriggerReferencePrice,
+  isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -2409,14 +2410,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
-      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      const nextUpdates =
+        updates.side !== undefined &&
+        updates.side !== current.side &&
+        updates.twapStopPrice === undefined
+          ? { ...updates, twapStopPrice: '' }
+          : updates;
+      const updateKeys = Object.keys(nextUpdates) as Array<
+        keyof ITradingFormData
+      >;
       if (
         updateKeys.length === 0 ||
-        updateKeys.every((key) => current[key] === updates[key])
+        updateKeys.every((key) => current[key] === nextUpdates[key])
       ) {
         return;
       }
-      set(tradingFormAtom(), { ...current, ...updates });
+      set(tradingFormAtom(), { ...current, ...nextUpdates });
     },
   );
 
@@ -2946,13 +2955,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 );
               }
             }
-            if (stopPrice) {
-              const stopPriceBN = new BigNumber(stopPrice);
-              if (!stopPriceBN.isFinite() || stopPriceBN.lte(0)) {
-                throw new OneKeyLocalError(
-                  'TWAP stop price must be a positive number',
-                );
-              }
+            if (
+              stopPrice &&
+              !isTwapStopPriceValid({
+                isBuy: formData.side === 'long',
+                stopPrice,
+                referencePrice: markPriceBN,
+                triggerPrice,
+              })
+            ) {
+              throw new OneKeyLocalError(
+                formData.side === 'long'
+                  ? 'TWAP maximum price must be above the market and trigger price'
+                  : 'TWAP minimum price must be below the market and trigger price',
+              );
             }
 
             const resolvedSize = resolveTradingSize({
@@ -3029,6 +3045,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   triggerPrice,
                   triggerAbove,
                   stopPrice,
+                  referencePrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
               );

@@ -35,6 +35,7 @@ import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { isTwapStopPriceValid } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   MAX_DECIMALS_PERP,
@@ -1421,6 +1422,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     if (triggerPrice && typeof params.triggerAbove !== 'boolean') {
       throw new OneKeyLocalError('TWAP trigger direction is required');
     }
+    if (
+      stopPrice &&
+      !isTwapStopPriceValid({
+        isBuy: params.isBuy,
+        stopPrice,
+        referencePrice: params.referencePrice,
+        triggerPrice,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        params.isBuy
+          ? 'TWAP maximum price must be above the market and trigger price'
+          : 'TWAP minimum price must be below the market and trigger price',
+      );
+    }
     const twap = {
       a: params.assetId,
       b: params.isBuy,
@@ -1445,6 +1461,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         reduceOnly,
         minutes: params.minutes,
         randomize: params.randomize,
+        referencePrice: params.referencePrice,
       },
       details,
     };
@@ -1741,11 +1758,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setAbstractionWithUserWallet(params: {
     userAccountId: string;
     userAddress: string;
-    abstraction:
-      | 'disabled'
-      | 'unifiedAccount'
-      | 'portfolioMargin'
-      | 'dexAbstraction';
+    abstraction: 'disabled' | 'unifiedAccount' | 'portfolioMargin';
   }): Promise<void> {
     await this.checkAccountCanTrade();
     const wallet =

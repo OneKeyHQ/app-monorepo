@@ -267,6 +267,7 @@ export interface IPlaceTwapOrderParams {
   triggerPrice?: string;
   triggerAbove?: boolean;
   stopPrice?: string;
+  referencePrice: string;
   szDecimals?: number;
 }
 

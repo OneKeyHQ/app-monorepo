@@ -894,7 +894,11 @@ function PerpTradingForm({
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
-    if (formData.orderMode === 'trigger' && formData.triggerOrderType) {
+    if (formData.orderMode === 'twap') {
+      price = isSpot
+        ? midPriceBN
+        : new BigNumber(activeAssetData?.markPx ?? '');
+    } else if (formData.orderMode === 'trigger' && formData.triggerOrderType) {
       price = getTriggerEffectivePrice({
         triggerOrderType: formData.triggerOrderType,
         triggerPrice: formData.triggerPrice,
@@ -929,6 +933,7 @@ function PerpTradingForm({
     formData.executionPrice,
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
+    activeAssetData?.markPx,
     isSpot,
     midPriceBN,
     sizeSzDecimals,

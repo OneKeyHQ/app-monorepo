@@ -1,0 +1,36 @@
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
+index 2bd4960..56e80e7 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.d.ts
+@@ -19,7 +19,7 @@ export declare const TwapOrderRequest: v.ObjectSchema<{
+             /** Whether the order is reduce-only. */
+             readonly r: v.BooleanSchema<undefined>;
+             /** TWAP duration in minutes. */
+-            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++            readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+             /** Enable random order timing. */
+             readonly t: v.BooleanSchema<undefined>;
+         }, undefined>;
+@@ -96,7 +96,7 @@ declare const TwapOrderActionSchema: v.ObjectSchema<{
+         /** Whether the order is reduce-only. */
+         readonly r: v.BooleanSchema<undefined>;
+         /** TWAP duration in minutes. */
+-        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 1440, undefined>]>;
++        readonly m: v.SchemaWithPipe<readonly [v.SchemaWithPipe<readonly [v.UnionSchema<[v.StringSchema<undefined>, v.NumberSchema<undefined>], undefined>, v.ToNumberAction<string | number, undefined>, v.NumberSchema<undefined>, v.SafeIntegerAction<number, undefined>, v.MinValueAction<number, 0, undefined>]>, v.MinValueAction<number, 5, undefined>, v.MaxValueAction<number, 10080, undefined>]>;
+         /** Enable random order timing. */
+         readonly t: v.BooleanSchema<undefined>;
+     }, undefined>;
+diff --git a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
+index 1f6a653..0d22f71 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
++++ b/node_modules/@nktkas/hyperliquid/esm/api/exchange/_methods/twapOrder.js
+@@ -15,7 +15,8 @@ import { Address, Hex, UnsignedDecimal, UnsignedInteger } from "../../_schemas.j
+         /** Position side (`true` for long, `false` for short). */ b: v.boolean(),
+         /** Size (in base currency units). */ s: UnsignedDecimal,
+         /** Whether the order is reduce-only. */ r: v.boolean(),
+-        /** TWAP duration in minutes. */ m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(1440)),
++        // OneKey patch: Hyperliquid accepts seven-day TWAPs before the SDK has published the updated bound.
++        /** TWAP duration in minutes. */ m: v.pipe(UnsignedInteger, v.minValue(5), v.maxValue(10080)),
+         /** Enable random order timing. */ t: v.boolean()
+       }),
+       /** Trigger and stop prices. */ details: v.optional(v.object({
