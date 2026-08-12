@@ -3887,15 +3887,15 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      verifySeedMatchFn:
-        vendor === EHardwareVendor.ledger
-          ? async (matchedDevice) =>
-              verifyLedgerSeedMatch(
-                this.backgroundApi,
-                matchedDevice,
-                compatibleConnectId,
-              )
-          : undefined,
+      // Vendor capability, not `vendor === ledger`: future vendors opt in via profile.
+      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
+        ? async (matchedDevice) =>
+            verifyLedgerSeedMatch(
+              this.backgroundApi,
+              matchedDevice,
+              compatibleConnectId,
+            )
+        : undefined,
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
@@ -3906,14 +3906,6 @@ class ServiceAccount extends ServiceBase {
     // Best-effort — a miss just means re-pairing on next boot, never a failure.
     if (vendor === EHardwareVendor.trezor) {
       try {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
-            connectId: params.device.connectId,
-            rawDeviceId: deviceId,
-            paramsDeviceId: params.device.deviceId,
-            featuresDeviceId: features.device_id,
-          })}`,
-        );
         await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
           {
             connectId: params.device.connectId ?? undefined,

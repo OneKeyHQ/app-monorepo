@@ -199,6 +199,26 @@ export class HardwareConnectionManager {
     return this.detectWebUSBAvailability(connectId);
   }
 
+  // Trezor-scoped USB presence: the global probe counts OneKey USB/Bridge
+  // devices, which can be true while this Trezor is BLE-only. WebUSB only.
+  async detectTrezorUSBDeviceAvailability(): Promise<boolean> {
+    if (!platformEnv.isSupportDesktopBle) return true;
+    try {
+      const usb = globalThis?.navigator?.usb;
+      if (!usb || typeof usb.getDevices !== 'function') return false;
+      const { TREZOR_WEBUSB_FILTERS } =
+        await import('@onekeyfe/hwk-trezor-connector-webusb');
+      const list = (await usb.getDevices()) || [];
+      return (Array.isArray(list) ? list : []).some((dev) =>
+        TREZOR_WEBUSB_FILTERS.some(
+          (f) => dev?.vendorId === f.vendorId && dev?.productId === f.productId,
+        ),
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async detectBluetoothAvailability(
     hardwareCallContext?: IHardwareCallContext,
   ): Promise<boolean> {
@@ -355,12 +375,6 @@ export class HardwareConnectionManager {
         await hardwareForceTransportAtom.get();
       const forceTransportType =
         hardwareForceTransportAtomState.forceTransportType;
-
-      console.log('🔍 shouldSwitchTransportType called with:', {
-        hardwareCallContext,
-        forceTransportType,
-        operationId: hardwareForceTransportAtomState.operationId,
-      });
 
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
