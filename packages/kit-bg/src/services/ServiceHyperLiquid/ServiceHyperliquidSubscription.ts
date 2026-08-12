@@ -188,6 +188,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _lastMessageAt: number | null = null;
 
+  // Raw pipe liveness, unlike _lastMessageAt which freezes while the handler
+  // is disabled (blur mutes processing, not the stream).
+  private _lastFrameAt: number | null = null;
+
+  private _socketOpenedAt: number | null = null;
+
+  private _resumeReconnectPromise: Promise<void> | null = null;
+
   private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _postOpenDataCheckRetries = 0;
@@ -714,6 +722,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   lastRefreshAllPerpsDataAt: number | null = null;
 
+  // OS suspension can leave the socket half-dead while readyState still says
+  // OPEN; without recent traffic (or a recent open) the pipe cannot be
+  // trusted on resume. No evidence at all keeps the legacy reuse path.
+  private _isResumeStreamStale(): boolean {
+    const lastLifeAt = Math.max(
+      this._lastFrameAt ?? 0,
+      this._socketOpenedAt ?? 0,
+    );
+    if (!lastLifeAt) {
+      return false;
+    }
+    return Date.now() - lastLifeAt > HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
+  }
+
   private _hasRecentDataFlow(): boolean {
     return (
       this._lastMessageAt !== null &&
@@ -1042,10 +1064,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       isOpen: readyState === WebSocket.OPEN,
       isClosedOrClosing:
         readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+      isStreamStale: this._isResumeStreamStale(),
     });
     if (action === 'reconnect') {
       console.log('resumeSubscriptions__force_reconnect_transport');
-      await this._forceReconnectTransport();
+      // Prewarm and AutoPause both fire resume on foreground; single-flight
+      // so they cannot race two concurrent transport rebuilds.
+      if (!this._resumeReconnectPromise) {
+        this._resumeReconnectPromise = this._forceReconnectTransport().finally(
+          () => {
+            this._resumeReconnectPromise = null;
+          },
+        );
+      }
+      await this._resumeReconnectPromise;
       return;
     }
     if (action === 'waitForOpen') {
@@ -1090,7 +1122,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableSubscriptionsHandler(): Promise<void> {
+  async enableSubscriptionsHandler(options?: {
+    ifDisabledCountAtMost?: number;
+  }): Promise<void> {
+    // Callers holding a liveness proof pass the disable count they observed
+    // when it was captured; a disable landing after that (blur, lock) bumps
+    // the count and wins over the now-stale proof. The count is monotonic in
+    // this runtime, so no cross-runtime clock comparison is involved.
+    if (
+      options?.ifDisabledCountAtMost !== undefined &&
+      this.subscriptionsHandlerDisabledCount > options.ifDisabledCountAtMost
+    ) {
+      return;
+    }
     this.subscriptionsHandlerDisabled = false;
     if (this.hasNewUserFills) {
       this.hasNewUserFills = false;
@@ -1098,6 +1142,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         refreshHook: Date.now(),
       });
     }
+  }
+
+  @backgroundMethod()
+  async recoverSubscriptionsAfterLivenessProof(params: {
+    disabledCount: number;
+  }): Promise<boolean> {
+    if (this.subscriptionsHandlerDisabledCount > params.disabledCount) {
+      return false;
+    }
+    await this.enableSubscriptionsHandler({
+      ifDisabledCountAtMost: params.disabledCount,
+    });
+    if (this.subscriptionsHandlerDisabled) {
+      return false;
+    }
+    // AutoPause in the UI runtime still reads a stale blur; announce so it
+    // drops the pending pause timer that would tear this recovery down.
+    appEventBus.emit(EAppEventBusNames.PerpsSubscriptionsRecovered, undefined);
+    // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
+    // before the reconcile (OK-53014 ordering).
+    this._watchSubscriptionAtoms();
+    await this.updateSubscriptions();
+    return true;
   }
 
   @backgroundMethod()
@@ -1443,6 +1510,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
+      // Grace for the stale-stream resume check: a just-opened socket has no
+      // messages yet but must not be judged dead.
+      this._socketOpenedAt = Date.now();
       // OK-53208: SDK transport wrapper reports readyState=undefined in the
       // open event, which keeps perpsWebSocketConnectedAtom false forever.
       await perpsWebSocketReadyStateAtom.set({
@@ -2043,6 +2113,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     event: CustomEvent,
   ): Promise<void> {
     try {
+      // Stamp before the disabled early-return: a muted-but-alive stream
+      // must not be judged dead by the resume staleness check.
+      this._lastFrameAt = Date.now();
       const shouldUpdateWsDataUpdateTimes = this._showPerpsRenderStats;
 
       if (shouldUpdateWsDataUpdateTimes) {

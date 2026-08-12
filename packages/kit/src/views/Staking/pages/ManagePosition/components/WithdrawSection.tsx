@@ -113,9 +113,9 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName }),
-    [providerName],
+  const hasWithdrawApprove = Boolean(
+    protocolInfo?.withdrawApprove?.approveTarget &&
+    protocolInfo.withdrawApprove.tokenAddress,
   );
   const borrowProviderDisplayName = useMemo(() => {
     if (
@@ -130,7 +130,7 @@ export const WithdrawSection = ({
   }, [protocolInfo?.providerDetail.name, providerName]);
 
   const approveSpenderAddress = useMemo(() => {
-    if (isNativeProvider) {
+    if (hasWithdrawApprove) {
       return protocolInfo?.withdrawApprove?.approveTarget ?? '';
     }
     return isPendleProvider
@@ -142,7 +142,7 @@ export const WithdrawSection = ({
       : '';
   }, [
     isPendleProvider,
-    isNativeProvider,
+    hasWithdrawApprove,
     providerName,
     protocolInfo?.vault,
     protocolInfo?.approve?.approveTarget,
@@ -154,11 +154,7 @@ export const WithdrawSection = ({
     [tokenInfo],
   );
   const withdrawApproveToken = useMemo(() => {
-    if (
-      !isNativeProvider ||
-      !protocolInfo?.withdrawApprove?.tokenAddress ||
-      !token
-    ) {
+    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
       return token;
     }
     return {
@@ -166,17 +162,24 @@ export const WithdrawSection = ({
       address: protocolInfo.withdrawApprove.tokenAddress,
       isNative: false,
     };
-  }, [isNativeProvider, protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
 
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
-        !(isPendleProvider || isNativeProvider) ||
+        !(isPendleProvider || hasWithdrawApprove) ||
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
         withdrawApproveToken?.isNative
       ) {
+        return undefined;
+      }
+      // While a protocol switch is in flight (confirm button force-loading),
+      // networkId is already the new chain but token/spender still come from
+      // the previous protocol's stale data — skip to avoid a mismatched
+      // allowance request. Re-runs automatically once fresh data lands.
+      if (footerActionOverride?.loading) {
         return undefined;
       }
       const { allowanceParsed } =
@@ -193,19 +196,20 @@ export const WithdrawSection = ({
     },
     [
       isPendleProvider,
-      isNativeProvider,
+      hasWithdrawApprove,
       approveSpenderAddress,
       accountId,
       networkId,
       withdrawApproveToken?.isNative,
       withdrawApproveToken?.address,
+      footerActionOverride?.loading,
     ],
     { watchLoading: true },
   );
 
   const approveTarget = useMemo(() => {
     if (
-      !(isPendleProvider || isNativeProvider) ||
+      !(isPendleProvider || hasWithdrawApprove) ||
       !approveSpenderAddress ||
       !withdrawApproveToken
     ) {
@@ -219,7 +223,7 @@ export const WithdrawSection = ({
     };
   }, [
     isPendleProvider,
-    isNativeProvider,
+    hasWithdrawApprove,
     approveSpenderAddress,
     accountId,
     networkId,
@@ -1146,7 +1150,9 @@ export const WithdrawSection = ({
           approveTarget={approveTarget}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
           receiptTokenRate={
-            protocolInfo?.receiptTokenRate ?? protocolInfo?.morphoTokenRate
+            protocolInfo?.withdrawApprove?.receiptTokenRate ??
+            protocolInfo?.receiptTokenRate ??
+            protocolInfo?.morphoTokenRate
           }
           pendleSlippage={pendleSlippage}
         />

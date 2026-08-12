@@ -19,6 +19,7 @@ import type { IMarketTimeRangeValue } from '../../types';
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
+  forceStockMetadataColumns?: boolean;
   stockCategory?: string;
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
@@ -41,6 +42,7 @@ type IMarketNormalTokenListProps = {
 function MarketNormalTokenList({
   networkId = 'sol--101',
   selectedCategory,
+  forceStockMetadataColumns,
   stockCategory,
   timeRange,
   sortBy: initialSortBy,
@@ -118,6 +120,7 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle="auto"
+      forceStockMetadataColumns={forceStockMetadataColumns}
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}

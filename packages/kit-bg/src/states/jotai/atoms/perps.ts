@@ -787,6 +787,7 @@ export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
   globalAtom<ITradingMode>({
     name: EAtomNames.tradingModeAtom,
+    persist: true,
     initialValue: 'perp',
   });
 // #endregion
