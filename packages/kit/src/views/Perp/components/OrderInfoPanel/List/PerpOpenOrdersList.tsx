@@ -27,8 +27,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  buildActiveTwapRuntimeInfoById,
+  buildActiveTwapRuntimeInfoByKey,
   getActiveTwapRuntimeStatus,
+  getTwapRuntimeInfoKey,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -283,8 +284,8 @@ function PerpOpenOrdersList({
       twapHistoryState.history,
     ],
   );
-  const activeTwapRuntimeInfoById = useMemo(
-    () => buildActiveTwapRuntimeInfoById(scopedTwapHistory),
+  const activeTwapRuntimeInfoByKey = useMemo(
+    () => buildActiveTwapRuntimeInfoByKey(scopedTwapHistory),
     [scopedTwapHistory],
   );
   const openOrders = useMemo(
@@ -506,7 +507,9 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
-      const runtimeInfo = activeTwapRuntimeInfoById.get(item.order.twapId);
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(
+        getTwapRuntimeInfoKey(item.order.state),
+      );
       const status = getActiveTwapRuntimeStatus({
         reportedStatus: runtimeInfo?.reportedStatus,
         triggerPrice: item.order.state.trigger?.px,

@@ -2,7 +2,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
-  buildActiveTwapRuntimeInfoById,
+  buildActiveTwapRuntimeInfoByKey,
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
@@ -152,21 +152,46 @@ describe('hyperliquidTwapUtils', () => {
 
   it('keeps the latest reported status and activation time for each TWAP', () => {
     expect(
-      buildActiveTwapRuntimeInfoById?.([
+      buildActiveTwapRuntimeInfoByKey?.([
         {
-          twapId: 7,
           time: 1_718_000_000,
+          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
           status: { status: 'waitingForTrigger' },
         },
         {
-          twapId: 7,
           time: 1_718_000_120,
+          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
           status: { status: 'activated' },
         },
-      ]).get(7),
+      ]).get('ETH:1717999900000'),
     ).toEqual({
       reportedStatus: 'activated',
       activatedAt: 1_718_000_120_000,
     });
+  });
+
+  it('correlates runtime status when history omits twapId', () => {
+    const records = [
+      {
+        time: 1_718_000_120,
+        state: {
+          coin: 'ETH',
+          timestamp: 1_718_000_000_000,
+        },
+        status: { status: 'activated' as const },
+      },
+    ];
+
+    expect(
+      Array.from(buildActiveTwapRuntimeInfoByKey(records).entries()),
+    ).toEqual([
+      [
+        'ETH:1718000000000',
+        {
+          reportedStatus: 'activated',
+          activatedAt: 1_718_000_120_000,
+        },
+      ],
+    ]);
   });
 });

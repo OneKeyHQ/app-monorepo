@@ -19,30 +19,38 @@ export type IActiveTwapRuntimeInfo = {
   activatedAt?: number;
 };
 
+export function getTwapRuntimeInfoKey(state: {
+  coin: string;
+  timestamp: number;
+}): string {
+  return `${state.coin}:${state.timestamp}`;
+}
+
 function normalizeTwapHistoryTimeMs(time: number): number {
   return time > 1_000_000_000_000 ? time : time * 1000;
 }
 
-export function buildActiveTwapRuntimeInfoById(
+export function buildActiveTwapRuntimeInfoByKey(
   records: readonly {
-    twapId?: number;
     time: number;
+    state: {
+      coin: string;
+      timestamp: number;
+    };
     status: { status: ITwapRuntimeStatus };
   }[],
-): Map<number, IActiveTwapRuntimeInfo> {
-  const latestRecordByTwapId = new Map<number, (typeof records)[number]>();
+): Map<string, IActiveTwapRuntimeInfo> {
+  const latestRecordByKey = new Map<string, (typeof records)[number]>();
   records.forEach((record) => {
-    if (record.twapId === undefined) {
-      return;
-    }
-    const previous = latestRecordByTwapId.get(record.twapId);
+    const key = getTwapRuntimeInfoKey(record.state);
+    const previous = latestRecordByKey.get(key);
     if (!previous || record.time > previous.time) {
-      latestRecordByTwapId.set(record.twapId, record);
+      latestRecordByKey.set(key, record);
     }
   });
   return new Map(
-    Array.from(latestRecordByTwapId.entries()).map(([twapId, record]) => [
-      twapId,
+    Array.from(latestRecordByKey.entries()).map(([key, record]) => [
+      key,
       {
         reportedStatus:
           record.status.status === 'waitingForTrigger'

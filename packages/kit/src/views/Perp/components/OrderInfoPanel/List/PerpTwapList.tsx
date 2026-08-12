@@ -35,10 +35,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
-  buildActiveTwapRuntimeInfoById,
+  buildActiveTwapRuntimeInfoByKey,
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
+  getTwapRuntimeInfoKey,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -1395,8 +1396,8 @@ function PerpTwapList({
     return rawHistory;
   }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
-  const activeRuntimeInfoByTwapId = useMemo(
-    () => buildActiveTwapRuntimeInfoById(historyRows),
+  const activeRuntimeInfoByKey = useMemo(
+    () => buildActiveTwapRuntimeInfoByKey(historyRows),
     [historyRows],
   );
 
@@ -1802,7 +1803,9 @@ function PerpTwapList({
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
     ) => {
-      const runtimeInfo = activeRuntimeInfoByTwapId.get(item.twapId);
+      const runtimeInfo = activeRuntimeInfoByKey.get(
+        getTwapRuntimeInfoKey(item.state),
+      );
       const status = getActiveTwapRuntimeStatus({
         reportedStatus: runtimeInfo?.reportedStatus,
         triggerPrice: item.state.trigger?.px,
@@ -1830,7 +1833,7 @@ function PerpTwapList({
     },
     [
       activeColumns,
-      activeRuntimeInfoByTwapId,
+      activeRuntimeInfoByKey,
       activeMinWidth,
       handleTerminate,
       now,
