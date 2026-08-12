@@ -15,7 +15,6 @@ import {
   finalizeSignedPsbtHex,
   findDuplicatePsbtIndexes,
   findPsbtOutpointConflicts,
-  outpointToDisplay,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
 import {
   parseHexContext,
@@ -848,11 +847,21 @@ class ProviderApiBtc extends ProviderApiBase {
       );
     }
 
+    // Duplicate txs and cross-psbt shared inputs are legitimate dapp
+    // patterns the pre-batch sequential loop always handled (alternative
+    // versions of the same listing, RBF-style variants — signed but never
+    // all broadcast). A single batch overview can't present them honestly
+    // (its totals would double-count the same coins), so route the whole
+    // request through the legacy per-psbt confirm loop instead of
+    // rejecting it — the same fallback the path below uses for amounts
+    // that cannot be summarized.
     const duplicateIndexes = findDuplicatePsbtIndexes(psbts);
     if (duplicateIndexes.length > 0) {
-      throw web3Errors.rpc.invalidParams(
-        `duplicate psbt at index ${duplicateIndexes.join(', ')}`,
-      );
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
     }
 
     // NOTE: isBtcWalletProvider is dapp-supplied; this exemption makes the
@@ -863,10 +872,11 @@ class ProviderApiBtc extends ProviderApiBase {
       .filter((i) => i >= 0);
     const conflicts = findPsbtOutpointConflicts({ psbts, exemptIndexes });
     if (conflicts.length > 0) {
-      const displayOutpoint = outpointToDisplay(conflicts[0].outpoint);
-      throw web3Errors.rpc.invalidParams(
-        `conflicting inputs across psbts (double spend): ${displayOutpoint}`,
-      );
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
     }
 
     // getAccount() spreads the DB account, so the UTXO address maps ride
