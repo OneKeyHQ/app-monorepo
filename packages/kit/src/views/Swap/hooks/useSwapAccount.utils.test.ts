@@ -9,6 +9,7 @@ import {
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
+  resolveSettledSwapRecipientRequired,
   resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
@@ -318,6 +319,77 @@ describe('shouldShowSwapRecipientEntry', () => {
         hasToToken: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('resolveSettledSwapRecipientRequired', () => {
+  const settledScope = { scopeKey: 'swap|eth|usdc|sol|sol|acc-1', value: true };
+
+  it('keeps the held verdict while a quote for the same scope is pending', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('adopts the new verdict once the quote settles', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: settledScope.scopeKey, value: false });
+  });
+
+  it('waits for target address resolution before adopting a verdict', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: false,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('drops a previous tab verdict when the scope changes (OK-58326)', () => {
+    // Switching Swap -> Limit clears the quote list and quoteEventCompleted
+    // without settling a quote, so the stale verdict must not leak over.
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: 'limit|eth|usdc|sol|sol|acc-1',
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: 'limit|eth|usdc|sol|sol|acc-1', value: false });
+  });
+
+  it('drops the verdict when the token pair or account changes', () => {
+    for (const scopeKey of [
+      'swap|eth|dai|sol|sol|acc-1',
+      'swap|eth|usdc|sol|sol|acc-2',
+    ]) {
+      expect(
+        resolveSettledSwapRecipientRequired({
+          previous: settledScope,
+          scopeKey,
+          quoteSettled: false,
+          isAddressInfoReady: true,
+          recipientRequiredNow: true,
+        }),
+      ).toEqual({ scopeKey, value: false });
+    }
   });
 });
 

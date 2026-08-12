@@ -68,7 +68,10 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import {
+  resolveSettledSwapRecipientRequired,
+  shouldShowSwapRecipientEntry,
+} from '../../hooks/useSwapAccount.utils';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -243,14 +246,28 @@ const SwapActionsState = ({
     !swapToAddressInfo.address &&
     !swapActionState.noConnectWallet,
   );
-  const settledRecipientRequiredRef = useRef(recipientRequiredNow);
-  if (
-    (currentQuoteRes || isQuoteSettledWithoutResult) &&
-    swapToAddressInfo.isAddressInfoReady
-  ) {
-    settledRecipientRequiredRef.current = recipientRequiredNow;
-  }
-  const recipientRequiredSettled = settledRecipientRequiredRef.current;
+  // Scope the held verdict to one quote round: tab / token pair / source
+  // account. See resolveSettledSwapRecipientRequired for why re-keying matters.
+  const recipientRequiredScopeKey = [
+    swapTypeSwitch,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
+    swapFromAddressInfo?.accountInfo?.account?.id,
+  ].join('|');
+  const settledRecipientRequiredRef = useRef({
+    scopeKey: recipientRequiredScopeKey,
+    value: recipientRequiredNow,
+  });
+  settledRecipientRequiredRef.current = resolveSettledSwapRecipientRequired({
+    previous: settledRecipientRequiredRef.current,
+    scopeKey: recipientRequiredScopeKey,
+    quoteSettled: Boolean(currentQuoteRes || isQuoteSettledWithoutResult),
+    isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+    recipientRequiredNow,
+  });
+  const recipientRequiredSettled = settledRecipientRequiredRef.current.value;
 
   const shouldShowRecipient = useMemo(
     () =>

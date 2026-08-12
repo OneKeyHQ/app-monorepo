@@ -2,8 +2,19 @@ import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { AnimatePresence, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
+
+// Native only: under Yoga a normal-flow child of the height-0 animated wrapper
+// measures 0, so onLayout would report 0 forever and the content could never
+// expand. Taking the measured node out of flow frees it from that constraint.
+// Web/desktop measure the child's natural height fine, and keeping it in flow
+// there preserves the intrinsic sizing every SwapSmoothReveal caller relies on.
+// (OK-58326)
+const MEASURED_CONTENT_LAYOUT_PROPS = platformEnv.isNative
+  ? ({ position: 'absolute', left: 0, right: 0, top: 0 } as const)
+  : ({} as const);
 
 /**
  * Expands/collapses `children` smoothly instead of letting them pop in and
@@ -64,15 +75,8 @@ export function SwapSmoothReveal({
           enterStyle={{ height: 0, opacity: 0 }}
           exitStyle={{ height: 0, opacity: 0 }}
         >
-          {/* Absolute positioning frees the content from the animated
-              wrapper's height:0 constraint: native Yoga measures a normal-flow
-              child of a fixed-height parent as 0, which would keep the
-              measured height stuck at 0 forever. (OK-58326) */}
           <Stack
-            position="absolute"
-            left={0}
-            right={0}
-            top={0}
+            {...MEASURED_CONTENT_LAYOUT_PROPS}
             pt={isGapTop && parentGap ? parentGap : undefined}
             pb={!isGapTop && parentGap ? parentGap : undefined}
             onLayout={onContentLayout}

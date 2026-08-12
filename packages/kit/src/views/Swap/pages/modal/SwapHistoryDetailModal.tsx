@@ -40,7 +40,6 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -77,7 +76,10 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFee';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
-import { getSwapHistoryProviderOrderId } from '../../utils/swapHistoryIdentity';
+import {
+  getSwapHistoryProviderOrderId,
+  shortenSwapOrderId,
+} from '../../utils/swapHistoryIdentity';
 import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
@@ -1666,13 +1668,7 @@ const SwapHistoryDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.Limit_order_history_order_id,
                 })}
-                renderContent={accountUtils.shortenAddress({
-                  address: providerOrderId,
-                  // Roughly one full line in the detail modal, matching the
-                  // width of a wrapped 66-char tx hash line.
-                  leadingLength: 24,
-                  trailingLength: 20,
-                })}
+                renderContent={shortenSwapOrderId(providerOrderId)}
                 copyContent={providerOrderId}
                 showCopy
                 openWithUrl={() =>

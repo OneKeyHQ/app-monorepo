@@ -7,6 +7,7 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import {
   buildSwapHistoryIdentity,
   getSwapHistoryProviderOrderId,
+  shortenSwapOrderId,
 } from './swapHistoryIdentity';
 
 function createBuildRes(
@@ -120,5 +121,40 @@ describe('getSwapHistoryProviderOrderId', () => {
 
   it('returns undefined when no order id exists at all', () => {
     expect(getSwapHistoryProviderOrderId(createHistory({}))).toBeUndefined();
+  });
+});
+
+describe('shortenSwapOrderId', () => {
+  const buildId = (length: number) =>
+    Array.from({ length }, (_, i) => String.fromCharCode(97 + (i % 26))).join(
+      '',
+    );
+
+  it('abbreviates a long CoW order uid to a single line', () => {
+    const uid = `0x${'a'.repeat(112)}`;
+    const shortened = shortenSwapOrderId(uid);
+    expect(shortened).toBe(`${uid.slice(0, 24)}...${uid.slice(-20)}`);
+    expect(shortened.length).toBe(47);
+  });
+
+  it('never repeats characters for mid-length ids', () => {
+    // Below leading+trailing the two slices would overlap, rendering the middle
+    // of the id twice and making the output longer than the input.
+    for (const length of [15, 20, 36, 43, 44]) {
+      const id = buildId(length);
+      const shortened = shortenSwapOrderId(id);
+      expect(shortened).toBe(id);
+    }
+  });
+
+  it('starts abbreviating once the id is longer than leading+trailing', () => {
+    const id = buildId(45);
+    expect(shortenSwapOrderId(id)).toBe(
+      `${id.slice(0, 24)}...${id.slice(-20)}`,
+    );
+  });
+
+  it('returns an empty string for a missing order id', () => {
+    expect(shortenSwapOrderId(undefined)).toBe('');
   });
 });

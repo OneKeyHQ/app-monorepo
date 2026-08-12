@@ -180,6 +180,42 @@ export function shouldShowSwapRecipientEntry({
   );
 }
 
+type ISettledSwapRecipientRequired = {
+  scopeKey: string;
+  value: boolean;
+};
+
+type IResolveSettledSwapRecipientRequiredParams = {
+  previous: ISettledSwapRecipientRequired;
+  scopeKey: string;
+  quoteSettled: boolean;
+  isAddressInfoReady: boolean;
+  recipientRequiredNow: boolean;
+};
+
+/**
+ * Holds the "a recipient must be entered" verdict across a quote cycle so the
+ * recipient entry does not collapse and re-expand on every refresh, while
+ * still belonging to exactly one quote scope: switching tab clears the quote
+ * list and resets quoteEventCompleted without settling a quote, so a stale
+ * verdict would otherwise leak into the next tab. (OK-58326)
+ */
+export function resolveSettledSwapRecipientRequired({
+  previous,
+  scopeKey,
+  quoteSettled,
+  isAddressInfoReady,
+  recipientRequiredNow,
+}: IResolveSettledSwapRecipientRequiredParams): ISettledSwapRecipientRequired {
+  if (previous.scopeKey !== scopeKey) {
+    return { scopeKey, value: false };
+  }
+  if (quoteSettled && isAddressInfoReady) {
+    return { scopeKey, value: recipientRequiredNow };
+  }
+  return previous;
+}
+
 export function getSwapRecipientValidationAccountId({
   accountId,
   accountAddress,
