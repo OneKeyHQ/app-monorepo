@@ -2,10 +2,7 @@
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import { cloneDeep } from 'lodash';
 
-import type {
-  IDialogLoadingProps,
-  IQrcodeDrawType,
-} from '@onekeyhq/components';
+import type { IDialogLoadingProps } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
@@ -239,10 +236,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
-    drawType: IQrcodeDrawType;
     promiseId?: number;
-    value?: string;
-    valueUr?: IAirGapUrJson;
+    valueUr: IAirGapUrJson;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
