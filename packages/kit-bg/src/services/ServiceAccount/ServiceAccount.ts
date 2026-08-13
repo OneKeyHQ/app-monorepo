@@ -3787,6 +3787,21 @@ class ServiceAccount extends ServiceBase {
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] createHWWalletBase:start',
+      JSON.stringify({
+        connectProtocol: params.connectProtocol,
+        fillingXfpByCallingSdk,
+        isMockedStandardHwWallet: Boolean(isMockedStandardHwWallet),
+        hasPassphraseState: Boolean(passphraseState),
+        hasConnectId: Boolean(params.device.connectId),
+        compatibleConnectIdChanged:
+          Boolean(params.device.connectId) &&
+          compatibleConnectId !== params.device.connectId,
+        vendor,
+      }),
+    );
+
     let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
@@ -3823,6 +3838,16 @@ class ServiceAccount extends ServiceBase {
         ),
     });
     const liveDeviceId = deviceState?.identity.deviceId;
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] createHWWalletBase:device-state',
+      JSON.stringify({
+        mode: deviceState?.status.mode,
+        initialized: deviceState?.status.initialized,
+        unlocked: deviceState?.status.unlocked,
+        hasLiveDeviceId: Boolean(liveDeviceId),
+        deviceIdChanged: Boolean(liveDeviceId && liveDeviceId !== deviceId),
+      }),
+    );
     if (!vendorProfile?.isThirdParty && liveDeviceId) {
       deviceId = liveDeviceId;
     }
@@ -3849,6 +3874,10 @@ class ServiceAccount extends ServiceBase {
 
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] createHWWalletBase:xfp-start',
+        JSON.stringify({ connectProtocol: params.connectProtocol }),
+      );
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
         connectId: compatibleConnectId,
         deviceId,
@@ -3857,6 +3886,10 @@ class ServiceAccount extends ServiceBase {
         withUserInteraction: true,
         vendor,
       });
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] createHWWalletBase:xfp-complete',
+        JSON.stringify({ hasXfp: Boolean(xfp) }),
+      );
     }
     deviceState = await refreshDeviceStateAfterStandardWalletUnlock({
       existingState: deviceState,
@@ -3872,6 +3905,9 @@ class ServiceAccount extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error',
         ),
     });
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] createHWWalletBase:db-create-start',
+    );
     const result = await localDb.createHwWallet({
       ...params,
       deviceState,
@@ -3898,6 +3934,10 @@ class ServiceAccount extends ServiceBase {
         : undefined,
       transportType,
     });
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] createHWWalletBase:db-create-complete',
+      JSON.stringify({ hasWallet: Boolean(result.wallet) }),
+    );
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
 
     // Trezor: THP pairing credentials were minted while probing the device above

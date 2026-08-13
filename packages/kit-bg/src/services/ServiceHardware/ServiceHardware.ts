@@ -3703,7 +3703,21 @@ class ServiceHardware extends ServiceBase {
     withUserInteraction: boolean;
     vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] buildHwWalletXfp:start',
+      JSON.stringify({
+        hasConnectId: Boolean(connectId),
+        hasDeviceId: Boolean(deviceId),
+        hasPassphraseState: Boolean(passphraseState),
+        throwError,
+        withUserInteraction,
+        vendor,
+      }),
+    );
     if (!connectId) {
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:skip-missing-connect-id',
+      );
       return;
     }
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
@@ -3740,10 +3754,21 @@ class ServiceHardware extends ServiceBase {
           ? EHardwareCallContext.USER_INTERACTION
           : EHardwareCallContext.SILENT_CALL,
       });
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:compatible-connect-id',
+        JSON.stringify({ changed: compatibleConnectId !== connectId }),
+      );
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
       });
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:sdk-ready',
+      );
       await timerUtils.wait(600);
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:btc-get-public-key-start',
+        JSON.stringify({ path: BTC_FIRST_TAPROOT_PATH }),
+      );
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(
           compatibleConnectId,
@@ -3756,6 +3781,13 @@ class ServiceHardware extends ServiceBase {
           },
         );
       });
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:btc-get-public-key-complete',
+        JSON.stringify({
+          hasRootFingerprint: Boolean(result.root_fingerprint),
+          hasXpub: Boolean(result.xpub),
+        }),
+      );
       if (result.root_fingerprint && result.xpub) {
         const xfp = numberUtils
           .numberToHex(result.root_fingerprint, { prefix0x: false })
@@ -3764,14 +3796,33 @@ class ServiceHardware extends ServiceBase {
           xfp,
           firstTaprootXpub: result.xpub,
         });
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] buildHwWalletXfp:success',
+        );
         return fullXfp;
       }
     } catch (error) {
+      const hardwareError = error as {
+        code?: number | string;
+        errorCode?: number | string;
+        message?: string;
+        name?: string;
+      };
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] buildHwWalletXfp:error',
+        JSON.stringify({
+          name: hardwareError.name,
+          errorCode: hardwareError.errorCode ?? hardwareError.code,
+          message: hardwareError.message ?? String(error),
+          throwError,
+        }),
+      );
       if (throwError) {
         throw error;
       }
       console.error('getHwWalletXfp ERROR: ', error);
     } finally {
+      defaultLogger.hardware.sdkLog.log('[OK-60128] buildHwWalletXfp:finally');
       await timerUtils.wait(600);
     }
   }

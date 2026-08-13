@@ -923,7 +923,22 @@ export function useDeviceConnect({
       connectProtocol?: HardwareConnectProtocol,
     ) => {
       try {
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet:start',
+          JSON.stringify({
+            walletMode,
+            deviceType: device.deviceType,
+            connectProtocol,
+            initialized: deviceState?.status.initialized,
+            unlocked: deviceState?.status.unlocked,
+            hasConnectId: Boolean(device.connectId),
+            hasDeviceId: Boolean(device.deviceId),
+          }),
+        );
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet navigation:push-legacy-finalize',
+        );
 
         const params: IDBCreateHwWalletParamsBase = {
           device,
@@ -940,6 +955,10 @@ export function useDeviceConnect({
         } else {
           await actions.current.createHWWalletWithHidden(params);
         }
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet:create-complete',
+          JSON.stringify({ walletMode, connectProtocol }),
+        );
 
         await trackHardwareWalletConnection({
           status: 'success',
@@ -954,8 +973,26 @@ export function useDeviceConnect({
           deviceId: deviceUtils.getRawDeviceId({ device, features }),
         });
       } catch (error) {
+        const hardwareError = error as {
+          code?: number | string;
+          errorCode?: number | string;
+          message?: string;
+          name?: string;
+        };
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet:error',
+          JSON.stringify({
+            name: hardwareError.name,
+            errorCode: hardwareError.errorCode ?? hardwareError.code,
+            message: hardwareError.message ?? String(error),
+            connectProtocol,
+          }),
+        );
         errorToastUtils.toastIfError(error);
         navigation.pop();
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet navigation:pop-after-error',
+        );
         await trackHardwareWalletConnection({
           status: 'failure',
           deviceType: device.deviceType,
@@ -965,6 +1002,9 @@ export function useDeviceConnect({
         });
         throw error;
       } finally {
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] createHwWallet:finally-close-dialog',
+        );
         await closeDialogAndReturn(device, { skipDelayClose: false });
       }
     },

@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -140,6 +141,15 @@ function DeviceSetupPage({
         if (!isPageActiveRef.current) {
           return;
         }
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] DeviceSetup navigate:finalize',
+          JSON.stringify({
+            connectProtocol,
+            deviceType: device.deviceType,
+            hasConnectId: Boolean(device.connectId),
+            hasDeviceId: Boolean(device.deviceId),
+          }),
+        );
         navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
           connectProtocol,
           deviceData: {
@@ -303,6 +313,15 @@ function DeviceSetupPage({
       }
       const latestDevice = getActiveDevice() ?? baseDevice;
       setCurrentDevice(latestDevice);
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] DeviceSetup check:start',
+        JSON.stringify({
+          connectProtocol,
+          deviceType: latestDevice.deviceType,
+          hasConnectId: Boolean(latestDevice.connectId),
+          hasDeviceId: Boolean(latestDevice.deviceId),
+        }),
+      );
       if (latestDevice.connectId) {
         const [features] = await Promise.all([
           backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
@@ -319,6 +338,17 @@ function DeviceSetupPage({
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
+        defaultLogger.hardware.sdkLog.log(
+          '[OK-60128] DeviceSetup check:features',
+          JSON.stringify({
+            deviceMode,
+            initialized: features.initialized,
+            unlocked: features.unlocked,
+            busy: features.busy,
+            needsBackup: features.needs_backup,
+            protocol: features.protocol,
+          }),
+        );
         if (isDeviceCheckStale()) {
           return;
         }
@@ -330,7 +360,11 @@ function DeviceSetupPage({
         setSetupState(EDeviceSetupState.NeedSetup);
         return;
       }
-    } catch {
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        '[OK-60128] DeviceSetup check:error',
+        error instanceof Error ? error.message : String(error),
+      );
       if (isDeviceCheckStale()) {
         return;
       }
@@ -343,6 +377,10 @@ function DeviceSetupPage({
     if (isDeviceCheckStale()) {
       return;
     }
+    defaultLogger.hardware.sdkLog.log(
+      '[OK-60128] DeviceSetup check:success',
+      JSON.stringify({ connectProtocol }),
+    );
     setSetupState(EDeviceSetupState.Success);
     const deviceForFinalize =
       getActiveDevice() ??
