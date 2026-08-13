@@ -1,5 +1,9 @@
 /*
- * Upstream stock skin, transcribed literally.
+ * Upstream stock skin, transcribed literally — minus the preset content: the
+ * header, footer, button and close-button sub-elements went away with the
+ * preset-content API, so only the backdrop and the popup frame remain. What
+ * the frame keeps is stock: centring, sizing, padding, type, motion. Content
+ * inside the frame is the caller's.
  *
  * Values are hard-coded rather than tokenised on purpose: this component is an
  * exploration of how the upstream default actually looks, so it must not be
@@ -16,7 +20,7 @@
 
 /* Upstream relies on a global reset for this. Scoping it to the dialog subtree
    is the equivalent without shipping a page-wide reset — without it the popup
-   measures 416px instead of 384px, and every button is 2px too tall. */
+   measures 416px instead of 384px. */
 .okd-overlay,
 .okd-content,
 .okd-content *,
@@ -98,200 +102,6 @@
   }
 }
 
-/* ------------------------------------------------------------------ header */
-
-.okd-header {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.okd-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.okd-description {
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  color: #737373;
-}
-
-.okd-content[data-theme='dark'] .okd-description {
-  color: #a1a1a1;
-}
-
-/* ------------------------------------------------------------------ footer */
-
-/* Negative margins bleed the bar to the popup edges, cancelling its padding. */
-.okd-footer {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 8px;
-  margin-inline: -16px;
-  margin-bottom: -16px;
-  padding: 16px;
-  border-top: 1px solid #e5e5e5;
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
-  background-color: rgba(245, 245, 245, 0.5);
-}
-
-.okd-content[data-theme='dark'] .okd-footer {
-  border-top-color: rgba(255, 255, 255, 0.1);
-  background-color: rgba(38, 38, 38, 0.5);
-}
-
-@media (min-width: 40rem) {
-  .okd-footer {
-    flex-direction: row;
-    justify-content: flex-end;
-  }
-}
-
-/* ----------------------------------------------------------------- buttons */
-
-.okd-button {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding-inline: 10px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background-clip: padding-box;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  user-select: none;
-  outline: none;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.okd-button:focus-visible {
-  border-color: #a1a1a1;
-  box-shadow: 0 0 0 3px rgba(161, 161, 161, 0.5);
-}
-
-.okd-content[data-theme='dark'] .okd-button:focus-visible {
-  border-color: #737373;
-  box-shadow: 0 0 0 3px rgba(115, 115, 115, 0.5);
-}
-
-.okd-button:active {
-  translate: 0 1px;
-}
-
-.okd-button-secondary {
-  border-color: #e5e5e5;
-  background-color: #fff;
-  color: #000;
-}
-
-.okd-button-secondary:hover {
-  background-color: #f5f5f5;
-}
-
-.okd-content[data-theme='dark'] .okd-button-secondary {
-  border-color: rgba(255, 255, 255, 0.15);
-  background-color: #0a0a0a;
-  color: #fafafa;
-}
-
-.okd-content[data-theme='dark'] .okd-button-secondary:hover {
-  background-color: #262626;
-}
-
-.okd-button-primary {
-  background-color: #000;
-  color: #fafafa;
-}
-
-.okd-button-primary:hover {
-  background-color: rgba(0, 0, 0, 0.9);
-}
-
-.okd-content[data-theme='dark'] .okd-button-primary {
-  background-color: #e5e5e5;
-  color: #171717;
-}
-
-.okd-content[data-theme='dark'] .okd-button-primary:hover {
-  background-color: rgba(229, 229, 229, 0.9);
-}
-
-.okd-button-destructive {
-  background-color: #e40014;
-  color: #fff;
-}
-
-.okd-button-destructive:hover {
-  background-color: rgba(228, 0, 20, 0.9);
-}
-
-.okd-content[data-theme='dark'] .okd-button-destructive {
-  background-color: #ff6568;
-  color: #171717;
-}
-
-.okd-content[data-theme='dark'] .okd-button-destructive:hover {
-  background-color: rgba(255, 101, 104, 0.9);
-}
-
-/* ------------------------------------------------------------ close button */
-
-.okd-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background-color: transparent;
-  color: currentColor;
-  outline: none;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.okd-close svg {
-  width: 16px;
-  height: 16px;
-  pointer-events: none;
-}
-
-.okd-close:hover {
-  background-color: #f5f5f5;
-}
-
-.okd-content[data-theme='dark'] .okd-close:hover {
-  background-color: rgba(38, 38, 38, 0.5);
-}
-
-.okd-close:focus-visible {
-  border-color: #a1a1a1;
-  box-shadow: 0 0 0 3px rgba(161, 161, 161, 0.5);
-}
-
-.okd-content[data-theme='dark'] .okd-close:focus-visible {
-  border-color: #737373;
-  box-shadow: 0 0 0 3px rgba(115, 115, 115, 0.5);
-}
-
-.okd-close:active {
-  translate: 0 1px;
-}
-
 /* --------------------------------------------------------------- keyframes */
 
 @keyframes okd-fade-in {
@@ -326,10 +136,5 @@
   .okd-content[data-open],
   .okd-content[data-closed] {
     animation-duration: 0.01ms;
-  }
-
-  .okd-button,
-  .okd-close {
-    transition: none;
   }
 }
