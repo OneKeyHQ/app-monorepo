@@ -36,6 +36,8 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
+  /** Uses the active track color for the thumb instead of the page background. */
+  activeThumb?: boolean;
   /**
    * When true, the slider fills from center (0) instead of left edge.
    * Negative values fill left from center, positive values fill right from
@@ -166,6 +168,7 @@ function SegmentSliderComponent({
   max = 100,
   disabled = false,
   showBubble = true,
+  activeThumb = false,
   centerOrigin = false,
 }: ISegmentSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -554,12 +557,12 @@ function SegmentSliderComponent({
       width: THUMB_SIZE,
       height: THUMB_SIZE,
       borderRadius: '50%',
-      background: bg,
+      background: activeThumb ? bgPrimary : bg,
       border: `1px solid ${borderStrong}`,
       boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
       boxSizing: 'border-box',
     }),
-    [bg, borderStrong],
+    [activeThumb, bg, bgPrimary, borderStrong],
   );
 
   const thumbWrapperStyle = useMemo<CSSProperties>(

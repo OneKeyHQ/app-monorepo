@@ -106,6 +106,18 @@ describe('deviceUtils', () => {
     });
   });
 
+  it('formats a serial-like Pro2 BLE name for display', () => {
+    const state = {
+      identity: {
+        label: null,
+        bleName: 'P2D33C0005B',
+        deviceType: EDeviceType.Pro2,
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro2 005B');
+  });
+
   it('prefers persisted DeviceState versions over stale legacy Features', async () => {
     await expect(
       deviceUtils.getDeviceVersion({
