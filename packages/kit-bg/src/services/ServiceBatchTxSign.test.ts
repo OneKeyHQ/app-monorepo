@@ -365,6 +365,62 @@ describe('ServiceBatchTxSign', () => {
     await expect(service.takeFinalizedResults({ batchId })).rejects.toThrow();
   });
 
+  test('cancelBatch during the confirm precheck keeps the batch terminally cancelled', async () => {
+    const { service, signTransaction, precheckUnsignedTxs } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+    // Cancellation arrives while the precheck (a network call) is in-flight —
+    // before any status mutation of this signing attempt.
+    precheckUnsignedTxs.mockImplementation(async () => {
+      await service.cancelBatch({ batchId });
+    });
+
+    await service.signRemaining({ batchId });
+
+    expect(signTransaction).not.toHaveBeenCalled();
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Cancelled);
+    // The only published snapshot is cancelBatch's own; signRemaining must
+    // never resurrect the batch into a Signing publish.
+    expect(mockAtomSet).toHaveBeenCalledTimes(1);
+    expect((mockAtomSet.mock.calls[0][0] as { status: unknown }).status).toBe(
+      EBatchTxSignStatus.Cancelled,
+    );
+  });
+
+  test('disposeBatch during the password-session open never signs nor publishes', async () => {
+    const {
+      service,
+      signTransaction,
+      openPasswordSecuritySession,
+      closePasswordSecuritySession,
+    } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+    // The extension popup dies right after Sign all: the provider's finally
+    // disposes the batch while the password session is still being opened.
+    openPasswordSecuritySession.mockImplementation(async () => {
+      await service.disposeBatch({ batchId });
+    });
+
+    await service.signRemaining({ batchId });
+
+    expect(signTransaction).not.toHaveBeenCalled();
+    // No zombie snapshot for the deleted batch.
+    expect(mockAtomSet).not.toHaveBeenCalled();
+    await expect(service.getBatchProgress({ batchId })).rejects.toThrow(
+      'unknown batchId',
+    );
+    // The finally block still releases the opened session.
+    expect(closePasswordSecuritySession).toHaveBeenCalledTimes(1);
+  });
+
   test('cancelBatch after partial progress resets signed items and reports signedCount 0', async () => {
     const { service } = makeService();
     const { batchId } = await service.createBatch({

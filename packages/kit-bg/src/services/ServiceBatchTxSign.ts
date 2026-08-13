@@ -299,6 +299,16 @@ export default class ServiceBatchTxSign extends ServiceBase {
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
 
+      // cancelBatch/disposeBatch may have run while the precheck (a network
+      // call) or the password-session open below was in-flight. Cancelled is
+      // terminal: without these re-checks, the status write below would
+      // resurrect the batch into Signing, clear the abort observed during
+      // the await, and — for a disposed batch — publish a zombie snapshot
+      // and keep signing after the user already rejected the request.
+      if (this.isCancelled(state)) {
+        return;
+      }
+
       if (!accountUtils.isHwAccount({ accountId: state.accountId })) {
         // Generous window: it has to cover the user actually typing the
         // password at the first item's prompt, not just the signing time.
@@ -306,6 +316,9 @@ export default class ServiceBatchTxSign extends ServiceBase {
           timeout: timerUtils.getTimeDurationMs({ minute: 5 }),
         });
         passwordSessionOpened = true;
+        if (this.isCancelled(state)) {
+          return;
+        }
       }
 
       // A previous round may have stopped on a failure; retry those items.
