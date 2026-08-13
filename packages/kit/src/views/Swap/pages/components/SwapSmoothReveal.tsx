@@ -23,9 +23,10 @@ const MEASURED_CONTENT_LAYOUT_PROPS = platformEnv.isNative
  * the inner (measured) node, so the occupied space is driven purely by the
  * animated height: margins are not animatable by the moti driver (they
  * snap), and padding on the animated node itself would clamp its border-box
- * height above 0. The measurement node is absolutely positioned so the
- * wrapper's initial zero height cannot constrain its onLayout result. This
- * keeps variable-height children (multi-line or stacked alerts) measurable.
+ * height above 0. On native the measurement node is additionally taken out of
+ * flow so the wrapper's zero height cannot constrain its onLayout result — see
+ * MEASURED_CONTENT_LAYOUT_PROPS. Either way variable-height children
+ * (multi-line or stacked alerts) stay measurable.
  */
 export function SwapSmoothReveal({
   visible,
