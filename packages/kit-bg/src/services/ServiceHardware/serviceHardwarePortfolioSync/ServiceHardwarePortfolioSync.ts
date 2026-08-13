@@ -1656,8 +1656,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       }
 
       const lastAttemptAt = Date.now();
-      // 在同一轮事件循环启动两个操作，保证 lastAttemptAt 只对应已经发起的硬件上传。
-      // 即使新快照在异步操作期间淘汰当前 generation，也不会产生没有实际上传的冷却记录。
+      // Start both operations in the same event loop turn so lastAttemptAt
+      // always corresponds to a hardware upload that has actually started.
       const [uploadResult, attemptStateResult] = await Promise.allSettled([
         this.backgroundApi.serviceHardware.uploadPortfolioPackage({
           connectId: hardwareConnectId,
@@ -1673,7 +1673,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           lastAttemptAt,
         }),
       ]);
-      // 即使状态写入先失败，也必须等硬件调用结束后才能释放全局硬件操作锁。
+      // Keep the global hardware lock until the device call settles, even if
+      // persisting the attempt state fails first.
       if (uploadResult.status === 'rejected') {
         throw uploadResult.reason;
       }
@@ -1838,26 +1839,40 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
+      const desktopBleExecution = options?.desktopBleExecution;
       if (platformEnv.isDesktop) {
-        const desktopBleExecution = options?.desktopBleExecution;
-        if (
-          !this.isDesktopBleSyncExecutionCurrent({
-            execution: desktopBleExecution,
-            targetKey,
-          })
-        ) {
+        const currentTransportType = desktopBleExecution
+          ? EHardwareTransportType.DesktopWebBle
+          : await this.backgroundApi.serviceHardware.getCurrentTransportType();
+        if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+          return;
+        }
+        const shouldSuspendDesktopBle = desktopBleExecution
+          ? !this.isDesktopBleSyncExecutionCurrent({
+              execution: desktopBleExecution,
+              targetKey,
+            })
+          : currentTransportType === EHardwareTransportType.DesktopWebBle;
+        if (shouldSuspendDesktopBle) {
           this.cancelHardwareBusyRetry(deviceConnectId);
           this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
           this.setDesktopSuspendedResult(eventPayload);
           this.scheduleDesktopBleIdleSync({ targetKey });
           return;
         }
+        if (!desktopBleExecution) {
+          this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
+          this.invalidateDesktopBleIdleLease({
+            reason: 'non-ble-transport-active',
+            targetKey,
+          });
+        }
       }
 
       // Empty standard-wallet snapshots intentionally continue through the
       // signed package flow so the device atomically overwrites stale data.
       const cooldownRemainingMs = await this.getHardwareCooldownRemainingMs({
-        cooldownMs: platformEnv.isDesktop
+        cooldownMs: desktopBleExecution
           ? DESKTOP_BLE_TRANSFER_COOLDOWN_MS
           : undefined,
         targetKey,
@@ -1867,7 +1882,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
       if (cooldownRemainingMs > 0) {
-        if (platformEnv.isDesktop) {
+        if (desktopBleExecution) {
           this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
           this.scheduleDesktopBleIdleSync({
             minimumDelayMs: cooldownRemainingMs,
@@ -1987,7 +2002,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             updatedAt,
           }),
         );
-        if (platformEnv.isDesktop) {
+        if (desktopBleExecution) {
           this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
         } else {
           this.scheduleHardwareBusyRetry({
@@ -2017,7 +2032,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
       await this.uploadPreparedHardwarePortfolio({
         artifacts,
-        desktopBleExecution: options?.desktopBleExecution,
+        desktopBleExecution,
         deviceConnectId,
         eventPayload,
         generation,

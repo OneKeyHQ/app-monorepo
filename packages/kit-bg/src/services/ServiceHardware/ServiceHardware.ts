@@ -240,7 +240,7 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
-  /** 桌面端仅复用仍连接的 BLE 链路；链路失效时禁止扫描或重连。 */
+  /** Reuse an existing desktop BLE link without scanning or reconnecting. */
   desktopBleReuseConnectedOnly?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
@@ -400,6 +400,36 @@ class ServiceHardware extends ServiceBase {
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
   private sdkInstanceMutex = new Semaphore(1);
+
+  private async runInDesktopBleConnectedOnlyScope<T>({
+    connectId,
+    enabled,
+    task,
+  }: {
+    connectId?: string;
+    enabled?: boolean;
+    task: () => Promise<T>;
+  }): Promise<T> {
+    if (!enabled) {
+      return task();
+    }
+    const nobleBle = globalThis.desktopApi?.nobleBle;
+    if (
+      !connectId ||
+      !nobleBle?.beginConnectedOnlyScope ||
+      !nobleBle.endConnectedOnlyScope
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only scope is unavailable',
+      );
+    }
+    nobleBle.beginConnectedOnlyScope(connectId);
+    try {
+      return await task();
+    } finally {
+      nobleBle.endConnectedOnlyScope(connectId);
+    }
+  }
 
   private bindDeviceProtocolToSDK({
     connectId,
@@ -2709,13 +2739,10 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
     }
     const normalizedSdkParams =
-      params || knownProtocol || desktopBleReuseConnectedOnly
+      params || knownProtocol
         ? {
             ...sdkParams,
             ...(knownProtocol ? { connectProtocol: knownProtocol } : {}),
-            ...(desktopBleReuseConnectedOnly
-              ? { reuseConnectedOnly: true }
-              : {}),
           }
         : undefined;
     const hardwareSDK = await this.getSDKInstance({
@@ -2724,10 +2751,15 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
       hardwareTransportType,
     });
-    const state = await convertDeviceResponse(
-      () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-      { silentMode },
-    );
+    const state = await this.runInDesktopBleConnectedOnlyScope({
+      connectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(
+          () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
+          { silentMode },
+        ),
+    });
     await this.rememberDeviceProtocol({
       connectIds: [connectId, state.identity.serialNo],
       protocol: state.protocol,
@@ -3356,13 +3388,16 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
-    const uploadParams = {
-      packageBase64,
-      ...(desktopBleReuseConnectedOnly ? { reuseConnectedOnly: true } : {}),
-    };
-    return convertDeviceResponse(() =>
-      hardwareSDK.uploadPortfolio(compatibleConnectId, uploadParams),
-    );
+    return this.runInDesktopBleConnectedOnlyScope({
+      connectId: compatibleConnectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(() =>
+          hardwareSDK.uploadPortfolio(compatibleConnectId, {
+            packageBase64,
+          }),
+        ),
+    });
   }
 
   @backgroundMethod()

@@ -462,6 +462,58 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     );
   });
 
+  it('guards the desktop BLE state read without passing unsupported SDK params', async () => {
+    const originalDesktopApi = globalThis.desktopApi;
+    const beginConnectedOnlyScope = jest.fn();
+    const endConnectedOnlyScope = jest.fn();
+    globalThis.desktopApi = {
+      nobleBle: {
+        beginConnectedOnlyScope,
+        endConnectedOnlyScope,
+      },
+    } as never;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        identity: { deviceId: 'PRO2_DEVICE_ID', serialNo: 'PRO2_SERIAL' },
+        protocol: 'V2',
+      },
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      getDeviceState,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    jest
+      .spyOn(
+        service as unknown as {
+          rememberDeviceProtocol: () => Promise<void>;
+        },
+        'rememberDeviceProtocol',
+      )
+      .mockResolvedValue(undefined);
+
+    try {
+      await expect(
+        service._getDeviceStateLowLevel({
+          connectId: 'PRO2_BLE_ID',
+          desktopBleReuseConnectedOnly: true,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+          params: { connectProtocol: 'V2' },
+        }),
+      ).resolves.toEqual(expect.objectContaining({ protocol: 'V2' }));
+      expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(getDeviceState).toHaveBeenCalledWith('PRO2_BLE_ID', {
+        connectProtocol: 'V2',
+      });
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+    } finally {
+      globalThis.desktopApi = originalDesktopApi;
+    }
+  });
+
   it('returns the resolved BLE connectId after the firmware preflight', async () => {
     const dbDevice = {
       id: 'db-pro2-device',
@@ -1634,6 +1686,15 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
   });
 
   it('pins desktop BLE portfolio upload to connected-only reuse', async () => {
+    const originalDesktopApi = globalThis.desktopApi;
+    const beginConnectedOnlyScope = jest.fn();
+    const endConnectedOnlyScope = jest.fn();
+    globalThis.desktopApi = {
+      nobleBle: {
+        beginConnectedOnlyScope,
+        endConnectedOnlyScope,
+      },
+    } as never;
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
     });
@@ -1648,29 +1709,74 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     service.getCompatibleConnectId = getCompatibleConnectId;
     service.getSDKInstance = getSDKInstance;
 
-    await expect(
-      service.uploadPortfolioPackage({
-        connectId: 'PRO2_BLE_ID',
-        desktopBleReuseConnectedOnly: true,
-        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        packageBase64: 'AQID',
-      }),
-    ).resolves.toEqual({ portfolioUpdated: true });
+    try {
+      await expect(
+        service.uploadPortfolioPackage({
+          connectId: 'PRO2_BLE_ID',
+          desktopBleReuseConnectedOnly: true,
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+          packageBase64: 'AQID',
+        }),
+      ).resolves.toEqual({ portfolioUpdated: true });
 
-    expect(getCompatibleConnectId).toHaveBeenCalledWith({
-      connectId: 'PRO2_BLE_ID',
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      expect(getCompatibleConnectId).toHaveBeenCalledWith({
+        connectId: 'PRO2_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      expect(getSDKInstance).toHaveBeenCalledWith({
+        connectId: 'PRO2_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
+        packageBase64: 'AQID',
+      });
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(beginConnectedOnlyScope.mock.invocationCallOrder[0]).toBeLessThan(
+        uploadPortfolio.mock.invocationCallOrder[0],
+      );
+      expect(uploadPortfolio.mock.invocationCallOrder[0]).toBeLessThan(
+        endConnectedOnlyScope.mock.invocationCallOrder[0],
+      );
+    } finally {
+      globalThis.desktopApi = originalDesktopApi;
+    }
+  });
+
+  it('always closes the desktop BLE connected-only scope after an SDK error', async () => {
+    const originalDesktopApi = globalThis.desktopApi;
+    const beginConnectedOnlyScope = jest.fn();
+    const endConnectedOnlyScope = jest.fn();
+    globalThis.desktopApi = {
+      nobleBle: {
+        beginConnectedOnlyScope,
+        endConnectedOnlyScope,
+      },
+    } as never;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
     });
-    expect(getSDKInstance).toHaveBeenCalledWith({
-      connectId: 'PRO2_BLE_ID',
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-    });
-    expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
-      packageBase64: 'AQID',
-      reuseConnectedOnly: true,
-    });
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_BLE_ID');
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio: jest.fn().mockRejectedValue(new Error('BLE failed')),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    try {
+      await expect(
+        service.uploadPortfolioPackage({
+          connectId: 'PRO2_BLE_ID',
+          desktopBleReuseConnectedOnly: true,
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+          packageBase64: 'AQID',
+        }),
+      ).rejects.toThrow('BLE failed');
+      expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+    } finally {
+      globalThis.desktopApi = originalDesktopApi;
+    }
   });
 
   it('forwards Pro2 NFT JPEG Base64 without decoding it in background', async () => {

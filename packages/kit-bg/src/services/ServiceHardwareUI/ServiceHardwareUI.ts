@@ -529,8 +529,8 @@ class ServiceHardwareUI extends ServiceBase {
     const isThirdPartyVendor = getVendorProfile(
       device?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
-    // 嵌套调用会复用当前 OneKey 操作租约。只有租约所有者代表完整的用户交互，
-    // 内层调用不能提前恢复 Portfolio 同步。
+    // Nested calls reuse the active OneKey operation lease. Only the lease
+    // owner represents a complete interaction and may resume Portfolio sync.
     const shouldNotifyPortfolioInteraction =
       !params.oneKeyOperationLease && !isThirdPartyVendor;
     let desktopInteractionGeneration: number | undefined;

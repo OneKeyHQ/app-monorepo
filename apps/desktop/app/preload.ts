@@ -11,6 +11,12 @@ import { ipcMessageKeys } from './config';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
+const desktopBleConnectedOnlyScopeCount = new Map<string, number>();
+
+function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
+  return (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) > 0;
+}
+
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
   downloadUrl?: string;
@@ -228,22 +234,30 @@ const desktopApi = {
   },
   // Desktop Bluetooth
   nobleBle: {
+    beginConnectedOnlyScope: (uuid: string) => {
+      desktopBleConnectedOnlyScopeCount.set(
+        uuid,
+        (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) + 1,
+      );
+    },
+    endConnectedOnlyScope: (uuid: string) => {
+      const nextCount = (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) - 1;
+      if (nextCount > 0) {
+        desktopBleConnectedOnlyScopeCount.set(uuid, nextCount);
+      } else {
+        desktopBleConnectedOnlyScopeCount.delete(uuid);
+      }
+    },
     enumerate: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
     stopScan: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
     getDevice: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
-    connect: (uuid: string, options?: { reuseConnectedOnly?: boolean }) =>
-      ipcRenderer.invoke(
-        EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
-        uuid,
-        options,
-      ),
-    connectConnectedOnly: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid, {
-        reuseConnectedOnly: true,
-      }),
+    connect: (uuid: string) =>
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
     release: (uuid: string, keepSession?: boolean) =>
       ipcRenderer.invoke(
         EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
@@ -251,11 +265,15 @@ const desktopApi = {
         keepSession,
       ),
     disconnect: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
     subscribe: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE, uuid),
     unsubscribe: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
     write: (uuid: string, data: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
     cancelPairing: () =>

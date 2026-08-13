@@ -1012,7 +1012,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('does not start a desktop USB background upload', async () => {
+  test('uploads the desktop Portfolio snapshot through the active USB transport', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1022,7 +1022,6 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       const {
         getDeviceState,
         runExclusiveOneKeyOperation,
-        service,
         serviceInternals,
         uploadPortfolioPackage,
       } = prepareHardwareSync({
@@ -1031,15 +1030,15 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       });
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
-      expect(runExclusiveOneKeyOperation).not.toHaveBeenCalled();
-      expect(getDeviceState).not.toHaveBeenCalled();
+      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(getDeviceState).toHaveBeenCalledTimes(1);
       expect(
         serviceInternals.submitPortfolioJsonToServer,
-      ).not.toHaveBeenCalled();
-      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
-      expect(
-        (service as unknown as { lastResult: unknown }).lastResult,
-      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
+      ).toHaveBeenCalledTimes(1);
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+        connectId: 'PRO2_CONNECT_ID',
+        packageBase64: 'AQID',
+      });
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
