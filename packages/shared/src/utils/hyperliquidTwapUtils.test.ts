@@ -79,7 +79,7 @@ describe('hyperliquidTwapUtils', () => {
     ).toBe(false);
   });
 
-  it('keeps stop prices beyond the market and trigger activation boundary', () => {
+  it('keeps stop prices beyond the activation boundary', () => {
     expect(
       isTwapStopPriceValid({
         isBuy: true,
@@ -134,6 +134,25 @@ describe('hyperliquidTwapUtils', () => {
         triggerPrice: 0,
       }),
     ).toBe(false);
+  });
+
+  it('uses the trigger price as the stop boundary after activation', () => {
+    expect(
+      isTwapStopPriceValid({
+        isBuy: true,
+        stopPrice: '95',
+        referencePrice: '100',
+        triggerPrice: '90',
+      }),
+    ).toBe(true);
+    expect(
+      isTwapStopPriceValid({
+        isBuy: false,
+        stopPrice: '105',
+        referencePrice: '100',
+        triggerPrice: '110',
+      }),
+    ).toBe(true);
   });
 
   it('preserves the wire precision of TWAP prices for display', () => {

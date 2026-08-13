@@ -201,9 +201,7 @@ export function isTwapStopPriceValid({
   ) {
     return false;
   }
-  const activationBoundary = isBuy
-    ? BigNumber.max(referencePriceBN, triggerPriceBN)
-    : BigNumber.min(referencePriceBN, triggerPriceBN);
+  const activationBoundary = triggerPriceBN;
   return isBuy
     ? stopPriceBN.gt(activationBoundary)
     : stopPriceBN.lt(activationBoundary);
