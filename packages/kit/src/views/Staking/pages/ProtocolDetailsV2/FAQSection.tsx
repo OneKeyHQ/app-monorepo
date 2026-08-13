@@ -92,6 +92,16 @@ export function FAQSection({
   );
   return faqs?.items?.length ? (
     <YStack pb="$8">
+      {/* OK-59335: the server ships a section title alongside the items, it
+          just was not rendered — the detail page showed a bare accordion */}
+      {faqs.title?.text ? (
+        <EarnText
+          text={faqs.title}
+          size={media.gtMd ? '$headingXl' : '$headingLg'}
+          color="$text"
+          pb="$2"
+        />
+      ) : null}
       <Accordion type="multiple">
         {faqs.items.map((item, index) => (
           <YStack key={String(index)}>

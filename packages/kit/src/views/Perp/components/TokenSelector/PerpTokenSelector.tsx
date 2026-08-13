@@ -27,6 +27,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useIsSplitMainActive,
   usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -1573,6 +1574,7 @@ const BasePerpTokenSelectorMobileView = memo(
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
         <XStack
+          testID={PerpTestIDs.TokenSelectorMobile}
           gap="$1"
           bg="$bgApp"
           justifyContent="center"
@@ -1591,6 +1593,7 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
+  const isSplitMainActive = useIsSplitMainActive();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
   // Only low-frequency fields here (coin/displayName/mode change on coin
@@ -1620,10 +1623,13 @@ function BasePerpTokenSelectorMobile() {
       currentToken: coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
     });
-    navigation.pushModal(EModalRoutes.PerpModal, {
+    const openTokenSelector = isSplitMainActive
+      ? navigation.pushFullModal
+      : navigation.pushModal;
+    openTokenSelector(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [coin, mode, navigation, prewarmTokenSelectorImages]);
+  }, [coin, isSplitMainActive, mode, navigation, prewarmTokenSelectorImages]);
 
   return (
     <BasePerpTokenSelectorMobileView
