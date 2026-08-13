@@ -30,8 +30,6 @@ import {
   usePopoverContext,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
-import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import {
   useNotificationsAtom,
   useNotificationsReadedAtom,
@@ -57,6 +55,16 @@ import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { NotificationsTestIDs } from '../testIDs';
+
+import {
+  ENotificationListTab,
+  type INotificationListTab,
+  applyNotificationReadState,
+  getNotificationListTopicTypes,
+  isNotificationListResponseCurrent,
+  markNotificationItemRead,
+  markNotificationItemsRead,
+} from './notificationListUtils';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
@@ -149,16 +157,14 @@ function NotificationItem({
     if (item.icon) {
       return (
         <Stack
-          w={28}
-          h={28}
-          bg="$bgStrong"
-          borderColor="$borderSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
+          w={26}
+          h={26}
+          bg="$bgSubdued"
           borderRadius="$full"
           ai="center"
           jc="center"
         >
-          <Icon name={item.icon} color="$icon" size="$4.5" />
+          <Icon name={item.icon} color="$iconStrong" size="$4.5" />
         </Stack>
       );
     }
@@ -167,7 +173,9 @@ function NotificationItem({
       extras?.image &&
       item.topicType !== ENotificationPushTopicTypes.system
     ) {
-      return <Image size={28} source={{ uri: extras.image }} />;
+      return (
+        <Image size={24} source={{ uri: extras.image }} borderRadius="$2" />
+      );
     }
   }, [extras?.image, item.icon, item.topicType]);
   return (
@@ -192,25 +200,15 @@ function NotificationItem({
             />
           ) : null}
         </YStack>
-        <YStack flex={1} gap="$0.5">
-          <SizableText flex={1} size="$headingSm" numberOfLines={2}>
+        <YStack flex={1} gap="$1">
+          <SizableText size="$bodyMdMedium" color="$text" numberOfLines={2}>
             {title}
           </SizableText>
 
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            flex={1}
-            numberOfLines={3}
-          >
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={3}>
             {content}
           </SizableText>
-          <SizableText
-            pt="$0.5"
-            size="$bodySm"
-            color="$textDisabled"
-            flexShrink={0}
-          >
+          <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
             {formatDistanceToNow(new Date(createdAt))}
           </SizableText>
         </YStack>
@@ -221,7 +219,7 @@ function NotificationItem({
             size="$16"
             borderColor="$neutral3"
             borderWidth={StyleSheet.hairlineWidth}
-            borderRadius={6}
+            borderRadius="$2"
           />
         ) : null}
       </XStack>
@@ -230,14 +228,6 @@ function NotificationItem({
 }
 
 const NotificationItemMemo = memo(NotificationItem);
-
-function markNotificationItemsRead(
-  notifications: INotificationPushMessageListItem[],
-) {
-  return notifications.map((item) =>
-    item.readed ? item : { ...item, readed: true },
-  );
-}
 
 function buildReadedMessageMap(
   notifications: INotificationPushMessageListItem[],
@@ -250,23 +240,15 @@ function buildReadedMessageMap(
   }, {});
 }
 
-function buildUnreadMap(notifications: INotificationPushMessageListItem[]) {
-  return notifications.reduce(
-    (acc, item) => {
-      if (!item.readed) {
-        if (item.topicType === ENotificationPushTopicTypes.accountActivity) {
-          acc[ENotificationPushTopicTypes.accountActivity] += 1;
-        } else if (item.topicType === ENotificationPushTopicTypes.system) {
-          acc[ENotificationPushTopicTypes.system] += 1;
-        }
-      }
-      return acc;
-    },
-    {
-      [ENotificationPushTopicTypes.accountActivity]: 0,
-      [ENotificationPushTopicTypes.system]: 0,
-    },
-  );
+function createNotificationListCache(): Record<
+  INotificationListTab,
+  INotificationPushMessageListItem[]
+> {
+  return {
+    [ENotificationListTab.all]: [],
+    [ENotificationListTab.accountActivity]: [],
+    [ENotificationListTab.alertsAndUpdates]: [],
+  };
 }
 
 function groupNotificationsByDate(
@@ -363,19 +345,21 @@ function MaxAccountLimitWarning() {
 export function NotificationListView({
   showPageHeader = true,
   containerStyle,
+  useFlashList = true,
 }: {
   showPageHeader?: boolean;
   containerStyle?: IYStackProps;
+  useFlashList?: boolean;
 }) {
   const { closePopover } = usePopoverContext();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
-  const [
-    { lastReceivedTime, firstTimeGuideOpened, badge },
-    setNotificationsData,
-  ] = useNotificationsAtom();
-  const [, setReadedMap] = useNotificationsReadedAtom();
+  const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
+    useNotificationsAtom();
+  const [readedMap, setReadedMap] = useNotificationsReadedAtom();
+  const readedMapRef = useRef(readedMap);
+  readedMapRef.current = readedMap;
 
   const isFirstTimeGuideOpened = useRef(false);
   const listRef = useRef<ISectionListRef<unknown>>(null);
@@ -401,22 +385,27 @@ export function NotificationListView({
     }
   }, [closePopover, firstTimeGuideOpened, navigation, setNotificationsData]);
 
-  const tabs = useMemo(
+  const tabs = useMemo<
+    {
+      id: INotificationListTab;
+      name: string;
+    }[]
+  >(
     () => [
       {
-        id: ENotificationPushTopicTypes.all,
+        id: ENotificationListTab.all,
         name: intl.formatMessage({ id: ETranslations.global_all }),
       },
       {
-        id: ENotificationPushTopicTypes.accountActivity,
+        id: ENotificationListTab.accountActivity,
         name: intl.formatMessage({
           id: ETranslations.notifications_notifications_account_activity_label,
         }),
       },
       {
-        id: ENotificationPushTopicTypes.system,
+        id: ENotificationListTab.alertsAndUpdates,
         name: intl.formatMessage({
-          id: ETranslations.global_system,
+          id: ETranslations.alerts_and_updates__action,
         }),
       },
     ],
@@ -428,76 +417,93 @@ export function NotificationListView({
     return tabs.map((tab) => tab.name);
   }, [tabs]);
   const focusedTab = useSharedValue<string>(tabs[0].name);
+  const [activeTabId, setActiveTabId] = useState<INotificationListTab>(
+    ENotificationListTab.all,
+  );
+  const activeTabIdRef = useRef<INotificationListTab>(activeTabId);
+  activeTabIdRef.current = activeTabId;
   const [
     shouldShowMaxAccountLimitWarning,
     setShouldShowMaxAccountLimitWarning,
   ] = useState(false);
-  const [unreadMap, setUnreadMap] = useState<{
-    [key: string]: number;
-  }>({
-    [ENotificationPushTopicTypes.accountActivity]: 0,
-    [ENotificationPushTopicTypes.system]: 0,
-  });
-
-  // Clear tab unread badges when global badge becomes 0
-  useEffect(() => {
-    if (badge === 0) {
-      setUnreadMap({
-        [ENotificationPushTopicTypes.accountActivity]: 0,
-        [ENotificationPushTopicTypes.system]: 0,
-      });
-    }
-  }, [badge]);
 
   const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
-  const cacheListRef = useRef<
-    Record<ENotificationPushTopicTypes, INotificationPushMessageListItem[]>
-  >({
-    [ENotificationPushTopicTypes.all]: [],
-    [ENotificationPushTopicTypes.accountActivity]: [],
-    [ENotificationPushTopicTypes.coinPriceAlert]: [],
-    [ENotificationPushTopicTypes.system]: [],
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const cacheListRef = useRef(createNotificationListCache());
+  const latestRequestIdRef = useRef(0);
   const messageListMutationVersionRef = useRef(0);
-  const { isLoading, run: reFetchList } = usePromiseResult(
-    async () => {
-      noop(lastReceivedTime);
-      const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
-      if (!topicType) return;
+  const fetchNotificationList = useCallback(
+    async (tabId: INotificationListTab) => {
+      const requestId = latestRequestIdRef.current + 1;
+      latestRequestIdRef.current = requestId;
       const requestMutationVersion = messageListMutationVersionRef.current;
-      const cacheList = cacheListRef.current[topicType];
-      setShouldShowMaxAccountLimitWarning(
-        topicType !== ENotificationPushTopicTypes.system,
-      );
-      setResult(cacheList);
+
+      const cachedList = cacheListRef.current[tabId];
+
+      if (activeTabIdRef.current === tabId) {
+        setShouldShowMaxAccountLimitWarning(
+          tabId === ENotificationListTab.all ||
+            tabId === ENotificationListTab.accountActivity,
+        );
+        setResult(cachedList);
+        setIsLoading(true);
+      }
+
       void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
-      const r = await backgroundApiProxy.serviceNotification.fetchMessageList(
-        !topicType || topicType === ENotificationPushTopicTypes.all
-          ? undefined
-          : [topicType],
-      );
-      // Ignore responses from list requests started before mark-all-read completed.
-      if (requestMutationVersion !== messageListMutationVersionRef.current) {
-        return cacheListRef.current[topicType];
+      try {
+        const fetchedList =
+          await backgroundApiProxy.serviceNotification.fetchMessageList(
+            getNotificationListTopicTypes(tabId),
+          );
+        if (
+          !isNotificationListResponseCurrent({
+            requestId,
+            latestRequestId: latestRequestIdRef.current,
+            requestMutationVersion,
+            currentMutationVersion: messageListMutationVersionRef.current,
+            requestTabId: tabId,
+            activeTabId: activeTabIdRef.current,
+          })
+        ) {
+          return;
+        }
+
+        const nextList = applyNotificationReadState(
+          fetchedList,
+          readedMapRef.current,
+        );
+        cacheListRef.current[tabId] = nextList;
+        setResult(nextList);
+      } catch {
+        if (
+          requestId === latestRequestIdRef.current &&
+          tabId === activeTabIdRef.current
+        ) {
+          setResult(cacheListRef.current[tabId]);
+        }
+      } finally {
+        if (
+          requestId === latestRequestIdRef.current &&
+          tabId === activeTabIdRef.current
+        ) {
+          setIsLoading(false);
+        }
       }
-      if (topicType === ENotificationPushTopicTypes.all) {
-        setUnreadMap(buildUnreadMap(r));
-      }
-      if (
-        (cacheListRef.current[topicType]?.length || 0) === 0 &&
-        r?.length > 0
-      ) {
-        setResult(r);
-      }
-      cacheListRef.current[topicType] = r;
-      return r;
     },
-    [focusedTab.value, lastReceivedTime, tabs],
-    {
-      watchLoading: true,
-      checkIsFocused: false,
-    },
+    [],
   );
+
+  useEffect(() => {
+    noop(lastReceivedTime);
+    void fetchNotificationList(activeTabId);
+  }, [activeTabId, fetchNotificationList, lastReceivedTime]);
+
+  useEffect(() => {
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    if (activeTab) {
+      focusedTab.value = activeTab.name;
+    }
+  }, [activeTabId, focusedTab, tabs]);
 
   const sectionsData = useMemo(
     () => groupNotificationsByDate(result),
@@ -511,17 +517,14 @@ export function NotificationListView({
     const allCachedItems = Object.values(cacheListRef.current).flat();
     const readedMessageMap = buildReadedMessageMap(allCachedItems);
     cacheListRef.current = {
-      [ENotificationPushTopicTypes.all]: markNotificationItemsRead(
-        cacheListRef.current[ENotificationPushTopicTypes.all],
+      [ENotificationListTab.all]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationListTab.all],
       ),
-      [ENotificationPushTopicTypes.accountActivity]: markNotificationItemsRead(
-        cacheListRef.current[ENotificationPushTopicTypes.accountActivity],
+      [ENotificationListTab.accountActivity]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationListTab.accountActivity],
       ),
-      [ENotificationPushTopicTypes.coinPriceAlert]: markNotificationItemsRead(
-        cacheListRef.current[ENotificationPushTopicTypes.coinPriceAlert],
-      ),
-      [ENotificationPushTopicTypes.system]: markNotificationItemsRead(
-        cacheListRef.current[ENotificationPushTopicTypes.system],
+      [ENotificationListTab.alertsAndUpdates]: markNotificationItemsRead(
+        cacheListRef.current[ENotificationListTab.alertsAndUpdates],
       ),
     };
     setResult((prev) => markNotificationItemsRead(prev));
@@ -531,14 +534,39 @@ export function NotificationListView({
     }));
     setNotificationsData((v) => ({
       ...v,
-      badge: undefined,
+      badge: 0,
     }));
-    setUnreadMap({
-      [ENotificationPushTopicTypes.accountActivity]: 0,
-      [ENotificationPushTopicTypes.system]: 0,
-    });
-    void reFetchList();
-  }, [reFetchList, setNotificationsData, setReadedMap, setUnreadMap]);
+    void fetchNotificationList(activeTabIdRef.current);
+  }, [fetchNotificationList, setNotificationsData, setReadedMap]);
+
+  const handleNotificationItemRead = useCallback(
+    (item: INotificationPushMessageListItem) => {
+      if (item.readed || readedMapRef.current[item.msgId]) {
+        return;
+      }
+      messageListMutationVersionRef.current += 1;
+      cacheListRef.current = {
+        [ENotificationListTab.all]: markNotificationItemRead(
+          cacheListRef.current[ENotificationListTab.all],
+          item.msgId,
+        ),
+        [ENotificationListTab.accountActivity]: markNotificationItemRead(
+          cacheListRef.current[ENotificationListTab.accountActivity],
+          item.msgId,
+        ),
+        [ENotificationListTab.alertsAndUpdates]: markNotificationItemRead(
+          cacheListRef.current[ENotificationListTab.alertsAndUpdates],
+          item.msgId,
+        ),
+      };
+      setResult((prev) => markNotificationItemRead(prev, item.msgId));
+      setReadedMap((prev) => ({
+        ...prev,
+        [item.msgId]: true,
+      }));
+    },
+    [setReadedMap],
+  );
 
   const {
     markAllReadTitle,
@@ -586,20 +614,19 @@ export function NotificationListView({
   );
 
   useEffect(() => {
-    const fn = async () => {
-      const r = await reFetchList();
-      setResult(r ?? []);
+    const fn = () => {
+      void fetchNotificationList(activeTabIdRef.current);
     };
     appEventBus.on(EAppEventBusNames.UpdateNotificationBadge, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.UpdateNotificationBadge, fn);
     };
-  }, [reFetchList]);
+  }, [fetchNotificationList]);
 
   const contentView = useMemo(() => {
     return (
       <SectionList
-        useFlashList
+        useFlashList={useFlashList}
         ref={listRef}
         contentContainerStyle={{
           pb: bottom || '$5',
@@ -647,15 +674,7 @@ export function NotificationListView({
                       isRead: !!item.readed,
                     });
                     setTimeout(() => {
-                      if (!item.readed) {
-                        setUnreadMap((prev) => ({
-                          ...prev,
-                          [item.topicType]: Math.max(
-                            0,
-                            (prev[item.topicType] ?? 0) - 1,
-                          ),
-                        }));
-                      }
+                      handleNotificationItemRead(item);
                     }, 100);
                   }
                 }}
@@ -697,19 +716,27 @@ export function NotificationListView({
   }, [
     bottom,
     closePopover,
+    handleNotificationItemRead,
     intl,
     isLoading,
     isVersionCompatible,
     navigation,
     sectionsData,
+    useFlashList,
   ]);
 
   const handleTabPress = useCallback(
     (tabName: string) => {
       const tab = tabs.find((i) => i.name === tabName);
       if (tab) {
+        activeTabIdRef.current = tab.id;
         focusedTab.value = tab.name;
-        void reFetchList();
+        setActiveTabId(tab.id);
+        setShouldShowMaxAccountLimitWarning(
+          tab.id === ENotificationListTab.all ||
+            tab.id === ENotificationListTab.accountActivity,
+        );
+        setResult(cacheListRef.current[tab.id]);
         setTimeout(() => {
           listRef.current?.scrollToIndex({
             index: 0,
@@ -718,38 +745,7 @@ export function NotificationListView({
         }, 10);
       }
     },
-    [focusedTab, reFetchList, tabs],
-  );
-
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const tabId = tabs.find((i) => i.name === props.name)?.id;
-      let unreadCount = 0;
-      if (tabId === ENotificationPushTopicTypes.all) {
-        unreadCount = tabs.reduce((acc, tab) => {
-          return acc + (unreadMap[tab.id as keyof typeof unreadMap] || 0);
-        }, 0);
-      } else {
-        unreadCount = unreadMap[tabId as keyof typeof unreadMap];
-      }
-      return (
-        <XStack position="relative">
-          <TabBarItem {...props} />
-          {unreadCount > 0 ? (
-            <Stack
-              position="absolute"
-              right={-6}
-              top={12}
-              w="$1.5"
-              h="$1.5"
-              bg="$iconCritical"
-              borderRadius="$full"
-            />
-          ) : null}
-        </XStack>
-      );
-    },
-    [unreadMap, tabs],
+    [focusedTab, tabs],
   );
 
   return (
@@ -785,7 +781,7 @@ export function NotificationListView({
             tabNames={tabTitles}
             onTabPress={handleTabPress}
             focusedTab={focusedTab}
-            renderItem={handleRenderItem}
+            scrollable
             containerStyle={{ bg: 'transparent' }}
           />
         </YStack>
@@ -795,7 +791,7 @@ export function NotificationListView({
           tabNames={tabTitles}
           onTabPress={handleTabPress}
           focusedTab={focusedTab}
-          renderItem={handleRenderItem}
+          scrollable
           tabItemStyle={{
             h: 44,
           }}
@@ -832,6 +828,8 @@ export function NotificationListViewPopover({
     <NotificationListView
       showPageHeader={showPageHeader}
       containerStyle={containerStyle}
+      // FlashList can retain its hidden first-layout measurements in a web popover.
+      useFlashList={false}
     />
   );
 }
