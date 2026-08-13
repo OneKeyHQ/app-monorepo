@@ -78,10 +78,14 @@ export function getPerpDesktopMainSplitSizes({
   availableWidth,
   defaultTradingWidth,
   savedTradingWidth,
+  // Must match the market pane minSize (which grows with the order book) so
+  // the computed sizes never conflict with what Allotment enforces.
+  marketMinWidth = PERP_LAYOUT_CONFIG.main.marketMinWidth,
 }: {
   availableWidth: number;
   defaultTradingWidth: number;
   savedTradingWidth?: number;
+  marketMinWidth?: number;
 }) {
   const tradingWidthCandidate =
     typeof savedTradingWidth === 'number' && Number.isFinite(savedTradingWidth)
@@ -91,7 +95,7 @@ export function getPerpDesktopMainSplitSizes({
     PERP_DESKTOP_TRADING_MIN_WIDTH,
     Math.min(
       PERP_LAYOUT_CONFIG.main.tradingMaxWidth,
-      availableWidth - PERP_LAYOUT_CONFIG.main.marketMinWidth,
+      availableWidth - marketMinWidth,
     ),
   );
   const tradingWidth = clampSize(

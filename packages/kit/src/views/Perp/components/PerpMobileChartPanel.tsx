@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -34,7 +34,7 @@ export function PerpMobileChartPanel({
   const { height: windowHeight } = useWindowDimensions();
   const { coin, displayName, mode } = useActiveTradeDisplay();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [hasExpandedOnce, setHasExpandedOnce] = useState(false);
+  const [mountedCoin, setMountedCoin] = useState<string | undefined>();
   const marketName = useMemo(() => {
     if (!displayName) {
       return '--';
@@ -68,9 +68,21 @@ export function PerpMobileChartPanel({
     const next = !isExpanded;
     setIsExpanded(next);
     if (next) {
-      setHasExpandedOnce(true);
+      setMountedCoin(coin);
     }
-  }, [isExpanded]);
+  }, [coin, isExpanded]);
+
+  // Track coin switches while expanded so collapsing keeps the visible chart.
+  useEffect(() => {
+    if (isExpanded && coin) {
+      setMountedCoin(coin);
+    }
+  }, [coin, isExpanded]);
+
+  // Keep the collapsed chart mounted only for the coin it was built for; a
+  // coin switch while hidden would otherwise rebuild it fully off-screen.
+  const shouldKeepMounted =
+    mountedCoin !== undefined && (isExpanded || mountedCoin === coin);
 
   return (
     <YStack
@@ -84,7 +96,7 @@ export function PerpMobileChartPanel({
       borderTopWidth="$px"
       borderTopColor="$borderSubdued"
     >
-      {hasExpandedOnce ? (
+      {shouldKeepMounted ? (
         // Collapsing only hides the mounted chart so reopening keeps its data,
         // subscriptions, and view state instead of a full rebuild.
         <YStack

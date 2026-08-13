@@ -13,6 +13,7 @@ const mockTradingViewSources: Array<{
 }> = [];
 
 let mockWindowDimensions = { height: 852, width: 393 };
+let mockActiveCoin = 'BTC';
 
 jest.mock('react-native', () => ({
   useWindowDimensions: () => mockWindowDimensions,
@@ -91,8 +92,8 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('../hooks/useActiveTradeDisplay', () => ({
   useActiveTradeDisplay: () => ({
-    coin: 'BTC',
-    displayName: 'BTC',
+    coin: mockActiveCoin,
+    displayName: mockActiveCoin,
     mode: 'perp',
   }),
 }));
@@ -120,6 +121,7 @@ describe('PerpMobileChartPanel', () => {
   beforeEach(() => {
     mockTradingViewSources.length = 0;
     mockWindowDimensions = { height: 852, width: 393 };
+    mockActiveCoin = 'BTC';
   });
 
   it('lazy mounts the chart and keeps it mounted after collapse', () => {
@@ -159,6 +161,26 @@ describe('PerpMobileChartPanel', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(mockTradingViewSources.at(-1)).toBe(
       mockTradingViewSources[mountedSources - 1],
+    );
+  });
+
+  it('drops the hidden chart when the coin changes while collapsed', () => {
+    const view = render(<PerpMobileChartPanel />);
+    const toggle = view.getByTestId('perp-mobile-chart-toggle');
+
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    expect(view.getByText('Native chart')).toBeTruthy();
+
+    mockActiveCoin = 'ETH';
+    view.rerender(<PerpMobileChartPanel />);
+
+    // No off-screen rebuild for a coin the user never expanded.
+    expect(view.queryByText('Native chart')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
+      'ETH',
     );
   });
 

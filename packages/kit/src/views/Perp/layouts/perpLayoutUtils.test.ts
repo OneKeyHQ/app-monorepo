@@ -82,6 +82,17 @@ describe('getPerpDesktopMainSplitSizes', () => {
       }),
     ).toEqual([400, 500]);
   });
+
+  it('clamps the saved trading width against a widened market minimum', () => {
+    expect(
+      getPerpDesktopMainSplitSizes({
+        availableWidth: 1100,
+        defaultTradingWidth: 320,
+        savedTradingWidth: 500,
+        marketMinWidth: 680,
+      }),
+    ).toEqual([680, 420]);
+  });
 });
 
 describe('getPerpDesktopTradingSplitSizes', () => {

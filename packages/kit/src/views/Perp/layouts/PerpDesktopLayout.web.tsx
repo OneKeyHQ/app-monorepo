@@ -84,14 +84,27 @@ function PerpDesktopLayout() {
   }, []);
 
   const chartExpanded = layoutState.chartExpanded ?? false;
+  const showOrderBook =
+    gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
+  // The order book takes a fixed slice of the market pane, so widen the pane
+  // minimum to keep the chart usable while the order book is visible.
+  const marketPaneMinWidth =
+    PERP_LAYOUT_CONFIG.main.marketMinWidth +
+    (showOrderBook ? layout.widths.orderBook : 0);
   const mainSplitSizes = useMemo(
     () =>
       getPerpDesktopMainSplitSizes({
         availableWidth: viewportWidth,
         defaultTradingWidth: layout.widths.trading,
         savedTradingWidth: layoutState.tradingWidth,
+        marketMinWidth: marketPaneMinWidth,
       }),
-    [layout.widths.trading, layoutState.tradingWidth, viewportWidth],
+    [
+      layout.widths.trading,
+      layoutState.tradingWidth,
+      marketPaneMinWidth,
+      viewportWidth,
+    ],
   );
   const chartSplitSizes = useMemo(
     () =>
@@ -129,13 +142,6 @@ function PerpDesktopLayout() {
   );
   const leftContentHeight =
     layout.marketContentHeight + layout.bottomPanelHeight;
-  const showOrderBook =
-    gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
-  // The order book takes a fixed slice of the market pane, so widen the pane
-  // minimum to keep the chart usable while the order book is visible.
-  const marketPaneMinWidth =
-    PERP_LAYOUT_CONFIG.main.marketMinWidth +
-    (showOrderBook ? layout.widths.orderBook : 0);
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -206,6 +212,7 @@ function PerpDesktopLayout() {
       getPerpDesktopMainSplitSizes({
         availableWidth,
         defaultTradingWidth: layout.widths.trading,
+        marketMinWidth: marketPaneMinWidth,
       }),
     );
     setLayoutState((prev) => {
@@ -215,7 +222,12 @@ function PerpDesktopLayout() {
       const { tradingWidth: _tradingWidth, ...rest } = prev;
       return rest;
     });
-  }, [layout.widths.trading, setLayoutState, viewportWidth]);
+  }, [
+    layout.widths.trading,
+    marketPaneMinWidth,
+    setLayoutState,
+    viewportWidth,
+  ]);
   const handleChartSplitReset = useCallback(() => {
     chartSplitRef.current?.resize([
       layout.marketContentHeight,
@@ -253,9 +265,15 @@ function PerpDesktopLayout() {
         availableWidth,
         defaultTradingWidth: layout.widths.trading,
         savedTradingWidth: layoutState.tradingWidth,
+        marketMinWidth: marketPaneMinWidth,
       }),
     );
-  }, [layout.widths.trading, layoutState.tradingWidth, viewportWidth]);
+  }, [
+    layout.widths.trading,
+    layoutState.tradingWidth,
+    marketPaneMinWidth,
+    viewportWidth,
+  ]);
 
   // Allotment only honors defaultSizes on first mount; re-apply persisted
   // heights after async atom hydration and on responsive layout changes.
