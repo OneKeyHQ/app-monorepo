@@ -259,7 +259,12 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
-export function useSwapAddressInfo(type: ESwapDirectionType) {
+export function useSwapAddressInfo(
+  type: ESwapDirectionType,
+  options?: {
+    ignoreCustomRecipient?: boolean;
+  },
+) {
   const [
     {
       swapEnableRecipientAddress,
@@ -282,8 +287,9 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     targetActiveAccount.network?.id === toToken?.networkId
       ? targetActiveAccount.canCreateAddress
       : undefined;
-  const customRecipientAddressActive = shouldActivateSwapCustomRecipientAddress(
-    {
+  const customRecipientAddressActive =
+    !options?.ignoreCustomRecipient &&
+    shouldActivateSwapCustomRecipientAddress({
       type,
       swapToAnotherAccountSwitchOn,
       selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
@@ -294,8 +300,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       providerSupportsRecipient: swapProviderSupportReceiveAddress,
       swapType: swapTabSwitchType,
       targetCanCreateAddress: automaticTargetCanCreateAddress,
-    },
-  );
+    });
   const activeAccount =
     getSwapAddressAccountSelectorNum({
       type,
@@ -625,6 +630,9 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 
 export function useSwapRecipientAddressInfo(enable: boolean) {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const defaultSwapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO, {
+    ignoreCustomRecipient: true,
+  });
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
@@ -659,10 +667,12 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
 
   if (
     enable &&
+    defaultSwapToAddressInfo.isAddressInfoReady &&
     shouldShowSwapRecipientAddressInfo({
       swapToAnotherAccountSwitchOn,
       selectedRecipientAddress: swapToAnotherAddressInfo.address,
       selectedRecipientNetworkId: swapToAnotherAddressInfo.networkId,
+      currentAccountAddress: defaultSwapToAddressInfo.address,
       toTokenNetworkId: toToken?.networkId,
       toAddressNetworkId: swapToAddressInfo.networkId,
     })

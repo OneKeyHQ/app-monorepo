@@ -20,6 +20,7 @@ type IShouldShowSwapRecipientAddressInfoParams = {
   swapToAnotherAccountSwitchOn: boolean;
   selectedRecipientAddress?: string;
   selectedRecipientNetworkId?: string;
+  currentAccountAddress?: string;
   toAddressNetworkId?: string;
   toTokenNetworkId?: string;
 };
@@ -141,11 +142,14 @@ export function shouldActivateSwapCustomRecipientAddress({
   }
 
   if (
-    incognitoMode ||
     swapType === ESwapTabSwitchType.LIMIT ||
     swapType === ESwapTabSwitchType.STOCK
   ) {
     return false;
+  }
+
+  if (incognitoMode) {
+    return true;
   }
 
   return Boolean(
@@ -293,6 +297,7 @@ export function shouldShowSwapRecipientAddressInfo({
   swapToAnotherAccountSwitchOn,
   selectedRecipientAddress,
   selectedRecipientNetworkId,
+  currentAccountAddress,
   toAddressNetworkId,
   toTokenNetworkId,
 }: IShouldShowSwapRecipientAddressInfoParams) {
@@ -300,6 +305,13 @@ export function shouldShowSwapRecipientAddressInfo({
     !swapToAnotherAccountSwitchOn ||
     !selectedRecipientAddress ||
     !selectedRecipientNetworkId
+  ) {
+    return false;
+  }
+
+  if (
+    currentAccountAddress?.toLowerCase() ===
+    selectedRecipientAddress.toLowerCase()
   ) {
     return false;
   }

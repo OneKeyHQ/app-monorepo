@@ -250,6 +250,31 @@ describe('shouldActivateSwapCustomRecipientAddress', () => {
     ).toBe(true);
   });
 
+  it('activates a confirmed recipient on the incognito path', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress({
+        ...automaticRecipientParams,
+        incognitoMode: true,
+        toNetworkId: 'evm--1',
+      }),
+    ).toBe(true);
+  });
+
+  it('does not activate a stale incognito recipient on Limit or Stock', () => {
+    for (const swapType of [
+      ESwapTabSwitchType.LIMIT,
+      ESwapTabSwitchType.STOCK,
+    ]) {
+      expect(
+        shouldActivateSwapCustomRecipientAddress({
+          ...automaticRecipientParams,
+          incognitoMode: true,
+          swapType,
+        }),
+      ).toBe(false);
+    }
+  });
+
   it('deactivates a recipient when the selected provider does not support it', () => {
     expect(
       shouldActivateSwapCustomRecipientAddress({
@@ -463,6 +488,19 @@ describe('shouldShowSwapRecipientAddressInfo', () => {
         swapToAnotherAccountSwitchOn: false,
         selectedRecipientAddress: '0x1234',
         selectedRecipientNetworkId: 'evm--1',
+        toTokenNetworkId: 'evm--1',
+        toAddressNetworkId: 'evm--1',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the default prompt when the recipient is the current account', () => {
+    expect(
+      shouldShowSwapRecipientAddressInfo({
+        swapToAnotherAccountSwitchOn: true,
+        selectedRecipientAddress: '0xAbCd',
+        selectedRecipientNetworkId: 'evm--1',
+        currentAccountAddress: '0xaBcD',
         toTokenNetworkId: 'evm--1',
         toAddressNetworkId: 'evm--1',
       }),
