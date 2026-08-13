@@ -70,7 +70,14 @@ import type { SharedValue } from 'react-native-reanimated';
 const DEVICE_W = 327;
 const DEVICE_H = 539;
 
-/** Top inset of the lit panel within the glass; screen content starts here. */
+/**
+ * The glass panel inside the screen hole. Scenes sweeping "the whole
+ * screen" cover exactly this box; the glass's own overflow clips them.
+ */
+export const SCREEN_GLASS_W = 264;
+export const SCREEN_GLASS_H = 152;
+/** Insets of the lit 256x128 panel within the glass; content starts here. */
+export const SCREEN_SLOT_LEFT = 4;
 export const SCREEN_SLOT_TOP = 12;
 
 const styles = StyleSheet.create({
@@ -103,8 +110,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 7,
     top: 7,
-    width: 264,
-    height: 152,
+    width: SCREEN_GLASS_W,
+    height: SCREEN_GLASS_H,
     borderRadius: 2,
     backgroundColor: '#000',
     overflow: 'hidden',
@@ -117,7 +124,7 @@ const styles = StyleSheet.create({
   // The lit 128x64 OLED grid at an integer 2x, centred in the glass.
   screenSlot: {
     position: 'absolute',
-    left: 4,
+    left: SCREEN_SLOT_LEFT,
     top: SCREEN_SLOT_TOP,
     width: 256,
     height: 128,
@@ -596,21 +603,19 @@ const DeviceBody = memo(function DeviceBody({
   animation: IClassicDeviceAnimation;
   screenContent?: ReactNode;
 }) {
-  const glowStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenGlow.value }),
-    [animation],
-  );
-  const slotStyle = useAnimatedStyle(
+  // The panel glow and the content share the one presence opacity: "lit"
+  // is nothing but content shown.
+  const litStyle = useAnimatedStyle(
     () => ({ opacity: animation.screenContent.value }),
     [animation],
   );
   const glowLayerStyle = useMemo(
-    () => [styles.screenGlow, glowStyle],
-    [glowStyle],
+    () => [styles.screenGlow, litStyle],
+    [litStyle],
   );
   const slotLayerStyle = useMemo(
-    () => [styles.screenSlot, slotStyle],
-    [slotStyle],
+    () => [styles.screenSlot, litStyle],
+    [litStyle],
   );
   return (
     <>

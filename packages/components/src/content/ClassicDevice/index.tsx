@@ -63,15 +63,9 @@ export function ClassicDevice({
   } = useSceneScreen(target, SCENES);
   const okPress = useSharedValue(0);
   const pressDrive = useMemo(() => ({ ok: okPress }), [okPress]);
-  // Both screen layers ride the presence opacity: the glow is part of what
-  // "content shown" looks like on this OLED, not a preceding wake beat.
   const deviceAnimation: IClassicDeviceAnimation = useMemo(
-    () => ({
-      screenGlow: sceneAnimation.screenContent,
-      screenContent: sceneAnimation.screenContent,
-      press: { ok: okPress },
-    }),
-    [okPress, sceneAnimation],
+    () => ({ screenContent: sceneAnimation.screenContent, press: pressDrive }),
+    [pressDrive, sceneAnimation],
   );
   if (displayed) {
     return (

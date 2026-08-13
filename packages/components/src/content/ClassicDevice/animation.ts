@@ -10,17 +10,13 @@ import type { SharedValue } from 'react-native-reanimated';
 export type IClassicDeviceButtonKey = 'power' | 'up' | 'down' | 'ok';
 
 /**
- * Animation contract of the code-drawn Classic device, one field per layer of
- * the decomposition: ScreenPower (the glow/content opacity pair) and
- * ButtonPress (one 0..1 value per physical key). Under the presence engine
- * both screen fields ride the one screen-content opacity — the faint panel
- * glow is part of what "content shown" looks like on this OLED, not a
- * separate wake beat.
+ * Animation contract of the code-drawn Classic device: the presence
+ * engine's one screen opacity — it drives the OLED content and the panel's
+ * faint glow together, "lit" being nothing but content shown — plus one
+ * 0..1 press value per physical key.
  */
 export interface IClassicDeviceAnimation {
-  /** 0 dark .. 1 the faint powered-on luminance across the whole glass. */
-  screenGlow: Readonly<SharedValue<number>>;
-  /** 0 hidden .. 1 shown, opacity of the screenContent node. */
+  /** 0 hidden .. 1 shown; drives the content and the panel glow alike. */
   screenContent: Readonly<SharedValue<number>>;
   /** 0 released .. 1 fully pressed. Keys left out stay released. */
   press?: Partial<
@@ -36,11 +32,9 @@ const SCREEN_ON_VALUE = makeMutable(1);
 // dark (pixel-identical to the verified static device), a shell given static
 // screenContent shows it steady-on.
 export const CLASSIC_DEVICE_SCREEN_OFF: IClassicDeviceAnimation = {
-  screenGlow: PRESS_RELEASED,
   screenContent: PRESS_RELEASED,
 };
 export const CLASSIC_DEVICE_SCREEN_ON: IClassicDeviceAnimation = {
-  screenGlow: SCREEN_ON_VALUE,
   screenContent: SCREEN_ON_VALUE,
 };
 
@@ -101,14 +95,21 @@ export function useOkPressDrive(
   track: IKeyframe[],
 ): void {
   const drive = useContext(ClassicPressContext);
+  // A constant track needs no clock: reading a never-written value runs
+  // the reaction once and still parks the key.
+  const source = track.length > 1 ? clock : PRESS_RELEASED;
   useAnimatedReaction(
-    () => (drive ? trackAt(clock.value, track) : 0),
+    // `drive` must stay out of this closure: reanimated registers every
+    // shared value found in the prepare closure as a mapper input, and
+    // the reaction writes drive.ok — it would re-trigger its own mapper
+    // on every frame the key moves.
+    () => trackAt(source.value, track),
     (value, previous) => {
       if (drive && value !== previous) {
         drive.ok.value = value;
       }
     },
-    [clock, drive, track],
+    [source, drive, track],
   );
 }
 
@@ -160,40 +161,35 @@ const RESET_END_MS = ENTRY_ROW_OUT_END_MS + 20;
 /** Fill i lands mid-hold of press i. */
 const entryFillMs = (i: number) =>
   ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS;
-/** The check lands with the last fill, replacing the cursor's glyph. */
-const ENTRY_CHECK_AT_MS = entryFillMs(ENTRY_FILL_COUNT - 1);
+/**
+ * When slot i swaps its glyph: at its own fill, except the cursor slot
+ * (index ENTRY_FILL_COUNT), which swaps with the last fill — its pending
+ * glyph becomes the check.
+ */
+const entrySwapMs = (i: number) =>
+  entryFillMs(Math.min(i, ENTRY_FILL_COUNT - 1));
 
-function fadeInAt(atMs: number): IKeyframe[] {
+/** A glyph's cross-fade leg: from -> to at atMs, back inside the reset. */
+function fadeAt(atMs: number, from: 0 | 1): IKeyframe[] {
+  const to = 1 - from;
   return [
-    { t: 0, v: 0 },
-    { t: atMs, v: 0, e: easeOutFn },
-    { t: atMs + GLYPH_FADE_MS, v: 1 },
-    { t: RESET_START_MS, v: 1 },
-    { t: RESET_END_MS, v: 0 },
+    { t: 0, v: from },
+    { t: atMs, v: from, e: easeOutFn },
+    { t: atMs + GLYPH_FADE_MS, v: to },
+    { t: RESET_START_MS, v: to },
+    { t: RESET_END_MS, v: from },
   ];
 }
 
-function fadeOutAt(atMs: number): IKeyframe[] {
-  return [
-    { t: 0, v: 1 },
-    { t: atMs, v: 1, e: easeOutFn },
-    { t: atMs + GLYPH_FADE_MS, v: 0 },
-    { t: RESET_START_MS, v: 0 },
-    { t: RESET_END_MS, v: 1 },
-  ];
-}
-
-/** Opacity of entered glyph / pending glyph per fillable slot, cross-fading. */
-export const ENTRY_ENTERED_TRACKS = Array.from(
-  { length: ENTRY_FILL_COUNT },
-  (_, i) => fadeInAt(entryFillMs(i)),
+/** Per swappable slot: the outgoing pending glyph, the incoming one. */
+export const ENTRY_SLOT_OUT_TRACKS = Array.from(
+  { length: ENTRY_FILL_COUNT + 1 },
+  (_, i) => fadeAt(entrySwapMs(i), 1),
 );
-export const ENTRY_PENDING_TRACKS = Array.from(
-  { length: ENTRY_FILL_COUNT },
-  (_, i) => fadeOutAt(entryFillMs(i)),
+export const ENTRY_SLOT_IN_TRACKS = Array.from(
+  { length: ENTRY_FILL_COUNT + 1 },
+  (_, i) => fadeAt(entrySwapMs(i), 0),
 );
-export const ENTRY_CHECK_TRACK = fadeInAt(ENTRY_CHECK_AT_MS);
-export const ENTRY_CURSOR_PENDING_TRACK = fadeOutAt(ENTRY_CHECK_AT_MS);
 
 /**
  * TranslateX of the caret pair over its slot-0 base, sliding one slot per
