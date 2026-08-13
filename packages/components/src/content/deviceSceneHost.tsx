@@ -27,8 +27,9 @@ import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * Shared scene-hosting machinery of the presence-model devices (ProDevice,
- * SlateDevice): the registry contract a device's scenes fill in, the
+ * Shared scene-hosting machinery of the presence-model devices
+ * (ClassicDevice, ProDevice, SlateDevice): the registry contract a
+ * device's scenes fill in, the
  * screen-presence engine that runs entrances, exits and the clock, and the
  * two light components every scene choreography is built from. The
  * schedules these evaluate live in ./deviceScene; a device contributes
@@ -79,18 +80,21 @@ const styles = StyleSheet.create({
  * A layer following keyframe tracks of the scene clock: opacity always,
  * and with `shiftTrack` a horizontal slide too. Every animated part of
  * the entry screens — a key's slice of the traveling sheen, an entered
- * mark riding its cluster — is exactly that.
+ * mark riding its cluster, a glyph cross-fading in its slot (the layer
+ * carries children then) — is exactly that.
  */
 export function TrackedLayer({
   clock,
   track,
   shiftTrack,
   baseStyle,
+  children,
 }: {
   clock: SharedValue<number>;
   track: IKeyframe[];
   shiftTrack?: IKeyframe[];
   baseStyle: ViewStyle;
+  children?: ReactNode;
 }) {
   const animatedStyle = useAnimatedStyle(() => {
     const opacity = trackAt(clock.value, track);
@@ -106,7 +110,11 @@ export function TrackedLayer({
     () => [baseStyle, animatedStyle],
     [animatedStyle, baseStyle],
   );
-  return <Animated.View pointerEvents="none" style={style} />;
+  return (
+    <Animated.View pointerEvents="none" style={style}>
+      {children}
+    </Animated.View>
+  );
 }
 
 // The gradient wrapper runs style through Tamagui's usePropsAndStyle, which
