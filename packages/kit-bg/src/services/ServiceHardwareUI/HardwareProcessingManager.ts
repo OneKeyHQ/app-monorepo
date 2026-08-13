@@ -1,7 +1,6 @@
 import { E_ALREADY_LOCKED, Semaphore, tryAcquire } from 'async-mutex';
 
 import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export type IOneKeyHardwareOperationLease = {
   readonly deviceKey: string | undefined;
@@ -24,31 +23,23 @@ export class HardwareProcessingManager {
 
   private activeOneKeyOperationLease: IOneKeyHardwareOperationLease | undefined;
 
-  // Diagnostic identity of the current lease holder; the lease's symbol is
-  // anonymous, so contention would otherwise be impossible to attribute.
-  private activeOneKeyOperationOwnerName: string | undefined;
-
   private async runWithNewOneKeyOperationLease<T>({
     deviceKey,
     operation,
-    ownerName,
   }: {
     deviceKey?: string;
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
-    ownerName?: string;
   }): Promise<T> {
     const acquiredLease: IOneKeyHardwareOperationLease = Object.freeze({
       deviceKey,
-      owner: Symbol(ownerName || 'onekey-hardware-operation'),
+      owner: Symbol('onekey-hardware-operation'),
     });
     this.activeOneKeyOperationLease = acquiredLease;
-    this.activeOneKeyOperationOwnerName = ownerName;
     try {
       return await operation(acquiredLease);
     } finally {
       if (this.activeOneKeyOperationLease === acquiredLease) {
         this.activeOneKeyOperationLease = undefined;
-        this.activeOneKeyOperationOwnerName = undefined;
       }
     }
   }
@@ -57,59 +48,31 @@ export class HardwareProcessingManager {
     deviceKey,
     lease,
     operation,
-    ownerName,
   }: {
     deviceKey?: string;
     lease?: IOneKeyHardwareOperationLease;
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
-    ownerName?: string;
   }): Promise<T> {
     if (lease && lease === this.activeOneKeyOperationLease) {
       return operation(lease);
     }
 
-    const owner = ownerName || 'unknown';
-    const waitStartAt = Date.now();
-    if (this.oneKeyOperationSemaphore.isLocked()) {
-      defaultLogger.hardware.sdkLog.log(
-        `[HwExclusiveOp] queued owner=${owner} deviceKey=${
-          deviceKey ?? ''
-        } holder=${this.activeOneKeyOperationOwnerName ?? 'unknown'}`,
-      );
-    }
-    return this.oneKeyOperationSemaphore.runExclusive(async () => {
-      const heldStartAt = Date.now();
-      defaultLogger.hardware.sdkLog.log(
-        `[HwExclusiveOp] acquired owner=${owner} waitMs=${
-          heldStartAt - waitStartAt
-        }`,
-      );
-      try {
-        return await this.runWithNewOneKeyOperationLease({
-          deviceKey,
-          operation,
-          ownerName: owner,
-        });
-      } finally {
-        defaultLogger.hardware.sdkLog.log(
-          `[HwExclusiveOp] released owner=${owner} heldMs=${
-            Date.now() - heldStartAt
-          }`,
-        );
-      }
-    });
+    return this.oneKeyOperationSemaphore.runExclusive(() =>
+      this.runWithNewOneKeyOperationLease({
+        deviceKey,
+        operation,
+      }),
+    );
   }
 
   async tryRunExclusiveOneKeyOperation<T>({
     deviceKey,
     lease,
     operation,
-    ownerName,
   }: {
     deviceKey?: string;
     lease?: IOneKeyHardwareOperationLease;
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
-    ownerName?: string;
   }): Promise<ITryRunExclusiveOneKeyOperationResult<T>> {
     if (lease && lease === this.activeOneKeyOperationLease) {
       return {
@@ -123,32 +86,20 @@ export class HardwareProcessingManager {
       [, release] = await tryAcquire(this.oneKeyOperationSemaphore).acquire();
     } catch (error) {
       if (error === E_ALREADY_LOCKED) {
-        defaultLogger.hardware.sdkLog.log(
-          `[HwExclusiveOp] try-skip owner=${
-            ownerName ?? 'unknown'
-          } holder=${this.activeOneKeyOperationOwnerName ?? 'unknown'}`,
-        );
         return { acquired: false };
       }
       throw error;
     }
 
-    const heldStartAt = Date.now();
     try {
       return {
         acquired: true,
         result: await this.runWithNewOneKeyOperationLease({
           deviceKey,
           operation,
-          ownerName,
         }),
       };
     } finally {
-      defaultLogger.hardware.sdkLog.log(
-        `[HwExclusiveOp] released owner=${ownerName ?? 'unknown'} heldMs=${
-          Date.now() - heldStartAt
-        }`,
-      );
       release();
     }
   }

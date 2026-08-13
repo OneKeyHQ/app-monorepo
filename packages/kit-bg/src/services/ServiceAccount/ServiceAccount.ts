@@ -6607,7 +6607,6 @@ class ServiceAccount extends ServiceBase {
             params.wallet?.associatedDevice ||
             params.deviceId ||
             params.connectId,
-          ownerName: 'generateHwWalletsMissingXfp',
         },
       );
     },

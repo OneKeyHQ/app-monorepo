@@ -558,9 +558,6 @@ class ServiceHardwareUI extends ServiceBase {
           deviceKey:
             device?.id || device?.deviceId || device?.uuid || device?.connectId,
           lease: params.oneKeyOperationLease,
-          ownerName: `withHardwareProcessing:${
-            params.debugMethodName ?? 'unknown'
-          }`,
         },
       );
       if (platformEnv.isNative && device?.id) {
@@ -587,18 +584,15 @@ class ServiceHardwareUI extends ServiceBase {
     {
       deviceKey,
       lease,
-      ownerName,
     }: {
       deviceKey?: string;
       lease?: IOneKeyHardwareOperationLease;
-      ownerName?: string;
     } = {},
   ) {
     return this.hardwareProcessingManager.runExclusiveOneKeyOperation({
       deviceKey,
       lease,
       operation,
-      ownerName,
     });
   }
 
@@ -607,11 +601,9 @@ class ServiceHardwareUI extends ServiceBase {
     {
       deviceKey,
       lease,
-      ownerName,
     }: {
       deviceKey?: string;
       lease?: IOneKeyHardwareOperationLease;
-      ownerName?: string;
     } = {},
   ) {
     if (await this.isHardwareChannelBusy()) {
@@ -621,7 +613,6 @@ class ServiceHardwareUI extends ServiceBase {
       deviceKey,
       lease,
       operation,
-      ownerName,
     });
   }
 
