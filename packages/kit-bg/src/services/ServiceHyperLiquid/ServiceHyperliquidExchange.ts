@@ -1470,12 +1470,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       m: params.minutes,
       t: params.randomize,
     };
-    const details = {
-      t: triggerPrice
-        ? { p: triggerPrice, a: params.triggerAbove as boolean }
-        : null,
-      s: stopPrice ?? null,
-    };
+    // Omit the optional details wrapper entirely for plain TWAPs so the wire
+    // action keeps the shape production already validated before 0.33.x.
+    const details =
+      triggerPrice || stopPrice
+        ? {
+            t: triggerPrice
+              ? { p: triggerPrice, a: params.triggerAbove as boolean }
+              : null,
+            s: stopPrice ?? null,
+          }
+        : undefined;
     const client = await this.getExchangeClientForTrading();
     const context = await this._buildLogContext();
     const requestPayload = {
@@ -1495,7 +1500,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       const response = await convertHyperLiquidResponse(() =>
         client.twapOrder({
           twap,
-          details,
+          ...(details ? { details } : {}),
         }),
       );
       defaultLogger.perp.hyperliquid.twapOrder({

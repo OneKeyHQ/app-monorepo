@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 
-
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetCtxMarkPriceAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getTwapTriggerReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+
 import type { BigNumber } from 'bignumber.js';
 
 // Single source of the TWAP reference price so form display, CTA validation,
