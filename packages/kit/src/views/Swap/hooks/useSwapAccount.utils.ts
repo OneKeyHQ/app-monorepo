@@ -235,11 +235,20 @@ export function resolveSettledSwapRecipientRequired({
   isAddressInfoReady,
   recipientRequiredNow,
 }: IResolveSettledSwapRecipientRequiredParams): ISettledSwapRecipientRequired {
-  if (previous.scopeKey !== scopeKey) {
-    return { scopeKey, value: false };
-  }
+  // A settled quote plus a resolved target address is a complete verdict for
+  // whatever scope this render belongs to, so adopt it even on the render that
+  // changes the scope key — e.g. sourceAccountId resolving from undefined to a
+  // real id while a settled quote already needs a recipient. The verdict lives
+  // in a ref, so discarding those inputs here would keep the entry hidden until
+  // some unrelated state change happened to schedule another render.
   if (quoteSettled && isAddressInfoReady) {
     return { scopeKey, value: recipientRequiredNow };
+  }
+  // Without a settled quote a new scope starts neutral, so a previous scope's
+  // verdict cannot leak into it, while an unchanged scope keeps holding its
+  // last verdict across the refresh window.
+  if (previous.scopeKey !== scopeKey) {
+    return { scopeKey, value: false };
   }
   return previous;
 }

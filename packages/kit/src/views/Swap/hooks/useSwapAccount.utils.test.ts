@@ -391,6 +391,23 @@ describe('resolveSettledSwapRecipientRequired', () => {
       ).toEqual({ scopeKey, value: false });
     }
   });
+
+  it('adopts the verdict on the very render that changes the scope', () => {
+    // The verdict lives in a ref, so a scope change that arrives together with
+    // already-settled inputs (e.g. sourceAccountId resolving from undefined to
+    // a real id) must not discard them — nothing would schedule the follow-up
+    // render that recomputes it.
+    const scopeKey = 'swap|eth|usdc|sol|sol|acc-1';
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: { scopeKey: 'swap|eth|usdc|sol|sol|undefined', value: false },
+        scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: true,
+      }),
+    ).toEqual({ scopeKey, value: true });
+  });
 });
 
 describe('getSwapRecipientValidationAccountId', () => {

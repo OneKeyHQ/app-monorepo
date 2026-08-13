@@ -116,6 +116,37 @@ describe('useSettledSwapRecipientRequired', () => {
     expect(result.current).toBe(true);
   });
 
+  it('shows the entry when the account resolves while a quote already needs one', () => {
+    // The source account id starts undefined and resolves on a later render.
+    // That render changes the scope key and carries settled inputs at once;
+    // since the verdict lives in a ref, dropping it here would leave the entry
+    // hidden with no follow-up render to recover it.
+    const { result, rerender } = renderSettled({
+      ...quotingRound,
+      sourceAccountId: undefined,
+      quoteSettled: false,
+      recipientRequiredNow: false,
+    });
+    expect(result.current).toBe(false);
+
+    rerender({
+      ...quotingRound,
+      sourceAccountId: 'account-1',
+      quoteSettled: true,
+      recipientRequiredNow: true,
+    });
+    expect(result.current).toBe(true);
+
+    // And it stays put through the following quote refresh window.
+    rerender({
+      ...quotingRound,
+      sourceAccountId: 'account-1',
+      quoteSettled: false,
+      recipientRequiredNow: false,
+    });
+    expect(result.current).toBe(true);
+  });
+
   it('waits for target address resolution before adopting a verdict', () => {
     const { result, rerender } = renderSettled({
       ...quotingRound,
