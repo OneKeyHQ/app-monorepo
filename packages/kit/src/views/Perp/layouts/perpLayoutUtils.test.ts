@@ -149,4 +149,12 @@ describe('getVerticalOrderBookLayout', () => {
       rowHeight: 22,
     });
   });
+
+  it('stretches rows to fill the pane once the level cap is reached', () => {
+    expect(getVerticalOrderBookLayout(1000, 12)).toEqual({
+      levelsPerSide: 12,
+      extraBidLevels: 0,
+      rowHeight: 36,
+    });
+  });
 });

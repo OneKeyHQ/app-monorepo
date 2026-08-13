@@ -219,10 +219,20 @@ export function getVerticalOrderBookLayout(
     fittedRows - 1 - levelsPerSide * 2 >= 1 && levelsPerSide < maxLevelsPerSide
       ? 1
       : 0;
+  // At the level cap the ladder can't grow, so stretch rows to fill the pane
+  // instead of leaving an unbounded bottom gap on tall windows.
+  const isCappedByLevels =
+    levelsPerSide === maxLevelsPerSide &&
+    bookBodyHeight > (2 * levelsPerSide + 1) * rowStep;
 
   return {
     levelsPerSide,
     extraBidLevels,
-    rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
+    rowHeight: isCappedByLevels
+      ? Math.floor(
+          bookBodyHeight / (2 * levelsPerSide + 1) -
+            ORDER_BOOK_VERTICAL_ROW_GAP,
+        )
+      : ORDER_BOOK_VERTICAL_ROW_HEIGHT,
   };
 }

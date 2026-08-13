@@ -1076,6 +1076,17 @@ export function OrderBook({
     () => new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0'),
     [aggregatedData.asks],
   );
+  // The extra visual bid row must not skew the B/S ratio, so compare depths
+  // over the same number of levels on both sides.
+  const ratioBidDepth = useMemo(
+    () =>
+      new BigNumber(
+        aggregatedData.bids[
+          Math.min(resolvedMaxLevelsPerSide, aggregatedData.bids.length) - 1
+        ]?.cumSize ?? '0',
+      ),
+    [aggregatedData.bids, resolvedMaxLevelsPerSide],
+  );
 
   // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
   // change (useMemo) instead of inside JSX on every render, then frame-coalesce
@@ -1711,7 +1722,7 @@ export function OrderBook({
           ) : null}
         </View>
       </View>
-      <OrderBookSideRatio bidDepth={bidDepth} askDepth={askDepth} />
+      <OrderBookSideRatio bidDepth={ratioBidDepth} askDepth={askDepth} />
     </View>
   );
 }
