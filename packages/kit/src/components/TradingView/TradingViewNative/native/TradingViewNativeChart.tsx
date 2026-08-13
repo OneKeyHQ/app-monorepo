@@ -118,6 +118,9 @@ interface ITradingViewNativeChartProps {
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
+  priceAxisFontSize?: number;
+  priceAxisTickCount?: number;
+  showLegend?: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
@@ -178,6 +181,9 @@ export const TradingViewNativeChart = memo(
     indicatorSeries,
     initialRightOffset,
     isSwitchingInterval,
+    priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+    priceAxisTickCount,
+    showLegend = true,
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
@@ -216,10 +222,7 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
-    const priceAxisFont = useFont(
-      PRICE_AXIS_FONT_SOURCE,
-      TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
-    );
+    const priceAxisFont = useFont(PRICE_AXIS_FONT_SOURCE, priceAxisFontSize);
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
     const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
@@ -257,9 +260,18 @@ export const TradingViewNativeChart = memo(
           },
           fontFamily: SYSTEM_FONT_FAMILY,
           priceAxisFont,
+          priceAxisFontSize,
           watermarkSvg,
         }),
-      [axisText, background, grid, line, priceAxisFont, watermarkSvg],
+      [
+        axisText,
+        background,
+        grid,
+        line,
+        priceAxisFont,
+        priceAxisFontSize,
+        watermarkSvg,
+      ],
     );
     const priceAxisWidth = useDerivedValue(() => {
       const measuredPriceAxisFont = resources.value.fonts.priceAxis;
@@ -308,12 +320,23 @@ export const TradingViewNativeChart = memo(
         indicatorSeries: runtime.indicatorSeries,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
+        priceAxisTickCount,
+        priceAxisFontSize,
         resources: resources.value,
+        showLegend,
         viewport: runtime.viewport,
         watermarkOpacity,
         width: runtime.size.width,
       });
-    }, [candleLabels, priceAxisWidth, resources, watermarkOpacity]);
+    }, [
+      candleLabels,
+      priceAxisFontSize,
+      priceAxisTickCount,
+      priceAxisWidth,
+      resources,
+      showLegend,
+      watermarkOpacity,
+    ]);
 
     const handleChartWidthChange = useCallback((nextChartWidth: number) => {
       setChartWidth((currentChartWidth) =>

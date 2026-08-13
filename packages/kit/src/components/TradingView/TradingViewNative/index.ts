@@ -4,6 +4,7 @@ export {
   getTradingViewNativeSourceKey,
 } from './data/getTradingViewNativeSource';
 export type {
+  ITradingViewNativeChartDisplayMode,
   ITradingViewNativeDataState,
   ITradingViewNativeIntervalChangeData,
   ITradingViewNativePriceUpdateData,

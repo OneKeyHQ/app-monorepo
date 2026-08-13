@@ -856,6 +856,7 @@ export function getTradingViewNativeChartLayout({
   minimumTimeTickIndexSpacing,
   points,
   priceAxisWidth,
+  priceAxisTickCount = TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   visiblePointRange,
   width,
 }: {
@@ -870,6 +871,7 @@ export function getTradingViewNativeChartLayout({
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
+  priceAxisTickCount?: number;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
 }): ITradingViewNativeChartLayout | null {
@@ -928,8 +930,11 @@ export function getTradingViewNativeChartLayout({
   const volumeTop = volumeBottom - volumeHeight;
   const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
-  const priceTickCount =
-    priceRange === 0 ? 1 : TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
+  const normalizedPriceAxisTickCount = Math.max(
+    Math.floor(priceAxisTickCount),
+    1,
+  );
+  const priceTickCount = priceRange === 0 ? 1 : normalizedPriceAxisTickCount;
   const priceTicks = Array.from(
     { length: priceTickCount },
     (_, index): ITradingViewNativePriceTick => {

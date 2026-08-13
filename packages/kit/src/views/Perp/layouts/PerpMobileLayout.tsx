@@ -29,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -495,6 +496,18 @@ export function PerpMobileLayout() {
           </YStack>
         </YStack>
       </ScrollView>
+      {platformEnv.isNativeIOS26Plus && (tabBarHeight ?? 0) > 0 ? (
+        <YStack
+          testID="perp-ios26-tab-bar-background"
+          position="absolute"
+          right={0}
+          bottom={0}
+          left={0}
+          h={tabBarHeight}
+          bg="$bgApp"
+          pointerEvents="none"
+        />
+      ) : null}
       {!isSplitMainActive ? (
         <PerpMobileChartPanel bottomOffset={tabBarHeight ?? 0} />
       ) : null}

@@ -6,6 +6,10 @@ import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
+} from './chartConstants';
+import {
   emitTradingViewNativeDebugEvent,
   getTradingViewNativeDebugErrorMessage,
 } from './data/tradingViewNativeDebugLogger';
@@ -48,11 +52,13 @@ export const TradingViewNativeContainer = memo(
     source,
     enableNativeChartSettings,
     initialRightOffset,
+    nativeChartDisplayMode,
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     onDataStateChange,
     onIntervalChange,
+    onNativeChartClose,
     onNativeSubIndicatorCountChange,
     onNativeChartFullscreenChange,
     onPriceUpdate,
@@ -106,9 +112,10 @@ export const TradingViewNativeContainer = memo(
       onRealtimePoint: handleRealtimePoint,
       source,
     });
+    const isCompactDisplayMode = nativeChartDisplayMode === 'compact';
     const hasVolume = useMemo(
-      () => hasTradingViewNativeVolume(points),
-      [points],
+      () => !isCompactDisplayMode && hasTradingViewNativeVolume(points),
+      [isCompactDisplayMode, points],
     );
     const indicatorSeries = useMemo(
       () =>
@@ -385,6 +392,7 @@ export const TradingViewNativeContainer = memo(
           fullscreenHeader={nativeChartFullscreenHeader}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
+          onChartClose={onNativeChartClose}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
           onFullscreenChange={onNativeChartFullscreenChange}
@@ -399,6 +407,17 @@ export const TradingViewNativeContainer = memo(
             indicatorSeries={indicatorSeries}
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
+            priceAxisTickCount={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
+                : undefined
+            }
+            priceAxisFontSize={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
+                : undefined
+            }
+            showLegend={!isCompactDisplayMode}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}

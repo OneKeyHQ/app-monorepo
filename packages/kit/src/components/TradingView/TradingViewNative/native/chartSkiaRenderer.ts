@@ -41,11 +41,13 @@ export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
   priceAxisFont,
+  priceAxisFontSize,
   watermarkSvg,
 }: {
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
   priceAxisFont: SkFont | null;
+  priceAxisFontSize: number;
   watermarkSvg: SkSVG | null;
 }): ITradingViewNativeSkiaResources {
   'worklet';
@@ -58,6 +60,7 @@ export function createTradingViewNativeSkiaResources({
     width: FontWidth.Normal,
   });
   const axisFont = Skia.Font(typeface, TRADING_VIEW_NATIVE_AXIS_FONT_SIZE);
+  const priceAxisFallbackFont = Skia.Font(typeface, priceAxisFontSize);
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -91,7 +94,7 @@ export function createTradingViewNativeSkiaResources({
     fonts: {
       axis: axisFont,
       legend: Skia.Font(typeface, TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE),
-      priceAxis: priceAxisFont ?? axisFont,
+      priceAxis: priceAxisFont ?? priceAxisFallbackFont,
     },
     paints,
     watermarkPaint: Skia.Paint(),

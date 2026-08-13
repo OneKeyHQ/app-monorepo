@@ -201,7 +201,10 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   ) => number;
   candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
+  priceAxisFontSize?: number;
   priceAxisWidth?: number;
+  priceAxisTickCount?: number;
+  showLegend?: boolean;
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
   width: number;
@@ -436,7 +439,10 @@ export function buildTradingViewNativeChartScene({
   measureTextWidth,
   candleLabels,
   points,
+  priceAxisFontSize = AXIS_FONT_SIZE,
   priceAxisWidth,
+  priceAxisTickCount,
+  showLegend = true,
   viewport,
   watermarkOpacity,
   width,
@@ -533,6 +539,7 @@ export function buildTradingViewNativeChartScene({
       ),
     points,
     priceAxisWidth: resolvedPriceAxisWidth,
+    priceAxisTickCount,
     visiblePointRange,
     width,
   });
@@ -595,7 +602,7 @@ export function buildTradingViewNativeChartScene({
         paint: 'axisText',
         text,
         x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
-        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: y + priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       },
     );
   }
@@ -616,7 +623,7 @@ export function buildTradingViewNativeChartScene({
         paint: 'axisText',
         text,
         x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
-        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: y + priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       },
     );
   }
@@ -897,23 +904,25 @@ export function buildTradingViewNativeChartScene({
       });
     }
   };
-  appendLegendRows(
-    getTradingViewNativeChartLegendRowLayouts({
-      items: legend.priceItems,
-      maxX: priceAxisX,
-      measureTextWidth: measureLegendTextWidth,
-      top: PRICE_LEGEND_TOP,
-    }),
-  );
-  if (hasVolume) {
+  if (showLegend) {
     appendLegendRows(
       getTradingViewNativeChartLegendRowLayouts({
-        items: [legend.volumeItem],
+        items: legend.priceItems,
         maxX: priceAxisX,
         measureTextWidth: measureLegendTextWidth,
-        top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
+        top: PRICE_LEGEND_TOP,
       }),
     );
+    if (hasVolume) {
+      appendLegendRows(
+        getTradingViewNativeChartLegendRowLayouts({
+          items: [legend.volumeItem],
+          maxX: priceAxisX,
+          measureTextWidth: measureLegendTextWidth,
+          top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
+        }),
+      );
+    }
   }
 
   const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
@@ -952,7 +961,7 @@ export function buildTradingViewNativeChartScene({
         y:
           currentPriceLayout.labelTop +
           CURRENT_PRICE_LABEL_HEIGHT / 2 +
-          AXIS_FONT_SIZE / 2 +
+          priceAxisFontSize / 2 +
           PRICE_AXIS_TEXT_BASELINE_OFFSET,
       },
     );
@@ -1001,7 +1010,7 @@ export function buildTradingViewNativeChartScene({
           y:
             labelTop +
             CROSSHAIR_LABEL_HEIGHT / 2 +
-            AXIS_FONT_SIZE / 2 +
+            priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );

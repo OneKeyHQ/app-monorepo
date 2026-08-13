@@ -139,6 +139,42 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
+  it('uses the supplied price-axis font size for vertical label baselines', () => {
+    const buildScene = (priceAxisFontSize?: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        priceAxisFontSize,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getFirstPriceTickY = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) => {
+      const command = scene.commands.find(
+        (candidate) =>
+          candidate.kind === 'text' &&
+          candidate.font === 'priceAxis' &&
+          candidate.paint === 'axisText',
+      );
+      return command?.kind === 'text' ? command.y : undefined;
+    };
+
+    const defaultY = getFirstPriceTickY(buildScene());
+    const compactY = getFirstPriceTickY(buildScene(11));
+
+    expect(defaultY).toBeDefined();
+    expect(compactY).toBeDefined();
+    expect((defaultY ?? 0) - (compactY ?? 0)).toBeCloseTo(0.5);
+  });
+
   it('renders active overlays and includes Bollinger bands in auto scale', () => {
     const indicatorPoints = Array.from({ length: 25 }, (_, index) => {
       const close = index < 10 ? 0 : 100;
@@ -312,6 +348,47 @@ describe('TradingViewNative shared chart scene', () => {
           (command.paint === 'upVolume' || command.paint === 'downVolume'),
       ),
     ).toBe(false);
+  });
+
+  it('builds a compact scene without legends and with sparse price ticks', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      priceAxisTickCount: 4,
+      showLegend: false,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const legendText = scene.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'legend'
+        ? [command.text]
+        : [],
+    );
+    const priceTickText = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'priceAxis' &&
+      command.paint === 'axisText'
+        ? [command.text]
+        : [],
+    );
+    const volumeBars = scene.commands.filter(
+      (command) =>
+        command.kind === 'rect' &&
+        (command.paint === 'upVolume' || command.paint === 'downVolume'),
+    );
+
+    expect(legendText).not.toEqual(
+      expect.arrayContaining(['O', 'H', 'L', 'C', '+5 (+5.05%)', 'Volume']),
+    );
+    expect(priceTickText).toHaveLength(4);
+    expect(volumeBars).toEqual([]);
   });
 
   it('maps semantic paints to the same platform-neutral colors', () => {

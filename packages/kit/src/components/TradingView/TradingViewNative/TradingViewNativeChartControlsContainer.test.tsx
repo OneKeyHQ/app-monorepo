@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
@@ -79,6 +79,38 @@ describe('TradingViewNative chart controls', () => {
         settingsEnabled: false,
       }),
     );
+  });
+
+  it('replaces the mobile indicator control with a close action', () => {
+    const handleChartClose = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={handleChartClose}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      hasVisibleIndicators: boolean;
+      rightControl: ReactElement<{
+        name: string;
+        size: string;
+      }>;
+      rightControlLabel: string;
+      onRightControlPress: () => void;
+    };
+    expect(controlsProps.hasVisibleIndicators).toBe(false);
+    expect(controlsProps.rightControl.props.name).toBe(
+      'ChevronDownSmallOutline',
+    );
+    expect(controlsProps.rightControl.props.size).toBe('$5');
+    expect(controlsProps.rightControlLabel).toBe('global.close');
+
+    controlsProps.onRightControlPress();
+    expect(handleChartClose).toHaveBeenCalledTimes(1);
   });
 
   it('opens chart settings from opted-in desktop controls', () => {

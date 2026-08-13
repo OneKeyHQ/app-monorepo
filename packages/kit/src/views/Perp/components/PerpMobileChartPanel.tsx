@@ -17,13 +17,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpTestIDs } from '../testIDs';
 
-const MOBILE_CHART_MAX_HEIGHT = 500;
-const MOBILE_CHART_MIN_HEIGHT = 240;
+const MOBILE_CHART_MAX_HEIGHT = 250;
+const MOBILE_CHART_MIN_HEIGHT = 200;
 // Headroom above the expanded chart so short viewports keep the ticker visible.
 const MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT = 220;
 
 // Scrolling content underneath must reserve the collapsed bar height.
-export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 48;
+export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 40;
 
 export function PerpMobileChartPanel({
   bottomOffset = 0,
@@ -71,6 +71,9 @@ export function PerpMobileChartPanel({
       setMountedCoin(coin);
     }
   }, [coin, isExpanded]);
+  const handleClose = useCallback(() => {
+    setIsExpanded(false);
+  }, []);
 
   // Forget the hidden chart once the coin moves away so switching back while
   // collapsed doesn't rebuild it off-screen.
@@ -121,47 +124,48 @@ export function PerpMobileChartPanel({
                   key={coin}
                   testID={PerpTestIDs.MobileChart}
                   source={chartSource}
+                  nativeChartDisplayMode="compact"
                   nativeControlsLayoutMode="mobile"
+                  onNativeChartClose={handleClose}
                 />
               ) : null}
             </YStack>
           </HeaderScrollGestureWrapper>
         </YStack>
       ) : null}
-      <XStack
-        testID={PerpTestIDs.MobileChartToggle}
-        minHeight={PERP_MOBILE_CHART_BAR_SCROLL_INSET}
-        px="$4"
-        py="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        bg="$bgApp"
-        borderTopWidth={isExpanded ? '$px' : 0}
-        borderTopColor="$borderSubdued"
-        accessibilityRole="button"
-        accessibilityState={{ expanded: isExpanded }}
-        onPress={handleToggle}
-      >
-        <SizableText size="$bodyMdMedium">
-          {marketName}
-          {marketTypeLabel}{' '}
-          {intl.formatMessage({ id: ETranslations.market_chart })}
-        </SizableText>
-        <XStack alignItems="center" gap="$3">
-          <Icon
-            name="TradingViewCandlesOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-          <Icon
-            name={
-              isExpanded ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
-            }
-            size="$4"
-            color="$iconSubdued"
-          />
+      {!isExpanded ? (
+        <XStack
+          testID={PerpTestIDs.MobileChartToggle}
+          minHeight={PERP_MOBILE_CHART_BAR_SCROLL_INSET}
+          px="$4"
+          py="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          bg="$bgApp"
+          borderTopWidth={isExpanded ? '$px' : 0}
+          borderTopColor="$borderSubdued"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          onPress={handleToggle}
+        >
+          <SizableText size="$bodySmMedium">
+            {marketName}
+            {marketTypeLabel}{' '}
+            {intl.formatMessage({ id: ETranslations.market_chart })}
+          </SizableText>
+          <XStack alignItems="center" gap="$3">
+            <Icon
+              name={
+                isExpanded
+                  ? 'ChevronDownSmallOutline'
+                  : 'ChevronTopSmallOutline'
+              }
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
         </XStack>
-      </XStack>
+      ) : null}
     </YStack>
   );
 }
