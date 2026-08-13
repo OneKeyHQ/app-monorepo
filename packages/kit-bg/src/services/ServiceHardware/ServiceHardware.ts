@@ -122,6 +122,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
+import type { IDBDevice } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -4132,6 +4133,78 @@ class ServiceHardware extends ServiceBase {
     return bleConnectId;
   }
 
+  /**
+   * Silently bind a live desktop BLE connectId held by the caller onto a
+   * device record that lacks a BLE binding, so an in-progress BLE session
+   * never raises the Bluetooth pairing dialog (OK-60091).
+   *
+   * Only attempted when the incoming connectId differs from the record's USB
+   * identifiers (connectId/usbConnectId): a USB serial input means a genuine
+   * USB→BLE switch, which must keep the scan + pairing-dialog repair flow.
+   * Before persisting, the endpoint is verified via a dialog-free connect
+   * that must report the expected raw deviceId; on an active session this
+   * reuses the live connection and is nearly free. Any failure returns
+   * undefined so the caller falls back to the existing pairing-dialog flow.
+   */
+  private async silentlyBindLiveDesktopBleConnectId({
+    device,
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    device: IDBDevice;
+    connectId: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<string | undefined> {
+    const normalizedConnectId = connectId.trim().toLowerCase();
+    if (!normalizedConnectId) {
+      return undefined;
+    }
+    const isUsbAliasInput = [device.connectId, device.usbConnectId].some(
+      (candidate) => candidate?.trim().toLowerCase() === normalizedConnectId,
+    );
+    if (isUsbAliasInput) {
+      return undefined;
+    }
+    const expectedDeviceId =
+      featuresDeviceId ||
+      deviceUtils.getRawDeviceId({
+        device: deviceUtils.dbDeviceToSearchDevice(device),
+        features: features || device.featuresInfo,
+      });
+    if (!expectedDeviceId) {
+      return undefined;
+    }
+    try {
+      // commType 'electron-ble' makes connect() treat this as a desktop BLE
+      // search device: it keeps the Noble peripheral id as-is and skips
+      // getCompatibleConnectId, so this cannot re-enter the current method.
+      const connectResult = await this.connect({
+        device: {
+          ...deviceUtils.dbDeviceToSearchDevice(device),
+          connectId,
+          deviceId: expectedDeviceId,
+          commType: 'electron-ble',
+        } as SearchDevice,
+        forceProtocolDetection: true,
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      if (connectResult && connectResult.deviceId === expectedDeviceId) {
+        await localDb.updateDeviceConnectId({
+          dbDeviceId: device.id,
+          bleConnectId: connectId,
+        });
+        return connectId;
+      }
+    } catch (error) {
+      console.error('Silent BLE connectId bind failed:', error);
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   async getCompatibleConnectId({
     hardwareCallContext,
@@ -4271,6 +4344,20 @@ class ServiceHardware extends ServiceBase {
       if (device && !persistedDesktopBleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
           return device.usbConnectId || device.connectId || connectId;
+        }
+        // The caller may already hold a live BLE connectId (e.g. onboarding
+        // communicates over an active Noble session while the device record
+        // was created via USB and lacks bleConnectId). Verify and persist it
+        // silently before falling back to the pairing dialog (OK-60091).
+        const silentlyBoundBleConnectId =
+          await this.silentlyBindLiveDesktopBleConnectId({
+            device,
+            connectId,
+            featuresDeviceId,
+            features,
+          });
+        if (silentlyBoundBleConnectId) {
+          return silentlyBoundBleConnectId;
         }
         if (
           hardwareCallContext ===
