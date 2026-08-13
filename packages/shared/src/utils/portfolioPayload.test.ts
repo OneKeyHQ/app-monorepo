@@ -221,6 +221,28 @@ describe('buildPortfolioPayload', () => {
   });
 
   test.each([
+    ['gtq', 'Q'],
+    ['zmw', 'ZK'],
+  ])(
+    'separates alphabetic %s currency symbol %s from the amount',
+    (id, symbol) => {
+      const payload = buildPortfolioPayload({
+        account: { label: 'Account #1', addressMasked: '0x12...ab' },
+        aggregateTokenMap: {},
+        currencyMap,
+        displayCurrency: { id, symbol },
+        totalFiat: '0.04',
+        totalTokenCount: 0,
+        timestamp: 1_780_900_000,
+        tokenMap: {},
+        tokens: [],
+      });
+
+      expect(payload.totalFiat).toBe(`${symbol} 0.04`);
+    },
+  );
+
+  test.each([
     ['eur', '€'],
     ['krw', '₩'],
     ['inr', '₹'],
