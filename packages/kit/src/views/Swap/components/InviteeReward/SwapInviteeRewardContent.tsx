@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, Empty, SizableText, YStack } from '@onekeyhq/components';
@@ -104,12 +105,15 @@ export function SwapInviteeRewardContent({
   }
 
   const data = result?.status === 'success' ? result.data : undefined;
+  const distributedBonus = data
+    ? new BigNumber(data.totalBonus).minus(data.undistributed).toFixed()
+    : undefined;
   const showLoading = Boolean(isLoading || !result);
   const content = (
     <YStack gap="$5">
       <RewardSummaryCard
         isLoading={showLoading}
-        totalBonus={data?.totalBonus}
+        distributedBonus={distributedBonus}
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
       />
