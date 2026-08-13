@@ -70,6 +70,14 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
+      /**
+       * Skeleton just the token image while its URI is still being resolved,
+       * keeping the symbol readable. `loading` above blanks the whole trigger;
+       * this is for callers that already know the symbol but not the logo
+       * (e.g. Earn entered from a deep link without a tokenImageUri param) and
+       * would otherwise flash Image.Fallback's placeholder coin (OK-59961).
+       */
+      selectedTokenImageLoading?: boolean;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
       selectedNetworkName?: string;
@@ -203,6 +211,7 @@ export function AmountInput({
     const {
       popover: popoverProps,
       selectedTokenImageUri,
+      selectedTokenImageLoading,
       selectedNetworkImageUri,
       selectedTokenSymbol,
       selectedNetworkName,
@@ -253,28 +262,32 @@ export function AmountInput({
         onPress={hasPopover ? undefined : onPress}
       >
         <Stack mr="$2">
-          <Image
-            size="$7"
-            borderRadius="$full"
-            source={{
-              uri: selectedTokenImageUri,
-            }}
-            fallback={
-              <Image.Fallback
-                borderRadius="$full"
-                alignItems="center"
-                justifyContent="center"
-                bg="$gray5"
-              >
-                <Icon
-                  size="$6"
-                  m="$1"
-                  name="CryptoCoinOutline"
-                  color="$iconSubdued"
-                />
-              </Image.Fallback>
-            }
-          />
+          {selectedTokenImageLoading ? (
+            <Skeleton w="$7" h="$7" radius="round" />
+          ) : (
+            <Image
+              size="$7"
+              borderRadius="$full"
+              source={{
+                uri: selectedTokenImageUri,
+              }}
+              fallback={
+                <Image.Fallback
+                  borderRadius="$full"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$gray5"
+                >
+                  <Icon
+                    size="$6"
+                    m="$1"
+                    name="CryptoCoinOutline"
+                    color="$iconSubdued"
+                  />
+                </Image.Fallback>
+              }
+            />
+          )}
           {selectedNetworkImageUri ? (
             <Stack
               position="absolute"

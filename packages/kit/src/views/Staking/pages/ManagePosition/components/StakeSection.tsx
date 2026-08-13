@@ -760,6 +760,7 @@ export const StakeSection = ({
         networkId={networkId}
         balance="0"
         tokenImageUri={fallbackTokenImageUri}
+        tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
         approveTarget={{
@@ -827,6 +828,14 @@ export const StakeSection = ({
           balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
+          }
+          // Token metadata not in yet and no image came from route params:
+          // skeleton the icon rather than flashing the placeholder coin.
+          // Guarded on the metadata being absent (not merely on a missing
+          // image) so a token that genuinely has no logo still renders its
+          // fallback instead of a skeleton that never resolves (OK-59961).
+          tokenImageLoading={
+            !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
           }
           tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}
