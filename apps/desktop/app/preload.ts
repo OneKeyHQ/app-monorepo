@@ -11,10 +11,19 @@ import { ipcMessageKeys } from './config';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
-const desktopBleConnectedOnlyScopeCount = new Map<string, number>();
+const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
+const desktopBleConnectedOnlyScopes = new Map<
+  string,
+  { count: number; expiresAt: number }
+>();
 
 function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
-  return (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) > 0;
+  const scope = desktopBleConnectedOnlyScopes.get(uuid);
+  if (!scope || scope.expiresAt <= Date.now()) {
+    desktopBleConnectedOnlyScopes.delete(uuid);
+    return false;
+  }
+  return scope.count > 0;
 }
 
 export interface IVerifyUpdateParams {
@@ -235,17 +244,26 @@ const desktopApi = {
   // Desktop Bluetooth
   nobleBle: {
     beginConnectedOnlyScope: (uuid: string) => {
-      desktopBleConnectedOnlyScopeCount.set(
-        uuid,
-        (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) + 1,
-      );
+      const scope = desktopBleConnectedOnlyScopes.get(uuid);
+      const activeScope =
+        scope && scope.expiresAt > Date.now() ? scope : undefined;
+      desktopBleConnectedOnlyScopes.set(uuid, {
+        count: (activeScope?.count ?? 0) + 1,
+        expiresAt: Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
+      });
     },
     endConnectedOnlyScope: (uuid: string) => {
-      const nextCount = (desktopBleConnectedOnlyScopeCount.get(uuid) ?? 0) - 1;
+      const scope = desktopBleConnectedOnlyScopes.get(uuid);
+      const nextCount = (scope?.count ?? 0) - 1;
       if (nextCount > 0) {
-        desktopBleConnectedOnlyScopeCount.set(uuid, nextCount);
+        desktopBleConnectedOnlyScopes.set(uuid, {
+          count: nextCount,
+          expiresAt:
+            scope?.expiresAt ??
+            Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
+        });
       } else {
-        desktopBleConnectedOnlyScopeCount.delete(uuid);
+        desktopBleConnectedOnlyScopes.delete(uuid);
       }
     },
     enumerate: () =>

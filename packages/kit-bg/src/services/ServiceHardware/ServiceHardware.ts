@@ -2821,6 +2821,7 @@ class ServiceHardware extends ServiceBase {
         EHardwareTransportType.DesktopWebBle
     ) {
       throw new deviceErrors.DeviceNotFound({
+        silentMode: true,
         payload: {
           connectId: options.connectId,
           inBluetoothCommunication: true,
@@ -3410,10 +3411,12 @@ class ServiceHardware extends ServiceBase {
       connectId: compatibleConnectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
-        convertDeviceResponse(() =>
-          hardwareSDK.uploadPortfolio(compatibleConnectId, {
-            packageBase64,
-          }),
+        convertDeviceResponse(
+          () =>
+            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+              packageBase64,
+            }),
+          { silentMode: true },
         ),
     });
   }

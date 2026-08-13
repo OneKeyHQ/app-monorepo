@@ -379,6 +379,21 @@ export class HardwareConnectionManager {
           EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         ].includes(resolvedHardwareCallContext);
 
+      // quick detect mini device
+      const isMiniDevice = connectId && connectId.startsWith('MI');
+      // Mini does not support BLE, so it must always use the configured USB transport.
+      if (isMiniDevice) {
+        const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
+        const targetType =
+          usbSetting === 'webusb'
+            ? EHardwareTransportType.WEBUSB
+            : EHardwareTransportType.Bridge;
+        return {
+          shouldSwitch: this.actualTransportType !== targetType,
+          targetType,
+        };
+      }
+
       if (isDesktopBackgroundCall) {
         const targetType = await this.getCurrentTransportType();
         return {
@@ -403,21 +418,6 @@ export class HardwareConnectionManager {
         const shouldSwitch = this.actualTransportType !== targetType;
         return {
           shouldSwitch,
-          targetType,
-        };
-      }
-
-      // quick detect mini device
-      const isMiniDevice = connectId && connectId.startsWith('MI');
-      // Mini does not support BLE, so it must always use the configured USB transport.
-      if (isMiniDevice) {
-        const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
-        const targetType =
-          usbSetting === 'webusb'
-            ? EHardwareTransportType.WEBUSB
-            : EHardwareTransportType.Bridge;
-        return {
-          shouldSwitch: this.actualTransportType !== targetType,
           targetType,
         };
       }

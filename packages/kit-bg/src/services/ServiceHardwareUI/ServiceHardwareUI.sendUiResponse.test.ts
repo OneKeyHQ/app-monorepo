@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -291,6 +293,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
 describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
   beforeEach(() => {
     Object.assign(platformEnv, { isDesktop: false, isNative: true });
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -345,6 +348,8 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
         deviceParams: {
           dbDevice: {
             connectId: 'PRO2_BLE_ID',
+            connectProtocol: 'V2',
+            deviceType: EDeviceType.Pro2,
             id: 'db-device-1',
             vendor: EHardwareVendor.onekey,
           },
@@ -371,6 +376,8 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
           deviceParams: {
             dbDevice: {
               connectId: 'PRO2_BLE_ID',
+              connectProtocol: 'V2',
+              deviceType: EDeviceType.Pro2,
               id: 'db-device-1',
               vendor: EHardwareVendor.onekey,
             },
@@ -395,6 +402,8 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
         deviceParams: {
           dbDevice: {
             connectId: 'PRO2_USB_ID',
+            connectProtocol: 'V2',
+            deviceType: EDeviceType.Pro2,
             id: 'db-device-1',
             vendor: EHardwareVendor.onekey,
           },
@@ -415,6 +424,55 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     });
   });
 
+  it('does not notify Portfolio sync for an unsupported desktop device', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    const {
+      notifyInteractiveHardwareOperationStarted,
+      notifyInteractiveHardwareOperationSucceeded,
+      service,
+    } = prepareService();
+
+    await expect(
+      service.withHardwareProcessing(async () => 'address', {
+        deviceParams: {
+          dbDevice: {
+            connectId: 'CLASSIC_BLE_ID',
+            connectProtocol: 'V1',
+            deviceType: EDeviceType.Classic,
+            id: 'db-device-1',
+            vendor: EHardwareVendor.onekey,
+          },
+        } as never,
+      }),
+    ).resolves.toBe('address');
+
+    expect(notifyInteractiveHardwareOperationStarted).not.toHaveBeenCalled();
+    expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
+  });
+
+  it('keeps the existing Portfolio lease when firmware preflight rejects', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
+    const { notifyInteractiveHardwareOperationStarted, service } =
+      prepareService();
+
+    await expect(
+      service.withHardwareProcessing(async () => 'address', {
+        deviceParams: {
+          dbDevice: {
+            connectId: 'PRO2_BLE_ID',
+            connectProtocol: 'V2',
+            deviceType: EDeviceType.Pro2,
+            id: 'db-device-1',
+            vendor: EHardwareVendor.onekey,
+          },
+        } as never,
+      }),
+    ).rejects.toThrow('Hardware is busy');
+
+    expect(notifyInteractiveHardwareOperationStarted).not.toHaveBeenCalled();
+  });
+
   it('arms desktop Portfolio sync only after the outer leased operation finishes', async () => {
     Object.assign(platformEnv, { isDesktop: true, isNative: false });
     const {
@@ -425,6 +483,8 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     const deviceParams = {
       dbDevice: {
         connectId: 'PRO2_BLE_ID',
+        connectProtocol: 'V2',
+        deviceType: EDeviceType.Pro2,
         id: 'db-device-1',
         vendor: EHardwareVendor.onekey,
       },
@@ -463,6 +523,8 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     const deviceParams = {
       dbDevice: {
         connectId: 'PRO2_BLE_ID',
+        connectProtocol: 'V2',
+        deviceType: EDeviceType.Pro2,
         id: 'db-device-1',
         vendor: EHardwareVendor.onekey,
       },

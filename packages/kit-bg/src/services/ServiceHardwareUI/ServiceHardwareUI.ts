@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -526,14 +527,36 @@ class ServiceHardwareUI extends ServiceBase {
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
     const device = params.deviceParams?.dbDevice;
+    const vendor = device?.vendor ?? device?.settings?.vendor;
     const isThirdPartyVendor = getVendorProfile(
-      device?.vendor ?? EHardwareVendor.onekey,
+      vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
+    const supportsPortfolioSync = Boolean(
+      device &&
+      isProtocolV2ProductType(device.deviceType) &&
+      (device.connectProtocol === 'V2' ||
+        device.deviceStateInfo?.protocol === 'V2') &&
+      vendor === EHardwareVendor.onekey,
+    );
     // Nested calls reuse the active OneKey operation lease. Only the lease
     // owner represents a complete interaction and may resume Portfolio sync.
     const shouldNotifyPortfolioInteraction =
-      !params.oneKeyOperationLease && !isThirdPartyVendor;
+      !params.oneKeyOperationLease &&
+      !isThirdPartyVendor &&
+      supportsPortfolioSync;
     let desktopInteractionGeneration: number | undefined;
+    if (
+      !params.allowDuringFirmwareUpdate &&
+      (this.firmwareUpdateExclusiveDepth > 0 ||
+        (await firmwareUpdateWorkflowRunningAtom.get()))
+    ) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_hardware_is_busy,
+        }),
+        autoToast: false,
+      });
+    }
     if (
       shouldNotifyPortfolioInteraction &&
       platformEnv.isDesktop &&
@@ -548,18 +571,6 @@ class ServiceHardwareUI extends ServiceBase {
       if (typeof generation === 'number') {
         desktopInteractionGeneration = generation;
       }
-    }
-    if (
-      !params.allowDuringFirmwareUpdate &&
-      (this.firmwareUpdateExclusiveDepth > 0 ||
-        (await firmwareUpdateWorkflowRunningAtom.get()))
-    ) {
-      throw new OneKeyLocalError({
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.feedback_hardware_is_busy,
-        }),
-        autoToast: false,
-      });
     }
     if (isThirdPartyVendor) {
       return this.withHardwareProcessingInternal(() => fn(undefined), params);

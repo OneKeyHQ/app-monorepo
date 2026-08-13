@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
@@ -418,6 +419,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).rejects.toThrow();
     expect(getDeviceStateWithMutex).not.toHaveBeenCalled();
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
   });
 
   it('allows only the scoped connected-only desktop BLE background call', async () => {
@@ -1409,6 +1411,37 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('keeps Mini on USB for a desktop background call after BLE was active', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({
+            settings: { usbCommunicationMode: 'webusb' },
+          }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.connectionManager.setCurrentTransportType(
+      EHardwareTransportType.DesktopWebBle,
+    );
+
+    await expect(
+      service.connectionManager.shouldSwitchTransportType({
+        connectId: 'MI123456789',
+        connectProtocol: 'V1',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      }),
+    ).resolves.toEqual({
+      shouldSwitch: true,
+      targetType: EHardwareTransportType.WEBUSB,
+    });
+  });
+
   it('uses WebUSB for Protocol V2 even when Bridge is configured', async () => {
     const service = new ServiceHardware({
       backgroundApi: {
@@ -2074,6 +2107,43 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       ).rejects.toThrow('BLE failed');
       expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
       expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+    } finally {
+      globalThis.desktopApi = originalDesktopApi;
+    }
+  });
+
+  it('keeps desktop BLE Portfolio upload errors silent', async () => {
+    const originalDesktopApi = globalThis.desktopApi;
+    globalThis.desktopApi = {
+      nobleBle: {
+        beginConnectedOnlyScope: jest.fn(),
+        endConnectedOnlyScope: jest.fn(),
+      },
+    } as never;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_BLE_ID');
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio: jest.fn().mockResolvedValue({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.DeviceNotFound,
+          error: 'Device not found',
+        },
+      }),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    try {
+      await expect(
+        service.uploadPortfolioPackage({
+          connectId: 'PRO2_BLE_ID',
+          desktopBleReuseConnectedOnly: true,
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+          packageBase64: 'AQID',
+        }),
+      ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceNotFound });
+      expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
     } finally {
       globalThis.desktopApi = originalDesktopApi;
     }
