@@ -167,17 +167,18 @@ export function TokenList({
     <YStack gap="$1">
       <YStack px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => {
-          const isDisabled = Boolean(
-            (currentSelectToken &&
-              equalTokenNoCaseSensitive({
-                token1: currentSelectToken,
-                token2: token,
-              })) ||
-            (disableNativeToken && token.isNative) ||
-            isTokenDisabled?.(token),
+          const isCurrentToken = Boolean(
+            currentSelectToken &&
+            equalTokenNoCaseSensitive({
+              token1: currentSelectToken,
+              token2: token,
+            }),
+          );
+          const isTokenUnavailable = Boolean(
+            (disableNativeToken && token.isNative) || isTokenDisabled?.(token),
           );
           const onPress = () => {
-            if (isDisabled) return;
+            if (isCurrentToken || isTokenUnavailable) return;
             onTokenPress?.(token);
           };
           return (
@@ -193,7 +194,7 @@ export function TokenList({
               valueProps={token.valueProps}
               onPress={onPress}
               margin={0}
-              disabled={isDisabled}
+              disabled={isTokenUnavailable}
             />
           );
         })}

@@ -73,6 +73,7 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import { SwapOrderProgress } from '../../components/SwapOrderProgress';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFee';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
@@ -1392,6 +1393,10 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
+    const isSponsored = txHistory?.swapInfo?.isFreeNetworkFee === true;
+    if (isSponsored) {
+      return <SwapSponsoredNetworkFee />;
+    }
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
     if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
       return (

@@ -142,6 +142,7 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
+import { isSwapGasSponsored } from '../utils/swapGasUtils';
 import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategoryFromSwapType,
@@ -176,6 +177,7 @@ type ISwapGasFeeInfo = {
 type ISwapSendTxResult = ISignedTxPro & {
   gasFeeFiatValue?: string;
   gasFeeInNative?: string;
+  isNetworkFeeSponsored?: boolean;
 };
 
 type IEstimateNetworkFeeResult = {
@@ -441,6 +443,7 @@ export function useSwapBuildTx({
       orderId?: string,
       gasFeeFiatValue?: string,
       gasFeeInNative?: string,
+      isNetworkFeeSponsored?: boolean,
     ) => {
       if (swapInfo) {
         clearQuoteData();
@@ -472,7 +475,10 @@ export function useSwapBuildTx({
         }
         await completeBroadcastedSwapSuccess({
           txId,
-          swapInfo,
+          swapInfo:
+            isNetworkFeeSponsored === undefined
+              ? swapInfo
+              : { ...swapInfo, isNetworkFeeSponsored },
           gasFeeFiatValue,
           gasFeeInNative,
           generateSwapHistoryItem,
@@ -1016,6 +1022,7 @@ export function useSwapBuildTx({
               idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
             }
           : undefined;
+      let isNetworkFeeSponsored = isSwapGasSponsored(gasInfo);
       const sendTxParams = {
         networkId,
         accountId,
@@ -1058,6 +1065,7 @@ export function useSwapBuildTx({
             await backgroundApiProxy.serviceSend.signAndSendTransaction(
               sendTxParams,
             );
+          isNetworkFeeSponsored = false;
         } else {
           // Refresh (quote/nonce stale — already prevented in Swap by the
           // fresh estimate-at-send + locked nonce) and Hint (terminal) fail the
@@ -1093,6 +1101,7 @@ export function useSwapBuildTx({
         ...res,
         gasFeeFiatValue: totalFiatForDisplay,
         gasFeeInNative: totalNativeForDisplay,
+        isNetworkFeeSponsored,
       };
     },
     [
@@ -1275,6 +1284,7 @@ export function useSwapBuildTx({
             orderId,
             totalFeeFiatValue,
             totalFeeInNative,
+            res[0].isNetworkFeeSponsored,
           );
         }
       }
@@ -2645,6 +2655,7 @@ export function useSwapBuildTx({
                 orderId,
                 sendTxRes.gasFeeFiatValue,
                 sendTxRes.gasFeeInNative,
+                sendTxRes.isNetworkFeeSponsored,
               );
             }
           }
@@ -2975,6 +2986,7 @@ export function useSwapBuildTx({
             undefined,
             sendTxRes.gasFeeFiatValue,
             sendTxRes.gasFeeInNative,
+            sendTxRes.isNetworkFeeSponsored,
           );
           return sendTxRes;
         }
