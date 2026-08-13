@@ -532,15 +532,11 @@ function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
   };
 }
 
-// Keys derived on private-key handling paths must not linger in the cache;
-// returns undefined on platforms without webcrypto so defaults stay untouched.
-function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams | undefined {
-  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
-  if (kdfParams.kdfBackend !== 'webcrypto') {
-    return undefined;
-  }
+// Keys derived on private-key handling paths must never linger in the cache,
+// so the cache is disabled on every platform, not only when webcrypto is used.
+function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams {
   return {
-    ...kdfParams,
+    ...getPbkdf2KdfParamsForNonDbTx(),
     enablePbkdf2Cache: false,
   };
 }

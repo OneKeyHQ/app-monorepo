@@ -379,6 +379,15 @@ function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
   };
 }
 
+// Keys derived on private-key handling paths must never linger in the cache,
+// so the cache is disabled on every platform, not only when webcrypto is used.
+function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams {
+  return {
+    ...getPbkdf2KdfParamsForNonDbTx(),
+    enablePbkdf2Cache: false,
+  };
+}
+
 async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   return runPbkdf2WithCache(params, () => {
     if (shouldUseWebCryptoPbkdf2(params)) {
@@ -471,6 +480,7 @@ export {
   getPbkdf2InvocationByProbeId,
   getPbkdf2BackendForCurrentPlatform,
   getPbkdf2KdfParamsForNonDbTx,
+  getPbkdf2KdfParamsForNonDbTxNoCache,
   getPbkdf2NativeBackend,
   isWebCryptoPbkdf2Supported,
   setPbkdf2NativeBackend,
