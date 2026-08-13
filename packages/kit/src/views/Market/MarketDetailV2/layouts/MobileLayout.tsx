@@ -165,7 +165,7 @@ const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
-const MARKET_DETAIL_IOS_INITIAL_SUB_INDICATOR_STABILIZATION_MS = 500;
+const MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS = 500;
 
 function MobileIndicatorQuickBar({
   children,
@@ -378,10 +378,10 @@ export function MobileLayout({
       chartKey: marketTradingViewKey,
       defaultCount: defaultSubIndicatorCount,
       stabilizeInitialCount: Boolean(
-        platformEnv.isNativeIOS && !useTradingViewNative,
+        platformEnv.isNative && !useTradingViewNative,
       ),
       stabilizationDelayMs:
-        MARKET_DETAIL_IOS_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
+        MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
     });
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
