@@ -4242,7 +4242,13 @@ class ServiceHardware extends ServiceBase {
           timeout: DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
         },
       });
-      if (connectResult && connectResult.deviceId === expectedDeviceId) {
+      // The probe identity must come from the probe result itself. V1
+      // features carry the SDK-normalized `deviceId`; V2 state projections
+      // (projectLegacyDeviceFeaturesFromState) only carry the raw
+      // `device_id` field.
+      const probedDeviceId =
+        connectResult?.deviceId || connectResult?.device_id || '';
+      if (probedDeviceId && probedDeviceId === expectedDeviceId) {
         await localDb.updateDeviceConnectId({
           dbDeviceId: device.id,
           bleConnectId: connectId,

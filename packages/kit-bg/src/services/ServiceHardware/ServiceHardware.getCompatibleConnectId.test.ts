@@ -476,9 +476,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         delete: jest.fn(),
       },
     ) as typeof service.connectionManager.shouldSwitchTransportType;
+    // V2 state projections expose only the raw device_id field (no
+    // SDK-normalized deviceId) — the identity check must handle that shape.
     const getFeaturesSpy = jest
       .spyOn(service, 'getFeaturesWithoutCache')
-      .mockResolvedValue({ deviceId: 'PRO2_DEVICE_ID' } as any);
+      .mockResolvedValue({ device_id: 'PRO2_DEVICE_ID' } as any);
     // Live traffic was just observed on this connectId (paired by evidence).
     service.recordLiveConnectIdEvidence(liveBleConnectId);
 
