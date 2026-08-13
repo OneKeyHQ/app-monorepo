@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import Svg, { ClipPath, Defs, G, Image, Path, Rect } from 'react-native-svg';
 
@@ -150,33 +150,41 @@ function BasicQRCode({
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
   const logoRadius = logoBorderRadius ?? 9999;
+  // clipPath ids live in the document, not the <Svg>, so two codes on one
+  // screen would both resolve to whichever defined them first and the second
+  // logo would be clipped to the first one's shape.
+  const clipIdSuffix = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const wrapperClipId = `qrLogoWrapper${clipIdSuffix}`;
+  const logoClipId = `qrLogo${clipIdSuffix}`;
 
   return (
     <Svg height={size} width={size}>
-      <Defs>
-        <ClipPath id="clip-wrapper">
-          <Rect
-            height={logoWrapperSize}
-            width={logoWrapperSize}
-            rx={logoRadius}
-            ry={logoRadius}
-          />
-        </ClipPath>
-        <ClipPath id="clip-logo">
-          <Rect
-            height={logoSize}
-            width={logoSize}
-            rx={logoRadius}
-            ry={logoRadius}
-          />
-        </ClipPath>
-      </Defs>
+      {hasLogo ? (
+        <Defs>
+          <ClipPath id={wrapperClipId}>
+            <Rect
+              height={logoWrapperSize}
+              width={logoWrapperSize}
+              rx={logoRadius}
+              ry={logoRadius}
+            />
+          </ClipPath>
+          <ClipPath id={logoClipId}>
+            <Rect
+              height={logoSize}
+              width={logoSize}
+              rx={logoRadius}
+              ry={logoRadius}
+            />
+          </ClipPath>
+        </Defs>
+      ) : null}
       <Rect fill={secondaryColor} height={size} width={size} />
       {result}
-      {logo || logoSvg ? (
+      {hasLogo ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
-            clipPath="url(#clip-wrapper)"
+            clipPath={`url(#${wrapperClipId})`}
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
@@ -186,7 +194,7 @@ function BasicQRCode({
           <G x={logoMargin} y={logoMargin}>
             {logo ? (
               <Image
-                clipPath="url(#clip-logo)"
+                clipPath={`url(#${logoClipId})`}
                 height={logoSize}
                 href={href}
                 preserveAspectRatio="xMidYMid slice"
