@@ -50,6 +50,10 @@ const SWAP_PRO_TRANSACTION_LIMIT = 10;
 const MARKET_TRANSACTIONS_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
+const HYPERLIQUID_SUBSCRIPTION_RETRY_BASE_DELAY_MS =
+  timerUtils.getTimeDurationMs({ seconds: 1 });
+const HYPERLIQUID_SUBSCRIPTION_RETRY_MAX_DELAY_MS =
+  timerUtils.getTimeDurationMs({ seconds: 30 });
 
 function useSwapProMarketDataFeed({
   tokenAddress,
@@ -126,6 +130,7 @@ function useSwapProMarketDataFeed({
         source === 'market' && !canUseMarketWebSocket
           ? MARKET_TRANSACTIONS_POLLING_INTERVAL_MS
           : undefined,
+      revalidateOnReconnect: source === 'hyperliquid',
     },
   );
 
@@ -182,6 +187,8 @@ function useHyperliquidTradesWebSocket({
     );
     let disposed = false;
     let subscriptionAcquired = false;
+    let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined;
+    let subscriptionRetryAttempt = 0;
     const releaseSubscription = () => {
       if (!subscriptionAcquired) {
         return;
@@ -196,23 +203,39 @@ function useHyperliquidTradesWebSocket({
           );
         });
     };
-    void backgroundApiProxy.serviceHyperliquidSubscription
-      .subscribePublicTrades({ coin })
-      .then(() => {
-        subscriptionAcquired = true;
-        if (disposed) {
-          releaseSubscription();
-        }
-      })
-      .catch((error) => {
-        console.error(
-          'Failed to subscribe to Hyperliquid public trades:',
-          error,
-        );
-      });
+    const subscribe = () => {
+      void backgroundApiProxy.serviceHyperliquidSubscription
+        .subscribePublicTrades({ coin })
+        .then(() => {
+          subscriptionAcquired = true;
+          if (disposed) {
+            releaseSubscription();
+          }
+        })
+        .catch((error) => {
+          console.error(
+            'Failed to subscribe to Hyperliquid public trades:',
+            error,
+          );
+          if (disposed) {
+            return;
+          }
+          const retryDelay = Math.min(
+            HYPERLIQUID_SUBSCRIPTION_RETRY_BASE_DELAY_MS *
+              2 ** subscriptionRetryAttempt,
+            HYPERLIQUID_SUBSCRIPTION_RETRY_MAX_DELAY_MS,
+          );
+          subscriptionRetryAttempt += 1;
+          subscriptionRetryTimer = setTimeout(subscribe, retryDelay);
+        });
+    };
+    subscribe();
 
     return () => {
       disposed = true;
+      if (subscriptionRetryTimer) {
+        clearTimeout(subscriptionRetryTimer);
+      }
       appEventBus.off(
         EAppEventBusNames.HyperliquidDataUpdate,
         handleHyperliquidDataUpdate,

@@ -73,7 +73,9 @@ const SwapProPriceInfo = ({
       userSelect="none"
       cursor="pointer"
       onPress={() => {
-        onPricePress(unFormattedPrice);
+        if (marketData.price) {
+          onPricePress(marketData.price);
+        }
       }}
     >
       <NumberSizeableText

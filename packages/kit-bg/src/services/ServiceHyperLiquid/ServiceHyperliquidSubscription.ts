@@ -1947,6 +1947,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesBatches.clear();
   }
 
+  private async _disposePublicTrades(): Promise<void> {
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        this._publicTradesSubscriptions.clear();
+        await this._closePublicTradesClient();
+      },
+    );
+  }
+
   @backgroundMethod()
   async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
     const normalizedCoin = coin.trim();
@@ -3060,6 +3070,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   async dispose(): Promise<void> {
     this._resetFundedActivationRefreshState();
+    await this._disposePublicTrades();
     await this.disconnect();
   }
 }
