@@ -176,12 +176,14 @@ function NativeBannerScroller({
   handleDismiss,
   leadingContent,
   leadingContentWidth = 0,
+  disableHeaderScrollGesture = false,
 }: {
   banners: IWalletBanner[];
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
   leadingContent?: ReactNode;
   leadingContentWidth?: number;
+  disableHeaderScrollGesture?: boolean;
 }) {
   // Track touch distance on JS thread to suppress onPress during drags.
   // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
@@ -275,39 +277,42 @@ function NativeBannerScroller({
     [handleBannerOnPress],
   );
 
-  return (
-    <HeaderScrollGestureWrapper>
-      <YStack
-        bg="$bgApp"
-        overflow="hidden"
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-      >
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              {
-                flexDirection: 'row',
-                paddingHorizontal: BANNER_PADDING_H,
-                gap: BANNER_GAP,
-              },
-              animatedStyle,
-            ]}
-          >
-            {leadingContent}
-            {banners.map((item) => (
-              <BannerItem
-                key={item.id}
-                item={item}
-                onPress={wrappedHandleBannerOnPress}
-                onDismiss={handleDismiss}
-              />
-            ))}
-          </Animated.View>
-        </GestureDetector>
-      </YStack>
-    </HeaderScrollGestureWrapper>
+  const content = (
+    <YStack
+      bg="$bgApp"
+      overflow="hidden"
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+    >
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            {
+              flexDirection: 'row',
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            },
+            animatedStyle,
+          ]}
+        >
+          {leadingContent}
+          {banners.map((item) => (
+            <BannerItem
+              key={item.id}
+              item={item}
+              onPress={wrappedHandleBannerOnPress}
+              onDismiss={handleDismiss}
+            />
+          ))}
+        </Animated.View>
+      </GestureDetector>
+    </YStack>
+  );
+  return disableHeaderScrollGesture ? (
+    content
+  ) : (
+    <HeaderScrollGestureWrapper>{content}</HeaderScrollGestureWrapper>
   );
 }
 
@@ -525,7 +530,13 @@ function PerpsReferralDialogContent({
   );
 }
 
-function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
+function WalletBanner({
+  hidden = false,
+  embeddedInNativeHomeContainer = false,
+}: {
+  hidden?: boolean;
+  embeddedInNativeHomeContainer?: boolean;
+} = {}) {
   const {
     activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -850,6 +861,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         handleDismiss={handleDismiss}
         leadingContent={tronCard}
         leadingContentWidth={tronCard ? TRON_CARD_WIDTH : 0}
+        disableHeaderScrollGesture={embeddedInNativeHomeContainer}
       />
     );
   }

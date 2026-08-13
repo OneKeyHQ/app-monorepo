@@ -27,42 +27,42 @@ public extension INativeHomeThemeViewModel {
   var colorScheme: NativeHomeColorScheme {
     return self.__colorScheme
   }
-
+  
   @inline(__always)
   var backgroundColor: String {
     return String(self.__backgroundColor)
   }
-
+  
   @inline(__always)
   var surfaceColor: String {
     return String(self.__surfaceColor)
   }
-
+  
   @inline(__always)
   var primaryTextColor: String {
     return String(self.__primaryTextColor)
   }
-
+  
   @inline(__always)
   var secondaryTextColor: String {
     return String(self.__secondaryTextColor)
   }
-
+  
   @inline(__always)
   var disabledTextColor: String {
     return String(self.__disabledTextColor)
   }
-
+  
   @inline(__always)
   var successTextColor: String {
     return String(self.__successTextColor)
   }
-
+  
   @inline(__always)
   var criticalTextColor: String {
     return String(self.__criticalTextColor)
   }
-
+  
   @inline(__always)
   var accentColor: String {
     return String(self.__accentColor)

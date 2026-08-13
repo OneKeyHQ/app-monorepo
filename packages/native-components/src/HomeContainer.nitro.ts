@@ -14,8 +14,8 @@ export type NativeHomeTabId =
 export type NativeHomeColorScheme = 'light' | 'dark';
 export type NativeHomeHeaderState = 'loading' | 'ready';
 export type NativeHomeHeaderActionLayout = 'loading' | 'zero' | 'funded';
-export type NativeHomePortfolioState = 'initialLoading' | 'ready' | 'empty';
-export type NativeHomePortfolioValuationState = 'loading' | 'ready';
+export type NativeHomeSpotTokensState = 'initialLoading' | 'ready' | 'empty';
+export type NativeHomeSpotTokenValuationState = 'loading' | 'ready';
 export type NativeHomePriceChangeDirection =
   | 'negative'
   | 'neutral'
@@ -39,7 +39,7 @@ export type NativeHomeHeaderActionIcon =
   | 'send'
   | 'staking'
   | 'swap';
-export type NativeHomePortfolioActionId =
+export type NativeHomeSpotTokensActionId =
   | 'manageTokens'
   | 'openLowValueAssets'
   | 'openRiskAssets'
@@ -68,12 +68,18 @@ export interface INativeHomeTabViewModel {
   enabled: boolean;
 }
 
+export interface INativeHomeNavigationViewModel {
+  selectedTab: NativeHomeTabId;
+  tabs: INativeHomeTabViewModel[];
+}
+
 export interface INativeHomeHeaderViewModel {
   state: NativeHomeHeaderState;
   balanceText: string;
   balanceHidden: boolean;
   balanceActionId: NativeHomeHeaderActionId;
   balanceActionEnabled: boolean;
+  bannerVisible: boolean;
   actionLayout: NativeHomeHeaderActionLayout;
   actionSubtitle: string;
   actions: INativeHomeHeaderActionViewModel[];
@@ -86,21 +92,21 @@ export interface INativeHomeHeaderActionViewModel {
   enabled: boolean;
 }
 
-export interface INativeHomePortfolioViewModel {
+export interface INativeHomeSpotTokensViewModel {
   title: string;
-  state: NativeHomePortfolioState;
+  state: NativeHomeSpotTokensState;
   emptyText: string;
   showMoreTitle: string;
   showLessTitle: string;
   initialVisibleItemCount: number;
-  items: INativeHomePortfolioItemViewModel[];
-  deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel;
-  lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel;
-  riskAssets: INativeHomePortfolioRiskAssetsViewModel;
-  manageTokens: INativeHomePortfolioManageTokensViewModel;
+  items: INativeHomeSpotTokenItemViewModel[];
+  deFiTokensFilter: INativeHomeSpotTokensDeFiFilterViewModel;
+  lowValueAssets: INativeHomeSpotTokensLowValueAssetsViewModel;
+  riskAssets: INativeHomeSpotTokensRiskAssetsViewModel;
+  manageTokens: INativeHomeSpotTokensManageTokensViewModel;
 }
 
-export interface INativeHomePortfolioDeFiTokensViewModel {
+export interface INativeHomeSpotTokensDeFiFilterViewModel {
   visible: boolean;
   title: string;
   selected: boolean;
@@ -108,27 +114,27 @@ export interface INativeHomePortfolioDeFiTokensViewModel {
   enabled: boolean;
 }
 
-export interface INativeHomePortfolioLowValueAssetsViewModel {
+export interface INativeHomeSpotTokensLowValueAssetsViewModel {
   visible: boolean;
   title: string;
   valueText: string;
   enabled: boolean;
 }
 
-export interface INativeHomePortfolioRiskAssetsViewModel {
+export interface INativeHomeSpotTokensRiskAssetsViewModel {
   visible: boolean;
   title: string;
   enabled: boolean;
 }
 
-export interface INativeHomePortfolioManageTokensViewModel {
+export interface INativeHomeSpotTokensManageTokensViewModel {
   visible: boolean;
   instruction: string;
   actionTitle: string;
   enabled: boolean;
 }
 
-export interface INativeHomePortfolioItemViewModel {
+export interface INativeHomeSpotTokenItemViewModel {
   id: string;
   symbol: string;
   iconUrl: string;
@@ -138,30 +144,27 @@ export interface INativeHomePortfolioItemViewModel {
   priceChangeDirection: NativeHomePriceChangeDirection;
   balanceText: string;
   valueText: string;
-  valuationState: NativeHomePortfolioValuationState;
+  valuationState: NativeHomeSpotTokenValuationState;
   enabled: boolean;
-}
-
-export interface INativeHomeViewModel {
-  protocolVersion: number;
-  owner: INativeHomeOwnerToken;
-  selectedTab: NativeHomeTabId;
-  header: INativeHomeHeaderViewModel;
-  tabs: INativeHomeTabViewModel[];
-  portfolio: INativeHomePortfolioViewModel;
-  theme: INativeHomeThemeViewModel;
 }
 
 export interface INativeHomeIntent {
   owner: INativeHomeOwnerToken;
+  selectTabId?: NativeHomeTabId;
   headerActionId?: NativeHomeHeaderActionId;
-  portfolioItemId?: string;
-  portfolioActionId?: NativeHomePortfolioActionId;
-  portfolioActionValue?: boolean;
+  spotTokenItemId?: string;
+  spotTokensActionId?: NativeHomeSpotTokensActionId;
+  spotTokensActionValue?: boolean;
+  refreshTabId?: NativeHomeTabId;
 }
 
 export interface IHomeContainerNativeProps extends HybridViewProps {
-  state?: INativeHomeViewModel;
+  protocolVersion?: number;
+  owner?: INativeHomeOwnerToken;
+  navigation?: INativeHomeNavigationViewModel;
+  header?: INativeHomeHeaderViewModel;
+  spotTokens?: INativeHomeSpotTokensViewModel;
+  theme?: INativeHomeThemeViewModel;
   onIntent?: (intent: INativeHomeIntent) => void;
 }
 

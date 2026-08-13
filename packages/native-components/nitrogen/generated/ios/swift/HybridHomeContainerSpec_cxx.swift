@@ -122,12 +122,12 @@ open class HybridHomeContainerSpec_cxx {
   }
 
   // Properties
-  public final var state: bridge.std__optional_INativeHomeViewModel_ {
+  public final var protocolVersion: bridge.std__optional_double_ {
     @inline(__always)
     get {
-      return { () -> bridge.std__optional_INativeHomeViewModel_ in
-        if let __unwrappedValue = self.__implementation.state {
-          return bridge.create_std__optional_INativeHomeViewModel_(__unwrappedValue)
+      return { () -> bridge.std__optional_double_ in
+        if let __unwrappedValue = self.__implementation.protocolVersion {
+          return bridge.create_std__optional_double_(__unwrappedValue)
         } else {
           return .init()
         }
@@ -135,7 +135,92 @@ open class HybridHomeContainerSpec_cxx {
     }
     @inline(__always)
     set {
-      self.__implementation.state = newValue.value
+      self.__implementation.protocolVersion = newValue.value
+    }
+  }
+  
+  public final var owner: bridge.std__optional_INativeHomeOwnerToken_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_INativeHomeOwnerToken_ in
+        if let __unwrappedValue = self.__implementation.owner {
+          return bridge.create_std__optional_INativeHomeOwnerToken_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.owner = newValue.value
+    }
+  }
+  
+  public final var navigation: bridge.std__optional_INativeHomeNavigationViewModel_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_INativeHomeNavigationViewModel_ in
+        if let __unwrappedValue = self.__implementation.navigation {
+          return bridge.create_std__optional_INativeHomeNavigationViewModel_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.navigation = newValue.value
+    }
+  }
+  
+  public final var header: bridge.std__optional_INativeHomeHeaderViewModel_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_INativeHomeHeaderViewModel_ in
+        if let __unwrappedValue = self.__implementation.header {
+          return bridge.create_std__optional_INativeHomeHeaderViewModel_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.header = newValue.value
+    }
+  }
+  
+  public final var spotTokens: bridge.std__optional_INativeHomeSpotTokensViewModel_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_INativeHomeSpotTokensViewModel_ in
+        if let __unwrappedValue = self.__implementation.spotTokens {
+          return bridge.create_std__optional_INativeHomeSpotTokensViewModel_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.spotTokens = newValue.value
+    }
+  }
+  
+  public final var theme: bridge.std__optional_INativeHomeThemeViewModel_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_INativeHomeThemeViewModel_ in
+        if let __unwrappedValue = self.__implementation.theme {
+          return bridge.create_std__optional_INativeHomeThemeViewModel_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.theme = newValue.value
     }
   }
   

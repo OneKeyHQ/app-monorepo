@@ -1,20 +1,38 @@
-import type { INativeHomeViewModel } from './HomeContainer.nitro';
+import type {
+  IHomeContainerNativeProps,
+  INativeHomeIntent,
+} from './HomeContainer.nitro';
 
 describe('Native Home protocol', () => {
   it('keeps the first bridge state concrete and owner-scoped', () => {
-    const state = {
+    const props = {
       protocolVersion: 1,
       owner: {
         scopeKey: 'home|wallet|account|owner|network',
         sessionId: 'session-1',
       },
-      selectedTab: 'portfolio',
+      navigation: {
+        selectedTab: 'portfolio',
+        tabs: [
+          {
+            id: 'portfolio',
+            title: 'Portfolio',
+            enabled: true,
+          },
+          {
+            id: 'history',
+            title: 'History',
+            enabled: true,
+          },
+        ],
+      },
       header: {
         state: 'ready',
         balanceText: '$1,234.56',
         balanceHidden: false,
         balanceActionId: 'toggleBalanceVisibility',
         balanceActionEnabled: true,
+        bannerVisible: true,
         actionLayout: 'funded',
         actionSubtitle: '',
         actions: [
@@ -26,14 +44,7 @@ describe('Native Home protocol', () => {
           },
         ],
       },
-      tabs: [
-        {
-          id: 'portfolio',
-          title: 'Portfolio',
-          enabled: true,
-        },
-      ],
-      portfolio: {
+      spotTokens: {
         title: 'Tokens',
         state: 'ready',
         emptyText: 'No tokens',
@@ -91,14 +102,40 @@ describe('Native Home protocol', () => {
         criticalTextColor: '#FF9592',
         accentColor: '#44D62C',
       },
-    } satisfies INativeHomeViewModel;
+    } satisfies IHomeContainerNativeProps;
 
-    expect(state.owner).toEqual({
+    expect(props.owner).toEqual({
       scopeKey: 'home|wallet|account|owner|network',
       sessionId: 'session-1',
     });
-    expect(state.tabs).toHaveLength(1);
-    expect(state.portfolio.items[0]?.id).toBe('eth');
-    expect('sections' in state).toBe(false);
+    expect(props.navigation.tabs).toHaveLength(2);
+    expect(props.spotTokens.items[0]?.id).toBe('eth');
+    expect('sections' in props).toBe(false);
+  });
+
+  it('keeps tab and refresh intents concrete and owner-scoped', () => {
+    const selectionIntent = {
+      owner: {
+        scopeKey: 'home|wallet|account|owner|network',
+        sessionId: 'session-1',
+      },
+      selectTabId: 'history',
+    } satisfies INativeHomeIntent;
+    const intent = {
+      owner: {
+        scopeKey: 'home|wallet|account|owner|network',
+        sessionId: 'session-1',
+      },
+      refreshTabId: 'portfolio',
+    } satisfies INativeHomeIntent;
+
+    expect(selectionIntent.selectTabId).toBe('history');
+    expect(intent).toEqual({
+      owner: {
+        scopeKey: 'home|wallet|account|owner|network',
+        sessionId: 'session-1',
+      },
+      refreshTabId: 'portfolio',
+    });
   });
 });

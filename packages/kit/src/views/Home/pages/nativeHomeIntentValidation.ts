@@ -1,81 +1,110 @@
 import type {
+  INativeHomeHeaderViewModel,
   INativeHomeIntent,
-  INativeHomeViewModel,
+  INativeHomeNavigationViewModel,
+  INativeHomeOwnerToken,
+  INativeHomeSpotTokensViewModel,
 } from '@onekeyhq/native-components';
+
+export interface INativeHomeIntentValidationContext {
+  owner: INativeHomeOwnerToken;
+  navigation: INativeHomeNavigationViewModel;
+  header: INativeHomeHeaderViewModel;
+  spotTokens: INativeHomeSpotTokensViewModel;
+}
 
 export function isNativeHomeIntentExecutable({
   intent,
-  viewModel,
+  context,
 }: {
   intent: INativeHomeIntent;
-  viewModel: INativeHomeViewModel | null;
+  context: INativeHomeIntentValidationContext | null;
 }): boolean {
   if (
-    !viewModel ||
-    intent.owner.scopeKey !== viewModel.owner.scopeKey ||
-    intent.owner.sessionId !== viewModel.owner.sessionId
+    !context ||
+    intent.owner.scopeKey !== context.owner.scopeKey ||
+    intent.owner.sessionId !== context.owner.sessionId
   ) {
     return false;
   }
 
   const hasHeaderAction = intent.headerActionId !== undefined;
-  const hasPortfolioItem = intent.portfolioItemId !== undefined;
-  const hasPortfolioAction = intent.portfolioActionId !== undefined;
+  const hasSpotTokenItem = intent.spotTokenItemId !== undefined;
+  const hasSpotTokensAction = intent.spotTokensActionId !== undefined;
+  const hasTabSelection = intent.selectTabId !== undefined;
+  const hasRefresh = intent.refreshTabId !== undefined;
   if (
     Number(hasHeaderAction) +
-      Number(hasPortfolioItem) +
-      Number(hasPortfolioAction) !==
+      Number(hasSpotTokenItem) +
+      Number(hasSpotTokensAction) +
+      Number(hasTabSelection) +
+      Number(hasRefresh) !==
     1
   ) {
     return false;
   }
 
-  if (intent.portfolioActionValue !== undefined && !hasPortfolioAction) {
+  if (intent.spotTokensActionValue !== undefined && !hasSpotTokensAction) {
     return false;
   }
 
-  if (intent.portfolioItemId) {
-    return viewModel.portfolio.items.some(
-      (item) => item.id === intent.portfolioItemId && item.enabled,
+  if (hasTabSelection) {
+    return context.navigation.tabs.some(
+      (tab) => tab.id === intent.selectTabId && tab.enabled,
     );
   }
 
-  switch (intent.portfolioActionId) {
+  if (hasRefresh) {
+    return (
+      intent.refreshTabId === context.navigation.selectedTab &&
+      context.navigation.tabs.some(
+        (tab) => tab.id === intent.refreshTabId && tab.enabled,
+      )
+    );
+  }
+
+  if (intent.spotTokenItemId) {
+    return context.spotTokens.items.some(
+      (item) => item.id === intent.spotTokenItemId && item.enabled,
+    );
+  }
+
+  switch (intent.spotTokensActionId) {
     case 'toggleDeFiTokens':
       return (
-        viewModel.portfolio.deFiTokensFilter.visible &&
-        viewModel.portfolio.deFiTokensFilter.enabled &&
-        typeof intent.portfolioActionValue === 'boolean' &&
-        intent.portfolioActionValue !==
-          viewModel.portfolio.deFiTokensFilter.selected
+        context.spotTokens.deFiTokensFilter.visible &&
+        context.spotTokens.deFiTokensFilter.enabled &&
+        typeof intent.spotTokensActionValue === 'boolean' &&
+        intent.spotTokensActionValue !==
+          context.spotTokens.deFiTokensFilter.selected
       );
     case 'openLowValueAssets':
       return (
-        intent.portfolioActionValue === undefined &&
-        viewModel.portfolio.lowValueAssets.visible &&
-        viewModel.portfolio.lowValueAssets.enabled
+        intent.spotTokensActionValue === undefined &&
+        context.spotTokens.lowValueAssets.visible &&
+        context.spotTokens.lowValueAssets.enabled
       );
     case 'openRiskAssets':
       return (
-        intent.portfolioActionValue === undefined &&
-        viewModel.portfolio.riskAssets.visible &&
-        viewModel.portfolio.riskAssets.enabled
+        intent.spotTokensActionValue === undefined &&
+        context.spotTokens.riskAssets.visible &&
+        context.spotTokens.riskAssets.enabled
       );
     case 'manageTokens':
       return (
-        intent.portfolioActionValue === undefined &&
-        viewModel.portfolio.manageTokens.visible &&
-        viewModel.portfolio.manageTokens.enabled
+        intent.spotTokensActionValue === undefined &&
+        context.spotTokens.manageTokens.visible &&
+        context.spotTokens.manageTokens.enabled
       );
     default:
       break;
   }
 
-  if (intent.headerActionId === viewModel.header.balanceActionId) {
-    return viewModel.header.balanceActionEnabled;
+  if (intent.headerActionId === context.header.balanceActionId) {
+    return context.header.balanceActionEnabled;
   }
 
-  return viewModel.header.actions.some(
+  return context.header.actions.some(
     (action) => action.id === intent.headerActionId && action.enabled,
   );
 }

@@ -56,13 +56,14 @@ namespace margelo::nitro::onekeynativecomponents {
     bool balanceHidden     SWIFT_PRIVATE;
     NativeHomeHeaderActionId balanceActionId     SWIFT_PRIVATE;
     bool balanceActionEnabled     SWIFT_PRIVATE;
+    bool bannerVisible     SWIFT_PRIVATE;
     NativeHomeHeaderActionLayout actionLayout     SWIFT_PRIVATE;
     std::string actionSubtitle     SWIFT_PRIVATE;
     std::vector<INativeHomeHeaderActionViewModel> actions     SWIFT_PRIVATE;
 
   public:
     INativeHomeHeaderViewModel() = default;
-    explicit INativeHomeHeaderViewModel(NativeHomeHeaderState state, std::string balanceText, bool balanceHidden, NativeHomeHeaderActionId balanceActionId, bool balanceActionEnabled, NativeHomeHeaderActionLayout actionLayout, std::string actionSubtitle, std::vector<INativeHomeHeaderActionViewModel> actions): state(state), balanceText(balanceText), balanceHidden(balanceHidden), balanceActionId(balanceActionId), balanceActionEnabled(balanceActionEnabled), actionLayout(actionLayout), actionSubtitle(actionSubtitle), actions(actions) {}
+    explicit INativeHomeHeaderViewModel(NativeHomeHeaderState state, std::string balanceText, bool balanceHidden, NativeHomeHeaderActionId balanceActionId, bool balanceActionEnabled, bool bannerVisible, NativeHomeHeaderActionLayout actionLayout, std::string actionSubtitle, std::vector<INativeHomeHeaderActionViewModel> actions): state(state), balanceText(balanceText), balanceHidden(balanceHidden), balanceActionId(balanceActionId), balanceActionEnabled(balanceActionEnabled), bannerVisible(bannerVisible), actionLayout(actionLayout), actionSubtitle(actionSubtitle), actions(actions) {}
 
   public:
     friend bool operator==(const INativeHomeHeaderViewModel& lhs, const INativeHomeHeaderViewModel& rhs) = default;
@@ -83,6 +84,7 @@ namespace margelo::nitro {
         JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden"))),
         JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId"))),
         JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled"))),
+        JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "bannerVisible"))),
         JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionLayout"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle"))),
         JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actions")))
@@ -95,6 +97,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden"), JSIConverter<bool>::toJSI(runtime, arg.balanceHidden));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::toJSI(runtime, arg.balanceActionId));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled"), JSIConverter<bool>::toJSI(runtime, arg.balanceActionEnabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "bannerVisible"), JSIConverter<bool>::toJSI(runtime, arg.bannerVisible));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "actionLayout"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::toJSI(runtime, arg.actionLayout));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle"), JSIConverter<std::string>::toJSI(runtime, arg.actionSubtitle));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "actions"), JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::toJSI(runtime, arg.actions));
@@ -113,6 +116,7 @@ namespace margelo::nitro {
       if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden")))) return false;
       if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId")))) return false;
       if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled")))) return false;
+      if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "bannerVisible")))) return false;
       if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionLayout")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle")))) return false;
       if (!JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actions")))) return false;

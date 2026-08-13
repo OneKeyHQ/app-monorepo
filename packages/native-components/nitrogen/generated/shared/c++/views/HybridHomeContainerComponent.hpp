@@ -16,8 +16,12 @@
 #include <react/renderer/components/view/ConcreteViewShadowNode.h>
 #include <react/renderer/components/view/ViewProps.h>
 
-#include "INativeHomeViewModel.hpp"
 #include <optional>
+#include "INativeHomeOwnerToken.hpp"
+#include "INativeHomeNavigationViewModel.hpp"
+#include "INativeHomeHeaderViewModel.hpp"
+#include "INativeHomeSpotTokensViewModel.hpp"
+#include "INativeHomeThemeViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include <functional>
 #include <memory>
@@ -44,7 +48,12 @@ namespace margelo::nitro::onekeynativecomponents::views {
                              const react::RawProps& rawProps);
 
   public:
-    CachedProp<std::optional<INativeHomeViewModel>> state;
+    CachedProp<std::optional<double>> protocolVersion;
+    CachedProp<std::optional<INativeHomeOwnerToken>> owner;
+    CachedProp<std::optional<INativeHomeNavigationViewModel>> navigation;
+    CachedProp<std::optional<INativeHomeHeaderViewModel>> header;
+    CachedProp<std::optional<INativeHomeSpotTokensViewModel>> spotTokens;
+    CachedProp<std::optional<INativeHomeThemeViewModel>> theme;
     CachedProp<std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>> onIntent;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> hybridRef;
 

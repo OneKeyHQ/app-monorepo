@@ -26,14 +26,64 @@ namespace margelo::nitro::onekeynativecomponents::views {
                                                      const HybridHomeContainerProps& sourceProps,
                                                      const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
-    state([&]() -> CachedProp<std::optional<INativeHomeViewModel>> {
+    protocolVersion([&]() -> CachedProp<std::optional<double>> {
       try {
-        const react::RawValue* rawValue = rawProps.at("state", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.state;
+        const react::RawValue* rawValue = rawProps.at("protocolVersion", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.protocolVersion;
         const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<INativeHomeViewModel>>::fromRawValue(*runtime, value, sourceProps.state);
+        return CachedProp<std::optional<double>>::fromRawValue(*runtime, value, sourceProps.protocolVersion);
       } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.state: ") + exc.what());
+        throw std::runtime_error(std::string("HomeContainer.protocolVersion: ") + exc.what());
+      }
+    }()),
+    owner([&]() -> CachedProp<std::optional<INativeHomeOwnerToken>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("owner", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.owner;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<INativeHomeOwnerToken>>::fromRawValue(*runtime, value, sourceProps.owner);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.owner: ") + exc.what());
+      }
+    }()),
+    navigation([&]() -> CachedProp<std::optional<INativeHomeNavigationViewModel>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("navigation", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.navigation;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<INativeHomeNavigationViewModel>>::fromRawValue(*runtime, value, sourceProps.navigation);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.navigation: ") + exc.what());
+      }
+    }()),
+    header([&]() -> CachedProp<std::optional<INativeHomeHeaderViewModel>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("header", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.header;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<INativeHomeHeaderViewModel>>::fromRawValue(*runtime, value, sourceProps.header);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.header: ") + exc.what());
+      }
+    }()),
+    spotTokens([&]() -> CachedProp<std::optional<INativeHomeSpotTokensViewModel>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("spotTokens", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.spotTokens;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<INativeHomeSpotTokensViewModel>>::fromRawValue(*runtime, value, sourceProps.spotTokens);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.spotTokens: ") + exc.what());
+      }
+    }()),
+    theme([&]() -> CachedProp<std::optional<INativeHomeThemeViewModel>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("theme", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.theme;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<INativeHomeThemeViewModel>>::fromRawValue(*runtime, value, sourceProps.theme);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("HomeContainer.theme: ") + exc.what());
       }
     }()),
     onIntent([&]() -> CachedProp<std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>> {
@@ -59,13 +109,23 @@ namespace margelo::nitro::onekeynativecomponents::views {
 
   HybridHomeContainerProps::HybridHomeContainerProps(const HybridHomeContainerProps& other):
     react::ViewProps(),
-    state(other.state),
+    protocolVersion(other.protocolVersion),
+    owner(other.owner),
+    navigation(other.navigation),
+    header(other.header),
+    spotTokens(other.spotTokens),
+    theme(other.theme),
     onIntent(other.onIntent),
     hybridRef(other.hybridRef) { }
 
   bool HybridHomeContainerProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
-      case hashString("state"): return true;
+      case hashString("protocolVersion"): return true;
+      case hashString("owner"): return true;
+      case hashString("navigation"): return true;
+      case hashString("header"): return true;
+      case hashString("spotTokens"): return true;
+      case hashString("theme"): return true;
       case hashString("onIntent"): return true;
       case hashString("hybridRef"): return true;
       default: return false;

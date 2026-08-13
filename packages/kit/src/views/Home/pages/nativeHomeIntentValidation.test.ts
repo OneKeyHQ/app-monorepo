@@ -1,21 +1,28 @@
-import type {
-  INativeHomeIntent,
-  INativeHomeViewModel,
-} from '@onekeyhq/native-components';
+import type { INativeHomeIntent } from '@onekeyhq/native-components';
 
-import { isNativeHomeIntentExecutable } from './nativeHomeIntentValidation';
+import {
+  type INativeHomeIntentValidationContext,
+  isNativeHomeIntentExecutable,
+} from './nativeHomeIntentValidation';
 
-function buildViewModel(): INativeHomeViewModel {
+function buildContext(): INativeHomeIntentValidationContext {
   return {
-    protocolVersion: 1,
     owner: { scopeKey: 'wallet-a|account-a|network-a', sessionId: 'a:2' },
-    selectedTab: 'portfolio',
+    navigation: {
+      selectedTab: 'portfolio',
+      tabs: [
+        { id: 'portfolio', title: 'Portfolio', enabled: true },
+        { id: 'history', title: 'History', enabled: true },
+        { id: 'nft', title: 'NFT', enabled: false },
+      ],
+    },
     header: {
       state: 'ready',
       balanceText: '$10.00',
       balanceHidden: false,
       balanceActionId: 'toggleBalanceVisibility',
       balanceActionEnabled: true,
+      bannerVisible: false,
       actionLayout: 'funded',
       actionSubtitle: '',
       actions: [
@@ -23,8 +30,7 @@ function buildViewModel(): INativeHomeViewModel {
         { id: 'buy', title: 'Buy', icon: 'buy', enabled: false },
       ],
     },
-    tabs: [{ id: 'portfolio', title: 'Portfolio', enabled: true }],
-    portfolio: {
+    spotTokens: {
       title: 'Tokens',
       state: 'ready',
       emptyText: 'No tokens',
@@ -71,129 +77,196 @@ function buildViewModel(): INativeHomeViewModel {
         enabled: true,
       },
     },
-    theme: {
-      colorScheme: 'light',
-      backgroundColor: '#FFFFFF',
-      surfaceColor: '#F2F2F7',
-      primaryTextColor: '#000000',
-      secondaryTextColor: '#636366',
-      disabledTextColor: '#8E8E93',
-      successTextColor: '#218358',
-      criticalTextColor: '#CE2C31',
-      accentColor: '#239B18',
-    },
   };
 }
 
 describe('Native Home intent validation', () => {
   it('accepts only an enabled action from the current owner session', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     const intent: INativeHomeIntent = {
-      owner: viewModel.owner,
+      owner: context.owner,
       headerActionId: 'send',
     };
-    expect(isNativeHomeIntentExecutable({ intent, viewModel })).toBe(true);
+    expect(isNativeHomeIntentExecutable({ intent, context })).toBe(true);
     expect(
       isNativeHomeIntentExecutable({
         intent: { ...intent, headerActionId: 'buy' },
-        viewModel,
+        context,
       }),
     ).toBe(false);
   });
 
   it('rejects an A to B to A intent from the old A session', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     const staleIntent: INativeHomeIntent = {
-      owner: { ...viewModel.owner, sessionId: 'a:1' },
+      owner: { ...context.owner, sessionId: 'a:1' },
       headerActionId: 'send',
     };
-    expect(
-      isNativeHomeIntentExecutable({ intent: staleIntent, viewModel }),
-    ).toBe(false);
+    expect(isNativeHomeIntentExecutable({ intent: staleIntent, context })).toBe(
+      false,
+    );
   });
 
   it('rejects actions absent from the current Header ViewModel', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     expect(
       isNativeHomeIntentExecutable({
-        intent: { owner: viewModel.owner, headerActionId: 'receive' },
-        viewModel,
+        intent: { owner: context.owner, headerActionId: 'receive' },
+        context,
       }),
     ).toBe(false);
   });
 
   it('accepts only an enabled Portfolio item from the current ViewModel', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     expect(
       isNativeHomeIntentExecutable({
-        intent: { owner: viewModel.owner, portfolioItemId: 'eth' },
-        viewModel,
+        intent: { owner: context.owner, spotTokenItemId: 'eth' },
+        context,
       }),
     ).toBe(true);
     expect(
       isNativeHomeIntentExecutable({
-        intent: { owner: viewModel.owner, portfolioItemId: 'btc' },
-        viewModel,
+        intent: { owner: context.owner, spotTokenItemId: 'btc' },
+        context,
       }),
     ).toBe(false);
   });
 
   it('rejects ambiguous intents carrying two commands', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     expect(
       isNativeHomeIntentExecutable({
         intent: {
-          owner: viewModel.owner,
+          owner: context.owner,
           headerActionId: 'send',
-          portfolioItemId: 'eth',
+          spotTokenItemId: 'eth',
         },
-        viewModel,
+        context,
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts refresh only for the current enabled tab', () => {
+    const context = buildContext();
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: context.owner,
+          refreshTabId: 'portfolio',
+        },
+        context,
+      }),
+    ).toBe(true);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: context.owner,
+          refreshTabId: 'history',
+        },
+        context,
+      }),
+    ).toBe(false);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: { ...context.owner, sessionId: 'a:1' },
+          refreshTabId: 'portfolio',
+        },
+        context,
+      }),
+    ).toBe(false);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: context.owner,
+          headerActionId: 'send',
+          refreshTabId: 'portfolio',
+        },
+        context,
+      }),
+    ).toBe(false);
+
+    context.navigation.tabs[0]!.enabled = false;
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: context.owner,
+          refreshTabId: 'portfolio',
+        },
+        context,
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts selection only for a current enabled tab', () => {
+    const context = buildContext();
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: { owner: context.owner, selectTabId: 'history' },
+        context,
+      }),
+    ).toBe(true);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: { owner: context.owner, selectTabId: 'nft' },
+        context,
+      }),
+    ).toBe(false);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: context.owner,
+          selectTabId: 'history',
+          refreshTabId: 'portfolio',
+        },
+        context,
       }),
     ).toBe(false);
   });
 
   it('revalidates Portfolio actions against the current ViewModel', () => {
-    const viewModel = buildViewModel();
+    const context = buildContext();
     expect(
       isNativeHomeIntentExecutable({
         intent: {
-          owner: viewModel.owner,
-          portfolioActionId: 'toggleDeFiTokens',
-          portfolioActionValue: true,
+          owner: context.owner,
+          spotTokensActionId: 'toggleDeFiTokens',
+          spotTokensActionValue: true,
         },
-        viewModel,
+        context,
       }),
     ).toBe(true);
     expect(
       isNativeHomeIntentExecutable({
         intent: {
-          owner: viewModel.owner,
-          portfolioActionId: 'openLowValueAssets',
+          owner: context.owner,
+          spotTokensActionId: 'openLowValueAssets',
         },
-        viewModel,
+        context,
       }),
     ).toBe(true);
 
-    viewModel.portfolio.lowValueAssets.visible = false;
-    viewModel.portfolio.deFiTokensFilter.loading = true;
-    viewModel.portfolio.deFiTokensFilter.enabled = false;
+    context.spotTokens.lowValueAssets.visible = false;
+    context.spotTokens.deFiTokensFilter.loading = true;
+    context.spotTokens.deFiTokensFilter.enabled = false;
     expect(
       isNativeHomeIntentExecutable({
         intent: {
-          owner: viewModel.owner,
-          portfolioActionId: 'openLowValueAssets',
+          owner: context.owner,
+          spotTokensActionId: 'openLowValueAssets',
         },
-        viewModel,
+        context,
       }),
     ).toBe(false);
     expect(
       isNativeHomeIntentExecutable({
         intent: {
-          owner: viewModel.owner,
-          portfolioActionId: 'toggleDeFiTokens',
-          portfolioActionValue: true,
+          owner: context.owner,
+          spotTokensActionId: 'toggleDeFiTokens',
+          spotTokensActionValue: true,
         },
-        viewModel,
+        context,
       }),
     ).toBe(false);
   });

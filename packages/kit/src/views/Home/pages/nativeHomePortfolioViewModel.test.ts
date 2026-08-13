@@ -1,11 +1,11 @@
-import type { INativeHomePortfolioItemViewModel } from '@onekeyhq/native-components';
+import type { INativeHomeSpotTokenItemViewModel } from '@onekeyhq/native-components';
 
 import {
   buildNativeHomePortfolioItemViewModel,
   buildNativeHomePortfolioViewModel,
 } from './nativeHomePortfolioViewModel';
 
-const item: INativeHomePortfolioItemViewModel = {
+const item: INativeHomeSpotTokenItemViewModel = {
   id: 'eth',
   symbol: 'ETH',
   iconUrl: 'https://example.com/eth.png',

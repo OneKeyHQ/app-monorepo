@@ -5,7 +5,11 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: Slice 3 accepted and complete; Slice 4 is next
+- Current phase: the corrected iOS Pager/tab shell and pull-to-refresh path are
+  implemented. The bridge is being narrowed from one full-page prop to fixed,
+  strongly typed section props so Tab selection does not deserialize or apply
+  unchanged Spot data. Eligible unmigrated Tabs remain isolated empty Native
+  pages; later Tab renderers and release profiling have not started
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -63,8 +67,9 @@ iOS runs the UI `main` runtime and `bg` runtime in separate JavaScript heaps.
 Existing Home services and Jotai contexts
     -> existing or narrowly extracted typed section hooks
     -> useNativeHomeViewModel()
-    -> HomeContainer.setState(currentFullState)
-    -> Swift renderer and native list diffing
+    -> stable owner/navigation/header/theme/spotTokens props
+    -> Nitro reference-dirty bridge
+    -> Swift applies only dirty sections and native list diffing
     -> owner-scoped semantic intent
     -> current-owner/current-ViewModel validation in JavaScript
     -> existing action or navigation handler
@@ -77,23 +82,44 @@ It returns the complete display state available at the current instant. Slow
 sections do not block fast sections, and each real section has its own explicit
 state such as `initialLoading`, `ready`, `refreshing`, or `error`.
 
-The initial protocol shape is intentionally concrete:
+The bridge protocol is intentionally concrete. It uses fixed section props,
+not a generic section collection or mutation protocol:
 
 ```ts
-type NativeHomeViewModel = {
+type HomeContainerProps = {
   protocolVersion: 1;
   owner: NativeHomeOwnerToken;
-  selectedTab: NativeHomeTabId;
+  navigation: NativeHomeNavigationViewModel; // selectedTab + tabs
   header: NativeHomeHeaderViewModel;
-  tabs: NativeHomeTabViewModel[];
-  portfolio: NativeHomePortfolioViewModel;
+  spotTokens: NativeHomeSpotTokensViewModel;
   theme: NativeHomeThemeViewModel;
 };
 ```
 
-Later tabs add explicit optional fields such as `history`, `nft`, `defi`, and
-`perps`. There is no generic `sections` array, generic item renderer, or JSON
-business value type.
+Later migrated content adds one explicit prop for its current real consumer,
+for example `history`, `nft`, `defi`, or `perps`. Market data inside Spot is a
+separate future `spotMarket` prop rather than being appended to the token-list
+payload. There is no generic `sections` array, generic item renderer, JSON
+business value type, or patch envelope.
+
+Nitro's generated `CachedProp` compares each incoming JS prop with the previous
+prop using JavaScript strict equality before converting it. Therefore these
+section references are part of the bridge contract:
+
+- Each section producer memoizes its own strongly typed object.
+- A Tab-only change creates a new `navigation` object and preserves the
+  `header`, `theme`, and `spotTokens` references.
+- Swift records which generated setters ran during one update transaction and
+  applies only those dirty sections in `afterUpdate()`.
+- Native does not recursively compare decoded section fields. A changed section
+  reference means that concrete section is converted and applied; an unchanged
+  reference is not converted or applied.
+- Owner is an independent prop. Owner changes force new owner-scoped Header and
+  Spot-token section objects in the same React commit, reset local Native page
+  continuity, and invalidate old-owner interaction before rendering the new
+  owner.
+- The JS ref used to revalidate semantic intents contains only the current
+  section values. It is not a second Store or a last-committed Native snapshot.
 
 ### Progressive rendering rules
 
@@ -105,8 +131,9 @@ business value type.
 - Owner change immediately publishes a new-owner loading ViewModel without old
   rows.
 - Native applies diffable snapshots and does not rebuild the mounted view.
-- The first version sends the current full ViewModel. It records build time,
-  payload bytes, commit rate, and Native diff time.
+- The first version sends full values only for section props whose references
+  changed. It records build time, payload bytes, commit rate, and Native diff
+  time; it has no item-level patch, revision, or ACK.
 - Only release profiling may justify a narrow owner-scoped update channel for
   high-frequency asset valuation. It must not become a general patch protocol.
 
@@ -466,7 +493,8 @@ Deliverable:
 - Progressive balance, price, fiat value, and change fields.
 - Same-owner refresh preserves visible content.
 - Native pull-to-refresh emits the existing semantic refresh action.
-- Refresh completion is owner-scoped and request-scoped.
+- Refresh intent is owner-scoped and current-tab-scoped; spinner duration remains
+  rendering feedback and is not a business ACK.
 - Instrument ViewModel build time, payload size, commit rate, and Native diff
   duration; do not add an incremental protocol yet.
 
@@ -477,24 +505,134 @@ Manual acceptance:
 - Price changes update the correct rows without scroll jumps.
 - Background-not-ready and network-error paths remain usable.
 
+Pager and refresh correction checkpoint (2026-08-13):
+
+- The rejected intermediate design attached refresh to one flattened Portfolio
+  collection and simulated the shared Header with collection insets. That put
+  the spinner inside page content, could not preserve independent Tab offsets,
+  and introduced a request ID/ACK path that Legacy refresh does not require.
+- The corrected renderer has one outer vertical scroll owner for Header,
+  sticky Tab bar, and refresh; one horizontal Native pager; and one isolated
+  vertical collection per mounted Tab. Portfolio uses the real diffable list.
+  Perps, DeFi, NFT, and History use empty Native page instances until their
+  individual migration slices.
+- JavaScript derives the visible Tab order and capability decisions from the
+  existing Home hooks. Native owns only the selected rendering page and emits a
+  typed `selectTab` intent. Both tap and swipe selection are revalidated against
+  the current owner and current ViewModel before JavaScript accepts them.
+- Each page preserves its own vertical offset. iOS 17.4 and newer use the
+  verified unified vertical driver; the older supported iOS range keeps the
+  verified nested-scroll fallback. Horizontal paging and vertical gestures are
+  direction-gated so diagonal gestures cannot start both owners.
+- Pull-to-refresh is attached to the outer scroll view and is available only at
+  the top of the current page. Native emits only `{ owner, refreshTabId }`.
+  JavaScript revalidates it and calls the existing `onHomePageRefresh()` path.
+  The spinner ends after the same short visual-feedback interval used by Legacy;
+  owner or Tab changes cancel it immediately. There is no request ID,
+  `completeRefresh`, ACK, refresh lifecycle subscription, or business service in
+  Swift.
+- Failure conditions: any Legacy mount while Native state is pending, a spinner
+  between Header actions and tabs, shared offsets between pages, stale-owner or
+  disabled-Tab intents executing, vertical drags moving the pager, horizontal
+  drags moving the Header, or Native calling a business service.
+- Runtime status: an Ethereum watch-only fixture exposed the exact Legacy order
+  `Spot, Perps, DeFi, NFT, History`. Spot retained the real Portfolio collection;
+  the four unmigrated Tabs were mounted as separate empty Native collection
+  pages. A BTC fixture reduced the same mounted shell to its eligible Tabs,
+  confirming that capability changes rebuild pages without a universal Tab
+  section abstraction.
+- The Pager uses one horizontal `UIScrollView` direction decision. The earlier
+  custom vertical gate was removed after runtime testing showed that stacking
+  two recognizer decisions could leave the Pager waiting at gesture start.
+  Signed-simulator pans now settle in both directions and update the selected
+  semantic Tab. The Pager and page collections make mutually exclusive
+  horizontal/vertical direction decisions without a recognizer dependency.
+- Automated status: Nitro generation, native-components TypeScript, the `kit`
+  TypeScript check, two focused protocol/intent suites (10 tests), the signed
+  iOS Debug build, and covered simulator installation pass. Automated tab taps
+  reached the Native semantic intent path; the remaining slow/fast swipe,
+  diagonal gesture, rapid-selection, per-page offset, and repeated-refresh
+  checks stay in the manual acceptance gate.
+
+Section-prop bridge checkpoint (2026-08-13):
+
+- The former full-page `state` prop was replaced by fixed, strongly typed
+  `owner`, `navigation`, `header`, `spotTokens`, and `theme` props. This is a
+  bridge partition only; all producers, Jotai state, services, requests, and
+  action handlers remain the existing JavaScript business authority.
+- Generated Nitro code gives every section its own `CachedProp`. It uses JSI
+  strict reference equality before conversion and calls only dirty Swift
+  setters in one `beforeUpdate` / `afterUpdate` transaction. No recursive field
+  comparison or generic patch protocol was added.
+- Swift tracks which concrete setters ran and applies only those sections.
+  A navigation-only update moves the Pager and selection without rebuilding
+  pages, reapplying Header pixels, or applying a Spot-token diffable snapshot.
+  Owner changes remain atomic and fail closed: Header and Spot-token props are
+  forced to new references, and Native clears either section if it is missing
+  from the owner-change transaction.
+- The React EmptyToken slot now stays attached to one permanent host inside the
+  Spot collection. Tab selection no longer moves it to the parking view or a
+  reusable cell, so an empty Spot page is not remounted while paging away and
+  back. The JavaScript WalletBanner and EmptyToken element references are also
+  memoized independently of `navigation`, so a Tab-only render does not
+  reconcile their visual subtrees.
+- Runtime instrumentation found and corrected one unstable Header dependency:
+  a freshly calculated fiat object and `mainActions` array had kept producing a
+  new Header reference. The memo now depends on resolved scalar Header values
+  and a stable action-ID key.
+- After data settled, an instrumented signed-simulator run selected `History ->
+  Spot -> Perps -> Spot`. All four bridge transactions reported only
+  `navigation=true`; `owner`, `header`, `spotTokens`, and `theme` stayed false.
+  The temporary instrumentation was removed after verification.
+- Focused protocol, intent, and Spot ViewModel suites passed (15 tests), as did
+  Nitro generation, native-components and kit TypeScript, the
+  OneKeyNativeComponents target, and the signed iOS Debug app build.
+
+Spot follow-up handoff:
+
+- The accepted Native Spot slice currently owns the Tokens block only: token
+  metadata and valuation rows, DeFi-token filter, six-row Show more/Show less,
+  low-value assets, risk assets, manage-token footer, empty state, token/footer
+  intents, pressed feedback, recycling, and pull-to-refresh.
+- Legacy mobile Portfolio continues below Tokens with `DeFiListBlock`
+  cache/overview production, `PopularTrading`, `EarnListView`, `Upgrade`, and
+  `SupportHub`. These data surfaces and their interactions are not rendered by
+  Native Spot yet. Desktop-only `RecentHistory` is not part of the iOS Spot
+  migration.
+- Add each real follow-up consumer as a separate, strongly typed prop (for
+  example `spotMarket`, `spotEarn`, or another concrete product section). Do
+  not append unrelated Market, Earn, campaign, or support payloads to
+  `spotTokens`, and do not introduce a generic section array, reducer, patch
+  envelope, or second Home Store.
+- Reuse the existing section producer, selectors, service state, navigation,
+  visibility decisions, and action handlers. Native renders pixels and emits
+  owner-scoped semantic intents only; JavaScript must revalidate each item or
+  command against the current section ViewModel before executing it.
+- Each new prop must preserve reference identity when only `navigation`
+  changes, carry its own progressive loading/ready/error state, and update only
+  its concrete Native subsection. Migrate and manually accept one real section
+  at a time against Legacy before moving to the next.
+
 ### Slice 5 - iOS Pager and tab shell
 
 Deliverable:
 
 - Port only the verified iOS vertical/horizontal gesture arbitration and pager
   settling algorithms from the reference branch.
-- Queue programmatic tab selection while settling.
-- Preserve per-page offsets in the mounted view.
-- Unmigrated tabs use an explicit whole-page Legacy handoff; they are not RN
-  slots embedded inside the Native pager.
+- Queue the latest tab selection while settling.
+- Preserve per-page offsets inside the mounted Native view.
+- Keep eligible unmigrated tabs as empty Native pages. Do not mount a second
+  Legacy Home or embed RN Home display slots inside the pager.
 
 Manual acceptance:
 
 - Slow and fast horizontal swipes.
 - Diagonal gestures and vertical scrolling near pager boundaries.
 - Rapid consecutive tab selections.
-- Programmatic `SwitchWalletHomeTab` behavior.
-- Returning from a Legacy handoff restores the expected selected tab.
+- Tab taps and swipes update the selected semantic state exactly once.
+- Returning to Portfolio restores its previous vertical offset.
+- Refresh appears above the shared Header and only triggers at the active page
+  top.
 
 ### Slices 6-9 - One tab per slice
 

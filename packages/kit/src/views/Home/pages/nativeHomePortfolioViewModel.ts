@@ -1,11 +1,11 @@
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import type {
-  INativeHomePortfolioDeFiTokensViewModel,
-  INativeHomePortfolioItemViewModel,
-  INativeHomePortfolioLowValueAssetsViewModel,
-  INativeHomePortfolioManageTokensViewModel,
-  INativeHomePortfolioRiskAssetsViewModel,
-  INativeHomePortfolioViewModel,
+  INativeHomeSpotTokenItemViewModel,
+  INativeHomeSpotTokensDeFiFilterViewModel,
+  INativeHomeSpotTokensLowValueAssetsViewModel,
+  INativeHomeSpotTokensManageTokensViewModel,
+  INativeHomeSpotTokensRiskAssetsViewModel,
+  INativeHomeSpotTokensViewModel,
 } from '@onekeyhq/native-components';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
@@ -96,7 +96,7 @@ export function buildNativeHomePortfolioItemViewModel({
   currencyMap: Record<string, ICurrencyItem>;
   targetCurrencyId: string;
   targetCurrencySymbol: string;
-}): INativeHomePortfolioItemViewModel {
+}): INativeHomeSpotTokenItemViewModel {
   const sourceCurrencyId = fiat?.currency ?? targetCurrencyId;
   const convertValue = (value: string | number) =>
     convertFiat({
@@ -117,7 +117,7 @@ export function buildNativeHomePortfolioItemViewModel({
       showPlusMinusSigns: Number(value) !== 0,
     }),
   );
-  let priceChangeDirection: INativeHomePortfolioItemViewModel['priceChangeDirection'] =
+  let priceChangeDirection: INativeHomeSpotTokenItemViewModel['priceChangeDirection'] =
     'neutral';
   if (isValidNumberValue(fiat?.price24h) && fiat.price24h > 0) {
     priceChangeDirection = 'positive';
@@ -183,22 +183,22 @@ export function buildNativeHomePortfolioViewModel({
   ownerMatches: boolean;
   generation: number;
   sourceItemCount: number;
-  items: INativeHomePortfolioItemViewModel[];
+  items: INativeHomeSpotTokenItemViewModel[];
   title: string;
   emptyText: string;
   showMoreTitle: string;
   showLessTitle: string;
   initialVisibleItemCount: number;
-  deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel;
-  lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel;
-  riskAssets: INativeHomePortfolioRiskAssetsViewModel;
-  manageTokens: INativeHomePortfolioManageTokensViewModel;
-}): INativeHomePortfolioViewModel {
+  deFiTokensFilter: INativeHomeSpotTokensDeFiFilterViewModel;
+  lowValueAssets: INativeHomeSpotTokensLowValueAssetsViewModel;
+  riskAssets: INativeHomeSpotTokensRiskAssetsViewModel;
+  manageTokens: INativeHomeSpotTokensManageTokensViewModel;
+}): INativeHomeSpotTokensViewModel {
   const structureReady = ownerMatches && generation >= 0;
   const metadataReady = sourceItemCount === 0 || items.length > 0;
   const visibleItems = structureReady ? items : [];
 
-  let state: INativeHomePortfolioViewModel['state'] = 'initialLoading';
+  let state: INativeHomeSpotTokensViewModel['state'] = 'initialLoading';
   if (structureReady && metadataReady) {
     state = visibleItems.length > 0 ? 'ready' : 'empty';
   }

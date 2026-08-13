@@ -73,6 +73,7 @@ import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
+const noopSetHeaderRefreshing = (_isRefreshing: boolean) => undefined;
 
 function buildSingleNetworkDeFiCacheKey({
   accountId,
@@ -118,6 +119,11 @@ export type IDeFiListBlockProps = {
   registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
   onCollapseToProtocol?: (protocol: IDeFiProtocol) => void;
 };
+
+type IDeFiListRuntimeProps = Pick<
+  ReturnType<typeof useTabIsRefreshingFocused>,
+  'isFocused' | 'isHeaderRefreshing' | 'setIsHeaderRefreshing'
+>;
 
 const ProtocolListItem = memo(
   ({
@@ -223,14 +229,17 @@ function sortDeFiProtocolsByNetWorth({
   );
 }
 
-function DeFiListBlock({
+function DeFiListBlockContent({
   refreshCacheOnly = false,
   tableLayout,
   hideInternalTitle = false,
   isDeFiEnabled: isDeFiEnabledProp,
   registerProtocol,
   onCollapseToProtocol,
-}: IDeFiListBlockProps) {
+  isFocused,
+  isHeaderRefreshing,
+  setIsHeaderRefreshing,
+}: IDeFiListBlockProps & IDeFiListRuntimeProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -250,9 +259,6 @@ function DeFiListBlock({
 
   const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
     useAccountOverviewActions().current;
-
-  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
-    useTabIsRefreshingFocused();
 
   const [overview] = useAccountDeFiOverviewAtom();
   const [{ isRefreshing, initialized, loadedOwnerKey }] =
@@ -1765,4 +1771,28 @@ function DeFiListBlock({
   );
 }
 
-export { DeFiListBlock };
+function DeFiListBlock(props: IDeFiListBlockProps) {
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
+  return (
+    <DeFiListBlockContent
+      {...props}
+      isFocused={isFocused}
+      isHeaderRefreshing={isHeaderRefreshing}
+      setIsHeaderRefreshing={setIsHeaderRefreshing}
+    />
+  );
+}
+
+function HomeDeFiOverviewProducer() {
+  return (
+    <DeFiListBlockContent
+      refreshCacheOnly
+      isFocused
+      isHeaderRefreshing={false}
+      setIsHeaderRefreshing={noopSetHeaderRefreshing}
+    />
+  );
+}
+
+export { DeFiListBlock, HomeDeFiOverviewProducer };

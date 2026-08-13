@@ -19,28 +19,40 @@ public extension INativeHomeIntent {
   /**
    * Create a new instance of `INativeHomeIntent`.
    */
-  init(owner: INativeHomeOwnerToken, headerActionId: NativeHomeHeaderActionId?, portfolioItemId: String?, portfolioActionId: NativeHomePortfolioActionId?, portfolioActionValue: Bool?) {
-    self.init(owner, { () -> bridge.std__optional_NativeHomeHeaderActionId_ in
+  init(owner: INativeHomeOwnerToken, selectTabId: NativeHomeTabId?, headerActionId: NativeHomeHeaderActionId?, spotTokenItemId: String?, spotTokensActionId: NativeHomeSpotTokensActionId?, spotTokensActionValue: Bool?, refreshTabId: NativeHomeTabId?) {
+    self.init(owner, { () -> bridge.std__optional_NativeHomeTabId_ in
+      if let __unwrappedValue = selectTabId {
+        return bridge.create_std__optional_NativeHomeTabId_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_NativeHomeHeaderActionId_ in
       if let __unwrappedValue = headerActionId {
         return bridge.create_std__optional_NativeHomeHeaderActionId_(__unwrappedValue)
       } else {
         return .init()
       }
     }(), { () -> bridge.std__optional_std__string_ in
-      if let __unwrappedValue = portfolioItemId {
+      if let __unwrappedValue = spotTokenItemId {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
       } else {
         return .init()
       }
-    }(), { () -> bridge.std__optional_NativeHomePortfolioActionId_ in
-      if let __unwrappedValue = portfolioActionId {
-        return bridge.create_std__optional_NativeHomePortfolioActionId_(__unwrappedValue)
+    }(), { () -> bridge.std__optional_NativeHomeSpotTokensActionId_ in
+      if let __unwrappedValue = spotTokensActionId {
+        return bridge.create_std__optional_NativeHomeSpotTokensActionId_(__unwrappedValue)
       } else {
         return .init()
       }
     }(), { () -> bridge.std__optional_bool_ in
-      if let __unwrappedValue = portfolioActionValue {
+      if let __unwrappedValue = spotTokensActionValue {
         return bridge.create_std__optional_bool_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_NativeHomeTabId_ in
+      if let __unwrappedValue = refreshTabId {
+        return bridge.create_std__optional_NativeHomeTabId_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -51,38 +63,48 @@ public extension INativeHomeIntent {
   var owner: INativeHomeOwnerToken {
     return self.__owner
   }
-
+  
+  @inline(__always)
+  var selectTabId: NativeHomeTabId? {
+    return self.__selectTabId.value
+  }
+  
   @inline(__always)
   var headerActionId: NativeHomeHeaderActionId? {
     return self.__headerActionId.value
   }
-
+  
   @inline(__always)
-  var portfolioItemId: String? {
+  var spotTokenItemId: String? {
     return { () -> String? in
-      if bridge.has_value_std__optional_std__string_(self.__portfolioItemId) {
-        let __unwrapped = bridge.get_std__optional_std__string_(self.__portfolioItemId)
+      if bridge.has_value_std__optional_std__string_(self.__spotTokenItemId) {
+        let __unwrapped = bridge.get_std__optional_std__string_(self.__spotTokenItemId)
         return String(__unwrapped)
       } else {
         return nil
       }
     }()
   }
-
+  
   @inline(__always)
-  var portfolioActionId: NativeHomePortfolioActionId? {
-    return self.__portfolioActionId.value
+  var spotTokensActionId: NativeHomeSpotTokensActionId? {
+    return self.__spotTokensActionId.value
   }
-
+  
   @inline(__always)
-  var portfolioActionValue: Bool? {
+  var spotTokensActionValue: Bool? {
     return { () -> Bool? in
-      if bridge.has_value_std__optional_bool_(self.__portfolioActionValue) {
-        let __unwrapped = bridge.get_std__optional_bool_(self.__portfolioActionValue)
+      if bridge.has_value_std__optional_bool_(self.__spotTokensActionValue) {
+        let __unwrapped = bridge.get_std__optional_bool_(self.__spotTokensActionValue)
         return __unwrapped
       } else {
         return nil
       }
     }()
+  }
+  
+  @inline(__always)
+  var refreshTabId: NativeHomeTabId? {
+    return self.__refreshTabId.value
   }
 }

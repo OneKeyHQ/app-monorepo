@@ -4,7 +4,12 @@
   "bubblingEventTypes": {},
   "directEventTypes": {},
   "validAttributes": {
-    "state": true,
+    "protocolVersion": true,
+    "owner": true,
+    "navigation": true,
+    "header": true,
+    "spotTokens": true,
+    "theme": true,
     "onIntent": true,
     "hybridRef": true
   }

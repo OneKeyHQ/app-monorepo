@@ -40,5 +40,18 @@
       "optional": true
     }
   },
+  "codegenConfig": {
+    "name": "OneKeyNativeComponentsSpec",
+    "type": "components",
+    "jsSrcsDir": "./src",
+    "android": {
+      "javaPackageName": "com.margelo.nitro.onekeynativecomponents"
+    },
+    "ios": {
+      "componentProvider": {
+        "OneKeyHomeContainerVisualSurface": "HomeContainerVisualSurfaceComponentView"
+      }
+    }
+  },
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/x/LICENSE.md"
 }

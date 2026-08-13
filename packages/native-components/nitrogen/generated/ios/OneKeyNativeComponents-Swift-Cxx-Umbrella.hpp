@@ -16,26 +16,26 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderActio
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewModel; }
 // Forward declaration of `INativeHomeIntent` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
+// Forward declaration of `INativeHomeNavigationViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeNavigationViewModel; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
-// Forward declaration of `INativeHomePortfolioDeFiTokensViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioDeFiTokensViewModel; }
-// Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
-// Forward declaration of `INativeHomePortfolioLowValueAssetsViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioLowValueAssetsViewModel; }
-// Forward declaration of `INativeHomePortfolioManageTokensViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioManageTokensViewModel; }
-// Forward declaration of `INativeHomePortfolioRiskAssetsViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioRiskAssetsViewModel; }
-// Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
+// Forward declaration of `INativeHomeSpotTokenItemViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokenItemViewModel; }
+// Forward declaration of `INativeHomeSpotTokensDeFiFilterViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensDeFiFilterViewModel; }
+// Forward declaration of `INativeHomeSpotTokensLowValueAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensLowValueAssetsViewModel; }
+// Forward declaration of `INativeHomeSpotTokensManageTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensManageTokensViewModel; }
+// Forward declaration of `INativeHomeSpotTokensRiskAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensRiskAssetsViewModel; }
+// Forward declaration of `INativeHomeSpotTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensViewModel; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeTabViewModel; }
 // Forward declaration of `INativeHomeThemeViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
-// Forward declaration of `INativeHomeViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeColorScheme; }
 // Forward declaration of `NativeHomeHeaderActionIcon` to properly resolve imports.
@@ -46,14 +46,14 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
 // Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
-// Forward declaration of `NativeHomePortfolioActionId` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioActionId; }
-// Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
-// Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioValuationState; }
 // Forward declaration of `NativeHomePriceChangeDirection` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePriceChangeDirection; }
+// Forward declaration of `NativeHomeSpotTokenValuationState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeSpotTokenValuationState; }
+// Forward declaration of `NativeHomeSpotTokensActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeSpotTokensActionId; }
+// Forward declaration of `NativeHomeSpotTokensState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeSpotTokensState; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
@@ -62,25 +62,25 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 #include "INativeHomeHeaderActionViewModel.hpp"
 #include "INativeHomeHeaderViewModel.hpp"
 #include "INativeHomeIntent.hpp"
+#include "INativeHomeNavigationViewModel.hpp"
 #include "INativeHomeOwnerToken.hpp"
-#include "INativeHomePortfolioDeFiTokensViewModel.hpp"
-#include "INativeHomePortfolioItemViewModel.hpp"
-#include "INativeHomePortfolioLowValueAssetsViewModel.hpp"
-#include "INativeHomePortfolioManageTokensViewModel.hpp"
-#include "INativeHomePortfolioRiskAssetsViewModel.hpp"
-#include "INativeHomePortfolioViewModel.hpp"
+#include "INativeHomeSpotTokenItemViewModel.hpp"
+#include "INativeHomeSpotTokensDeFiFilterViewModel.hpp"
+#include "INativeHomeSpotTokensLowValueAssetsViewModel.hpp"
+#include "INativeHomeSpotTokensManageTokensViewModel.hpp"
+#include "INativeHomeSpotTokensRiskAssetsViewModel.hpp"
+#include "INativeHomeSpotTokensViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
-#include "INativeHomeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
 #include "NativeHomeHeaderActionIcon.hpp"
 #include "NativeHomeHeaderActionId.hpp"
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
-#include "NativeHomePortfolioActionId.hpp"
-#include "NativeHomePortfolioState.hpp"
-#include "NativeHomePortfolioValuationState.hpp"
 #include "NativeHomePriceChangeDirection.hpp"
+#include "NativeHomeSpotTokenValuationState.hpp"
+#include "NativeHomeSpotTokensActionId.hpp"
+#include "NativeHomeSpotTokensState.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>

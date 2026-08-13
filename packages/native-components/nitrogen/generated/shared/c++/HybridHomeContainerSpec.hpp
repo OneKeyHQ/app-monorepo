@@ -13,13 +13,25 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-// Forward declaration of `INativeHomeViewModel` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeViewModel; }
+// Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `INativeHomeNavigationViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeNavigationViewModel; }
+// Forward declaration of `INativeHomeHeaderViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewModel; }
+// Forward declaration of `INativeHomeSpotTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeSpotTokensViewModel; }
+// Forward declaration of `INativeHomeThemeViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
 // Forward declaration of `INativeHomeIntent` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 
-#include "INativeHomeViewModel.hpp"
 #include <optional>
+#include "INativeHomeOwnerToken.hpp"
+#include "INativeHomeNavigationViewModel.hpp"
+#include "INativeHomeHeaderViewModel.hpp"
+#include "INativeHomeSpotTokensViewModel.hpp"
+#include "INativeHomeThemeViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include <functional>
 
@@ -50,8 +62,18 @@ namespace margelo::nitro::onekeynativecomponents {
 
     public:
       // Properties
-      virtual std::optional<INativeHomeViewModel> getState() = 0;
-      virtual void setState(const std::optional<INativeHomeViewModel>& state) = 0;
+      virtual std::optional<double> getProtocolVersion() = 0;
+      virtual void setProtocolVersion(std::optional<double> protocolVersion) = 0;
+      virtual std::optional<INativeHomeOwnerToken> getOwner() = 0;
+      virtual void setOwner(const std::optional<INativeHomeOwnerToken>& owner) = 0;
+      virtual std::optional<INativeHomeNavigationViewModel> getNavigation() = 0;
+      virtual void setNavigation(const std::optional<INativeHomeNavigationViewModel>& navigation) = 0;
+      virtual std::optional<INativeHomeHeaderViewModel> getHeader() = 0;
+      virtual void setHeader(const std::optional<INativeHomeHeaderViewModel>& header) = 0;
+      virtual std::optional<INativeHomeSpotTokensViewModel> getSpotTokens() = 0;
+      virtual void setSpotTokens(const std::optional<INativeHomeSpotTokensViewModel>& spotTokens) = 0;
+      virtual std::optional<INativeHomeThemeViewModel> getTheme() = 0;
+      virtual void setTheme(const std::optional<INativeHomeThemeViewModel>& theme) = 0;
       virtual std::optional<std::function<void(const INativeHomeIntent& /* intent */)>> getOnIntent() = 0;
       virtual void setOnIntent(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& onIntent) = 0;
 

@@ -45,12 +45,212 @@ private enum HomeContainerFooterIcons {
   }()
 }
 
-final class HomeContainerView: UIView {
+private final class HomeContainerOuterScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func touchesShouldCancel(in view: UIView) -> Bool {
+    true
+  }
+
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    return abs(velocity.y) >= abs(velocity.x)
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    otherGestureRecognizer.view is HomeContainerPageCollectionView ||
+      otherGestureRecognizer.view is HomeContainerPagerScrollView ||
+      NSStringFromClass(type(of: otherGestureRecognizer)).hasSuffix("RCTSurfaceTouchHandler")
+  }
+}
+
+private final class HomeContainerPageCollectionView:
+  UICollectionView,
+  UIGestureRecognizerDelegate
+{
+  override init(frame: CGRect, collectionViewLayout layout: UICollectionViewLayout) {
+    super.init(frame: frame, collectionViewLayout: layout)
+    panGestureRecognizer.delegate = self
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    return abs(velocity.y) >= abs(velocity.x)
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    otherGestureRecognizer.view is HomeContainerOuterScrollView ||
+      otherGestureRecognizer.view is HomeContainerPagerScrollView
+  }
+}
+
+private final class HomeContainerPagerScrollView: UIScrollView, UIGestureRecognizerDelegate {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    panGestureRecognizer.delegate = self
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    guard gestureRecognizer === panGestureRecognizer else { return true }
+    let velocity = panGestureRecognizer.velocity(in: self)
+    guard max(abs(velocity.x), abs(velocity.y)) > 0.5 else { return true }
+    return abs(velocity.x) > abs(velocity.y)
+  }
+}
+
+private final class HomeContainerTabBarView: UIView {
+  var onSelect: ((NativeHomeTabId) -> Void)?
+
+  private let scrollView = UIScrollView()
+  private let stackView = UIStackView()
+  private var tabs: [INativeHomeTabViewModel] = []
+  private var buttons: [String: UIButton] = [:]
+  private var selectedTabId = NativeHomeTabId.portfolio
+  private var primaryColor = UIColor.label
+  private var secondaryColor = UIColor.secondaryLabel
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    scrollView.showsHorizontalScrollIndicator = false
+    scrollView.alwaysBounceHorizontal = false
+    scrollView.isDirectionalLockEnabled = true
+    addSubview(scrollView)
+
+    stackView.axis = .horizontal
+    stackView.alignment = .center
+    stackView.spacing = 24
+    stackView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.addSubview(stackView)
+    NSLayoutConstraint.activate([
+      stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 20),
+      stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -20),
+      stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+      stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+      stackView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    scrollView.frame = bounds
+  }
+
+  func apply(
+    tabs: [INativeHomeTabViewModel],
+    selectedTabId: NativeHomeTabId,
+    backgroundColor: UIColor,
+    primaryColor: UIColor,
+    secondaryColor: UIColor
+  ) {
+    let needsRebuild = self.tabs.map(\.id.stringValue) != tabs.map(\.id.stringValue) ||
+      self.tabs.map(\.title) != tabs.map(\.title)
+    self.tabs = tabs
+    self.selectedTabId = selectedTabId
+    self.backgroundColor = backgroundColor
+    self.primaryColor = primaryColor
+    self.secondaryColor = secondaryColor
+    if needsRebuild {
+      rebuildButtons()
+    }
+    updateSelection(animated: false)
+  }
+
+  func setSelectedTab(_ tabId: NativeHomeTabId, animated: Bool) {
+    selectedTabId = tabId
+    updateSelection(animated: animated)
+  }
+
+  private func rebuildButtons() {
+    stackView.arrangedSubviews.forEach {
+      stackView.removeArrangedSubview($0)
+      $0.removeFromSuperview()
+    }
+    buttons.removeAll()
+    for tab in tabs {
+      let button = UIButton(type: .system)
+      button.setTitle(tab.title, for: .normal)
+      button.accessibilityIdentifier = "native-home-tab-\(tab.id.stringValue)"
+      button.isEnabled = tab.enabled
+      button.addAction(UIAction { [weak self] _ in
+        self?.onSelect?(tab.id)
+      }, for: .touchUpInside)
+      stackView.addArrangedSubview(button)
+      buttons[tab.id.stringValue] = button
+    }
+  }
+
+  private func updateSelection(animated: Bool) {
+    for tab in tabs {
+      guard let button = buttons[tab.id.stringValue] else { continue }
+      let isSelected = tab.id == selectedTabId
+      button.titleLabel?.font = isSelected
+        ? HomeContainerTypography.semibold(16)
+        : HomeContainerTypography.regular(16)
+      button.setTitleColor(isSelected ? primaryColor : secondaryColor, for: .normal)
+      button.accessibilityTraits = isSelected ? [.button, .selected] : .button
+    }
+    guard let selectedButton = buttons[selectedTabId.stringValue] else { return }
+    layoutIfNeeded()
+    let target = selectedButton.convert(selectedButton.bounds, to: scrollView)
+      .insetBy(dx: -20, dy: 0)
+    scrollView.scrollRectToVisible(target, animated: animated)
+  }
+}
+
+final class HomeContainerView: UIView, UIScrollViewDelegate {
+  private enum PagerTransitionState: Equatable {
+    case idle
+    case dragging
+    case settling(targetIndex: Int)
+  }
+
+  private enum VerticalScrollOwner {
+    case header
+    case body
+  }
+
+  private struct Page {
+    let tabId: NativeHomeTabId
+    let scrollView: HomeContainerPageCollectionView
+  }
+
   private enum Section: Hashable {
     case portfolio
   }
 
   private enum Item: Hashable {
+    case portfolioTopInset
     case title
     case token(String)
     case lowValueAssets
@@ -71,28 +271,45 @@ final class HomeContainerView: UIView {
     let priceChangeDirection: NativeHomePriceChangeDirection
     let balanceText: String
     let valueText: String
-    let valuationState: NativeHomePortfolioValuationState
+    let valuationState: NativeHomeSpotTokenValuationState
     let enabled: Bool
   }
 
   private static let fundedHeaderHeight: CGFloat = 182
   private static let zeroHeaderHeight: CGFloat = 214
+  private static let walletBannerGap: CGFloat = 20
+  private static let walletBannerHeight: CGFloat = 90
+  private static let portfolioTopInset: CGFloat = 12
+  private static let portfolioEmptyHeight: CGFloat = 228
+  private static let tabBarHeight: CGFloat = 52
+  private static let refreshFeedbackDuration: TimeInterval = 1.2
 
-  private let collectionLayout = HomeContainerCollectionLayout()
-  private lazy var collectionView = UICollectionView(
+  private let outerScrollView = HomeContainerOuterScrollView()
+  private let pager = HomeContainerPagerScrollView()
+  private let tabBar = HomeContainerTabBarView()
+  private let collectionLayout = UICollectionViewFlowLayout()
+  private lazy var collectionView = HomeContainerPageCollectionView(
     frame: .zero,
     collectionViewLayout: collectionLayout
   )
+  private let refreshControl = UIRefreshControl()
   private let headerHost = UIView()
   private let headerStack = UIStackView()
+  private let walletBannerHost = UIView()
   private let balanceHost = UIView()
   private let balanceButton = UIButton(type: .system)
   private let balanceSkeleton = UIView()
   private let actionSubtitleLabel = UILabel()
   private let actionsScrollView = UIScrollView()
   private let actionsStack = UIStackView()
+  private let spotEmptyHost = UIView()
 
-  private var currentState: INativeHomeViewModel?
+  private var currentProtocolVersion: Double?
+  private var currentOwner: INativeHomeOwnerToken?
+  private var currentNavigation: INativeHomeNavigationViewModel?
+  private var currentHeader: INativeHomeHeaderViewModel?
+  private var currentSpotTokens: INativeHomeSpotTokensViewModel?
+  private var currentTheme: INativeHomeThemeViewModel?
   private var onIntent: ((_ intent: INativeHomeIntent) -> Void)?
   private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
   private var portfolioRows: [String: PortfolioRow] = [:]
@@ -102,9 +319,21 @@ final class HomeContainerView: UIView {
   private var portfolioShowLessTitle = ""
   private var portfolioInitialVisibleItemCount = 6
   private var showsAllPortfolioItems = false
+  private var pages: [Page] = []
+  private var emptyPageScrollViews: [String: HomeContainerPageCollectionView] = [:]
+  private var selectedTabId = NativeHomeTabId.portfolio
+  private var pagerTransitionState = PagerTransitionState.idle
+  private var pendingPagerNotify = false
+  private var pendingTabSelection: (tabId: NativeHomeTabId, notify: Bool)?
+  private var verticalScrollOwner = VerticalScrollOwner.header
+  private var isVerticalGestureActive = false
+  private var isCoordinatingNestedScroll = false
+  private var isSynchronizingUnifiedVerticalPage = false
+  private var refreshEndWorkItem: DispatchWorkItem?
+  private var headerStackBottomConstraint: NSLayoutConstraint?
+  private var currentBaseHeaderHeight = HomeContainerView.fundedHeaderHeight
   private var currentHeaderHeight = HomeContainerView.fundedHeaderHeight
   private var currentOwnerSessionId = ""
-  private var tabTitle = ""
   private var actionSurfaceColor = UIColor.secondarySystemBackground
   private var actionActiveSurfaceColor = UIColor.tertiarySystemBackground
   private var actionForegroundColor = UIColor.label
@@ -123,6 +352,17 @@ final class HomeContainerView: UIView {
   private var portfolioCriticalTextColor = UIColor.systemRed
   private var portfolioSwitchOffColor = UIColor.systemGray4
   private var portfolioSwitchThumbColor = UIColor.systemBackground
+  @objc var visualSlotLayoutDidChange: (() -> Void)?
+  private var maximumHeaderOffset: CGFloat {
+    currentHeaderHeight
+  }
+
+  private var usesUnifiedVerticalDriver: Bool {
+    if #available(iOS 17.4, *) {
+      return true
+    }
+    return false
+  }
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -135,36 +375,105 @@ final class HomeContainerView: UIView {
   }
 
   func apply(
-    state: INativeHomeViewModel?,
+    protocolVersion: Double?,
+    owner: INativeHomeOwnerToken?,
+    navigation: INativeHomeNavigationViewModel?,
+    header: INativeHomeHeaderViewModel?,
+    spotTokens: INativeHomeSpotTokensViewModel?,
+    theme: INativeHomeThemeViewModel?,
+    update: HomeContainerSectionUpdate,
     onIntent: ((_ intent: INativeHomeIntent) -> Void)?
   ) {
     dispatchPrecondition(condition: .onQueue(.main))
-    currentState = state
-    self.onIntent = onIntent
+    let previousOwnerSessionId = currentOwner?.sessionId
+    if update.protocolVersion { currentProtocolVersion = protocolVersion }
+    if update.owner { currentOwner = owner }
+    if update.navigation { currentNavigation = navigation }
+    if update.header { currentHeader = header }
+    if update.spotTokens { currentSpotTokens = spotTokens }
+    if update.theme { currentTheme = theme }
+    if update.onIntent { self.onIntent = onIntent }
 
-    guard let state else {
+    guard currentProtocolVersion == 1, currentOwner != nil else {
+      cancelActiveRefresh()
       balanceButton.isEnabled = false
       actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
       portfolioRows = [:]
+      currentHeader = nil
+      currentSpotTokens = nil
+      applyPages([])
       applyPortfolioSnapshot(animatingDifferences: false)
       return
     }
 
-    let ownerChanged = currentOwnerSessionId != state.owner.sessionId
+    let ownerChanged = previousOwnerSessionId != currentOwner?.sessionId
     if ownerChanged {
-      currentOwnerSessionId = state.owner.sessionId
+      currentOwnerSessionId = currentOwner?.sessionId ?? ""
       showsAllPortfolioItems = false
+      if !update.header {
+        currentHeader = nil
+        balanceButton.isEnabled = false
+        actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+      }
+      if !update.spotTokens {
+        currentSpotTokens = nil
+        portfolioRows = [:]
+        applyPortfolioSnapshot(animatingDifferences: false)
+      }
     }
-    applyTheme(state.theme)
-    applyHeader(state.header)
-    tabTitle = state.tabs.first(where: { $0.id == state.selectedTab })?.title ?? ""
-    portfolioTitle = state.portfolio.title
-    portfolioEmptyText = state.portfolio.emptyText
-    portfolioShowMoreTitle = state.portfolio.showMoreTitle
-    portfolioShowLessTitle = state.portfolio.showLessTitle
-    portfolioInitialVisibleItemCount = max(Int(state.portfolio.initialVisibleItemCount), 1)
+    if update.theme, let currentTheme {
+      applyTheme(currentTheme)
+    }
+    if (update.header || update.theme || update.onIntent), let currentHeader {
+      applyHeader(currentHeader)
+    }
+    if update.navigation {
+      applyPages(currentNavigation?.tabs.filter(\.enabled) ?? [])
+    }
+    if update.spotTokens, let currentSpotTokens {
+      applySpotTokens(currentSpotTokens, ownerChanged: ownerChanged)
+    } else if update.theme {
+      applyPortfolioSnapshot(animatingDifferences: false)
+    }
+    if ownerChanged, let selectedTab = currentNavigation?.selectedTab {
+      prepareViewportForOwnerChange(selectedTabId: selectedTab)
+    } else if update.navigation,
+              pagerTransitionState == .idle,
+              let selectedTab = currentNavigation?.selectedTab {
+      moveToTab(selectedTab, animated: false, notify: false)
+    }
+    if update.navigation || update.theme {
+      applyTabBar(selectedTabId: selectedTabId)
+    }
+  }
+
+  func dispose() {
+    cancelActiveRefresh()
+    currentProtocolVersion = nil
+    currentOwner = nil
+    currentNavigation = nil
+    currentHeader = nil
+    currentSpotTokens = nil
+    currentTheme = nil
+    onIntent = nil
+    balanceButton.isEnabled = false
+    actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+    portfolioRows = [:]
+    applyPages([])
+    applyPortfolioSnapshot(animatingDifferences: false)
+  }
+
+  private func applySpotTokens(
+    _ spotTokens: INativeHomeSpotTokensViewModel,
+    ownerChanged: Bool
+  ) {
+    portfolioTitle = spotTokens.title
+    portfolioEmptyText = spotTokens.emptyText
+    portfolioShowMoreTitle = spotTokens.showMoreTitle
+    portfolioShowLessTitle = spotTokens.showLessTitle
+    portfolioInitialVisibleItemCount = max(Int(spotTokens.initialVisibleItemCount), 1)
     var rows: [String: PortfolioRow] = [:]
-    for item in state.portfolio.items {
+    for item in spotTokens.items {
       rows[item.id] = PortfolioRow(
         id: item.id,
         symbol: item.symbol,
@@ -183,42 +492,64 @@ final class HomeContainerView: UIView {
     applyPortfolioSnapshot(animatingDifferences: !ownerChanged)
   }
 
-  func dispose() {
-    currentState = nil
-    onIntent = nil
-    balanceButton.isEnabled = false
-    actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-    portfolioRows = [:]
-    applyPortfolioSnapshot(animatingDifferences: false)
-  }
-
   private func configureView() {
-    accessibilityIdentifier = "native-home-slice-3"
+    accessibilityIdentifier = "native-home-container"
 
     collectionLayout.minimumLineSpacing = 0
     collectionLayout.minimumInteritemSpacing = 0
+
+    outerScrollView.alwaysBounceVertical = true
+    outerScrollView.showsVerticalScrollIndicator = false
+    outerScrollView.contentInsetAdjustmentBehavior = .never
+    outerScrollView.delegate = self
+    addSubview(outerScrollView)
+
+    pager.isPagingEnabled = true
+    pager.bounces = false
+    pager.clipsToBounds = true
+    pager.showsHorizontalScrollIndicator = false
+    pager.isDirectionalLockEnabled = true
+    pager.contentInsetAdjustmentBehavior = .never
+    pager.delegate = self
+    outerScrollView.addSubview(pager)
+    if !usesUnifiedVerticalDriver {
+      outerScrollView.panGestureRecognizer.require(toFail: pager.panGestureRecognizer)
+    }
+
+    outerScrollView.addSubview(headerHost)
+    outerScrollView.addSubview(tabBar)
+    tabBar.onSelect = { [weak self] tabId in
+      self?.selectTabFromControl(tabId)
+    }
+
     collectionView.alwaysBounceVertical = true
     collectionView.showsVerticalScrollIndicator = false
     collectionView.contentInsetAdjustmentBehavior = .never
     collectionView.contentInset = UIEdgeInsets(
-      top: currentHeaderHeight,
+      top: 0,
       left: 0,
       bottom: 96,
       right: 0
     )
     collectionView.scrollIndicatorInsets = collectionView.contentInset
     collectionView.delegate = self
+    refreshControl.accessibilityIdentifier = "native-home-refresh-control"
+    refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+    outerScrollView.refreshControl = refreshControl
     collectionView.accessibilityIdentifier = "native-home-portfolio-list"
-    collectionView.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(collectionView)
-
-    headerHost.translatesAutoresizingMaskIntoConstraints = true
-    collectionView.addSubview(headerHost)
+    collectionView.isScrollEnabled = !usesUnifiedVerticalDriver
+    spotEmptyHost.isHidden = true
+    spotEmptyHost.isUserInteractionEnabled = false
+    spotEmptyHost.accessibilityIdentifier = "native-home-spot-empty-host"
+    collectionView.addSubview(spotEmptyHost)
 
     headerStack.axis = .vertical
     headerStack.spacing = 0
     headerStack.translatesAutoresizingMaskIntoConstraints = false
     headerHost.addSubview(headerStack)
+    walletBannerHost.clipsToBounds = true
+    walletBannerHost.accessibilityIdentifier = "native-home-wallet-banner-host"
+    headerHost.addSubview(walletBannerHost)
 
     balanceHost.translatesAutoresizingMaskIntoConstraints = false
     balanceHost.heightAnchor.constraint(equalToConstant: 48).isActive = true
@@ -264,6 +595,10 @@ final class HomeContainerView: UIView {
       forCellWithReuseIdentifier: HomeContainerPortfolioTitleCell.reuseIdentifier
     )
     collectionView.register(
+      HomeContainerPortfolioInsetCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioInsetCell.reuseIdentifier
+    )
+    collectionView.register(
       HomeContainerPortfolioTokenCell.self,
       forCellWithReuseIdentifier: HomeContainerPortfolioTokenCell.reuseIdentifier
     )
@@ -283,23 +618,18 @@ final class HomeContainerView: UIView {
       HomeContainerPortfolioToggleCell.self,
       forCellWithReuseIdentifier: HomeContainerPortfolioToggleCell.reuseIdentifier
     )
-    collectionView.register(
-      HomeContainerTabHeaderView.self,
-      forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
-      withReuseIdentifier: HomeContainerTabHeaderView.reuseIdentifier
-    )
-
     configureDataSource()
 
+    let headerStackBottomConstraint = headerStack.bottomAnchor.constraint(
+      equalTo: headerHost.topAnchor,
+      constant: Self.fundedHeaderHeight - 32
+    )
+    self.headerStackBottomConstraint = headerStackBottomConstraint
     NSLayoutConstraint.activate([
-      collectionView.topAnchor.constraint(equalTo: topAnchor),
-      collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
-      collectionView.bottomAnchor.constraint(equalTo: bottomAnchor),
       headerStack.topAnchor.constraint(equalTo: headerHost.topAnchor, constant: 20),
       headerStack.leadingAnchor.constraint(equalTo: headerHost.leadingAnchor, constant: 20),
       headerStack.trailingAnchor.constraint(equalTo: headerHost.trailingAnchor, constant: -20),
-      headerStack.bottomAnchor.constraint(equalTo: headerHost.bottomAnchor, constant: -32),
+      headerStackBottomConstraint,
       balanceButton.topAnchor.constraint(equalTo: balanceHost.topAnchor),
       balanceButton.leadingAnchor.constraint(equalTo: balanceHost.leadingAnchor),
       balanceButton.trailingAnchor.constraint(equalTo: balanceHost.trailingAnchor),
@@ -315,20 +645,70 @@ final class HomeContainerView: UIView {
       actionsStack.heightAnchor.constraint(equalTo: actionsScrollView.frameLayoutGuide.heightAnchor),
     ])
 
-    collectionView.setContentOffset(
-      CGPoint(x: 0, y: -currentHeaderHeight),
-      animated: false
-    )
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    if usesUnifiedVerticalDriver {
+      headerHost.transform = .identity
+      tabBar.transform = .identity
+      pager.transform = .identity
+      pages.forEach { $0.scrollView.transform = .identity }
+    }
+    outerScrollView.frame = bounds
     headerHost.frame = CGRect(
       x: 0,
-      y: -currentHeaderHeight,
-      width: collectionView.bounds.width,
+      y: 0,
+      width: bounds.width,
       height: currentHeaderHeight
     )
+    walletBannerHost.frame = CGRect(
+      x: 0,
+      y: currentBaseHeaderHeight - 32 + Self.walletBannerGap,
+      width: bounds.width,
+      height: walletBannerHost.isHidden ? 0 : Self.walletBannerHeight
+    )
+    tabBar.frame = CGRect(
+      x: 0,
+      y: currentHeaderHeight,
+      width: bounds.width,
+      height: Self.tabBarHeight
+    )
+    let pagerHeight = max(0, bounds.height - Self.tabBarHeight)
+    pager.frame = CGRect(
+      x: 0,
+      y: currentHeaderHeight + Self.tabBarHeight,
+      width: bounds.width,
+      height: pagerHeight
+    )
+    for (index, page) in pages.enumerated() {
+      page.scrollView.frame = CGRect(
+        x: CGFloat(index) * bounds.width,
+        y: 0,
+        width: bounds.width,
+        height: pagerHeight
+      )
+    }
+    pager.contentSize = CGSize(
+      width: CGFloat(pages.count) * bounds.width,
+      height: pagerHeight
+    )
+    if usesUnifiedVerticalDriver, let page = currentPage {
+      updateUnifiedVerticalContentSize(source: page.scrollView)
+    } else {
+      outerScrollView.contentSize = CGSize(
+        width: bounds.width,
+        height: currentHeaderHeight + bounds.height
+      )
+    }
+    updateSharedChromeLayout()
+    outerScrollView.bringSubviewToFront(tabBar)
+    visualSlotLayoutDidChange?()
+
+    guard pagerTransitionState == .idle,
+          let index = indexOfTab(selectedTabId),
+          bounds.width > 0 else { return }
+    pager.contentOffset = CGPoint(x: CGFloat(index) * bounds.width, y: 0)
   }
 
   private func applyTheme(_ theme: INativeHomeThemeViewModel) {
@@ -342,7 +722,10 @@ final class HomeContainerView: UIView {
     let accent = UIColor(homeHex: theme.accentColor, fallback: .systemGreen)
 
     backgroundColor = background
+    outerScrollView.backgroundColor = background
+    pager.backgroundColor = background
     collectionView.backgroundColor = background
+    pages.forEach { $0.scrollView.backgroundColor = background }
     headerHost.backgroundColor = background
     balanceButton.setTitleColor(primary, for: .normal)
     balanceSkeleton.backgroundColor = surface
@@ -371,7 +754,9 @@ final class HomeContainerView: UIView {
       theme.colorScheme == .dark ? 0.134 : 0.122
     )
     portfolioSwitchThumbColor = background
+    refreshControl.tintColor = secondary
     tintColor = primary
+    applyTabBar(selectedTabId: selectedTabId)
   }
 
   private func applyHeader(_ header: INativeHomeHeaderViewModel) {
@@ -385,31 +770,596 @@ final class HomeContainerView: UIView {
     )
     balanceButton.accessibilityValue = header.balanceHidden ? "Hidden" : header.balanceText
     actionSubtitleLabel.isHidden = header.actionSubtitle.isEmpty
+    walletBannerHost.isHidden = !header.bannerVisible
 
     switch header.actionLayout {
     case .loading:
       actionSubtitleLabel.text = header.actionSubtitle
-      showLoadingActions()
-      updateHeaderHeight(Self.fundedHeaderHeight)
+      actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+      actionsScrollView.isHidden = true
+      updateHeaderHeight(baseHeight: Self.fundedHeaderHeight, bannerVisible: header.bannerVisible)
     case .zero:
       actionSubtitleLabel.text = header.actionSubtitle
+      actionsScrollView.isHidden = false
       showActions(header.actions, layout: .zero)
-      updateHeaderHeight(Self.zeroHeaderHeight)
+      updateHeaderHeight(baseHeight: Self.zeroHeaderHeight, bannerVisible: header.bannerVisible)
     case .funded:
       actionSubtitleLabel.text = header.actionSubtitle
+      actionsScrollView.isHidden = false
       showActions(header.actions, layout: .funded)
-      updateHeaderHeight(Self.fundedHeaderHeight)
+      updateHeaderHeight(baseHeight: Self.fundedHeaderHeight, bannerVisible: header.bannerVisible)
     }
+  }
+
+  private func updateHeaderHeight(baseHeight: CGFloat, bannerVisible: Bool) {
+    currentBaseHeaderHeight = baseHeight
+    headerStackBottomConstraint?.constant = baseHeight - 32
+    let bannerBandHeight = bannerVisible
+      ? Self.walletBannerGap + Self.walletBannerHeight
+      : 0
+    updateHeaderHeight(baseHeight + bannerBandHeight)
+    visualSlotLayoutDidChange?()
   }
 
   private func updateHeaderHeight(_ height: CGFloat) {
     guard height != currentHeaderHeight else { return }
     let previousHeight = currentHeaderHeight
+    let previousOffset = outerScrollView.contentOffset.y
     currentHeaderHeight = height
-    collectionView.contentInset.top = height
-    collectionView.scrollIndicatorInsets.top = height
-    collectionView.contentOffset.y -= height - previousHeight
     setNeedsLayout()
+    layoutIfNeeded()
+    let nextOffset: CGFloat
+    if previousOffset > previousHeight {
+      nextOffset = height + previousOffset - previousHeight
+    } else if previousOffset >= previousHeight - 0.5 {
+      nextOffset = height
+    } else {
+      nextOffset = min(previousOffset, height)
+    }
+    outerScrollView.contentOffset.y = max(0, nextOffset)
+    updateSharedChromeLayout()
+  }
+
+  @objc(visualSlotHostViewForKey:)
+  func visualSlotHostView(forKey key: String) -> UIView? {
+    switch key {
+    case "walletBanner":
+      return walletBannerHost.isHidden ? nil : walletBannerHost
+    case "portfolioEmpty":
+      return currentSpotTokens?.state == .empty ? spotEmptyHost : nil
+    default:
+      return nil
+    }
+  }
+
+  @objc(ownsVisualSlotWithScopeKey:sessionId:)
+  func ownsVisualSlot(scopeKey: String, sessionId: String) -> Bool {
+    guard let owner = currentOwner else { return false }
+    return owner.scopeKey == scopeKey && owner.sessionId == sessionId
+  }
+
+  private var currentPage: Page? {
+    pages.first(where: { $0.tabId == selectedTabId })
+  }
+
+  private func indexOfTab(_ tabId: NativeHomeTabId) -> Int? {
+    pages.firstIndex(where: { $0.tabId == tabId })
+  }
+
+  private func bodyContentOffset(for page: Page) -> CGFloat {
+    max(0, page.scrollView.contentOffset.y)
+  }
+
+  private func maximumBodyContentOffset(for page: Page) -> CGFloat {
+    max(
+      0,
+      page.scrollView.contentSize.height +
+        page.scrollView.contentInset.bottom -
+        page.scrollView.bounds.height
+    )
+  }
+
+  private func setBodyContentOffset(_ offset: CGFloat, for page: Page) {
+    let nextOffset = max(0, min(offset, maximumBodyContentOffset(for: page)))
+    guard abs(page.scrollView.contentOffset.y - nextOffset) > 0.5 else { return }
+    page.scrollView.contentOffset = CGPoint(x: 0, y: nextOffset)
+  }
+
+  private func makeEmptyPage(tabId: NativeHomeTabId) -> HomeContainerPageCollectionView {
+    let layout = UICollectionViewFlowLayout()
+    layout.minimumLineSpacing = 0
+    layout.minimumInteritemSpacing = 0
+    let page = HomeContainerPageCollectionView(frame: .zero, collectionViewLayout: layout)
+    page.alwaysBounceVertical = true
+    page.showsVerticalScrollIndicator = false
+    page.contentInsetAdjustmentBehavior = .never
+    page.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 96, right: 0)
+    page.scrollIndicatorInsets = page.contentInset
+    page.delegate = self
+    page.isScrollEnabled = !usesUnifiedVerticalDriver
+    page.backgroundColor = portfolioBackgroundColor
+    page.accessibilityIdentifier = "native-home-\(tabId.stringValue)-placeholder"
+    return page
+  }
+
+  private func applyPages(_ tabs: [INativeHomeTabViewModel]) {
+    let enabledTabs = tabs.filter(\.enabled)
+    let previousTabIds = pages.map(\.tabId)
+    var nextPages: [Page] = []
+
+    for tab in enabledTabs {
+      let pageScrollView: HomeContainerPageCollectionView
+      if tab.id == .portfolio {
+        pageScrollView = collectionView
+      } else if let existing = emptyPageScrollViews[tab.id.stringValue] {
+        pageScrollView = existing
+      } else {
+        let page = makeEmptyPage(tabId: tab.id)
+        emptyPageScrollViews[tab.id.stringValue] = page
+        pageScrollView = page
+      }
+      if pageScrollView.superview == nil {
+        pager.addSubview(pageScrollView)
+      }
+      pageScrollView.backgroundColor = portfolioBackgroundColor
+      pageScrollView.isScrollEnabled = !usesUnifiedVerticalDriver
+      nextPages.append(Page(tabId: tab.id, scrollView: pageScrollView))
+    }
+
+    let nextTabKeys = Set(nextPages.map { $0.tabId.stringValue })
+    for page in pages where !nextTabKeys.contains(page.tabId.stringValue) {
+      page.scrollView.removeFromSuperview()
+    }
+    emptyPageScrollViews = emptyPageScrollViews.filter { nextTabKeys.contains($0.key) }
+    pages = nextPages
+
+    if previousTabIds != pages.map(\.tabId) {
+      pager.layer.removeAllAnimations()
+      pagerTransitionState = .idle
+      pendingPagerNotify = false
+      pendingTabSelection = nil
+    }
+    if !pages.contains(where: { $0.tabId == selectedTabId }) {
+      selectedTabId = pages.first?.tabId ?? .portfolio
+    }
+    setNeedsLayout()
+  }
+
+  private func applyTabBar(selectedTabId: NativeHomeTabId) {
+    let tabs = currentNavigation?.tabs.filter(\.enabled) ?? []
+    let resolvedSelectedTabId = tabs.contains(where: { $0.id == selectedTabId })
+      ? selectedTabId
+      : tabs.first?.id ?? .portfolio
+    tabBar.apply(
+      tabs: tabs,
+      selectedTabId: resolvedSelectedTabId,
+      backgroundColor: portfolioBackgroundColor,
+      primaryColor: portfolioPrimaryTextColor,
+      secondaryColor: portfolioSecondaryTextColor
+    )
+  }
+
+  private func prepareViewportForOwnerChange(selectedTabId requestedTabId: NativeHomeTabId) {
+    cancelActiveRefresh()
+    pager.layer.removeAllAnimations()
+    pagerTransitionState = .idle
+    pendingPagerNotify = false
+    pendingTabSelection = nil
+    verticalScrollOwner = .header
+    isVerticalGestureActive = false
+    pages.forEach {
+      $0.scrollView.setContentOffset(.zero, animated: false)
+      $0.scrollView.transform = .identity
+    }
+    selectedTabId = pages.contains(where: { $0.tabId == requestedTabId })
+      ? requestedTabId
+      : pages.first?.tabId ?? .portfolio
+    outerScrollView.setContentOffset(.zero, animated: false)
+    headerHost.transform = .identity
+    tabBar.transform = .identity
+    pager.transform = .identity
+    refreshControl.isEnabled = true
+    setNeedsLayout()
+    layoutIfNeeded()
+    if let index = indexOfTab(selectedTabId), pager.bounds.width > 0 {
+      pager.setContentOffset(
+        CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0),
+        animated: false
+      )
+    }
+    if let page = currentPage, usesUnifiedVerticalDriver {
+      synchronizeUnifiedVerticalPage(page, preservedBodyOffset: 0)
+    } else {
+      updateSharedChromeLayout()
+    }
+  }
+
+  private func moveToTab(
+    _ tabId: NativeHomeTabId,
+    animated: Bool,
+    notify: Bool
+  ) {
+    guard currentNavigation?.tabs.contains(where: { $0.id == tabId && $0.enabled }) == true,
+          let index = indexOfTab(tabId) else { return }
+    guard pagerTransitionState == .idle else {
+      pendingTabSelection = (tabId, notify)
+      return
+    }
+    if selectedTabId == tabId {
+      tabBar.setSelectedTab(tabId, animated: animated)
+      visualSlotLayoutDidChange?()
+      return
+    }
+
+    pages.forEach { $0.scrollView.layoutIfNeeded() }
+    pagerTransitionState = .settling(targetIndex: index)
+    pendingPagerNotify = notify
+    if usesUnifiedVerticalDriver {
+      updateUnifiedVerticalContentSize(source: pages[index].scrollView)
+    }
+    layoutIfNeeded()
+    guard pager.bounds.width > 0 else {
+      selectedTabId = tabId
+      pagerTransitionState = .idle
+      pendingPagerNotify = false
+      tabBar.setSelectedTab(tabId, animated: false)
+      if notify {
+        emitTabSelection(tabId)
+      }
+      visualSlotLayoutDidChange?()
+      return
+    }
+    let targetOffset = CGPoint(x: CGFloat(index) * pager.bounds.width, y: 0)
+    pager.setContentOffset(targetOffset, animated: animated)
+    if !animated || abs(pager.contentOffset.x - targetOffset.x) <= 0.5 {
+      finishPaging(notify: notify)
+    }
+  }
+
+  private func selectTabFromControl(_ tabId: NativeHomeTabId) {
+    guard currentNavigation?.tabs.contains(where: { $0.id == tabId && $0.enabled }) == true,
+          pages.contains(where: { $0.tabId == tabId }) else { return }
+    if pagerTransitionState == .idle, selectedTabId == tabId {
+      return
+    }
+    emitTabSelection(tabId)
+    moveToTab(tabId, animated: true, notify: false)
+  }
+
+  private func finishPaging(notify: Bool) {
+    guard pager.bounds.width > 0, !pages.isEmpty else { return }
+    let index = max(
+      0,
+      min(pages.count - 1, Int(round(pager.contentOffset.x / pager.bounds.width)))
+    )
+    let targetPage = pages[index]
+    targetPage.scrollView.layoutIfNeeded()
+    let preservedBodyOffset = min(
+      bodyContentOffset(for: targetPage),
+      maximumBodyContentOffset(for: targetPage)
+    )
+    let nextTabId = targetPage.tabId
+    let didChangeTab = nextTabId != selectedTabId
+    pagerTransitionState = .idle
+    pendingPagerNotify = false
+    selectedTabId = nextTabId
+    tabBar.setSelectedTab(nextTabId, animated: true)
+    visualSlotLayoutDidChange?()
+    if didChangeTab {
+      cancelActiveRefresh()
+    }
+    if usesUnifiedVerticalDriver {
+      synchronizeUnifiedVerticalPage(
+        targetPage,
+        preservedBodyOffset: preservedBodyOffset
+      )
+    } else {
+      synchronizeVerticalScrollOwner(source: targetPage)
+      coordinateNestedScroll(source: targetPage)
+    }
+    if notify, didChangeTab {
+      emitTabSelection(nextTabId)
+    }
+    if let pendingSelection = pendingTabSelection {
+      pendingTabSelection = nil
+      if pendingSelection.tabId != nextTabId {
+        moveToTab(
+          pendingSelection.tabId,
+          animated: true,
+          notify: pendingSelection.notify
+        )
+      }
+    }
+  }
+
+  private func emitTabSelection(_ tabId: NativeHomeTabId) {
+    guard let owner = currentOwner,
+          currentNavigation?.tabs.contains(where: { $0.id == tabId && $0.enabled }) == true
+    else { return }
+    onIntent?(
+      INativeHomeIntent(
+        owner: owner,
+        selectTabId: tabId,
+        headerActionId: nil,
+        spotTokenItemId: nil,
+        spotTokensActionId: nil,
+        spotTokensActionValue: nil,
+        refreshTabId: nil
+      )
+    )
+  }
+
+  func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    if scrollView === pager {
+      pagerTransitionState = .dragging
+      pendingPagerNotify = true
+      pages.forEach { $0.scrollView.layoutIfNeeded() }
+      return
+    }
+    guard !usesUnifiedVerticalDriver,
+          let page = currentPage,
+          scrollView === outerScrollView || scrollView === page.scrollView else { return }
+    beginVerticalGesture(source: page)
+  }
+
+  func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    if scrollView === outerScrollView {
+      coordinateOuterScroll()
+      return
+    }
+    guard !usesUnifiedVerticalDriver,
+          let page = currentPage,
+          scrollView === page.scrollView else { return }
+    coordinateNestedScroll(source: page)
+  }
+
+  func scrollViewDidEndDragging(
+    _ scrollView: UIScrollView,
+    willDecelerate decelerate: Bool
+  ) {
+    if scrollView === pager {
+      if !decelerate {
+        finishPaging(notify: pendingPagerNotify)
+      }
+      return
+    }
+    if scrollView === outerScrollView, usesUnifiedVerticalDriver {
+      if !decelerate, let page = currentPage {
+        updateUnifiedVerticalContentSize(source: page.scrollView)
+      }
+      return
+    }
+    guard !usesUnifiedVerticalDriver,
+          let page = currentPage,
+          scrollView === outerScrollView || scrollView === page.scrollView else { return }
+    endVerticalGesture(source: page)
+  }
+
+  func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    if scrollView === pager {
+      finishPaging(notify: pendingPagerNotify)
+    } else if scrollView === outerScrollView,
+              usesUnifiedVerticalDriver,
+              let page = currentPage {
+      updateUnifiedVerticalContentSize(source: page.scrollView)
+    }
+  }
+
+  func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+    if scrollView === pager {
+      finishPaging(notify: pendingPagerNotify)
+    }
+  }
+
+  private func updateSharedChromeLayout() {
+    headerHost.transform = .identity
+    tabBar.transform = .identity
+    pager.transform = .identity
+    pages.forEach { $0.scrollView.transform = .identity }
+    let combinedOffset = outerScrollView.contentOffset.y
+    if usesUnifiedVerticalDriver {
+      let bodyOffset = max(0, combinedOffset - maximumHeaderOffset)
+      let maximumOuterOffset = max(
+        0,
+        outerScrollView.contentSize.height - outerScrollView.bounds.height
+      )
+      let bottomOverscroll = max(0, combinedOffset - maximumOuterOffset)
+      let chromeCompensation = CGAffineTransform(translationX: 0, y: bodyOffset)
+      let pageBounceTransform = CGAffineTransform(
+        translationX: 0,
+        y: -bottomOverscroll
+      )
+      headerHost.transform = chromeCompensation
+      tabBar.transform = chromeCompensation
+      pager.transform = chromeCompensation
+      pages.forEach { $0.scrollView.transform = pageBounceTransform }
+      if !isSynchronizingUnifiedVerticalPage, let page = currentPage {
+        setBodyContentOffset(bodyOffset, for: page)
+      }
+    }
+    outerScrollView.bringSubviewToFront(tabBar)
+  }
+
+  private func updateUnifiedVerticalContentSize(
+    source: HomeContainerPageCollectionView
+  ) {
+    guard usesUnifiedVerticalDriver, bounds.height > 0 else { return }
+    let bodyRange: CGFloat
+    switch pagerTransitionState {
+    case .idle:
+      guard currentPage?.scrollView === source else { return }
+      source.layoutIfNeeded()
+      bodyRange = currentPage.map { maximumBodyContentOffset(for: $0) } ?? 0
+    case .dragging, .settling:
+      pages.forEach { $0.scrollView.layoutIfNeeded() }
+      bodyRange = pages.map { maximumBodyContentOffset(for: $0) }.max() ?? 0
+    }
+    outerScrollView.contentSize = CGSize(
+      width: bounds.width,
+      height: bounds.height + maximumHeaderOffset + bodyRange
+    )
+    let maximumOffset = max(
+      0,
+      outerScrollView.contentSize.height - outerScrollView.bounds.height
+    )
+    if pagerTransitionState == .idle,
+       !outerScrollView.isTracking,
+       !outerScrollView.isDragging,
+       !outerScrollView.isDecelerating,
+       outerScrollView.contentOffset.y > maximumOffset {
+      outerScrollView.contentOffset.y = maximumOffset
+      updateSharedChromeLayout()
+    }
+  }
+
+  private func synchronizeUnifiedVerticalPage(
+    _ page: Page,
+    preservedBodyOffset: CGFloat? = nil
+  ) {
+    guard usesUnifiedVerticalDriver, page.tabId == selectedTabId else { return }
+    isSynchronizingUnifiedVerticalPage = true
+    defer { isSynchronizingUnifiedVerticalPage = false }
+    updateUnifiedVerticalContentSize(source: page.scrollView)
+    let bodyOffset = max(
+      0,
+      min(
+        preservedBodyOffset ?? bodyContentOffset(for: page),
+        maximumBodyContentOffset(for: page)
+      )
+    )
+    let headerOffset = bodyOffset > 0.5
+      ? maximumHeaderOffset
+      : max(0, min(outerScrollView.contentOffset.y, maximumHeaderOffset))
+    setBodyContentOffset(bodyOffset, for: page)
+    outerScrollView.contentOffset.y = headerOffset + bodyOffset
+    updateSharedChromeLayout()
+  }
+
+  private func coordinateOuterScroll() {
+    if usesUnifiedVerticalDriver {
+      updateSharedChromeLayout()
+      return
+    }
+    guard !isCoordinatingNestedScroll else { return }
+    isCoordinatingNestedScroll = true
+    defer { isCoordinatingNestedScroll = false }
+    guard let page = currentPage else {
+      updateSharedChromeLayout()
+      return
+    }
+    var targetOffset = outerScrollView.contentOffset.y
+    let velocityY = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y
+    switch verticalScrollOwner {
+    case .header:
+      targetOffset = min(targetOffset, maximumHeaderOffset)
+      if targetOffset >= maximumHeaderOffset - 0.5, velocityY < 0 {
+        targetOffset = maximumHeaderOffset
+        verticalScrollOwner = .body
+        refreshControl.isEnabled = false
+      }
+    case .body:
+      if bodyContentOffset(for: page) <= 0.5, velocityY > 0 {
+        verticalScrollOwner = .header
+        refreshControl.isEnabled = true
+        targetOffset = min(targetOffset, maximumHeaderOffset)
+      } else {
+        targetOffset = maximumHeaderOffset
+      }
+    }
+    if abs(targetOffset - outerScrollView.contentOffset.y) > 0.5 {
+      outerScrollView.contentOffset.y = targetOffset
+    }
+    updateSharedChromeLayout()
+  }
+
+  private func coordinateNestedScroll(source page: Page) {
+    guard page.tabId == selectedTabId, !isCoordinatingNestedScroll else { return }
+    isCoordinatingNestedScroll = true
+    defer { isCoordinatingNestedScroll = false }
+    let velocityY = page.scrollView.panGestureRecognizer.velocity(in: page.scrollView).y
+    if page.scrollView.contentOffset.y < 0 {
+      setBodyContentOffset(0, for: page)
+    }
+    switch verticalScrollOwner {
+    case .header:
+      if bodyContentOffset(for: page) > 0.5 {
+        setBodyContentOffset(0, for: page)
+      }
+      if outerScrollView.contentOffset.y >= maximumHeaderOffset - 0.5,
+         velocityY < 0 {
+        outerScrollView.contentOffset.y = maximumHeaderOffset
+        verticalScrollOwner = .body
+        refreshControl.isEnabled = false
+      }
+    case .body:
+      if outerScrollView.contentOffset.y < maximumHeaderOffset - 0.5 {
+        outerScrollView.contentOffset.y = maximumHeaderOffset
+      }
+      if bodyContentOffset(for: page) <= 0.5, velocityY > 0 {
+        setBodyContentOffset(0, for: page)
+        verticalScrollOwner = .header
+        refreshControl.isEnabled = true
+      }
+    }
+    updateSharedChromeLayout()
+  }
+
+  private func beginVerticalGesture(source page: Page) {
+    guard page.tabId == selectedTabId, !isVerticalGestureActive else { return }
+    isVerticalGestureActive = true
+    let outerVelocity = outerScrollView.panGestureRecognizer.velocity(in: outerScrollView).y
+    let bodyVelocity = page.scrollView.panGestureRecognizer.velocity(in: page.scrollView).y
+    let velocityY = abs(bodyVelocity) > abs(outerVelocity) ? bodyVelocity : outerVelocity
+    if bodyContentOffset(for: page) > 0.5 {
+      verticalScrollOwner = .body
+    } else if outerScrollView.contentOffset.y < maximumHeaderOffset - 0.5 {
+      verticalScrollOwner = .header
+    } else {
+      verticalScrollOwner = velocityY > 0 ? .header : .body
+    }
+    refreshControl.isEnabled = verticalScrollOwner == .header
+  }
+
+  private func endVerticalGesture(source page: Page) {
+    guard page.tabId == selectedTabId else { return }
+    isVerticalGestureActive = false
+    refreshControl.isEnabled = verticalScrollOwner == .header
+  }
+
+  private func synchronizeVerticalScrollOwner(source page: Page) {
+    isVerticalGestureActive = false
+    if bodyContentOffset(for: page) > 0.5 {
+      verticalScrollOwner = .body
+    } else if outerScrollView.contentOffset.y < maximumHeaderOffset - 0.5 {
+      verticalScrollOwner = .header
+    }
+    refreshControl.isEnabled = verticalScrollOwner == .header
+  }
+
+  private func portfolioContentDidChange() {
+    collectionView.collectionViewLayout.invalidateLayout()
+    collectionView.layoutIfNeeded()
+    updateSpotEmptyHostFrame()
+    visualSlotLayoutDidChange?()
+    if usesUnifiedVerticalDriver,
+       (currentPage?.scrollView === collectionView || pagerTransitionState != .idle) {
+      updateUnifiedVerticalContentSize(source: collectionView)
+      updateSharedChromeLayout()
+    }
+  }
+
+  private func updateSpotEmptyHostFrame() {
+    guard currentSpotTokens?.state == .empty,
+          let indexPath = dataSource?.indexPath(for: .empty),
+          let attributes = collectionView.layoutAttributesForItem(at: indexPath)
+    else {
+      spotEmptyHost.isHidden = true
+      spotEmptyHost.frame = .zero
+      return
+    }
+    spotEmptyHost.frame = attributes.frame
+    spotEmptyHost.isHidden = false
+    collectionView.bringSubviewToFront(spotEmptyHost)
   }
 
   private func configureDataSource() {
@@ -418,6 +1368,13 @@ final class HomeContainerView: UIView {
     ) { [weak self] collectionView, indexPath, item in
       guard let self else { return nil }
       switch item {
+      case .portfolioTopInset:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioInsetCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioInsetCell
+        cell?.contentView.backgroundColor = portfolioBackgroundColor
+        return cell
       case .title:
         let cell = collectionView.dequeueReusableCell(
           withReuseIdentifier: HomeContainerPortfolioTitleCell.reuseIdentifier,
@@ -425,7 +1382,7 @@ final class HomeContainerView: UIView {
         ) as? HomeContainerPortfolioTitleCell
         cell?.apply(
           title: portfolioTitle,
-          filter: currentState?.portfolio.deFiTokensFilter,
+          filter: currentSpotTokens?.deFiTokensFilter,
           backgroundColor: portfolioBackgroundColor,
           primaryTextColor: portfolioPrimaryTextColor,
           secondaryTextColor: portfolioSecondaryTextColor,
@@ -469,7 +1426,7 @@ final class HomeContainerView: UIView {
           withReuseIdentifier: HomeContainerPortfolioFooterCell.reuseIdentifier,
           for: indexPath
         ) as? HomeContainerPortfolioFooterCell
-        if let item = currentState?.portfolio.lowValueAssets {
+        if let item = currentSpotTokens?.lowValueAssets {
           cell?.apply(
             title: item.title,
             value: item.valueText,
@@ -489,7 +1446,7 @@ final class HomeContainerView: UIView {
           withReuseIdentifier: HomeContainerPortfolioFooterCell.reuseIdentifier,
           for: indexPath
         ) as? HomeContainerPortfolioFooterCell
-        if let item = currentState?.portfolio.riskAssets {
+        if let item = currentSpotTokens?.riskAssets {
           cell?.apply(
             title: item.title,
             value: "",
@@ -509,7 +1466,7 @@ final class HomeContainerView: UIView {
           withReuseIdentifier: HomeContainerPortfolioManageTokensCell.reuseIdentifier,
           for: indexPath
         ) as? HomeContainerPortfolioManageTokensCell
-        if let item = currentState?.portfolio.manageTokens {
+        if let item = currentSpotTokens?.manageTokens {
           cell?.apply(
             instruction: item.instruction,
             actionTitle: item.actionTitle,
@@ -556,7 +1513,6 @@ final class HomeContainerView: UIView {
           for: indexPath
         ) as? HomeContainerPortfolioStatusCell
         cell?.apply(
-          text: portfolioEmptyText,
           backgroundColor: portfolioBackgroundColor,
           textColor: portfolioSecondaryTextColor,
           surfaceColor: portfolioSurfaceColor
@@ -565,35 +1521,20 @@ final class HomeContainerView: UIView {
       }
     }
 
-    dataSource?.supplementaryViewProvider = {
-      [weak self] collectionView, kind, indexPath in
-      guard let self, kind == UICollectionView.elementKindSectionHeader else {
-        return nil
-      }
-      let view = collectionView.dequeueReusableSupplementaryView(
-        ofKind: kind,
-        withReuseIdentifier: HomeContainerTabHeaderView.reuseIdentifier,
-        for: indexPath
-      ) as? HomeContainerTabHeaderView
-      view?.apply(
-        title: tabTitle,
-        backgroundColor: portfolioBackgroundColor,
-        textColor: portfolioPrimaryTextColor
-      )
-      return view
-    }
   }
 
   private func applyPortfolioSnapshot(animatingDifferences: Bool) {
     guard let dataSource else { return }
     var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
     snapshot.appendSections([.portfolio])
-    guard let portfolio = currentState?.portfolio else {
-      dataSource.apply(snapshot, animatingDifferences: false)
+    guard let portfolio = currentSpotTokens else {
+      dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+        self?.portfolioContentDidChange()
+      }
       return
     }
 
-    var items: [Item] = [.title]
+    var items: [Item] = [.portfolioTopInset, .title]
     switch portfolio.state {
     case .initialloading:
       items.append(contentsOf: (0..<4).map(Item.loading))
@@ -629,22 +1570,8 @@ final class HomeContainerView: UIView {
     if !reloadItems.isEmpty {
       snapshot.reloadItems(reloadItems)
     }
-    dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
-  }
-
-  private func showLoadingActions() {
-    actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-    for _ in 0..<4 {
-      let skeleton = UIView()
-      skeleton.backgroundColor = balanceSkeleton.backgroundColor
-      skeleton.layer.cornerRadius = 16
-      skeleton.translatesAutoresizingMaskIntoConstraints = false
-      actionsStack.addArrangedSubview(skeleton)
-      skeleton.widthAnchor.constraint(
-        equalTo: actionsScrollView.frameLayoutGuide.widthAnchor,
-        multiplier: 0.25,
-        constant: -7.5
-      ).isActive = true
+    dataSource.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
+      self?.portfolioContentDidChange()
     }
   }
 
@@ -733,50 +1660,101 @@ final class HomeContainerView: UIView {
 
   @objc
   private func handleBalancePress() {
-    guard let actionId = currentState?.header.balanceActionId else { return }
+    guard let actionId = currentHeader?.balanceActionId else { return }
     emit(actionId)
   }
 
   private func emit(_ actionId: NativeHomeHeaderActionId) {
-    guard let owner = currentState?.owner else { return }
+    guard let owner = currentOwner else { return }
     onIntent?(
       INativeHomeIntent(
         owner: owner,
+        selectTabId: nil,
         headerActionId: actionId,
-        portfolioItemId: nil,
-        portfolioActionId: nil,
-        portfolioActionValue: nil
+        spotTokenItemId: nil,
+        spotTokensActionId: nil,
+        spotTokensActionValue: nil,
+        refreshTabId: nil
       )
     )
   }
 
   private func emitPortfolioItem(_ itemId: String) {
-    guard let owner = currentState?.owner else { return }
+    guard let owner = currentOwner else { return }
     onIntent?(
       INativeHomeIntent(
         owner: owner,
+        selectTabId: nil,
         headerActionId: nil,
-        portfolioItemId: itemId,
-        portfolioActionId: nil,
-        portfolioActionValue: nil
+        spotTokenItemId: itemId,
+        spotTokensActionId: nil,
+        spotTokensActionValue: nil,
+        refreshTabId: nil
       )
     )
   }
 
   private func emitPortfolioAction(
-    _ actionId: NativeHomePortfolioActionId,
+    _ actionId: NativeHomeSpotTokensActionId,
     value: Bool? = nil
   ) {
-    guard let owner = currentState?.owner else { return }
+    guard let owner = currentOwner else { return }
     onIntent?(
       INativeHomeIntent(
         owner: owner,
+        selectTabId: nil,
         headerActionId: nil,
-        portfolioItemId: nil,
-        portfolioActionId: actionId,
-        portfolioActionValue: value
+        spotTokenItemId: nil,
+        spotTokensActionId: actionId,
+        spotTokensActionValue: value,
+        refreshTabId: nil
       )
     )
+  }
+
+  @objc
+  private func handleRefresh() {
+    let bodyContentOffset = currentPage.map {
+      max(0, $0.scrollView.contentOffset.y)
+    } ?? 0
+    let canRefresh = usesUnifiedVerticalDriver
+      ? outerScrollView.contentOffset.y <= 0.5
+      : verticalScrollOwner == .header && bodyContentOffset <= 0.5
+    guard refreshEndWorkItem == nil,
+          canRefresh,
+          let owner = currentOwner,
+          let navigation = currentNavigation,
+          navigation.selectedTab == selectedTabId,
+          navigation.tabs.contains(where: { $0.id == selectedTabId && $0.enabled })
+    else {
+      refreshControl.endRefreshing()
+      return
+    }
+    onIntent?(
+      INativeHomeIntent(
+        owner: owner,
+        selectTabId: nil,
+        headerActionId: nil,
+        spotTokenItemId: nil,
+        spotTokensActionId: nil,
+        spotTokensActionValue: nil,
+        refreshTabId: selectedTabId
+      )
+    )
+    let workItem = DispatchWorkItem { [weak self] in
+      self?.cancelActiveRefresh()
+    }
+    refreshEndWorkItem = workItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + Self.refreshFeedbackDuration,
+      execute: workItem
+    )
+  }
+
+  private func cancelActiveRefresh() {
+    refreshEndWorkItem?.cancel()
+    refreshEndWorkItem = nil
+    refreshControl.endRefreshing()
   }
 }
 
@@ -790,22 +1768,15 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
       return CGSize(width: collectionView.bounds.width, height: 56)
     }
     let height: CGFloat = switch item {
+    case .portfolioTopInset: Self.portfolioTopInset
     case .title: 56
     case .token, .loading: 60
     case .lowValueAssets, .riskAssets: 56
     case .manageTokens: 60
     case let .toggle(isExpanded): isExpanded ? 70 : 50
-    case .empty: 240
+    case .empty: Self.portfolioEmptyHeight
     }
     return CGSize(width: collectionView.bounds.width, height: height)
-  }
-
-  func collectionView(
-    _ collectionView: UICollectionView,
-    layout collectionViewLayout: UICollectionViewLayout,
-    referenceSizeForHeaderInSection section: Int
-  ) -> CGSize {
-    CGSize(width: collectionView.bounds.width, height: 52)
   }
 
   func collectionView(
@@ -819,101 +1790,19 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
       guard portfolioRows[id]?.enabled == true else { return }
       emitPortfolioItem(id)
     case .lowValueAssets:
-      guard currentState?.portfolio.lowValueAssets.enabled == true else { return }
+      guard currentSpotTokens?.lowValueAssets.enabled == true else { return }
       emitPortfolioAction(.openlowvalueassets)
     case .riskAssets:
-      guard currentState?.portfolio.riskAssets.enabled == true else { return }
+      guard currentSpotTokens?.riskAssets.enabled == true else { return }
       emitPortfolioAction(.openriskassets)
-    case .title, .manageTokens, .toggle, .loading, .empty:
+    case .portfolioTopInset, .title, .manageTokens, .toggle, .loading, .empty:
       break
     }
   }
 }
 
-private final class HomeContainerCollectionLayout: UICollectionViewFlowLayout {
-  override func layoutAttributesForElements(
-    in rect: CGRect
-  ) -> [UICollectionViewLayoutAttributes]? {
-    guard let collectionView,
-          var attributes = super.layoutAttributesForElements(in: rect)?.compactMap({
-            $0.copy() as? UICollectionViewLayoutAttributes
-          })
-    else {
-      return super.layoutAttributesForElements(in: rect)
-    }
-    if !attributes.contains(where: {
-      $0.representedElementKind == UICollectionView.elementKindSectionHeader
-    }),
-      let header = super.layoutAttributesForSupplementaryView(
-        ofKind: UICollectionView.elementKindSectionHeader,
-        at: IndexPath(item: 0, section: 0)
-      )?.copy() as? UICollectionViewLayoutAttributes
-    {
-      attributes.append(header)
-    }
-    for attribute in attributes
-      where attribute.representedElementKind == UICollectionView.elementKindSectionHeader {
-      attribute.frame.origin.y = max(attribute.frame.origin.y, collectionView.contentOffset.y)
-      attribute.zIndex = 100
-    }
-    return attributes
-  }
-
-  override func layoutAttributesForSupplementaryView(
-    ofKind elementKind: String,
-    at indexPath: IndexPath
-  ) -> UICollectionViewLayoutAttributes? {
-    guard let attributes = super.layoutAttributesForSupplementaryView(
-      ofKind: elementKind,
-      at: indexPath
-    )?.copy() as? UICollectionViewLayoutAttributes else {
-      return nil
-    }
-    if elementKind == UICollectionView.elementKindSectionHeader,
-       let collectionView {
-      attributes.frame.origin.y = max(
-        attributes.frame.origin.y,
-        collectionView.contentOffset.y
-      )
-      attributes.zIndex = 100
-    }
-    return attributes
-  }
-
-  override func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
-    true
-  }
-}
-
-private final class HomeContainerTabHeaderView: UICollectionReusableView {
-  static let reuseIdentifier = "HomeContainerTabHeaderView"
-  private let titleLabel = UILabel()
-
-  override init(frame: CGRect) {
-    super.init(frame: frame)
-    titleLabel.font = HomeContainerTypography.semibold(18)
-    titleLabel.adjustsFontForContentSizeCategory = false
-    titleLabel.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(titleLabel)
-    accessibilityIdentifier = "native-home-tab-portfolio"
-    NSLayoutConstraint.activate([
-      titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -20),
-      titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-      titleLabel.heightAnchor.constraint(equalToConstant: 24),
-    ])
-  }
-
-  @available(*, unavailable)
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
-
-  func apply(title: String, backgroundColor: UIColor, textColor: UIColor) {
-    self.backgroundColor = backgroundColor
-    titleLabel.text = title
-    titleLabel.textColor = textColor
-  }
+private final class HomeContainerPortfolioInsetCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioInsetCell"
 }
 
 private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
@@ -1002,7 +1891,7 @@ private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
 
   func apply(
     title: String,
-    filter: INativeHomePortfolioDeFiTokensViewModel?,
+    filter: INativeHomeSpotTokensDeFiFilterViewModel?,
     backgroundColor: UIColor,
     primaryTextColor: UIColor,
     secondaryTextColor: UIColor,
@@ -1204,7 +2093,7 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     priceChangeDirection: NativeHomePriceChangeDirection,
     balanceText: String,
     valueText: String,
-    valuationState: NativeHomePortfolioValuationState,
+    valuationState: NativeHomeSpotTokenValuationState,
     enabled: Bool,
     backgroundColor: UIColor,
     surfaceColor: UIColor,
@@ -1590,39 +2479,10 @@ private final class HomeContainerPortfolioToggleCell: UICollectionViewCell {
 
 private final class HomeContainerPortfolioStatusCell: UICollectionViewCell {
   static let reuseIdentifier = "HomeContainerPortfolioStatusCell"
-  private let iconHost = UIView()
-  private let iconLabel = UILabel()
-  private let messageLabel = UILabel()
 
   override init(frame: CGRect) {
     super.init(frame: frame)
-    iconHost.layer.cornerRadius = 28
-    iconHost.translatesAutoresizingMaskIntoConstraints = false
-    contentView.addSubview(iconHost)
-
-    iconLabel.text = "?"
-    iconLabel.font = HomeContainerTypography.semibold(24)
-    iconLabel.textAlignment = .center
-    iconLabel.translatesAutoresizingMaskIntoConstraints = false
-    iconHost.addSubview(iconLabel)
-
-    messageLabel.font = HomeContainerTypography.medium(16)
-    messageLabel.textAlignment = .center
-    messageLabel.numberOfLines = 2
-    messageLabel.translatesAutoresizingMaskIntoConstraints = false
-    contentView.addSubview(messageLabel)
-
-    NSLayoutConstraint.activate([
-      iconHost.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-      iconHost.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 44),
-      iconHost.widthAnchor.constraint(equalToConstant: 56),
-      iconHost.heightAnchor.constraint(equalToConstant: 56),
-      iconLabel.centerXAnchor.constraint(equalTo: iconHost.centerXAnchor),
-      iconLabel.centerYAnchor.constraint(equalTo: iconHost.centerYAnchor),
-      messageLabel.topAnchor.constraint(equalTo: iconHost.bottomAnchor, constant: 16),
-      messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
-      messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
-    ])
+    contentView.clipsToBounds = true
   }
 
   @available(*, unavailable)
@@ -1631,16 +2491,11 @@ private final class HomeContainerPortfolioStatusCell: UICollectionViewCell {
   }
 
   func apply(
-    text: String,
     backgroundColor: UIColor,
-    textColor: UIColor,
-    surfaceColor: UIColor
+    textColor _: UIColor,
+    surfaceColor _: UIColor
   ) {
     contentView.backgroundColor = backgroundColor
-    iconHost.backgroundColor = surfaceColor
-    iconLabel.textColor = textColor
-    messageLabel.text = text
-    messageLabel.textColor = textColor
     accessibilityIdentifier = "native-home-portfolio-empty"
   }
 }

@@ -19,8 +19,8 @@ public extension INativeHomeHeaderViewModel {
   /**
    * Create a new instance of `INativeHomeHeaderViewModel`.
    */
-  init(state: NativeHomeHeaderState, balanceText: String, balanceHidden: Bool, balanceActionId: NativeHomeHeaderActionId, balanceActionEnabled: Bool, actionLayout: NativeHomeHeaderActionLayout, actionSubtitle: String, actions: [INativeHomeHeaderActionViewModel]) {
-    self.init(state, std.string(balanceText), balanceHidden, balanceActionId, balanceActionEnabled, actionLayout, std.string(actionSubtitle), { () -> bridge.std__vector_INativeHomeHeaderActionViewModel_ in
+  init(state: NativeHomeHeaderState, balanceText: String, balanceHidden: Bool, balanceActionId: NativeHomeHeaderActionId, balanceActionEnabled: Bool, bannerVisible: Bool, actionLayout: NativeHomeHeaderActionLayout, actionSubtitle: String, actions: [INativeHomeHeaderActionViewModel]) {
+    self.init(state, std.string(balanceText), balanceHidden, balanceActionId, balanceActionEnabled, bannerVisible, actionLayout, std.string(actionSubtitle), { () -> bridge.std__vector_INativeHomeHeaderActionViewModel_ in
       var __vector = bridge.create_std__vector_INativeHomeHeaderActionViewModel_(actions.count)
       for __item in actions {
         __vector.push_back(__item)
@@ -52,6 +52,11 @@ public extension INativeHomeHeaderViewModel {
   @inline(__always)
   var balanceActionEnabled: Bool {
     return self.__balanceActionEnabled
+  }
+  
+  @inline(__always)
+  var bannerVisible: Bool {
+    return self.__bannerVisible
   }
   
   @inline(__always)

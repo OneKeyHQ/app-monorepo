@@ -11,7 +11,12 @@ import NitroModules
 /// See ``HybridHomeContainerSpec``
 public protocol HybridHomeContainerSpec_protocol: HybridObject, HybridView {
   // Properties
-  var state: INativeHomeViewModel? { get set }
+  var protocolVersion: Double? { get set }
+  var owner: INativeHomeOwnerToken? { get set }
+  var navigation: INativeHomeNavigationViewModel? { get set }
+  var header: INativeHomeHeaderViewModel? { get set }
+  var spotTokens: INativeHomeSpotTokensViewModel? { get set }
+  var theme: INativeHomeThemeViewModel? { get set }
   var onIntent: ((_ intent: INativeHomeIntent) -> Void)? { get set }
 
   // Methods

@@ -14,8 +14,18 @@ namespace margelo::nitro::onekeynativecomponents {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
-      prototype.registerHybridGetter("state", &HybridHomeContainerSpec::getState);
-      prototype.registerHybridSetter("state", &HybridHomeContainerSpec::setState);
+      prototype.registerHybridGetter("protocolVersion", &HybridHomeContainerSpec::getProtocolVersion);
+      prototype.registerHybridSetter("protocolVersion", &HybridHomeContainerSpec::setProtocolVersion);
+      prototype.registerHybridGetter("owner", &HybridHomeContainerSpec::getOwner);
+      prototype.registerHybridSetter("owner", &HybridHomeContainerSpec::setOwner);
+      prototype.registerHybridGetter("navigation", &HybridHomeContainerSpec::getNavigation);
+      prototype.registerHybridSetter("navigation", &HybridHomeContainerSpec::setNavigation);
+      prototype.registerHybridGetter("header", &HybridHomeContainerSpec::getHeader);
+      prototype.registerHybridSetter("header", &HybridHomeContainerSpec::setHeader);
+      prototype.registerHybridGetter("spotTokens", &HybridHomeContainerSpec::getSpotTokens);
+      prototype.registerHybridSetter("spotTokens", &HybridHomeContainerSpec::setSpotTokens);
+      prototype.registerHybridGetter("theme", &HybridHomeContainerSpec::getTheme);
+      prototype.registerHybridSetter("theme", &HybridHomeContainerSpec::setTheme);
       prototype.registerHybridGetter("onIntent", &HybridHomeContainerSpec::getOnIntent);
       prototype.registerHybridSetter("onIntent", &HybridHomeContainerSpec::setOnIntent);
     });

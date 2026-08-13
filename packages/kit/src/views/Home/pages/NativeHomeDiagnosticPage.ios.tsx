@@ -11,11 +11,16 @@ import {
 import { useIntl } from 'react-intl';
 import { StyleSheet, useColorScheme } from 'react-native';
 
+import { EmptyToken } from '@onekeyhq/kit/src/components/Empty/EmptyToken';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { useOwnerScopedHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
-import { useLastConfirmedOverviewBalanceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import {
+  useLastConfirmedOverviewBalanceAtom,
+  useWalletTopBannersAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextDeFiList } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
   useListStructureAtom,
   useTokenListSortAtom,
@@ -43,14 +48,18 @@ import {
   type INativeHomeHeaderActionViewModel,
   type INativeHomeHeaderViewModel,
   type INativeHomeIntent,
+  type INativeHomeNavigationViewModel,
   type INativeHomeOwnerToken,
-  type INativeHomePortfolioItemViewModel,
-  type INativeHomeViewModel,
+  type INativeHomeSpotTokenItemViewModel,
+  type INativeHomeSpotTokensViewModel,
+  type INativeHomeThemeViewModel,
   type NativeHomeHeaderActionId,
-  type NativeHomePortfolioActionId,
+  type NativeHomeSpotTokensActionId,
+  type NativeHomeTabId,
 } from '@onekeyhq/native-components';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -61,7 +70,9 @@ import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenU
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { HomeDeFiOverviewProducer } from '../components/DeFiListBlock/DeFiListBlock';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 import {
   HomeTokenListDataProducer,
   type IHomeTokenListProducerData,
@@ -75,7 +86,9 @@ import { useWalletActionPerp } from '../components/WalletActions/WalletActionPer
 import { useWalletActionReceive } from '../components/WalletActions/WalletActionReceive';
 import { useWalletActionStaking } from '../components/WalletActions/WalletActionStaking';
 import { useWalletActionSwap } from '../components/WalletActions/WalletActionSwap';
+import WalletBanner from '../components/WalletBanner';
 import { useHomeOverviewResolvedBalance } from '../hooks/useHomeOverviewResolvedBalance';
+import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 
 import { isNativeHomeIntentExecutable } from './nativeHomeIntentValidation';
 import {
@@ -98,8 +111,15 @@ type IHeaderActionHandlers = Partial<
 >;
 type IPortfolioActionHandler = (value?: boolean) => void | Promise<void>;
 type IPortfolioActionHandlers = Partial<
-  Record<NativeHomePortfolioActionId, IPortfolioActionHandler>
+  Record<NativeHomeSpotTokensActionId, IPortfolioActionHandler>
 >;
+
+function scopeNativeHomeSectionToOwner<T>(
+  _ownerSessionId: string,
+  viewModel: T,
+): T {
+  return viewModel;
+}
 
 function useNativeHomeOwnerToken(
   sceneName: EAccountSelectorSceneName,
@@ -146,10 +166,13 @@ function useNativeHomeOwnerToken(
   return sessionRef.current;
 }
 
-function useNativeHomeHeaderBalance(): Pick<
-  INativeHomeHeaderViewModel,
-  'balanceActionEnabled' | 'balanceHidden' | 'balanceText' | 'state'
-> {
+function useNativeHomeHeaderBalance(): {
+  balanceState: ReturnType<typeof useOwnerScopedHomeBalanceState>;
+  viewModel: Pick<
+    INativeHomeHeaderViewModel,
+    'balanceActionEnabled' | 'balanceHidden' | 'balanceText' | 'state'
+  >;
+} {
   const ownerBalanceState = useOwnerScopedHomeBalanceState();
   const { ownerKey, resolvedBalanceUsd } = useHomeOverviewResolvedBalance();
   const [lastConfirmedBalance] = useLastConfirmedOverviewBalanceAtom();
@@ -192,23 +215,43 @@ function useNativeHomeHeaderBalance(): Pick<
       : formatted;
   }, [balanceHidden, displayValue, settings.currencyInfo.symbol]);
 
-  return {
-    balanceActionEnabled:
-      ownerBalanceState !== 'unknown' && displayValue !== undefined,
-    balanceHidden,
-    balanceText,
-    state: displayValue === undefined ? 'loading' : 'ready',
-  };
+  const hasDisplayValue = displayValue !== undefined;
+  const balanceState = hasDisplayValue
+    ? ownerBalanceState
+    : ('unknown' as const);
+  const balanceActionEnabled =
+    ownerBalanceState !== 'unknown' && hasDisplayValue;
+  const headerState =
+    hasDisplayValue && ownerBalanceState !== 'unknown'
+      ? ('ready' as const)
+      : ('loading' as const);
+  const viewModel = useMemo<
+    Pick<
+      INativeHomeHeaderViewModel,
+      'balanceActionEnabled' | 'balanceHidden' | 'balanceText' | 'state'
+    >
+  >(
+    () => ({
+      balanceActionEnabled,
+      balanceHidden,
+      balanceText,
+      state: headerState,
+    }),
+    [balanceActionEnabled, balanceHidden, balanceText, headerState],
+  );
+
+  return { balanceState, viewModel };
 }
 
-function useNativeHomeHeaderActions(): {
+function useNativeHomeHeaderActions(
+  balanceState: ReturnType<typeof useOwnerScopedHomeBalanceState>,
+): {
   actionLayout: INativeHomeHeaderViewModel['actionLayout'];
   actionSubtitle: string;
   actions: INativeHomeHeaderActionViewModel[];
   handlers: IHeaderActionHandlers;
 } {
   const intl = useIntl();
-  const balanceState = useOwnerScopedHomeBalanceState();
   const reviewControlVisible = useReviewControl();
   const { config, getActionCustomization } = useWalletActionConfig();
   const send = useWalletActionSend({
@@ -232,6 +275,14 @@ function useNativeHomeHeaderActions(): {
     customization: getActionCustomization('staking'),
   });
   const more = useWalletActionMore();
+  const mainActionIdsKey = config.mainActions.join('|');
+  const mainActionIds = useMemo(
+    () =>
+      mainActionIdsKey
+        ? (mainActionIdsKey.split('|') as IWalletActionType[])
+        : [],
+    [mainActionIdsKey],
+  );
 
   const toggleBalanceVisibility = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
@@ -329,7 +380,7 @@ function useNativeHomeHeaderActions(): {
         enabled: !staking.disabled,
       },
     };
-    const mainActions = config.mainActions
+    const mainActions = mainActionIds
       .map((actionId) => actionMap[actionId])
       .filter((action): action is INativeHomeHeaderActionViewModel => !!action);
     return [
@@ -346,7 +397,7 @@ function useNativeHomeHeaderActions(): {
     buy.allowPressWhenDisabled,
     buy.disabled,
     buy.label,
-    config.mainActions,
+    mainActionIds,
     intl,
     perp.disabled,
     perp.label,
@@ -382,8 +433,8 @@ function useNativeHomeHeaderActions(): {
   };
 }
 
-function useNativeHomePortfolio(producerData: IHomeTokenListProducerData): {
-  portfolio: INativeHomeViewModel['portfolio'];
+function useNativeHomeSpotTokens(producerData: IHomeTokenListProducerData): {
+  spotTokens: INativeHomeSpotTokensViewModel;
   tokensById: Map<string, IAccountToken>;
 } {
   const intl = useIntl();
@@ -469,7 +520,7 @@ function useNativeHomePortfolio(producerData: IHomeTokenListProducerData): {
       producerData.scopedTokenList.tokens.map((token) => [token.$key, token]),
     );
     const items = displayIds
-      .map((id): INativeHomePortfolioItemViewModel | undefined => {
+      .map((id): INativeHomeSpotTokenItemViewModel | undefined => {
         const token = showDeFiTokens
           ? scopedTokensById.get(id)
           : (() => {
@@ -540,14 +591,14 @@ function useNativeHomePortfolio(producerData: IHomeTokenListProducerData): {
           enabled: true,
         });
       })
-      .filter((item): item is INativeHomePortfolioItemViewModel => !!item);
+      .filter((item): item is INativeHomeSpotTokenItemViewModel => !!item);
     let generation = listStructure.generation;
     if (showDeFiTokens) {
       generation = producerData.scopedTokenListState.initialized ? 0 : -1;
     }
 
     return {
-      portfolio: buildNativeHomePortfolioViewModel({
+      spotTokens: buildNativeHomePortfolioViewModel({
         ownerMatches: showDeFiTokens ? true : ownerMatches,
         generation,
         sourceItemCount: displayIds.length,
@@ -640,70 +691,168 @@ function NativeHomeContentWithProducer({
   const intl = useIntl();
   const colorScheme = useColorScheme();
   const owner = useNativeHomeOwnerToken(sceneName);
+  const {
+    activeAccount: { account, network, vaultSettings },
+  } = useActiveAccount({ num: 0 });
+  const [{ banners }] = useWalletTopBannersAtom();
+  const { isDeFiSupported, isPerpsSupported, perpTabShowWeb } =
+    useHomeWalletTabSupport({ network });
   const balance = useNativeHomeHeaderBalance();
-  const headerActions = useNativeHomeHeaderActions();
-  const { portfolio, tokensById } = useNativeHomePortfolio(producerData);
-  const viewModelRef = useRef<INativeHomeViewModel | null>(null);
+  const headerActions = useNativeHomeHeaderActions(balance.balanceState);
+  const hasWalletBannerContent =
+    banners.length > 0 ||
+    Boolean(vaultSettings?.hasResource && account?.id && network?.id);
+  const bannerVisible =
+    balance.balanceState === 'positive' && hasWalletBannerContent;
+  const { spotTokens: producedSpotTokens, tokensById } =
+    useNativeHomeSpotTokens(producerData);
+  const [selectedTab, setSelectedTab] = useState<NativeHomeTabId>('portfolio');
+  const intentContextRef = useRef<{
+    owner: INativeHomeOwnerToken;
+    navigation: INativeHomeNavigationViewModel;
+    header: INativeHomeHeaderViewModel;
+    spotTokens: INativeHomeSpotTokensViewModel;
+  } | null>(null);
   const actionHandlersRef = useRef<IHeaderActionHandlers>({});
   const portfolioActionHandlersRef = useRef<IPortfolioActionHandlers>({});
   const portfolioTokensRef = useRef<Map<string, IAccountToken>>(new Map());
-
-  const state = useMemo<INativeHomeViewModel>(() => {
-    return {
-      protocolVersion: 1,
-      owner,
-      selectedTab: 'portfolio',
-      header: {
-        ...balance,
-        balanceActionId: 'toggleBalanceVisibility',
-        actionLayout: headerActions.actionLayout,
-        actionSubtitle: headerActions.actionSubtitle,
-        actions: headerActions.actions,
-      },
-      tabs: [
+  const tabs = useMemo<INativeHomeNavigationViewModel['tabs']>(
+    () =>
+      [
         {
-          id: 'portfolio',
+          id: 'portfolio' as const,
           title: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
           enabled: true,
         },
-      ],
-      portfolio,
-      theme:
-        colorScheme === 'dark'
+        isPerpsSupported && !perpTabShowWeb
           ? {
-              colorScheme: 'dark',
-              backgroundColor: '#0F0F0F',
-              surfaceColor: '#FFFFFF12',
-              primaryTextColor: '#FFFFFFED',
-              secondaryTextColor: '#FFFFFFAF',
-              disabledTextColor: '#FFFFFF64',
-              successTextColor: '#46FEA5D4',
-              criticalTextColor: '#FF9592',
-              accentColor: '#FFFFFFED',
+              id: 'perps' as const,
+              title: intl.formatMessage({ id: ETranslations.global_perp }),
+              enabled: true,
             }
-          : {
-              colorScheme: 'light',
-              backgroundColor: '#FFFFFF',
-              surfaceColor: '#0000000F',
-              primaryTextColor: '#000000DF',
-              secondaryTextColor: '#0000009B',
-              disabledTextColor: '#00000072',
-              successTextColor: '#00713FDE',
-              criticalTextColor: '#C40006D3',
-              accentColor: '#000000DF',
-            },
-    };
-  }, [
-    balance,
-    colorScheme,
-    headerActions.actionLayout,
-    headerActions.actionSubtitle,
-    headerActions.actions,
-    intl,
-    owner,
-    portfolio,
-  ]);
-  viewModelRef.current = state;
+          : undefined,
+        isDeFiSupported
+          ? {
+              id: 'defi' as const,
+              title: intl.formatMessage({ id: ETranslations.global_earn }),
+              enabled: true,
+            }
+          : undefined,
+        network?.isAllNetworks ||
+        (vaultSettings?.NFTEnabled &&
+          networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? ''))
+          ? {
+              id: 'nft' as const,
+              title: intl.formatMessage({ id: ETranslations.global_nft }),
+              enabled: true,
+            }
+          : undefined,
+        {
+          id: 'history' as const,
+          title: intl.formatMessage({ id: ETranslations.global_history }),
+          enabled: true,
+        },
+      ].filter(
+        (tab): tab is INativeHomeNavigationViewModel['tabs'][number] => !!tab,
+      ),
+    [
+      intl,
+      isDeFiSupported,
+      isPerpsSupported,
+      network?.id,
+      network?.isAllNetworks,
+      perpTabShowWeb,
+      vaultSettings?.NFTEnabled,
+    ],
+  );
+  const resolvedSelectedTab = tabs.some((tab) => tab.id === selectedTab)
+    ? selectedTab
+    : 'portfolio';
+
+  useEffect(() => {
+    if (resolvedSelectedTab !== selectedTab) {
+      setSelectedTab(resolvedSelectedTab);
+    }
+  }, [resolvedSelectedTab, selectedTab]);
+
+  const navigation = useMemo<INativeHomeNavigationViewModel>(
+    () => ({ selectedTab: resolvedSelectedTab, tabs }),
+    [resolvedSelectedTab, tabs],
+  );
+  const header = useMemo<INativeHomeHeaderViewModel>(
+    () =>
+      scopeNativeHomeSectionToOwner(owner.sessionId, {
+        ...balance.viewModel,
+        balanceActionId: 'toggleBalanceVisibility',
+        bannerVisible,
+        actionLayout: headerActions.actionLayout,
+        actionSubtitle: headerActions.actionSubtitle,
+        actions: headerActions.actions,
+      }),
+    [
+      balance.viewModel,
+      bannerVisible,
+      headerActions.actionLayout,
+      headerActions.actionSubtitle,
+      headerActions.actions,
+      owner.sessionId,
+    ],
+  );
+  const spotTokens = useMemo<INativeHomeSpotTokensViewModel>(
+    () =>
+      scopeNativeHomeSectionToOwner(owner.sessionId, {
+        ...producedSpotTokens,
+      }),
+    [owner.sessionId, producedSpotTokens],
+  );
+  const theme = useMemo<INativeHomeThemeViewModel>(
+    () =>
+      colorScheme === 'dark'
+        ? {
+            colorScheme: 'dark',
+            backgroundColor: '#0F0F0F',
+            surfaceColor: '#FFFFFF12',
+            primaryTextColor: '#FFFFFFED',
+            secondaryTextColor: '#FFFFFFAF',
+            disabledTextColor: '#FFFFFF64',
+            successTextColor: '#46FEA5D4',
+            criticalTextColor: '#FF9592',
+            accentColor: '#FFFFFFED',
+          }
+        : {
+            colorScheme: 'light',
+            backgroundColor: '#FFFFFF',
+            surfaceColor: '#0000000F',
+            primaryTextColor: '#000000DF',
+            secondaryTextColor: '#0000009B',
+            disabledTextColor: '#00000072',
+            successTextColor: '#00713FDE',
+            criticalTextColor: '#C40006D3',
+            accentColor: '#000000DF',
+          },
+    [colorScheme],
+  );
+  const walletBannerSlot = useMemo(
+    () => (
+      <WalletBanner
+        key={owner.sessionId}
+        hidden={!bannerVisible}
+        embeddedInNativeHomeContainer
+      />
+    ),
+    [bannerVisible, owner.sessionId],
+  );
+  const spotTokensEmptySlot = useMemo(
+    () =>
+      spotTokens.state === 'empty' ? (
+        <EmptyToken title={spotTokens.emptyText} />
+      ) : null,
+    [spotTokens.emptyText, spotTokens.state],
+  );
+  intentContextRef.current = useMemo(
+    () => ({ owner, navigation, header, spotTokens }),
+    [header, navigation, owner, spotTokens],
+  );
   actionHandlersRef.current = headerActions.handlers;
   portfolioActionHandlersRef.current = {
     manageTokens: producerData.footer.manageTokens.onPress,
@@ -719,11 +868,20 @@ function NativeHomeContentWithProducer({
 
   const handleIntent = useCallback(
     (intent: INativeHomeIntent) => {
-      const currentViewModel = viewModelRef.current;
-      if (
-        !isNativeHomeIntentExecutable({ intent, viewModel: currentViewModel })
-      )
+      const currentContext = intentContextRef.current;
+      if (!isNativeHomeIntentExecutable({ intent, context: currentContext }))
         return;
+
+      if (intent.selectTabId) {
+        setSelectedTab(intent.selectTabId);
+        return;
+      }
+
+      if (intent.refreshTabId) {
+        onHomePageRefresh();
+        defaultLogger.account.wallet.walletPullToRefresh();
+        return;
+      }
 
       if (intent.headerActionId) {
         const handler = actionHandlersRef.current[intent.headerActionId];
@@ -731,17 +889,17 @@ function NativeHomeContentWithProducer({
         return;
       }
 
-      if (intent.portfolioItemId) {
-        const token = portfolioTokensRef.current.get(intent.portfolioItemId);
+      if (intent.spotTokenItemId) {
+        const token = portfolioTokensRef.current.get(intent.spotTokenItemId);
         const handler = tokenPressHandlerRef.current;
         if (token && handler) void handler(token);
         return;
       }
 
-      if (intent.portfolioActionId) {
+      if (intent.spotTokensActionId) {
         const handler =
-          portfolioActionHandlersRef.current[intent.portfolioActionId];
-        if (handler) void handler(intent.portfolioActionValue);
+          portfolioActionHandlersRef.current[intent.spotTokensActionId];
+        if (handler) void handler(intent.spotTokensActionValue);
       }
     },
     [tokenPressHandlerRef],
@@ -750,7 +908,14 @@ function NativeHomeContentWithProducer({
   return (
     <HomeContainer
       style={styles.container}
-      state={state}
+      protocolVersion={1}
+      owner={owner}
+      navigation={navigation}
+      header={header}
+      spotTokens={spotTokens}
+      theme={theme}
+      walletBanner={walletBannerSlot}
+      portfolioEmpty={spotTokensEmptySlot}
       onIntent={handleIntent}
     />
   );
@@ -792,7 +957,10 @@ export function NativeHomeDiagnosticPage({
   } = useActiveAccount({ num: 0 });
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <NativeHomeContent sceneName={sceneName} />
+      <ProviderJotaiContextDeFiList>
+        <HomeDeFiOverviewProducer />
+        <NativeHomeContent sceneName={sceneName} />
+      </ProviderJotaiContextDeFiList>
     </HomeTokenListProviderMirrorWrapper>
   );
 }

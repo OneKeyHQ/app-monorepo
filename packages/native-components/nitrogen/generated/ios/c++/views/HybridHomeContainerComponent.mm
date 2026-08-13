@@ -72,10 +72,35 @@ using namespace margelo::nitro::onekeynativecomponents::views;
   // 2. Update each prop individually
   swiftPart.beforeUpdate();
 
-  // state: optional
-  if (newViewProps.state.isDirty) {
-    swiftPart.setState(newViewProps.state.value);
-    newViewProps.state.isDirty = false;
+  // protocolVersion: optional
+  if (newViewProps.protocolVersion.isDirty) {
+    swiftPart.setProtocolVersion(newViewProps.protocolVersion.value);
+    newViewProps.protocolVersion.isDirty = false;
+  }
+  // owner: optional
+  if (newViewProps.owner.isDirty) {
+    swiftPart.setOwner(newViewProps.owner.value);
+    newViewProps.owner.isDirty = false;
+  }
+  // navigation: optional
+  if (newViewProps.navigation.isDirty) {
+    swiftPart.setNavigation(newViewProps.navigation.value);
+    newViewProps.navigation.isDirty = false;
+  }
+  // header: optional
+  if (newViewProps.header.isDirty) {
+    swiftPart.setHeader(newViewProps.header.value);
+    newViewProps.header.isDirty = false;
+  }
+  // spotTokens: optional
+  if (newViewProps.spotTokens.isDirty) {
+    swiftPart.setSpotTokens(newViewProps.spotTokens.value);
+    newViewProps.spotTokens.isDirty = false;
+  }
+  // theme: optional
+  if (newViewProps.theme.isDirty) {
+    swiftPart.setTheme(newViewProps.theme.value);
+    newViewProps.theme.isDirty = false;
   }
   // onIntent: optional
   if (newViewProps.onIntent.isDirty) {

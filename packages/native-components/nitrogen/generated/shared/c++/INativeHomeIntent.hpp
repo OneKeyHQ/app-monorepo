@@ -30,16 +30,19 @@
 
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `NativeHomeTabId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 // Forward declaration of `NativeHomeHeaderActionId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionId; }
-// Forward declaration of `NativeHomePortfolioActionId` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioActionId; }
+// Forward declaration of `NativeHomeSpotTokensActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeSpotTokensActionId; }
 
 #include "INativeHomeOwnerToken.hpp"
-#include "NativeHomeHeaderActionId.hpp"
+#include "NativeHomeTabId.hpp"
 #include <optional>
+#include "NativeHomeHeaderActionId.hpp"
 #include <string>
-#include "NativeHomePortfolioActionId.hpp"
+#include "NativeHomeSpotTokensActionId.hpp"
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -49,14 +52,16 @@ namespace margelo::nitro::onekeynativecomponents {
   struct INativeHomeIntent final {
   public:
     INativeHomeOwnerToken owner     SWIFT_PRIVATE;
+    std::optional<NativeHomeTabId> selectTabId     SWIFT_PRIVATE;
     std::optional<NativeHomeHeaderActionId> headerActionId     SWIFT_PRIVATE;
-    std::optional<std::string> portfolioItemId     SWIFT_PRIVATE;
-    std::optional<NativeHomePortfolioActionId> portfolioActionId     SWIFT_PRIVATE;
-    std::optional<bool> portfolioActionValue     SWIFT_PRIVATE;
+    std::optional<std::string> spotTokenItemId     SWIFT_PRIVATE;
+    std::optional<NativeHomeSpotTokensActionId> spotTokensActionId     SWIFT_PRIVATE;
+    std::optional<bool> spotTokensActionValue     SWIFT_PRIVATE;
+    std::optional<NativeHomeTabId> refreshTabId     SWIFT_PRIVATE;
 
   public:
     INativeHomeIntent() = default;
-    explicit INativeHomeIntent(INativeHomeOwnerToken owner, std::optional<NativeHomeHeaderActionId> headerActionId, std::optional<std::string> portfolioItemId, std::optional<NativeHomePortfolioActionId> portfolioActionId, std::optional<bool> portfolioActionValue): owner(owner), headerActionId(headerActionId), portfolioItemId(portfolioItemId), portfolioActionId(portfolioActionId), portfolioActionValue(portfolioActionValue) {}
+    explicit INativeHomeIntent(INativeHomeOwnerToken owner, std::optional<NativeHomeTabId> selectTabId, std::optional<NativeHomeHeaderActionId> headerActionId, std::optional<std::string> spotTokenItemId, std::optional<NativeHomeSpotTokensActionId> spotTokensActionId, std::optional<bool> spotTokensActionValue, std::optional<NativeHomeTabId> refreshTabId): owner(owner), selectTabId(selectTabId), headerActionId(headerActionId), spotTokenItemId(spotTokenItemId), spotTokensActionId(spotTokensActionId), spotTokensActionValue(spotTokensActionValue), refreshTabId(refreshTabId) {}
 
   public:
     friend bool operator==(const INativeHomeIntent& lhs, const INativeHomeIntent& rhs) = default;
@@ -73,19 +78,23 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::onekeynativecomponents::INativeHomeIntent(
         JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "owner"))),
+        JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "selectTabId"))),
         JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headerActionId"))),
-        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId"))),
-        JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomePortfolioActionId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionId"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionValue")))
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokenItemId"))),
+        JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeSpotTokensActionId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionId"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionValue"))),
+        JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "refreshTabId")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::onekeynativecomponents::INativeHomeIntent& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "owner"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::toJSI(runtime, arg.owner));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "selectTabId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::toJSI(runtime, arg.selectTabId));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "headerActionId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::toJSI(runtime, arg.headerActionId));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.portfolioItemId));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomePortfolioActionId>>::toJSI(runtime, arg.portfolioActionId));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionValue"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.portfolioActionValue));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "spotTokenItemId"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.spotTokenItemId));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeSpotTokensActionId>>::toJSI(runtime, arg.spotTokensActionId));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionValue"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.spotTokensActionValue));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "refreshTabId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::toJSI(runtime, arg.refreshTabId));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -97,10 +106,12 @@ namespace margelo::nitro {
         return false;
       }
       if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "owner")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "selectTabId")))) return false;
       if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headerActionId")))) return false;
-      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId")))) return false;
-      if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomePortfolioActionId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionId")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioActionValue")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokenItemId")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeSpotTokensActionId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionId")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "spotTokensActionValue")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeTabId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "refreshTabId")))) return false;
       return true;
     }
   };
