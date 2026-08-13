@@ -57,13 +57,8 @@ import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection
 import { SecurityCheckCard } from '../../components/SecurityCheckCard';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
-import {
-  BatchSigningProgress,
-  MINUS_SIGN,
-  SummaryRow,
-  TransactionRow,
-  formatRecipientLine,
-} from './components';
+import { BatchSigningProgress, SummaryRow, TransactionRow } from './components';
+import { MINUS_SIGN, formatRecipientLine, normalizeNativePrice } from './utils';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { NavigationAction } from '@react-navigation/routers';
@@ -180,7 +175,10 @@ function BatchTxConfirm() {
           accountId,
           contractList: [nativeTokenAddress],
         });
-      return tokenResp?.[0]?.price;
+      // The API can deliver a no-price sentinel ('--' on signet, '0' on
+      // testnet3) which is truthy and would flow into the fiat math as NaN;
+      // normalize so only a finite positive price survives.
+      return normalizeNativePrice(tokenResp?.[0]?.price);
     },
     [networkId, accountId],
     // An offline/failed price fetch degrades to "no fiat line" (formatFiat
@@ -199,8 +197,10 @@ function BatchTxConfirm() {
   );
 
   // Per-row outgoing amount: prefixed with MINUS_SIGN, except when the
-  // amount is zero — a pure consolidation psbt has no external outgoing
-  // value, and "−0 BTC" would misleadingly read as negative.
+  // amount is zero (only degenerate psbts whose displayed outputs carry no
+  // value — "−0 BTC" would misleadingly read as negative). Pure self-transfer
+  // psbts carry their owned-output total here, matching the single-psbt
+  // confirm page.
   const formatOutgoingAmount = useCallback(
     (satoshiValue: string) => {
       const amountText = formatAmount(satoshiValue);

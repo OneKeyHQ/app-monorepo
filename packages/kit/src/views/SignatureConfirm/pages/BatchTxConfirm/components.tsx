@@ -7,29 +7,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-// U+2212 MINUS SIGN (not a hyphen) to match the outgoing-amount style used
-// across the app's transaction rows. Exported so the container can decide
-// whether to prefix it (it owns amount formatting, including the zero-amount
-// exception for pure consolidation psbts).
-export const MINUS_SIGN = '−';
-
-// Shared between TransactionRow and BatchSigningProgress's "current
-// transaction" card so both surfaces describe multi-output items the same
-// way.
-export function formatRecipientLine({
-  recipient,
-  extraRecipientCount,
-}: {
-  recipient: string;
-  extraRecipientCount: number;
-}): string {
-  if (!recipient) {
-    return 'To multiple outputs';
-  }
-  return extraRecipientCount > 0
-    ? `To ${recipient} +${extraRecipientCount}`
-    : `To ${recipient}`;
-}
+import { formatRecipientLine } from './utils';
 
 export function SummaryRow({ label, value }: { label: string; value: string }) {
   return (

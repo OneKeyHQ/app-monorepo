@@ -251,6 +251,7 @@ describe('computeBatchPsbtAmounts', () => {
       externalOutValue: '60000',
       changeValue: '30000',
       externalRecipients: [externalAddress],
+      ownedRecipients: [accountAddress],
     });
   });
 
@@ -318,6 +319,40 @@ describe('computeBatchPsbtAmounts', () => {
       externalOutValue: '0',
       changeValue: '95000',
       externalRecipients: [],
+      ownedRecipients: [accountAddress],
+    });
+  });
+
+  it('dedupes owned recipients and keeps them in output order for a multi-output consolidation', () => {
+    const { address: primaryAddress, script: primaryScript } = makeP2wpkh();
+    const { address: derivedAddress, script: derivedScript } = makeP2wpkh();
+
+    const psbt = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: primaryScript },
+      ],
+      outputs: [
+        { script: derivedScript, value: 40_000n },
+        { script: primaryScript, value: 30_000n },
+        { script: derivedScript, value: 25_000n },
+      ],
+    });
+
+    const result = computeBatchPsbtAmounts({
+      psbt,
+      psbtNetwork,
+      accountAddresses: buildOwnedAddressesForBatchDisplay({
+        primaryAddress,
+        addressMaps: [{ '0/1': derivedAddress }, undefined, undefined],
+      }),
+    });
+
+    expect(result).toEqual({
+      feeValue: '5000',
+      externalOutValue: '0',
+      changeValue: '95000',
+      externalRecipients: [],
+      ownedRecipients: [derivedAddress, primaryAddress],
     });
   });
 });
@@ -391,6 +426,7 @@ describe('computeBatchPsbtAmounts - wallet-owned output classification', () => {
         externalOutValue: '50000',
         changeValue: '40000',
         externalRecipients: [externalAddress],
+        ownedRecipients: [ownedAddress],
       });
     },
   );
@@ -417,6 +453,7 @@ describe('computeBatchPsbtAmounts - wallet-owned output classification', () => {
       externalOutValue: '90000',
       changeValue: '0',
       externalRecipients: [ownedAddress],
+      ownedRecipients: [],
     });
   });
 });
@@ -453,6 +490,7 @@ describe('computeBatchPsbtAmounts - nonWitnessUtxo branch', () => {
       externalOutValue: '60000',
       changeValue: '30000',
       externalRecipients: [externalAddress],
+      ownedRecipients: [accountAddress],
     });
   });
 

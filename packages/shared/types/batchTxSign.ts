@@ -15,9 +15,13 @@ export enum EBatchTxSignItemStatus {
 
 export type IBatchTxSignItemSummary = {
   index: number; // original input index; result array is assembled by this
-  recipient: string; // primary external recipient address ('' if none resolvable)
-  extraRecipientCount: number; // additional external recipients -> "+N"
-  amountValue: string; // satoshi, external outgoing (excludes change)
+  // Display semantics mirror the single-psbt confirm page: external
+  // recipients/amounts when external outputs exist (change hidden); for a
+  // pure self-transfer psbt, the wallet-owned recipients and the total of
+  // all owned outputs instead.
+  recipient: string; // primary recipient address ('' if none resolvable)
+  extraRecipientCount: number; // additional recipients -> "+N"
+  amountValue: string; // satoshi, displayed outgoing total
   feeValue: string; // satoshi
   status: EBatchTxSignItemStatus;
   errorMessage?: string;

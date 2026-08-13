@@ -12,6 +12,10 @@ export type IBatchPsbtAmountInfo = {
   externalOutValue: string; // satoshi, sum of outputs NOT owned by the account
   changeValue: string; // satoshi, sum of outputs owned by the account
   externalRecipients: string[]; // unique external recipient addresses, in output order
+  // Unique wallet-owned recipient addresses, in output order. Used by the
+  // batch overview for pure self-transfer psbts (externalOutValue 0), whose
+  // single-psbt confirm page shows the owned outputs rather than nothing.
+  ownedRecipients: string[];
 };
 
 // Serializes the psbt's unsigned global tx. Two psbts spending identical
@@ -175,6 +179,8 @@ export function computeBatchPsbtAmounts({
   let changeValue = 0n;
   const externalRecipients: string[] = [];
   const seenExternalRecipients = new Set<string>();
+  const ownedRecipients: string[] = [];
+  const seenOwnedRecipients = new Set<string>();
 
   psbt.txOutputs.forEach((output) => {
     // scriptPkToAddress swallows decode errors (e.g. OP_RETURN outputs) and
@@ -184,6 +190,10 @@ export function computeBatchPsbtAmounts({
       scriptPkToAddress(Buffer.from(output.script), psbtNetwork) || undefined;
     if (address && accountAddressSet.has(address)) {
       changeValue += output.value;
+      if (!seenOwnedRecipients.has(address)) {
+        seenOwnedRecipients.add(address);
+        ownedRecipients.push(address);
+      }
     } else {
       externalOutValue += output.value;
       if (address && !seenExternalRecipients.has(address)) {
@@ -203,6 +213,7 @@ export function computeBatchPsbtAmounts({
     externalOutValue: externalOutValue.toString(),
     changeValue: changeValue.toString(),
     externalRecipients,
+    ownedRecipients,
   };
 }
 

@@ -937,6 +937,15 @@ class ProviderApiBtc extends ProviderApiBase {
           psbtNetwork,
         });
       }
+      // Mirror the single-psbt confirm page (buildDecodedPsbtTx): with
+      // external outputs it hides wallet-owned change and shows external
+      // recipients/amounts only; for a pure self-transfer (every output
+      // owned) it shows ALL outputs. Summarize the same way so a batch row
+      // always matches its drill-down TxConfirm.
+      const isPureSelfTransfer = amounts.externalOutValue === '0';
+      const recipients = isPureSelfTransfer
+        ? amounts.ownedRecipients
+        : amounts.externalRecipients;
       items.push({
         unsignedTx: {
           uuid: '',
@@ -946,12 +955,11 @@ class ProviderApiBtc extends ProviderApiBase {
         },
         summary: {
           index: i,
-          recipient: amounts.externalRecipients[0] ?? '',
-          extraRecipientCount: Math.max(
-            0,
-            amounts.externalRecipients.length - 1,
-          ),
-          amountValue: amounts.externalOutValue,
+          recipient: recipients[0] ?? '',
+          extraRecipientCount: Math.max(0, recipients.length - 1),
+          amountValue: isPureSelfTransfer
+            ? amounts.changeValue
+            : amounts.externalOutValue,
           feeValue: amounts.feeValue,
           status: EBatchTxSignItemStatus.Ready,
         },
