@@ -994,7 +994,13 @@ function SideButtonInternal({
         const duration = Number(latestFormData.twapDurationMinutes ?? 0);
         if (!isValidTwapDuration(duration)) {
           Toast.message({
-            title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
           });
           return 'invalidTwapConfig' as const;
         }
@@ -1002,7 +1008,11 @@ function SideButtonInternal({
           !latestTwapTriggerReferencePriceBN.isFinite() ||
           latestTwapTriggerReferencePriceBN.lte(0)
         ) {
-          Toast.error({ title: 'Market price unavailable, please try again' });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.provider_unavailable,
+            }),
+          });
           return 'marketDataUnavailable' as const;
         }
         const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
@@ -1043,10 +1053,16 @@ function SideButtonInternal({
             }))
         ) {
           Toast.message({
-            title:
-              validationSide === 'long'
-                ? 'Maximum price must be above the market and trigger price.'
-                : 'Minimum price must be below the market and trigger price.',
+            title: `${intl.formatMessage({
+              id:
+                validationSide === 'long'
+                  ? ETranslations.perp_scale_upper_price_label__title
+                  : ETranslations.perp_scale_lower_price_label__title,
+            })} ${validationSide === 'long' ? '>' : '<'} ${intl.formatMessage({
+              id: ETranslations.perp_market_price,
+            })} / ${intl.formatMessage({
+              id: ETranslations.dexmarket_pro_trigger_price,
+            })}`,
           });
           return 'invalidTwapConfig' as const;
         }

@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -27,6 +28,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const formData = useTradingFormCalculationParams();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -168,11 +170,25 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [effectiveMaxTradeSzs, side]);
 
   const markPxBN = useMemo(() => {
-    const markPx = isSpot
-      ? effectiveSpotPriceBN.toFixed()
-      : activeAssetData?.markPx;
+    let markPx = activeAssetData?.markPx;
+    if (isSpot) {
+      markPx = effectiveSpotPriceBN.toFixed();
+    } else if (formData.orderMode === 'twap') {
+      markPx = activeAssetCtx?.ctx?.markPrice;
+    }
     return new BigNumber(markPx ?? 0);
-  }, [activeAssetData?.markPx, effectiveSpotPriceBN, isSpot]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAssetData?.markPx,
+    effectiveSpotPriceBN,
+    formData.orderMode,
+    isSpot,
+  ]);
+
+  const calculationMarkPrice =
+    formData.orderMode === 'twap' && markPxBN.gt(0)
+      ? markPxBN.toFixed()
+      : activeAssetData?.markPx;
 
   const calculationPriceBN = useMemo(
     () => (formData.orderMode === 'twap' ? markPxBN : effectivePriceBN),
@@ -253,7 +269,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     return computeMaxTradeSize({
       side,
       price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
-      markPrice: activeAssetData?.markPx,
+      markPrice: calculationMarkPrice,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
@@ -263,7 +279,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [
     side,
     calculationPriceBN,
-    activeAssetData?.markPx,
+    calculationMarkPrice,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,
@@ -304,7 +320,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       sizePercent: formData.sizePercent,
       side,
       price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
-      markPrice: activeAssetData?.markPx,
+      markPrice: calculationMarkPrice,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
@@ -317,7 +333,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     formData.sizePercent,
     side,
     calculationPriceBN,
-    activeAssetData?.markPx,
+    calculationMarkPrice,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,

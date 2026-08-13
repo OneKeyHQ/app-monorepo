@@ -1392,7 +1392,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const szDecimals = params.szDecimals ?? precision?.szDecimals ?? 2;
     const size = formatHlSize(params.size, szDecimals);
     if (!size) {
-      throw new OneKeyLocalError('TWAP size is too small for HL lot size');
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perp_scale_order_size_too_small__msg,
+        }),
+      );
     }
 
     const assetType = precision?.type;
@@ -1411,8 +1415,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         assetType: assetType ?? 'perp',
       });
       if (!formattedPrice) {
+        let messageId = params.isBuy
+          ? ETranslations.perp_scale_upper_price_placeholder__desc
+          : ETranslations.perp_scale_lower_price_placeholder__desc;
+        if (fieldName === 'trigger') {
+          messageId = ETranslations.perps_input_trigger_price;
+        }
         throw new OneKeyLocalError(
-          `TWAP ${fieldName} price is too small for HL tick size`,
+          appLocale.intl.formatMessage({
+            id: messageId,
+          }),
         );
       }
       return formattedPrice;
@@ -1423,7 +1435,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     );
     const stopPrice = formatOptionalTwapPrice(params.stopPrice, 'stop');
     if (triggerPrice && typeof params.triggerAbove !== 'boolean') {
-      throw new OneKeyLocalError('TWAP trigger direction is required');
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perps_input_trigger_price,
+        }),
+      );
     }
     if (
       stopPrice &&
@@ -1435,9 +1451,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       })
     ) {
       throw new OneKeyLocalError(
-        params.isBuy
-          ? 'TWAP maximum price must be above the market and trigger price'
-          : 'TWAP minimum price must be below the market and trigger price',
+        `${appLocale.intl.formatMessage({
+          id: params.isBuy
+            ? ETranslations.perp_scale_upper_price_label__title
+            : ETranslations.perp_scale_lower_price_label__title,
+        })} ${params.isBuy ? '>' : '<'} ${appLocale.intl.formatMessage({
+          id: ETranslations.perp_market_price,
+        })} / ${appLocale.intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        })}`,
       );
     }
     const twap = {

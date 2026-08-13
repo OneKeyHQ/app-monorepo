@@ -341,8 +341,14 @@ function useOrderConfirmWithMarketDataFreshness({
         const duration = Number(formDataSnapshot.twapDurationMinutes ?? 0);
         if (!isValidTwapDuration(duration)) {
           Toast.error({
-            title: 'Order Failed',
-            message: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
           });
           return;
         }
@@ -356,15 +362,21 @@ function useOrderConfirmWithMarketDataFreshness({
             : shortCalculations.computedSizeForSide;
         if (!twapSize.isFinite() || twapSize.lte(0)) {
           Toast.error({
-            title: 'Order Failed',
-            message: 'Order size is required',
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_order_size_too_small__msg,
+            }),
           });
           return;
         }
         if (!twapReferencePriceBN.isFinite() || twapReferencePriceBN.lte(0)) {
           Toast.error({
-            title: 'Order Failed',
-            message: 'Market price is not available. Please try again.',
+            title: intl.formatMessage({
+              id: ETranslations.provider_unavailable,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            }),
           });
           return;
         }
@@ -377,7 +389,7 @@ function useOrderConfirmWithMarketDataFreshness({
         if (rawTriggerPrice) {
           if (!triggerPrice) {
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message: intl.formatMessage({
                 id: ETranslations.perps_input_trigger_price,
               }),
@@ -391,7 +403,7 @@ function useOrderConfirmWithMarketDataFreshness({
           if (typeof triggerAbove !== 'boolean') {
             const triggerPriceBN = new BigNumber(triggerPrice);
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message:
                 triggerPriceBN.isFinite() &&
                 triggerPriceBN.eq(twapReferencePriceBN)
@@ -422,11 +434,17 @@ function useOrderConfirmWithMarketDataFreshness({
             })
           ) {
             Toast.error({
-              title: 'Order Failed',
-              message:
-                side === 'long'
-                  ? 'Maximum price must be above the market and trigger price.'
-                  : 'Minimum price must be below the market and trigger price.',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
+              message: `${intl.formatMessage({
+                id:
+                  side === 'long'
+                    ? ETranslations.perp_scale_upper_price_label__title
+                    : ETranslations.perp_scale_lower_price_label__title,
+              })} ${side === 'long' ? '>' : '<'} ${intl.formatMessage({
+                id: ETranslations.perp_market_price,
+              })} / ${intl.formatMessage({
+                id: ETranslations.dexmarket_pro_trigger_price,
+              })}`,
             });
             return;
           }
@@ -438,7 +456,7 @@ function useOrderConfirmWithMarketDataFreshness({
           })
         ) {
           Toast.error({
-            title: 'Order Failed',
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
             message: intl.formatMessage({
               id: ETranslations.perp_scale_order_size_too_small__msg,
             }),
@@ -453,7 +471,7 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           if (snapshotError) {
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message: snapshotError,
             });
             return;
@@ -475,7 +493,7 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           if (reduceOnlyError) {
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message: reduceOnlyError,
             });
             return;
