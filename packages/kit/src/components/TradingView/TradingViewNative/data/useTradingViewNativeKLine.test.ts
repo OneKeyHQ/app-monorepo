@@ -1465,7 +1465,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
-  it('uses a new realtime candle when a future latest request crosses an interval boundary', async () => {
+  it('discards realtime before history when a future request crosses an interval boundary', async () => {
     const latestHistoryRequest =
       createDeferred<ITradingViewNativeHistoryResponse | null>();
     let currentTimeMilliseconds = 2_000_000_000;
@@ -1521,16 +1521,19 @@ describe('TradingViewNative K-line data state machine', () => {
       await navigationPromise;
     });
 
-    expect(result.current.intervalConfig.activeInterval).toBe('15');
-    expect(result.current.points).toEqual([realtimePoint]);
-    expect(result.current.viewportRequest).toEqual(
-      expect.objectContaining({
-        target: {
-          kind: 'timestamp',
-          timestamp: realtimePoint.t,
-        },
-      }),
+    expect(result.current.intervalConfig.activeInterval).toBe('1');
+    expect(result.current.points).toEqual(
+      buildResponse(100, currentTimestamp - 60).points,
     );
+    expect(result.current.viewportRequest).toBeNull();
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith({
+      details: expect.objectContaining({
+        pointTimestamp: realtimePoint.t,
+        reason: 'history-not-ready',
+      }),
+      level: 'warning',
+      name: 'realtime.point.ignored',
+    });
   });
 
   it('advances the newer cursor when go-to-date crosses now after a historical jump', async () => {
@@ -3037,24 +3040,37 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
-  it('buffers realtime candles while history is loading', async () => {
+  it('discards realtime candles until initial history is ready', async () => {
     const historyRequest = createDeferred<IMarketTokenKLineResponse | null>();
     mockFetchHistory.mockReturnValue(historyRequest.promise);
+    const handleRealtimePoint = jest.fn();
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({
+        onRealtimePoint: handleRealtimePoint,
         source: buildMarketSource({ realtime: 'websocket' }),
       }),
     );
 
     await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
     pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
-    expect(result.current.points.map((point) => point.c)).toEqual([105]);
+    expect(result.current.points).toEqual([]);
+    expect(handleRealtimePoint).not.toHaveBeenCalled();
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith({
+      details: expect.objectContaining({
+        reason: 'history-not-ready',
+      }),
+      level: 'warning',
+      name: 'realtime.point.ignored',
+    });
     await act(async () => {
       historyRequest.resolve(buildResponse(100));
       await historyRequest.promise;
     });
 
-    await waitFor(() => expect(result.current.points[0]?.c).toBe(105));
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
+    expect(result.current.points[0]?.c).toBe(105);
+    expect(handleRealtimePoint).toHaveBeenCalledTimes(1);
   });
 
   it('loads and prepends one older page near the left boundary', async () => {
