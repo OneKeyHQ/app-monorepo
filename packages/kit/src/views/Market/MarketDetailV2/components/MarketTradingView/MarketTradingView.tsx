@@ -84,6 +84,7 @@ export interface IMarketTradingViewProps {
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
+  storageNamespace?: string;
   pageWidth?: number;
   nativeChartTypeControlMode?: 'toggle' | 'select';
   nativeIndicatorControlMode?: 'dialog' | 'popover';
@@ -111,6 +112,7 @@ export const MarketTradingView = memo(
     tokenSymbol = '',
     decimal = 8,
     dataSource,
+    storageNamespace,
     pageWidth,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
@@ -169,6 +171,7 @@ export const MarketTradingView = memo(
         networkId={networkId}
         decimal={decimal}
         dataSource={dataSource}
+        storageNamespace={storageNamespace}
         accountAddress={accountAddress}
         w={pageWidth}
         onTouchScroll={onTouchScroll}

@@ -1,37 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-function normalizeTradingViewSubIndicatorCount({
-  count,
-  maxCount,
-}: {
-  count: number;
-  maxCount: number;
-}) {
+function normalizeTradingViewSubIndicatorCount(count: number) {
   if (!Number.isFinite(count)) {
     return 0;
   }
-  return Math.min(maxCount, Math.max(0, Math.floor(count)));
+  return Math.max(0, Math.floor(count));
 }
 
 export function useTradingViewSubIndicatorCount({
   chartKey,
   initialCount,
-  maxCount,
   stabilizeInitialCount,
   stabilizationDelayMs,
   onCountSettled,
 }: {
   chartKey: string;
   initialCount: number;
-  maxCount: number;
   stabilizeInitialCount: boolean;
   stabilizationDelayMs: number;
   onCountSettled?: (count: number) => void;
 }) {
-  const normalizedInitialCount = normalizeTradingViewSubIndicatorCount({
-    count: initialCount,
-    maxCount,
-  });
+  const normalizedInitialCount =
+    normalizeTradingViewSubIndicatorCount(initialCount);
   const activeChartKeyRef = useRef(chartKey);
   activeChartKeyRef.current = chartKey;
   const stabilizedChartKeyRef = useRef<string | null>(
@@ -40,6 +30,7 @@ export function useTradingViewSubIndicatorCount({
   const stabilizationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const supportsLayoutRestoredRef = useRef(false);
   const [subIndicatorState, setSubIndicatorState] = useState(() => ({
     key: chartKey,
     count: normalizedInitialCount,
@@ -77,6 +68,7 @@ export function useTradingViewSubIndicatorCount({
   useEffect(() => {
     cancelPendingStabilization();
     stabilizedChartKeyRef.current = stabilizeInitialCount ? null : chartKey;
+    supportsLayoutRestoredRef.current = false;
 
     return cancelPendingStabilization;
   }, [cancelPendingStabilization, chartKey, stabilizeInitialCount]);
@@ -91,14 +83,33 @@ export function useTradingViewSubIndicatorCount({
       const nextCount =
         count === null
           ? normalizedInitialCount
-          : normalizeTradingViewSubIndicatorCount({ count, maxCount });
+          : normalizeTradingViewSubIndicatorCount(count);
 
       if (count === null) {
         cancelPendingStabilization();
         stabilizedChartKeyRef.current = stabilizeInitialCount
           ? null
           : targetChartKey;
+        supportsLayoutRestoredRef.current = false;
         commitCount(targetChartKey, nextCount);
+        return;
+      }
+
+      if (stabilizeInitialCount && options?.layoutRestored === false) {
+        cancelPendingStabilization();
+        supportsLayoutRestoredRef.current = true;
+        return;
+      }
+
+      if (stabilizeInitialCount && options?.layoutRestored === true) {
+        cancelPendingStabilization();
+        supportsLayoutRestoredRef.current = true;
+        stabilizedChartKeyRef.current = targetChartKey;
+        commitCount(targetChartKey, nextCount, { notifySettled: true });
+        return;
+      }
+
+      if (supportsLayoutRestoredRef.current) {
         return;
       }
 
@@ -107,18 +118,6 @@ export function useTradingViewSubIndicatorCount({
         stabilizedChartKeyRef.current === targetChartKey
       ) {
         cancelPendingStabilization();
-        commitCount(targetChartKey, nextCount, { notifySettled: true });
-        return;
-      }
-
-      // Keep the app-provided initial height while the WebView restores its template.
-      if (options?.layoutRestored === false) {
-        return;
-      }
-
-      if (options?.layoutRestored) {
-        cancelPendingStabilization();
-        stabilizedChartKeyRef.current = targetChartKey;
         commitCount(targetChartKey, nextCount, { notifySettled: true });
         return;
       }
@@ -138,7 +137,6 @@ export function useTradingViewSubIndicatorCount({
       cancelPendingStabilization,
       chartKey,
       commitCount,
-      maxCount,
       normalizedInitialCount,
       stabilizationDelayMs,
       stabilizeInitialCount,

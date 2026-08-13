@@ -36,8 +36,7 @@ import {
   type ITradingViewNativePriceMarketCapControlMode,
   TradingViewNativeIndicatorQuickBar,
   TradingViewV2ChartControlsContainer,
-  getTradingViewNativeSubIndicatorCount,
-  getTradingViewNativeSubIndicatorCountFromOptions,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
 } from '../TradingViewV2ChartControls';
 
@@ -219,29 +218,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const hasNativeChartControlsConfig = Boolean(nativeChartControlsConfig);
   const isNativeChartControlsReady =
     !enableNativeChartControls || hasNativeChartControlsConfig;
-  const nativeSubIndicatorCountFromConfig = useMemo(
-    () =>
-      getTradingViewNativeSubIndicatorCountFromOptions(
-        nativeChartControlsConfig?.indicators,
-      ),
-    [nativeChartControlsConfig?.indicators],
-  );
-  const nativeSubIndicatorCountFromAppState = useMemo(
-    () =>
-      getTradingViewNativeSubIndicatorCount(
-        nativeIndicatorState.activeIndicatorValues,
-      ),
-    [nativeIndicatorState.activeIndicatorValues],
-  );
   const nativeSubIndicatorCount = useMemo(
     () =>
-      nativeIndicatorState.isInitialized
-        ? nativeSubIndicatorCountFromAppState
-        : nativeSubIndicatorCountFromConfig,
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: nativeIndicatorState.activeIndicatorValues,
+        configIndicators: nativeChartControlsConfig?.indicators,
+        isInitialized: nativeIndicatorState.isInitialized,
+        sourceIndicators: nativeIndicatorState.sourceIndicators,
+      }),
     [
+      nativeChartControlsConfig?.indicators,
+      nativeIndicatorState.activeIndicatorValues,
       nativeIndicatorState.isInitialized,
-      nativeSubIndicatorCountFromAppState,
-      nativeSubIndicatorCountFromConfig,
+      nativeIndicatorState.sourceIndicators,
     ],
   );
 

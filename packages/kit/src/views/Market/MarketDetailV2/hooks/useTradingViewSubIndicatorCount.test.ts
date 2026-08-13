@@ -7,7 +7,6 @@ import { act, renderHook } from '@testing-library/react';
 import { useTradingViewSubIndicatorCount } from './useTradingViewSubIndicatorCount';
 
 const DEFAULT_COUNT = 1;
-const MAX_COUNT = 4;
 const STABILIZATION_DELAY_MS = 500;
 
 function useTestSubIndicatorCount({
@@ -24,7 +23,6 @@ function useTestSubIndicatorCount({
   return useTradingViewSubIndicatorCount({
     chartKey,
     initialCount,
-    maxCount: MAX_COUNT,
     stabilizeInitialCount,
     stabilizationDelayMs: STABILIZATION_DELAY_MS,
     onCountSettled,
@@ -122,6 +120,35 @@ describe('useTradingViewSubIndicatorCount', () => {
     expect(onCountSettled).toHaveBeenCalledWith(3);
   });
 
+  it('cancels the legacy fallback after detecting the layout restoration marker', () => {
+    const onCountSettled = jest.fn();
+    const { result } = renderHook(() =>
+      useTestSubIndicatorCount({
+        initialCount: 2,
+        onCountSettled,
+      }),
+    );
+
+    act(() => {
+      result.current[1](0);
+      jest.advanceTimersByTime(STABILIZATION_DELAY_MS / 2);
+      result.current[1](1, { layoutRestored: false });
+      jest.advanceTimersByTime(STABILIZATION_DELAY_MS);
+      result.current[1](0);
+      jest.advanceTimersByTime(STABILIZATION_DELAY_MS);
+    });
+
+    expect(result.current[0]).toBe(2);
+    expect(onCountSettled).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current[1](3, { layoutRestored: true });
+    });
+
+    expect(result.current[0]).toBe(3);
+    expect(onCountSettled).toHaveBeenCalledWith(3);
+  });
+
   it('persists a settled count even when it matches the initial fallback', () => {
     const onCountSettled = jest.fn();
     const { result } = renderHook(() =>
@@ -160,7 +187,7 @@ describe('useTradingViewSubIndicatorCount', () => {
     expect(result.current[0]).toBe(0);
   });
 
-  it('clamps persisted and reported counts to the supported mobile range', () => {
+  it('preserves restored counts above the mobile indicator selection cap', () => {
     const { result } = renderHook(() =>
       useTestSubIndicatorCount({
         initialCount: 8,
@@ -168,13 +195,13 @@ describe('useTradingViewSubIndicatorCount', () => {
       }),
     );
 
-    expect(result.current[0]).toBe(MAX_COUNT);
+    expect(result.current[0]).toBe(8);
 
     act(() => {
       result.current[1](9);
     });
 
-    expect(result.current[0]).toBe(MAX_COUNT);
+    expect(result.current[0]).toBe(9);
   });
 
   it('cancels a pending count when the active chart changes', () => {
