@@ -10,7 +10,12 @@ import {
   resolveSerializablePriceFormatterType,
 } from '../utils/priceFormatterType';
 
-import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
+import type {
+  ILightweightChartConfig,
+  ILightweightChartLineType,
+  ILightweightChartPriceScalePosition,
+  ILightweightChartTime,
+} from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IUseChartConfigProps {
@@ -25,12 +30,14 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
@@ -50,12 +57,14 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceFormatter,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
@@ -86,6 +95,7 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
@@ -107,6 +117,7 @@ export function useChartConfig({
       priceFormatterTickStep,
       fontSize,
       seriesType: resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,
@@ -127,6 +138,7 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
       priceFormatter,
@@ -134,6 +146,7 @@ export function useChartConfig({
       priceFormatterTickStep,
       fontSize,
       resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,

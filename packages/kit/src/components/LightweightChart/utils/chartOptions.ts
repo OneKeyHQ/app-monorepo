@@ -1,4 +1,7 @@
-import type { ILightweightChartTheme } from '../types';
+import type {
+  ILightweightChartPriceScalePosition,
+  ILightweightChartTheme,
+} from '../types';
 import type {
   AreaSeriesPartialOptions,
   ChartOptions,
@@ -109,7 +112,18 @@ export function createChartOptions(
   priceScaleEntireTextOnly = false,
   useTimeScaleTickMarkWithoutUnit = false,
   priceScaleMinimumWidth?: number,
+  priceScalePosition: ILightweightChartPriceScalePosition = 'right',
 ): DeepPartial<ChartOptions> {
+  const priceScaleOptions = {
+    visible: showPriceScale,
+    borderVisible: false,
+    entireTextOnly: priceScaleEntireTextOnly,
+    ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
+    ...(priceScaleMinimumWidth !== undefined && {
+      minimumWidth: priceScaleMinimumWidth,
+    }),
+  };
+
   return {
     layout: {
       background: { color: theme.bgColor },
@@ -146,16 +160,14 @@ export function createChartOptions(
         : {}),
     },
     rightPriceScale: {
-      visible: showPriceScale,
-      borderVisible: false,
-      entireTextOnly: priceScaleEntireTextOnly,
-      ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
-      ...(priceScaleMinimumWidth !== undefined && {
-        minimumWidth: priceScaleMinimumWidth,
-      }),
+      ...(priceScalePosition === 'right'
+        ? priceScaleOptions
+        : { visible: false }),
     },
     leftPriceScale: {
-      visible: false,
+      ...(priceScalePosition === 'left'
+        ? priceScaleOptions
+        : { visible: false }),
     },
     handleScroll: {
       mouseWheel: false,

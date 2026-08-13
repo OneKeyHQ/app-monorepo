@@ -32,4 +32,24 @@ describe('createChartOptions', () => {
 
     expect(options.rightPriceScale).not.toHaveProperty('minimumWidth');
   });
+
+  it('places the visible price scale and reserved width on the left', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      { top: 0.12, bottom: 0.1 },
+      true,
+      false,
+      false,
+      64,
+      'left',
+    );
+
+    expect(options.leftPriceScale).toMatchObject({
+      visible: true,
+      minimumWidth: 64,
+    });
+    expect(options.rightPriceScale).toEqual({ visible: false });
+  });
 });

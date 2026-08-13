@@ -8,6 +8,8 @@ import type {
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
+export type ILightweightChartLineType = 'simple' | 'steps';
+export type ILightweightChartPriceScalePosition = 'left' | 'right';
 
 export interface ILightweightChartTheme {
   bgColor: string;
@@ -30,6 +32,7 @@ export interface ILightweightChartConfig {
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   horzLineColor?: string;
@@ -39,6 +42,7 @@ export interface ILightweightChartConfig {
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
@@ -59,6 +63,7 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   // Web/desktop only. Reserve the axis before labels are measured so the plot
@@ -68,6 +73,7 @@ export interface ILightweightChartProps {
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;

@@ -26,6 +26,24 @@ function getChartInitScript(): string {
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
       }
+      function getPriceScalePosition(nextConfig) {
+        return nextConfig.priceScalePosition === 'left' ? 'left' : 'right';
+      }
+      function getPriceScaleOptions(nextConfig, position) {
+        if (getPriceScalePosition(nextConfig) !== position) {
+          return { visible: false };
+        }
+        return Object.assign(
+          {
+            visible: Boolean(nextConfig.showPriceScale),
+            borderVisible: false,
+            entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
+          },
+          nextConfig.priceScaleMargins
+            ? { scaleMargins: nextConfig.priceScaleMargins }
+            : {}
+        );
+      }
       function getChartOptions(nextConfig) {
         return {
           layout: {
@@ -53,16 +71,8 @@ function getChartInitScript(): string {
             fixRightEdge: true,
             lockVisibleTimeRangeOnResize: true,
           },
-          rightPriceScale: Object.assign(
-            {
-              visible: Boolean(nextConfig.showPriceScale),
-              borderVisible: false,
-              entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
-            },
-            nextConfig.priceScaleMargins
-              ? { scaleMargins: nextConfig.priceScaleMargins }
-              : {}
-          ),
+          rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
+          leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
       }
       function getPrimarySeriesType(nextConfig) {
@@ -199,10 +209,16 @@ function getChartInitScript(): string {
           showLastPointMarker: nextConfig.showLastPointMarker !== false,
           lastPointMarkerColor: nextConfig.theme.lineColor,
           lastPointMarkerRadius: 5.5,
+          priceScaleId: getPriceScalePosition(nextConfig),
           lastValueVisible: showLast,
           priceLineVisible: showLast,
           priceFormat: { type: 'custom', formatter: priceFormatter },
         };
+      }
+      function getLineType(nextConfig) {
+        return nextConfig.lineType === 'steps'
+          ? LightweightCharts.LineType.WithSteps
+          : LightweightCharts.LineType.Simple;
       }
       function createPrimarySeries(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
@@ -216,6 +232,8 @@ function getChartInitScript(): string {
         }
         if (getPrimarySeriesType(nextConfig) === 'baseline') {
           return chart.addSeries(LightweightCharts.BaselineSeries, Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -224,6 +242,7 @@ function getChartInitScript(): string {
           }));
         }
         return chart.addSeries(LightweightCharts.AreaSeries, {
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -247,6 +266,8 @@ function getChartInitScript(): string {
         }
         if (window.seriesType === 'baseline') {
           window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -256,6 +277,7 @@ function getChartInitScript(): string {
           return;
         }
         window.series.applyOptions({
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -283,6 +305,7 @@ function getChartInitScript(): string {
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {
+          priceScaleId: getPriceScalePosition(nextConfig),
           color: nextConfig.secondaryLineColor || '#0177E5',
           lineWidth: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2),
           priceLineVisible: false,
@@ -378,15 +401,8 @@ function getChartInitScript(): string {
             return month + ' ' + day;
           },
         },
-        rightPriceScale: Object.assign(
-          {
-            visible: Boolean(config.showPriceScale),
-            borderVisible: false,
-            entireTextOnly: Boolean(config.priceScaleEntireTextOnly),
-          },
-          config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
-        ),
-        leftPriceScale: { visible: false },
+        rightPriceScale: getPriceScaleOptions(config, 'right'),
+        leftPriceScale: getPriceScaleOptions(config, 'left'),
         handleScroll: {
           mouseWheel: false,
           pressedMouseMove: false,

@@ -166,6 +166,7 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import {
   mergePerpDexSlots,
@@ -1652,10 +1653,15 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IFundingHistoryRecord[]> {
     const { infoClient } = hyperLiquidApiClients;
     const { apiCoin } = this.resolveInfoRequestCoin(coin);
-    return infoClient.fundingHistory({
-      coin: apiCoin,
+    const resolvedEndTime = endTime ?? Date.now();
+    return fetchPerpFundingHistoryPages({
       startTime,
-      endTime,
+      endTime: resolvedEndTime,
+      fetchPage: (page) =>
+        infoClient.fundingHistory({
+          coin: apiCoin,
+          ...page,
+        }),
     });
   }
 

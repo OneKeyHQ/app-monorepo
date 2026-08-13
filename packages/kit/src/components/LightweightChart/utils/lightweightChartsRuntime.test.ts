@@ -69,6 +69,8 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     });
 
     expect(html).toContain('LightweightCharts');
+    expect(html).toContain('LightweightCharts.LineType.WithSteps');
+    expect(html).toContain("getPriceScaleOptions(nextConfig, 'left')");
     expect(html).not.toContain('<script src=');
     expect(html).not.toContain('unpkg.com');
   });

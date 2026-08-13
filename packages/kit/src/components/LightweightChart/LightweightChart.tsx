@@ -63,12 +63,14 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
   priceFormatter,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
@@ -101,11 +103,13 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
     priceFormatter,
     fontSize,
     seriesType,
+    lineType,
     baselineOptions,
     showLastValue,
     showLastPointMarker,
@@ -148,7 +152,7 @@ export function LightweightChart({
     setLastPointPosition(null);
 
     void getChartLib().then(
-      ({ AreaSeries, BaselineSeries, LineSeries, createChart }) => {
+      ({ AreaSeries, BaselineSeries, LineSeries, LineType, createChart }) => {
         if (cancelled) return;
 
         const currentChartConfig = chartConfigRef.current;
@@ -161,6 +165,7 @@ export function LightweightChart({
           currentChartConfig.priceScaleEntireTextOnly,
           currentChartConfig.useTimeScaleTickMarkWithoutUnit,
           priceScaleMinimumWidth,
+          currentChartConfig.priceScalePosition,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -194,9 +199,17 @@ export function LightweightChart({
               priceFormatter: currentChartConfig.priceFormatter,
             }),
           );
+          series.applyOptions({
+            priceScaleId: currentChartConfig.priceScalePosition,
+          });
         } else if (isBaseline) {
           series = chart.addSeries(BaselineSeries, {
             ...currentChartConfig.baselineOptions,
+            priceScaleId: currentChartConfig.priceScalePosition,
+            lineType:
+              currentChartConfig.lineType === 'steps'
+                ? LineType.WithSteps
+                : LineType.Simple,
             lineWidth: Math.min(
               4,
               Math.max(1, Math.round(currentChartConfig.lineWidth)),
@@ -213,6 +226,7 @@ export function LightweightChart({
           });
         } else {
           series = chart.addSeries(AreaSeries, {
+            priceScaleId: currentChartConfig.priceScalePosition,
             ...createAreaSeriesOptions(
               currentChartConfig.theme,
               currentChartConfig.lineWidth,
@@ -235,6 +249,7 @@ export function LightweightChart({
             Math.max(1, Math.round(currentChartConfig.secondaryLineWidth ?? 2)),
           ) as 1 | 2 | 3 | 4;
           const secondarySeries = chart.addSeries(LineSeries, {
+            priceScaleId: currentChartConfig.priceScalePosition,
             color: currentChartConfig.secondaryLineColor ?? '#0177E5',
             lineWidth: normalizedSecondaryLineWidth,
             priceLineVisible: false,
@@ -394,7 +409,9 @@ export function LightweightChart({
     chartConfig.horzLineColor,
     chartConfig.horzLineStyle,
     chartConfig.lineWidth,
+    chartConfig.lineType,
     chartConfig.priceFormatter,
+    chartConfig.priceScalePosition,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
     chartConfig.secondaryLineColor,

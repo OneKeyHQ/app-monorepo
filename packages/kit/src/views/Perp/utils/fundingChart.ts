@@ -1,0 +1,86 @@
+import BigNumber from 'bignumber.js';
+
+import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+export type IPerpFundingChartInterval = '1h' | '4h' | '8h' | '12h' | '1d';
+
+export type IPerpFundingChartPoint = {
+  time: number;
+  fundingRate: number;
+  cumulativeFundingRate: number;
+};
+
+export type IPerpFundingTooltipPositionParams = {
+  x: number;
+  y: number;
+  chartWidth: number;
+  chartHeight: number;
+  tooltipWidth: number;
+  tooltipHeight: number;
+  offset?: number;
+  padding?: number;
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+
+const INTERVAL_HOURS: Record<IPerpFundingChartInterval, number> = {
+  '1h': 1,
+  '4h': 4,
+  '8h': 8,
+  '12h': 12,
+  '1d': 24,
+};
+
+export function getPerpFundingTooltipPosition({
+  x,
+  y,
+  chartWidth,
+  chartHeight,
+  tooltipWidth,
+  tooltipHeight,
+  offset = 12,
+  padding = 8,
+}: IPerpFundingTooltipPositionParams) {
+  const maxLeft = Math.max(padding, chartWidth - tooltipWidth - padding);
+  const maxTop = Math.max(padding, chartHeight - tooltipHeight - padding);
+  const fitsToTheRight = x + offset + tooltipWidth + padding <= chartWidth;
+  const preferredLeft = fitsToTheRight ? x + offset : x - tooltipWidth - offset;
+
+  return {
+    left: Math.min(maxLeft, Math.max(padding, preferredLeft)),
+    top: Math.min(maxTop, Math.max(padding, y - tooltipHeight / 2)),
+  };
+}
+
+export function buildPerpFundingChartData(
+  records: IFundingHistoryRecord[],
+  interval: IPerpFundingChartInterval,
+): IPerpFundingChartPoint[] {
+  const bucketSizeMs = INTERVAL_HOURS[interval] * HOUR_MS;
+  const buckets = new Map<number, BigNumber>();
+
+  records
+    .toSorted((a, b) => a.time - b.time)
+    .forEach((record) => {
+      const fundingRate = new BigNumber(record.fundingRate);
+      if (!Number.isFinite(record.time) || !fundingRate.isFinite()) {
+        return;
+      }
+
+      const bucketTime = Math.floor(record.time / bucketSizeMs) * bucketSizeMs;
+      buckets.set(
+        bucketTime,
+        (buckets.get(bucketTime) ?? new BigNumber(0)).plus(fundingRate),
+      );
+    });
+
+  let cumulativeFundingRate = new BigNumber(0);
+  return Array.from(buckets, ([time, fundingRate]) => {
+    cumulativeFundingRate = cumulativeFundingRate.plus(fundingRate);
+    return {
+      time: Math.floor(time / 1000),
+      fundingRate: fundingRate.multipliedBy(100).toNumber(),
+      cumulativeFundingRate: cumulativeFundingRate.multipliedBy(100).toNumber(),
+    };
+  });
+}
