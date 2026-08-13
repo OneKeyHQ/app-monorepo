@@ -409,7 +409,7 @@ export function DeviceStage({
         background={ambientDark ? undefined : STAGE_BG}
         backgroundInteractive={backgroundInteractive}
       >
-        <YStack pt="$4" px={STAGE_PADDING}>
+        <YStack pt="$4" pb="$6" px={STAGE_PADDING}>
           <Animated.View style={portWindowStyle}>
             <ReplicaPort>
               {/* Step names and scene names deliberately coincide: every step
