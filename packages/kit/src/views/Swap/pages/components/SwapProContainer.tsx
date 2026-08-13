@@ -70,6 +70,7 @@ import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/
 
 interface ISwapProContainerProps {
   pageType?: EPageType;
+  isFocused: boolean;
   onProSelectToken: (autoSearch?: boolean) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
@@ -95,6 +96,7 @@ interface ISwapProContainerProps {
 
 const SwapProContainer = ({
   pageType,
+  isFocused,
   onProSelectToken,
   onOpenOrdersClick,
   onSwapProActionClick,
@@ -332,6 +334,7 @@ const SwapProContainer = ({
       <XStack mt="$2" gap="$4" pb="$2.5" alignItems="stretch">
         <YStack flexBasis="40%" flexShrink={1} alignSelf="stretch">
           <SwapProTradeInfoPanel
+            isFocused={isFocused}
             supportSpeedSwap={supportSpeedSwap}
             onPricePress={(price) => {
               if (swapProTradeType === ESwapProTradeType.LIMIT) {

@@ -3,9 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import {
+  DebugRenderTracker,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useTradingFormAtom,
@@ -13,23 +18,20 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  getPerpsAccountDisplaySnapshotEntry,
-  usePerpsAccountDisplayReadyAtom,
-  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
-  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOrderConfirm } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { usePerpsAccountDisplayState } from '../../hooks/usePerpsAccountDisplayState';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
@@ -207,57 +209,66 @@ const PerpTradingDisabledPlaceOrderButtonMemo = memo(
   PerpTradingDisabledPlaceOrderButton,
 );
 
+function PerpConnectWalletPromptCard() {
+  const intl = useIntl();
+
+  return (
+    <XStack
+      testID="perp-connect-wallet-prompt-card"
+      width="100%"
+      gap="$2"
+      px="$3"
+      py="$2.5"
+      borderRadius="$2"
+      bg="$bgSubdued"
+      alignItems="center"
+    >
+      <Icon
+        name="InfoCircleOutline"
+        size="$4"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+      <SizableText
+        minWidth={0}
+        flex={1}
+        flexShrink={1}
+        numberOfLines={2}
+        size="$bodySmMedium"
+        color="$text"
+      >
+        {intl.formatMessage({
+          id: ETranslations.connect_wallet_to_access_perps_trading__desc,
+        })}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const sizeInputRef = useRef<IInputRef>(null);
   const minimumOrderActionRef = useRef<
     ISizeInputMinimumOrderAction | undefined
   >(undefined);
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [displayReady] = usePerpsAccountDisplayReadyAtom();
-  const [perpsActiveAccount] = usePerpsActiveAccountAtom();
-  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
-  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const {
+    displayReady,
+    displaySnapshot,
+    isLiveStatusPending,
+    perpsAccountLoading,
+    perpsAccountStatus,
+    selectedWalletAccount,
+    shouldShowConnectWalletPrompt,
+    snapshotEntry,
+    snapshotLookupAccountAddress,
+    snapshotLookupAccountId,
+    snapshotLookupIndexedAccountId,
+  } = usePerpsAccountDisplayState();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.indexedAccount?.id
-    : perpsActiveAccount?.indexedAccountId;
-  const snapshotLookupAccountId = selectedWalletAccount.ready
-    ? selectedWalletAccount.account?.id
-    : perpsActiveAccount?.accountId;
-  const snapshotLookupAccountAddress =
-    !selectedWalletAccount.ready ||
-    snapshotLookupIndexedAccountId ||
-    snapshotLookupAccountId
-      ? perpsActiveAccount?.accountAddress
-      : undefined;
-  const snapshotEntry = useMemo(
-    () =>
-      getPerpsAccountDisplaySnapshotEntry({
-        snapshot: displaySnapshot,
-        accountAddress: snapshotLookupAccountAddress,
-        indexedAccountId: snapshotLookupIndexedAccountId,
-        accountId: snapshotLookupAccountId,
-        deriveType:
-          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
-      }),
-    [
-      displaySnapshot,
-      perpsActiveAccount?.deriveType,
-      selectedWalletAccount.deriveType,
-      snapshotLookupAccountAddress,
-      snapshotLookupAccountId,
-      snapshotLookupIndexedAccountId,
-    ],
-  );
-  const canShowCachedTradingButtons = Boolean(
-    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
-  );
-  const isLiveStatusPending = canShowCachedTradingButtons;
+  const canShowCachedTradingButtons = isLiveStatusPending;
   const coldStartEnableTradingMode = useMemo(() => {
     if (!isLiveStatusPending) {
       return undefined;
@@ -403,6 +414,28 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     requestAnimationFrame(() => sizeInputRef.current?.focus());
   }, []);
 
+  let tradingActionContent = (
+    <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
+  );
+  if (canShowTradingButtons) {
+    tradingActionContent = (
+      <TradingButtonGroup
+        onRequestSizeInputFocus={handleRequestSizeInputFocus}
+        minimumOrderActionRef={minimumOrderActionRef}
+        isMobile={isMobile}
+        isLiveStatusPending={isLiveStatusPending}
+        enableTradingModeOverride={orderPanelEnableTradingMode}
+      />
+    );
+  } else if (shouldShowConnectWalletPrompt) {
+    tradingActionContent = (
+      <YStack gap="$3">
+        <PerpConnectWalletPromptCard />
+        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
+      </YStack>
+    );
+  }
+
   const content = (
     <YStack
       gap={isMobile && tradingMode === 'spot' ? '$0.5' : '$2'}
@@ -419,19 +452,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
         minimumOrderActionRef={minimumOrderActionRef}
         isSubmitting={isSubmitting}
         isMobile={isMobile}
-        reserveMobileEnableTradingLayout={reserveMobileEnableTradingLayout}
+        reserveMobileEnableTradingLayout={
+          shouldShowConnectWalletPrompt
+            ? false
+            : reserveMobileEnableTradingLayout
+        }
       />
-      {canShowTradingButtons ? (
-        <TradingButtonGroup
-          onRequestSizeInputFocus={handleRequestSizeInputFocus}
-          minimumOrderActionRef={minimumOrderActionRef}
-          isMobile={isMobile}
-          isLiveStatusPending={isLiveStatusPending}
-          enableTradingModeOverride={orderPanelEnableTradingMode}
-        />
-      ) : (
-        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
-      )}
+      {tradingActionContent}
     </YStack>
   );
   return (

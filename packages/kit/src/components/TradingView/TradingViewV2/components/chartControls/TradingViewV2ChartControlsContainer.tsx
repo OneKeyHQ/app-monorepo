@@ -44,6 +44,7 @@ export { useNativeIndicatorActiveValues } from '../indicatorControls/hooks/useNa
 export {
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
 } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 export {
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,

@@ -8,13 +8,11 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  clampLimitRateDecimals,
-  countSignificantRateDecimals,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import SwapProLimitPriceInput from '../../components/SwapProLimitPriceInput';
 import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
+import { formatSwapProLimitPriceForDisplay } from '../../utils/swapProLimitPriceUtils';
 
 // import SwapProLimitPriceSlider from './SwapProLimitPriceSlider';
 
@@ -22,18 +20,6 @@ interface ISwapProLimitPriceValueProps {
   externalTokenPrice?: { value: string; change: boolean };
 }
 
-// Display precision for the limit price input: 6 decimals for prices >= 1,
-// extended past the leading zeros for sub-1 prices so a 0.0000000993 price
-// keeps its significant digits instead of collapsing to "0". Delegates to the
-// shared significance rule so display can't drift from storage/validation.
-function formatLimitPriceForDisplay(priceBN: BigNumber): string {
-  return priceBN
-    .decimalPlaces(
-      countSignificantRateDecimals(priceBN, 0),
-      BigNumber.ROUND_HALF_UP,
-    )
-    .toFixed();
-}
 const SwapProLimitPriceValue = ({
   externalTokenPrice,
 }: ISwapProLimitPriceValueProps) => {
@@ -100,7 +86,7 @@ const SwapProLimitPriceValue = ({
         return '';
       }
       const toTokenPrice = fromTokenPriceBN.dividedBy(limitRateBN);
-      return formatLimitPriceForDisplay(toTokenPrice);
+      return formatSwapProLimitPriceForDisplay(toTokenPrice);
     }
     // SELL: show fromToken price
     // limit price = fromToken price / toToken price
@@ -112,7 +98,7 @@ const SwapProLimitPriceValue = ({
       return '';
     }
     const fromTokenPrice = toTokenPriceBN.multipliedBy(limitRateBN);
-    return formatLimitPriceForDisplay(fromTokenPrice);
+    return formatSwapProLimitPriceForDisplay(fromTokenPrice);
   }, [
     swapLimitPriceUseRate.rate,
     swapProDirection,
@@ -144,7 +130,7 @@ const SwapProLimitPriceValue = ({
         return '';
       }
       const toTokenMarketPrice = fromTokenPriceBN.dividedBy(marketRateBN);
-      return formatLimitPriceForDisplay(toTokenMarketPrice);
+      return formatSwapProLimitPriceForDisplay(toTokenMarketPrice);
     }
     // SELL: show fromToken market price
     // market limit price = fromToken price / toToken price
@@ -156,7 +142,7 @@ const SwapProLimitPriceValue = ({
       return '';
     }
     const fromTokenMarketPrice = toTokenPriceBN.multipliedBy(marketRateBN);
-    return formatLimitPriceForDisplay(fromTokenMarketPrice);
+    return formatSwapProLimitPriceForDisplay(fromTokenMarketPrice);
   }, [
     limitPriceMarketPrice.rate,
     swapProDirection,
@@ -238,6 +224,10 @@ const SwapProLimitPriceValue = ({
         return;
       }
 
+      const normalizedTokenPriceText =
+        formatSwapProLimitPriceForDisplay(tokenPriceBN);
+      const normalizedTokenPriceBN = new BigNumber(normalizedTokenPriceText);
+
       if (swapProDirection === ESwapDirection.BUY) {
         // BUY: user modifies toToken price
         // limit price = fromToken price / toToken price
@@ -248,9 +238,11 @@ const SwapProLimitPriceValue = ({
           return;
         }
         onLimitRateChange(
-          formatNewLimitRate(fromTokenPriceBN.dividedBy(tokenPriceBN)),
+          formatNewLimitRate(
+            fromTokenPriceBN.dividedBy(normalizedTokenPriceBN),
+          ),
         );
-        setInputValue(text);
+        setInputValue(normalizedTokenPriceText);
         return;
       }
       // SELL: user modifies fromToken price
@@ -262,9 +254,9 @@ const SwapProLimitPriceValue = ({
         return;
       }
       onLimitRateChange(
-        formatNewLimitRate(tokenPriceBN.dividedBy(toTokenPriceBN)),
+        formatNewLimitRate(normalizedTokenPriceBN.dividedBy(toTokenPriceBN)),
       );
-      setInputValue(text);
+      setInputValue(normalizedTokenPriceText);
     },
     [
       targetToken,
