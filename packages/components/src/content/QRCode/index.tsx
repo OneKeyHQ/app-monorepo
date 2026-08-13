@@ -233,7 +233,13 @@ export function QRCode({
 
   useEffect(() => {
     if (!isEncoderReady) {
-      void ensureQRCodeUtilLoaded().then(() => setIsEncoderReady(true));
+      ensureQRCodeUtilLoaded().then(
+        () => setIsEncoderReady(true),
+        () => {
+          // stay unready; the loader dropped its cache so the next mount
+          // retries the import
+        },
+      );
     }
   }, [isEncoderReady]);
 

@@ -15,10 +15,19 @@ let qrCodeUtilPromise: Promise<void> | undefined;
 
 export function ensureQRCodeUtilLoaded() {
   if (!qrCodeUtilPromise) {
-    qrCodeUtilPromise = import('qrcode').then((mod) => {
-      // CJS/ESM interop shape differs across metro, vite and jest
-      loadedQRCodeUtil = (mod.default ?? mod) as IQRCodeUtil;
-    });
+    qrCodeUtilPromise = import('qrcode').then(
+      (mod) => {
+        // CJS/ESM interop shape differs across metro, vite and jest
+        loadedQRCodeUtil = (mod.default ?? mod) as IQRCodeUtil;
+      },
+      (error) => {
+        // a chunk load can fail transiently (weak network, extension
+        // upgrade); drop the failed attempt so the next caller retries
+        // instead of replaying a cached rejection forever
+        qrCodeUtilPromise = undefined;
+        throw error;
+      },
+    );
   }
   return qrCodeUtilPromise;
 }
