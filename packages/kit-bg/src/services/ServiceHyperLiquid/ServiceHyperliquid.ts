@@ -2153,9 +2153,21 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Active-account alignment: only process data for current account
     if (!activeAddress || activeAddress !== dataUser) return;
 
-    const balances = (spotStateData?.spotState?.balances || []).filter(
+    const allBalances = spotStateData?.spotState?.balances || [];
+    const balances = allBalances.filter(
       (balance): balance is ISpotBalance => 'token' in balance,
     );
+    // Outcome-market balances have no token id, price feed, or UI support;
+    // they are excluded from spot state but logged so the omission is visible.
+    const droppedPositiveCount = allBalances.filter(
+      (balance) =>
+        !('token' in balance) && new BigNumber(balance.total).gt(0),
+    ).length;
+    if (droppedPositiveCount > 0) {
+      console.warn(
+        `[updateSpotBalances] excluded ${droppedPositiveCount} unsupported outcome balance(s)`,
+      );
+    }
 
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
