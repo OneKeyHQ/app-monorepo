@@ -204,9 +204,11 @@ export const ShareImageGenerator = forwardRef<
       const cardY = (availableHeight - cardHeight) / 2;
 
       ctx.shadowColor = card.shadowColor;
-      ctx.shadowBlur = card.shadowBlur;
+      // shadow blur/offset are device-space per the canvas spec — the
+      // ctx.scale(CANVAS_SCALE) above does not apply to them, so scale by hand
+      ctx.shadowBlur = card.shadowBlur * CANVAS_SCALE;
       ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = card.shadowOffsetY;
+      ctx.shadowOffsetY = card.shadowOffsetY * CANVAS_SCALE;
 
       ctx.fillStyle = card.backgroundColor;
       drawRoundedRect(
