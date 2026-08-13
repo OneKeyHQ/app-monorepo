@@ -2157,11 +2157,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     const balances = allBalances.filter(
       (balance): balance is ISpotBalance => 'token' in balance,
     );
-    // Outcome-market balances have no token id, price feed, or UI support;
-    // they are excluded from spot state but logged so the omission is visible.
+    // Outcome-market balances have no token id or price feed, so they cannot
+    // be valued or rendered; the warn keeps the omission diagnosable.
     const droppedPositiveCount = allBalances.filter(
-      (balance) =>
-        !('token' in balance) && new BigNumber(balance.total).gt(0),
+      (balance) => !('token' in balance) && new BigNumber(balance.total).gt(0),
     ).length;
     if (droppedPositiveCount > 0) {
       console.warn(

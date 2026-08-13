@@ -1470,8 +1470,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       m: params.minutes,
       t: params.randomize,
     };
-    // Omit the optional details wrapper entirely for plain TWAPs so the wire
-    // action keeps the shape production already validated before 0.33.x.
+    // Plain TWAPs must keep the pre-0.33 wire shape production has validated.
     const details =
       triggerPrice || stopPrice
         ? {

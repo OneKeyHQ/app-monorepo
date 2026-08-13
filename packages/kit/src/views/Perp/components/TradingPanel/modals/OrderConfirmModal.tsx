@@ -255,8 +255,7 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
-    // Preview the same wire-normalized prices the submit path sends, so the
-    // user confirms exactly what goes out.
+    // The user must confirm the exact wire prices the submit path sends.
     const triggerPrice = formatTwapPriceForOrder({
       price: formData.twapTriggerPrice,
       szDecimals,

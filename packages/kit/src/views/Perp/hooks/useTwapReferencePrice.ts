@@ -9,10 +9,9 @@ import { getTwapTriggerReferencePrice } from '@onekeyhq/shared/src/utils/hyperli
 
 import type { BigNumber } from 'bignumber.js';
 
-// Single source of the TWAP reference price so form display, CTA validation,
-// and submit agree; falls back to webData2 markPx while activeAssetCtx lags.
-// midPriceBN comes from the caller's useTradingPrice to avoid an extra live
-// mid subscription in callers that are on the display source.
+// Single source so form, CTA validation, and submit agree on the TWAP
+// reference price even while activeAssetCtx lags on cold start/reconnect.
+// midPriceBN is caller-supplied to avoid adding a live mid subscription.
 export function useTwapReferencePrice({
   midPriceBN,
 }: {
