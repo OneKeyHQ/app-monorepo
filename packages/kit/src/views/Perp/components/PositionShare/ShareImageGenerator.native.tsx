@@ -33,19 +33,6 @@ async function fileUriToBase64(uri: string): Promise<string> {
 
 const IMAGES_READY_TIMEOUT_MS = 5000;
 
-type IImagesReadyDeferred = {
-  promise: Promise<void>;
-  resolve: () => void;
-};
-
-function createImagesReadyDeferred(): IImagesReadyDeferred {
-  let resolve: () => void = () => {};
-  const promise = new Promise<void>((r) => {
-    resolve = r;
-  });
-  return { promise, resolve };
-}
-
 export const ShareImageGenerator = forwardRef<
   IShareImageGeneratorRef,
   IShareImageGeneratorProps
@@ -55,16 +42,27 @@ export const ShareImageGenerator = forwardRef<
     ref,
   ) => {
     const viewShotRef = useRef<ViewShot>(null);
-    // resolved by the renderer once every image and the lazily-encoded QR
-    // have actually been drawn; the timeout below keeps capture from
-    // hanging if any of them never signals
-    const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
-    if (imagesReadyDeferredRef.current === null) {
-      imagesReadyDeferredRef.current = createImagesReadyDeferred();
-    }
+    // Latest readiness reported by the renderer. Readiness can regress —
+    // the referral QR joins the expectation only after an invite-code
+    // round-trip — so generate() reads the current state instead of
+    // awaiting a one-shot deferred that an early ready could have resolved.
+    const imagesReadyRef = useRef(false);
+    const readyWaitersRef = useRef<Array<() => void>>([]);
 
-    const handleImagesReady = useCallback(() => {
-      imagesReadyDeferredRef.current?.resolve();
+    const handleImagesReadyStateChange = useCallback((isReady: boolean) => {
+      imagesReadyRef.current = isReady;
+      if (isReady) {
+        readyWaitersRef.current.splice(0).forEach((wake) => wake());
+      }
+    }, []);
+
+    const waitForImagesReady = useCallback(() => {
+      if (imagesReadyRef.current) {
+        return Promise.resolve();
+      }
+      return new Promise<void>((resolve) => {
+        readyWaitersRef.current.push(resolve);
+      });
     }, []);
 
     const generate = useCallback(async (): Promise<string> => {
@@ -72,9 +70,9 @@ export const ShareImageGenerator = forwardRef<
       if (!viewShot) return '';
 
       try {
+        // the timeout keeps capture from hanging if a source never signals
         await createTimeoutPromise({
-          asyncFunc: () =>
-            imagesReadyDeferredRef.current?.promise ?? Promise.resolve(),
+          asyncFunc: waitForImagesReady,
           timeout: IMAGES_READY_TIMEOUT_MS,
           timeoutResult: undefined,
         });
@@ -88,7 +86,7 @@ export const ShareImageGenerator = forwardRef<
         }
         return '';
       }
-    }, []);
+    }, [waitForImagesReady]);
 
     useImperativeHandle(ref, () => ({ generate }));
 
@@ -105,7 +103,7 @@ export const ShareImageGenerator = forwardRef<
             referralQrCodeUrl={referralQrCodeUrl}
             referralDisplayText={referralDisplayText}
             isReferralReady={isReferralReady}
-            onImagesReady={handleImagesReady}
+            onImagesReadyStateChange={handleImagesReadyStateChange}
           />
         </ViewShot>
       </Stack>
