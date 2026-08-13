@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -76,6 +83,7 @@ export default function TradingViewRuntimeView({
   >(null);
   const customReceiveHandlerRef = useRef(customReceiveHandler);
   const onLoadStartRef = useRef(onLoadStart);
+  const fallbackWebViewRef = useRef<IWebViewRef | null>(null);
   const [fallback, setFallback] = useState(() =>
     hasRuntimeFailedInSession(src),
   );
@@ -105,14 +113,24 @@ export default function TradingViewRuntimeView({
     [],
   );
 
+  const handleFallbackWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      fallbackWebViewRef.current = ref;
+      if (fallback) {
+        onWebViewRef?.(ref);
+      }
+    },
+    [fallback, onWebViewRef],
+  );
+
   useEffect(() => {
     setRuntimeUrl(src);
   }, [src]);
 
-  useEffect(() => {
-    onWebViewRef?.(webViewRef);
+  useLayoutEffect(() => {
+    onWebViewRef?.(fallback ? fallbackWebViewRef.current : webViewRef);
     return () => onWebViewRef?.(null);
-  }, [onWebViewRef, webViewRef]);
+  }, [fallback, onWebViewRef, webViewRef]);
 
   useLayoutEffect(
     () => () => {
@@ -226,7 +244,7 @@ export default function TradingViewRuntimeView({
         containerProps={containerProps}
         customReceiveHandler={customReceiveHandler}
         onLoadStart={onLoadStart}
-        onWebViewRef={onWebViewRef}
+        onWebViewRef={handleFallbackWebViewRef}
         skipBackgroundBridge
         src={runtimeUrl}
       />

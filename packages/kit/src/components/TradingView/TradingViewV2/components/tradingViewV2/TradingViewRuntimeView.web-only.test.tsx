@@ -9,6 +9,12 @@ import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web'
 import TradingViewRuntimeView from './TradingViewRuntimeView.web-only';
 
 const webViewProps = jest.fn();
+const mockFallbackSendMessage = jest.fn();
+const mockFallbackWebViewRef = {
+  loadURL: jest.fn(),
+  reload: jest.fn(),
+  sendMessageViaInjectedScript: mockFallbackSendMessage,
+} as IWebViewRef;
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -20,12 +26,20 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/components/WebView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  function MockWebView(props: Record<string, unknown>) {
+    webViewProps(props);
+    const onWebViewRef = props.onWebViewRef as
+      | ((ref: IWebViewRef | null) => void)
+      | undefined;
+    React.useLayoutEffect(() => {
+      onWebViewRef?.(mockFallbackWebViewRef);
+      return () => onWebViewRef?.(null);
+    }, [onWebViewRef]);
+    return React.createElement('div', { 'data-testid': 'fallback-webview' });
+  }
   return {
     __esModule: true,
-    default: (props: Record<string, unknown>) => {
-      webViewProps(props);
-      return React.createElement('div', { 'data-testid': 'fallback-webview' });
-    },
+    default: MockWebView,
   };
 });
 
@@ -57,6 +71,55 @@ describe('TradingViewRuntimeView web fallback', () => {
     expect(webViewProps).toHaveBeenLastCalledWith(
       expect.objectContaining({ skipBackgroundBridge: true }),
     );
+  });
+
+  it('switches message delivery to the iframe after the embed fails', async () => {
+    const runtimeRef: { current: IWebViewRef | null } = { current: null };
+    render(
+      <TradingViewRuntimeView
+        src="https://tradingview.onekeytest.com"
+        onWebViewRef={(ref) => {
+          runtimeRef.current = ref;
+        }}
+      />,
+    );
+
+    expect(await screen.findByTestId('fallback-webview')).toBeTruthy();
+    await waitFor(() => {
+      expect(runtimeRef.current).toBe(mockFallbackWebViewRef);
+    });
+
+    const message = { type: 'autoKLineUpdate' };
+    runtimeRef.current?.sendMessageViaInjectedScript(message);
+    expect(mockFallbackSendMessage).toHaveBeenCalledWith(message);
+  });
+
+  it('keeps the iframe message channel after a previous embed failure', async () => {
+    const runtimeUrl = 'https://tradingview.onekeytest.com';
+    const runtimeRef: { current: IWebViewRef | null } = { current: null };
+    globalThis.sessionStorage.setItem(
+      'onekey_tradingview_embed_failed:https://tradingview.onekeytest.com',
+      '1',
+    );
+
+    render(
+      <TradingViewRuntimeView
+        src={runtimeUrl}
+        onWebViewRef={(ref) => {
+          runtimeRef.current = ref;
+        }}
+      />,
+    );
+
+    expect(await screen.findByTestId('fallback-webview')).toBeTruthy();
+    await waitFor(() => {
+      expect(runtimeRef.current).toBe(mockFallbackWebViewRef);
+    });
+
+    const message = { type: 'kLineData' };
+    runtimeRef.current?.sendMessageViaInjectedScript(message);
+    expect(mockFallbackSendMessage).toHaveBeenCalledWith(message);
+    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
   });
 
   it('mounts the module as soon as it is available', async () => {
