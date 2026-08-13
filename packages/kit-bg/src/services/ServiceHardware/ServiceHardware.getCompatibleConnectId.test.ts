@@ -355,23 +355,20 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).resolves.toBe(dbDevice.usbConnectId);
   });
 
-  it('keeps the active USB transport for a desktop background task', async () => {
+  it('uses the persisted USB setting instead of stale BLE runtime state for a desktop background task', async () => {
     const service = new ServiceHardware({
       backgroundApi: {
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
-            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
           setHardwareTransportType: jest.fn(),
         },
       } as unknown as IBackgroundApi,
     });
     await service.connectionManager.setCurrentTransportType(
-      EHardwareTransportType.WEBUSB,
+      EHardwareTransportType.DesktopWebBle,
     );
-    jest.mocked(desktopHardwareForceTransportAtom.get).mockResolvedValue({
-      forceTransportType: EHardwareTransportType.DesktopWebBle,
-    });
     const detectUSBDeviceAvailability = jest.spyOn(
       service.connectionManager,
       'detectUSBDeviceAvailability',
@@ -1486,6 +1483,40 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).resolves.toEqual({
       shouldSwitch: true,
       targetType: EHardwareTransportType.Bridge,
+    });
+  });
+
+  it('keeps Mini on USB when the forced transport is BLE', async () => {
+    jest.mocked(desktopHardwareForceTransportAtom.get).mockResolvedValue({
+      forceTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({
+            settings: { usbCommunicationMode: 'webusb' },
+          }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.connectionManager.setCurrentTransportType(
+      EHardwareTransportType.DesktopWebBle,
+    );
+
+    await expect(
+      service.connectionManager.shouldSwitchTransportType({
+        connectId: 'MI123456789',
+        connectProtocol: 'V1',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toEqual({
+      shouldSwitch: true,
+      targetType: EHardwareTransportType.WEBUSB,
     });
   });
 

@@ -1026,15 +1026,18 @@ class ServiceHardware extends ServiceBase {
       (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
         hardwareCallContext ===
           EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
-    const normalizedForceTransportType =
-      forceTransportType && !isDesktopBackgroundCall
-        ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
-            transportType: forceTransportType,
-            connectProtocol: resolvedConnectProtocol,
-          })
-        : undefined;
+    const normalizedForceTransportType = forceTransportType
+      ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
+          transportType: forceTransportType,
+          connectProtocol: resolvedConnectProtocol,
+        })
+      : undefined;
+    const effectiveForceTransportType =
+      isDesktopBackgroundCall && options.hardwareTransportType
+        ? undefined
+        : normalizedForceTransportType;
     let hardwareTransportType =
-      normalizedForceTransportType ??
+      effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
     let shouldSwitch = false;
@@ -1042,7 +1045,7 @@ class ServiceHardware extends ServiceBase {
     // Desktop Auto switch transport type
     if (
       platformEnv.isSupportDesktopBle &&
-      normalizedForceTransportType === undefined &&
+      effectiveForceTransportType === undefined &&
       options.hardwareTransportType === undefined
     ) {
       // Check if we should switch transport type based on optimal connection strategy

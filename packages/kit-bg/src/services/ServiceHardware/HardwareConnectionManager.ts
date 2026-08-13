@@ -370,31 +370,38 @@ export class HardwareConnectionManager {
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
-      const resolvedHardwareCallContext =
-        hardwareCallContext || EHardwareCallContext.USER_INTERACTION;
-      const isDesktopBackgroundCall =
-        platformEnv.isSupportDesktopBle &&
-        [
-          EHardwareCallContext.BACKGROUND_TASK,
-          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-        ].includes(resolvedHardwareCallContext);
+      // Get force transport type from global atom first
+      const hardwareForceTransportAtomState =
+        await hardwareForceTransportAtom.get();
+      const forceTransportType =
+        hardwareForceTransportAtomState.forceTransportType;
+      const normalizedForceTransportType = forceTransportType
+        ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
+            transportType: forceTransportType,
+            connectProtocol,
+          })
+        : undefined;
 
       // quick detect mini device
       const isMiniDevice = connectId && connectId.startsWith('MI');
+
+      // If a specific transport type is forced (e.g., for onboarding), use it directly
+      if (
+        normalizedForceTransportType &&
+        (!isMiniDevice ||
+          normalizedForceTransportType === EHardwareTransportType.WEBUSB ||
+          normalizedForceTransportType === EHardwareTransportType.Bridge)
+      ) {
+        const shouldSwitch =
+          this.actualTransportType !== normalizedForceTransportType;
+        return {
+          shouldSwitch,
+          targetType: normalizedForceTransportType,
+        };
+      }
+
       // Mini does not support BLE, so it must always use the configured USB transport.
       if (isMiniDevice) {
-        const { forceTransportType } = await hardwareForceTransportAtom.get();
-        if (forceTransportType) {
-          const targetType =
-            deviceUtils.normalizeHardwareTransportTypeForPlatform({
-              transportType: forceTransportType,
-              connectProtocol,
-            });
-          return {
-            shouldSwitch: this.actualTransportType !== targetType,
-            targetType,
-          };
-        }
         const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
         const targetType =
           usbSetting === 'webusb'
@@ -406,44 +413,18 @@ export class HardwareConnectionManager {
         };
       }
 
-      if (isDesktopBackgroundCall) {
-        const targetType = await this.getCurrentTransportType();
-        return {
-          shouldSwitch: false,
-          targetType,
-        };
-      }
-
-      // Get force transport type from global atom first
-      const hardwareForceTransportAtomState =
-        await hardwareForceTransportAtom.get();
-      const forceTransportType =
-        hardwareForceTransportAtomState.forceTransportType;
-
-      // If a specific transport type is forced (e.g., for onboarding), use it directly
-      if (forceTransportType) {
-        const targetType =
-          deviceUtils.normalizeHardwareTransportTypeForPlatform({
-            transportType: forceTransportType,
-            connectProtocol,
-          });
-        const shouldSwitch = this.actualTransportType !== targetType;
-        return {
-          shouldSwitch,
-          targetType,
-        };
-      }
-
       // only if context is not background task or sdk initialization, we will detect optimal transport type
       if (
         [
+          EHardwareCallContext.BACKGROUND_TASK,
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
           EHardwareCallContext.SDK_INITIALIZATION,
           EHardwareCallContext.SILENT_CALL,
-        ].includes(resolvedHardwareCallContext)
+        ].includes(hardwareCallContext || EHardwareCallContext.USER_INTERACTION)
       ) {
         console.log(
           '❌ Skip transport type detection: ',
-          resolvedHardwareCallContext,
+          hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
         );
         const currentSettingType =
           await this.backgroundApi.serviceSetting.getHardwareTransportType();

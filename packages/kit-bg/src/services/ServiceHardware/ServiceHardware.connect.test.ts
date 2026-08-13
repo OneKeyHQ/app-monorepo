@@ -1001,7 +1001,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
-  it('桌面后台调用忽略遗留的 BLE force transport', async () => {
+  it('桌面后台显式 transport 优先于遗留的 BLE force transport', async () => {
     mutablePlatformEnv.isSupportDesktopBle = true;
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: EHardwareTransportType.DesktopWebBle,
@@ -1040,6 +1040,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
       service.getSDKInstance({
         connectId: undefined,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
       }),
     ).resolves.toBe(sdkInstance);
 
