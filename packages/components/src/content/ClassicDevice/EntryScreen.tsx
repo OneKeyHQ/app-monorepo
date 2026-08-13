@@ -1,32 +1,76 @@
-import { useState } from 'react';
+import { Fragment, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
-import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
-import { G, Path, Svg } from 'react-native-svg';
+import { StyleSheet, View } from 'react-native';
+import { Path, Svg } from 'react-native-svg';
 
 import { SizableText, Stack } from '../../primitives';
+import { TrackedLayer } from '../deviceSceneHost';
 
+import {
+  ENTRY_CHECK_TRACK,
+  ENTRY_CURSOR_PENDING_TRACK,
+  ENTRY_ENTERED_TRACKS,
+  ENTRY_FILL_COUNT,
+  ENTRY_PENDING_TRACKS,
+  ENTRY_ROW_TRACK,
+  entryCaretShiftTrack,
+} from './animation';
 import { SCREEN_SLOT_TOP } from './shell';
 
+import type { IKeyframe } from '../deviceScene';
+import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * Shared screen of the character-entry scenes (Enter PIN / Enter Passphrase):
- * a literal-text title in the app font over a nine-slot row. A scene supplies
- * only its two glyphs, authored around the origin - this component translates
- * each into its slot. The cursor carets, the check that replaces the cursor
- * glyph once every character is in (the final press is the confirm), and the
- * entered-state wiring live here.
+ * Shared screen of the character-entry scenes (Enter PIN / Enter
+ * Passphrase): a literal-text title in the app font over a nine-slot row.
+ * A scene supplies only its two glyphs, authored around the origin on the
+ * 128x64 grid — this component gives each a 2x pixel box in its slot.
+ * Every changing element rides a keyframe track of the scene clock, so
+ * nothing snaps: a fill cross-fades pending -> entered, the check
+ * cross-fades in over the cursor's glyph, the caret pair slides to the
+ * next slot, and the whole row fades out and back in around the loop
+ * seam (the title holds) while the tracks reset off-glass.
  */
 
 const SLOT_N = 9;
 const SLOT_PITCH = 13;
 const ROW_CY = 38.5;
 const slotX = (i: number) => 64 + (i - 4) * SLOT_PITCH;
-const slotTransform = (i: number) => `translate(${slotX(i)} ${ROW_CY})`;
 // Title baseline sits at 20 on the glass; the slot already starts lower.
 const TITLE_TOP = 20 - SCREEN_SLOT_TOP;
+
+// The content canvas is the 256x128 slot, 2x the 128x64 authoring grid; a
+// glyph gets a box around its slot centre, the carets a taller one (they
+// reach +-11.6 grid units past it).
+const GLYPH_BOX = 24;
+const GLYPH_VIEW_BOX = '-6 -6 12 12';
+const CARET_W = 24;
+const CARET_H = 52;
+const CARET_VIEW_BOX = '-6 -13 12 26';
+
+const SLOT_GLYPH_STYLES: ViewStyle[] = Array.from(
+  { length: SLOT_N },
+  (_, i) => ({
+    position: 'absolute',
+    left: 2 * slotX(i) - GLYPH_BOX / 2,
+    top: 2 * ROW_CY - GLYPH_BOX / 2,
+    width: GLYPH_BOX,
+    height: GLYPH_BOX,
+  }),
+);
+const CARET_STYLE: ViewStyle = {
+  position: 'absolute',
+  left: 2 * slotX(0) - CARET_W / 2,
+  top: 2 * ROW_CY - CARET_H / 2,
+  width: CARET_W,
+  height: CARET_H,
+};
+const ROW_STYLE: ViewStyle = { ...StyleSheet.absoluteFill };
+
+const CARET_SHIFT_TRACK = entryCaretShiftTrack(2 * SLOT_PITCH);
+const CARET_OPACITY_TRACK: IKeyframe[] = [{ t: 0, v: 1 }];
 
 const CHECK_GLYPH = (
   <Path
@@ -57,11 +101,20 @@ const CARETS = (
   </>
 );
 
+function glyphSvg(glyph: ReactNode, viewBox = GLYPH_VIEW_BOX) {
+  return (
+    <Svg width="100%" height="100%" viewBox={viewBox} fill="none">
+      {glyph}
+    </Svg>
+  );
+}
+
+const CHECK_SVG = glyphSvg(CHECK_GLYPH);
+const CARETS_SVG = glyphSvg(CARETS, CARET_VIEW_BOX);
+
 export interface IEntryScreenProps {
-  /** Characters entered so far, from useEntryOnClassicAnimation. */
-  entered: Readonly<SharedValue<number>>;
-  /** How many characters this scenario asks for. */
-  fillCount: number;
+  /** Scene clock every track evaluates against. */
+  clock: SharedValue<number>;
   title: string;
   /** Glyph of an entered character, drawn around the slot origin. */
   enteredGlyph: ReactNode;
@@ -69,46 +122,78 @@ export interface IEntryScreenProps {
   pendingGlyph: ReactNode;
 }
 
-// Owns the discrete entered count so fills only re-render this small subtree,
-// never the 76-element device body (its screenContent stays referentially
-// stable).
 export function EntryScreen({
-  entered,
-  fillCount,
+  clock,
   title,
   enteredGlyph,
   pendingGlyph,
 }: IEntryScreenProps) {
-  const [count, setCount] = useState(0);
-  useAnimatedReaction(
-    () => entered.value,
-    (value, previous) => {
-      if (value !== previous) runOnJS(setCount)(value);
-    },
-    [entered],
-  );
-  const cursor = Math.min(count, SLOT_N - 1);
+  // One element per glyph, reused across slots: element descriptors are
+  // immutable, and a fresh node per slot would re-extract all its SVG
+  // props on every render.
+  const pendingSvg = useMemo(() => glyphSvg(pendingGlyph), [pendingGlyph]);
+  const enteredSvg = useMemo(() => glyphSvg(enteredGlyph), [enteredGlyph]);
   return (
     <Stack flex={1}>
-      <Svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 128 64"
-        fill="none"
-        style={StyleSheet.absoluteFill}
-      >
-        {Array.from({ length: SLOT_N }, (_, i) => {
-          let glyph = pendingGlyph;
-          if (i < count) glyph = enteredGlyph;
-          else if (i === cursor && count >= fillCount) glyph = CHECK_GLYPH;
+      <TrackedLayer clock={clock} track={ENTRY_ROW_TRACK} baseStyle={ROW_STYLE}>
+        {SLOT_GLYPH_STYLES.map((style, i) => {
+          if (i < ENTRY_FILL_COUNT) {
+            return (
+              <Fragment key={i}>
+                <TrackedLayer
+                  clock={clock}
+                  track={ENTRY_PENDING_TRACKS[i]}
+                  baseStyle={style}
+                >
+                  {pendingSvg}
+                </TrackedLayer>
+                <TrackedLayer
+                  clock={clock}
+                  track={ENTRY_ENTERED_TRACKS[i]}
+                  baseStyle={style}
+                >
+                  {enteredSvg}
+                </TrackedLayer>
+              </Fragment>
+            );
+          }
+          if (i === ENTRY_FILL_COUNT) {
+            // The cursor's final slot: pending cross-fades into the check.
+            return (
+              <Fragment key={i}>
+                <TrackedLayer
+                  clock={clock}
+                  track={ENTRY_CURSOR_PENDING_TRACK}
+                  baseStyle={style}
+                >
+                  {pendingSvg}
+                </TrackedLayer>
+                <TrackedLayer
+                  clock={clock}
+                  track={ENTRY_CHECK_TRACK}
+                  baseStyle={style}
+                >
+                  {CHECK_SVG}
+                </TrackedLayer>
+              </Fragment>
+            );
+          }
+          // Slots the schedule never reaches: pending, still.
           return (
-            <G key={i} transform={slotTransform(i)}>
-              {glyph}
-            </G>
+            <View key={i} pointerEvents="none" style={style}>
+              {pendingSvg}
+            </View>
           );
         })}
-        <G transform={slotTransform(cursor)}>{CARETS}</G>
-      </Svg>
+        <TrackedLayer
+          clock={clock}
+          track={CARET_OPACITY_TRACK}
+          shiftTrack={CARET_SHIFT_TRACK}
+          baseStyle={CARET_STYLE}
+        >
+          {CARETS_SVG}
+        </TrackedLayer>
+      </TrackedLayer>
       <SizableText
         position="absolute"
         top={TITLE_TOP}

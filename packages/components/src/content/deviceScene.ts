@@ -15,10 +15,9 @@ import type { SharedValue } from 'react-native-reanimated';
 /**
  * Shared scene machinery of the code-drawn hardware devices (ClassicDevice,
  * ProDevice, SlateDevice). A scene is a set of keyframe tracks evaluated
- * against one sawtooth master clock. Two screen models live here: the reel
- * wake/sleep vocabulary (the ClassicDevice), and the presence vocabulary of
- * the touch devices, whose screens only ever show content. Press/tap feel
- * stays per-device.
+ * against one sawtooth master clock, and every device's screen runs the
+ * presence vocabulary below: the glass shows nothing but content, so
+ * "lighting up" is content rendering in. Press/tap feel stays per-device.
  */
 
 export interface IKeyframe {
@@ -48,44 +47,12 @@ export function trackAt(t: number, kfs: IKeyframe[]): number {
   return kfs[kfs.length - 1].v;
 }
 
-/* ---------------------------------------------------------------- *
- * Reel screen power vocabulary (today only the ClassicDevice):
- *  - wake: glow rises over 500ms, the panel holds lit-but-empty for a
- *    beat, then content renders in over 720-1100ms (light first, then
- *    pixels, the way real hardware boots)
- *  - sleep: glow and content drop together over 300ms
- * ---------------------------------------------------------------- */
-
-export const WAKE_GLOW_MS = 500;
-export const CONTENT_IN_START_MS = 720;
-export const CONTENT_IN_END_MS = 1100;
-export const SLEEP_MS = 300;
-
-export function screenGlowTrack(sleepStart: number): IKeyframe[] {
-  return [
-    { t: 0, v: 0, e: easeOutFn },
-    { t: WAKE_GLOW_MS, v: 1 },
-    { t: sleepStart, v: 1, e: easeInFn },
-    { t: sleepStart + SLEEP_MS, v: 0 },
-  ];
-}
-
-export function screenContentTrack(sleepStart: number): IKeyframe[] {
-  return [
-    { t: 0, v: 0 },
-    { t: CONTENT_IN_START_MS, v: 0, e: easeOutFn },
-    { t: CONTENT_IN_END_MS, v: 1 },
-    { t: sleepStart, v: 1, e: easeInFn },
-    { t: sleepStart + SLEEP_MS, v: 0 },
-  ];
-}
-
 /**
  * Sawtooth master clock in milliseconds, looping over [0, loopMs). Under
  * reduced motion it holds `restMs` instead, so the device still reads awake
  * and mid-scenario rather than going dark. `startDelayMs` holds the clock
- * at 0 before the first pass, for scenes whose entrance (a separate screen
- * wake) must finish before the loop begins. A `loopMs` of 0 means no loop
+ * at 0 before the first pass, for scenes whose entrance (the content-in)
+ * must finish before the loop begins. A `loopMs` of 0 means no loop
  * at all: the clock rests at 0, so still scenes share the machinery.
  */
 export function useSceneClock(
@@ -113,13 +80,14 @@ export function useSceneClock(
 }
 
 /* ---------------------------------------------------------------- *
- * Presence vocabulary, shared by the touch devices (ProDevice and
- * SlateDevice). Their screens have no wake or sleep: the glass shows
- * nothing but content, so "lighting up" IS content rendering in, a scene
- * stays lit for as long as it is on, and a scene change is a lit-to-lit
- * handover. The schedules' generators and shared constants live here;
- * each device's animation.ts pins its own screen metrics (mark sizes,
- * counts) into them.
+ * Presence vocabulary, shared by every replica. The screens have no wake
+ * or sleep: the glass shows nothing but content, so "lighting up" IS
+ * content rendering in, a scene stays lit for as long as it is on, and a
+ * scene change is a lit-to-lit handover. (The Classic folds its faint
+ * panel glow into the same opacity — the lit look, without a wake beat —
+ * and keeps its seven-press schedule with its device.) The schedules'
+ * generators and shared constants live here; each device's animation.ts
+ * pins its own screen metrics (mark sizes, counts) into them.
  * ---------------------------------------------------------------- */
 
 /** Content-in: the whole of an entry. */
@@ -143,9 +111,9 @@ export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
  * corner, linear: 0 parked off past one corner, 1 off past the other.
  * It lives on the glass, not on the content — a still stays a still and
  * the band passes over it, the way a reflection travels. Confirm plays
- * it across the whole screen on both devices; enterPassphrase plays it
+ * it across the whole screen on every device; enterPassphrase plays it
  * over the keyboard (clipped to the Slate's panel box, under the Pro's
- * gap grille). */
+ * gap grille - the Classic's entry scenes press keys instead). */
 
 /** Every scene's light holds this long before it starts to move. */
 const LIGHT_START_MS = 300;
@@ -277,5 +245,5 @@ export const PIN_SHEEN_TRACKS = [0, 1, 2, 3, 4, 5].map(keySheenTrack);
 
 /* ------------------------- confirm ------------------------- *
  * The glass sweep across the whole screen, over the still skeleton.
- * Rest = the plain still, the light gone. Same beat on both devices. */
+ * Rest = the plain still, the light gone. Same beat on every device. */
 export const CONFIRM_LOOP = { loopMs: 3200, restMs: 2000 };
