@@ -70,16 +70,13 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { OnboardingPage } from '../components/Layout';
+import { getDeviceLabel } from '../deviceLabel';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import {
-  getDeviceLabel,
-  getForceTransportType,
-  sortDevicesData,
-} from '../utils';
+import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
