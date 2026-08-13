@@ -1,40 +1,12 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// The encoder loads through a per-platform loader: native keeps it behind an
+// async edge so it stays out of the startup graph, web-family targets bundle
+// it statically. Render paths gate on ensureQRCodeUtilLoaded() before calling
+// the sync helpers below.
+import { getQRCodeUtil } from './qrCodeUtilLoader';
 
-import type QRCodeUtilType from 'qrcode';
+export { ensureQRCodeUtilLoaded, isQRCodeUtilLoaded } from './qrCodeUtilLoader';
 
 export type IQRCodeErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
-
-type IQRCodeUtil = typeof QRCodeUtilType;
-
-// The encoder is ~70KB across 27 modules, and this module is reachable from
-// the app's startup graph through the components barrel. Loading the library
-// behind an async edge keeps it out of the native startup bundle; render
-// paths gate on ensureQRCodeUtilLoaded() before calling the sync helpers.
-let loadedQRCodeUtil: IQRCodeUtil | undefined;
-let qrCodeUtilPromise: Promise<void> | undefined;
-
-export function ensureQRCodeUtilLoaded() {
-  if (!qrCodeUtilPromise) {
-    qrCodeUtilPromise = import('qrcode').then(
-      (mod) => {
-        // CJS/ESM interop shape differs across metro, vite and jest
-        loadedQRCodeUtil = (mod.default ?? mod) as IQRCodeUtil;
-      },
-      (error) => {
-        // a chunk load can fail transiently (weak network, extension
-        // upgrade); drop the failed attempt so the next caller retries
-        // instead of replaying a cached rejection forever
-        qrCodeUtilPromise = undefined;
-        throw error;
-      },
-    );
-  }
-  return qrCodeUtilPromise;
-}
-
-export function isQRCodeUtilLoaded() {
-  return Boolean(loadedQRCodeUtil);
-}
 
 // The number of modules per side of a finder pattern.
 const FINDER_MODULES = 7;
@@ -61,13 +33,8 @@ export const generateMatrix = (
   if (key === lastMatrixKey) {
     return lastMatrix;
   }
-  if (!loadedQRCodeUtil) {
-    throw new OneKeyLocalError(
-      'QRCode encoder not loaded: await ensureQRCodeUtilLoaded() first',
-    );
-  }
   const arr: number[] = Array.prototype.slice.call(
-    loadedQRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
+    getQRCodeUtil().create(value, { errorCorrectionLevel }).modules.data,
     0,
   );
   const sqrt = Math.sqrt(arr.length);
