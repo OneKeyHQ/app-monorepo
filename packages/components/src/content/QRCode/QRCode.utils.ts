@@ -1,6 +1,31 @@
-import QRCodeUtil from 'qrcode';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import type QRCodeUtilType from 'qrcode';
 
 export type IQRCodeErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
+
+type IQRCodeUtil = typeof QRCodeUtilType;
+
+// The encoder is ~70KB across 27 modules, and this module is reachable from
+// the app's startup graph through the components barrel. Loading the library
+// behind an async edge keeps it out of the native startup bundle; render
+// paths gate on ensureQRCodeUtilLoaded() before calling the sync helpers.
+let loadedQRCodeUtil: IQRCodeUtil | undefined;
+let qrCodeUtilPromise: Promise<void> | undefined;
+
+export function ensureQRCodeUtilLoaded() {
+  if (!qrCodeUtilPromise) {
+    qrCodeUtilPromise = import('qrcode').then((mod) => {
+      // CJS/ESM interop shape differs across metro, vite and jest
+      loadedQRCodeUtil = (mod.default ?? mod) as IQRCodeUtil;
+    });
+  }
+  return qrCodeUtilPromise;
+}
+
+export function isQRCodeUtilLoaded() {
+  return Boolean(loadedQRCodeUtil);
+}
 
 // The number of modules per side of a finder pattern.
 const FINDER_MODULES = 7;
@@ -27,8 +52,13 @@ export const generateMatrix = (
   if (key === lastMatrixKey) {
     return lastMatrix;
   }
+  if (!loadedQRCodeUtil) {
+    throw new OneKeyLocalError(
+      'QRCode encoder not loaded: await ensureQRCodeUtilLoaded() first',
+    );
+  }
   const arr: number[] = Array.prototype.slice.call(
-    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
+    loadedQRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
     0,
   );
   const sqrt = Math.sqrt(arr.length);

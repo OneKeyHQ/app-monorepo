@@ -1,6 +1,7 @@
 import {
   type IQRCodeErrorCorrectionLevel,
   QR_CODE_DOT_RADIUS_RATIO,
+  ensureQRCodeUtilLoaded,
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeFinderRings,
@@ -49,7 +50,7 @@ export function drawRoundedRect(
   ctx.closePath();
 }
 
-export function drawDotQRCodeOnCanvas(
+export async function drawDotQRCodeOnCanvas(
   ctx: CanvasRenderingContext2D,
   {
     value,
@@ -70,6 +71,9 @@ export function drawDotQRCodeOnCanvas(
     ecl?: IQRCodeErrorCorrectionLevel;
   },
 ) {
+  // resolve the lazily-loaded encoder before touching the context, so the
+  // save/restore pair below never spans an await
+  await ensureQRCodeUtilLoaded();
   const matrix = generateMatrix(value, ecl);
   const cellSize = size / matrix.length;
   const dotRadius = cellSize * QR_CODE_DOT_RADIUS_RATIO;

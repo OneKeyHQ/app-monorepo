@@ -310,7 +310,7 @@ export const ShareImageGenerator = forwardRef<
           ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
 
           try {
-            drawDotQRCodeOnCanvas(ctx, {
+            await drawDotQRCodeOnCanvas(ctx, {
               value: referralQrCodeUrl ?? '',
               x: qrCodeX + qrCodePadding,
               y: qrCodeY + qrCodePadding,

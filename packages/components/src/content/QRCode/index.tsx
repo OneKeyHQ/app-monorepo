@@ -12,6 +12,7 @@ import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
 
 import {
+  ensureQRCodeUtilLoaded,
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeDotsPath,
@@ -19,6 +20,7 @@ import {
   getQRCodeLayoutMetrics,
   getQRCodeLogoClearArenaSize,
   getQRCodePlateBorderRadius,
+  isQRCodeUtilLoaded,
 } from './QRCode.utils';
 
 import type { IQRCodeErrorCorrectionLevel } from './QRCode.utils';
@@ -224,6 +226,16 @@ export function QRCode({
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
+  // The encoder library loads behind an async edge so it stays out of the
+  // native startup bundle; only the first code rendered in a session waits
+  // for it, one effect tick.
+  const [isEncoderReady, setIsEncoderReady] = useState(isQRCodeUtilLoaded);
+
+  useEffect(() => {
+    if (!isEncoderReady) {
+      void ensureQRCodeUtilLoaded().then(() => setIsEncoderReady(true));
+    }
+  }, [isEncoderReady]);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval> | undefined;
@@ -261,7 +273,7 @@ export function QRCode({
   // An air-gap UR is inherently multi-frame, so its presence is what makes the
   // code animated. Callers that want a static code pass `value` instead.
   const displayValue = valueUr ? partValue : value || '';
-  if (!displayValue) {
+  if (!displayValue || !isEncoderReady) {
     // TODO return Skeleton
     return null;
   }

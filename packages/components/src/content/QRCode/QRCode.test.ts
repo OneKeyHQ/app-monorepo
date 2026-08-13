@@ -1,5 +1,6 @@
 import {
   QR_CODE_PLATE_BORDER_RADIUS,
+  ensureQRCodeUtilLoaded,
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeDotsPath,
@@ -8,6 +9,9 @@ import {
   getQRCodeLogoClearArenaSize,
   getQRCodePlateBorderRadius,
 } from './QRCode.utils';
+
+// the encoder loads behind an async edge in production; tests resolve it once
+beforeAll(() => ensureQRCodeUtilLoaded());
 
 const QR_SIZE = 190;
 const QR_PADDING = 10;

@@ -341,7 +341,7 @@ export const ShareImageGenerator = forwardRef<
         const qrCodeX = size - footer.paddingX - qrCode.size;
 
         try {
-          drawDotQRCodeOnCanvas(ctx, {
+          await drawDotQRCodeOnCanvas(ctx, {
             value: referralUrl,
             x: qrCodeX,
             y: qrCodeY,

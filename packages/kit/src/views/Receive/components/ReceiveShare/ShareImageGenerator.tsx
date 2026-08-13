@@ -392,7 +392,7 @@ export const ShareImageGenerator = memo(
           const qrX = cellX + (cellWidth - qr.size) / 2;
           const qrY = qrCellY + qr.cellPaddingY;
           try {
-            drawDotQRCodeOnCanvas(ctx, {
+            await drawDotQRCodeOnCanvas(ctx, {
               value: address,
               x: qrX,
               y: qrY,
