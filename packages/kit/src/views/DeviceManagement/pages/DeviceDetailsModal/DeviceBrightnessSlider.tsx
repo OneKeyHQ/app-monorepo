@@ -140,7 +140,6 @@ export function DeviceBrightnessSlider({
         segments={4}
         sliderHeight={4}
         showBubble
-        activeThumb
         disabled={disabled}
         onChange={handleChange}
         onSlideComplete={handleSlideComplete}

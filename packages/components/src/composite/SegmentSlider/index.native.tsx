@@ -81,8 +81,6 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
-  /** Uses the active track color for the thumb instead of the page background. */
-  activeThumb?: boolean;
   /**
    * When true, the slider fills from center (0) instead of left edge.
    * Negative values fill left from center, positive values fill right from center.
@@ -117,7 +115,6 @@ function SegmentSliderComponent({
   max = 100,
   disabled = false,
   showBubble = true,
-  activeThumb = false,
   centerOrigin = false,
   snapTapToSegment = false,
 }: ISegmentSliderProps) {
@@ -133,7 +130,7 @@ function SegmentSliderComponent({
     () => ({
       fillColor: bgPrimary,
       trackColor: neutral5,
-      thumbColor: activeThumb ? bgPrimary : bg,
+      thumbColor: bg,
       thumbBorderColor: borderStrong,
       markActiveColor: bgPrimary,
       markInactiveColor: bg,
@@ -141,7 +138,7 @@ function SegmentSliderComponent({
       bubbleColor: bgPrimary,
       bubbleTextColor: bg,
     }),
-    [activeThumb, bgPrimary, neutral5, bg, borderStrong],
+    [bgPrimary, neutral5, bg, borderStrong],
   );
 
   // Always holds the latest external `value`, so the hybridRef callback can push

@@ -36,8 +36,6 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
-  /** Uses the active track color for the thumb instead of the page background. */
-  activeThumb?: boolean;
   /**
    * When true, the slider fills from center (0) instead of left edge.
    * Negative values fill left from center, positive values fill right from
@@ -168,7 +166,6 @@ function SegmentSliderComponent({
   max = 100,
   disabled = false,
   showBubble = true,
-  activeThumb = false,
   centerOrigin = false,
 }: ISegmentSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -211,14 +208,23 @@ function SegmentSliderComponent({
 
   const centerPct = useMemo(() => valueToPct(0), [valueToPct]);
 
+  const segmentIndexToValue = useCallback(
+    (index: number) => Math.round(min + index * stepValue),
+    [min, stepValue],
+  );
+
+  const segmentIndexToPct = useCallback(
+    (index: number) => valueToPct(segmentIndexToValue(index)),
+    [segmentIndexToValue, valueToPct],
+  );
+
   const applyMarkActiveStates = useCallback(
     (v: number) => {
       if (!hasSegments) return;
-      const total = segments;
       const valuePct = valueToPct(v);
       markRefs.current.forEach((el, idx) => {
         if (!el) return;
-        const markPct = (idx / total) * 100;
+        const markPct = segmentIndexToPct(idx);
         let active = false;
         if (centerOrigin) {
           if (v === 0) {
@@ -239,8 +245,8 @@ function SegmentSliderComponent({
     },
     [
       hasSegments,
-      segments,
       valueToPct,
+      segmentIndexToPct,
       centerOrigin,
       centerPct,
       bgPrimary,
@@ -351,14 +357,14 @@ function SegmentSliderComponent({
   const snapToStep = useCallback(
     (idx: number) => {
       if (!hasSegments) return;
-      const snapped = Math.round(min + idx * stepValue);
+      const snapped = segmentIndexToValue(idx);
       applyVisual(snapped);
       if (snapped !== lastEmittedRef.current) {
         lastEmittedRef.current = snapped;
         onChange(snapped);
       }
     },
-    [hasSegments, min, stepValue, applyVisual, onChange],
+    [hasSegments, segmentIndexToValue, applyVisual, onChange],
   );
 
   const handlePointerDown = useCallback(
@@ -557,12 +563,12 @@ function SegmentSliderComponent({
       width: THUMB_SIZE,
       height: THUMB_SIZE,
       borderRadius: '50%',
-      background: activeThumb ? bgPrimary : bg,
+      background: bg,
       border: `1px solid ${borderStrong}`,
       boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
       boxSizing: 'border-box',
     }),
-    [activeThumb, bg, bgPrimary, borderStrong],
+    [bg, borderStrong],
   );
 
   const thumbWrapperStyle = useMemo<CSSProperties>(
@@ -625,7 +631,7 @@ function SegmentSliderComponent({
           <SegmentMark
             key={idx}
             index={idx}
-            pct={(idx / segments) * 100}
+            pct={segmentIndexToPct(idx)}
             hoverGlowColor={markHoverGlow}
             disabled={disabled}
             registerRef={registerMarkRef}
