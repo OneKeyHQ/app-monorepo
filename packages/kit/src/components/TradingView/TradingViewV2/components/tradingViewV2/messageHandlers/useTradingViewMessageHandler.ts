@@ -13,6 +13,7 @@ import {
   shouldMockEmptyKLineData,
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
+import { normalizeTradingViewLayoutRestored } from './nativeChartControlsConfigUtils';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type {
@@ -567,6 +568,9 @@ function normalizeNativeChartControlsConfig(
   const resetLayout = normalizeResetLayout(data.resetLayout);
   const priceMarketCap = normalizePriceMarketCap(data.priceMarketCap);
   const priceScale = normalizePriceScale(data.priceScale);
+  const layoutRestored = normalizeTradingViewLayoutRestored(
+    data.layoutRestored,
+  );
 
   return {
     ...(intervals?.length ? { intervals } : {}),
@@ -583,6 +587,7 @@ function normalizeNativeChartControlsConfig(
     ...(resetLayout ? { resetLayout } : {}),
     ...(priceMarketCap ? { priceMarketCap } : {}),
     ...(priceScale ? { priceScale } : {}),
+    ...(layoutRestored !== undefined ? { layoutRestored } : {}),
     ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
       ? { timestamp: data.timestamp }
       : {}),
