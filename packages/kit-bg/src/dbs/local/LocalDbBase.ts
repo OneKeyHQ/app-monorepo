@@ -6447,6 +6447,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             tx,
             walletId: dbWalletId,
             updater: (item) => {
+              const currentDeviceLabel = initialDeviceState?.identity.label;
+              if (
+                existingWallet &&
+                !isExistingHiddenWallet &&
+                !passphraseState &&
+                !name &&
+                currentDeviceLabel
+              ) {
+                item.name = currentDeviceLabel;
+              }
               if (passphraseState) {
                 item.isTemp = false;
               } else if (item.isTemp) {
