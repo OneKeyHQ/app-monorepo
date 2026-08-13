@@ -12,8 +12,9 @@ const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
  * the inner (measured) node, so the occupied space is driven purely by the
  * animated height: margins are not animatable by the moti driver (they
  * snap), and padding on the animated node itself would clamp its border-box
- * height above 0. Content height is measured via onLayout, so
- * variable-height children (multi-line or stacked alerts) are supported.
+ * height above 0. The measurement node is absolutely positioned so the
+ * wrapper's initial zero height cannot constrain its onLayout result. This
+ * keeps variable-height children (multi-line or stacked alerts) measurable.
  */
 export function SwapSmoothReveal({
   visible,
@@ -64,6 +65,10 @@ export function SwapSmoothReveal({
           exitStyle={{ height: 0, opacity: 0 }}
         >
           <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
             pt={isGapTop && parentGap ? parentGap : undefined}
             pb={!isGapTop && parentGap ? parentGap : undefined}
             onLayout={onContentLayout}

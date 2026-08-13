@@ -1492,6 +1492,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           {focusSwapPro ? (
             <SwapProContainer
               pageType={pageType}
+              isFocused={isFocused}
               onProSelectToken={onProSelectToken}
               onOpenOrdersClick={onOpenOrdersClick}
               onSwapProActionClick={onPreSwap}

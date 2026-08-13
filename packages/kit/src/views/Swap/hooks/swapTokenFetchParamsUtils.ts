@@ -38,6 +38,7 @@ export function buildSwapTokenFetchParams({
     keywords,
     lpToken,
     currency: requestCurrency,
+    ...(keywords && !lpToken ? { onlySwapTokens: true } : {}),
     ...(swapType === ESwapTabSwitchType.STOCK &&
     networkUtils.isAllNetwork({ networkId: targetNetworkId })
       ? { limit: swapStockTokenListMaxCount }

@@ -2,7 +2,7 @@
 /* spell-checker: disable */
 // cspell:ignore rews
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce, isEqual } from 'lodash';
+import { cloneDeep, debounce, isEqual, orderBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -35,6 +35,7 @@ import type {
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
+  IPerpsSubscription,
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
@@ -45,6 +46,7 @@ import type {
   IWsOpenOrders,
   IWsSpotAssetCtxs,
   IWsSpotState,
+  IWsTrades,
   IWsTwapStates,
   IWsUserFills,
   IWsUserTwapHistory,
@@ -121,6 +123,19 @@ interface IActiveSubscription {
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
 
+interface IPublicTradesSubscription {
+  refCount: number;
+  subscriptionPromise: Promise<IPerpsSubscription>;
+}
+
+interface IPublicTradesBatch {
+  trades: IWsTrades;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
+const PUBLIC_TRADES_BATCH_LIMIT = 10;
+
 type IHyperliquidWsClient = {
   clientId: string;
   transport: WebSocketTransport;
@@ -173,6 +188,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _client: IHyperliquidWsClient | null = null;
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
+
+  // Public trades are owned by mounted Swap Pro consumers, independently of
+  // the Perps connection lifecycle. The final unsubscribe closes this client.
+  private _publicTradesClient: SubscriptionClient | null = null;
+
+  private _publicTradesTransport: WebSocketTransport | null = null;
+
+  private _publicTradesSubscriptions = new Map<
+    string,
+    IPublicTradesSubscription
+  >();
+
+  private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
+
+  private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -1834,6 +1864,175 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   };
 
+  private _getPublicTradesClient(): SubscriptionClient {
+    if (this._publicTradesClient) {
+      return this._publicTradesClient;
+    }
+
+    const transport = new WebSocketTransport({
+      url: 'wss://api.hyperliquid.xyz/ws',
+      reconnect: {
+        maxRetries: 999,
+        connectionTimeout: 5000,
+        reconnectionDelay: (attempt: number) =>
+          Math.min(2 ** attempt * 150, 8000),
+      },
+      resubscribe: true,
+    });
+    this._publicTradesTransport = transport;
+    this._publicTradesClient = new SubscriptionClient({ transport });
+    return this._publicTradesClient;
+  }
+
+  private async _closePublicTradesClient(): Promise<void> {
+    this._clearAllPublicTradesBatches();
+    const transport = this._publicTradesTransport;
+    this._publicTradesClient = null;
+    this._publicTradesTransport = null;
+    if (!transport) {
+      return;
+    }
+    try {
+      await transport.close();
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
+        error,
+      );
+    }
+  }
+
+  private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
+    if (!this._publicTradesSubscriptions.has(coin) || trades.length === 0) {
+      return;
+    }
+
+    const currentBatch = this._publicTradesBatches.get(coin);
+    const batchedTrades = orderBy(
+      [...(currentBatch?.trades ?? []), ...trades],
+      ['time'],
+      ['desc'],
+    ).slice(0, PUBLIC_TRADES_BATCH_LIMIT);
+    if (currentBatch) {
+      currentBatch.trades = batchedTrades;
+      return;
+    }
+
+    const batch: IPublicTradesBatch = {
+      trades: batchedTrades,
+      timer: setTimeout(() => {
+        this._publicTradesBatches.delete(coin);
+        if (
+          this._publicTradesSubscriptions.has(coin) &&
+          batch.trades.length > 0
+        ) {
+          this._emitHyperliquidDataUpdate(
+            ESubscriptionType.TRADES,
+            batch.trades,
+          );
+        }
+      }, PUBLIC_TRADES_BATCH_INTERVAL_MS),
+    };
+    this._publicTradesBatches.set(coin, batch);
+  }
+
+  private _clearPublicTradesBatch(coin: string): void {
+    const batch = this._publicTradesBatches.get(coin);
+    if (batch) {
+      clearTimeout(batch.timer);
+      this._publicTradesBatches.delete(coin);
+    }
+  }
+
+  private _clearAllPublicTradesBatches(): void {
+    this._publicTradesBatches.forEach(({ timer }) => clearTimeout(timer));
+    this._publicTradesBatches.clear();
+  }
+
+  @backgroundMethod()
+  async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const current = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (current) {
+          current.refCount += 1;
+          await current.subscriptionPromise;
+          return;
+        }
+
+        const client = this._getPublicTradesClient();
+        const entry: IPublicTradesSubscription = {
+          refCount: 1,
+          subscriptionPromise: client.trades(
+            { coin: normalizedCoin },
+            (trades: IWsTrades) => {
+              this._queuePublicTradesUpdate(normalizedCoin, trades);
+            },
+          ),
+        };
+        this._publicTradesSubscriptions.set(normalizedCoin, entry);
+
+        try {
+          await entry.subscriptionPromise;
+        } catch (error) {
+          if (this._publicTradesSubscriptions.get(normalizedCoin) === entry) {
+            this._publicTradesSubscriptions.delete(normalizedCoin);
+            this._clearPublicTradesBatch(normalizedCoin);
+          }
+          if (this._publicTradesSubscriptions.size === 0) {
+            await this._closePublicTradesClient();
+          }
+          throw error;
+        }
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async unsubscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const entry = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (!entry) {
+          return;
+        }
+
+        entry.refCount -= 1;
+        if (entry.refCount > 0) {
+          return;
+        }
+
+        this._publicTradesSubscriptions.delete(normalizedCoin);
+        this._clearPublicTradesBatch(normalizedCoin);
+        try {
+          const subscription = await entry.subscriptionPromise;
+          await subscription.unsubscribe();
+        } catch (error) {
+          console.error(
+            `[ServiceHyperliquidSubscription] Failed to unsubscribe public trades for ${normalizedCoin}:`,
+            error,
+          );
+        }
+
+        if (this._publicTradesSubscriptions.size === 0) {
+          await this._closePublicTradesClient();
+        }
+      },
+    );
+  }
+
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {
       markPerpsColdStartPerfOnce('service_ws_client_reuse_first', {
@@ -1863,9 +2062,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) =>
-            // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 8000),
+          ) => Math.min(2 ** attempt * 150, 8000),
         },
         /* spell-checker:enable */
       };
@@ -1944,6 +2141,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.USER_TWAP_SLICE_FILLS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.TRADES,
         ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
         ESubscriptionType.SPOT_STATE,
         ESubscriptionType.SPOT_ASSET_CTXS,
