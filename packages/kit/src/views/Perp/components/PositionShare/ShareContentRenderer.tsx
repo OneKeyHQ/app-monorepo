@@ -119,15 +119,26 @@ export function ShareContentRenderer({
     }
   }, [onImagesReady]);
 
+  const showsReferralQrCode = Boolean(
+    SHOW_REFERRAL_CODE && isReferralReady && referralQrCodeUrl,
+  );
   useEffect(() => {
     imageLoadCountRef.current = 0;
     expectedImageCount.current = 0;
     if (selectedBackground) expectedImageCount.current += 1;
     if (display.showTokenIcon) expectedImageCount.current += 1;
+    // the QR code signals once its lazily-loaded encoder has drawn the
+    // symbol, so a ViewShot capture can't run against an empty code
+    if (showsReferralQrCode) expectedImageCount.current += 1;
     if (expectedImageCount.current === 0 && onImagesReady) {
       onImagesReady();
     }
-  }, [selectedBackground, onImagesReady]);
+  }, [
+    selectedBackground,
+    display.showTokenIcon,
+    showsReferralQrCode,
+    onImagesReady,
+  ]);
 
   return (
     <YStack
@@ -353,6 +364,7 @@ export function ShareContentRenderer({
                 size={layout.qrCodeSize * scale - 5}
                 padding={8}
                 logoBackgroundColor="white"
+                onRenderReady={handleImageLoad}
               />
             </XStack>
           </Stack>

@@ -51,12 +51,15 @@ export function ShareContentRenderer({
 
   const imageLoadCountRef = useRef(0);
 
+  // the QR code counts as one more ready signal: its encoder loads lazily,
+  // so a ViewShot capture must not run before the symbol is drawn
+  const expectedReadyCount = SHARE_IMAGE_COUNT + (referralUrl ? 1 : 0);
   const handleImageLoad = useCallback(() => {
     imageLoadCountRef.current += 1;
-    if (onImagesReady && imageLoadCountRef.current >= SHARE_IMAGE_COUNT) {
+    if (onImagesReady && imageLoadCountRef.current >= expectedReadyCount) {
       onImagesReady();
     }
-  }, [onImagesReady]);
+  }, [onImagesReady, expectedReadyCount]);
 
   useEffect(() => {
     imageLoadCountRef.current = 0;
@@ -238,6 +241,7 @@ export function ShareContentRenderer({
                 padding={5}
                 darkColor={qrCode.color}
                 logoBackgroundColor="white"
+                onRenderReady={handleImageLoad}
               />
               <SizableText
                 fontSize={fonts.qrCaption.size}

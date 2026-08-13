@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import Svg, { ClipPath, Defs, G, Image, Path, Rect } from 'react-native-svg';
 
@@ -215,6 +215,10 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   // Uses size + padding as the fixed canvas and shrinks the symbol so each
   // side keeps this many full modules of quiet zone.
   quietZoneModules?: number;
+  // Fires once, after the commit in which a symbol is actually drawn. The
+  // encoder loads lazily, so a freshly started runtime renders nothing for a
+  // moment — native share generators gate their ViewShot capture on this.
+  onRenderReady?: () => void;
 }
 
 export function QRCode({
@@ -223,6 +227,7 @@ export function QRCode({
   interval = 500,
   padding = 10,
   quietZoneModules = 0,
+  onRenderReady,
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
@@ -302,6 +307,14 @@ export function QRCode({
   // An air-gap UR is inherently multi-frame, so its presence is what makes the
   // code animated. Callers that want a static code pass `value` instead.
   const displayValue = valueUr ? partValue : value || '';
+  const hasRenderedSymbol = Boolean(displayValue) && isEncoderReady;
+  const hasFiredRenderReadyRef = useRef(false);
+  useEffect(() => {
+    if (hasRenderedSymbol && !hasFiredRenderReadyRef.current) {
+      hasFiredRenderReadyRef.current = true;
+      onRenderReady?.();
+    }
+  }, [hasRenderedSymbol, onRenderReady]);
   if (!displayValue || !isEncoderReady) {
     // TODO return Skeleton
     return null;
