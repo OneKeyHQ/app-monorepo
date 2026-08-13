@@ -7,6 +7,11 @@ import {
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
+} from '../../states/jotai/atoms/perps';
+
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -395,5 +400,302 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       emit.mockRestore();
       await service.unsubscribePublicTrades({ coin: 'BTC' });
     }
+  });
+});
+
+describe('ServiceHyperliquidSubscription funded activation refresh', () => {
+  const accountAddress = '0xabc' as const;
+  let activatedOk = false;
+
+  beforeEach(() => {
+    activatedOk = false;
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-account-1',
+      accountAddress,
+      deriveType: 'default',
+      walletType: 'hd',
+    });
+    jest
+      .spyOn(perpsActiveAccountStatusInfoAtom, 'get')
+      .mockImplementation(async () => ({
+        accountAddress,
+        details: {
+          activatedOk,
+          agentOk: false,
+          referralCodeOk: false,
+          builderFeeOk: false,
+          internalRebateBoundOk: false,
+          abstractionOk: false,
+        },
+      }));
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('retries a funded refresh after another status check was busy', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationRefreshPendingAddress: string | null;
+      _fundedActivationConfirmedAddress: string | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+    expect(startStatusCheck).toHaveBeenCalledWith({
+      preserveFundedBalances: true,
+    });
+    expect(internals._fundedActivationRefreshPendingAddress).toBe(
+      accountAddress,
+    );
+
+    await jest.advanceTimersByTimeAsync(250);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
+    expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
+    expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
+  });
+
+  it('does not consume activation attempts while another status check is busy', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    let releaseBusyCheck: (() => void) | undefined;
+    const waitForIdle = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBusyCheck = resolve;
+        }),
+    );
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: waitForIdle,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationConfirmedAddress: string | null;
+    };
+
+    const refreshPromise = internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(1500);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+
+    releaseBusyCheck?.();
+    await refreshPromise;
+    await jest.advanceTimersByTimeAsync(250);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
+    expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
+  });
+
+  it('preserves a newer account retry when a busy wait becomes stale', async () => {
+    const nextAccountAddress = '0xdef';
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValue(undefined);
+    let releaseBusyCheck: (() => void) | undefined;
+    const waitForIdle = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBusyCheck = resolve;
+        }),
+    );
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: waitForIdle,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _resetFundedActivationRefreshState: () => void;
+      _scheduleFundedActivationRefreshRetry: (params: {
+        address: string;
+        delayMs: number;
+        refreshAttempt: number;
+      }) => void;
+      _fundedActivationRefreshInFlightAddress: string | null;
+      _fundedActivationRefreshPendingAddress: string | null;
+      _fundedActivationRefreshRetryTimer: ReturnType<typeof setTimeout> | null;
+    };
+
+    const staleRefreshPromise = internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+
+    internals._resetFundedActivationRefreshState();
+    internals._scheduleFundedActivationRefreshRetry({
+      address: nextAccountAddress,
+      delayMs: 500,
+      refreshAttempt: 1,
+    });
+    const nextAccountRetryTimer = internals._fundedActivationRefreshRetryTimer;
+
+    releaseBusyCheck?.();
+    await staleRefreshPromise;
+
+    expect(internals._fundedActivationRefreshInFlightAddress).toBeNull();
+    expect(internals._fundedActivationRefreshPendingAddress).toBe(
+      nextAccountAddress,
+    );
+    expect(internals._fundedActivationRefreshRetryTimer).toBe(
+      nextAccountRetryTimer,
+    );
+  });
+
+  it('retries after the cooldown while activation remains unconfirmed', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationRefreshPendingAddress: string | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(9999);
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
+    expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
+  });
+
+  it('stops automatic retries after six unconfirmed attempts', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockResolvedValue(undefined);
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationRefreshPendingAddress: string | null;
+      _fundedActivationRefreshRetryTimer: ReturnType<typeof setTimeout> | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(50_000);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(6);
+    expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
+    expect(internals._fundedActivationRefreshRetryTimer).toBeNull();
+
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(startStatusCheck).toHaveBeenCalledTimes(6);
+  });
+
+  it('waits for a new funded event after a status check fails', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
   });
 });
