@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-function normalizeTradingViewSubIndicatorCount(count: number) {
+function normalizeTradingViewSubIndicatorCount({
+  count,
+  maxCount,
+}: {
+  count: number;
+  maxCount: number;
+}) {
   if (!Number.isFinite(count)) {
     return 0;
   }
-  return Math.max(0, Math.floor(count));
+  return Math.min(maxCount, Math.max(0, Math.floor(count)));
 }
 
 export function useTradingViewSubIndicatorCount({
   chartKey,
-  defaultCount,
+  initialCount,
+  maxCount,
   stabilizeInitialCount,
   stabilizationDelayMs,
+  onCountSettled,
 }: {
   chartKey: string;
-  defaultCount: number;
+  initialCount: number;
+  maxCount: number;
   stabilizeInitialCount: boolean;
   stabilizationDelayMs: number;
+  onCountSettled?: (count: number) => void;
 }) {
+  const normalizedInitialCount = normalizeTradingViewSubIndicatorCount({
+    count: initialCount,
+    maxCount,
+  });
   const activeChartKeyRef = useRef(chartKey);
   activeChartKeyRef.current = chartKey;
   const stabilizedChartKeyRef = useRef<string | null>(
@@ -28,7 +42,7 @@ export function useTradingViewSubIndicatorCount({
   );
   const [subIndicatorState, setSubIndicatorState] = useState(() => ({
     key: chartKey,
-    count: defaultCount,
+    count: normalizedInitialCount,
   }));
 
   const cancelPendingStabilization = useCallback(() => {
@@ -38,17 +52,27 @@ export function useTradingViewSubIndicatorCount({
     }
   }, []);
 
-  const commitCount = useCallback((targetChartKey: string, count: number) => {
-    if (activeChartKeyRef.current !== targetChartKey) {
-      return;
-    }
+  const commitCount = useCallback(
+    (
+      targetChartKey: string,
+      count: number,
+      options?: { notifySettled?: boolean },
+    ) => {
+      if (activeChartKeyRef.current !== targetChartKey) {
+        return;
+      }
 
-    setSubIndicatorState((prevState) =>
-      prevState.key === targetChartKey && prevState.count === count
-        ? prevState
-        : { key: targetChartKey, count },
-    );
-  }, []);
+      setSubIndicatorState((prevState) =>
+        prevState.key === targetChartKey && prevState.count === count
+          ? prevState
+          : { key: targetChartKey, count },
+      );
+      if (options?.notifySettled) {
+        onCountSettled?.(count);
+      }
+    },
+    [onCountSettled],
+  );
 
   useEffect(() => {
     cancelPendingStabilization();
@@ -58,7 +82,7 @@ export function useTradingViewSubIndicatorCount({
   }, [cancelPendingStabilization, chartKey, stabilizeInitialCount]);
 
   const handleSubIndicatorCountChange = useCallback(
-    (count: number | null) => {
+    (count: number | null, options?: { layoutRestored?: boolean }) => {
       const targetChartKey = chartKey;
       if (activeChartKeyRef.current !== targetChartKey) {
         return;
@@ -66,8 +90,8 @@ export function useTradingViewSubIndicatorCount({
 
       const nextCount =
         count === null
-          ? defaultCount
-          : normalizeTradingViewSubIndicatorCount(count);
+          ? normalizedInitialCount
+          : normalizeTradingViewSubIndicatorCount({ count, maxCount });
 
       if (count === null) {
         cancelPendingStabilization();
@@ -83,7 +107,19 @@ export function useTradingViewSubIndicatorCount({
         stabilizedChartKeyRef.current === targetChartKey
       ) {
         cancelPendingStabilization();
-        commitCount(targetChartKey, nextCount);
+        commitCount(targetChartKey, nextCount, { notifySettled: true });
+        return;
+      }
+
+      // Keep the app-provided initial height while the WebView restores its template.
+      if (options?.layoutRestored === false) {
+        return;
+      }
+
+      if (options?.layoutRestored) {
+        cancelPendingStabilization();
+        stabilizedChartKeyRef.current = targetChartKey;
+        commitCount(targetChartKey, nextCount, { notifySettled: true });
         return;
       }
 
@@ -95,21 +131,24 @@ export function useTradingViewSubIndicatorCount({
           return;
         }
         stabilizedChartKeyRef.current = targetChartKey;
-        commitCount(targetChartKey, nextCount);
+        commitCount(targetChartKey, nextCount, { notifySettled: true });
       }, stabilizationDelayMs);
     },
     [
       cancelPendingStabilization,
       chartKey,
       commitCount,
-      defaultCount,
+      maxCount,
+      normalizedInitialCount,
       stabilizationDelayMs,
       stabilizeInitialCount,
     ],
   );
 
   const subIndicatorCount =
-    subIndicatorState.key === chartKey ? subIndicatorState.count : defaultCount;
+    subIndicatorState.key === chartKey
+      ? subIndicatorState.count
+      : normalizedInitialCount;
 
   return [subIndicatorCount, handleSubIndicatorCountChange] as const;
 }

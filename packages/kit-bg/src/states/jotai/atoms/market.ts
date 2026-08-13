@@ -71,3 +71,16 @@ export const {
     spotNetworkId: '',
   },
 });
+
+export interface IMarketTradingViewSubIndicatorCountPersistAtom {
+  subIndicatorCount?: number;
+}
+
+export const {
+  target: marketTradingViewSubIndicatorCountPersistAtom,
+  use: useMarketTradingViewSubIndicatorCountPersistAtom,
+} = globalAtom<IMarketTradingViewSubIndicatorCountPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketTradingViewSubIndicatorCountPersistAtom,
+  initialValue: {},
+});

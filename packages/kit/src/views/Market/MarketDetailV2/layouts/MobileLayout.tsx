@@ -35,7 +35,10 @@ import {
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketTradingViewSubIndicatorCountPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -210,7 +213,10 @@ function MobileMarketTradingView({
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
   onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
-  onNativeSubIndicatorCountChange: (count: number | null) => void;
+  onNativeSubIndicatorCountChange: (
+    count: number | null,
+    options?: { layoutRestored?: boolean },
+  ) => void;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
@@ -288,9 +294,23 @@ export function MobileLayout({
       marketTradingViewParams.tokenSymbol,
     ].join(':');
   }
-  const defaultSubIndicatorCount = useTradingViewNative
-    ? 0
-    : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
+  const [
+    marketTradingViewSubIndicatorCountPersist,
+    setMarketTradingViewSubIndicatorCountPersist,
+  ] = useMarketTradingViewSubIndicatorCountPersistAtom();
+  const persistedWebViewSubIndicatorCount = platformEnv.isNative
+    ? marketTradingViewSubIndicatorCountPersist.subIndicatorCount
+    : undefined;
+  let initialSubIndicatorCount =
+    MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
+  if (useTradingViewNative) {
+    initialSubIndicatorCount = 0;
+  } else if (
+    typeof persistedWebViewSubIndicatorCount === 'number' &&
+    Number.isFinite(persistedWebViewSubIndicatorCount)
+  ) {
+    initialSubIndicatorCount = persistedWebViewSubIndicatorCount;
+  }
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
@@ -373,15 +393,30 @@ export function MobileLayout({
   ] = useState(false);
   const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
     useState<ReactNode | null>(null);
+  const persistWebViewSubIndicatorCount = useCallback(
+    (count: number) => {
+      if (!platformEnv.isNative || useTradingViewNative) {
+        return;
+      }
+      setMarketTradingViewSubIndicatorCountPersist((prev) =>
+        prev.subIndicatorCount === count
+          ? prev
+          : { ...prev, subIndicatorCount: count },
+      );
+    },
+    [setMarketTradingViewSubIndicatorCountPersist, useTradingViewNative],
+  );
   const [tradingViewSubIndicatorCount, handleNativeSubIndicatorCountChange] =
     useTradingViewSubIndicatorCount({
       chartKey: marketTradingViewKey,
-      defaultCount: defaultSubIndicatorCount,
+      initialCount: initialSubIndicatorCount,
+      maxCount: MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT,
       stabilizeInitialCount: Boolean(
         platformEnv.isNative && !useTradingViewNative,
       ),
       stabilizationDelayMs:
         MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
+      onCountSettled: persistWebViewSubIndicatorCount,
     });
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;

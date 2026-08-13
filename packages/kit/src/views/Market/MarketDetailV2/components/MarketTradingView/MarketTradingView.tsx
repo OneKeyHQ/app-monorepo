@@ -97,7 +97,10 @@ export interface IMarketTradingViewProps {
   onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
-  onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeSubIndicatorCountChange?: (
+    count: number | null,
+    options?: { layoutRestored?: boolean },
+  ) => void;
   maxNativeSubIndicatorCount?: number;
 }
 

@@ -128,7 +128,10 @@ interface IBaseTradingViewV2Props {
   enableNativeIntervalSelector?: boolean;
   maxNativeSubIndicatorCount?: number;
   // `null` means the WebView controls configuration is not ready.
-  onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeSubIndicatorCountChange?: (
+    count: number | null,
+    options?: { layoutRestored?: boolean },
+  ) => void;
   nativeChartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   nativeIndicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   nativeIntervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -248,10 +251,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
     onNativeSubIndicatorCountChange?.(
       hasNativeChartControlsConfig ? nativeSubIndicatorCount : null,
+      hasNativeChartControlsConfig
+        ? { layoutRestored: nativeChartControlsConfig?.layoutRestored }
+        : undefined,
     );
   }, [
     enableNativeChartControls,
     hasNativeChartControlsConfig,
+    nativeChartControlsConfig?.layoutRestored,
     nativeSubIndicatorCount,
     onNativeSubIndicatorCountChange,
   ]);
