@@ -4,7 +4,8 @@ import { useIntl } from 'react-intl';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { BorrowNavigation } from '../../../borrowUtils';
 
 interface IUseBorrowReserveDetailBreadcrumbParams {
   symbol: string;
@@ -23,10 +24,7 @@ export function useBorrowReserveDetailBreadcrumb({
       {
         label: intl.formatMessage({ id: ETranslations.global_borrow }),
         onClick: () => {
-          appNavigation.navigate(ETabRoutes.Earn, {
-            screen: ETabEarnRoutes.EarnHome,
-            params: { mode: 'borrow' },
-          });
+          BorrowNavigation.pushToBorrowHome(appNavigation);
         },
       },
     ];

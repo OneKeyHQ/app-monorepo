@@ -1,17 +1,21 @@
 import { useCallback, useMemo } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
+
 import {
   IconButton,
   Page,
   SizableText,
   XStack,
   YStack,
+  useIsModalPage,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalStakingRoutes,
   ETabEarnRoutes,
@@ -33,6 +37,10 @@ const ReserveDetailsPage = () => {
     | EModalStakingRoutes.BorrowReserveDetails
   >();
   const { shareText } = useShare();
+  const isModalPage = useIsModalPage();
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop =
+    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
   const [devSettings] = useDevSettingsPersistAtom();
 
   const {
@@ -110,7 +118,7 @@ const ReserveDetailsPage = () => {
   return (
     <Page>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
-      <Page.Body>
+      <Page.Body pt={bodyPaddingTop}>
         <YStack flex={1}>
           <DetailsPart
             details={details}

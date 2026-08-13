@@ -154,7 +154,12 @@ export const BorrowDataGate = ({
 
   const {
     result: reservesResult,
-    isLoading: reservesLoading,
+    // OK-60105: undefined until usePromiseResult's effect has fired, which left
+    // dataStatus falling through to Idle between markets resolving and the
+    // reserves request starting. useBorrowMarkets already defaults the same
+    // way; the terminal Idle (settled with no result, e.g. after an error) is
+    // untouched, so a failed load still reaches the real empty state.
+    isLoading: reservesLoading = true,
     run: refreshReserves,
   } = usePromiseResult(
     async () => {
