@@ -5,6 +5,7 @@ import {
   getPerpDesktopChartSplitSizes,
   getPerpDesktopMainSplitSizes,
   getPerpDesktopTradingSplitSizes,
+  getVerticalOrderBookLayout,
 } from './perpLayoutUtils';
 
 describe('getPerpDesktopChartSplitSizes', () => {
@@ -121,5 +122,31 @@ describe('getPerpDesktopTradingSplitSizes', () => {
       PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT,
       1068 - PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT,
     ]);
+  });
+});
+
+describe('getVerticalOrderBookLayout', () => {
+  it('keeps the row height fixed and varies only the level count', () => {
+    expect(getVerticalOrderBookLayout(640, 18)).toEqual({
+      levelsPerSide: 12,
+      extraBidLevels: 0,
+      rowHeight: 22,
+    });
+  });
+
+  it('gives the spare row to the bid side when exactly one more fits', () => {
+    expect(getVerticalOrderBookLayout(660, 18)).toEqual({
+      levelsPerSide: 12,
+      extraBidLevels: 1,
+      rowHeight: 22,
+    });
+  });
+
+  it('never exceeds maxLevelsPerSide with the extra bid row', () => {
+    expect(getVerticalOrderBookLayout(660, 12)).toEqual({
+      levelsPerSide: 12,
+      extraBidLevels: 0,
+      rowHeight: 22,
+    });
   });
 });

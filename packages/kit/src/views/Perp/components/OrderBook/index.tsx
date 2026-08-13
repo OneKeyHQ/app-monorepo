@@ -951,6 +951,7 @@ export function OrderBook({
     horizontal || !verticalLayout
       ? maxLevelsPerSide
       : verticalLayout.levelsPerSide;
+  const verticalExtraBidLevels = verticalLayout?.extraBidLevels ?? 0;
   const verticalRowHeight = verticalLayout?.rowHeight ?? rowHeight;
   const verticalSpreadControlHeight = Math.max(
     20,
@@ -977,23 +978,24 @@ export function OrderBook({
     selectedTickOption,
     priceDecimals,
     sizeDecimals,
+    verticalExtraBidLevels,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const verticalEmptyLevels = useMemo<IFormattedOBLevel[]>(
     () =>
       !horizontal && isEmpty
         ? Array.from(
-            { length: resolvedMaxLevelsPerSide },
+            { length: resolvedMaxLevelsPerSide + verticalExtraBidLevels },
             () => EMPTY_FORMATTED_ORDER_BOOK_LEVEL,
           )
         : [],
-    [horizontal, isEmpty, resolvedMaxLevelsPerSide],
+    [horizontal, isEmpty, resolvedMaxLevelsPerSide, verticalExtraBidLevels],
   );
   let verticalAsks: IFormattedOBLevel[] = [];
   let verticalBids: IFormattedOBLevel[] = [];
   if (!horizontal) {
     verticalAsks = isEmpty
-      ? verticalEmptyLevels
+      ? verticalEmptyLevels.slice(0, resolvedMaxLevelsPerSide)
       : aggregatedData.asks.toReversed();
     verticalBids = isEmpty ? verticalEmptyLevels : aggregatedData.bids;
   }

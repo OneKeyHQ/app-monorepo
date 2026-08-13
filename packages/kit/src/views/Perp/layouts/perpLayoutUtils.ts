@@ -200,27 +200,29 @@ export function getVerticalOrderBookLayout(
         ORDER_BOOK_VERTICAL_LEVELS_MIN,
         Math.min(maxLevelsPerSide, ORDER_BOOK_VERTICAL_LEVELS_DEFAULT),
       ),
+      extraBidLevels: 0,
       rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
     };
   }
 
   // Fixed row height: resizing changes the visible level count, never the
   // red/green depth bar size.
+  const rowStep = ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP;
+  const fittedRows = Math.floor(bookBodyHeight / rowStep);
   const levelsPerSide = Math.max(
     ORDER_BOOK_VERTICAL_LEVELS_MIN,
-    Math.min(
-      Math.floor(
-        (bookBodyHeight /
-          (ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP) -
-          1) /
-          2,
-      ),
-      maxLevelsPerSide,
-    ),
+    Math.min(Math.floor((fittedRows - 1) / 2), maxLevelsPerSide),
   );
+  // Symmetric sides always leave 0-1 spare rows; give a spare row to the bid
+  // side so the book fills the pane instead of showing a bottom gap.
+  const extraBidLevels =
+    fittedRows - 1 - levelsPerSide * 2 >= 1 && levelsPerSide < maxLevelsPerSide
+      ? 1
+      : 0;
 
   return {
     levelsPerSide,
+    extraBidLevels,
     rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
   };
 }
