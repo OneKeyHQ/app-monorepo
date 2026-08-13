@@ -537,6 +537,11 @@ async function loadModule(
     if (!proxyBaseUrl) {
       throw new OneKeyLocalError('TradingView embed proxy base URL is invalid');
     }
+    if (new URL(proxyBaseUrl).origin !== globalThis.location.origin) {
+      throw new OneKeyLocalError(
+        'TradingView embed proxy must use the app origin',
+      );
+    }
     runtimeAssetBaseUrl = proxyBaseUrl;
   }
   const integrityByFile = new Map(

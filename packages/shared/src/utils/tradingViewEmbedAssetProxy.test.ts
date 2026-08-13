@@ -39,6 +39,17 @@ describe('tradingViewEmbedAssetProxy', () => {
     ).toBeUndefined();
   });
 
+  test('normalizes the proxy base URL to the app origin', () => {
+    expect(
+      buildTradingViewEmbedProxyBaseUrl({
+        appOrigin: 'https://app.onekey.so/market?tab=chart#price',
+        sourceBaseUrl: 'https://tradingview.onekey.so/release-v1/embed/',
+      }),
+    ).toBe(
+      'https://app.onekey.so/__onekey_tradingview_embed__/tradingview.onekey.so/release-v1/embed/',
+    );
+  });
+
   test.each([
     'https://app.onekey.so/__onekey_tradingview_embed__/tradingview.onekey.so/release-v1/embed/',
     'https://app.onekey.so/__onekey_tradingview_embed__/tradingview.onekey.so/release-v1/embed/entry.js?cache=1',
