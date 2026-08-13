@@ -23,6 +23,8 @@ type ISwapLatestBalanceCheckParams = {
 export type ISwapLatestBalanceCheckResult =
   | {
       isSufficient: true;
+      balance?: string;
+      tokenSymbol?: string;
     }
   | {
       isSufficient: false;
@@ -242,7 +244,7 @@ export function validateSwapBtcOutputs({
   return undefined;
 }
 
-function buildNativeTokenFromGasInfo({
+export function buildNativeTokenFromGasInfo({
   gasInfo,
   networkId,
   fromToken,
@@ -378,11 +380,12 @@ export async function checkSwapLatestBalanceSufficient({
     !accountAddress ||
     amountBN.isNaN() ||
     !amountBN.isFinite() ||
-    amountBN.lte(0)
+    amountBN.lt(0)
   ) {
     return { isSufficient: true };
   }
 
+  let balance: string | undefined;
   try {
     const contractAddress = await getSwapTokenBalanceContractAddress(token);
     const tokenBalanceInfo =
@@ -393,26 +396,28 @@ export async function checkSwapLatestBalanceSufficient({
         accountId,
         currency: 'usd',
       });
-    if (!tokenBalanceInfo?.length) {
-      return { isSufficient: true };
-    }
-
-    const balanceBN = new BigNumber(tokenBalanceInfo[0].balanceParsed ?? 0);
-    if (balanceBN.isNaN() || !balanceBN.isFinite()) {
-      return { isSufficient: true };
-    }
-
-    if (amountBN.gt(balanceBN)) {
-      return {
-        isSufficient: false,
-        balance: balanceBN.toFixed(),
-        requiredAmount: amountBN.toFixed(),
-        tokenSymbol: token.symbol,
-      };
+    const balanceBN = new BigNumber(
+      tokenBalanceInfo?.[0]?.balanceParsed ?? NaN,
+    );
+    if (!balanceBN.isNaN() && balanceBN.isFinite() && !balanceBN.isNegative()) {
+      balance = balanceBN.toFixed();
     }
   } catch (error) {
     console.error('checkSwapLatestBalanceSufficient error', error);
   }
 
-  return { isSufficient: true };
+  if (balance === undefined) {
+    return { isSufficient: true };
+  }
+
+  if (amountBN.gt(balance)) {
+    return {
+      isSufficient: false,
+      balance,
+      requiredAmount: amountBN.toFixed(),
+      tokenSymbol: token.symbol,
+    };
+  }
+
+  return { isSufficient: true, balance, tokenSymbol: token.symbol };
 }

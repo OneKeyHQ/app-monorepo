@@ -13,29 +13,36 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 
 export function UniversalSearchInput({
   containerProps,
   size = 'large',
   initialTab,
+  tabRoute,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
   initialTab?: 'market' | 'dapp';
+  tabRoute: ETabRoutes;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
-      params: initialTab ? { initialTab } : undefined,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+        ...(initialTab ? { initialTab } : {}),
+      },
     });
-  }, [navigation, initialTab]);
+  }, [initialTab, navigation, tabRoute]);
 
   if (size === 'small') {
     return (
@@ -88,12 +95,13 @@ export function UniversalSearchInput({
   );
 }
 
-export function MDUniversalSearchInput() {
+export function MDUniversalSearchInput({ tabRoute }: { tabRoute: ETabRoutes }) {
   const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
     <XStack px="$pagePadding" pt="$0.5">
       <UniversalSearchInput
         size="medium"
+        tabRoute={tabRoute}
         containerProps={{
           width: '100%',
           $gtLg: undefined,

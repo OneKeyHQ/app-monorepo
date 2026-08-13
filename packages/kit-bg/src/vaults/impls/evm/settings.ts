@@ -3,6 +3,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   BaseUSDC,
   BinanceSmartChainLISTA,
+  BinanceSmartChainU,
   BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
@@ -156,6 +157,23 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Spark]: {
+        supportedSymbols: ['USDC', 'USDT'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
@@ -283,6 +301,27 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+      [EEarnProviderEnum.Bitway]: {
+        supportedSymbols: ['USDT', 'U'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          U: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainU,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
       },
     },
   },

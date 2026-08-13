@@ -324,6 +324,10 @@ export function DesktopLayout({
             <MarketNormalTokenList
               networkId={selectedNetworkId}
               selectedCategory={item.categoryId}
+              forceStockMetadataColumns={isMarketStockCategoryById(
+                filterBarProps.categories,
+                item.categoryId,
+              )}
               stockCategory={
                 isMarketStockCategoryById(
                   filterBarProps.categories,

@@ -153,7 +153,13 @@ interface ISwapMainLoadProps {
 }
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
-  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
+  const {
+    preSwapStepsStart,
+    preSwapBeforeStepActions,
+    beginGasAccountReviewSession,
+    endGasAccountReviewSession,
+    markCurrentGasAccountReviewSubmitted,
+  } = useSwapBuildTx();
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
@@ -958,14 +964,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   const handleConfirm = useCallback(async () => {
+    markCurrentGasAccountReviewSubmitted();
     onActionHandlerBefore();
-  }, [onActionHandlerBefore]);
+  }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
   const dialogClose = useCallback(() => {
     void dialogRef.current?.close();
   }, []);
 
   const onPreSwapClose = useCallback(() => {
+    endGasAccountReviewSession();
     dialogClose();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
@@ -975,7 +983,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         preSwapData: {},
       });
     }, 100);
-  }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
+  }, [
+    setSwapBuildTxFetching,
+    endGasAccountReviewSession,
+    dialogClose,
+    setSwapSteps,
+  ]);
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1005,6 +1018,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
+    beginGasAccountReviewSession();
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     setTimeout(() => {
@@ -1100,6 +1114,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    beginGasAccountReviewSession,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,
     handleSelectAccountClick,
