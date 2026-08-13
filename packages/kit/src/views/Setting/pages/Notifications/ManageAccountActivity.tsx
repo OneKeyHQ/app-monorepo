@@ -836,7 +836,9 @@ function ManageAccountActivity() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_manage })}
+        title={intl.formatMessage({
+          id: ETranslations.notification_accounts__action,
+        })}
       />
       <Page.Body>
         <AccountNotificationSettingsProvider wallets={wallets}>

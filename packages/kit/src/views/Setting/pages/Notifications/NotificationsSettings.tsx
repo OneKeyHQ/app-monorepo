@@ -37,6 +37,14 @@ import {
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
 import NotificationsTestButton from '../../components/NotificationsTestButton';
 
+function NotificationSettingsSectionTitle({ title }: { title: string }) {
+  return (
+    <SizableText px="$5" pt="$5" pb="$2" size="$headingXs" color="$textSubdued">
+      {title}
+    </SizableText>
+  );
+}
+
 export default function NotificationsSettings() {
   const intl = useIntl();
   const [settings, setSettings] = useState<
@@ -154,12 +162,11 @@ export default function NotificationsSettings() {
           </Stack>
         ) : (
           <>
-            {/* Allow notifications - Master switch */}
             <ListItem>
               <ListItem.Text
                 flex={1}
                 primary={intl.formatMessage({
-                  id: ETranslations.notifications_notifications_switch_label,
+                  id: ETranslations.notifications_settings_helper_title,
                 })}
                 secondary={intl.formatMessage({
                   id: ETranslations.global_master_switch_all_notification,
@@ -169,7 +176,7 @@ export default function NotificationsSettings() {
                 }}
               />
               <Switch
-                testID="setting-switch"
+                testID="notification-setting-pushEnabled"
                 size="small"
                 value={!!settings?.pushEnabled}
                 onChange={async (checked) => {
@@ -196,14 +203,16 @@ export default function NotificationsSettings() {
 
             {settings?.pushEnabled ? (
               <>
-                <Divider m="$5" />
-
-                {/* Account activity */}
+                <NotificationSettingsSectionTitle
+                  title={intl.formatMessage({
+                    id: ETranslations.notifications_notifications_account_activity_label,
+                  })}
+                />
                 <ListItem>
                   <ListItem.Text
                     flex={1}
                     primary={intl.formatMessage({
-                      id: ETranslations.notifications_notifications_account_activity_label,
+                      id: ETranslations.wallet_activity__title,
                     })}
                     secondary={intl.formatMessage({
                       id: ETranslations.notifications_notifications_account_activity_desc,
@@ -213,7 +222,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
-                    testID="setting-switch"
+                    testID="notification-setting-accountActivityPushEnabled"
                     size="small"
                     value={!!settings?.accountActivityPushEnabled}
                     onChange={(checked) => {
@@ -224,7 +233,54 @@ export default function NotificationsSettings() {
                   />
                 </ListItem>
 
-                {/* Price alerts */}
+                <ListItem
+                  testID="notification-accounts-row"
+                  title={intl.formatMessage({
+                    id: ETranslations.notification_accounts__action,
+                  })}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.notifications_notifications_account_manage_desc,
+                  })}
+                  drillIn
+                  onPress={() => {
+                    navigation.push(
+                      EModalSettingRoutes.SettingManageAccountActivity,
+                    );
+                  }}
+                />
+
+                <ListItem>
+                  <ListItem.Text
+                    flex={1}
+                    primary={intl.formatMessage({
+                      id: ETranslations.perps_alerts__title,
+                    })}
+                    secondary={intl.formatMessage({
+                      id: ETranslations.global_update_perp_contract,
+                    })}
+                    secondaryTextProps={{
+                      maxWidth: '$96',
+                    }}
+                  />
+                  <Switch
+                    testID="notification-setting-perpsEnabled"
+                    size="small"
+                    value={!!settings?.perpsEnabled}
+                    onChange={(checked) => {
+                      void updateSettings({
+                        perpsEnabled: checked,
+                      });
+                    }}
+                  />
+                </ListItem>
+
+                <Divider mx="$5" mt="$3" />
+                <NotificationSettingsSectionTitle
+                  title={intl.formatMessage({
+                    id: ETranslations.alerts_and_updates__action,
+                  })}
+                />
+
                 {platformEnv.isExtension ? null : (
                   <ListItem>
                     <ListItem.Text
@@ -240,7 +296,7 @@ export default function NotificationsSettings() {
                       }}
                     />
                     <Switch
-                      testID="setting-switch"
+                      testID="notification-setting-priceAlertsEnabled"
                       size="small"
                       value={!!settings?.priceAlertsEnabled}
                       onChange={(checked) => {
@@ -252,38 +308,11 @@ export default function NotificationsSettings() {
                   </ListItem>
                 )}
 
-                {/* Perps trading */}
                 <ListItem>
                   <ListItem.Text
                     flex={1}
                     primary={intl.formatMessage({
-                      id: ETranslations.global_perps_trading,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.global_update_perp_contract,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    testID="setting-switch"
-                    size="small"
-                    value={!!settings?.perpsEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        perpsEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
-
-                {/* Important announcements */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_important_announcement,
+                      id: ETranslations.important_notices__title,
                     })}
                     secondary={intl.formatMessage({
                       id: ETranslations.global_version_update_security_alert,
@@ -293,7 +322,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
-                    testID="setting-switch"
+                    testID="notification-setting-announcementEnabled"
                     size="small"
                     value={!!settings?.announcementEnabled}
                     onChange={(checked) => {
@@ -304,12 +333,11 @@ export default function NotificationsSettings() {
                   />
                 </ListItem>
 
-                {/* Daily updates */}
                 <ListItem>
                   <ListItem.Text
                     flex={1}
                     primary={intl.formatMessage({
-                      id: ETranslations.global_daily_update,
+                      id: ETranslations.product_and_market_updates__title,
                     })}
                     secondary={intl.formatMessage({
                       id: ETranslations.global_market_insights_tips,
@@ -319,7 +347,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
-                    testID="setting-switch"
+                    testID="notification-setting-dailyUpdateEnabled"
                     size="small"
                     value={!!settings?.dailyUpdateEnabled}
                     onChange={(checked) => {
@@ -332,23 +360,6 @@ export default function NotificationsSettings() {
 
                 <Divider m="$5" />
 
-                {/* Manage - Account selection */}
-                <ListItem
-                  title={intl.formatMessage({
-                    id: ETranslations.notifications_notifications_account_manage_label,
-                  })}
-                  subtitle={intl.formatMessage({
-                    id: ETranslations.notifications_notifications_account_manage_desc,
-                  })}
-                  drillIn
-                  onPress={() => {
-                    navigation.push(
-                      EModalSettingRoutes.SettingManageAccountActivity,
-                    );
-                  }}
-                />
-
-                {/* Push notifications helper */}
                 <ListItem>
                   <ListItem.Text
                     flex={1}
@@ -371,7 +382,9 @@ export default function NotificationsSettings() {
                       </>
                     }
                   />
-                  <NotificationsTestButton />
+                  <NotificationsTestButton
+                    showPermissionAction={platformEnv.isNativeIOS}
+                  />
                 </ListItem>
               </>
             ) : null}
