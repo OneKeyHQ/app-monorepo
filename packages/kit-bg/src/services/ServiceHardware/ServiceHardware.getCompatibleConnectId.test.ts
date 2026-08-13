@@ -394,7 +394,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(detectBluetoothAvailability).not.toHaveBeenCalled();
   });
 
-  it('does not enter the SDK when a desktop BLE background call is suspended', async () => {
+  it('keeps the USB fallback reachable for a desktop background device read', async () => {
     const service = new ServiceHardware({
       backgroundApi: {
         serviceSetting: {
@@ -404,22 +404,35 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         },
       } as unknown as IBackgroundApi,
     });
-    const getDeviceStateWithMutex = jest.spyOn(
-      service as unknown as {
-        _getDeviceStateWithMutex: ServiceHardware['getDeviceState'];
-      },
-      '_getDeviceStateWithMutex',
-    );
+    const getCompatibleConnectId = jest
+      .spyOn(service, 'getCompatibleConnectId')
+      .mockResolvedValue('USB_ID');
+    const getDeviceStateWithMutex = jest
+      .spyOn(
+        service as unknown as {
+          _getDeviceStateWithMutex: ServiceHardware['getDeviceState'];
+        },
+        '_getDeviceStateWithMutex',
+      )
+      .mockResolvedValue({
+        identity: { deviceId: 'DEVICE_ID' },
+        protocol: 'V2',
+      } as never);
 
     await expect(
       service.getDeviceState({
         connectId: 'USB_ID',
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
       }),
-    ).rejects.toThrow();
-    expect(getDeviceStateWithMutex).not.toHaveBeenCalled();
-    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
-    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
+    ).resolves.toEqual(expect.objectContaining({ protocol: 'V2' }));
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'USB_ID',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: undefined,
+    });
+    expect(getDeviceStateWithMutex).toHaveBeenCalledWith(
+      expect.objectContaining({ connectId: 'USB_ID' }),
+    );
   });
 
   it('allows only the scoped connected-only desktop BLE background call', async () => {
@@ -466,7 +479,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
   it('guards the desktop BLE state read without passing unsupported SDK params', async () => {
     const originalDesktopApi = globalThis.desktopApi;
-    const beginConnectedOnlyScope = jest.fn();
+    const beginConnectedOnlyScope = jest.fn().mockReturnValue(1);
     const endConnectedOnlyScope = jest.fn();
     globalThis.desktopApi = {
       nobleBle: {
@@ -510,7 +523,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(getDeviceState).toHaveBeenCalledWith('PRO2_BLE_ID', {
         connectProtocol: 'V2',
       });
-      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID', 1);
     } finally {
       globalThis.desktopApi = originalDesktopApi;
     }
@@ -2020,7 +2033,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
   it('pins desktop BLE portfolio upload to connected-only reuse', async () => {
     const originalDesktopApi = globalThis.desktopApi;
-    const beginConnectedOnlyScope = jest.fn();
+    const beginConnectedOnlyScope = jest.fn().mockReturnValue(1);
     const endConnectedOnlyScope = jest.fn();
     globalThis.desktopApi = {
       nobleBle: {
@@ -2066,7 +2079,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
         packageBase64: 'AQID',
       });
-      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID', 1);
       expect(beginConnectedOnlyScope.mock.invocationCallOrder[0]).toBeLessThan(
         uploadPortfolio.mock.invocationCallOrder[0],
       );
@@ -2080,7 +2093,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
   it('always closes the desktop BLE connected-only scope after an SDK error', async () => {
     const originalDesktopApi = globalThis.desktopApi;
-    const beginConnectedOnlyScope = jest.fn();
+    const beginConnectedOnlyScope = jest.fn().mockReturnValue(1);
     const endConnectedOnlyScope = jest.fn();
     globalThis.desktopApi = {
       nobleBle: {
@@ -2106,7 +2119,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         }),
       ).rejects.toThrow('BLE failed');
       expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
-      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
+      expect(endConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID', 1);
     } finally {
       globalThis.desktopApi = originalDesktopApi;
     }
@@ -2116,7 +2129,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     const originalDesktopApi = globalThis.desktopApi;
     globalThis.desktopApi = {
       nobleBle: {
-        beginConnectedOnlyScope: jest.fn(),
+        beginConnectedOnlyScope: jest.fn().mockReturnValue(1),
         endConnectedOnlyScope: jest.fn(),
       },
     } as never;

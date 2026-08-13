@@ -804,11 +804,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     desktopBleExecution,
     deviceConnectId,
     eventPayload,
+    hardwareTransportType,
     targetKey,
   }: {
     desktopBleExecution?: IDesktopBleSyncExecution;
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
+    hardwareTransportType?: EHardwareTransportType;
     targetKey: string;
   }): Promise<'verified' | 'unavailable' | 'mismatch'> {
     const deviceDbId = eventPayload.deviceDbId;
@@ -830,9 +832,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     if (mismatchedDeviceId !== undefined) {
       this.mismatchedDeviceIdByTargetKey.delete(targetKey);
     }
-    const currentTransportType = desktopBleExecution
-      ? EHardwareTransportType.DesktopWebBle
-      : await this.backgroundApi.serviceHardware.getCurrentTransportType();
+    const currentTransportType =
+      hardwareTransportType ??
+      (desktopBleExecution
+        ? EHardwareTransportType.DesktopWebBle
+        : await this.backgroundApi.serviceHardware.getCurrentTransportType());
     const canCacheVerifiedDeviceId =
       currentTransportType !== EHardwareTransportType.WEBUSB;
     if (!canCacheVerifiedDeviceId) {
@@ -849,9 +853,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       ...(desktopBleExecution
         ? {
             desktopBleReuseConnectedOnly: true,
-            hardwareTransportType: EHardwareTransportType.DesktopWebBle,
           }
         : {}),
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
       params: { scope: 'firmware' },
       silentMode: true,
     });
@@ -1591,6 +1595,34 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
         return;
       }
+      let hardwareTransportType: EHardwareTransportType | undefined;
+      if (platformEnv.isDesktop) {
+        hardwareTransportType = desktopBleExecution
+          ? EHardwareTransportType.DesktopWebBle
+          : await this.backgroundApi.serviceHardware.getCurrentTransportType();
+      }
+      if (!isExecutionCurrent()) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        return;
+      }
+      if (
+        !desktopBleExecution &&
+        hardwareTransportType === EHardwareTransportType.DesktopWebBle
+      ) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
+        this.setDesktopSuspendedResult(eventPayload);
+        this.scheduleDesktopBleIdleSync({ targetKey });
+        return;
+      }
       const hardwareBusy =
         await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
           connectId: hardwareConnectId,
@@ -1668,6 +1700,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           desktopBleExecution,
           deviceConnectId: hardwareConnectId,
           eventPayload,
+          hardwareTransportType,
           targetKey,
         });
       if (!isExecutionCurrent()) {
@@ -1701,9 +1734,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           ...(desktopBleExecution
             ? {
                 desktopBleReuseConnectedOnly: true,
-                hardwareTransportType: EHardwareTransportType.DesktopWebBle,
               }
             : {}),
+          ...(hardwareTransportType ? { hardwareTransportType } : {}),
           packageBase64: serverPackageBase64,
         }),
         this.portfolioSyncDb.updateTargetState(targetKey, {

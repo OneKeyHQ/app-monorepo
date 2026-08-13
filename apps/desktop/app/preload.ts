@@ -12,18 +12,25 @@ import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
 const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
-const desktopBleConnectedOnlyScopes = new Map<
-  string,
-  { count: number; expiresAt: number }
->();
+const desktopBleConnectedOnlyScopes = new Map<string, Map<number, number>>();
+let desktopBleConnectedOnlyScopeId = 0;
 
 function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
-  const scope = desktopBleConnectedOnlyScopes.get(uuid);
-  if (!scope || scope.expiresAt <= Date.now()) {
+  const scopes = desktopBleConnectedOnlyScopes.get(uuid);
+  if (!scopes) {
+    return false;
+  }
+  const now = Date.now();
+  for (const [scopeId, expiresAt] of scopes) {
+    if (expiresAt <= now) {
+      scopes.delete(scopeId);
+    }
+  }
+  if (!scopes.size) {
     desktopBleConnectedOnlyScopes.delete(uuid);
     return false;
   }
-  return scope.count > 0;
+  return true;
 }
 
 export interface IVerifyUpdateParams {
@@ -244,25 +251,19 @@ const desktopApi = {
   // Desktop Bluetooth
   nobleBle: {
     beginConnectedOnlyScope: (uuid: string) => {
-      const scope = desktopBleConnectedOnlyScopes.get(uuid);
-      const activeScope =
-        scope && scope.expiresAt > Date.now() ? scope : undefined;
-      desktopBleConnectedOnlyScopes.set(uuid, {
-        count: (activeScope?.count ?? 0) + 1,
-        expiresAt: Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
-      });
+      desktopBleConnectedOnlyScopeId += 1;
+      const scopes = desktopBleConnectedOnlyScopes.get(uuid) ?? new Map();
+      scopes.set(
+        desktopBleConnectedOnlyScopeId,
+        Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
+      );
+      desktopBleConnectedOnlyScopes.set(uuid, scopes);
+      return desktopBleConnectedOnlyScopeId;
     },
-    endConnectedOnlyScope: (uuid: string) => {
-      const scope = desktopBleConnectedOnlyScopes.get(uuid);
-      const nextCount = (scope?.count ?? 0) - 1;
-      if (nextCount > 0) {
-        desktopBleConnectedOnlyScopes.set(uuid, {
-          count: nextCount,
-          expiresAt:
-            scope?.expiresAt ??
-            Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
-        });
-      } else {
+    endConnectedOnlyScope: (uuid: string, scopeId: number) => {
+      const scopes = desktopBleConnectedOnlyScopes.get(uuid);
+      scopes?.delete(scopeId);
+      if (!scopes?.size) {
         desktopBleConnectedOnlyScopes.delete(uuid);
       }
     },

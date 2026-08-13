@@ -434,11 +434,11 @@ class ServiceHardware extends ServiceBase {
         'Desktop BLE connected-only scope is unavailable',
       );
     }
-    nobleBle.beginConnectedOnlyScope(connectId);
+    const scopeId = nobleBle.beginConnectedOnlyScope(connectId);
     try {
       return await task();
     } finally {
-      nobleBle.endConnectedOnlyScope(connectId);
+      nobleBle.endConnectedOnlyScope(connectId, scopeId);
     }
   }
 
@@ -2803,31 +2803,6 @@ class ServiceHardware extends ServiceBase {
     const hardwareCallContext =
       options.hardwareCallContext ??
       EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
-    const isDesktopBackgroundCall =
-      platformEnv.isSupportDesktopBle &&
-      (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
-        hardwareCallContext ===
-          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
-    const isDesktopBleConnectedOnlyReuse = Boolean(
-      options.desktopBleReuseConnectedOnly &&
-      options.connectId &&
-      options.hardwareTransportType === EHardwareTransportType.DesktopWebBle,
-    );
-    if (
-      isDesktopBackgroundCall &&
-      !isDesktopBleConnectedOnlyReuse &&
-      (options.hardwareTransportType ??
-        (await this.getCurrentTransportType())) ===
-        EHardwareTransportType.DesktopWebBle
-    ) {
-      throw new deviceErrors.DeviceNotFound({
-        silentMode: true,
-        payload: {
-          connectId: options.connectId,
-          inBluetoothCommunication: true,
-        },
-      });
-    }
     const compatibleConnectId = options.connectId
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
