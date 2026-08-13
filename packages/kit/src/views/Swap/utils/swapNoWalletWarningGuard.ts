@@ -41,6 +41,19 @@ export function removeSwapNoConnectWalletAlerts(states: ISwapAlertState[]) {
   return states.filter((item) => !item.noConnectWallet);
 }
 
+export function removeSwapToAccountUnsupportedAlerts({
+  states,
+  shouldRemove,
+}: {
+  states: ISwapAlertState[];
+  shouldRemove: boolean;
+}) {
+  if (!shouldRemove) {
+    return states;
+  }
+  return states.filter((item) => !item.toAccountNetworkNotSupported);
+}
+
 export function shouldShowSwapLocalData({
   accountInfoReady,
   accountSelectorActiveAccountInitDone,
@@ -115,4 +128,26 @@ export function shouldShowSwapAccountUnsupportedAlert({
     !accountUtils.isHwWallet({ walletId }) &&
     !accountUtils.isQrWallet({ walletId })
   );
+}
+
+export function shouldCheckSwapToAccountUnsupportedAlert({
+  hasToToken,
+  hasToAddress,
+  hasToAccountWallet,
+  isHardwareWallet,
+  isCrossChain,
+  providerSupportsRecipient,
+}: {
+  hasToToken: boolean;
+  hasToAddress: boolean;
+  hasToAccountWallet: boolean;
+  isHardwareWallet: boolean;
+  isCrossChain: boolean;
+  providerSupportsRecipient: boolean;
+}) {
+  if (!hasToToken || hasToAddress || !hasToAccountWallet) {
+    return false;
+  }
+
+  return isHardwareWallet || !(isCrossChain && providerSupportsRecipient);
 }
