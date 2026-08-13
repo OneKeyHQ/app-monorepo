@@ -2,6 +2,8 @@ export const PerpTestIDs = {
   // -- Settings --
   HeaderSettingsButton: 'perp-header-settings-button',
   MobileSettingsButton: 'perp-mobile-settings-button',
+  MobileChartPositionSetting: 'perp-mobile-chart-position-setting',
+  MobileChartPositionControl: 'perp-mobile-chart-position-control',
 
   // -- Market selector --
   TokenSelector: 'perp-token-selector',
@@ -115,6 +117,8 @@ export const PerpTestIDs = {
   MobileChartOverlay: 'perp-mobile-chart-overlay',
   MobileChartToggle: 'perp-mobile-chart-toggle',
   MobileChartContent: 'perp-mobile-chart-content',
+  MobileTopChartToggle: 'perp-mobile-top-chart-toggle',
+  MobileTopChartContent: 'perp-mobile-top-chart-content',
 
   // -- Portfolio --
   PortfolioButton: 'perp-portfolio-button',

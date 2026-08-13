@@ -6,6 +6,10 @@ import { fireEvent, render } from '@testing-library/react';
 
 import { TradingViewChartControls } from './TradingViewChartControls';
 
+const mockTradingViewNativeIntervalSelector = jest.fn<null, [unknown]>(
+  () => null,
+);
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -15,7 +19,31 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/components', () => ({
   IconButton: () => null,
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Stack: ({
+    borderBottomColor,
+    borderBottomWidth,
+    children,
+    pb,
+    pt,
+    py,
+  }: {
+    borderBottomColor?: string;
+    borderBottomWidth?: number;
+    children?: ReactNode;
+    pb?: string;
+    pt?: string;
+    py?: string;
+  }) => (
+    <div
+      data-border-bottom-color={borderBottomColor}
+      data-border-bottom-width={borderBottomWidth}
+      data-pb={pb}
+      data-pt={pt}
+      data-py={py}
+    >
+      {children}
+    </div>
+  ),
   XStack: ({
     accessibilityLabel,
     children,
@@ -51,11 +79,14 @@ jest.mock('./indicatorSelector/NativeIndicatorSelector', () => ({
   IndicatorPopover: () => null,
 }));
 jest.mock('./intervalSelector/NativeIntervalSelector', () => ({
-  TradingViewNativeIntervalSelector: () => (
-    <button data-testid="interval-selector" type="button">
-      Intervals
-    </button>
-  ),
+  TradingViewNativeIntervalSelector: (props: unknown) => {
+    mockTradingViewNativeIntervalSelector(props);
+    return (
+      <button data-testid="interval-selector" type="button">
+        Intervals
+      </button>
+    );
+  },
 }));
 jest.mock('./priceMarketCap/PriceMarketCapSelect', () => ({
   PriceMarketCapSelect: () => null,
@@ -101,6 +132,65 @@ const BASE_PROPS: ComponentProps<typeof TradingViewChartControls> = {
 };
 
 describe('TradingViewChartControls', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps default active interval backgrounds outside compact mode', () => {
+    const { rerender } = render(<TradingViewChartControls {...BASE_PROPS} />);
+
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: false,
+        showActiveBackground: true,
+      }),
+    );
+
+    rerender(<TradingViewChartControls {...BASE_PROPS} compactMobileLayout />);
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: true,
+        showActiveBackground: false,
+      }),
+    );
+  });
+
+  it('tightens vertical padding only for compact mobile charts', () => {
+    const view = render(
+      <TradingViewChartControls {...BASE_PROPS} compactMobileLayout />,
+    );
+
+    expect(view.container.firstElementChild?.getAttribute('data-pt')).toBe(
+      '$1.5',
+    );
+    expect(view.container.firstElementChild?.getAttribute('data-pb')).toBe(
+      '$0.5',
+    );
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-width',
+      ),
+    ).toBe('0.5');
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-color',
+      ),
+    ).toBe('$borderSubdued');
+
+    view.rerender(<TradingViewChartControls {...BASE_PROPS} />);
+    expect(view.container.firstElementChild?.getAttribute('data-py')).toBe(
+      '$2',
+    );
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-width',
+      ),
+    ).toBe('0');
+  });
+
   it('uses the full remaining mobile toolbar area as the close action', () => {
     const handleClose = jest.fn();
     const { getByTestId } = render(

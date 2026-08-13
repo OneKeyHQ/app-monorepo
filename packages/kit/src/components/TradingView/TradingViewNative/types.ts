@@ -72,6 +72,7 @@ export interface ITradingViewNativeProps {
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  showNativeChartCloseControl?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;

@@ -2,9 +2,12 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 
-import { PerpMobileChartPanel } from './PerpMobileChartPanel';
+import {
+  PerpMobileChartPanel,
+  PerpMobileTopChartPanel,
+} from './PerpMobileChartPanel';
 
 const mockTradingViewSources: Array<{
   coin: string;
@@ -15,9 +18,17 @@ const mockTradingViewDisplayModes: Array<string | undefined> = [];
 
 let mockWindowDimensions = { height: 852, width: 393 };
 let mockActiveCoin = 'BTC';
+const mockDeferredTasks: Array<() => void> = [];
 
 jest.mock('react-native', () => ({
   useWindowDimensions: () => mockWindowDimensions,
+}));
+
+jest.mock('@onekeyhq/kit/src/utils/deferHeavyWork', () => ({
+  deferHeavyWorkUntilUIIdle: () =>
+    new Promise<void>((resolve) => {
+      mockDeferredTasks.push(resolve);
+    }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -68,28 +79,43 @@ jest.mock('@onekeyhq/components', () => ({
     );
   },
   YStack: ({
+    borderBottomWidth,
+    borderTopWidth,
     bottom,
     children,
     h,
     left,
+    mb,
+    mt,
+    pb,
     position,
     right,
     testID,
     zIndex,
   }: {
+    borderBottomWidth?: number | string;
+    borderTopWidth?: number | string;
     bottom?: number;
     children?: ReactNode;
     h?: number;
     left?: number;
+    mb?: number | string;
+    mt?: number;
+    pb?: number;
     position?: string;
     right?: number;
     testID?: string;
     zIndex?: number;
   }) => (
     <div
+      data-border-bottom-width={borderBottomWidth}
+      data-border-top-width={borderTopWidth}
       data-bottom={bottom}
       data-h={h}
       data-left={left}
+      data-mb={mb}
+      data-mt={mt}
+      data-pb={pb}
       data-position={position}
       data-right={right}
       data-testid={testID}
@@ -112,10 +138,12 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   TradingViewNative: ({
     nativeChartDisplayMode,
     onNativeChartClose,
+    showNativeChartCloseControl,
     source,
   }: {
     nativeChartDisplayMode?: string;
     onNativeChartClose?: () => void;
+    showNativeChartCloseControl?: boolean;
     source: { coin: string; environment: string; kind: string };
   }) => {
     mockTradingViewSources.push(source);
@@ -130,7 +158,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
         >
           Native chart
         </span>
-        {onNativeChartClose ? (
+        {onNativeChartClose && showNativeChartCloseControl !== false ? (
           <button
             data-testid="mock-native-chart-close"
             onClick={onNativeChartClose}
@@ -148,6 +176,7 @@ describe('PerpMobileChartPanel', () => {
   beforeEach(() => {
     mockTradingViewSources.length = 0;
     mockTradingViewDisplayModes.length = 0;
+    mockDeferredTasks.length = 0;
     mockWindowDimensions = { height: 852, width: 393 };
     mockActiveCoin = 'BTC';
   });
@@ -189,6 +218,13 @@ describe('PerpMobileChartPanel', () => {
     expect(
       getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
     ).toBe('250');
+    expect(
+      getByTestId('perp-mobile-chart-content').querySelector('[data-mt="-4"]'),
+    ).toBeTruthy();
+    const expandedOverlay = getByTestId('perp-mobile-chart-overlay');
+    expect(expandedOverlay.getAttribute('data-border-top-width')).toBe('0.5');
+    expect(expandedOverlay.getAttribute('data-pb')).toBe('8');
+    expect(expandedOverlay.getAttribute('data-border-bottom-width')).toBeNull();
 
     fireEvent.click(getByTestId('mock-native-chart-close'));
 
@@ -230,7 +266,7 @@ describe('PerpMobileChartPanel', () => {
 
     mockActiveCoin = 'ETH';
     view.rerender(<PerpMobileChartPanel />);
-    fireEvent.click(toggle);
+    fireEvent.click(view.getByTestId('perp-mobile-chart-toggle'));
     expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
       'ETH',
     );
@@ -244,7 +280,7 @@ describe('PerpMobileChartPanel', () => {
 
     expect(
       getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
-    ).toBe('220');
+    ).toBe('212');
   });
 
   it('never collapses the chart below its minimum usable height', () => {
@@ -266,5 +302,93 @@ describe('PerpMobileChartPanel', () => {
     expect(overlay.getAttribute('data-bottom')).toBe('34');
     expect(overlay.getAttribute('data-left')).toBe('0');
     expect(overlay.getAttribute('data-right')).toBe('0');
+    expect(overlay.getAttribute('data-border-top-width')).toBe('0.5');
+    expect(overlay.getAttribute('data-pb')).toBe('0');
+  });
+
+  it('renders the top chart as a controlled inline panel', () => {
+    const handleClose = jest.fn();
+    const view = render(
+      <PerpMobileTopChartPanel isExpanded={false} onClose={handleClose} />,
+    );
+
+    expect(view.queryByTestId('perp-mobile-top-chart-content')).toBeNull();
+    expect(view.queryByTestId('perp-mobile-chart-overlay')).toBeNull();
+    expect(view.queryByTestId('perp-mobile-chart-toggle')).toBeNull();
+
+    view.rerender(<PerpMobileTopChartPanel isExpanded onClose={handleClose} />);
+
+    const topChartPanel = view.container.firstElementChild;
+    expect(topChartPanel?.getAttribute('data-border-top-width')).toBe('0.5');
+    expect(topChartPanel?.getAttribute('data-border-bottom-width')).toBe('0.5');
+    expect(topChartPanel?.getAttribute('data-mb')).toBe('$3');
+    expect(
+      view.getByTestId('perp-mobile-top-chart-content').getAttribute('data-h'),
+    ).toBe('250');
+    expect(
+      view
+        .getByTestId('perp-mobile-top-chart-content')
+        .querySelector('[data-mt="-4"]'),
+    ).toBeTruthy();
+    expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
+      'BTC',
+    );
+    expect(view.queryByTestId('mock-native-chart-close')).toBeNull();
+
+    view.rerender(
+      <PerpMobileTopChartPanel isExpanded={false} onClose={handleClose} />,
+    );
+    expect(
+      view.getByTestId('perp-mobile-top-chart-content').getAttribute('data-h'),
+    ).toBe('0');
+    expect(view.getByText('Native chart')).toBeTruthy();
+  });
+
+  it('preloads the collapsed top chart after initial interactions', async () => {
+    const view = render(
+      <PerpMobileTopChartPanel isExpanded={false} onClose={jest.fn()} />,
+    );
+
+    expect(view.queryByTestId('perp-mobile-top-chart-content')).toBeNull();
+    expect(mockDeferredTasks).toHaveLength(1);
+
+    await act(async () => {
+      mockDeferredTasks[0]?.();
+      await Promise.resolve();
+    });
+
+    expect(
+      view.getByTestId('perp-mobile-top-chart-content').getAttribute('data-h'),
+    ).toBe('0');
+    expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
+      'BTC',
+    );
+  });
+
+  it('replaces a hidden top chart after a selected market change', async () => {
+    const view = render(
+      <PerpMobileTopChartPanel isExpanded onClose={jest.fn()} />,
+    );
+    view.rerender(
+      <PerpMobileTopChartPanel isExpanded={false} onClose={jest.fn()} />,
+    );
+    expect(view.getByText('Native chart')).toBeTruthy();
+
+    mockActiveCoin = 'ETH';
+    view.rerender(
+      <PerpMobileTopChartPanel isExpanded={false} onClose={jest.fn()} />,
+    );
+
+    expect(view.queryByText('Native chart')).toBeNull();
+
+    expect(mockDeferredTasks).toHaveLength(1);
+    await act(async () => {
+      mockDeferredTasks[0]?.();
+      await Promise.resolve();
+    });
+
+    expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
+      'ETH',
+    );
   });
 });

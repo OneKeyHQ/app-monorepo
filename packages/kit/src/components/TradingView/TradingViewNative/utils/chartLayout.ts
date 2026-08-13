@@ -856,7 +856,8 @@ export function getTradingViewNativeChartLayout({
   minimumTimeTickIndexSpacing,
   points,
   priceAxisWidth,
-  priceAxisTickCount = TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
+  priceAxisTickCount,
+  timeAxisHeight,
   visiblePointRange,
   width,
 }: {
@@ -872,14 +873,21 @@ export function getTradingViewNativeChartLayout({
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
   priceAxisTickCount?: number;
+  timeAxisHeight?: number;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
 }): ITradingViewNativeChartLayout | null {
   'worklet';
 
+  // Imported constants used in default parameters are not captured by the
+  // Native worklet serializer. Resolve them inside the worklet body instead.
+  const resolvedPriceAxisTickCount =
+    priceAxisTickCount ?? TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
+  const resolvedTimeAxisHeight =
+    timeAxisHeight ?? TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
   const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
   const priceAxisX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
-  const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  const timeAxisY = height - resolvedTimeAxisHeight;
   const contentHeight =
     timeAxisY -
     TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
@@ -931,7 +939,7 @@ export function getTradingViewNativeChartLayout({
   const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
   const normalizedPriceAxisTickCount = Math.max(
-    Math.floor(priceAxisTickCount),
+    Math.floor(resolvedPriceAxisTickCount),
     1,
   );
   const priceTickCount = priceRange === 0 ? 1 : normalizedPriceAxisTickCount;

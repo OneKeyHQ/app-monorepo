@@ -11,6 +11,7 @@ import {
   ESwitchSize,
   Icon,
   Popover,
+  SegmentControl,
   SizableText,
   Stack,
   Switch,
@@ -159,6 +160,7 @@ interface IPerpSettingsPopoverContentProps {
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }
 
@@ -347,6 +349,7 @@ function SpotDustingOptOutSetting() {
 
 function PerpSettingsMainContent({
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
   onOpenActivityCenter,
   onOpenGuide,
@@ -400,6 +403,50 @@ function PerpSettingsMainContent({
           }}
         />
       </ListItem>
+
+      {showChartPositionSetting ? (
+        <ListItem
+          testID={PerpTestIDs.MobileChartPositionSetting}
+          mx="$0"
+          px="$3"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__chart_display,
+          })}
+          cursor="default"
+        >
+          <SegmentControl
+            testID={PerpTestIDs.MobileChartPositionControl}
+            value={perpsCustomSettings.chartPosition ?? 'bottom'}
+            options={[
+              {
+                label: intl.formatMessage({ id: ETranslations.global_top }),
+                value: 'top',
+              },
+              {
+                label: intl.formatMessage({ id: ETranslations.global_bottom }),
+                value: 'bottom',
+              },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.market_chart_settings__none,
+                }),
+                value: 'hidden',
+              },
+            ]}
+            h={26}
+            segmentControlItemStyleProps={{ px: '$2', py: '$1' }}
+            onChange={(value) => {
+              const chartPosition =
+                value === 'top' || value === 'hidden' ? value : 'bottom';
+              setPerpsCustomSettings((prev) => ({
+                ...prev,
+                chartPosition,
+              }));
+            }}
+          />
+        </ListItem>
+      ) : null}
 
       <SpotDustingOptOutSetting />
 
@@ -505,6 +552,7 @@ function PerpSettingsPopoverContent({
   onOpenActivityCenter,
   onOpenGuide,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const intl = useIntl();
@@ -570,6 +618,7 @@ function PerpSettingsPopoverContent({
       return (
         <PerpSettingsMainContent
           showActivityCenterEntry={showActivityCenterEntry}
+          showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
           onOpenActivityCenter={handleOpenActivityCenter}
           onOpenGuide={handleOpenGuide}
@@ -608,6 +657,7 @@ function PerpSettingsPopoverContent({
     handleOpenGuide,
     intl,
     showActivityCenterEntry,
+    showChartPositionSetting,
     showGuideEntry,
     view,
   ]);
@@ -643,6 +693,7 @@ function PerpSettingsPopoverContent({
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }
 
@@ -651,12 +702,14 @@ export function showPerpSettingsDialog({
   onOpenActivityCenter,
   onOpenGuide,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: {
   title: string;
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }) {
   const dialogInstanceRef: {
@@ -684,6 +737,7 @@ export function showPerpSettingsDialog({
           onOpenActivityCenter={onOpenActivityCenter}
           onOpenGuide={onOpenGuide}
           showActivityCenterEntry={showActivityCenterEntry}
+          showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
         />
       </PerpsProviderMirror>
@@ -697,6 +751,7 @@ export function showPerpSettingsDialog({
 export function PerpSettingsPopover({
   renderTrigger,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
@@ -712,6 +767,7 @@ export function PerpSettingsPopover({
           <PerpSettingsPopoverContent
             closePopover={closePopover}
             showActivityCenterEntry={showActivityCenterEntry}
+            showChartPositionSetting={showChartPositionSetting}
             showGuideEntry={showGuideEntry}
           />
         )}

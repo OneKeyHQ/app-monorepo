@@ -215,6 +215,7 @@ const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
 
 const PERPS_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
   'BookOpenOutline',
+  'ChartTrending2Outline',
   'ChevronBottomOutline',
   'ChevronDownSmallOutline',
   'ChevronTriangleDownSmallSolid',

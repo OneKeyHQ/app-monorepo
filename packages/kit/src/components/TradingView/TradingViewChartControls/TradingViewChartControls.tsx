@@ -32,6 +32,7 @@ type IPriceMarketCapConfig =
 
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
+  compactMobileLayout?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -88,6 +89,7 @@ export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
+    compactMobileLayout = false,
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -330,8 +332,10 @@ export const TradingViewChartControls = memo(
 
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
+        compactMobileLayout={compactMobileLayout}
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
+        showActiveBackground={isDesktopLayout || !compactMobileLayout}
         onIntervalChange={onIntervalChange}
         onControlInteraction={onControlInteraction}
       />
@@ -412,7 +416,16 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
+      <Stack
+        bg={backgroundColor}
+        px="$2"
+        py={compactMobileLayout ? undefined : '$2'}
+        pt={compactMobileLayout ? '$1.5' : undefined}
+        pb={compactMobileLayout ? '$0.5' : undefined}
+        borderBottomWidth={compactMobileLayout ? 0.5 : 0}
+        borderBottomColor="$borderSubdued"
+        zIndex={3}
+      >
         <XStack
           alignItems="center"
           justifyContent="space-between"

@@ -241,11 +241,47 @@ describe('TradingViewNativeContainer', () => {
 
     expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
       expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: true,
         hasVolume: false,
         priceAxisFontSize: 11,
         priceAxisTickCount: 4,
         showLegend: false,
+        timeAxisFontSize: 11,
+        timeAxisHeight: 20,
+        timeAxisBorderWidth: 0.5,
       }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+  });
+
+  it('keeps shared chart defaults outside compact mode', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: false,
+        priceAxisFontSize: undefined,
+        priceAxisTickCount: undefined,
+        showLegend: true,
+        timeAxisFontSize: undefined,
+        timeAxisHeight: undefined,
+        timeAxisBorderWidth: undefined,
+      }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: false }),
     );
   });
 
@@ -341,6 +377,28 @@ describe('TradingViewNativeContainer', () => {
     expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         onChartClose: handleChartClose,
+      }),
+    );
+  });
+
+  it('forwards native close-control visibility to chart controls', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartClose={jest.fn()}
+        showNativeChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showChartCloseControl: false,
       }),
     );
   });

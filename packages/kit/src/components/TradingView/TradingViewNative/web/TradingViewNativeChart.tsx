@@ -21,6 +21,7 @@ import {
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY as PRICE_AXIS_FONT_FAMILY,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
@@ -72,6 +73,7 @@ const ONEKEY_WATERMARK_ASSET =
   require('@onekeyhq/components/svg/illus/logo.svg') as
     | string
     | { default: string };
+
 const ONEKEY_WATERMARK_URI =
   typeof ONEKEY_WATERMARK_ASSET === 'string'
     ? ONEKEY_WATERMARK_ASSET
@@ -81,6 +83,7 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
@@ -88,6 +91,9 @@ interface ITradingViewNativeChartProps {
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
+  timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
@@ -112,6 +118,7 @@ interface IDrawKLineChartOptions {
   canvas: HTMLCanvasElement;
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
+  extendTimeAxisBorderToCanvasEdge: boolean;
   hasVolume: boolean;
   candleLabels: ITradingViewNativeCandleLabels;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
@@ -121,6 +128,9 @@ interface IDrawKLineChartOptions {
   priceAxisTickCount?: number;
   runtimeState: ITradingViewNativeChartRuntimeState;
   showLegend: boolean;
+  timeAxisFontSize: number;
+  timeAxisHeight: number;
+  timeAxisBorderWidth?: number;
   watermarkImage: HTMLImageElement | null;
   watermarkOpacity: number;
 }
@@ -135,11 +145,12 @@ interface ICanvasPriceAxisLabels {
 function getCanvasFont(
   font: ITradingViewNativeChartSceneFont,
   priceAxisFontSize = AXIS_FONT_SIZE,
+  timeAxisFontSize = AXIS_FONT_SIZE,
 ) {
   if (font === 'priceAxis') {
     return `${priceAxisFontSize}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
   }
-  return `${font === 'axis' ? AXIS_FONT_SIZE : LEGEND_FONT_SIZE}px sans-serif`;
+  return `${font === 'axis' ? timeAxisFontSize : LEGEND_FONT_SIZE}px sans-serif`;
 }
 
 function getCanvasPriceAxisWidth(
@@ -181,15 +192,21 @@ function drawChartScene({
   commands,
   context,
   priceAxisFontSize,
+  timeAxisFontSize,
+  timeAxisBorderWidth,
   watermarkImage,
 }: {
   colors: ITradingViewNativeChartSceneColors;
   commands: ITradingViewNativeChartSceneCommand[];
   context: CanvasRenderingContext2D;
   priceAxisFontSize: number;
+  timeAxisFontSize: number;
+  timeAxisBorderWidth?: number;
   watermarkImage: HTMLImageElement | null;
 }) {
-  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors);
+  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors, {
+    timeAxisBorderWidth,
+  });
   for (const command of commands) {
     switch (command.kind) {
       case 'circle': {
@@ -270,7 +287,11 @@ function drawChartScene({
         context.save();
         context.globalAlpha = paint.opacity;
         context.fillStyle = paint.color;
-        context.font = getCanvasFont(command.font, priceAxisFontSize);
+        context.font = getCanvasFont(
+          command.font,
+          priceAxisFontSize,
+          timeAxisFontSize,
+        );
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
         context.fillText(command.text, command.x, command.y);
@@ -302,6 +323,7 @@ function drawKLineChart({
   canvas,
   chartType,
   colors,
+  extendTimeAxisBorderToCanvasEdge,
   hasVolume,
   candleLabels,
   indicatorSeries,
@@ -311,6 +333,9 @@ function drawKLineChart({
   priceAxisTickCount,
   runtimeState,
   showLegend,
+  timeAxisFontSize,
+  timeAxisHeight,
+  timeAxisBorderWidth,
   watermarkImage,
   watermarkOpacity,
 }: IDrawKLineChartOptions) {
@@ -337,11 +362,12 @@ function drawKLineChart({
     candleIntervalSeconds,
     chartType,
     crosshair: runtimeState.crosshair,
+    extendTimeAxisBorderToCanvasEdge,
     hasVolume,
     height,
     indicatorSeries,
     measureTextWidth: (text, font) => {
-      context.font = getCanvasFont(font, priceAxisFontSize);
+      context.font = getCanvasFont(font, priceAxisFontSize, timeAxisFontSize);
       return context.measureText(text).width;
     },
     candleLabels,
@@ -350,6 +376,8 @@ function drawKLineChart({
     priceAxisWidth,
     priceAxisTickCount,
     showLegend,
+    timeAxisFontSize,
+    timeAxisHeight,
     viewport: runtimeState.viewport,
     watermarkOpacity,
     width,
@@ -359,6 +387,8 @@ function drawKLineChart({
     commands: scene.commands,
     context,
     priceAxisFontSize,
+    timeAxisFontSize,
+    timeAxisBorderWidth,
     watermarkImage,
   });
 }
@@ -367,6 +397,7 @@ export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
     chartType,
+    extendTimeAxisBorderToCanvasEdge = false,
     hasVolume,
     indicatorSeries,
     initialRightOffset,
@@ -374,6 +405,9 @@ export const TradingViewNativeChart = memo(
     priceAxisFontSize = AXIS_FONT_SIZE,
     priceAxisTickCount,
     showLegend = true,
+    timeAxisFontSize = AXIS_FONT_SIZE,
+    timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    timeAxisBorderWidth,
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
@@ -423,6 +457,9 @@ export const TradingViewNativeChart = memo(
     const themeName = useThemeName();
     const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
+    const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
+      ? theme.border.val
+      : undefined;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const watermarkOpacity =
@@ -492,8 +529,10 @@ export const TradingViewNativeChart = memo(
             down: CHART_DOWN_COLOR,
             grid,
             line,
+            timeAxisBorder,
             up: CHART_UP_COLOR,
           },
+          extendTimeAxisBorderToCanvasEdge,
           hasVolume,
           candleLabels,
           indicatorSeries,
@@ -503,6 +542,9 @@ export const TradingViewNativeChart = memo(
           priceAxisTickCount,
           runtimeState: nextRuntimeState,
           showLegend,
+          timeAxisFontSize,
+          timeAxisHeight,
+          timeAxisBorderWidth,
           watermarkImage,
           watermarkOpacity,
         });
@@ -512,6 +554,7 @@ export const TradingViewNativeChart = memo(
         background,
         candleIntervalSeconds,
         chartType,
+        extendTimeAxisBorderToCanvasEdge,
         grid,
         hasVolume,
         indicatorSeries,
@@ -522,6 +565,10 @@ export const TradingViewNativeChart = memo(
         priceAxisTickCount,
         priceAxisLabels,
         showLegend,
+        timeAxisFontSize,
+        timeAxisHeight,
+        timeAxisBorder,
+        timeAxisBorderWidth,
         watermarkImage,
         watermarkOpacity,
       ],
@@ -757,6 +804,7 @@ export const TradingViewNativeChart = memo(
               ),
               height: canvasRect.height,
               pointCount,
+              timeAxisHeight,
               type: 'crosshairMoved',
               x: event.clientX - canvasRect.left,
               y: event.clientY - canvasRect.top,
@@ -797,7 +845,13 @@ export const TradingViewNativeChart = memo(
             : nextRuntimeState.viewport,
         );
       },
-      [pointCount, priceAxisFontSize, priceAxisLabels, renderChart],
+      [
+        pointCount,
+        priceAxisFontSize,
+        priceAxisLabels,
+        renderChart,
+        timeAxisHeight,
+      ],
     );
 
     const handlePointerLeave = useCallback(() => {

@@ -25,33 +25,40 @@ import type { ITradingViewIntervalConfigData } from '../types';
 export type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
 
 interface ITradingViewNativeIntervalSelectorProps {
+  compactMobileLayout?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
+  showActiveBackground?: boolean;
   onIntervalChange: (interval: string) => void;
   onControlInteraction?: () => void;
 }
 
 function IntervalMoreTrigger({
+  compactMobileLayout,
   label,
   isActive,
+  showActiveBackground,
   onPress,
 }: {
+  compactMobileLayout: boolean;
   label: string;
   isActive: boolean;
+  showActiveBackground: boolean;
   onPress?: () => void;
 }) {
+  const hasActiveBackground = isActive && showActiveBackground;
   return (
     <XStack
       testID="trading-view-native-interval-selector-more-select"
-      h={30}
+      h={compactMobileLayout ? 26 : 30}
       px="$2.5"
       gap="$1"
       alignItems="center"
       borderRadius="$full"
       borderCurve="continuous"
-      bg={isActive ? '$bgStrong' : '$transparent'}
+      bg={hasActiveBackground ? '$bgStrong' : '$transparent'}
       hoverStyle={{
-        bg: isActive ? '$bgStrongHover' : '$bgHover',
+        bg: hasActiveBackground ? '$bgStrongHover' : '$bgHover',
       }}
       pressStyle={{
         bg: isActive ? '$bgStrongActive' : '$bgActive',
@@ -61,7 +68,7 @@ function IntervalMoreTrigger({
       userSelect="none"
     >
       <SizableText
-        size="$bodyMdMedium"
+        size={compactMobileLayout ? '$bodySmMedium' : '$bodyMdMedium'}
         numberOfLines={1}
         color={isActive ? '$text' : '$textSubdued'}
       >
@@ -78,8 +85,10 @@ function IntervalMoreTrigger({
 
 export const TradingViewNativeIntervalSelector = memo(
   ({
+    compactMobileLayout = false,
     intervalConfig,
     intervalControlMode = 'dialog',
+    showActiveBackground = true,
     onIntervalChange,
     onControlInteraction,
   }: ITradingViewNativeIntervalSelectorProps) => {
@@ -205,8 +214,10 @@ export const TradingViewNativeIntervalSelector = memo(
             }}
             renderTrigger={
               <IntervalMoreTrigger
+                compactMobileLayout={compactMobileLayout}
                 label={moreTriggerLabel}
                 isActive={isMoreTriggerActive}
+                showActiveBackground={showActiveBackground}
               />
             }
             renderContent={intervalsPanelContent}
@@ -215,8 +226,10 @@ export const TradingViewNativeIntervalSelector = memo(
       } else {
         moreControl = (
           <IntervalMoreTrigger
+            compactMobileLayout={compactMobileLayout}
             label={moreTriggerLabel}
             isActive={isMoreTriggerActive}
+            showActiveBackground={showActiveBackground}
             onPress={showIntervalsDialog}
           />
         );
@@ -230,7 +243,23 @@ export const TradingViewNativeIntervalSelector = memo(
             value={
               visibleSegmentValueSet.has(activeInterval) ? activeInterval : ''
             }
-            options={segmentOptions}
+            options={segmentOptions.map((option) => ({
+              ...option,
+              label: compactMobileLayout ? (
+                <SizableText
+                  size="$bodySmMedium"
+                  textAlign="center"
+                  numberOfLines={1}
+                  color={
+                    option.value === activeInterval ? '$text' : '$textSubdued'
+                  }
+                >
+                  {option.label}
+                </SizableText>
+              ) : (
+                option.label
+              ),
+            }))}
             onChange={(value) => {
               onControlInteraction?.();
               const nextOption = options.find(
@@ -245,15 +274,19 @@ export const TradingViewNativeIntervalSelector = memo(
               }
             }}
             slotBackgroundColor="$transparent"
-            activeBackgroundColor="$bgStrong"
+            activeBackgroundColor={
+              showActiveBackground ? '$bgStrong' : '$transparent'
+            }
             activeTextColor="$text"
             inactiveTextColor="$textSubdued"
-            h={30}
-            p="$0.5"
+            h={compactMobileLayout ? 26 : 30}
+            p={compactMobileLayout ? '$0' : '$0.5'}
             segmentControlItemStyleProps={{
               minWidth: 42,
               px: '$2.5',
-              py: '$1',
+              py: compactMobileLayout ? '$0' : '$1',
+              h: compactMobileLayout ? '100%' : undefined,
+              justifyContent: compactMobileLayout ? 'center' : undefined,
             }}
           />
         ) : null}

@@ -26,10 +26,12 @@ export function PerpSettingsButton({
   size = 'small',
   variant = 'tertiary',
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
   ...rest
 }: IPerpSettingsButtonProps & {
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }) {
   const intl = useIntl();
@@ -47,12 +49,14 @@ export function PerpSettingsButton({
       onOpenActivityCenter: handleOpenActivityCenter,
       onOpenGuide: showGuide,
       showActivityCenterEntry,
+      showChartPositionSetting,
       showGuideEntry,
     });
   }, [
     handleOpenActivityCenter,
     intl,
     showActivityCenterEntry,
+    showChartPositionSetting,
     showGuide,
     showGuideEntry,
   ]);
@@ -87,6 +91,7 @@ export function PerpSettingsButton({
   const content = (
     <PerpSettingsPopover
       showActivityCenterEntry={showActivityCenterEntry}
+      showChartPositionSetting={showChartPositionSetting}
       showGuideEntry={showGuideEntry}
       renderTrigger={
         <IconButton

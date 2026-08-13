@@ -99,6 +99,10 @@ describe('TradingViewNative shared chart scene', () => {
     );
 
     const priceAxisX = 320 - scene.priceAxisWidth;
+    const timeAxisBorder = scene.commands.find(
+      (command) => command.kind === 'line' && command.paint === 'gridSolidLine',
+    );
+    expect(timeAxisBorder).toMatchObject({ x1: 0, x2: priceAxisX });
     const priceAxisTextX = scene.commands.flatMap((command) =>
       command.kind === 'text' &&
       command.font === 'priceAxis' &&
@@ -173,6 +177,70 @@ describe('TradingViewNative shared chart scene', () => {
     expect(defaultY).toBeDefined();
     expect(compactY).toBeDefined();
     expect((defaultY ?? 0) - (compactY ?? 0)).toBeCloseTo(0.5);
+  });
+
+  it('uses the supplied time-axis font size for horizontal label baselines', () => {
+    const buildScene = (timeAxisFontSize?: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        timeAxisFontSize,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+    const getFirstTimeTickY = (
+      scene: ReturnType<typeof buildTradingViewNativeChartScene>,
+    ) => {
+      const command = scene.commands.find(
+        (candidate) =>
+          candidate.kind === 'text' &&
+          candidate.font === 'axis' &&
+          candidate.paint === 'axisText',
+      );
+      return command?.kind === 'text' ? command.y : undefined;
+    };
+
+    const defaultY = getFirstTimeTickY(buildScene());
+    const compactY = getFirstTimeTickY(buildScene(11));
+
+    expect(defaultY).toBeDefined();
+    expect(compactY).toBeDefined();
+    expect((defaultY ?? 0) - (compactY ?? 0)).toBeCloseTo(0.5);
+  });
+
+  it('uses the supplied compact time-axis height', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      extendTimeAxisBorderToCanvasEdge: true,
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      timeAxisHeight: 20,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const timeAxisBorder = scene.commands.find(
+      (command) => command.kind === 'line' && command.paint === 'gridSolidLine',
+    );
+
+    expect(timeAxisBorder).toMatchObject({
+      x1: 0,
+      x2: 320,
+      y1: 220,
+      y2: 220,
+    });
   });
 
   it('renders active overlays and includes Bollinger bands in auto scale', () => {
@@ -397,11 +465,15 @@ describe('TradingViewNative shared chart scene', () => {
       background: '#222222',
       grid: '#333333',
       line: '#444444',
+      timeAxisBorder: '#555555',
     });
 
     expect(styles.up.color).toBe(TRADING_VIEW_NATIVE_CHART_UP_COLOR);
     expect(styles.down.color).toBe(TRADING_VIEW_NATIVE_CHART_DOWN_COLOR);
     expect(styles.gridLine.dash).toEqual([2, 4]);
+    expect(styles.gridLine.color).toBe('#333333');
+    expect(styles.gridSolidLine.color).toBe('#555555');
+    expect(styles.gridSolidLine.strokeWidth).toBe(1);
     expect(styles.crosshairLine.opacity).toBe(0.6);
     expect(styles.line.color).toBe('#444444');
     expect(styles.lineStroke).toMatchObject({
@@ -411,6 +483,18 @@ describe('TradingViewNative shared chart scene', () => {
       strokeJoin: 'round',
       strokeWidth: 2,
     });
+
+    expect(
+      getTradingViewNativeChartScenePaintStyles(
+        {
+          axisText: '#111111',
+          background: '#222222',
+          grid: '#333333',
+          line: '#444444',
+        },
+        { timeAxisBorderWidth: 0.5 },
+      ).gridSolidLine.strokeWidth,
+    ).toBe(0.5);
   });
 
   it('describes a themed line while retaining directional current price', () => {

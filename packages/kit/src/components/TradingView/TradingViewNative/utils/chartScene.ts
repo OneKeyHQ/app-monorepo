@@ -118,6 +118,7 @@ export interface ITradingViewNativeChartSceneColors {
   down?: string;
   grid: string;
   line: string;
+  timeAxisBorder?: string;
   up?: string;
 }
 
@@ -129,6 +130,10 @@ export interface ITradingViewNativeChartScenePaintStyle {
   strokeCap?: 'butt' | 'round' | 'square';
   strokeJoin?: 'bevel' | 'miter' | 'round';
   strokeWidth?: number;
+}
+
+export interface ITradingViewNativeChartSceneStyleOptions {
+  timeAxisBorderWidth?: number;
 }
 
 export interface ITradingViewNativeChartSceneRect {
@@ -192,6 +197,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   height: number;
   indicatorSeries?: ITradingViewNativeIndicatorSeries[];
@@ -205,6 +211,8 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   priceAxisWidth?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
   width: number;
@@ -218,14 +226,18 @@ export interface ITradingViewNativeChartScene {
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
 
-export function getTradingViewNativeChartScenePaintStyles({
-  axisText,
-  background,
-  down = CHART_DOWN_COLOR,
-  grid,
-  line,
-  up = CHART_UP_COLOR,
-}: ITradingViewNativeChartSceneColors): Record<
+export function getTradingViewNativeChartScenePaintStyles(
+  {
+    axisText,
+    background,
+    down = CHART_DOWN_COLOR,
+    grid,
+    line,
+    timeAxisBorder,
+    up = CHART_UP_COLOR,
+  }: ITradingViewNativeChartSceneColors,
+  { timeAxisBorderWidth = 1 }: ITradingViewNativeChartSceneStyleOptions = {},
+): Record<
   ITradingViewNativeChartScenePaint,
   ITradingViewNativeChartScenePaintStyle
 > {
@@ -263,7 +275,11 @@ export function getTradingViewNativeChartScenePaintStyles({
       dash: [GRID_LINE_DASH_LENGTH, GRID_LINE_DASH_GAP],
       opacity: 1,
     },
-    gridSolidLine: { color: grid, opacity: 1 },
+    gridSolidLine: {
+      color: timeAxisBorder ?? grid,
+      opacity: 1,
+      strokeWidth: timeAxisBorderWidth,
+    },
     indicatorCyanStroke: {
       color: INDICATOR_CYAN_COLOR,
       drawStyle: 'stroke',
@@ -433,6 +449,7 @@ export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
   chartType,
   crosshair,
+  extendTimeAxisBorderToCanvasEdge = false,
   hasVolume,
   height,
   indicatorSeries = [],
@@ -443,6 +460,8 @@ export function buildTradingViewNativeChartScene({
   priceAxisWidth,
   priceAxisTickCount,
   showLegend = true,
+  timeAxisFontSize = AXIS_FONT_SIZE,
+  timeAxisHeight = TIME_AXIS_HEIGHT,
   viewport,
   watermarkOpacity,
   width,
@@ -540,6 +559,7 @@ export function buildTradingViewNativeChartScene({
     points,
     priceAxisWidth: resolvedPriceAxisWidth,
     priceAxisTickCount,
+    timeAxisHeight,
     visiblePointRange,
     width,
   });
@@ -581,7 +601,7 @@ export function buildTradingViewNativeChartScene({
     kind: 'line',
     paint: 'gridSolidLine',
     x1: CHART_HORIZONTAL_PADDING,
-    x2: priceAxisX,
+    x2: extendTimeAxisBorderToCanvasEdge ? width : priceAxisX,
     y1: timeAxisY,
     y2: timeAxisY,
   });
@@ -629,7 +649,7 @@ export function buildTradingViewNativeChartScene({
   }
 
   commands.push({ kind: 'clip', rect: chartClip });
-  const timeTextY = timeAxisY + (TIME_AXIS_HEIGHT + AXIS_FONT_SIZE) / 2;
+  const timeTextY = timeAxisY + (timeAxisHeight + timeAxisFontSize) / 2;
   for (const tick of timeTicks) {
     const x = getPointX(tick.index);
     commands.push(
@@ -1031,7 +1051,7 @@ export function buildTradingViewNativeChartScene({
         Math.max(priceAxisX - timeLabelWidth, CHART_HORIZONTAL_PADDING),
       );
       const timeLabelTop =
-        timeAxisY + (TIME_AXIS_HEIGHT - CROSSHAIR_LABEL_HEIGHT) / 2;
+        timeAxisY + (timeAxisHeight - CROSSHAIR_LABEL_HEIGHT) / 2;
       commands.push(
         {
           height: CROSSHAIR_LABEL_HEIGHT,
@@ -1047,7 +1067,11 @@ export function buildTradingViewNativeChartScene({
           paint: 'crosshairLabelText',
           text: timeLabel,
           x: timeLabelLeft + (timeLabelWidth - timeTextWidth) / 2,
-          y: timeLabelTop + CROSSHAIR_LABEL_HEIGHT / 2 + AXIS_FONT_SIZE / 2 - 1,
+          y:
+            timeLabelTop +
+            CROSSHAIR_LABEL_HEIGHT / 2 +
+            timeAxisFontSize / 2 -
+            1,
         },
       );
     }

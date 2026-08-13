@@ -31,6 +31,7 @@ import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
@@ -114,6 +115,7 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
@@ -121,6 +123,9 @@ interface ITradingViewNativeChartProps {
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
+  timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
@@ -177,6 +182,7 @@ export const TradingViewNativeChart = memo(
     candleIntervalSeconds,
     chartType,
     chartPictureVersion,
+    extendTimeAxisBorderToCanvasEdge = false,
     hasVolume,
     indicatorSeries,
     initialRightOffset,
@@ -184,6 +190,9 @@ export const TradingViewNativeChart = memo(
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     priceAxisTickCount,
     showLegend = true,
+    timeAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+    timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    timeAxisBorderWidth,
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
@@ -226,6 +235,9 @@ export const TradingViewNativeChart = memo(
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
     const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
+    const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
+      ? theme.border.val
+      : undefined;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const pointCount = points.length;
@@ -256,11 +268,14 @@ export const TradingViewNativeChart = memo(
             down: CHART_DOWN_COLOR,
             grid,
             line,
+            timeAxisBorder,
             up: CHART_UP_COLOR,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
           priceAxisFont,
           priceAxisFontSize,
+          timeAxisFontSize,
+          timeAxisBorderWidth,
           watermarkSvg,
         }),
       [
@@ -270,6 +285,9 @@ export const TradingViewNativeChart = memo(
         line,
         priceAxisFont,
         priceAxisFontSize,
+        timeAxisFontSize,
+        timeAxisBorder,
+        timeAxisBorderWidth,
         watermarkSvg,
       ],
     );
@@ -314,6 +332,7 @@ export const TradingViewNativeChart = memo(
         candleIntervalSeconds: runtime.candleIntervalSeconds,
         chartType: runtime.chartType,
         crosshair: runtime.crosshair,
+        extendTimeAxisBorderToCanvasEdge,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
         candleLabels,
@@ -324,17 +343,22 @@ export const TradingViewNativeChart = memo(
         priceAxisFontSize,
         resources: resources.value,
         showLegend,
+        timeAxisFontSize,
+        timeAxisHeight,
         viewport: runtime.viewport,
         watermarkOpacity,
         width: runtime.size.width,
       });
     }, [
       candleLabels,
+      extendTimeAxisBorderToCanvasEdge,
       priceAxisFontSize,
       priceAxisTickCount,
       priceAxisWidth,
       resources,
       showLegend,
+      timeAxisFontSize,
+      timeAxisHeight,
       watermarkOpacity,
     ]);
 
@@ -630,6 +654,7 @@ export const TradingViewNativeChart = memo(
           ),
           height: runtime.size.height,
           pointCount: runtime.points.length,
+          timeAxisHeight,
           type: 'crosshairMoved',
           x,
           y,
@@ -880,7 +905,7 @@ export const TradingViewNativeChart = memo(
         crosshairGesture,
         Gesture.Race(panGesture, pinchGesture),
       );
-    }, [chartRuntime, decayOffset, priceAxisWidth]);
+    }, [chartRuntime, decayOffset, priceAxisWidth, timeAxisHeight]);
 
     const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;

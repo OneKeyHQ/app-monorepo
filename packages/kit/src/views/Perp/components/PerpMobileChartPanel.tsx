@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -21,9 +22,166 @@ const MOBILE_CHART_MAX_HEIGHT = 250;
 const MOBILE_CHART_MIN_HEIGHT = 200;
 // Headroom above the expanded chart so short viewports keep the ticker visible.
 const MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT = 220;
+const MOBILE_CHART_CONTENT_OFFSET = -4;
+const MOBILE_CHART_FOOTER_SPACING = 8;
 
 // Scrolling content underneath must reserve the collapsed bar height.
 export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 40;
+
+function PerpMobileChartContent({
+  chartHeight,
+  coin,
+  contentOffsetTop = 0,
+  contentTestID,
+  isExpanded,
+  onClose,
+  preloadWhenCollapsed = false,
+  showCloseControl = true,
+}: {
+  chartHeight: number;
+  coin: string | undefined;
+  contentOffsetTop?: number;
+  contentTestID: string;
+  isExpanded: boolean;
+  onClose: () => void;
+  preloadWhenCollapsed?: boolean;
+  showCloseControl?: boolean;
+}) {
+  const [mountedCoin, setMountedCoin] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (isExpanded && coin) {
+      setMountedCoin(coin);
+    }
+  }, [coin, isExpanded]);
+
+  // Bottom charts should forget hidden stale content. Top charts retain it
+  // until their deferred prewarm atomically replaces it with the active coin.
+  useEffect(() => {
+    if (
+      !preloadWhenCollapsed &&
+      !isExpanded &&
+      mountedCoin !== undefined &&
+      mountedCoin !== coin
+    ) {
+      setMountedCoin(undefined);
+    }
+  }, [coin, isExpanded, mountedCoin, preloadWhenCollapsed]);
+
+  useEffect(() => {
+    if (!preloadWhenCollapsed || isExpanded || !coin || mountedCoin === coin) {
+      return;
+    }
+
+    let isCancelled = false;
+    // Warm the selected top chart after the initial screen interaction so the
+    // first explicit reveal does not also pay the data and Skia mount costs.
+    void deferHeavyWorkUntilUIIdle().then(() => {
+      if (!isCancelled) {
+        setMountedCoin(coin);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [coin, isExpanded, mountedCoin, preloadWhenCollapsed]);
+
+  const chartCoin = isExpanded ? coin : mountedCoin;
+  const chartSource = useMemo(
+    () =>
+      chartCoin
+        ? ({
+            kind: 'hyperliquid',
+            coin: chartCoin,
+            environment: 'mainnet',
+          } as const)
+        : undefined,
+    [chartCoin],
+  );
+  // Drop a stale hidden chart until the selected coin's deferred prewarm runs.
+  const shouldKeepMounted =
+    chartSource !== undefined && (isExpanded || mountedCoin === coin);
+
+  if (!shouldKeepMounted) {
+    return null;
+  }
+
+  return (
+    <YStack
+      testID={contentTestID}
+      h={isExpanded ? chartHeight : 0}
+      overflow="hidden"
+    >
+      <YStack h={chartHeight} mt={contentOffsetTop}>
+        <HeaderScrollGestureWrapper
+          panActiveOffsetY={[-4, 4]}
+          panFailOffsetX={[-40, 40]}
+          excludeRightEdgeRatio={0.1}
+          scrollScale={1.2}
+          verticalPanMaxPointers={1}
+          simultaneousWithNativeGesture
+          cancelChildTouches={false}
+        >
+          <YStack h={chartHeight} overflow="hidden">
+            <TradingViewNative
+              key={chartCoin}
+              testID={PerpTestIDs.MobileChart}
+              source={chartSource}
+              nativeChartDisplayMode="compact"
+              nativeControlsLayoutMode="mobile"
+              onNativeChartClose={onClose}
+              showNativeChartCloseControl={showCloseControl}
+            />
+          </YStack>
+        </HeaderScrollGestureWrapper>
+      </YStack>
+    </YStack>
+  );
+}
+
+function useMobileChartHeight(bottomOffset = 0) {
+  const { height: windowHeight } = useWindowDimensions();
+  return Math.max(
+    MOBILE_CHART_MIN_HEIGHT,
+    Math.min(
+      MOBILE_CHART_MAX_HEIGHT,
+      windowHeight - bottomOffset - MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT,
+    ),
+  );
+}
+
+export function PerpMobileTopChartPanel({
+  isExpanded,
+  onClose,
+}: {
+  isExpanded: boolean;
+  onClose: () => void;
+}) {
+  const { coin } = useActiveTradeDisplay();
+  const chartHeight = useMobileChartHeight();
+
+  return (
+    <YStack
+      bg="$bgApp"
+      mb={isExpanded ? '$3' : 0}
+      borderTopWidth={isExpanded ? 0.5 : 0}
+      borderTopColor="$borderSubdued"
+      borderBottomWidth={isExpanded ? 0.5 : 0}
+      borderBottomColor="$borderSubdued"
+    >
+      <PerpMobileChartContent
+        chartHeight={chartHeight}
+        coin={coin}
+        contentOffsetTop={MOBILE_CHART_CONTENT_OFFSET}
+        contentTestID={PerpTestIDs.MobileTopChartContent}
+        isExpanded={isExpanded}
+        onClose={onClose}
+        preloadWhenCollapsed
+        showCloseControl={false}
+      />
+    </YStack>
+  );
+}
 
 export function PerpMobileChartPanel({
   bottomOffset = 0,
@@ -31,10 +189,8 @@ export function PerpMobileChartPanel({
   bottomOffset?: number;
 }) {
   const intl = useIntl();
-  const { height: windowHeight } = useWindowDimensions();
   const { coin, displayName, mode } = useActiveTradeDisplay();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [mountedCoin, setMountedCoin] = useState<string | undefined>();
   const marketName = useMemo(() => {
     if (!displayName) {
       return '--';
@@ -45,50 +201,15 @@ export function PerpMobileChartPanel({
     mode === 'perp'
       ? ` ${intl.formatMessage({ id: ETranslations.perp_label_perp })}`
       : '';
-  const chartSource = useMemo(
-    () =>
-      coin
-        ? ({
-            kind: 'hyperliquid',
-            coin,
-            environment: 'mainnet',
-          } as const)
-        : undefined,
-    [coin],
-  );
-  const chartHeight = Math.max(
-    MOBILE_CHART_MIN_HEIGHT,
-    Math.min(
-      MOBILE_CHART_MAX_HEIGHT,
-      windowHeight - bottomOffset - MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT,
-    ),
-  );
+  const footerSpacing = isExpanded ? MOBILE_CHART_FOOTER_SPACING : 0;
+  const chartHeight = useMobileChartHeight(bottomOffset + footerSpacing);
 
   const handleToggle = useCallback(() => {
-    const next = !isExpanded;
-    setIsExpanded(next);
-    if (next) {
-      setMountedCoin(coin);
-    }
-  }, [coin, isExpanded]);
+    setIsExpanded((currentValue) => !currentValue);
+  }, []);
   const handleClose = useCallback(() => {
     setIsExpanded(false);
   }, []);
-
-  // Forget the hidden chart once the coin moves away so switching back while
-  // collapsed doesn't rebuild it off-screen.
-  useEffect(() => {
-    if (isExpanded) {
-      if (coin) {
-        setMountedCoin(coin);
-      }
-    } else if (mountedCoin !== undefined && mountedCoin !== coin) {
-      setMountedCoin(undefined);
-    }
-  }, [coin, isExpanded, mountedCoin]);
-
-  const shouldKeepMounted =
-    mountedCoin !== undefined && (isExpanded || mountedCoin === coin);
 
   return (
     <YStack
@@ -99,40 +220,18 @@ export function PerpMobileChartPanel({
       left={0}
       zIndex={FLOAT_NAV_BAR_Z_INDEX}
       bg="$bgApp"
-      borderTopWidth="$px"
+      pb={footerSpacing}
+      borderTopWidth={0.5}
       borderTopColor="$borderSubdued"
     >
-      {shouldKeepMounted ? (
-        // Hide instead of unmount so reopening keeps chart data and view state.
-        <YStack
-          testID={PerpTestIDs.MobileChartContent}
-          h={isExpanded ? chartHeight : 0}
-          overflow="hidden"
-        >
-          <HeaderScrollGestureWrapper
-            panActiveOffsetY={[-4, 4]}
-            panFailOffsetX={[-40, 40]}
-            excludeRightEdgeRatio={0.1}
-            scrollScale={1.2}
-            verticalPanMaxPointers={1}
-            simultaneousWithNativeGesture
-            cancelChildTouches={false}
-          >
-            <YStack h={chartHeight} overflow="hidden">
-              {chartSource ? (
-                <TradingViewNative
-                  key={coin}
-                  testID={PerpTestIDs.MobileChart}
-                  source={chartSource}
-                  nativeChartDisplayMode="compact"
-                  nativeControlsLayoutMode="mobile"
-                  onNativeChartClose={handleClose}
-                />
-              ) : null}
-            </YStack>
-          </HeaderScrollGestureWrapper>
-        </YStack>
-      ) : null}
+      <PerpMobileChartContent
+        chartHeight={chartHeight}
+        coin={coin}
+        contentOffsetTop={MOBILE_CHART_CONTENT_OFFSET}
+        contentTestID={PerpTestIDs.MobileChartContent}
+        isExpanded={isExpanded}
+        onClose={handleClose}
+      />
       {!isExpanded ? (
         <XStack
           testID={PerpTestIDs.MobileChartToggle}

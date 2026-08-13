@@ -28,9 +28,11 @@ import {
 interface ITradingViewNativeChartControlsContainerProps {
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
+  compactMobileLayout?: boolean;
   enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
@@ -48,9 +50,11 @@ export const TradingViewNativeChartControlsContainer = memo(
   ({
     activeIndicatorValues,
     calendarAvailableTimeRange,
+    compactMobileLayout = false,
     enableNativeChartSettings = false,
     intervalConfig,
     layoutMode = 'mobile',
+    showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
     onIntervalChange,
@@ -137,7 +141,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         ),
       });
     }, [handleIndicatorSelect, indicators, indicatorsTitle]);
-    const closeControl = onChartClose ? (
+    const shouldShowChartCloseControl =
+      Boolean(onChartClose) && showChartCloseControl;
+    const closeControl = shouldShowChartCloseControl ? (
       <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     ) : null;
     const closeLabel = intl.formatMessage({ id: ETranslations.global_close });
@@ -146,6 +152,7 @@ export const TradingViewNativeChartControlsContainer = memo(
       <TradingViewChartControls
         backgroundColor="$transparent"
         calendarAvailableTimeRange={calendarAvailableTimeRange}
+        compactMobileLayout={compactMobileLayout}
         intervalConfig={intervalConfig}
         activeChartType={undefined}
         activeIndicatorValues={activeIndicatorValues}
@@ -174,7 +181,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
         rightControl={closeControl}
-        rightControlLabel={onChartClose ? closeLabel : undefined}
+        rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}
@@ -187,7 +194,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
         }
-        onRightControlPress={onChartClose}
+        onRightControlPress={
+          shouldShowChartCloseControl ? onChartClose : undefined
+        }
       />
     );
   },

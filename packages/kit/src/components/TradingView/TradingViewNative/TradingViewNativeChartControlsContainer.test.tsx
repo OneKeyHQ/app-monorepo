@@ -81,6 +81,22 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('forwards the compact mobile toolbar layout', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set()}
+        compactMobileLayout
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+  });
+
   it('replaces the mobile indicator control with a close action', () => {
     const handleChartClose = jest.fn();
     render(
@@ -111,6 +127,28 @@ describe('TradingViewNative chart controls', () => {
 
     controlsProps.onRightControlPress();
     expect(handleChartClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('can suppress the close action without restoring indicator controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={jest.fn()}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+        showChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        onRightControlPress: undefined,
+        rightControl: null,
+        rightControlLabel: undefined,
+      }),
+    );
   });
 
   it('opens chart settings from opted-in desktop controls', () => {

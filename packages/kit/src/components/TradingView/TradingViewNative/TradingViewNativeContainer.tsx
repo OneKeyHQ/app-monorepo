@@ -7,6 +7,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
+  TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
 } from './chartConstants';
 import {
@@ -54,6 +56,7 @@ export const TradingViewNativeContainer = memo(
     initialRightOffset,
     nativeChartDisplayMode,
     nativeControlsLayoutMode,
+    showNativeChartCloseControl,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     onDataStateChange,
@@ -384,10 +387,12 @@ export const TradingViewNativeContainer = memo(
       <Stack flex={1} w="100%" h="100%" bg="$transparent">
         <TradingViewNativeChartControlsContainer
           calendarAvailableTimeRange={calendarAvailableTimeRange}
+          compactMobileLayout={isCompactDisplayMode}
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           activeIndicatorValues={activeIndicatorValues}
           layoutMode={nativeControlsLayoutMode}
+          showChartCloseControl={showNativeChartCloseControl}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
           onIntervalChange={handleChartIntervalChange}
@@ -403,6 +408,7 @@ export const TradingViewNativeContainer = memo(
             candleIntervalSeconds={candleIntervalSeconds}
             chartType={chartType}
             chartPictureVersion={chartPictureVersion}
+            extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
             hasVolume={hasVolume}
             indicatorSeries={indicatorSeries}
             initialRightOffset={initialRightOffset}
@@ -418,6 +424,17 @@ export const TradingViewNativeContainer = memo(
                 : undefined
             }
             showLegend={!isCompactDisplayMode}
+            timeAxisFontSize={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
+                : undefined
+            }
+            timeAxisHeight={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
+                : undefined
+            }
+            timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}
