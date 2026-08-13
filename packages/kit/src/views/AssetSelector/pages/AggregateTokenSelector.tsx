@@ -558,14 +558,24 @@ function AggregateTokenSelector() {
     hideBalanceAndValue,
   ]);
 
+  // Carry the asset context into the network step ("Select USDT network")
+  // so users don't lose track of which asset they are receiving/sending.
+  const aggregateTokenSymbol =
+    aggregateToken.commonSymbol || aggregateToken.symbol;
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={
           title ||
-          intl.formatMessage({
-            id: ETranslations.global_select_network,
-          })
+          (aggregateTokenSymbol
+            ? intl.formatMessage(
+                { id: ETranslations.select_token_network__title },
+                { token: aggregateTokenSymbol },
+              )
+            : intl.formatMessage({
+                id: ETranslations.global_select_network,
+              }))
         }
         headerSearchBarOptions={{
           onSearchTextChange: handleSearchTextChange,
