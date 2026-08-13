@@ -62,6 +62,7 @@ import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -82,6 +83,10 @@ import {
   isStaleFastL2TargetError,
   shouldResetFastL2RecoveryAfterFrame,
 } from './utils/FastL2Book';
+import {
+  hasPositivePerpsBalance,
+  shouldRefreshPerpsActivationFromFundedState,
+} from './utils/perpsAccountStatusCheckUtils';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -248,6 +253,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private static readonly ORDER_BOOK_STRATEGY: 'fastL2Primary' | 'l2BookOnly' =
     'fastL2Primary';
 
+  private static readonly FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS = 10_000;
+
+  private static readonly FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS = 250;
+
+  private static readonly FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS = 6;
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
@@ -260,7 +271,247 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
+  private _fundedActivationRefreshInFlightAddress: string | null = null;
+
+  private _fundedActivationRefreshPendingAddress: string | null = null;
+
+  private _fundedActivationRefreshLastAttempt:
+    | { address: string; timestamp: number }
+    | undefined;
+
+  private _fundedActivationRefreshRetryTimer: ReturnType<
+    typeof setTimeout
+  > | null = null;
+
+  private _fundedActivationConfirmedAddress: string | null = null;
+
   private _routeSubscriptionStateVersion = 0;
+
+  private async _refreshActivationFromFundedState({
+    eventAddress,
+    hasFundedBalance,
+    isRetry = false,
+    refreshAttempt = 1,
+  }: {
+    eventAddress: string | null | undefined;
+    hasFundedBalance: boolean;
+    isRetry?: boolean;
+    refreshAttempt?: number;
+  }): Promise<void> {
+    const normalizedEventAddress = eventAddress?.toLowerCase();
+    if (!normalizedEventAddress || !hasFundedBalance) {
+      return;
+    }
+    if (this._fundedActivationConfirmedAddress === normalizedEventAddress) {
+      return;
+    }
+    if (
+      !isRetry &&
+      this._fundedActivationRefreshPendingAddress === normalizedEventAddress &&
+      (this._fundedActivationRefreshRetryTimer ||
+        this._fundedActivationRefreshInFlightAddress)
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshInFlightAddress) {
+      return;
+    }
+
+    // Claim synchronously before reading atoms so concurrent funded events
+    // cannot start overlapping activation checks.
+    this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
+    let shouldScheduleRetry = true;
+    try {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+      const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      const activeStatusInfo =
+        activeAddress &&
+        statusInfo?.accountAddress?.toLowerCase() === activeAddress
+          ? statusInfo
+          : undefined;
+      if (activeAddress !== normalizedEventAddress) {
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+        return;
+      }
+      if (activeStatusInfo?.details.activatedOk === true) {
+        this._fundedActivationConfirmedAddress = normalizedEventAddress;
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+        return;
+      }
+      const now = Date.now();
+      const refreshCoolingDown = Boolean(
+        this._fundedActivationRefreshLastAttempt?.address ===
+          normalizedEventAddress &&
+        now - this._fundedActivationRefreshLastAttempt.timestamp <
+          ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS,
+      );
+      const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
+        activeAddress,
+        eventAddress: normalizedEventAddress,
+        activatedOk: activeStatusInfo?.details.activatedOk,
+        hasFundedBalance,
+        refreshInFlight: false,
+        refreshPending:
+          this._fundedActivationRefreshPendingAddress ===
+          normalizedEventAddress,
+        refreshCoolingDown,
+      });
+
+      if (!shouldRefresh) {
+        return;
+      }
+
+      const statusCheck =
+        this.backgroundApi.serviceHyperliquid.startPerpsAccountStatusCheckIfIdle(
+          { preserveFundedBalances: true },
+        );
+      if (!statusCheck) {
+        shouldScheduleRetry = false;
+        await this.backgroundApi.serviceHyperliquid.waitForPerpsAccountStatusCheckIdle();
+        if (
+          this._fundedActivationRefreshInFlightAddress !==
+          normalizedEventAddress
+        ) {
+          return;
+        }
+        this._scheduleFundedActivationRefreshRetry({
+          address: normalizedEventAddress,
+          delayMs:
+            ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+          refreshAttempt,
+        });
+        return;
+      }
+      this._fundedActivationRefreshPendingAddress = normalizedEventAddress;
+      this._fundedActivationRefreshLastAttempt = {
+        address: normalizedEventAddress,
+        timestamp: now,
+      };
+      await statusCheck;
+      const latestStatusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      if (
+        latestStatusInfo?.accountAddress?.toLowerCase() ===
+          normalizedEventAddress &&
+        latestStatusInfo.details.activatedOk === true
+      ) {
+        this._fundedActivationConfirmedAddress = normalizedEventAddress;
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+      }
+    } catch (error) {
+      // Stop this automatic retry chain after a network/status-check failure.
+      // A later real funded WebSocket event may start a fresh bounded chain.
+      shouldScheduleRetry = false;
+      defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+        type: 'fundedActivationRefresh',
+        error,
+      });
+    } finally {
+      if (
+        this._fundedActivationRefreshInFlightAddress === normalizedEventAddress
+      ) {
+        this._fundedActivationRefreshInFlightAddress = null;
+      }
+      if (
+        this._fundedActivationRefreshPendingAddress ===
+          normalizedEventAddress &&
+        this._fundedActivationConfirmedAddress !== normalizedEventAddress &&
+        shouldScheduleRetry
+      ) {
+        const lastAttempt = this._fundedActivationRefreshLastAttempt;
+        const remainingCooldown =
+          lastAttempt?.address === normalizedEventAddress
+            ? ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS -
+              (Date.now() - lastAttempt.timestamp)
+            : 0;
+        this._scheduleFundedActivationRefreshRetry({
+          address: normalizedEventAddress,
+          delayMs: Math.max(
+            remainingCooldown,
+            ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+          ),
+          refreshAttempt: refreshAttempt + 1,
+        });
+      }
+    }
+  }
+
+  private _shouldInspectFundedActivation(eventAddress: string | undefined) {
+    const normalizedEventAddress = eventAddress?.toLowerCase();
+    if (
+      !normalizedEventAddress ||
+      this._fundedActivationConfirmedAddress === normalizedEventAddress
+    ) {
+      return false;
+    }
+    const currentUser = this._currentState.currentUser?.toLowerCase();
+    return !currentUser || currentUser === normalizedEventAddress;
+  }
+
+  private _scheduleFundedActivationRefreshRetry({
+    address,
+    delayMs,
+    refreshAttempt,
+  }: {
+    address: string;
+    delayMs: number;
+    refreshAttempt: number;
+  }) {
+    if (this._fundedActivationConfirmedAddress === address) {
+      return;
+    }
+    if (
+      refreshAttempt >
+      ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS
+    ) {
+      this._clearFundedActivationRefreshRetry(address);
+      return;
+    }
+    if (
+      this._fundedActivationRefreshRetryTimer &&
+      this._fundedActivationRefreshPendingAddress === address
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshRetryTimer) {
+      clearTimeout(this._fundedActivationRefreshRetryTimer);
+    }
+    this._fundedActivationRefreshPendingAddress = address;
+    this._fundedActivationRefreshRetryTimer = setTimeout(() => {
+      this._fundedActivationRefreshRetryTimer = null;
+      if (this._fundedActivationRefreshPendingAddress !== address) {
+        return;
+      }
+      void this._refreshActivationFromFundedState({
+        eventAddress: address,
+        hasFundedBalance: true,
+        isRetry: true,
+        refreshAttempt,
+      });
+    }, delayMs);
+  }
+
+  private _clearFundedActivationRefreshRetry(address?: string) {
+    if (
+      address &&
+      this._fundedActivationRefreshPendingAddress &&
+      this._fundedActivationRefreshPendingAddress !== address
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshRetryTimer) {
+      clearTimeout(this._fundedActivationRefreshRetryTimer);
+      this._fundedActivationRefreshRetryTimer = null;
+    }
+    this._fundedActivationRefreshPendingAddress = null;
+  }
+
+  private _resetFundedActivationRefreshState() {
+    this._clearFundedActivationRefreshRetry();
+    this._fundedActivationRefreshInFlightAddress = null;
+    this._fundedActivationRefreshLastAttempt = undefined;
+    this._fundedActivationConfirmedAddress = null;
+  }
 
   private _isSubscriptionSpecPending(
     spec: ISubscriptionSpec<ESubscriptionType>,
@@ -1434,6 +1685,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     params: ISubscriptionUpdateParams,
   ): void {
     if (params.currentUser !== undefined) {
+      if (
+        state.currentUser?.toLowerCase() !== params.currentUser?.toLowerCase()
+      ) {
+        this._resetFundedActivationRefreshState();
+      }
       state.currentUser = params.currentUser;
     }
     if (params.currentSymbol !== undefined) {
@@ -2189,6 +2445,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
       if (subscriptionType === ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE) {
         const stateData = data as IWsAllDexsClearinghouseState;
+        if (this._shouldInspectFundedActivation(stateData.user)) {
+          void this._refreshActivationFromFundedState({
+            eventAddress: stateData.user,
+            hasFundedBalance: hasPositivePerpsBalance(
+              (stateData.clearinghouseStates ?? []).map(
+                ([, state]) => state?.marginSummary?.accountValue,
+              ),
+            ),
+          });
+        }
         const statePair =
           stateData.clearinghouseStates?.find(
             ([name]) => name === '', // Hyperliquid perps is empty string
@@ -2264,8 +2530,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_STATE) {
+        const spotStateData = data as IWsSpotState;
+        if (this._shouldInspectFundedActivation(spotStateData.user)) {
+          void this._refreshActivationFromFundedState({
+            eventAddress: spotStateData.user,
+            hasFundedBalance: hasPositivePerpsBalance(
+              (spotStateData.spotState?.balances ?? []).map(
+                (balance) => balance.total,
+              ),
+            ),
+          });
+        }
         void this.backgroundApi.serviceHyperliquid.updateSpotBalances(
-          data as IWsSpotState,
+          spotStateData,
         );
         this._emitHyperliquidDataUpdate(subscriptionType, data);
         this._updateNetworkLiveness();
@@ -2586,6 +2863,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   async dispose(): Promise<void> {
+    this._resetFundedActivationRefreshState();
     await this.disconnect();
   }
 }
