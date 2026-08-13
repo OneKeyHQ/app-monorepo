@@ -77,11 +77,13 @@ const styles = StyleSheet.create({
 });
 
 /**
- * A layer following keyframe tracks of the scene clock: opacity always,
- * and with `shiftTrack` a horizontal slide too. Every animated part of
- * the entry screens — a key's slice of the traveling sheen, an entered
- * mark riding its cluster, a glyph cross-fading in its slot (the layer
- * carries children then) — is exactly that.
+ * A layer following keyframe tracks of the scene clock: `track` drives
+ * opacity, `shiftTrack` a horizontal slide; either may be omitted for a
+ * layer that only does the other (the Classic's caret pair slides at
+ * full opacity). Every animated part of the entry screens — a key's
+ * slice of the traveling sheen, an entered mark riding its cluster, a
+ * glyph cross-fading in its slot (the layer carries children then) — is
+ * exactly that.
  */
 export function TrackedLayer({
   clock,
@@ -91,12 +93,19 @@ export function TrackedLayer({
   children,
 }: {
   clock: SharedValue<number>;
-  track: IKeyframe[];
+  track?: IKeyframe[];
   shiftTrack?: IKeyframe[];
   baseStyle: ViewStyle;
   children?: ReactNode;
 }) {
   const animatedStyle = useAnimatedStyle(() => {
+    if (!track) {
+      return {
+        transform: [
+          { translateX: shiftTrack ? trackAt(clock.value, shiftTrack) : 0 },
+        ],
+      };
+    }
     const opacity = trackAt(clock.value, track);
     if (!shiftTrack) {
       return { opacity };

@@ -71,6 +71,25 @@ export interface IHardwareDeviceProps {
 }
 
 /**
+ * The routing table: which models draw which replica. The Classic family
+ * collapses onto one; models missing here (mini, touch, unknown) have no
+ * replica and render nothing. Both the component and the swap timing
+ * below read it, so "has a replica" is stated exactly once.
+ */
+const REPLICAS: Partial<
+  Record<
+    IHardwareDeviceType,
+    typeof ClassicDevice | typeof ProDevice | typeof SlateDevice
+  >
+> = {
+  classic: ClassicDevice,
+  classic1s: ClassicDevice,
+  classicpure: ClassicDevice,
+  pro: ProDevice,
+  slate: SlateDevice,
+};
+
+/**
  * How long this model takes to hand its screen from one scene to the next,
  * so a caller sequencing its own moves after the replica's can queue behind
  * it. Every replica plays the handover — content fades off the glass before
@@ -83,16 +102,7 @@ export interface IHardwareDeviceProps {
 export function hardwareDeviceSwapMs(
   deviceType?: IHardwareDeviceType | null,
 ): number {
-  switch (deviceType) {
-    case 'classic':
-    case 'classic1s':
-    case 'classicpure':
-    case 'pro':
-    case 'slate':
-      return SCREEN_SWAP_MS;
-    default:
-      return 0;
-  }
+  return deviceType && REPLICAS[deviceType] ? SCREEN_SWAP_MS : 0;
 }
 
 export function HardwareDevice({
@@ -100,16 +110,7 @@ export function HardwareDevice({
   animation,
   width,
 }: IHardwareDeviceProps) {
-  switch (deviceType) {
-    case 'classic':
-    case 'classic1s':
-    case 'classicpure':
-      return <ClassicDevice width={width} animation={animation} />;
-    case 'pro':
-      return <ProDevice width={width} animation={animation} />;
-    case 'slate':
-      return <SlateDevice width={width} animation={animation} />;
-    default:
-      return null;
-  }
+  const Replica = deviceType ? REPLICAS[deviceType] : undefined;
+  if (!Replica) return null;
+  return <Replica width={width} animation={animation} />;
 }

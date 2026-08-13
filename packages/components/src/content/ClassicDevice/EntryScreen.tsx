@@ -8,17 +8,14 @@ import { SizableText, Stack } from '../../primitives';
 import { TrackedLayer } from '../deviceSceneHost';
 
 import {
-  ENTRY_CHECK_TRACK,
-  ENTRY_CURSOR_PENDING_TRACK,
-  ENTRY_ENTERED_TRACKS,
   ENTRY_FILL_COUNT,
-  ENTRY_PENDING_TRACKS,
   ENTRY_ROW_TRACK,
+  ENTRY_SLOT_IN_TRACKS,
+  ENTRY_SLOT_OUT_TRACKS,
   entryCaretShiftTrack,
 } from './animation';
 import { SCREEN_SLOT_TOP } from './shell';
 
-import type { IKeyframe } from '../deviceScene';
 import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -70,7 +67,6 @@ const CARET_STYLE: ViewStyle = {
 const ROW_STYLE: ViewStyle = { ...StyleSheet.absoluteFill };
 
 const CARET_SHIFT_TRACK = entryCaretShiftTrack(2 * SLOT_PITCH);
-const CARET_OPACITY_TRACK: IKeyframe[] = [{ t: 0, v: 1 }];
 
 const CHECK_GLYPH = (
   <Path
@@ -136,58 +132,34 @@ export function EntryScreen({
   return (
     <Stack flex={1}>
       <TrackedLayer clock={clock} track={ENTRY_ROW_TRACK} baseStyle={ROW_STYLE}>
-        {SLOT_GLYPH_STYLES.map((style, i) => {
-          if (i < ENTRY_FILL_COUNT) {
-            return (
-              <Fragment key={i}>
-                <TrackedLayer
-                  clock={clock}
-                  track={ENTRY_PENDING_TRACKS[i]}
-                  baseStyle={style}
-                >
-                  {pendingSvg}
-                </TrackedLayer>
-                <TrackedLayer
-                  clock={clock}
-                  track={ENTRY_ENTERED_TRACKS[i]}
-                  baseStyle={style}
-                >
-                  {enteredSvg}
-                </TrackedLayer>
-              </Fragment>
-            );
-          }
-          if (i === ENTRY_FILL_COUNT) {
-            // The cursor's final slot: pending cross-fades into the check.
-            return (
-              <Fragment key={i}>
-                <TrackedLayer
-                  clock={clock}
-                  track={ENTRY_CURSOR_PENDING_TRACK}
-                  baseStyle={style}
-                >
-                  {pendingSvg}
-                </TrackedLayer>
-                <TrackedLayer
-                  clock={clock}
-                  track={ENTRY_CHECK_TRACK}
-                  baseStyle={style}
-                >
-                  {CHECK_SVG}
-                </TrackedLayer>
-              </Fragment>
-            );
-          }
-          // Slots the schedule never reaches: pending, still.
-          return (
+        {SLOT_GLYPH_STYLES.map((style, i) =>
+          i > ENTRY_FILL_COUNT ? (
+            // Slots the schedule never reaches: pending, still.
             <View key={i} pointerEvents="none" style={style}>
               {pendingSvg}
             </View>
-          );
-        })}
+          ) : (
+            <Fragment key={i}>
+              <TrackedLayer
+                clock={clock}
+                track={ENTRY_SLOT_OUT_TRACKS[i]}
+                baseStyle={style}
+              >
+                {pendingSvg}
+              </TrackedLayer>
+              <TrackedLayer
+                clock={clock}
+                track={ENTRY_SLOT_IN_TRACKS[i]}
+                baseStyle={style}
+              >
+                {/* The cursor's final slot fills with the check. */}
+                {i === ENTRY_FILL_COUNT ? CHECK_SVG : enteredSvg}
+              </TrackedLayer>
+            </Fragment>
+          ),
+        )}
         <TrackedLayer
           clock={clock}
-          track={CARET_OPACITY_TRACK}
           shiftTrack={CARET_SHIFT_TRACK}
           baseStyle={CARET_STYLE}
         >

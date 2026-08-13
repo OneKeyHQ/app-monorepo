@@ -11,7 +11,12 @@ import {
   useOkPressDrive,
 } from './animation';
 import { EntryScreen } from './EntryScreen';
-import { SCREEN_SLOT_TOP } from './shell';
+import {
+  SCREEN_GLASS_H,
+  SCREEN_GLASS_W,
+  SCREEN_SLOT_LEFT,
+  SCREEN_SLOT_TOP,
+} from './shell';
 
 import type {
   IDeviceSceneContentProps,
@@ -114,16 +119,16 @@ const CONFIRM_SKELETON = (
   </Svg>
 );
 
-// The sweep travels the whole glass, not just the lit slot: the slot sits
-// at (4, SCREEN_SLOT_TOP) in the 264x152 glass, whose own overflow does the
-// final clipping.
+// The sweep travels the whole glass, not just the lit slot: the clip backs
+// out of the slot insets, and the glass's own overflow does the final
+// clipping.
 const confirmStyles = StyleSheet.create({
   sweepClip: {
     position: 'absolute',
-    left: -4,
+    left: -SCREEN_SLOT_LEFT,
     top: -SCREEN_SLOT_TOP,
-    width: 264,
-    height: 152,
+    width: SCREEN_GLASS_W,
+    height: SCREEN_GLASS_H,
     overflow: 'hidden',
   },
 });
@@ -135,8 +140,8 @@ function ConfirmScreen({ clock }: IDeviceSceneContentProps) {
       {CONFIRM_SKELETON}
       <GlassSweep
         clock={clock}
-        width={264}
-        height={152}
+        width={SCREEN_GLASS_W}
+        height={SCREEN_GLASS_H}
         clipStyle={confirmStyles.sweepClip}
       />
     </>
