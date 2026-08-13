@@ -467,6 +467,14 @@ describe('DeviceState metadata projection', () => {
 
     expect(
       getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro2,
+        bleName: '',
+        serialNo: 'P2D33C0005B',
+      }),
+    ).toBe('P2D33C0005B');
+
+    expect(
+      getDeviceSecondaryIdentifier({
         deviceType: EDeviceType.Pro,
         bleName: 'Pro 6136',
         serialNo: 'SERIAL',
