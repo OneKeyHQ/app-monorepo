@@ -1024,7 +1024,10 @@ export type IThirdPartyAccountNameSourceStatus =
 export interface IThirdPartyAccountNameCandidate {
   indexedAccountId: string;
   currentName: string;
+  // Default pick, always equal to sourceNames[0].
   sourceName: string;
+  // Several names can match one account; never empty.
+  sourceNames: string[];
   matchedAddress: string;
   source: 'ledger-live' | 'trezor-suite';
 }

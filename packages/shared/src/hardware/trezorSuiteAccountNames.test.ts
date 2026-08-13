@@ -78,3 +78,39 @@ describe('parseTrezorSuiteAccountNames', () => {
     ).toEqual({ status: 'no_accounts', accounts: [] });
   });
 });
+
+describe('parseTrezorSuiteAccountNames custom labels', () => {
+  const base = {
+    symbol: 'btc',
+    deviceState: 'sess@9DD7EB93C7539862BA318907:1',
+    address: 'bc1qcj6kf4d62sp373ex3l3fhrrs9kmjq5h6fgytdt',
+    addressPath: "m/84'/0'/0'/0/0",
+    index: 0,
+    accountType: 'normal',
+  };
+
+  it('prefers a decrypted label over the index-derived title', () => {
+    const result = parseTrezorSuiteAccountNames([
+      { ...base, accountLabel: "Bitcoin a'a'a#1" },
+    ]);
+    expect(result.status).toBe('available');
+    expect(result.accounts[0].name).toBe("Bitcoin a'a'a#1");
+  });
+
+  it('falls back to the generated title when no label is present', () => {
+    expect(parseTrezorSuiteAccountNames([base]).accounts[0].name).toBe(
+      'Bitcoin #1',
+    );
+  });
+
+  it('ignores blank and oversized labels', () => {
+    expect(
+      parseTrezorSuiteAccountNames([{ ...base, accountLabel: '   ' }])
+        .accounts[0].name,
+    ).toBe('Bitcoin #1');
+    expect(
+      parseTrezorSuiteAccountNames([{ ...base, accountLabel: 'a'.repeat(81) }])
+        .accounts[0].name,
+    ).toBe('Bitcoin #1');
+  });
+});

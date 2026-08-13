@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import crypto from 'crypto';
 import { constants as fsConstants, rmSync } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
@@ -36,6 +37,10 @@ import {
   type ITrezorSuiteAccountNamesResult,
   parseTrezorSuiteAccountNames,
 } from '@onekeyhq/shared/src/hardware/trezorSuiteAccountNames';
+import {
+  decryptTrezorSuiteLabelFile,
+  pickTrezorSuiteAccountLabel,
+} from '@onekeyhq/shared/src/hardware/trezorSuiteLabelDecrypt';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -56,6 +61,91 @@ const TREZOR_SUITE_SOURCE_READ_TIMEOUT_MS = 10_000;
 const TREZOR_SUITE_TEMP_PREFIX = 'onekey-trezor-suite-';
 const TREZOR_SUITE_COPY_CHUNK_BYTES = 64 * 1024;
 const TREZOR_SUITE_TEMP_REMOVE_RETRIES = 5;
+const TREZOR_SUITE_LABEL_FILE_MAX_BYTES = 1 * 1024 * 1024;
+const TREZOR_SUITE_LABEL_FILES_MAX = 500;
+
+type ITrezorSuiteSourceAccountWithKeys = {
+  metadataKeys?: { fileName: string; aesKey: string }[];
+};
+
+// Only the fileSystem provider writes these files locally.
+async function attachTrezorSuiteLocalLabels({
+  appDataPath,
+  sourceAccounts,
+}: {
+  appDataPath: string;
+  sourceAccounts: unknown;
+}): Promise<unknown> {
+  if (!Array.isArray(sourceAccounts)) {
+    return sourceAccounts;
+  }
+  const metadataDirectory = path.join(
+    appDataPath,
+    '@trezor',
+    'suite-desktop',
+    'metadata',
+  );
+  try {
+    const stat = await fs.stat(metadataDirectory);
+    if (!stat.isDirectory()) {
+      return sourceAccounts;
+    }
+  } catch {
+    return sourceAccounts;
+  }
+
+  const labelCache = new Map<string, string | undefined>();
+  let readFiles = 0;
+
+  const readLabel = async (fileName: string, aesKey: string) => {
+    const cacheKey = `${fileName}:${aesKey}`;
+    if (labelCache.has(cacheKey)) {
+      return labelCache.get(cacheKey);
+    }
+    let label: string | undefined;
+    // Bare file name only: a crafted entry must not escape the directory.
+    if (
+      readFiles < TREZOR_SUITE_LABEL_FILES_MAX &&
+      fileName === path.basename(fileName) &&
+      fileName.endsWith('.mtdt')
+    ) {
+      readFiles += 1;
+      const filePath = path.join(metadataDirectory, fileName);
+      try {
+        const stat = await fs.stat(filePath);
+        if (stat.isFile() && stat.size <= TREZOR_SUITE_LABEL_FILE_MAX_BYTES) {
+          label = pickTrezorSuiteAccountLabel(
+            decryptTrezorSuiteLabelFile({
+              fileContent: await fs.readFile(filePath, 'utf8'),
+              aesKeyHex: aesKey,
+              createDecipheriv: crypto.createDecipheriv as never,
+            }),
+          );
+        }
+      } catch {
+      }
+    }
+    labelCache.set(cacheKey, label);
+    return label;
+  };
+
+  const result: unknown[] = [];
+  for (const account of sourceAccounts) {
+    const keys =
+      (account as ITrezorSuiteSourceAccountWithKeys)?.metadataKeys ?? [];
+    let accountLabel: string | undefined;
+    for (const key of keys) {
+      accountLabel = await readLabel(key.fileName, key.aesKey);
+      if (accountLabel) {
+        break;
+      }
+    }
+    result.push(
+      accountLabel ? { ...(account as object), accountLabel } : account,
+    );
+  }
+  return result;
+}
 
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => {
@@ -826,6 +916,19 @@ class DesktopApiSystem {
                       typeof item.address === 'string' &&
                       typeof item.path === 'string',
                   );
+                  // One pair per encryption version.
+                  const metadataKeys = [2, 1]
+                    .map((version) => account?.metadata?.[version])
+                    .filter(
+                      (item) =>
+                        item &&
+                        typeof item.fileName === 'string' &&
+                        typeof item.aesKey === 'string',
+                    )
+                    .map((item) => ({
+                      fileName: item.fileName,
+                      aesKey: item.aesKey,
+                    }));
                   sourceAccounts.push({
                     deviceState: account.deviceState,
                     symbol: account.symbol,
@@ -834,6 +937,7 @@ class DesktopApiSystem {
                     visible: account.visible,
                     address: firstAddress?.address,
                     addressPath: firstAddress?.path,
+                    metadataKeys,
                   });
                   if (sourceAccounts.length > 500) {
                     transaction.abort();
@@ -859,7 +963,9 @@ class DesktopApiSystem {
         TREZOR_SUITE_SOURCE_READ_TIMEOUT_MS,
         'Trezor Suite source read timed out',
       )) as unknown;
-      return parseTrezorSuiteAccountNames(sourceAccounts);
+      return parseTrezorSuiteAccountNames(
+        await attachTrezorSuiteLocalLabels({ appDataPath, sourceAccounts }),
+      );
     } catch (error) {
       logger.warn('[TrezorSuiteSource] local account read failed', error);
       return { status: 'invalid_source', accounts: [] };

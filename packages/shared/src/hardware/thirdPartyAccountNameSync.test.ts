@@ -32,24 +32,27 @@ describe('matchAccountNamesByAddress', () => {
         indexedAccountId: 'hw-1--0',
         currentName: 'Account 1',
         sourceName: 'Ledger Main',
+        sourceNames: ['Ledger Main'],
         matchedAddress: `0x${'ab'.repeat(20)}`,
       },
       {
         indexedAccountId: 'hw-2--0',
         currentName: 'Account 1',
         sourceName: 'Ledger Main',
+        sourceNames: ['Ledger Main'],
         matchedAddress: `0x${'ab'.repeat(20)}`,
       },
     ]);
   });
 
-  it('skips ambiguous source names and duplicate network rows', () => {
+  it('offers every name when one address carries several, deduping repeated rows', () => {
     const address = `0x${'12'.repeat(20)}`;
     expect(
       matchAccountNamesByAddress({
         sourceAccounts: [
-          { name: 'Name A', address },
-          { name: 'Name B', address },
+          { name: 'Ethereum 1', address },
+          { name: 'New Polygon 1', address },
+          { name: 'Ethereum 1', address },
         ],
         targetAccounts: [
           {
@@ -64,7 +67,42 @@ describe('matchAccountNamesByAddress', () => {
           },
         ],
       }),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        indexedAccountId: 'hw-1--0',
+        currentName: 'Account 1',
+        sourceName: 'Ethereum 1',
+        sourceNames: ['Ethereum 1', 'New Polygon 1'],
+        matchedAddress: address,
+      },
+    ]);
+  });
+
+  it('drops only the name equal to the current one, keeping the rest', () => {
+    const address = `0x${'34'.repeat(20)}`;
+    expect(
+      matchAccountNamesByAddress({
+        sourceAccounts: [
+          { name: 'Account 1', address },
+          { name: 'Ledger Main', address },
+        ],
+        targetAccounts: [
+          {
+            indexedAccountId: 'hw-1--0',
+            currentName: 'Account 1',
+            address,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        indexedAccountId: 'hw-1--0',
+        currentName: 'Account 1',
+        sourceName: 'Ledger Main',
+        sourceNames: ['Ledger Main'],
+        matchedAddress: address,
+      },
+    ]);
   });
 
   it('does not suggest a no-op rename', () => {

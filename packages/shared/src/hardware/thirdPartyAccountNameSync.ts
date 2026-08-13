@@ -12,7 +12,9 @@ export interface IThirdPartyAccountNameTargetAccount {
 export interface IAddressMatchedAccountName {
   indexedAccountId: string;
   currentName: string;
+  // Default pick, always equal to sourceNames[0].
   sourceName: string;
+  sourceNames: string[];
   matchedAddress: string;
 }
 
@@ -53,7 +55,7 @@ export function matchAccountNamesByAddress({
   for (const targetAccount of targetAccounts) {
     const address = normalizeAddress(targetAccount.address);
     const sourceNames = sourceNamesByAddress.get(address);
-    if (address && sourceNames?.size === 1) {
+    if (address && sourceNames?.size) {
       const match = matchesByIndexedAccount.get(
         targetAccount.indexedAccountId,
       ) ?? {
@@ -61,25 +63,28 @@ export function matchAccountNamesByAddress({
         matchedAddress: address,
         sourceNames: new Set<string>(),
       };
-      match.sourceNames.add([...sourceNames][0]);
+      for (const sourceName of sourceNames) {
+        match.sourceNames.add(sourceName);
+      }
       matchesByIndexedAccount.set(targetAccount.indexedAccountId, match);
     }
   }
 
   return [...matchesByIndexedAccount.entries()].flatMap(
     ([indexedAccountId, match]) => {
-      if (match.sourceNames.size !== 1) {
-        return [];
-      }
-      const sourceName = [...match.sourceNames][0];
-      if (sourceName === match.currentName) {
+      // Drop a no-op rename, keep the other candidates.
+      const names = [...match.sourceNames].filter(
+        (name) => name !== match.currentName,
+      );
+      if (names.length === 0) {
         return [];
       }
       return [
         {
           indexedAccountId,
           currentName: match.currentName,
-          sourceName,
+          sourceName: names[0],
+          sourceNames: names,
           matchedAddress: match.matchedAddress,
         },
       ];

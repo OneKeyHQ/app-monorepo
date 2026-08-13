@@ -85,9 +85,13 @@ export function parseTrezorSuiteAccountNames(
         accountType &&
         accountType.length <= 40
       ) {
+        const customLabel = nonEmptyString(account?.accountLabel);
         const parsed: ITrezorSuiteAccountName = {
           deviceId,
-          name: `Bitcoin #${(index as number) + 1}`,
+          name:
+            customLabel && customLabel.length <= 80
+              ? customLabel
+              : `Bitcoin #${(index as number) + 1}`,
           address,
           path,
           accountType,

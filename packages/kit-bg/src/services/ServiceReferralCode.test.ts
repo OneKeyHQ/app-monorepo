@@ -995,6 +995,8 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
       accountId: "hw-btc-only--m/86'/0'/0'/0/0",
       address: 'bc1ptest',
       networkId: 'btc--0',
+      pubkey: undefined,
+      isBtcOnlyWallet: true,
     });
     const checkWalletBindStatusSpy = jest.spyOn(
       service,

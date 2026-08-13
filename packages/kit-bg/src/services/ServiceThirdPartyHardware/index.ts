@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { assertLedgerAttestationRelayUrl } from '@onekeyhq/shared/src/hardware/ledgerAttestationRelayUrl';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { matchAccountNamesByAddress } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -1637,72 +1638,103 @@ class ServiceThirdPartyHardware extends ServiceBase {
     vendor: EHardwareVendor;
     walletId: string;
   }): Promise<IThirdPartyAccountNameCandidatesResult> {
-    if (params.vendor === EHardwareVendor.trezor) {
-      return {
-        status: 'cloud_source_requires_authorization',
-        candidates: [],
-      };
-    }
-    if (params.vendor !== EHardwareVendor.ledger) {
+    const isTrezor = params.vendor === EHardwareVendor.trezor;
+    const isLedger = params.vendor === EHardwareVendor.ledger;
+    if (!isTrezor && !isLedger) {
       return { status: 'unsupported_source', candidates: [] };
     }
     if (!platformEnv.isDesktop || !globalThis.desktopApiProxy?.system) {
       return { status: 'unsupported_source', candidates: [] };
     }
 
-    const source =
-      await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
+    const statusMap: Record<string, IThirdPartyAccountNameSourceStatus> = {
+      no_accounts: 'no_matches',
+      source_not_found: 'source_not_found',
+      encrypted_source: 'encrypted_source',
+      invalid_source: 'invalid_source',
+    };
+
+    const source = isTrezor
+      ? await globalThis.desktopApiProxy.system.readTrezorSuiteAccountNames()
+      : await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
     if (source.status !== 'available') {
-      const statusMap: Record<
-        Exclude<typeof source.status, 'available'>,
-        IThirdPartyAccountNameSourceStatus
-      > = {
-        no_accounts: 'no_matches',
-        source_not_found: 'source_not_found',
-        encrypted_source: 'encrypted_source',
-        invalid_source: 'invalid_source',
+      return {
+        status: statusMap[source.status] ?? 'no_matches',
+        candidates: [],
       };
-      return { status: statusMap[source.status], candidates: [] };
     }
 
-    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
-      nestedHiddenWallets: false,
-      includingAccounts: true,
-    });
+    // getWallets() only fills dbAccounts for "others" wallets, so hardware
+    // wallets need the account tables directly.
+    const [{ wallets }, { accounts }, { indexedAccounts }] = await Promise.all([
+      this.backgroundApi.serviceAccount.getWallets({
+        nestedHiddenWallets: false,
+      }),
+      this.backgroundApi.serviceAccount.getAllAccounts({ filterRemoved: true }),
+      this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+        filterRemoved: true,
+      }),
+    ]);
     const wallet = wallets.find((item) => item.id === params.walletId);
-    const indexedAccount = wallet?.dbIndexedAccounts?.[0];
-    const walletAddress = wallet?.firstEvmAddress?.trim();
-    if (!wallet || !indexedAccount || !walletAddress) {
+    if (!wallet) {
       return { status: 'no_matches', candidates: [] };
     }
 
-    const matchingSourceAccounts = source.accounts.filter(
-      (item) =>
-        item.address.trim().toLowerCase() === walletAddress.toLowerCase(),
+    // Ledger Live has no device marker; only Trezor can narrow by deviceId.
+    let sourceAccounts = source.accounts.map(
+      (item: { name: string; address: string; deviceId?: string }) => ({
+        name: item.name,
+        address: item.address,
+        deviceId: item.deviceId,
+      }),
     );
-    const matchingNames = [
-      ...new Set(matchingSourceAccounts.map((item) => item.name.trim())),
-    ].filter(Boolean);
-    // Ledger Live can contain multiple accounts with the same EVM address.
-    // Only suggest a rename when all matches agree; never pick by file order.
-    if (
-      matchingNames.length !== 1 ||
-      matchingNames[0] === indexedAccount.name
-    ) {
+    if (isTrezor) {
+      const walletDeviceId = (
+        await localDb
+          .getWalletDeviceSafe({ walletId: params.walletId })
+          .catch(() => undefined)
+      )?.deviceId;
+      if (!walletDeviceId) {
+        return { status: 'no_matches', candidates: [] };
+      }
+      sourceAccounts = sourceAccounts.filter(
+        (item) =>
+          item.deviceId &&
+          item.deviceId.toUpperCase() === walletDeviceId.toUpperCase(),
+      );
+    }
+    if (!sourceAccounts.length) {
       return { status: 'no_matches', candidates: [] };
     }
-    const [sourceName] = matchingNames;
+
+    const targetAccounts = buildAccountNameTargets({
+      accounts,
+      indexedAccounts,
+      walletNameById: new Map([[wallet.id, wallet.name]]),
+      allowedWalletIds: new Set([wallet.id]),
+    }).map((target) => ({
+      indexedAccountId: target.indexedAccountId,
+      currentName: target.currentName,
+      address: target.address,
+    }));
+
+    const matches = matchAccountNamesByAddress({
+      sourceAccounts,
+      targetAccounts,
+    });
+    if (!matches.length) {
+      return { status: 'no_matches', candidates: [] };
+    }
     return {
       status: 'available',
-      candidates: [
-        {
-          indexedAccountId: indexedAccount.id,
-          currentName: indexedAccount.name,
-          sourceName,
-          matchedAddress: walletAddress,
-          source: 'ledger-live',
-        },
-      ],
+      candidates: matches.map((match) => ({
+        indexedAccountId: match.indexedAccountId,
+        currentName: match.currentName,
+        sourceName: match.sourceName,
+        sourceNames: match.sourceNames,
+        matchedAddress: match.matchedAddress,
+        source: isTrezor ? 'trezor-suite' : 'ledger-live',
+      })),
     };
   }
 
@@ -1719,7 +1751,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const allowedIds = new Set(
       wallet?.dbIndexedAccounts?.map((item) => item.id) ?? [],
     );
-    for (const rename of params.renames) {
+    // Validate all before writing: failing mid-loop renames only some.
+    const validated = params.renames.map((rename) => {
       const name = rename.name.trim();
       if (
         !allowedIds.has(rename.indexedAccountId) ||
@@ -1728,10 +1761,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ) {
         throw new OneKeyLocalError('Invalid third-party account rename');
       }
-      await this.backgroundApi.serviceAccount.setAccountName({
-        indexedAccountId: rename.indexedAccountId,
-        name,
-      });
+      return { indexedAccountId: rename.indexedAccountId, name };
+    });
+    for (const rename of validated) {
+      await this.backgroundApi.serviceAccount.setAccountName(rename);
     }
   }
 

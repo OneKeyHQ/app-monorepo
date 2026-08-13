@@ -11,6 +11,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
+import { showThirdPartyAccountNameSyncDialog } from '@onekeyhq/kit/src/views/Onboardingv2/components/ThirdPartyDevicePostAddDialog';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -290,6 +291,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const [nameSyncStatus, setNameSyncStatus] = useState<INameSyncStatus>('idle');
   const [nameSyncError, setNameSyncError] = useState('');
   const [sourceAccountCount, setSourceAccountCount] = useState(0);
+  const [nameDialogPending, setNameDialogPending] = useState(false);
 
   const vendor = device?.vendor;
   const isThirdParty =
@@ -405,6 +407,45 @@ function DeviceSectionThirdPartyOnboardingDev() {
     }
   }, [device, isThirdParty, nameSyncStatus, vendor]);
 
+  const handlePreviewNameSyncDialog = useCallback(async () => {
+    if (!device || !isThirdParty || nameDialogPending) {
+      return;
+    }
+    setNameDialogPending(true);
+    try {
+      const walletsWithDevice =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+          skipDuplicateDeviceSameType: true,
+        });
+      const matched = Object.values(walletsWithDevice).find(
+        (entry) => entry.device?.id === device.id,
+      );
+      if (!matched?.wallet) {
+        Toast.error({ title: '未找到该设备对应的钱包' });
+        return;
+      }
+      const outcome = await showThirdPartyAccountNameSyncDialog({
+        wallet: matched.wallet,
+        vendor:
+          vendor === EHardwareVendor.trezor
+            ? ('trezor' as const)
+            : ('ledger' as const),
+      });
+      if (!outcome.shown) {
+        Toast.message({
+          title: `未弹出弹窗 · ${outcome.status}`,
+        });
+      }
+    } catch (error) {
+      Toast.error({
+        title: getErrorMessage(error, '无法打开账户名称同步弹窗'),
+      });
+    } finally {
+      setNameDialogPending(false);
+    }
+  }, [device, isThirdParty, nameDialogPending, vendor]);
+
   if (!device || !isThirdParty) {
     return null;
   }
@@ -459,6 +500,21 @@ function DeviceSectionThirdPartyOnboardingDev() {
         disabled={nameSyncStatus === 'pending'}
         onPress={handleNameInventory}
         testID="third-party-onboarding-name-sync"
+      />
+      <ListItem
+        icon="PlayOutline"
+        title="3. 预览账户名称同步弹窗"
+        subtitle={
+          vendor === EHardwareVendor.ledger
+            ? '打开建钱包后的那个同步弹窗：默认全部勾选，一个地址对应多个名称时可选择'
+            : 'Trezor Suite 的账户名称在云端加密文件里，读不到，弹窗会提示原因'
+        }
+        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        drillIn
+        isLoading={nameDialogPending}
+        disabled={nameDialogPending}
+        onPress={handlePreviewNameSyncDialog}
+        testID="third-party-onboarding-name-sync-preview"
       />
     </ListItemGroup>
   );

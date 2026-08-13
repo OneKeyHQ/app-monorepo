@@ -1,20 +1,68 @@
+import { useCallback, useState } from 'react';
+
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IThirdPartyHardwareRewardVendor } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IThirdPartyAccountNameCandidate,
+  IThirdPartyAccountNameSourceStatus,
+  IThirdPartyHardwareRewardVendor,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { buildInitialSelection, buildRenames } from './migrationSelection';
+import { ThirdPartyAccountNameSyncContent } from './ThirdPartyAccountNameSyncContent';
+
+import type { IAccountNameSyncSelection } from './migrationSelection';
+
+// Mirrors selection back to the closure onConfirm reads.
+function AccountNameSyncContentWrapper({
+  candidates,
+  initialSelection,
+  onSelectionChange,
+}: {
+  candidates: IThirdPartyAccountNameCandidate[];
+  initialSelection: IAccountNameSyncSelection;
+  onSelectionChange: (selection: IAccountNameSyncSelection) => void;
+}) {
+  const [selection, setSelection] =
+    useState<IAccountNameSyncSelection>(initialSelection);
+
+  const handleSelectionChange = useCallback(
+    (next: IAccountNameSyncSelection) => {
+      setSelection(next);
+      onSelectionChange(next);
+    },
+    [onSelectionChange],
+  );
+
+  return (
+    <ThirdPartyAccountNameSyncContent
+      candidates={candidates}
+      selection={selection}
+      onSelectionChange={handleSelectionChange}
+    />
+  );
+}
 
 const NAME_SOURCE_TIMEOUT_MS = 5000;
 const NAME_SYNC_TIMEOUT_MS = 5000;
 const NAME_DIALOG_TAIL_TIMEOUT_MS = 60_000;
+
+export interface IAccountNameSyncDialogOutcome {
+  // False when nothing was offered.
+  shown: boolean;
+  status: IThirdPartyAccountNameSourceStatus;
+  candidateCount: number;
+}
 
 // TODO(i18n): replace the product copy with ETranslations entries after copy
 // review. Locale enum/generated files must not be edited by hand.
 export async function showThirdPartyAccountNameSyncDialog(params: {
   wallet: IDBWallet;
   vendor: IThirdPartyHardwareRewardVendor;
-}): Promise<void> {
+}): Promise<IAccountNameSyncDialogOutcome> {
   const result = await createTimeoutPromise({
     asyncFunc: async () => {
       try {
@@ -41,12 +89,14 @@ export async function showThirdPartyAccountNameSyncDialog(params: {
     },
   });
   if (result.status !== 'available' || result.candidates.length === 0) {
-    return;
+    return {
+      shown: false,
+      status: result.status,
+      candidateCount: result.candidates.length,
+    };
   }
 
-  const names = result.candidates
-    .map((candidate) => `${candidate.currentName} → ${candidate.sourceName}`)
-    .join('\n');
+  let selection = buildInitialSelection(result.candidates);
 
   await new Promise<void>((resolve) => {
     let resolved = false;
@@ -62,30 +112,41 @@ export async function showThirdPartyAccountNameSyncDialog(params: {
     const dialog = Dialog.show({
       icon: 'EditOutline',
       title: 'Sync account names?',
-      description: `We found matching account addresses in Ledger Live:\n${names}`,
       onConfirmText: 'Sync names',
       onCancelText: 'Not now',
+      renderContent: (
+        <AccountNameSyncContentWrapper
+          candidates={result.candidates}
+          initialSelection={selection}
+          onSelectionChange={(next) => {
+            selection = next;
+          }}
+        />
+      ),
       onConfirm: async ({ close }) => {
         try {
-          await createTimeoutPromise({
-            asyncFunc: async () => {
-              try {
-                await backgroundApiProxy.serviceThirdPartyHardware.applyThirdPartyAccountNames(
-                  {
-                    walletId: params.wallet.id,
-                    renames: result.candidates.map((candidate) => ({
-                      indexedAccountId: candidate.indexedAccountId,
-                      name: candidate.sourceName,
-                    })),
-                  },
-                );
-              } catch {
-                // Name sync is optional and must never block wallet entry.
-              }
-            },
-            timeout: NAME_SYNC_TIMEOUT_MS,
-            timeoutResult: undefined,
+          const renames = buildRenames({
+            candidates: result.candidates,
+            selection,
           });
+          if (renames.length) {
+            await createTimeoutPromise({
+              asyncFunc: async () => {
+                try {
+                  await backgroundApiProxy.serviceThirdPartyHardware.applyThirdPartyAccountNames(
+                    {
+                      walletId: params.wallet.id,
+                      renames,
+                    },
+                  );
+                } catch {
+                  // Name sync is optional and must never block wallet entry.
+                }
+              },
+              timeout: NAME_SYNC_TIMEOUT_MS,
+              timeoutResult: undefined,
+            });
+          }
         } finally {
           finish();
           await close?.();
@@ -100,4 +161,10 @@ export async function showThirdPartyAccountNameSyncDialog(params: {
     }, NAME_DIALOG_TAIL_TIMEOUT_MS);
     if (resolved) clearTimeout(tailTimerRef.current);
   });
+
+  return {
+    shown: true,
+    status: result.status,
+    candidateCount: result.candidates.length,
+  };
 }

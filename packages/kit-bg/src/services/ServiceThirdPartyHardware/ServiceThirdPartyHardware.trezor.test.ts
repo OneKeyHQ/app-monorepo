@@ -19,6 +19,7 @@ type ILocalDbMock = {
   getDevice: jest.Mock;
   getDeviceByQuery: jest.Mock;
   getAllWallets: jest.Mock;
+  getWalletDeviceSafe: jest.Mock;
   updateDeviceConnectId: jest.Mock;
 };
 
@@ -38,6 +39,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getDevice: jest.fn(),
     getDeviceByQuery: jest.fn(),
     getAllWallets: jest.fn(),
+    getWalletDeviceSafe: jest.fn(),
     updateDeviceConnectId: jest.fn(),
   },
 }));
@@ -52,6 +54,29 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
+
+// getWallets() does not carry dbAccounts for hardware wallets, so the service
+// reads the account tables directly.
+function buildBackgroundApi(wallet: {
+  id: string;
+  name: string;
+  dbIndexedAccounts: unknown[];
+  dbAccounts: unknown[];
+}): IBackgroundApi {
+  return {
+    serviceAccount: {
+      getWallets: jest.fn().mockResolvedValue({
+        wallets: [{ id: wallet.id, name: wallet.name }],
+      }),
+      getAllAccounts: jest
+        .fn()
+        .mockResolvedValue({ accounts: wallet.dbAccounts }),
+      getAllIndexedAccounts: jest
+        .fn()
+        .mockResolvedValue({ indexedAccounts: wallet.dbIndexedAccounts }),
+    },
+  } as unknown as IBackgroundApi;
+}
 
 function getLocalDbMock(): ILocalDbMock {
   return jest.requireMock<{ default: ILocalDbMock }>('../../dbs/local/localDb')
@@ -1176,5 +1201,534 @@ describe('ServiceThirdPartyHardware developer account name sync', () => {
         vendor: EHardwareVendor.ledger,
       }),
     ).rejects.toThrow('require Developer Mode');
+  });
+});
+
+describe('getThirdPartyAccountNameCandidates', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalDesktopApiProxy = globalThis.desktopApiProxy;
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = Boolean(
+      originalIsDesktop,
+    );
+    globalThis.desktopApiProxy = originalDesktopApiProxy;
+  });
+
+
+  it('filters Trezor Suite accounts by the wallet deviceId', async () => {
+    const mine = 'bc1qmine';
+    const theirs = 'bc1qtheirs';
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readTrezorSuiteAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            { deviceId: 'DEV-A', name: 'Savings', address: mine },
+            { deviceId: 'DEV-B', name: 'Other Device', address: theirs },
+          ],
+        }),
+      },
+    } as never;
+    getLocalDbMock().getWalletDeviceSafe.mockResolvedValue({
+      deviceId: 'dev-a',
+    } as IDBDevice);
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: buildBackgroundApi({
+        id: 'hw-1',
+        name: 'Trezor',
+        dbIndexedAccounts: [{ id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' }],
+        dbAccounts: [
+          {
+            id: 'a',
+            indexedAccountId: 'hw-1--0',
+            impl: 'btc',
+            address: mine,
+            path: "m/84'/0'/0'",
+          },
+        ],
+      }),
+    });
+
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.trezor,
+      walletId: 'hw-1',
+    });
+    expect(result.status).toBe('available');
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].sourceNames).toEqual(['Savings']);
+    expect(result.candidates[0].source).toBe('trezor-suite');
+  });
+
+  it('offers every Suite name when one indexed account has several derivations', async () => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readTrezorSuiteAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            { deviceId: 'DEV-A', name: 'Taproot Stash', address: 'bc1ptap' },
+            { deviceId: 'DEV-A', name: 'SegWit Daily', address: 'bc1qseg' },
+          ],
+        }),
+      },
+    } as never;
+    getLocalDbMock().getWalletDeviceSafe.mockResolvedValue({
+      deviceId: 'DEV-A',
+    } as IDBDevice);
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: buildBackgroundApi({
+        id: 'hw-1',
+        name: 'Trezor',
+        dbIndexedAccounts: [{ id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' }],
+        dbAccounts: [
+          {
+            id: 'taproot',
+            indexedAccountId: 'hw-1--0',
+            impl: 'btc',
+            address: 'bc1ptap',
+            path: "m/86'/0'/0'",
+          },
+          {
+            id: 'segwit',
+            indexedAccountId: 'hw-1--0',
+            impl: 'btc',
+            address: 'bc1qseg',
+            path: "m/84'/0'/0'",
+          },
+        ],
+      }),
+    });
+
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.trezor,
+      walletId: 'hw-1',
+    });
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].sourceNames.sort()).toEqual([
+      'SegWit Daily',
+      'Taproot Stash',
+    ]);
+  });
+
+  it('matches Ledger accounts beyond the first one and beyond EVM', async () => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readLedgerLiveAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            { name: 'Ethereum 1', address: `0x${'ab'.repeat(20)}` },
+            { name: 'Bitcoin 2', address: 'bc1qsecond' },
+          ],
+        }),
+      },
+    } as never;
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: buildBackgroundApi({
+        id: 'hw-1',
+        name: 'Ledger',
+        dbIndexedAccounts: [
+          { id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' },
+          { id: 'hw-1--1', name: 'Account 2', walletId: 'hw-1' },
+        ],
+        dbAccounts: [
+          {
+            id: 'evm',
+            indexedAccountId: 'hw-1--0',
+            impl: 'evm',
+            address: `0x${'AB'.repeat(20)}`,
+            path: "m/44'/60'/0'/0/0",
+          },
+          // Non-EVM second account: the old code ignored both.
+          {
+            id: 'btc',
+            indexedAccountId: 'hw-1--1',
+            impl: 'btc',
+            address: 'bc1qsecond',
+            path: "m/84'/0'/1'",
+          },
+        ],
+      }),
+    });
+
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.ledger,
+      walletId: 'hw-1',
+    });
+    expect(result.status).toBe('available');
+    expect(
+      result.candidates
+        .map((item) => `${item.indexedAccountId}:${item.sourceName}`)
+        .sort(),
+    ).toEqual(['hw-1--0:Ethereum 1', 'hw-1--1:Bitcoin 2']);
+  });
+});
+
+describe('getThirdPartyAccountNameCandidates guards', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalDesktopApiProxy = globalThis.desktopApiProxy;
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = Boolean(
+      originalIsDesktop,
+    );
+    globalThis.desktopApiProxy = originalDesktopApiProxy;
+  });
+
+  const wallet = {
+    id: 'hw-1',
+    name: 'W',
+    dbIndexedAccounts: [{ id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' }],
+    dbAccounts: [
+      {
+        id: 'evm',
+        indexedAccountId: 'hw-1--0',
+        impl: 'evm',
+        address: `0x${'ab'.repeat(20)}`,
+        path: "m/44'/60'/0'/0/0",
+      },
+    ],
+  };
+
+  const buildService = (readLedgerLiveAccountNames: jest.Mock) => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: { readLedgerLiveAccountNames },
+    } as never;
+    return new ServiceThirdPartyHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getWallets: jest
+            .fn()
+            .mockResolvedValue({ wallets: [{ id: wallet.id, name: wallet.name }] }),
+          getAllAccounts: jest
+            .fn()
+            .mockResolvedValue({ accounts: wallet.dbAccounts }),
+          getAllIndexedAccounts: jest
+            .fn()
+            .mockResolvedValue({ indexedAccounts: wallet.dbIndexedAccounts }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+  };
+
+  it('reports unsupported_source off desktop without touching the source', async () => {
+    const read = jest.fn();
+    const service = buildService(read);
+    (platformEnv as { isDesktop: boolean }).isDesktop = false;
+    await expect(
+      service.getThirdPartyAccountNameCandidates({
+        vendor: EHardwareVendor.ledger,
+        walletId: 'hw-1',
+      }),
+    ).resolves.toEqual({ status: 'unsupported_source', candidates: [] });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('rejects a vendor that has no local source', async () => {
+    const service = buildService(jest.fn());
+    await expect(
+      service.getThirdPartyAccountNameCandidates({
+        vendor: EHardwareVendor.onekey,
+        walletId: 'hw-1',
+      }),
+    ).resolves.toEqual({ status: 'unsupported_source', candidates: [] });
+  });
+
+  it.each([
+    ['source_not_found', 'source_not_found'],
+    ['invalid_source', 'invalid_source'],
+    ['no_accounts', 'no_matches'],
+  ])('maps source status %s to %s', async (sourceStatus, expected) => {
+    const service = buildService(
+      jest.fn().mockResolvedValue({ status: sourceStatus, accounts: [] }),
+    );
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.ledger,
+      walletId: 'hw-1',
+    });
+    expect(result.status).toBe(expected);
+    expect(result.candidates).toEqual([]);
+  });
+
+  it('does not offer a rename that would be a no-op', async () => {
+    const service = buildService(
+      jest.fn().mockResolvedValue({
+        status: 'available',
+        accounts: [{ name: 'Account 1', address: `0x${'ab'.repeat(20)}` }],
+      }),
+    );
+    await expect(
+      service.getThirdPartyAccountNameCandidates({
+        vendor: EHardwareVendor.ledger,
+        walletId: 'hw-1',
+      }),
+    ).resolves.toEqual({ status: 'no_matches', candidates: [] });
+  });
+
+  it('skips Trezor entirely when the wallet has no device', async () => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    const readTrezorSuiteAccountNames = jest.fn().mockResolvedValue({
+      status: 'available',
+      accounts: [{ deviceId: 'DEV-A', name: 'X', address: 'bc1q' }],
+    });
+    globalThis.desktopApiProxy = {
+      system: { readTrezorSuiteAccountNames },
+    } as never;
+    getLocalDbMock().getWalletDeviceSafe.mockResolvedValue(undefined);
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getWallets: jest
+            .fn()
+            .mockResolvedValue({ wallets: [{ id: wallet.id, name: wallet.name }] }),
+          getAllAccounts: jest
+            .fn()
+            .mockResolvedValue({ accounts: wallet.dbAccounts }),
+          getAllIndexedAccounts: jest
+            .fn()
+            .mockResolvedValue({ indexedAccounts: wallet.dbIndexedAccounts }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await expect(
+      service.getThirdPartyAccountNameCandidates({
+        vendor: EHardwareVendor.trezor,
+        walletId: 'hw-1',
+      }),
+    ).resolves.toEqual({ status: 'no_matches', candidates: [] });
+  });
+});
+
+describe('applyThirdPartyAccountNames', () => {
+  function buildService() {
+    const setAccountName = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {
+        serviceAccount: {
+          setAccountName,
+          getWallets: jest.fn().mockResolvedValue({
+            wallets: [
+              {
+                id: 'hw-1',
+                dbIndexedAccounts: [{ id: 'hw-1--0' }, { id: 'hw-1--1' }],
+              },
+            ],
+          }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    return { service, setAccountName };
+  }
+
+  it('renames every requested account', async () => {
+    const { service, setAccountName } = buildService();
+    await service.applyThirdPartyAccountNames({
+      walletId: 'hw-1',
+      renames: [
+        { indexedAccountId: 'hw-1--0', name: 'Ethereum 1' },
+        { indexedAccountId: 'hw-1--1', name: '  Bitcoin 2  ' },
+      ],
+    });
+    expect(setAccountName).toHaveBeenCalledTimes(2);
+    expect(setAccountName).toHaveBeenLastCalledWith({
+      indexedAccountId: 'hw-1--1',
+      name: 'Bitcoin 2',
+    });
+  });
+
+  it('refuses to rename an account that belongs to another wallet', async () => {
+    const { service, setAccountName } = buildService();
+    await expect(
+      service.applyThirdPartyAccountNames({
+        walletId: 'hw-1',
+        renames: [{ indexedAccountId: 'hw-OTHER--0', name: 'Nope' }],
+      }),
+    ).rejects.toThrow('Invalid third-party account rename');
+    expect(setAccountName).not.toHaveBeenCalled();
+  });
+
+  it.each([['   '], ['a'.repeat(81)]])(
+    'rejects the invalid name %p',
+    async (name) => {
+      const { service, setAccountName } = buildService();
+      await expect(
+        service.applyThirdPartyAccountNames({
+          walletId: 'hw-1',
+          renames: [{ indexedAccountId: 'hw-1--0', name }],
+        }),
+      ).rejects.toThrow('Invalid third-party account rename');
+      expect(setAccountName).not.toHaveBeenCalled();
+    },
+  );
+
+  it('writes nothing when a later entry in the batch is invalid', async () => {
+    const { service, setAccountName } = buildService();
+    await expect(
+      service.applyThirdPartyAccountNames({
+        walletId: 'hw-1',
+        renames: [
+          { indexedAccountId: 'hw-1--0', name: 'Valid' },
+          { indexedAccountId: 'hw-OTHER--0', name: 'Invalid' },
+        ],
+      }),
+    ).rejects.toThrow('Invalid third-party account rename');
+    expect(setAccountName).not.toHaveBeenCalled();
+  });
+});
+
+describe('Ledger cross-chain matching onto one indexed account', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalDesktopApiProxy = globalThis.desktopApiProxy;
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = Boolean(
+      originalIsDesktop,
+    );
+    globalThis.desktopApiProxy = originalDesktopApiProxy;
+  });
+
+  it('collects one name per chain into a single pick-one candidate', async () => {
+    const evmAddress = `0x${'ab'.repeat(20)}`;
+    const btcAddress = 'bc1qaccountone';
+    const solAddress = 'SoLaNaAddress1111111111111111111111111111111';
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readLedgerLiveAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            { name: 'Ethereum 1', address: evmAddress },
+            { name: 'Bitcoin 1', address: btcAddress },
+            { name: 'Solana 1', address: solAddress },
+          ],
+        }),
+      },
+    } as never;
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: buildBackgroundApi({
+        id: 'hw-1',
+        name: 'Ledger',
+        dbIndexedAccounts: [
+                  { id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' },
+                ],
+        dbAccounts: [
+                  {
+                    id: 'evm',
+                    indexedAccountId: 'hw-1--0',
+                    impl: 'evm',
+                    address: evmAddress,
+                    path: "m/44'/60'/0'/0/0",
+                  },
+                  {
+                    id: 'btc',
+                    indexedAccountId: 'hw-1--0',
+                    impl: 'btc',
+                    address: btcAddress,
+                    path: "m/84'/0'/0'",
+                  },
+                  {
+                    id: 'sol',
+                    indexedAccountId: 'hw-1--0',
+                    impl: 'sol',
+                    address: solAddress,
+                    path: "m/44'/501'/0'/0'",
+                  },
+                ],
+      }),
+    });
+
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.ledger,
+      walletId: 'hw-1',
+    });
+
+    expect(result.status).toBe('available');
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].indexedAccountId).toBe('hw-1--0');
+    expect(result.candidates[0].currentName).toBe('Account 1');
+    expect([...result.candidates[0].sourceNames].sort()).toEqual([
+      'Bitcoin 1',
+      'Ethereum 1',
+      'Solana 1',
+    ]);
+    expect(result.candidates[0].sourceName).toBe(
+      result.candidates[0].sourceNames[0],
+    );
+  });
+});
+
+describe('Ledger real-world multi-chain fan-in', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalDesktopApiProxy = globalThis.desktopApiProxy;
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = Boolean(
+      originalIsDesktop,
+    );
+    globalThis.desktopApiProxy = originalDesktopApiProxy;
+  });
+
+  it('fans every chain name in, whether or not the address is shared', async () => {
+    const sharedEvm = '0x1C38960Bea4E9a5cE2bc51DB3187023685c57b0b';
+    const btc = 'bc1qcj6kf4d62sp373ex3l3fhrrs9kmjq5h6fgytdt';
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    globalThis.desktopApiProxy = {
+      system: {
+        readLedgerLiveAccountNames: jest.fn().mockResolvedValue({
+          status: 'available',
+          accounts: [
+            { name: 'Ethereum 1', address: sharedEvm },
+            { name: 'New Polygon 1', address: sharedEvm.toLowerCase() },
+            { name: 'Bitcoin 1', address: btc },
+          ],
+        }),
+      },
+    } as never;
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: buildBackgroundApi({
+        id: 'hw-1',
+        name: 'Ledger',
+        dbIndexedAccounts: [
+                  { id: 'hw-1--0', name: 'Account 1', walletId: 'hw-1' },
+                ],
+        dbAccounts: [
+                  {
+                    id: 'evm',
+                    indexedAccountId: 'hw-1--0',
+                    impl: 'evm',
+                    address: sharedEvm.toUpperCase(),
+                    path: "m/44'/60'/0'/0/0",
+                  },
+                  {
+                    id: 'btc',
+                    indexedAccountId: 'hw-1--0',
+                    impl: 'btc',
+                    address: btc,
+                    path: "m/84'/0'/0'",
+                  },
+                ],
+      }),
+    });
+
+    const result = await service.getThirdPartyAccountNameCandidates({
+      vendor: EHardwareVendor.ledger,
+      walletId: 'hw-1',
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    // Case differences in the address must not split or drop a match.
+    expect([...result.candidates[0].sourceNames].sort()).toEqual([
+      'Bitcoin 1',
+      'Ethereum 1',
+      'New Polygon 1',
+    ]);
   });
 });
