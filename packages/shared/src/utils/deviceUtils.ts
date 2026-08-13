@@ -79,16 +79,12 @@ function getDeviceDisplayName({ state }: { state: DeviceState }): string {
   const defaultName = identity.deviceType
     ? getDefaultDeviceLabel(identity.deviceType)
     : undefined;
-  const rawBleName = identity.bleName?.trim();
-  // Early Pro2 firmware can expose its serial as the BLE advertising name.
-  const bleName =
-    identity.deviceType === EDeviceType.Pro2 &&
-    rawBleName &&
-    /^P2[A-Z0-9]{8,}$/iu.test(rawBleName)
-      ? `Pro2 ${rawBleName.slice(-4).toUpperCase()}`
-      : rawBleName;
   return (
-    identity.label || bleName || defaultName || identity.model || 'OneKey'
+    identity.label ||
+    identity.bleName ||
+    defaultName ||
+    identity.model ||
+    'OneKey'
   );
 }
 
