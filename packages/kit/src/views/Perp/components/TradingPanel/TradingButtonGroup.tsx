@@ -45,7 +45,6 @@ import {
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
@@ -74,7 +73,6 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
-  getTwapTriggerReferencePrice,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
@@ -101,6 +99,7 @@ import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
+import { useTwapReferencePrice } from '../../hooks/useTwapReferencePrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
 import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
@@ -443,7 +442,6 @@ function SideButtonInternal({
       ? 'usd'
       : tradingPreferences.sizeInputUnit;
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const orderContextKey = useMemo(
     () =>
@@ -464,15 +462,7 @@ function SideButtonInternal({
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
-  const twapTriggerReferencePriceBN = useMemo(
-    () =>
-      getTwapTriggerReferencePrice({
-        isSpot,
-        midPrice: midPriceBN,
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-      }),
-    [activeAssetCtx?.ctx?.markPrice, isSpot, midPriceBN],
-  );
+  const twapTriggerReferencePriceBN = useTwapReferencePrice({ midPriceBN });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();

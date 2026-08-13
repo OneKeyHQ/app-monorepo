@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,10 +11,7 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveAccountAtom,
-  usePerpsActiveAssetCtxAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
@@ -32,7 +29,6 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
-  getTwapTriggerReferencePrice,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
@@ -54,6 +50,7 @@ import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
+import { useTwapReferencePrice } from './useTwapReferencePrice';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -75,20 +72,11 @@ function useOrderConfirmWithMarketDataFreshness({
   const [formData] = useTradingFormAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const twapReferencePriceBN = useMemo(
-    () =>
-      getTwapTriggerReferencePrice({
-        isSpot: activeTradeInstrument.mode === 'spot',
-        midPrice: midPriceBN,
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-      }),
-    [activeAssetCtx?.ctx?.markPrice, activeTradeInstrument.mode, midPriceBN],
-  );
+  const twapReferencePriceBN = useTwapReferencePrice({ midPriceBN });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 

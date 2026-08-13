@@ -25,6 +25,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatTwapPriceForOrder } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -254,23 +255,25 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
-    const triggerPrice = formData.twapTriggerPrice?.trim();
-    const stopPrice = formData.twapStopPrice?.trim();
+    // Preview the same wire-normalized prices the submit path sends, so the
+    // user confirms exactly what goes out.
+    const triggerPrice = formatTwapPriceForOrder({
+      price: formData.twapTriggerPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
+    const stopPrice = formatTwapPriceForOrder({
+      price: formData.twapStopPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
     return {
       minutes: Number(formData.twapDurationMinutes ?? 0),
       triggerPrice: triggerPrice
-        ? formatOrderPriceDisplay({
-            price: triggerPrice,
-            isSpot,
-            szDecimals,
-          })
+        ? `$${formatLocalizedNumberString(triggerPrice)}`
         : undefined,
       stopPrice: stopPrice
-        ? formatOrderPriceDisplay({
-            price: stopPrice,
-            isSpot,
-            szDecimals,
-          })
+        ? `$${formatLocalizedNumberString(stopPrice)}`
         : undefined,
     };
   }, [

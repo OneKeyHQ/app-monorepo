@@ -2916,7 +2916,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isSpot,
               midPrice: params.price ?? env.markPrice ?? '',
               markPrice:
-                activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '',
+                activeAssetCtxValue?.ctx?.markPrice ??
+                activeAssetDataValue?.markPx ??
+                env.markPrice ??
+                '',
             });
             if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
               throw new OneKeyLocalError(

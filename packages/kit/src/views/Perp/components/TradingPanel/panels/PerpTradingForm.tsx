@@ -46,7 +46,6 @@ import {
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsCommonConfigPersistAtom,
@@ -69,7 +68,6 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
-  getTwapTriggerReferencePrice,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -95,6 +93,7 @@ import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAcc
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { useTwapReferencePrice } from '../../../hooks/useTwapReferencePrice';
 import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils/accountMode';
 import { getPerpsFormLeverage } from '../../../utils/leverageDisplay';
@@ -491,7 +490,6 @@ function PerpTradingForm({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [isPerpsActiveAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [spotActiveAsset] = useSpotActiveAssetAtom();
   const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
@@ -500,6 +498,7 @@ function PerpTradingForm({
   const { midPrice, midPriceBN } = useTradingPrice({
     source: tradingPriceSource,
   });
+  const twapReferencePriceBN = useTwapReferencePrice({ midPriceBN });
   const { price: orderPriceBN } = useOrderPrice(formData.side, {
     priceSource: tradingPriceSource,
   });
@@ -898,11 +897,7 @@ function PerpTradingForm({
   const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.orderMode === 'twap') {
-      price = getTwapTriggerReferencePrice({
-        isSpot,
-        midPrice: midPriceBN,
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-      });
+      price = twapReferencePriceBN;
     } else if (formData.orderMode === 'trigger' && formData.triggerOrderType) {
       price = getTriggerEffectivePrice({
         triggerOrderType: formData.triggerOrderType,
@@ -938,7 +933,7 @@ function PerpTradingForm({
     formData.executionPrice,
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
-    activeAssetCtx?.ctx?.markPrice,
+    twapReferencePriceBN,
     isSpot,
     midPriceBN,
     sizeSzDecimals,
