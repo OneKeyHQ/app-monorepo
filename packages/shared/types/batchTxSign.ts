@@ -22,6 +22,12 @@ export type IBatchTxSignItemSummary = {
   recipient: string; // primary recipient address ('' if none resolvable)
   extraRecipientCount: number; // additional recipients -> "+N"
   amountValue: string; // satoshi, displayed outgoing total
+  // Satoshi actually leaving the wallet ('0' for a pure self-transfer).
+  // amountValue is display-aligned with the drill-down confirm page and thus
+  // means "owned outputs total" for self-transfers — summing it would count
+  // funds that never leave the wallet, so aggregations (the overview's
+  // "Total outgoing") must sum this field instead.
+  externalAmountValue: string;
   feeValue: string; // satoshi
   status: EBatchTxSignItemStatus;
   errorMessage?: string;

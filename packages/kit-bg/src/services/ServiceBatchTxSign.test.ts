@@ -86,6 +86,7 @@ function makeItem(index: number): IBatchTxSignCreateItem {
       recipient: `bc1q-recipient-${index}`,
       extraRecipientCount: 0,
       amountValue: '1000',
+      externalAmountValue: '1000',
       feeValue: '100',
       status: EBatchTxSignItemStatus.Ready,
     },
@@ -118,11 +119,16 @@ function makeService(
 ) {
   const signTransaction = jest.fn(signTransactionImpl);
   const precheckUnsignedTxs = jest.fn(async () => undefined);
+  const buildDecodedTx = jest.fn(async ({ unsignedTx }) => ({
+    decodedFor: getMarker(unsignedTx as IUnsignedTxPro),
+  }));
+  const addItemFromSendProcess = jest.fn(async () => undefined);
   const getNetwork = jest.fn();
   const openPasswordSecuritySession = jest.fn(async () => undefined);
   const closePasswordSecuritySession = jest.fn(async () => undefined);
   const backgroundApi = {
-    serviceSend: { signTransaction, precheckUnsignedTxs },
+    serviceSend: { signTransaction, precheckUnsignedTxs, buildDecodedTx },
+    serviceSignature: { addItemFromSendProcess },
     serviceNetwork: { getNetwork },
     servicePassword: {
       openPasswordSecuritySession,
@@ -135,6 +141,8 @@ function makeService(
     backgroundApi,
     signTransaction,
     precheckUnsignedTxs,
+    buildDecodedTx,
+    addItemFromSendProcess,
     getNetwork,
     openPasswordSecuritySession,
     closePasswordSecuritySession,
@@ -269,6 +277,52 @@ describe('ServiceBatchTxSign', () => {
 
     const results = await service.takeFinalizedResults({ batchId });
     expect(results).toEqual(['signed-by-drilldown', 'signed-psbt-1']);
+  });
+
+  test('signRemaining records each directly-signed item into the signature history', async () => {
+    const { service, buildDecodedTx, addItemFromSendProcess } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+    const sourceInfo = { origin: 'https://dapp.example' } as any;
+
+    // Drill-down item: recorded by its own TxConfirm flow, so signRemaining
+    // must NOT record it a second time.
+    await service.markItemSigned({
+      batchId,
+      index: 0,
+      signedPsbtHex: 'signed-by-drilldown',
+    });
+
+    await service.signRemaining({ batchId, sourceInfo });
+
+    expect(buildDecodedTx).toHaveBeenCalledTimes(1);
+    expect(addItemFromSendProcess).toHaveBeenCalledTimes(1);
+    expect(addItemFromSendProcess).toHaveBeenCalledWith(
+      {
+        signedTx: expect.objectContaining({ psbtHex: 'signed-psbt-1' }),
+        decodedTx: { decodedFor: 'psbt-1' },
+      },
+      sourceInfo,
+    );
+  });
+
+  test('a signature-record failure never fails the batch', async () => {
+    const { service, addItemFromSendProcess } = makeService();
+    addItemFromSendProcess.mockRejectedValue(new Error('record failed'));
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    await service.signRemaining({ batchId });
+
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Complete);
+    expect(progress.signedCount).toBe(2);
   });
 
   test('markItemSigned rejects an empty signedPsbtHex', async () => {

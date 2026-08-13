@@ -13,6 +13,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import {
   EBatchTxSignItemStatus,
   EBatchTxSignStatus,
@@ -228,10 +229,49 @@ export default class ServiceBatchTxSign extends ServiceBase {
     await this.publishProgress(state);
   }
 
+  // Best-effort signature-history record for one directly-signed item,
+  // mirroring what the legacy per-psbt flow gets from
+  // batchSignAndSendTransaction -> addItemFromSendProcess. Drill-down items
+  // go through the real TxConfirm and are recorded there. Never throws: the
+  // signature is already obtained, so a decode/record failure must not fail
+  // the batch (addItemFromSendProcess itself also swallows errors).
+  private async recordSignatureItem({
+    state,
+    unsignedTx,
+    signedTx,
+    sourceInfo,
+  }: {
+    state: IBatchTxSignState;
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+    sourceInfo: IDappSourceInfo | undefined;
+  }): Promise<void> {
+    try {
+      const decodedTx = await this.backgroundApi.serviceSend.buildDecodedTx({
+        networkId: state.networkId,
+        accountId: state.accountId,
+        unsignedTx,
+        saveToLocalHistory: true,
+      });
+      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+        { signedTx, decodedTx },
+        sourceInfo,
+      );
+    } catch (error) {
+      console.error('batchTxSign: signature record failed', error);
+    }
+  }
+
   // Sequential loop over items in index order. Never runs in parallel — the
   // hardware device can only handle one signing dialog at a time.
   @backgroundMethod()
-  async signRemaining({ batchId }: { batchId: string }): Promise<void> {
+  async signRemaining({
+    batchId,
+    sourceInfo,
+  }: {
+    batchId: string;
+    sourceInfo?: IDappSourceInfo;
+  }): Promise<void> {
     const state = this.requireBatch(batchId);
     if (state.isSigning) {
       throw new OneKeyLocalError('batch signing already in progress');
@@ -339,6 +379,13 @@ export default class ServiceBatchTxSign extends ServiceBase {
           item.summary.status = EBatchTxSignItemStatus.Signed;
           // eslint-disable-next-line no-await-in-loop
           await this.publishProgress(state);
+          // eslint-disable-next-line no-await-in-loop
+          await this.recordSignatureItem({
+            state,
+            unsignedTx: item.unsignedTx,
+            signedTx,
+            sourceInfo,
+          });
         }
       }
 

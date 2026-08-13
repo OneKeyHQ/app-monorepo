@@ -960,6 +960,7 @@ class ProviderApiBtc extends ProviderApiBase {
           amountValue: isPureSelfTransfer
             ? amounts.changeValue
             : amounts.externalOutValue,
+          externalAmountValue: amounts.externalOutValue,
           feeValue: amounts.feeValue,
           status: EBatchTxSignItemStatus.Ready,
         },

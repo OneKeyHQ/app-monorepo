@@ -236,10 +236,17 @@ function BatchTxConfirm() {
   const remainingCount = totalCount - signedCount;
   const hasSignedAny = signedCount > 0;
 
+  // Sums externalAmountValue, not amountValue: a pure self-transfer row
+  // displays its owned-outputs total as amountValue (matching the drill-down
+  // confirm), but none of that value leaves the wallet, so only external
+  // outgoing may contribute to "Total outgoing".
   const totalOutgoingSatoshi = useMemo(
     () =>
       items
-        .reduce((sum, item) => sum.plus(item.amountValue), new BigNumber(0))
+        .reduce(
+          (sum, item) => sum.plus(item.externalAmountValue),
+          new BigNumber(0),
+        )
         .toFixed(),
     [items],
   );
@@ -392,7 +399,10 @@ function BatchTxConfirm() {
 
   const startSigning = useCallback(() => {
     void backgroundApiProxy.serviceBatchTxSign
-      .signRemaining({ batchId })
+      // sourceInfo lets the background loop record each signature into the
+      // signature history under the requesting dapp's origin, matching the
+      // legacy per-psbt TxConfirm flow.
+      .signRemaining({ batchId, sourceInfo })
       .catch((error: unknown) => {
         // signRemaining rejects for two very different reasons and only one
         // deserves this toast:
@@ -412,7 +422,7 @@ function BatchTxConfirm() {
           });
         }
       });
-  }, [batchId]);
+  }, [batchId, sourceInfo]);
 
   const showSigningNotice = useCallback(() => {
     Dialog.show({
