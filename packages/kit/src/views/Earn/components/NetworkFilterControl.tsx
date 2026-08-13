@@ -85,8 +85,12 @@ function NetworkFilterControl({
         <NetworkAvatar networkId={singleSelectedNetworkId} size="$4" />
       );
     } else {
+      // OK-59960: the app-wide all-networks glyph is AllNetworksSolid (same as
+      // NetworkAvatarBase / NetworksFilterItem). The generic globe icon is the
+      // fallback drawn when a network logo fails to load, so using it here read
+      // as a different, inconsistent icon.
       compactLeadingIcon = (
-        <Icon name="GlobusOutline" size="$4" color="$iconSubdued" />
+        <Icon name="AllNetworksSolid" size="$4" color="$iconActive" />
       );
     }
   }
@@ -181,7 +185,8 @@ function NetworkFilterControl({
                 containerProps={{ py: '$0', flexShrink: 0 }}
                 shouldStopPropagation
               />
-              <Icon name="GlobusOutline" size="$5" color="$iconSubdued" />
+              {/* Same all-networks glyph as the trigger above (OK-59960) */}
+              <Icon name="AllNetworksSolid" size="$5" color="$iconActive" />
               <SizableText size="$bodyLgMedium" flex={1}>
                 {intl.formatMessage({
                   id: ETranslations.global_all_networks,

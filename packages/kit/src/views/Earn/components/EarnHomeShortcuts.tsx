@@ -21,7 +21,12 @@ function EarnHomeShortcut({
     <YStack
       testID={testID}
       role={onPress ? 'button' : undefined}
-      w={73.667}
+      // OK-60104: the tile used to be pinned to the design's 73.667pt, which
+      // only ever fit the English labels — the Portuguese "Loans" needs ~82pt
+      // and was cut off mid-word with an ellipsis. Splitting the row into
+      // thirds gives each label ~117pt without touching the type scale, and the
+      // labels stay centered on their own third.
+      flex={1}
       gap="$1"
       ai="center"
       jc="center"
