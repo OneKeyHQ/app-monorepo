@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 
 import {
   loadTradingViewEmbedModule,
@@ -55,32 +55,71 @@ describe('TradingViewEmbedGlobalPreload', () => {
     jest.mocked(preloadTasksOnIdle).mockReturnValue(cleanup);
   });
 
-  test('schedules Market and local embed preloads through the idle runner', async () => {
+  test('starts first-detail preloads immediately and defers legacy migration', async () => {
+    let resolveEmbedModule:
+      | ((
+          value: Awaited<ReturnType<typeof loadTradingViewEmbedModule>>,
+        ) => void)
+      | undefined;
+    let resolveMarketTradingView: (() => void) | undefined;
+    let resolveBootstrapAssets: (() => void) | undefined;
+    jest.mocked(loadTradingViewEmbedModule).mockReturnValue(
+      new Promise<Awaited<ReturnType<typeof loadTradingViewEmbedModule>>>(
+        (resolve) => {
+          resolveEmbedModule = resolve;
+        },
+      ),
+    );
+    jest.mocked(preloadMarketTradingView).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveMarketTradingView = resolve;
+      }),
+    );
+    jest.mocked(preloadTradingViewEmbedBootstrapAssets).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveBootstrapAssets = resolve;
+      }),
+    );
+
     const view = render(<TradingViewEmbedGlobalPreload />);
+
+    await waitFor(() => {
+      expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
+        'http://localhost:5173/?locale=zh-CN',
+      );
+    });
+    expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
+    expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
+      'http://localhost:5173/?locale=zh-CN',
+    );
+    expect(preloadTasksOnIdle).not.toHaveBeenCalled();
+    expect(migrateLegacyTradingViewStorage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveEmbedModule?.({
+        assetBaseUrl: 'http://localhost:5173/',
+        module: {
+          mountTradingView: jest.fn(),
+          postTradingViewMessage: jest.fn(),
+        },
+      });
+      resolveMarketTradingView?.();
+      resolveBootstrapAssets?.();
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(preloadTasksOnIdle).toHaveBeenCalledTimes(1);
     });
     const [tasks, logPrefix] = jest.mocked(preloadTasksOnIdle).mock.calls[0];
     expect(tasks.map((task) => task.name)).toEqual([
-      'TradingViewEmbedModule',
-      'MarketTradingView',
-      'TradingViewEmbedBootstrapAssets',
+      'LegacyTradingViewStorageMigration',
     ]);
     expect(logPrefix).toBe('TradingViewEmbedPreload');
-    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
-    expect(preloadTradingViewEmbedBootstrapAssets).not.toHaveBeenCalled();
 
     await Promise.all(tasks.map((task) => task.preload()));
 
-    expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
-    expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
-      'http://localhost:5173/?locale=zh-CN',
-    );
     expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
-      'http://localhost:5173/?locale=zh-CN',
-    );
-    expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',
     );
 

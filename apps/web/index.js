@@ -33,7 +33,8 @@ const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
-const ROOT_SERVICE_WORKER_PATH = '/service-worker.js';
+const ROOT_SERVICE_WORKER_PATH =
+  '/service-worker.js?tradingviewEmbedProtocol=1';
 const SERVICE_WORKER_MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',

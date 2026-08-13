@@ -1,6 +1,5 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable unicorn/prefer-global-this */
-/* global __TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY__, __TRADINGVIEW_EMBED_BUILD_MANIFEST_URL__ */
 import { ExpirationPlugin } from 'workbox-expiration';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
@@ -8,6 +7,7 @@ import { CacheFirst } from 'workbox-strategies';
 
 import { resolveTradingViewEmbedProxySourceUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
 
+import { putTradingViewResponseInCache } from './tradingViewEmbedCache';
 import { runTradingViewEmbedPrefetch } from './tradingViewEmbedPrefetch';
 
 const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
@@ -26,10 +26,6 @@ const TRADINGVIEW_EMBED_CACHE_PREFIX = 'onekey-tradingview-embed:';
 const TRADINGVIEW_PREFETCH_CONCURRENCY = 3;
 const DEFAULT_TRADINGVIEW_EMBED_MANIFEST_URL =
   'https://tradingview.onekey.so/embed/latest.json';
-const TRADINGVIEW_EMBED_BUILD_MANIFEST_URL =
-  __TRADINGVIEW_EMBED_BUILD_MANIFEST_URL__;
-const TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY =
-  __TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY__;
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const TRUSTED_TRADINGVIEW_MANIFEST_ORIGINS = new Set([
   'https://tradingview.onekey.so',
@@ -45,6 +41,7 @@ const MESSAGE_TYPES = {
   UPDATE_READY: 'UPDATE_READY',
   UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
+  CLAIM_CLIENTS: 'CLAIM_CLIENTS',
   PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
 
@@ -610,7 +607,7 @@ async function fetchTradingViewManifest(manifestUrl) {
   return { baseUrl, manifest, response: manifestResponse };
 }
 
-function createPinnedTradingViewManifest(manifest, manifestUrl) {
+function createProvidedTradingViewManifest(manifest, manifestUrl) {
   if (!isValidTradingViewManifest(manifest)) {
     throw new ServiceWorkerVersionError('tradingview_manifest_invalid');
   }
@@ -631,37 +628,6 @@ function createPinnedTradingViewManifest(manifest, manifestUrl) {
       headers: { 'Content-Type': 'application/json' },
     }),
   };
-}
-
-async function fetchPinnedTradingViewManifest(manifestUrl, expectedVersion) {
-  if (
-    !TRADINGVIEW_EMBED_BUILD_MANIFEST_URL ||
-    !TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY.startsWith('sha384-')
-  ) {
-    throw new ServiceWorkerVersionError('tradingview_manifest_not_pinned');
-  }
-  const response = await fetch(
-    new URL(TRADINGVIEW_EMBED_BUILD_MANIFEST_URL, self.location.origin),
-    {
-      cache: 'force-cache',
-      credentials: 'omit',
-      integrity: TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY,
-      mode: 'cors',
-      redirect: 'error',
-    },
-  );
-  if (!response.ok || response.type === 'opaque') {
-    throw new ServiceWorkerVersionError(
-      `tradingview_manifest_http_${response.status}`,
-    );
-  }
-  const manifest = await response.json();
-  if (expectedVersion && manifest?.version !== expectedVersion) {
-    throw new ServiceWorkerVersionError(
-      'tradingview_manifest_version_mismatch',
-    );
-  }
-  return createPinnedTradingViewManifest(manifest, manifestUrl);
 }
 
 async function getCompletedTradingViewManifest(manifestUrl) {
@@ -716,15 +682,6 @@ async function restoreTradingViewManifestState(requestUrl) {
       }
     }
   }
-  if (TRADINGVIEW_EMBED_BUILD_MANIFEST_URL) {
-    const { baseUrl } = await fetchPinnedTradingViewManifest(
-      manifestUrl,
-      version,
-    );
-    if (requestUrl.startsWith(baseUrl)) {
-      return baseUrl;
-    }
-  }
   return '';
 }
 
@@ -761,7 +718,11 @@ async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
         return;
       }
       const fetched = await fetchTradingViewAsset(asset, baseUrl, priority);
-      await cache.put(fetched.request, fetched.response);
+      await putTradingViewResponseInCache(
+        cache,
+        fetched.request,
+        fetched.response,
+      );
     },
   );
 }
@@ -837,6 +798,7 @@ async function prepareTradingViewEmbed(
   manifestUrl,
   expectedVersion,
   locale = 'en',
+  providedManifest,
 ) {
   const normalizedManifestUrl = normalizeTradingViewUrl(manifestUrl);
   if (
@@ -854,16 +816,19 @@ async function prepareTradingViewEmbed(
   }
 
   const bootstrapPromise = (async () => {
-    let resolvedManifest;
-    if (TRADINGVIEW_EMBED_BUILD_MANIFEST_URL) {
-      resolvedManifest = await fetchPinnedTradingViewManifest(
-        normalizedManifestUrl,
-        expectedVersion,
+    const resolvedManifest = providedManifest
+      ? createProvidedTradingViewManifest(
+          providedManifest,
+          normalizedManifestUrl,
+        )
+      : await fetchTradingViewManifest(normalizedManifestUrl);
+    if (
+      expectedVersion &&
+      resolvedManifest.manifest.version !== expectedVersion
+    ) {
+      throw new ServiceWorkerVersionError(
+        'tradingview_manifest_version_mismatch',
       );
-    } else if (LOCAL_HOSTNAMES.has(new URL(normalizedManifestUrl).hostname)) {
-      resolvedManifest = await fetchTradingViewManifest(normalizedManifestUrl);
-    } else {
-      throw new ServiceWorkerVersionError('tradingview_manifest_not_pinned');
     }
     const { baseUrl, manifest, response: manifestResponse } = resolvedManifest;
 
@@ -939,29 +904,18 @@ async function handleTradingViewAssetRequest(request) {
   const normalizedRequestUrl = new URL(assetRequest.url).toString();
   if (isTradingViewManifestRequestUrl(normalizedRequestUrl)) {
     configuredTradingViewManifestUrl = normalizedRequestUrl;
-    const completedManifest = await getCompletedTradingViewManifest(
-      configuredTradingViewManifestUrl,
-    );
-    if (completedManifest) {
-      return completedManifest;
-    }
     try {
-      if (
-        LOCAL_HOSTNAMES.has(new URL(configuredTradingViewManifestUrl).hostname)
-      ) {
-        const { response } = await fetchTradingViewManifest(
-          configuredTradingViewManifestUrl,
-        );
-        return response;
-      }
-      const verifiedManifest = await getCompletedTradingViewManifest(
+      const { response } = await fetchTradingViewManifest(
         configuredTradingViewManifestUrl,
       );
-      if (verifiedManifest) {
-        return verifiedManifest;
-      }
-      throw new ServiceWorkerVersionError('tradingview_manifest_unavailable');
+      return response;
     } catch {
+      const completedManifest = await getCompletedTradingViewManifest(
+        configuredTradingViewManifestUrl,
+      );
+      if (completedManifest) {
+        return completedManifest;
+      }
       throw new ServiceWorkerVersionError('tradingview_manifest_unavailable');
     }
   }
@@ -1008,7 +962,7 @@ async function handleTradingViewAssetRequest(request) {
     throw new ServiceWorkerVersionError('tradingview_asset_not_in_manifest');
   }
   const fetched = await fetchTradingViewAsset(asset, baseUrl);
-  await cache.put(fetched.request, fetched.response.clone());
+  await putTradingViewResponseInCache(cache, fetched.request, fetched.response);
   return proxySourceUrl
     ? createTradingViewProxyResponse(fetched.response)
     : fetched.response;
@@ -1662,6 +1616,11 @@ self.addEventListener('message', (event) => {
   const payload = event.data?.payload || {};
   const client = event.source;
 
+  if (type === MESSAGE_TYPES.CLAIM_CLIENTS) {
+    event.waitUntil(self.clients.claim());
+    return;
+  }
+
   if (type === MESSAGE_TYPES.GET_VERSION_STATE) {
     event.waitUntil(
       readVersionState().then((state) => {
@@ -1691,6 +1650,7 @@ self.addEventListener('message', (event) => {
             payload.manifestUrl,
             payload.manifestVersion,
             payload.locale,
+            payload.manifest,
           ),
         replyPort,
       }),

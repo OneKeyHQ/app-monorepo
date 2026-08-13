@@ -4,11 +4,10 @@ import { InjectManifest } from '@aaroon/workbox-rspack-plugin';
 import { rspack } from '@rspack/core';
 import { merge } from 'webpack-merge';
 
-import { nodeEnv, publicUrl } from './constant';
+import { nodeEnv } from './constant';
 import { createBaseConfig } from './rspack.base.config';
 import { createDevelopmentConfig } from './rspack.development.config';
 import { createProductionConfig } from './rspack.prod.config';
-import { readTradingViewEmbedBuildManifest } from './tradingViewEmbedManifest';
 
 import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
@@ -35,11 +34,6 @@ export function createWebConfig({
     basePath,
     removeFirstPartyConsole: true,
   });
-  const tradingViewEmbedBuildManifest =
-    platform === 'web' && nodeEnv === 'production'
-      ? readTradingViewEmbedBuildManifest(basePath, publicUrl)
-      : undefined;
-
   switch (nodeEnv) {
     case 'production':
       return merge(baseConfig, createProductionConfig({ platform, basePath }), {
@@ -64,18 +58,6 @@ export function createWebConfig({
                 processAssetsStage:
                   rspack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
               }),
-              ...(tradingViewEmbedBuildManifest
-                ? [
-                    new rspack.CopyRspackPlugin({
-                      patterns: [
-                        {
-                          from: tradingViewEmbedBuildManifest.sourcePath,
-                          to: tradingViewEmbedBuildManifest.outputFileName,
-                        },
-                      ],
-                    }),
-                  ]
-                : []),
               // (C2) PWA service worker — rspack-native workbox InjectManifest
               //   port. apps/web/index.js registers it from the stable root path
               //   so one SW can discover and preload future app versions.
@@ -94,17 +76,6 @@ export function createWebConfig({
                 swSrc: path.join(basePath, 'src/service-worker.js'),
                 swDest: 'service-worker.js',
                 exclude: [/./],
-                webpackCompilationPlugins: [
-                  new rspack.DefinePlugin({
-                    __TRADINGVIEW_EMBED_BUILD_MANIFEST_URL__: JSON.stringify(
-                      tradingViewEmbedBuildManifest?.publicUrl || '',
-                    ),
-                    __TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY__:
-                      JSON.stringify(
-                        tradingViewEmbedBuildManifest?.integrity || '',
-                      ),
-                  }),
-                ],
               }),
             ]
           : []) as unknown as RspackPluginInstance[],

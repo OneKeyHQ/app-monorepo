@@ -7,7 +7,6 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
-import { readTradingViewEmbedBuildManifest } from './tradingViewEmbedManifest';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -233,11 +232,10 @@ const baseResolve = ({
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
 // explicit/build-derived keys. Collapsing all three into one map; overlapping
 // keys are resolved by spread order — `explicitDefines` is spread LAST so the
-// pinned build-derived values win (parity with the previous hand-written map:
+// explicit build-derived values win (parity with the previous hand-written map:
 // e.g. NODE_ENV stays pinned to `nodeEnv`, not the raw process.env value).
 function buildDefineMap(
   platform: string,
-  basePath: string,
 ): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
   // (1) env vars — single source of truth = envExposedToClient.js
   const envKeys = envExposedToClient.buildEnvExposedToClientDangerously({
@@ -253,10 +251,6 @@ function buildDefineMap(
   //     the imported `platformEnv` binding.
   // (3) explicit / build-derived (win last) + EXPO_OS (web only, parity with
   //     babel-preset-expo which sets process.env.EXPO_OS).
-  const tradingViewEmbedBuildManifest =
-    platform === 'web' && nodeEnv === 'production'
-      ? readTradingViewEmbedBuildManifest(basePath, publicUrl)
-      : undefined;
   const explicitDefines = {
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
@@ -281,12 +275,6 @@ function buildDefineMap(
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
     'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
-    'process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_URL': JSON.stringify(
-      tradingViewEmbedBuildManifest?.publicUrl || '',
-    ),
-    'process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY': JSON.stringify(
-      tradingViewEmbedBuildManifest?.integrity || '',
-    ),
     ...(platform === 'web'
       ? { 'process.env.EXPO_OS': JSON.stringify('web') }
       : {}),
@@ -301,7 +289,7 @@ const buildBasePlugins: (
   platform,
   basePath,
 ) => [
-  new rspack.DefinePlugin(buildDefineMap(platform, basePath)),
+  new rspack.DefinePlugin(buildDefineMap(platform)),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),

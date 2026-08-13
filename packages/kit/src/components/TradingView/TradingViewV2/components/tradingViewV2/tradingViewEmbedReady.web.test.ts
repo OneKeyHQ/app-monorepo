@@ -68,6 +68,21 @@ describe('tradingViewEmbedReady', () => {
     );
   });
 
+  test('does not time out chart readiness unless a caller requests it', async () => {
+    jest.useFakeTimers();
+    const monitor = createTradingViewEmbedReadyMonitor();
+    const readyPromise = monitor.wait();
+
+    jest.advanceTimersByTime(60_000);
+    expect(jest.getTimerCount()).toBe(0);
+
+    monitor.notify({
+      scope: '$private',
+      method: 'tradingview_chartReady',
+    });
+    await expect(readyPromise).resolves.toBeUndefined();
+  });
+
   test('cancels a pending readiness timeout without rejecting', async () => {
     jest.useFakeTimers();
     const monitor = createTradingViewEmbedReadyMonitor();

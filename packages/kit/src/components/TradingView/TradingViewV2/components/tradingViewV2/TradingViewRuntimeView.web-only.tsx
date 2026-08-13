@@ -8,10 +8,45 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
 import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web';
-import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+
+const TRADING_VIEW_EMBED_FAILURE_KEY_PREFIX =
+  'onekey_tradingview_embed_failed:';
+
+function getRuntimeFailureKey(runtimeUrl: string): string | undefined {
+  try {
+    const origin = new URL(runtimeUrl, globalThis.location.href).origin;
+    return `${TRADING_VIEW_EMBED_FAILURE_KEY_PREFIX}${origin}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasRuntimeFailedInSession(runtimeUrl: string): boolean {
+  const key = getRuntimeFailureKey(runtimeUrl);
+  if (!key) {
+    return false;
+  }
+  try {
+    return globalThis.sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberRuntimeFailure(runtimeUrl: string): void {
+  const key = getRuntimeFailureKey(runtimeUrl);
+  if (!key) {
+    return;
+  }
+  try {
+    globalThis.sessionStorage.setItem(key, '1');
+  } catch {
+    // Session storage is optional; fallback still applies to this mount.
+  }
+}
 
 function createLoadStartEvent(url: string): WebViewNavigationEvent {
   return {
@@ -36,9 +71,14 @@ export default function TradingViewRuntimeView({
 }: IWebViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ITradingViewEmbedHandle | null>(null);
+  const mountingModuleRef = useRef<
+    Awaited<ReturnType<typeof loadTradingViewEmbedModule>>['module'] | null
+  >(null);
   const customReceiveHandlerRef = useRef(customReceiveHandler);
   const onLoadStartRef = useRef(onLoadStart);
-  const [fallback, setFallback] = useState(false);
+  const [fallback, setFallback] = useState(() =>
+    hasRuntimeFailedInSession(src),
+  );
   const [runtimeUrl, setRuntimeUrl] = useState(src);
   const [reloadRevision, setReloadRevision] = useState(0);
 
@@ -55,7 +95,11 @@ export default function TradingViewRuntimeView({
           setReloadRevision((revision) => revision + 1);
         },
         sendMessageViaInjectedScript(message: unknown) {
-          handleRef.current?.postMessage(message);
+          if (handleRef.current) {
+            handleRef.current.postMessage(message);
+            return;
+          }
+          mountingModuleRef.current?.postTradingViewMessage(message);
         },
       }) as IWebViewRef,
     [],
@@ -74,16 +118,21 @@ export default function TradingViewRuntimeView({
     () => () => {
       handleRef.current?.unmount();
       handleRef.current = null;
+      mountingModuleRef.current = null;
     },
     [],
   );
 
   useEffect(() => {
-    setFallback(false);
+    setFallback(hasRuntimeFailedInSession(runtimeUrl));
   }, [reloadRevision, runtimeUrl]);
 
   useEffect(() => {
     if (fallback) {
+      return undefined;
+    }
+    if (hasRuntimeFailedInSession(runtimeUrl)) {
+      setFallback(true);
       return undefined;
     }
     const container = containerRef.current;
@@ -96,26 +145,41 @@ export default function TradingViewRuntimeView({
     let readyMonitor: ReturnType<
       typeof createTradingViewEmbedReadyMonitor
     > | null = null;
-    onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
-
-    const migrationPromise = migrateLegacyTradingViewStorage(runtimeUrl).catch(
-      (error: unknown) => {
+    const useIframeFallback = (error: unknown) => {
+      if (runtimeFailed) {
+        return;
+      }
+      runtimeFailed = true;
+      rememberRuntimeFailure(runtimeUrl);
+      readyMonitor?.cancel();
+      if (!cancelled) {
+        handleRef.current?.unmount();
+        handleRef.current = null;
+        mountingModuleRef.current = null;
         defaultLogger.app.error.log(
-          `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+          `[TradingViewRuntimeView] DOM runtime failed, using iframe: ${String(
             error,
           )}`,
         );
-      },
-    );
-    void Promise.all([loadTradingViewEmbedModule(runtimeUrl), migrationPromise])
-      .then(async ([{ assetBaseUrl, module }]) => {
-        if (cancelled) {
+        setFallback(true);
+      }
+    };
+    onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
+
+    const monitor = createTradingViewEmbedReadyMonitor();
+    readyMonitor = monitor;
+    // Chart readiness includes the first data request, so it must not be used
+    // as an embed startup timeout. Explicit chart errors still fall back.
+    void monitor.wait().catch(useIframeFallback);
+
+    const mountPromise = loadTradingViewEmbedModule(runtimeUrl).then(
+      async ({ assetBaseUrl, module }) => {
+        if (cancelled || runtimeFailed) {
           return;
         }
         const url = new URL(runtimeUrl, globalThis.location.href);
-        const monitor = createTradingViewEmbedReadyMonitor();
-        readyMonitor = monitor;
-        const mountPromise = module
+        mountingModuleRef.current = module;
+        await module
           .mountTradingView({
             assetBaseUrl,
             container,
@@ -139,23 +203,11 @@ export default function TradingViewRuntimeView({
               return;
             }
             handleRef.current = handle;
+            mountingModuleRef.current = null;
           });
-        await Promise.all([mountPromise, monitor.wait()]);
-      })
-      .catch((error: unknown) => {
-        runtimeFailed = true;
-        readyMonitor?.cancel();
-        if (!cancelled) {
-          handleRef.current?.unmount();
-          handleRef.current = null;
-          defaultLogger.app.error.log(
-            `[TradingViewRuntimeView] DOM runtime failed, using iframe: ${String(
-              error,
-            )}`,
-          );
-          setFallback(true);
-        }
-      });
+      },
+    );
+    void mountPromise.catch(useIframeFallback);
 
     return () => {
       cancelled = true;
@@ -163,6 +215,7 @@ export default function TradingViewRuntimeView({
       readyMonitor?.cancel();
       handleRef.current?.unmount();
       handleRef.current = null;
+      mountingModuleRef.current = null;
     };
   }, [fallback, reloadRevision, runtimeUrl]);
 

@@ -3,8 +3,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 const TRADING_VIEW_CHART_READY_METHOD = 'tradingview_chartReady';
 const TRADING_VIEW_CHART_ERROR_METHOD = 'tradingview_chartError';
 
-export const TRADING_VIEW_EMBED_READY_TIMEOUT_MS = 15_000;
-
 interface ITradingViewEmbedReadyMonitor {
   cancel(): void;
   notify(payload: unknown): boolean;
@@ -78,8 +76,8 @@ export function createTradingViewEmbedReadyMonitor(): ITradingViewEmbedReadyMoni
       }
       return false;
     },
-    wait(timeoutMs = TRADING_VIEW_EMBED_READY_TIMEOUT_MS) {
-      if (!settled && !timeout) {
+    wait(timeoutMs) {
+      if (!settled && !timeout && timeoutMs !== undefined) {
         timeout = setTimeout(() => {
           if (settled) {
             return;

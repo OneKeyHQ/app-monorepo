@@ -3,7 +3,10 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { buildTradingViewEmbedProxyBaseUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
+
+import { tradingViewLocaleMap } from '../../../utils/tradingViewLocaleMap';
 
 interface ITradingViewEmbedManifestAsset {
   file: string;
@@ -56,6 +59,7 @@ export interface ITradingViewEmbedModule {
     onMessage(payload: unknown): void;
     params: URLSearchParams;
   }): Promise<ITradingViewEmbedHandle>;
+  postTradingViewMessage(message: unknown): boolean;
 }
 
 export interface ILoadedTradingViewEmbedModule {
@@ -67,6 +71,10 @@ const modulePromises = new Map<
   string,
   Promise<ILoadedTradingViewEmbedModule>
 >();
+const serviceWorkerControllerPromises = new WeakMap<
+  ServiceWorkerContainer,
+  Promise<ServiceWorker>
+>();
 const manifestPromises = new Map<
   string,
   Promise<{
@@ -77,7 +85,10 @@ const manifestPromises = new Map<
 const bootstrapPreloadPromises = new Map<string, Promise<void>>();
 
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
+const ROOT_SERVICE_WORKER_PATH =
+  '/service-worker.js?tradingviewEmbedProtocol=1';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
+const CLAIM_CLIENTS_MESSAGE_TYPE = 'CLAIM_CLIENTS';
 const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
 const SERVICE_WORKER_PREFETCH_TIMEOUT_MS = 60_000;
 const TRUSTED_MANIFEST_ORIGINS = new Set([
@@ -85,26 +96,15 @@ const TRUSTED_MANIFEST_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL_TEST).origin,
 ]);
 const BOOTSTRAP_PRELOAD_CONCURRENCY = 3;
-const TRADING_VIEW_LOCALE_MAP: Record<string, string> = {
-  'ja-JP': 'ja',
-  'ko-KR': 'ko',
-  'zh-CN': 'zh',
-  'zh-HK': 'zh_TW',
-  'zh-TW': 'zh_TW',
+const TRADING_VIEW_BOOTSTRAP_LOCALE_ALIASES: Record<string, string> = {
+  zh_CN: 'zh',
+  zh_HK: 'zh_TW',
 };
 
 function resolveManifestUrl(runtimeUrl?: string): string {
   const locationHref = globalThis.location?.href || DEFAULT_MANIFEST_URL;
   const locationOrigin =
     globalThis.location?.origin || new URL(locationHref).origin;
-  const configuredManifestUrl =
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL?.trim();
-  if (configuredManifestUrl) {
-    return validateManifestUrl(
-      new URL(configuredManifestUrl, locationOrigin),
-    ).toString();
-  }
-
   if (runtimeUrl) {
     const runtimeOrigin = new URL(runtimeUrl, locationHref);
     const manifestPath = LOCAL_HOSTNAMES.has(runtimeOrigin.hostname)
@@ -112,6 +112,14 @@ function resolveManifestUrl(runtimeUrl?: string): string {
       : '/embed/latest.json';
     return validateManifestUrl(
       new URL(manifestPath, runtimeOrigin.origin),
+    ).toString();
+  }
+
+  const configuredManifestUrl =
+    process.env.TRADINGVIEW_EMBED_MANIFEST_URL?.trim();
+  if (configuredManifestUrl) {
+    return validateManifestUrl(
+      new URL(configuredManifestUrl, locationOrigin),
     ).toString();
   }
 
@@ -322,52 +330,146 @@ function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
   );
 }
 
-async function getPinnedManifest(manifestUrl: string): Promise<{
-  baseUrl: string;
-  manifest: ITradingViewEmbedManifest;
-} | null> {
-  const buildManifestUrl =
-    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_URL?.trim() || '';
-  const buildManifestIntegrity =
-    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY?.trim() || '';
-  if (!buildManifestUrl || !buildManifestIntegrity.startsWith('sha384-')) {
-    return null;
-  }
-  const response = await fetch(
-    new URL(buildManifestUrl, globalThis.location?.href || manifestUrl),
-    {
-      cache: 'force-cache',
-      credentials: 'omit',
-      integrity: buildManifestIntegrity,
-      mode: 'cors',
-    },
-  );
-  if (!response.ok) {
+function waitForControllingServiceWorker(): Promise<ServiceWorker> {
+  const serviceWorkerContainer = navigator.serviceWorker;
+  if (!serviceWorkerContainer) {
     throw new OneKeyLocalError(
-      `Pinned TradingView embed manifest request failed: ${response.status}`,
+      'TradingView embed requires service worker support',
     );
   }
-  const manifest = (await response.json()) as unknown;
-  if (!isValidManifest(manifest)) {
-    throw new OneKeyLocalError('Pinned TradingView embed manifest is invalid');
-  }
-  return {
-    baseUrl: resolveManifestBaseUrl(manifest, manifestUrl),
-    manifest,
+  const isExpectedWorker = (
+    worker: ServiceWorker | null | undefined,
+  ): worker is ServiceWorker => {
+    if (!worker?.scriptURL) {
+      return false;
+    }
+    const scriptUrl = new URL(worker.scriptURL);
+    return (
+      `${scriptUrl.pathname}${scriptUrl.search}` === ROOT_SERVICE_WORKER_PATH
+    );
   };
+  if (isExpectedWorker(serviceWorkerContainer.controller)) {
+    return Promise.resolve(serviceWorkerContainer.controller);
+  }
+  const pendingPromise = serviceWorkerControllerPromises.get(
+    serviceWorkerContainer,
+  );
+  if (pendingPromise) {
+    return pendingPromise;
+  }
+
+  const controllerPromise = new Promise<ServiceWorker>((resolve, reject) => {
+    let settled = false;
+    let registration: ServiceWorkerRegistration | undefined;
+    const observedWorkers = new Set<ServiceWorker>();
+    const cleanup = () => {
+      serviceWorkerContainer.removeEventListener(
+        'controllerchange',
+        handleControllerChange,
+      );
+      registration?.removeEventListener('updatefound', handleUpdateFound);
+      observedWorkers.forEach((worker) => {
+        worker.removeEventListener('statechange', handleWorkerStateChange);
+      });
+    };
+    const finish = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      callback();
+    };
+    const resolveController = () => {
+      const controller = serviceWorkerContainer.controller;
+      if (isExpectedWorker(controller)) {
+        finish(() => resolve(controller));
+      }
+    };
+    function handleControllerChange() {
+      resolveController();
+    }
+    const handleWorkerState = (worker: ServiceWorker | null) => {
+      if (!isExpectedWorker(worker)) {
+        return;
+      }
+      if (worker?.state === 'activated') {
+        worker.postMessage({ type: CLAIM_CLIENTS_MESSAGE_TYPE });
+        resolveController();
+      } else if (worker?.state === 'redundant') {
+        finish(() =>
+          reject(
+            new OneKeyLocalError(
+              'TradingView embed service worker activation failed',
+            ),
+          ),
+        );
+      }
+    };
+    function handleWorkerStateChange(event: Event) {
+      handleWorkerState(event.currentTarget as ServiceWorker | null);
+    }
+    const observeWorker = (worker: ServiceWorker | null | undefined) => {
+      if (!worker || observedWorkers.has(worker)) {
+        return;
+      }
+      observedWorkers.add(worker);
+      worker.addEventListener('statechange', handleWorkerStateChange);
+      if (worker.state === 'activated') {
+        handleWorkerState(worker);
+      }
+    };
+    function handleUpdateFound() {
+      observeWorker(registration?.installing);
+    }
+    const requestClientClaim = (
+      serviceWorkerRegistration: ServiceWorkerRegistration,
+    ) => {
+      if (isExpectedWorker(serviceWorkerRegistration.active)) {
+        serviceWorkerRegistration.active?.postMessage({
+          type: CLAIM_CLIENTS_MESSAGE_TYPE,
+        });
+      }
+      resolveController();
+    };
+
+    serviceWorkerContainer.addEventListener(
+      'controllerchange',
+      handleControllerChange,
+    );
+    void serviceWorkerContainer
+      .register(ROOT_SERVICE_WORKER_PATH, {
+        scope: '/',
+        updateViaCache: 'none',
+      })
+      .then((registeredServiceWorker) => {
+        registration = registeredServiceWorker;
+        registration.addEventListener('updatefound', handleUpdateFound);
+        observeWorker(registration.installing);
+        observeWorker(registration.waiting);
+        observeWorker(registration.active);
+        requestClientClaim(registration);
+        void serviceWorkerContainer.ready.then(requestClientClaim);
+      })
+      .catch((error: unknown) => {
+        finish(() => reject(error));
+      });
+  }).finally(() => {
+    serviceWorkerControllerPromises.delete(serviceWorkerContainer);
+  });
+  serviceWorkerControllerPromises.set(
+    serviceWorkerContainer,
+    controllerPromise,
+  );
+  return controllerPromise;
 }
 
 function ensureServiceWorkerPrefetch(
+  controller: ServiceWorker,
   manifestUrl: string,
   manifest: ITradingViewEmbedManifest,
   locale: string,
 ): Promise<void> {
-  const controller = navigator.serviceWorker?.controller;
-  if (!controller) {
-    throw new OneKeyLocalError(
-      'TradingView embed requires a controlling service worker',
-    );
-  }
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     const timeout = setTimeout(() => {
@@ -398,7 +500,12 @@ function ensureServiceWorkerPrefetch(
     controller.postMessage(
       {
         type: PREFETCH_MESSAGE_TYPE,
-        payload: { locale, manifestUrl, manifestVersion: manifest.version },
+        payload: {
+          locale,
+          manifest,
+          manifestUrl,
+          manifestVersion: manifest.version,
+        },
       },
       [channel.port2],
     );
@@ -409,19 +516,10 @@ async function loadManifest(manifestUrl: string): Promise<{
   baseUrl: string;
   manifest: ITradingViewEmbedManifest;
 }> {
-  const manifestUrlObject = new URL(manifestUrl);
-  const pinnedManifest = await getPinnedManifest(manifestUrl);
-  if (pinnedManifest) {
-    return pinnedManifest;
-  }
-  if (!LOCAL_HOSTNAMES.has(manifestUrlObject.hostname)) {
-    throw new OneKeyLocalError(
-      'TradingView embed requires a release-pinned manifest',
-    );
-  }
   const response = await fetch(manifestUrl, {
     cache: 'no-store',
     credentials: 'omit',
+    mode: 'cors',
   });
   if (!response.ok) {
     throw new OneKeyLocalError(
@@ -440,6 +538,7 @@ async function loadManifest(manifestUrl: string): Promise<{
       {
         cache: 'no-store',
         credentials: 'omit',
+        mode: 'cors',
       },
     );
     if (!versionManifestResponse.ok) {
@@ -525,11 +624,20 @@ async function loadModule(
   manifestUrl: string,
   locale: string,
 ): Promise<ILoadedTradingViewEmbedModule> {
-  const { baseUrl, manifest } = await getManifest(manifestUrl);
   const isRemoteManifest = !LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname);
+  const controllerPromise = isRemoteManifest
+    ? waitForControllingServiceWorker()
+    : undefined;
+  const { baseUrl, manifest } = await getManifest(manifestUrl);
   let runtimeAssetBaseUrl = baseUrl;
-  if (isRemoteManifest) {
-    await ensureServiceWorkerPrefetch(manifestUrl, manifest, locale);
+  if (isRemoteManifest && controllerPromise) {
+    const controller = await controllerPromise;
+    await ensureServiceWorkerPrefetch(
+      controller,
+      manifestUrl,
+      manifest,
+      locale,
+    );
     const proxyBaseUrl = buildTradingViewEmbedProxyBaseUrl({
       appOrigin: globalThis.location.origin,
       sourceBaseUrl: baseUrl,
@@ -559,6 +667,12 @@ async function loadModule(
   const module = (await import(
     /* webpackIgnore: true */ entryUrl
   )) as ITradingViewEmbedModule;
+  if (
+    typeof module.mountTradingView !== 'function' ||
+    typeof module.postTradingViewMessage !== 'function'
+  ) {
+    throw new OneKeyLocalError('TradingView embed module contract is invalid');
+  }
   return {
     assetBaseUrl: runtimeAssetBaseUrl,
     module,
@@ -569,7 +683,12 @@ function resolveTradingViewLocale(runtimeUrl?: string): string {
   const locationHref = globalThis.location?.href || DEFAULT_MANIFEST_URL;
   const url = new URL(runtimeUrl || locationHref, locationHref);
   const locale = url.searchParams.get('locale') || 'en';
-  return TRADING_VIEW_LOCALE_MAP[locale] || locale;
+  const tradingViewLocale =
+    tradingViewLocaleMap[locale as ILocaleJSONSymbol] || locale;
+  return (
+    TRADING_VIEW_BOOTSTRAP_LOCALE_ALIASES[tradingViewLocale] ||
+    tradingViewLocale
+  );
 }
 
 function resolveBootstrapAssets(
@@ -643,7 +762,13 @@ export function preloadTradingViewEmbedBootstrapAssets(
   const preloadPromise = getManifest(manifestUrl)
     .then(async ({ baseUrl, manifest }) => {
       if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
-        await ensureServiceWorkerPrefetch(manifestUrl, manifest, locale);
+        const controller = await waitForControllingServiceWorker();
+        await ensureServiceWorkerPrefetch(
+          controller,
+          manifestUrl,
+          manifest,
+          locale,
+        );
         return;
       }
       const assets = resolveBootstrapAssets(manifest, locale);
