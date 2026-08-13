@@ -6,8 +6,8 @@ import type { IHardwareDeviceType } from '.';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // The one entry point to the code-drawn replicas: pick a model, pick a
-// scene. Both shells are drawn from their Figma nodes and verified against
-// them on an iOS simulator; this is where you look at either.
+// scene. The shells are drawn from their Figma nodes and verified against
+// them on an iOS simulator; this is where you look at any of them.
 const meta = {
   title: 'Content/HardwareDevice',
   component: HardwareDevice,
