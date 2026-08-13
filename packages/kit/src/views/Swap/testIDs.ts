@@ -56,6 +56,7 @@ export const SwapTestIDs = {
   // Incognito / recipient
   incognitoModeSwitch: 'swap-incognito-mode-switch',
   incognitoRecipientPickerButton: 'swap-incognito-recipient-picker-button',
+  recipientPickerButton: 'swap-recipient-picker-button',
 
   // Action footer
   actionPrimaryButton: 'swap-action-primary-button',
