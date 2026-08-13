@@ -758,6 +758,7 @@ export default class ServiceSwap extends ServiceBase {
     accountNetworkId,
     accountId,
     onlyAccountTokens,
+    onlySwapTokens,
     isAllNetworkFetchAccountTokens,
     throwOnError,
     protocol,
@@ -780,6 +781,7 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       skipReservationValue: true,
       onlyAccountTokens,
+      onlySwapTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {

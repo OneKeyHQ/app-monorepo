@@ -80,6 +80,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
+  [ESubscriptionType.TRADES]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 2,
+  },
   [ESubscriptionType.SPOT_STATE]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,

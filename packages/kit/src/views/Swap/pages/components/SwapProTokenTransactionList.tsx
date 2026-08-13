@@ -10,57 +10,30 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  useSwapProSelectTokenAtom,
-  useSwapProTokenDetailWebsocketAtom,
-  useSwapProTradeTypeAtom,
-  useSwapTypeSwitchAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProTradeTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ESwapProTradeType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProTokenTransactionItem from '../../components/SwapProTokenTransactionItem';
-import { useSwapProTokenTransactionList } from '../../hooks/useSwapProTokenTransactionList';
+import { SwapTestIDs } from '../../testIDs';
+
+import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
 
 const SwapProTokenTransactionList = ({
-  supportSpeedSwap,
+  marketData,
 }: {
-  supportSpeedSwap?: boolean;
+  marketData: ISwapProMarketData;
 }) => {
   const intl = useIntl();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProTokenWebsocket] = useSwapProTokenDetailWebsocketAtom();
-  const enableWebSocket = useMemo(() => {
-    return (
-      swapProTokenWebsocket?.txs && swapTypeSwitch === ESwapTabSwitchType.LIMIT
-    );
-  }, [swapProTokenWebsocket?.txs, swapTypeSwitch]);
-  const {
-    swapProTokenTransactionList,
-    isTransactionSourceSupported,
-    isHyperliquidTransactionSource,
-    hasLoadedTransactionSource,
-  } = useSwapProTokenTransactionList({
-    tokenAddress: swapProSelectToken?.contractAddress ?? '',
-    networkId: swapProSelectToken?.networkId ?? '',
-    symbol: swapProSelectToken?.symbol ?? '',
-    isNative: swapProSelectToken?.isNative,
-    enableWebSocket: Boolean(enableWebSocket),
-    supportSpeedSwap,
-  });
 
   // Row caps tuned so the left column bottom-aligns with the trading column
   // in each trade-type layout; the loading skeleton uses the same counts.
   const isLimitOrder = swapProTradeType === ESwapProTradeType.LIMIT;
   const maxRows = isLimitOrder ? 9 : 5;
   const finallyTransactionList = useMemo(
-    () => swapProTokenTransactionList?.slice(0, maxRows) ?? [],
-    [swapProTokenTransactionList, maxRows],
+    () => marketData.transactions.slice(0, maxRows),
+    [marketData.transactions, maxRows],
   );
   let transactionListContent = (
     <XStack justifyContent="space-between">
@@ -73,8 +46,8 @@ const SwapProTokenTransactionList = ({
     </XStack>
   );
   if (
-    isTransactionSourceSupported &&
-    !hasLoadedTransactionSource &&
+    marketData.isSourceSupported &&
+    !marketData.hasLoadedSource &&
     finallyTransactionList.length === 0
   ) {
     transactionListContent = (
@@ -85,7 +58,7 @@ const SwapProTokenTransactionList = ({
       </YStack>
     );
   } else if (
-    isTransactionSourceSupported &&
+    marketData.isSourceSupported &&
     finallyTransactionList.length > 0
   ) {
     transactionListContent = (
@@ -108,7 +81,7 @@ const SwapProTokenTransactionList = ({
               id: ETranslations.global_price,
             })}
           </SizableText>
-          {isHyperliquidTransactionSource ? (
+          {marketData.source === 'hyperliquid' ? (
             <Stack
               w={13}
               h={13}
@@ -134,7 +107,9 @@ const SwapProTokenTransactionList = ({
           })}
         </SizableText>
       </XStack>
-      <YStack minHeight={maxRows * 22}>{transactionListContent}</YStack>
+      <YStack testID={SwapTestIDs.proTransactionList} minHeight={maxRows * 22}>
+        {transactionListContent}
+      </YStack>
     </YStack>
   );
 };
