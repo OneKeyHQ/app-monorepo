@@ -1,20 +1,29 @@
-import { useMemo } from 'react';
-import type { ComponentType, ReactNode } from 'react';
-
+import { StyleSheet } from 'react-native';
 import { Path, Rect, Svg } from 'react-native-svg';
 
+import { CONFIRM_LOOP } from '../deviceScene';
+import { GlassSweep } from '../deviceSceneHost';
+
 import {
-  useConfirmOnClassicAnimation,
-  useEntryOnClassicAnimation,
+  ENTRY_LOOP,
+  ENTRY_OK_TRACK,
+  PRESS_IDLE_TRACK,
+  useOkPressDrive,
 } from './animation';
 import { EntryScreen } from './EntryScreen';
-import { ClassicDeviceShell } from './shell';
+import { SCREEN_SLOT_TOP } from './shell';
+
+import type {
+  IDeviceSceneContentProps,
+  IDeviceSceneSpec,
+} from '../deviceSceneHost';
 
 /**
- * Built-in scenes, keyed by the name ClassicDevice's `animation` prop takes.
- * A scene picks the choreography and the screen content; everything else
- * (shell, wake/sleep, key presses) is the shared vocabulary. Switching scenes
- * remounts, so the loop restarts from the top.
+ * Built-in scenes, keyed by the name ClassicDevice's `animation` prop takes,
+ * on the shared presence registry contract (../deviceSceneHost). A scene
+ * supplies its screen content on the 128x64 OLED canvas and steers the OK
+ * key through the press drive; entrance, exit and the clock are the shared
+ * machinery.
  */
 export type IClassicDeviceScene =
   | 'connecting'
@@ -22,14 +31,43 @@ export type IClassicDeviceScene =
   | 'enterPin'
   | 'enterPassphrase';
 
-interface ISceneProps {
-  width?: number;
+/* ------------------------- connecting ------------------------- *
+ * The OneKey mark the physical device shows while the app reaches for it
+ * (Figma 20650:1302): a 24x24-cell pixel rendering, 40pt in the node and
+ * half that here on the halved OLED canvas, centered. One even-odd path:
+ * the digits are unlit holes, not black paint, so the panel's faint glow
+ * shows through them like every other dark pixel. The digit subpaths are
+ * the Figma asset translated to its measured (13.333, 7.5) offset inside
+ * the mark. */
+
+const LOGO_D =
+  'M28.333 1.66699H31.666V3.33301H35V5H36.666V8.33301H38.333V11.667H40V28.333H38.333V31.666H36.666V35H35V36.666H31.666V38.333H28.333V40H11.667V38.333H8.33301V36.666H5V35H3.33301V31.666H1.66699V28.333H0V11.667H1.66699V8.33301H3.33301V5H5V3.33301H8.33301V1.66699H11.667V0H28.333V1.66699Z' +
+  'M23.333 20.834H25V22.5H26.666V29.167H25V30.834H23.333V32.5H16.666V30.834H15V29.167H13.333V22.5H15V20.834H16.666V19.167H23.333V20.834ZM18.333 24.167H16.666V27.5H18.333V29.167H21.666V27.5H23.333V24.167H21.666V22.5H18.333V24.167Z' +
+  'M21.667 17.5H18.333V10.833H15V9.167H16.667V7.5H21.667V17.5Z';
+
+const CONNECTING_LOGO = (
+  <Svg width="100%" height="100%" viewBox="0 0 128 64" fill="none">
+    <Path
+      transform="translate(54 22) scale(0.5)"
+      d={LOGO_D}
+      fill="#fff"
+      fillRule="evenodd"
+    />
+  </Svg>
+);
+
+function ConnectingScreen({ clock }: IDeviceSceneContentProps) {
+  useOkPressDrive(clock, PRESS_IDLE_TRACK);
+  return CONNECTING_LOGO;
 }
 
 /* ------------------------- confirm ------------------------- *
  * Confirmation scenarios are unbounded, so the screen abstracts to skeleton
  * structure: a title pill, two body bars, and literal x / check corner
- * glyphs - the invariants of every confirm screen. */
+ * glyphs - the invariants of every confirm screen. The scene deliberately
+ * presses nothing: this is the screen the user should read, and acting out
+ * an OK press would perform the approval for them. The glass light passes
+ * over the still instead, same as on the Pro and the Slate. */
 
 const CONFIRM_SKELETON = (
   <Svg width="100%" height="100%" viewBox="0 0 128 64" fill="none">
@@ -76,21 +114,40 @@ const CONFIRM_SKELETON = (
   </Svg>
 );
 
-function ConfirmScene({ width }: ISceneProps) {
-  const animation = useConfirmOnClassicAnimation();
+// The sweep travels the whole glass, not just the lit slot: the slot sits
+// at (4, SCREEN_SLOT_TOP) in the 264x152 glass, whose own overflow does the
+// final clipping.
+const confirmStyles = StyleSheet.create({
+  sweepClip: {
+    position: 'absolute',
+    left: -4,
+    top: -SCREEN_SLOT_TOP,
+    width: 264,
+    height: 152,
+    overflow: 'hidden',
+  },
+});
+
+function ConfirmScreen({ clock }: IDeviceSceneContentProps) {
+  useOkPressDrive(clock, PRESS_IDLE_TRACK);
   return (
-    <ClassicDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={CONFIRM_SKELETON}
-    />
+    <>
+      {CONFIRM_SKELETON}
+      <GlassSweep
+        clock={clock}
+        width={264}
+        height={152}
+        clipStyle={confirmStyles.sweepClip}
+      />
+    </>
   );
 }
 
 /* ---------------------- character entry ---------------------- *
  * PIN and Passphrase differ only in glyphs, each authored around its slot
- * origin; schedule, carets and the final-confirm check come from the shared
- * entry vocabulary. */
+ * origin; the schedule, the carets, the final-confirm check and the row's
+ * loop-seam fade come from the shared entry vocabulary (./animation and
+ * ./EntryScreen). */
 
 const DIAMOND_ENTERED = (
   <Rect
@@ -134,42 +191,11 @@ const UNDERSCORE_PENDING = (
   <Rect x={-3.5} y={2.3} width={7} height={1.6} rx={0.8} fill="#fff" />
 );
 
-function EntryScene({
-  width,
-  title,
-  enteredGlyph,
-  pendingGlyph,
-}: ISceneProps & {
-  title: string;
-  enteredGlyph: ReactNode;
-  pendingGlyph: ReactNode;
-}) {
-  const { animation, entered, fillCount } = useEntryOnClassicAnimation();
-  const screenContent = useMemo(
-    () => (
-      <EntryScreen
-        entered={entered}
-        fillCount={fillCount}
-        title={title}
-        enteredGlyph={enteredGlyph}
-        pendingGlyph={pendingGlyph}
-      />
-    ),
-    [entered, fillCount, title, enteredGlyph, pendingGlyph],
-  );
+function EnterPinScreen({ clock }: IDeviceSceneContentProps) {
+  useOkPressDrive(clock, ENTRY_OK_TRACK);
   return (
-    <ClassicDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screenContent}
-    />
-  );
-}
-
-function EnterPinScene({ width }: ISceneProps) {
-  return (
-    <EntryScene
-      width={width}
+    <EntryScreen
+      clock={clock}
       title="Enter PIN"
       enteredGlyph={DIAMOND_ENTERED}
       pendingGlyph={DIAMOND_PENDING}
@@ -177,10 +203,11 @@ function EnterPinScene({ width }: ISceneProps) {
   );
 }
 
-function EnterPassphraseScene({ width }: ISceneProps) {
+function EnterPassphraseScreen({ clock }: IDeviceSceneContentProps) {
+  useOkPressDrive(clock, ENTRY_OK_TRACK);
   return (
-    <EntryScene
-      width={width}
+    <EntryScreen
+      clock={clock}
       title="Enter Passphrase"
       enteredGlyph={ASTERISK_ENTERED}
       pendingGlyph={UNDERSCORE_PENDING}
@@ -188,17 +215,9 @@ function EnterPassphraseScene({ width }: ISceneProps) {
   );
 }
 
-/* ------------------------- connecting ------------------------- *
- * While the app is reaching for the device the physical screen shows
- * nothing, so the scene is the still shell with the OLED dark. */
-
-function ConnectingScene({ width }: ISceneProps) {
-  return <ClassicDeviceShell width={width} />;
-}
-
-export const SCENES: Record<IClassicDeviceScene, ComponentType<ISceneProps>> = {
-  connecting: ConnectingScene,
-  confirm: ConfirmScene,
-  enterPin: EnterPinScene,
-  enterPassphrase: EnterPassphraseScene,
+export const SCENES: Record<IClassicDeviceScene, IDeviceSceneSpec> = {
+  connecting: { content: ConnectingScreen },
+  confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },
+  enterPin: { content: EnterPinScreen, loop: ENTRY_LOOP },
+  enterPassphrase: { content: EnterPassphraseScreen, loop: ENTRY_LOOP },
 };

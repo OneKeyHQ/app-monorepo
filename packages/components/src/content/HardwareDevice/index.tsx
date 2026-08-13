@@ -52,8 +52,7 @@ export type IHardwareDeviceType =
  * keeps this honest without a second list to maintain: a scene added to
  * only one device drops out of the shared set instead of being wrongly
  * offered. A device may implement a scene as a dark screen when that is
- * what the physical device shows at that moment (connecting on the
- * Classic and Pro).
+ * what the physical device shows at that moment.
  */
 export type IHardwareDeviceScene = IClassicDeviceScene &
   IProDeviceScene &
@@ -74,18 +73,26 @@ export interface IHardwareDeviceProps {
 /**
  * How long this model takes to hand its screen from one scene to the next,
  * so a caller sequencing its own moves after the replica's can queue behind
- * it. The presence-model replicas (Pro, Slate) play a handover — content
- * fades off the glass before the next scene renders in — while the Classic
- * cuts straight over.
+ * it. Every replica plays the handover — content fades off the glass before
+ * the next scene renders in; a model without a replica has no screen to
+ * hand over.
  *
  * Part of the routing contract on purpose: reading it off a per-model
- * module would both go around this entry point and, since not every model
- * has a handover, make the Classic wait for a beat it never plays.
+ * module would go around this entry point.
  */
 export function hardwareDeviceSwapMs(
   deviceType?: IHardwareDeviceType | null,
 ): number {
-  return deviceType === 'pro' || deviceType === 'slate' ? SCREEN_SWAP_MS : 0;
+  switch (deviceType) {
+    case 'classic':
+    case 'classic1s':
+    case 'classicpure':
+    case 'pro':
+    case 'slate':
+      return SCREEN_SWAP_MS;
+    default:
+      return 0;
+  }
 }
 
 export function HardwareDevice({
