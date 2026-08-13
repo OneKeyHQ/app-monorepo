@@ -41,14 +41,9 @@ import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { PerpTestIDs } from '../testIDs';
 
 import {
-  PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT,
   PERP_DESKTOP_CHART_MIN_HEIGHT,
   PERP_DESKTOP_INFO_MIN_HEIGHT,
-  PERP_DESKTOP_TRADING_MIN_WIDTH,
-  PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT,
   getPerpDesktopChartSplitSizes,
-  getPerpDesktopMainSplitSizes,
-  getPerpDesktopTradingSplitSizes,
   getResponsivePerpDesktopLayout,
 } from './perpLayoutUtils';
 
@@ -61,13 +56,8 @@ function PerpDesktopLayout() {
   const { width: viewportWidth, height: viewportHeight } =
     useWindowDimensions();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
-  const [desktopSplitCursor, setDesktopSplitCursor] = useState<
-    'col-resize' | 'row-resize' | undefined
-  >();
-  const mainSplitRef = useRef<AllotmentHandle>(null);
+  const [isChartSplitDragging, setIsChartSplitDragging] = useState(false);
   const chartSplitRef = useRef<AllotmentHandle>(null);
-  const tradingSplitRef = useRef<AllotmentHandle>(null);
-  const mainSplitContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
 
   const layout = useMemo(
@@ -86,26 +76,7 @@ function PerpDesktopLayout() {
   const chartExpanded = layoutState.chartExpanded ?? false;
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
-  // The order book takes a fixed slice of the market pane, so widen the pane
-  // minimum to keep the chart usable while the order book is visible.
-  const marketPaneMinWidth =
-    PERP_LAYOUT_CONFIG.main.marketMinWidth +
-    (showOrderBook ? layout.widths.orderBook : 0);
-  const mainSplitSizes = useMemo(
-    () =>
-      getPerpDesktopMainSplitSizes({
-        availableWidth: viewportWidth,
-        defaultTradingWidth: layout.widths.trading,
-        savedTradingWidth: layoutState.tradingWidth,
-        marketMinWidth: marketPaneMinWidth,
-      }),
-    [
-      layout.widths.trading,
-      layoutState.tradingWidth,
-      marketPaneMinWidth,
-      viewportWidth,
-    ],
-  );
+  const tradingWidth = layout.widths.trading;
   const chartSplitSizes = useMemo(
     () =>
       getPerpDesktopChartSplitSizes({
@@ -117,19 +88,6 @@ function PerpDesktopLayout() {
       layout.bottomPanelHeight,
       layout.marketContentHeight,
       layoutState.chartHeight,
-    ],
-  );
-  const tradingSplitSizes = useMemo(
-    () =>
-      getPerpDesktopTradingSplitSizes({
-        marketContentHeight: layout.marketContentHeight,
-        bottomPanelHeight: layout.bottomPanelHeight,
-        savedTradingPanelHeight: layoutState.tradingPanelHeight,
-      }),
-    [
-      layout.bottomPanelHeight,
-      layout.marketContentHeight,
-      layoutState.tradingPanelHeight,
     ],
   );
   const splitThemeStyle = useMemo(
@@ -151,30 +109,12 @@ function PerpDesktopLayout() {
   const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
     scrollContainerRef.current?.scrollBy({ top: deltaY });
   }, []);
-  const handleMainSplitDragStart = useCallback(() => {
-    setDesktopSplitCursor('col-resize');
+  const handleChartSplitDragStart = useCallback(() => {
+    setIsChartSplitDragging(true);
   }, []);
-  const handleVerticalSplitDragStart = useCallback(() => {
-    setDesktopSplitCursor('row-resize');
-  }, []);
-  const handleMainSplitDragEnd = useCallback(
-    (sizes: number[]) => {
-      setDesktopSplitCursor(undefined);
-      const nextTradingWidth = Math.round(sizes[1] ?? 0);
-      if (!Number.isFinite(nextTradingWidth) || nextTradingWidth <= 0) {
-        return;
-      }
-      setLayoutState((prev) =>
-        prev.tradingWidth === nextTradingWidth
-          ? prev
-          : { ...prev, tradingWidth: nextTradingWidth },
-      );
-    },
-    [setLayoutState],
-  );
   const handleChartSplitDragEnd = useCallback(
     (sizes: number[]) => {
-      setDesktopSplitCursor(undefined);
+      setIsChartSplitDragging(false);
       const nextChartHeight = Math.round(sizes[0] ?? 0);
       if (!Number.isFinite(nextChartHeight) || nextChartHeight <= 0) {
         return;
@@ -187,47 +127,6 @@ function PerpDesktopLayout() {
     },
     [setLayoutState],
   );
-  const handleTradingSplitDragEnd = useCallback(
-    (sizes: number[]) => {
-      setDesktopSplitCursor(undefined);
-      const nextTradingPanelHeight = Math.round(sizes[0] ?? 0);
-      if (
-        !Number.isFinite(nextTradingPanelHeight) ||
-        nextTradingPanelHeight <= 0
-      ) {
-        return;
-      }
-      setLayoutState((prev) =>
-        prev.tradingPanelHeight === nextTradingPanelHeight
-          ? prev
-          : { ...prev, tradingPanelHeight: nextTradingPanelHeight },
-      );
-    },
-    [setLayoutState],
-  );
-  const handleMainSplitReset = useCallback(() => {
-    const availableWidth =
-      mainSplitContainerRef.current?.offsetWidth || viewportWidth;
-    mainSplitRef.current?.resize(
-      getPerpDesktopMainSplitSizes({
-        availableWidth,
-        defaultTradingWidth: layout.widths.trading,
-        marketMinWidth: marketPaneMinWidth,
-      }),
-    );
-    setLayoutState((prev) => {
-      if (prev.tradingWidth === undefined) {
-        return prev;
-      }
-      const { tradingWidth: _tradingWidth, ...rest } = prev;
-      return rest;
-    });
-  }, [
-    layout.widths.trading,
-    marketPaneMinWidth,
-    setLayoutState,
-    viewportWidth,
-  ]);
   const handleChartSplitReset = useCallback(() => {
     chartSplitRef.current?.resize([
       layout.marketContentHeight,
@@ -241,54 +140,17 @@ function PerpDesktopLayout() {
       return rest;
     });
   }, [layout.bottomPanelHeight, layout.marketContentHeight, setLayoutState]);
-  const handleTradingSplitReset = useCallback(() => {
-    tradingSplitRef.current?.resize([
-      layout.marketContentHeight,
-      layout.bottomPanelHeight,
-    ]);
-    setLayoutState((prev) => {
-      if (prev.tradingPanelHeight === undefined) {
-        return prev;
-      }
-      const { tradingPanelHeight: _tradingPanelHeight, ...rest } = prev;
-      return rest;
-    });
-  }, [layout.bottomPanelHeight, layout.marketContentHeight, setLayoutState]);
 
-  // defaultSizes uses the window width, but Allotment rescales it to the real
-  // container (window minus side nav); re-apply before paint to avoid a jump.
-  useLayoutEffect(() => {
-    const availableWidth =
-      mainSplitContainerRef.current?.offsetWidth || viewportWidth;
-    mainSplitRef.current?.resize(
-      getPerpDesktopMainSplitSizes({
-        availableWidth,
-        defaultTradingWidth: layout.widths.trading,
-        savedTradingWidth: layoutState.tradingWidth,
-        marketMinWidth: marketPaneMinWidth,
-      }),
-    );
-  }, [
-    layout.widths.trading,
-    layoutState.tradingWidth,
-    marketPaneMinWidth,
-    viewportWidth,
-  ]);
-
-  // Allotment only honors defaultSizes on first mount; re-apply persisted
-  // heights after async atom hydration and on responsive layout changes.
+  // Allotment only honors defaultSizes on first mount; re-apply the persisted
+  // height after async atom hydration and on responsive layout changes.
   useLayoutEffect(() => {
     chartSplitRef.current?.resize(chartSplitSizes);
   }, [chartSplitSizes]);
 
-  useLayoutEffect(() => {
-    tradingSplitRef.current?.resize(tradingSplitSizes);
-  }, [tradingSplitSizes]);
-
   const tradingPanel = useMemo(() => {
     return (
-      <YStack h="100%" style={{ overflowY: 'auto' }}>
-        <YStack minHeight={layout.marketContentHeight} pb="$4">
+      <YStack minHeight={layout.marketContentHeight}>
+        <YStack pb="$4">
           <PerpTradingPanel />
         </YStack>
       </YStack>
@@ -297,21 +159,24 @@ function PerpDesktopLayout() {
 
   const accountPanel = useMemo(() => {
     return (
-      <YStack h="100%" alignSelf="stretch" style={{ overflowY: 'auto' }}>
-        <YStack minHeight={layout.bottomPanelHeight}>
-          <XStack alignItems="center">
-            <XStack py="$3" px="$2.5">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_account_overview,
-                })}
-              </SizableText>
-            </XStack>
+      <YStack
+        minHeight={layout.bottomPanelHeight}
+        alignSelf="stretch"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubdued"
+      >
+        <XStack alignItems="center">
+          <XStack py="$3" px="$2.5">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview,
+              })}
+            </SizableText>
           </XStack>
-          <YStack pb="$4">
-            <PerpAccountPanel />
-            <PerpAccountDebugInfo />
-          </YStack>
+        </XStack>
+        <YStack pb="$4">
+          <PerpAccountPanel />
+          <PerpAccountDebugInfo />
         </YStack>
       </YStack>
     );
@@ -324,7 +189,7 @@ function PerpDesktopLayout() {
           onTouchScroll={handleTradingViewTouchScroll}
         />
 
-        {desktopSplitCursor ? (
+        {isChartSplitDragging ? (
           <Stack
             testID={PerpTestIDs.DesktopChartDragShield}
             position="absolute"
@@ -333,7 +198,7 @@ function PerpDesktopLayout() {
             bottom={0}
             left={0}
             zIndex={30}
-            cursor={desktopSplitCursor}
+            cursor="row-resize"
           />
         ) : null}
 
@@ -443,80 +308,55 @@ function PerpDesktopLayout() {
         >
           <PerpTickerBar />
 
-          <Stack
-            ref={mainSplitContainerRef as any}
+          <XStack
             flex={chartExpanded ? 1 : undefined}
-            h={chartExpanded ? undefined : leftContentHeight}
-            overflow="hidden"
+            alignItems="stretch"
+            overflow="visible"
           >
-            <Allotment
-              ref={mainSplitRef}
-              id={PerpTestIDs.DesktopMainSplit}
-              separator={!chartExpanded}
-              defaultSizes={mainSplitSizes}
-              onDragStart={handleMainSplitDragStart}
-              onDragEnd={handleMainSplitDragEnd}
-              onReset={handleMainSplitReset}
-            >
-              <Allotment.Pane minSize={marketPaneMinWidth}>
-                <Stack h="100%" overflow="hidden">
-                  <Allotment
-                    ref={chartSplitRef}
-                    id={PerpTestIDs.DesktopChartSplit}
-                    vertical
-                    separator={!chartExpanded}
-                    defaultSizes={chartSplitSizes}
-                    onDragStart={handleVerticalSplitDragStart}
-                    onDragEnd={handleChartSplitDragEnd}
-                    onReset={handleChartSplitReset}
-                  >
-                    <Allotment.Pane
-                      minSize={PERP_DESKTOP_CHART_MIN_HEIGHT}
-                      preferredSize={layout.marketContentHeight}
-                    >
-                      {marketPanel}
-                    </Allotment.Pane>
-                    <Allotment.Pane
-                      minSize={PERP_DESKTOP_INFO_MIN_HEIGHT}
-                      visible={!chartExpanded}
-                    >
-                      {orderInfoPanel}
-                    </Allotment.Pane>
-                  </Allotment>
-                </Stack>
-              </Allotment.Pane>
-
-              <Allotment.Pane
-                minSize={PERP_DESKTOP_TRADING_MIN_WIDTH}
-                maxSize={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-                visible={!chartExpanded}
+            <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
+              <Stack
+                flex={chartExpanded ? 1 : undefined}
+                h={chartExpanded ? undefined : leftContentHeight}
+                overflow="hidden"
               >
-                <Stack h="100%" overflow="hidden">
-                  <Allotment
-                    ref={tradingSplitRef}
-                    id={PerpTestIDs.DesktopTradingSplit}
-                    vertical
-                    defaultSizes={tradingSplitSizes}
-                    onDragStart={handleVerticalSplitDragStart}
-                    onDragEnd={handleTradingSplitDragEnd}
-                    onReset={handleTradingSplitReset}
+                <Allotment
+                  ref={chartSplitRef}
+                  id={PerpTestIDs.DesktopChartSplit}
+                  vertical
+                  separator={!chartExpanded}
+                  defaultSizes={chartSplitSizes}
+                  onDragStart={handleChartSplitDragStart}
+                  onDragEnd={handleChartSplitDragEnd}
+                  onReset={handleChartSplitReset}
+                >
+                  <Allotment.Pane
+                    minSize={PERP_DESKTOP_CHART_MIN_HEIGHT}
+                    preferredSize={layout.marketContentHeight}
                   >
-                    <Allotment.Pane
-                      minSize={PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT}
-                      preferredSize={layout.marketContentHeight}
-                    >
-                      {tradingPanel}
-                    </Allotment.Pane>
-                    <Allotment.Pane
-                      minSize={PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT}
-                    >
-                      {accountPanel}
-                    </Allotment.Pane>
-                  </Allotment>
-                </Stack>
-              </Allotment.Pane>
-            </Allotment>
-          </Stack>
+                    {marketPanel}
+                  </Allotment.Pane>
+                  <Allotment.Pane
+                    minSize={PERP_DESKTOP_INFO_MIN_HEIGHT}
+                    visible={!chartExpanded}
+                  >
+                    {orderInfoPanel}
+                  </Allotment.Pane>
+                </Allotment>
+              </Stack>
+            </YStack>
+
+            <YStack
+              display={chartExpanded ? 'none' : 'flex'}
+              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+              maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+              w={tradingWidth}
+              borderLeftWidth="$px"
+              borderLeftColor="$borderSubdued"
+            >
+              {tradingPanel}
+              {accountPanel}
+            </YStack>
+          </XStack>
         </YStack>
       </YStack>
     </Stack>

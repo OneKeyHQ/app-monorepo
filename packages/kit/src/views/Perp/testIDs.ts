@@ -107,10 +107,8 @@ export const PerpTestIDs = {
   // -- Mobile candle chart button --
   CandleChartButton: 'perp-candle-chart-button',
   DesktopSplitRoot: 'perp-desktop-split-root',
-  DesktopMainSplit: 'perp-desktop-main-split',
   DesktopChartSplit: 'perp-desktop-chart-split',
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
-  DesktopTradingSplit: 'perp-desktop-trading-split',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',

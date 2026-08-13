@@ -10,8 +10,6 @@ type IMockLayoutState = {
   chartExpanded?: boolean;
   chartHeight?: number;
   orderBook?: { visible: boolean };
-  tradingPanelHeight?: number;
-  tradingWidth?: number;
 };
 
 type IMockAllotmentProps = {
@@ -160,79 +158,42 @@ describe('PerpDesktopLayout web chart split', () => {
       chartExpanded: false,
       chartHeight: 700,
       orderBook: { visible: true },
-      tradingPanelHeight: 680,
-      tradingWidth: 420,
     };
   });
 
-  it('renders independently draggable main, chart, and trading splits', () => {
+  it('renders only the chart/order-info split as draggable', () => {
     render(<PerpDesktopLayout />);
 
-    expect(
-      mockAllotmentProps.get('perp-desktop-main-split')?.vertical,
-    ).toBeUndefined();
+    expect(mockAllotmentProps.size).toBe(1);
     expect(mockAllotmentProps.get('perp-desktop-chart-split')?.vertical).toBe(
-      true,
-    );
-    expect(mockAllotmentProps.get('perp-desktop-trading-split')?.vertical).toBe(
       true,
     );
   });
 
-  it('persists each split size independently', () => {
+  it('persists the chart height on drag end', () => {
     render(<PerpDesktopLayout />);
-
-    act(() => {
-      mockAllotmentProps
-        .get('perp-desktop-main-split')
-        ?.onDragEnd?.([1000, 400]);
-    });
-    expect(mockLayoutState.tradingWidth).toBe(400);
-    expect(mockLayoutState.chartHeight).toBe(700);
-    expect(mockLayoutState.tradingPanelHeight).toBe(680);
 
     act(() => {
       mockAllotmentProps
         .get('perp-desktop-chart-split')
         ?.onDragEnd?.([640, 428]);
     });
-    expect(mockLayoutState.tradingWidth).toBe(400);
     expect(mockLayoutState.chartHeight).toBe(640);
-    expect(mockLayoutState.tradingPanelHeight).toBe(680);
-
-    act(() => {
-      mockAllotmentProps
-        .get('perp-desktop-trading-split')
-        ?.onDragEnd?.([620, 448]);
-    });
-    expect(mockLayoutState.tradingWidth).toBe(400);
-    expect(mockLayoutState.chartHeight).toBe(640);
-    expect(mockLayoutState.tradingPanelHeight).toBe(620);
   });
 
-  it('re-applies persisted vertical split sizes after hydration updates', () => {
+  it('re-applies the persisted chart height after hydration updates', () => {
     const view = render(<PerpDesktopLayout />);
 
     expect(
       mockAllotmentResize.get('perp-desktop-chart-split'),
     ).toHaveBeenLastCalledWith([700, 368]);
-    expect(
-      mockAllotmentResize.get('perp-desktop-trading-split'),
-    ).toHaveBeenLastCalledWith([680, 388]);
 
-    mockLayoutState = {
-      ...mockLayoutState,
-      chartHeight: 620,
-      tradingPanelHeight: 600,
-    };
+    mockLayoutState = { ...mockLayoutState, chartHeight: 620 };
     view.rerender(<PerpDesktopLayout />);
 
     expect(
       mockAllotmentResize.get('perp-desktop-chart-split'),
     ).toHaveBeenLastCalledWith([620, 448]);
-    expect(
-      mockAllotmentResize.get('perp-desktop-trading-split'),
-    ).toHaveBeenLastCalledWith([600, 468]);
   });
 
   it('keeps the TradingView workspace mounted when fullscreen changes', () => {
@@ -248,7 +209,7 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockMarketPanelUnmount).not.toHaveBeenCalled();
   });
 
-  it('resets the visible split immediately before clearing persistence', () => {
+  it('resets the split immediately before clearing persistence', () => {
     render(<PerpDesktopLayout />);
 
     act(() => {
@@ -259,29 +220,6 @@ describe('PerpDesktopLayout web chart split', () => {
       mockAllotmentResize.get('perp-desktop-chart-split'),
     ).toHaveBeenCalledWith([588, 480]);
     expect(mockLayoutState.chartHeight).toBeUndefined();
-    expect(mockLayoutState.tradingWidth).toBe(420);
-    expect(mockLayoutState.tradingPanelHeight).toBe(680);
-  });
-
-  it('resets the main and trading splits independently', () => {
-    render(<PerpDesktopLayout />);
-
-    act(() => {
-      mockAllotmentProps.get('perp-desktop-main-split')?.onReset?.();
-    });
-    expect(
-      mockAllotmentResize.get('perp-desktop-main-split'),
-    ).toHaveBeenCalledWith([1192, 320]);
-    expect(mockLayoutState.tradingWidth).toBeUndefined();
-    expect(mockLayoutState.tradingPanelHeight).toBe(680);
-
-    act(() => {
-      mockAllotmentProps.get('perp-desktop-trading-split')?.onReset?.();
-    });
-    expect(
-      mockAllotmentResize.get('perp-desktop-trading-split'),
-    ).toHaveBeenCalledWith([588, 480]);
-    expect(mockLayoutState.tradingPanelHeight).toBeUndefined();
   });
 
   it('uses theme tokens for visible and active split lines', () => {

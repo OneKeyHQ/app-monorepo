@@ -1215,8 +1215,6 @@ export interface IPerpsLayoutState {
     visible: boolean;
   };
   chartHeight?: number;
-  tradingPanelHeight?: number;
-  tradingWidth?: number;
   chartExpanded?: boolean;
   resetAt?: number;
 }

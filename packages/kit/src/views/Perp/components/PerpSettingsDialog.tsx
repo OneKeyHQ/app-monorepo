@@ -366,8 +366,6 @@ function PerpSettingsMainContent({
     setPerpsLayoutState((prev) => {
       const {
         chartHeight: _chartHeight,
-        tradingPanelHeight: _tradingPanelHeight,
-        tradingWidth: _tradingWidth,
         orderBook: _orderBook,
         ...rest
       } = prev;

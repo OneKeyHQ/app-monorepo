@@ -4,9 +4,6 @@ export const ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT = 36;
 export const ORDER_BOOK_SIDE_RATIO_GAP = 4;
 export const PERP_DESKTOP_CHART_MIN_HEIGHT = 360;
 export const PERP_DESKTOP_INFO_MIN_HEIGHT = 240;
-export const PERP_DESKTOP_TRADING_MIN_WIDTH = 320;
-export const PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT = 360;
-export const PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT = 240;
 
 const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
@@ -37,7 +34,7 @@ const DESKTOP_LAYOUT_WIDTH_LIMITS = {
     max: 360,
   },
   tradingPanel: {
-    min: PERP_DESKTOP_TRADING_MIN_WIDTH,
+    min: 320,
     max: 420,
   },
 } as const;
@@ -73,39 +70,6 @@ function getVerticalSplitSizes({
   return [topHeight, totalHeight - topHeight];
 }
 
-export function getPerpDesktopMainSplitSizes({
-  availableWidth,
-  defaultTradingWidth,
-  savedTradingWidth,
-  // Must match the market pane minSize (which grows with the order book) so
-  // the computed sizes never conflict with what Allotment enforces.
-  marketMinWidth = PERP_LAYOUT_CONFIG.main.marketMinWidth,
-}: {
-  availableWidth: number;
-  defaultTradingWidth: number;
-  savedTradingWidth?: number;
-  marketMinWidth?: number;
-}) {
-  const tradingWidthCandidate =
-    typeof savedTradingWidth === 'number' && Number.isFinite(savedTradingWidth)
-      ? savedTradingWidth
-      : defaultTradingWidth;
-  const tradingMaxWidth = Math.max(
-    PERP_DESKTOP_TRADING_MIN_WIDTH,
-    Math.min(
-      PERP_LAYOUT_CONFIG.main.tradingMaxWidth,
-      availableWidth - marketMinWidth,
-    ),
-  );
-  const tradingWidth = clampSize(
-    tradingWidthCandidate,
-    PERP_DESKTOP_TRADING_MIN_WIDTH,
-    tradingMaxWidth,
-  );
-
-  return [availableWidth - tradingWidth, tradingWidth];
-}
-
 export function getPerpDesktopChartSplitSizes({
   marketContentHeight,
   bottomPanelHeight,
@@ -121,24 +85,6 @@ export function getPerpDesktopChartSplitSizes({
     savedTopHeight: savedChartHeight,
     topMinHeight: PERP_DESKTOP_CHART_MIN_HEIGHT,
     bottomMinHeight: PERP_DESKTOP_INFO_MIN_HEIGHT,
-  });
-}
-
-export function getPerpDesktopTradingSplitSizes({
-  marketContentHeight,
-  bottomPanelHeight,
-  savedTradingPanelHeight,
-}: {
-  marketContentHeight: number;
-  bottomPanelHeight: number;
-  savedTradingPanelHeight?: number;
-}) {
-  return getVerticalSplitSizes({
-    topDefaultHeight: marketContentHeight,
-    bottomDefaultHeight: bottomPanelHeight,
-    savedTopHeight: savedTradingPanelHeight,
-    topMinHeight: PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT,
-    bottomMinHeight: PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT,
   });
 }
 
