@@ -7,6 +7,9 @@ export type IQRCodeErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
 const FINDER_MODULES = 7;
 const FINDER_RINGS = 3;
 
+// Dot diameter as a fraction of a module.
+export const QR_CODE_DOT_RADIUS_RATIO = 1 / 3;
+
 // Encoding dominates the cost of rendering a code, and the same value is
 // asked for more than once per render: the layout metrics need the matrix
 // size, the renderer needs the matrix itself, and the animated air-gap path
@@ -76,6 +79,11 @@ export function getQRCodeLayoutMetrics({
   };
 }
 
+// Diameter, in modules, of the area the dot renderer clears for the logo
+// plate. It only has to reach one dot radius past the plate: any dot whose
+// center is further out is drawn whole, and anything closer would be sliced
+// by the plate edge. Rounding it up to whole modules, or padding it further,
+// just grows the white disc past the plate and reads as extra logo padding.
 export function getQRCodeLogoClearArenaSize({
   logoSize,
   logoMargin,
@@ -85,7 +93,7 @@ export function getQRCodeLogoClearArenaSize({
   logoMargin: number;
   cellSize: number;
 }) {
-  return Math.ceil((logoSize + logoMargin * 2 + 3) / cellSize);
+  return (logoSize + logoMargin * 2) / cellSize + QR_CODE_DOT_RADIUS_RATIO * 2;
 }
 
 export const QR_CODE_PLATE_BORDER_RADIUS = 16;
@@ -190,8 +198,6 @@ export function getQRCodeDotCells({
   });
   return cells;
 }
-
-export const QR_CODE_DOT_RADIUS_RATIO = 1 / 3;
 
 // Every dot shares one fill and none of them overlap, so the whole field can
 // be a single path instead of one element per module. That matters on the

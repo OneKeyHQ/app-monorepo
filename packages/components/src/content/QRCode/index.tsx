@@ -45,7 +45,7 @@ type IBasicQRCodeProps = {
   drawType?: IQrcodeDrawType;
 };
 
-const DEFAULT_LOGO_MARGIN = 5;
+const DEFAULT_LOGO_MARGIN = 3;
 const DEFAULT_LOGO_SIZE = 62;
 
 const transformMatrixIntoPath = (matrix: number[][], size: number) => {
