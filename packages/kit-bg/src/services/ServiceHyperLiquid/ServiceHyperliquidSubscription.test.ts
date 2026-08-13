@@ -455,6 +455,69 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
     expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
   });
 
+  it('preserves a newer account retry when a busy wait becomes stale', async () => {
+    const nextAccountAddress = '0xdef';
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValue(undefined);
+    let releaseBusyCheck: (() => void) | undefined;
+    const waitForIdle = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBusyCheck = resolve;
+        }),
+    );
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: waitForIdle,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _resetFundedActivationRefreshState: () => void;
+      _scheduleFundedActivationRefreshRetry: (params: {
+        address: string;
+        delayMs: number;
+        refreshAttempt: number;
+      }) => void;
+      _fundedActivationRefreshInFlightAddress: string | null;
+      _fundedActivationRefreshPendingAddress: string | null;
+      _fundedActivationRefreshRetryTimer: ReturnType<typeof setTimeout> | null;
+    };
+
+    const staleRefreshPromise = internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+
+    internals._resetFundedActivationRefreshState();
+    internals._scheduleFundedActivationRefreshRetry({
+      address: nextAccountAddress,
+      delayMs: 500,
+      refreshAttempt: 1,
+    });
+    const nextAccountRetryTimer = internals._fundedActivationRefreshRetryTimer;
+
+    releaseBusyCheck?.();
+    await staleRefreshPromise;
+
+    expect(internals._fundedActivationRefreshInFlightAddress).toBeNull();
+    expect(internals._fundedActivationRefreshPendingAddress).toBe(
+      nextAccountAddress,
+    );
+    expect(internals._fundedActivationRefreshRetryTimer).toBe(
+      nextAccountRetryTimer,
+    );
+  });
+
   it('retries after the cooldown while activation remains unconfirmed', async () => {
     const startStatusCheck = jest
       .fn<Promise<void> | undefined, []>()

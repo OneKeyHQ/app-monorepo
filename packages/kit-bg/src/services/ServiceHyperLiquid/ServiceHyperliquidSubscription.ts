@@ -369,6 +369,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (!statusCheck) {
         shouldScheduleRetry = false;
         await this.backgroundApi.serviceHyperliquid.waitForPerpsAccountStatusCheckIdle();
+        if (
+          this._fundedActivationRefreshInFlightAddress !==
+          normalizedEventAddress
+        ) {
+          return;
+        }
         this._scheduleFundedActivationRefreshRetry({
           address: normalizedEventAddress,
           delayMs:
