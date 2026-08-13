@@ -5,6 +5,7 @@ export {
   TradingViewV2ChartControlsContainer,
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
 } from './chartControls/TradingViewV2ChartControlsContainer';
 export type {
