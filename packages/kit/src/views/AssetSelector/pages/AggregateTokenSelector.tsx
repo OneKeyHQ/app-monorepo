@@ -558,8 +558,6 @@ function AggregateTokenSelector() {
     hideBalanceAndValue,
   ]);
 
-  // Carry the asset context into the network step ("Select USDT network")
-  // so users don't lose track of which asset they are receiving/sending.
   const aggregateTokenSymbol =
     aggregateToken.commonSymbol || aggregateToken.symbol;
 
