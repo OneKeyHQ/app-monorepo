@@ -399,6 +399,9 @@ export const ShareImageGenerator = memo(
               size: qr.size,
               // high error correction: the center plate occludes part of the code
               ecl: 'H',
+              // dots under the plate are cleared like the on-screen code; skip
+              // when the logo failed to load and no plate will be drawn
+              clearPlateSize: tokenLogoImg ? qr.logoPlateSize : undefined,
             });
 
             // center token logo on a white plate; skip entirely if the logo

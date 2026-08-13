@@ -121,6 +121,10 @@ export function UnifoldDepositQRCard({
           borderColor="$borderSubdued"
           borderRadius="$2"
           overflow="hidden"
+          // same color as the QR plate: the plate's own corner rounding is
+          // larger than this card's, so without a matching backdrop the modal
+          // background pokes through as dark wedges at the four corners
+          bg="white"
         >
           <QRCode
             value={address}

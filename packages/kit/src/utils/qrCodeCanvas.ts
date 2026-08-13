@@ -5,6 +5,7 @@ import {
   generateMatrix,
   getQRCodeDotCells,
   getQRCodeFinderRings,
+  getQRCodeLogoClearArenaSize,
 } from '@onekeyhq/components/src/content/QRCode/QRCode.utils';
 
 // Canvas twin of the dot renderer in the QRCode component. Share images on
@@ -62,6 +63,7 @@ export async function drawDotQRCodeOnCanvas(
     // so this stays 'M' to keep their symbols the same size. Pass 'H' where
     // something is drawn on top of the code.
     ecl = 'M',
+    clearPlateSize,
   }: {
     value: string;
     x: number;
@@ -69,6 +71,10 @@ export async function drawDotQRCodeOnCanvas(
     size: number;
     darkColor?: string;
     ecl?: IQRCodeErrorCorrectionLevel;
+    // Diameter, in px, of a plate the caller will paint over the center of
+    // the code. Dots under it are dropped the same way the on-screen
+    // component clears them, so the plate edge never slices dots in half.
+    clearPlateSize?: number;
   },
 ) {
   // resolve the lazily-loaded encoder before touching the context, so the
@@ -98,11 +104,18 @@ export async function drawDotQRCodeOnCanvas(
       },
     );
 
+    const clearArenaModules = clearPlateSize
+      ? getQRCodeLogoClearArenaSize({
+          logoSize: clearPlateSize,
+          logoMargin: 0,
+          cellSize,
+        })
+      : 0;
     // one path for every dot: they share a fill and never overlap, so a single
     // fill() is equivalent to one per module and far cheaper
     ctx.fillStyle = darkColor;
     ctx.beginPath();
-    getQRCodeDotCells({ matrix }).forEach(({ x, y }) => {
+    getQRCodeDotCells({ matrix, clearArenaModules }).forEach(({ x, y }) => {
       const cx = originX + x * cellSize + cellSize / 2;
       const cy = originY + y * cellSize + cellSize / 2;
       // move first, otherwise arc() joins each circle to the previous one

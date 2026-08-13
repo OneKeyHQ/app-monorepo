@@ -123,6 +123,10 @@ function setLetterSpacing(
 }
 
 const CANVAS_SIZE = 640;
+// render at 2x logical size for crisp output (same as ReceiveShare): the QR
+// here is only 88 logical px, and the dot geometry needs the extra device
+// pixels to survive the recompression sharing apps apply
+const CANVAS_SCALE = 2;
 const CANVAS_CONFIG = getCanvasConfig(CANVAS_SIZE);
 
 export const ShareImageGenerator = forwardRef<
@@ -151,8 +155,11 @@ export const ShareImageGenerator = forwardRef<
       referralPill,
       spacing,
     } = CANVAS_CONFIG;
-    canvas.width = size;
-    canvas.height = size;
+    // setting width/height resets the context state, so the scale below never
+    // compounds across repeated generate() calls
+    canvas.width = size * CANVAS_SCALE;
+    canvas.height = size * CANVAS_SCALE;
+    ctx.scale(CANVAS_SCALE, CANVAS_SCALE);
 
     try {
       const gradient = ctx.createLinearGradient(0, 0, size, size);
@@ -395,7 +402,11 @@ export const ShareImageGenerator = forwardRef<
       pointerEvents="none"
       zIndex={-1}
     >
-      <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} />
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_SIZE * CANVAS_SCALE}
+        height={CANVAS_SIZE * CANVAS_SCALE}
+      />
     </Stack>
   );
 });
