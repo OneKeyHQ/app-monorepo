@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { fireEvent, render } from '@testing-library/react';
-
 import { SegmentSlider } from '.';
+
+import { fireEvent, render } from '@testing-library/react';
 
 jest.mock('../../hooks/useStyle', () => ({
   useTheme: () => ({
