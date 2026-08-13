@@ -238,7 +238,10 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      expect.objectContaining({
+        deviceKey: 'db-device-1',
+        ownerName: 'firmwareUpdateDetect',
+      }),
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -281,7 +284,10 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     }
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      expect.objectContaining({
+        deviceKey: 'db-device-1',
+        ownerName: 'firmwareUpdateDetect',
+      }),
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
