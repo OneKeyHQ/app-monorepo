@@ -1595,6 +1595,11 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        // A disconnect ends the "connected and OS-paired right now" proof:
+        // factory reset and OS-level unpair both surface as a disconnect
+        // first, so the silent BLE bind probe must not trust this endpoint
+        // again until new traffic re-stamps it.
+        this.clearLiveConnectIdEvidence(message.device?.connectId);
         const disconnectedIdentityKeys = this.untrackConnectedDevice(
           message.device,
         );
@@ -4147,7 +4152,9 @@ class ServiceHardware extends ServiceBase {
 
   // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
   // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
-  // is connected and OS-paired at that moment.
+  // is connected and OS-paired at that moment; DEVICE.DISCONNECT deletes
+  // the entry because factory reset and OS-level unpair surface as a
+  // disconnect first, invalidating that proof.
   private liveConnectIdEvidence = new Map<string, number>();
 
   recordLiveConnectIdEvidence(connectId?: string | null) {
@@ -4156,6 +4163,14 @@ class ServiceHardware extends ServiceBase {
       return;
     }
     this.liveConnectIdEvidence.set(normalized, Date.now());
+  }
+
+  clearLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.delete(normalized);
   }
 
   private hasRecentLiveConnectIdEvidence(connectId: string): boolean {
