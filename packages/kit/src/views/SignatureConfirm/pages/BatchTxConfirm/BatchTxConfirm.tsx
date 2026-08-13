@@ -345,6 +345,7 @@ function BatchTxConfirm() {
           ...unsignedTx,
           txSize: unsignedTx.txSize ?? BTC_TX_PLACEHOLDER_VSIZE,
         };
+        const isSigned = item.status === EBatchTxSignItemStatus.Signed;
         navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
           accountId,
           networkId,
@@ -352,28 +353,35 @@ function BatchTxConfirm() {
           signOnly: true,
           feeInfoEditable: false,
           popStack: false,
+          // The drill-down is pushed onto this batch page's stack, so its
+          // cancel action reads "Back" and just pops back here.
+          cancelAsBack: true,
+          // An already-signed item opens as a review: no Sign action.
+          readOnly: isSigned,
           // No sourceInfo: this drill-down must hand its result back to the
           // batch, never resolve the dapp request on its own.
-          onSuccess: (data: ISendTxOnSuccessData[]) => {
-            const hex = data?.[0]?.signedTx?.psbtHex;
-            if (hex) {
-              // Only toast once the mark actually landed — a failed
-              // markItemSigned (e.g. the batch was disposed/cancelled
-              // meanwhile) must not claim the item is signed.
-              void backgroundApiProxy.serviceBatchTxSign
-                .markItemSigned({
-                  batchId,
-                  index: item.index,
-                  signedPsbtHex: hex,
-                })
-                .then(() => {
-                  Toast.success({
-                    title: `Transaction ${item.index + 1} signed`,
-                  });
-                })
-                .catch(() => {});
-            }
-          },
+          onSuccess: isSigned
+            ? undefined
+            : (data: ISendTxOnSuccessData[]) => {
+                const hex = data?.[0]?.signedTx?.psbtHex;
+                if (hex) {
+                  // Only toast once the mark actually landed — a failed
+                  // markItemSigned (e.g. the batch was disposed/cancelled
+                  // meanwhile) must not claim the item is signed.
+                  void backgroundApiProxy.serviceBatchTxSign
+                    .markItemSigned({
+                      batchId,
+                      index: item.index,
+                      signedPsbtHex: hex,
+                    })
+                    .then(() => {
+                      Toast.success({
+                        title: `Transaction ${item.index + 1} signed`,
+                      });
+                    })
+                    .catch(() => {});
+                }
+              },
         });
       } catch (_error) {
         Toast.error({ title: 'Unable to open this transaction' });
