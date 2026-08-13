@@ -284,6 +284,13 @@ function getPersistedDesktopBleConnectId(
   return aliasesUsbConnectId ? undefined : bleConnectId;
 }
 
+// Evidence window for treating a caller-held connectId as a live session.
+// Receiving device traffic implies the OS pairing already exists, so only
+// connectIds stamped this recently may be probed by
+// silentlyBindLiveDesktopBleConnectId; probing anything else could summon
+// the OS pairing prompt without any app guidance UI.
+const LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS = 60_000;
+
 const isOneKeyLoaderMode = (mode?: string | null) =>
   mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
 
@@ -1418,6 +1425,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
+        this.recordLiveConnectIdEvidence(event.connectId);
         deviceStateEventSequence += 1;
         const sdkEventSequence = deviceStateEventSequence;
         serviceHardwareUtils.hardwareLog('device state update', {
@@ -1520,6 +1528,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        this.recordLiveConnectIdEvidence(message.device?.connectId);
         const connectedIdentityKeys = this.trackConnectedDevice(message.device);
         if (connectedIdentityKeys.length > 0) {
           void this.backgroundApi.serviceHardwarePortfolioSync
@@ -4136,19 +4145,45 @@ class ServiceHardware extends ServiceBase {
     return bleConnectId;
   }
 
+  // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
+  // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
+  // is connected and OS-paired at that moment.
+  private liveConnectIdEvidence = new Map<string, number>();
+
+  recordLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.set(normalized, Date.now());
+  }
+
+  private hasRecentLiveConnectIdEvidence(connectId: string): boolean {
+    const stampedAt = this.liveConnectIdEvidence.get(
+      connectId.trim().toLowerCase(),
+    );
+    return (
+      stampedAt !== undefined &&
+      Date.now() - stampedAt <= LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS
+    );
+  }
+
   /**
    * Silently bind a live desktop BLE connectId held by the caller onto a
    * device record that lacks a BLE binding, so an in-progress BLE session
    * never raises the Bluetooth pairing dialog (OK-60091).
    *
    * Only attempted when the incoming connectId differs from the record's USB
-   * identifiers (connectId/usbConnectId): a USB serial input means a genuine
-   * USB→BLE switch, which must keep the scan + pairing-dialog repair flow.
-   * Before persisting, the endpoint is verified with a bounded silent
-   * getFeatures probe that must report the expected raw deviceId; on an
-   * active session this reuses the live connection and answers in a few
-   * seconds. Any failure returns undefined so the caller falls back to the
-   * existing pairing-dialog flow.
+   * identifiers (connectId/usbConnectId) — a USB serial input means a genuine
+   * USB→BLE switch, which must keep the scan + pairing-dialog repair flow —
+   * AND the connectId carried real device traffic within
+   * LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS, which proves the endpoint is
+   * connected and OS-paired, so the probe can never summon the OS pairing
+   * prompt. The endpoint is then verified with a bounded silent getFeatures
+   * probe that must report the expected raw deviceId; on an active session
+   * this reuses the live connection and answers in a few seconds. Any
+   * failure returns undefined so the caller falls back to the existing
+   * pairing-dialog flow.
    */
   private async silentlyBindLiveDesktopBleConnectId({
     device,
@@ -4169,6 +4204,14 @@ class ServiceHardware extends ServiceBase {
       (candidate) => candidate?.trim().toLowerCase() === normalizedConnectId,
     );
     if (isUsbAliasInput) {
+      return undefined;
+    }
+    // Probe only endpoints that demonstrably carried device traffic moments
+    // ago. Anything else (e.g. a stale UUID kept by the UI across a device
+    // reboot or an unpair) might be an unpaired peripheral, and the probe's
+    // characteristic subscription would summon the OS pairing prompt with
+    // no app guidance UI — those cases must keep the pairing-dialog flow.
+    if (!this.hasRecentLiveConnectIdEvidence(connectId)) {
       return undefined;
     }
     const expectedDeviceId =
