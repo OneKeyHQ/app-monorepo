@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
 import { fn } from 'storybook/test';
@@ -6,16 +6,15 @@ import { fn } from 'storybook/test';
 import { DialogV2 } from '@onekeyhq/components/src/composite/DialogV2';
 import { Input } from '@onekeyhq/components/src/forms/Input';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
-import { YStack } from '@onekeyhq/components/src/primitives/Stack';
+import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
+import { XStack, YStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
-// The upstream skin is transcribed as-is, so these stories are for judging how
-// that default actually behaves with real product content — not for matching the
-// current app dialog.
-//
-// On the iOS shell the same stories drive the native engine instead: the
-// Expo UI bottom sheet (SDK 56), where presentation is owned by the system.
+// DialogV2 is a bare presentation shell — backdrop, face and motion on web,
+// the system sheet on native; it ships no header, footer, actions or padding.
+// Each story composes the entire content, so together they double as the
+// reference for what a caller now owns.
 
 const LONG_TEXT = [
   'This wallet will be removed from this device only. The recovery phrase is not stored on our servers and cannot be recovered by support.',
@@ -29,15 +28,67 @@ const LONG_TEXT = [
 function useDialogState() {
   const [open, setOpen] = useState(false);
   const handleOpen = useCallback(() => setOpen(true), []);
-  return { open, setOpen, handleOpen };
+  const handleClose = useCallback(() => setOpen(false), []);
+  return { open, setOpen, handleOpen, handleClose };
 }
 
-function Demo(props: ComponentProps<typeof DialogV2>) {
-  const { open, setOpen, handleOpen } = useDialogState();
+/**
+ * The composition the shell used to build in: heading, subdued description,
+ * and a trailing action row. Now caller-side on purpose, so the stories
+ * assemble it from these two pieces. No padding here — the web frame keeps
+ * the stock 16px; the bare native sheet leaves spacing to real callers
+ * (DeviceStage carries its own).
+ */
+function Body({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <YStack gap="$4">
+      <YStack gap="$2">
+        <SizableText size="$headingLg">{title}</SizableText>
+        {description ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {description}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {children}
+    </YStack>
+  );
+}
+
+function Footer({ children }: { children: ReactNode }) {
+  return (
+    <XStack gap="$2.5" jc="flex-end">
+      {children}
+    </XStack>
+  );
+}
+
+function ComposedDemo(props: ComponentProps<typeof DialogV2>) {
+  const { open, setOpen, handleOpen, handleClose } = useDialogState();
   return (
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open dialog</Button>
-      <DialogV2 {...props} open={open} onOpenChange={setOpen} />
+      <DialogV2 {...props} open={open} onOpenChange={setOpen}>
+        <Body
+          title="Remove this wallet?"
+          description="It will be removed from this device. You can restore it later from the recovery phrase."
+        >
+          <Footer>
+            <Button onPress={handleClose}>Cancel</Button>
+            <Button variant="destructive" onPress={handleClose}>
+              Remove
+            </Button>
+          </Footer>
+        </Body>
+      </DialogV2>
     </YStack>
   );
 }
@@ -46,77 +97,80 @@ const meta = {
   title: 'Composite/DialogV2',
   component: DialogV2,
   args: {
-    // Visibility is owned by the demo wrapper below, not by controls.
+    // Visibility is owned by the demo wrappers below, not by controls.
     open: false,
     onOpenChange: fn(),
-    onConfirm: fn(),
-    onCancel: fn(),
-    title: 'Remove this wallet?',
-    description:
-      'It will be removed from this device. You can restore it later from the recovery phrase.',
-    confirmText: 'Remove',
-    cancelText: 'Cancel',
     dismissible: true,
-    tone: 'default',
   },
   argTypes: {
     open: { table: { disable: true } },
     onOpenChange: { table: { disable: true } },
-    tone: { control: 'inline-radio', options: ['default', 'destructive'] },
     dismissible: { control: 'boolean' },
   },
-  render: Demo,
+  render: ComposedDemo,
 } satisfies Meta<typeof DialogV2>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** The common case: a titled question with two actions. */
-export const Confirm: Story = {};
+/** The common case, fully caller-composed: heading, description, two actions. */
+export const Composed: Story = {};
 
-/** Tone only tints the primary action; nothing else changes. */
-export const Destructive: Story = {
-  args: {
-    tone: 'destructive',
-  },
-};
-
-/**
- * Blocking. The escape key, the backdrop press and the close button are all off,
- * so the footer is the only way out — the shape a signing or force-update prompt
- * needs.
- */
-export const Blocking: Story = {
-  args: {
-    title: 'Update required',
-    description:
-      'This version can no longer reach the network. Install the update to continue.',
-    dismissible: false,
-    confirmText: 'Update now',
-    cancelText: undefined,
-  },
-};
-
-function WithInputDemo(props: ComponentProps<typeof DialogV2>) {
-  const { open, setOpen, handleOpen } = useDialogState();
+function BlockingDemo(props: ComponentProps<typeof DialogV2>) {
+  const { open, setOpen, handleOpen, handleClose } = useDialogState();
   return (
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open dialog</Button>
       <DialogV2 {...props} open={open} onOpenChange={setOpen}>
-        <Input placeholder="Wallet name" />
+        <Body
+          title="Update required"
+          description="This version can no longer reach the network. Install the update to continue."
+        >
+          <Footer>
+            <Button variant="primary" onPress={handleClose}>
+              Update now
+            </Button>
+          </Footer>
+        </Body>
       </DialogV2>
     </YStack>
   );
 }
 
-/** Mixed content: an app form control sitting inside the upstream frame. */
-export const WithInput: Story = {
+/**
+ * Blocking. The escape key, the backdrop press and interactive dismissal are
+ * all off, so the composed action is the only way out — the shape a signing
+ * or force-update prompt needs.
+ */
+export const Blocking: Story = {
   args: {
-    title: 'Rename wallet',
-    description: 'Only you can see this name.',
-    confirmText: 'Save',
+    dismissible: false,
   },
+  render: BlockingDemo,
+};
+
+function WithInputDemo(props: ComponentProps<typeof DialogV2>) {
+  const { open, setOpen, handleOpen, handleClose } = useDialogState();
+  return (
+    <YStack gap="$4" alignItems="flex-start">
+      <Button onPress={handleOpen}>Open dialog</Button>
+      <DialogV2 {...props} open={open} onOpenChange={setOpen}>
+        <Body title="Rename wallet" description="Only you can see this name.">
+          <Input placeholder="Wallet name" />
+          <Footer>
+            <Button variant="primary" onPress={handleClose}>
+              Save
+            </Button>
+          </Footer>
+        </Body>
+      </DialogV2>
+    </YStack>
+  );
+}
+
+/** Mixed content: an app form control between the composed header and footer. */
+export const WithInput: Story = {
   render: WithInputDemo,
 };
 
@@ -126,41 +180,51 @@ function LongContentDemo(props: ComponentProps<typeof DialogV2>) {
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open dialog</Button>
       <DialogV2 {...props} open={open} onOpenChange={setOpen}>
-        {LONG_TEXT}
+        <Body title="Before you remove it">
+          <SizableText size="$bodyMd">{LONG_TEXT}</SizableText>
+        </Body>
       </DialogV2>
     </YStack>
   );
 }
 
 /**
- * Content taller than the viewport. The upstream popup sets no max height and no
- * overflow, so this is what the stock component does — worth seeing before
- * deciding whether to add scrolling.
+ * Content taller than the viewport. The shell sets no max height and no
+ * overflow — height follows content on both engines — so this is where that
+ * policy runs out; worth seeing before deciding whether content should scroll.
  */
 export const LongContent: Story = {
-  args: {
-    title: 'Before you remove it',
-    description: undefined,
-    tone: 'destructive',
-  },
   render: LongContentDemo,
 };
 
 function StackedDemo(props: ComponentProps<typeof DialogV2>) {
-  const { open, setOpen, handleOpen } = useDialogState();
+  const { open, setOpen, handleOpen, handleClose } = useDialogState();
   const nested = useDialogState();
   return (
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open dialog</Button>
       <DialogV2 {...props} open={open} onOpenChange={setOpen}>
-        <Button onPress={nested.handleOpen}>Show recovery phrase</Button>
-        <DialogV2
-          open={nested.open}
-          onOpenChange={nested.setOpen}
-          title="Recovery phrase"
-          description="Write these words down in order and keep them offline."
-          confirmText="Done"
-        />
+        <Body
+          title="Wallet settings"
+          description="Manage what this device keeps for this wallet."
+        >
+          <Button onPress={nested.handleOpen}>Show recovery phrase</Button>
+          <Footer>
+            <Button onPress={handleClose}>Close</Button>
+          </Footer>
+        </Body>
+        <DialogV2 open={nested.open} onOpenChange={nested.setOpen}>
+          <Body
+            title="Recovery phrase"
+            description="Write these words down in order and keep them offline."
+          >
+            <Footer>
+              <Button variant="primary" onPress={nested.handleClose}>
+                Done
+              </Button>
+            </Footer>
+          </Body>
+        </DialogV2>
       </DialogV2>
     </YStack>
   );
@@ -171,11 +235,5 @@ function StackedDemo(props: ComponentProps<typeof DialogV2>) {
  * so the parent stays visible behind it, and escape closes only the top one.
  */
 export const Stacked: Story = {
-  args: {
-    title: 'Wallet settings',
-    description: 'Manage what this device keeps for this wallet.',
-    confirmText: undefined,
-    cancelText: 'Close',
-  },
   render: StackedDemo,
 };
