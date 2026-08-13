@@ -2,7 +2,7 @@
 /* spell-checker: disable */
 // cspell:ignore rews
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce, isEqual } from 'lodash';
+import { cloneDeep, debounce, isEqual, orderBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -128,6 +128,14 @@ interface IPublicTradesSubscription {
   subscriptionPromise: Promise<IPerpsSubscription>;
 }
 
+interface IPublicTradesBatch {
+  trades: IWsTrades;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
+const PUBLIC_TRADES_BATCH_LIMIT = 10;
+
 type IHyperliquidWsClient = {
   clientId: string;
   transport: WebSocketTransport;
@@ -189,6 +197,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     string,
     IPublicTradesSubscription
   >();
+
+  private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
 
   private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
 
@@ -1873,6 +1883,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closePublicTradesClient(): Promise<void> {
+    this._clearAllPublicTradesBatches();
     const transport = this._publicTradesTransport;
     this._publicTradesClient = null;
     this._publicTradesTransport = null;
@@ -1887,6 +1898,53 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     }
+  }
+
+  private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
+    if (!this._publicTradesSubscriptions.has(coin) || trades.length === 0) {
+      return;
+    }
+
+    const currentBatch = this._publicTradesBatches.get(coin);
+    const batchedTrades = orderBy(
+      [...(currentBatch?.trades ?? []), ...trades],
+      ['time'],
+      ['desc'],
+    ).slice(0, PUBLIC_TRADES_BATCH_LIMIT);
+    if (currentBatch) {
+      currentBatch.trades = batchedTrades;
+      return;
+    }
+
+    const batch: IPublicTradesBatch = {
+      trades: batchedTrades,
+      timer: setTimeout(() => {
+        this._publicTradesBatches.delete(coin);
+        if (
+          this._publicTradesSubscriptions.has(coin) &&
+          batch.trades.length > 0
+        ) {
+          this._emitHyperliquidDataUpdate(
+            ESubscriptionType.TRADES,
+            batch.trades,
+          );
+        }
+      }, PUBLIC_TRADES_BATCH_INTERVAL_MS),
+    };
+    this._publicTradesBatches.set(coin, batch);
+  }
+
+  private _clearPublicTradesBatch(coin: string): void {
+    const batch = this._publicTradesBatches.get(coin);
+    if (batch) {
+      clearTimeout(batch.timer);
+      this._publicTradesBatches.delete(coin);
+    }
+  }
+
+  private _clearAllPublicTradesBatches(): void {
+    this._publicTradesBatches.forEach(({ timer }) => clearTimeout(timer));
+    this._publicTradesBatches.clear();
   }
 
   @backgroundMethod()
@@ -1912,7 +1970,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           subscriptionPromise: client.trades(
             { coin: normalizedCoin },
             (trades: IWsTrades) => {
-              this._emitHyperliquidDataUpdate(ESubscriptionType.TRADES, trades);
+              this._queuePublicTradesUpdate(normalizedCoin, trades);
             },
           ),
         };
@@ -1923,6 +1981,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         } catch (error) {
           if (this._publicTradesSubscriptions.get(normalizedCoin) === entry) {
             this._publicTradesSubscriptions.delete(normalizedCoin);
+            this._clearPublicTradesBatch(normalizedCoin);
           }
           if (this._publicTradesSubscriptions.size === 0) {
             await this._closePublicTradesClient();
@@ -1954,6 +2013,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         }
 
         this._publicTradesSubscriptions.delete(normalizedCoin);
+        this._clearPublicTradesBatch(normalizedCoin);
         try {
           const subscription = await entry.subscriptionPromise;
           await subscription.unsubscribe();

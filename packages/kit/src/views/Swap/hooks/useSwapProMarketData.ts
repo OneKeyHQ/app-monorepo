@@ -47,7 +47,6 @@ type ISwapProMarketDataState = {
 };
 
 const SWAP_PRO_TRANSACTION_LIMIT = 10;
-const HYPERLIQUID_TRADES_BATCH_INTERVAL_MS = 1000;
 const MARKET_TRANSACTIONS_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
@@ -155,19 +154,6 @@ function useHyperliquidTradesWebSocket({
       return;
     }
 
-    let pendingTransactions: ISwapProMarketTransaction[] = [];
-    let batchTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const flushPendingTransactions = () => {
-      batchTimer = undefined;
-      if (pendingTransactions.length === 0) {
-        return;
-      }
-      const transactions = pendingTransactions;
-      pendingTransactions = [];
-      onNewTransactionsRef.current(transactions);
-    };
-
     const handleHyperliquidDataUpdate = (
       payload: IAppEventBusPayload[EAppEventBusNames.HyperliquidDataUpdate],
     ) => {
@@ -185,16 +171,9 @@ function useHyperliquidTradesWebSocket({
         return;
       }
 
-      pendingTransactions = mergeSwapProTransactions(
+      onNewTransactionsRef.current(
         mapHyperliquidTradesToSwapProTransactions(trades),
-        pendingTransactions,
       );
-      if (!batchTimer) {
-        batchTimer = setTimeout(
-          flushPendingTransactions,
-          HYPERLIQUID_TRADES_BATCH_INTERVAL_MS,
-        );
-      }
     };
 
     appEventBus.on(
@@ -238,9 +217,6 @@ function useHyperliquidTradesWebSocket({
         EAppEventBusNames.HyperliquidDataUpdate,
         handleHyperliquidDataUpdate,
       );
-      if (batchTimer) {
-        clearTimeout(batchTimer);
-      }
       releaseSubscription();
     };
   }, [coin, enabled]);

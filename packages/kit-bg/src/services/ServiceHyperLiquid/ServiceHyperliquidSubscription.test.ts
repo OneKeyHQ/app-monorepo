@@ -373,12 +373,19 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('emits typed Hyperliquid trade updates for foreground consumers', async () => {
+  it('batches typed Hyperliquid trade updates before foreground delivery', async () => {
+    jest.useFakeTimers();
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
-    const trade = {
+    const olderTrade = {
       coin: 'BTC',
       px: '64000',
+      time: 1_700_000_000_123,
+    } as IRecentTrade;
+    const newerTrade = {
+      coin: 'BTC',
+      px: '64001',
+      time: 1_700_000_000_987,
     } as IRecentTrade;
 
     try {
@@ -386,19 +393,24 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       const listener = trades.mock.calls[0][1] as (
         data: IRecentTrade[],
       ) => void;
-      listener([trade]);
+      listener([olderTrade]);
+      listener([newerTrade]);
+
+      expect(emit).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1000);
 
       expect(emit).toHaveBeenCalledWith(
         EAppEventBusNames.HyperliquidDataUpdate,
         {
           type: 'market',
           subType: ESubscriptionType.TRADES,
-          data: [trade],
+          data: [newerTrade, olderTrade],
         },
       );
     } finally {
       emit.mockRestore();
       await service.unsubscribePublicTrades({ coin: 'BTC' });
+      jest.useRealTimers();
     }
   });
 });
