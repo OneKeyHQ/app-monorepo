@@ -383,6 +383,18 @@ export class HardwareConnectionManager {
       const isMiniDevice = connectId && connectId.startsWith('MI');
       // Mini does not support BLE, so it must always use the configured USB transport.
       if (isMiniDevice) {
+        const { forceTransportType } = await hardwareForceTransportAtom.get();
+        if (forceTransportType) {
+          const targetType =
+            deviceUtils.normalizeHardwareTransportTypeForPlatform({
+              transportType: forceTransportType,
+              connectProtocol,
+            });
+          return {
+            shouldSwitch: this.actualTransportType !== targetType,
+            targetType,
+          };
+        }
         const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
         const targetType =
           usbSetting === 'webusb'

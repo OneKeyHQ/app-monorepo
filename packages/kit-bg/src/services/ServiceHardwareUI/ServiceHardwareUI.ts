@@ -557,21 +557,6 @@ class ServiceHardwareUI extends ServiceBase {
         autoToast: false,
       });
     }
-    if (
-      shouldNotifyPortfolioInteraction &&
-      platformEnv.isDesktop &&
-      device?.id
-    ) {
-      const generation = await this.backgroundApi.serviceHardwarePortfolioSync
-        .notifyInteractiveHardwareOperationStarted({
-          connectId: device.connectId,
-          deviceDbId: device.id,
-        })
-        .catch(() => undefined);
-      if (typeof generation === 'number') {
-        desktopInteractionGeneration = generation;
-      }
-    }
     if (isThirdPartyVendor) {
       return this.withHardwareProcessingInternal(() => fn(undefined), params);
     }
@@ -588,7 +573,25 @@ class ServiceHardwareUI extends ServiceBase {
       const result = await this.runExclusiveOneKeyOperation(
         async (lease) => {
           const operationResult = await this.withHardwareProcessingInternal(
-            () => fn(lease),
+            async () => {
+              if (
+                shouldNotifyPortfolioInteraction &&
+                platformEnv.isDesktop &&
+                device?.id
+              ) {
+                const generation =
+                  await this.backgroundApi.serviceHardwarePortfolioSync
+                    .notifyInteractiveHardwareOperationStarted({
+                      connectId: device.connectId,
+                      deviceDbId: device.id,
+                    })
+                    .catch(() => undefined);
+                if (typeof generation === 'number') {
+                  desktopInteractionGeneration = generation;
+                }
+              }
+              return fn(lease);
+            },
             params,
           );
           if (platformEnv.isDesktop && device?.id) {

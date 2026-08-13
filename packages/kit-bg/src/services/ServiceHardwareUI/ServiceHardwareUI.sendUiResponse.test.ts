@@ -336,6 +336,7 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
       notifyInteractiveHardwareOperationStarted,
       notifyInteractiveHardwareOperationSucceeded,
       service,
+      serviceInternals,
     };
   }
 
@@ -455,6 +456,34 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     const { notifyInteractiveHardwareOperationStarted, service } =
       prepareService();
+
+    await expect(
+      service.withHardwareProcessing(async () => 'address', {
+        deviceParams: {
+          dbDevice: {
+            connectId: 'PRO2_BLE_ID',
+            connectProtocol: 'V2',
+            deviceType: EDeviceType.Pro2,
+            id: 'db-device-1',
+            vendor: EHardwareVendor.onekey,
+          },
+        } as never,
+      }),
+    ).rejects.toThrow('Hardware is busy');
+
+    expect(notifyInteractiveHardwareOperationStarted).not.toHaveBeenCalled();
+  });
+
+  it('keeps the existing Portfolio lease when internal preflight rejects', async () => {
+    Object.assign(platformEnv, { isDesktop: true, isNative: false });
+    const {
+      notifyInteractiveHardwareOperationStarted,
+      service,
+      serviceInternals,
+    } = prepareService();
+    serviceInternals.withHardwareProcessingInternal = async () => {
+      throw new OneKeyLocalError('Hardware is busy');
+    };
 
     await expect(
       service.withHardwareProcessing(async () => 'address', {

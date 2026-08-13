@@ -1455,6 +1455,40 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('honors a pinned transport before applying the Mini USB preference', async () => {
+    jest.mocked(desktopHardwareForceTransportAtom.get).mockResolvedValue({
+      forceTransportType: EHardwareTransportType.Bridge,
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({
+            settings: { usbCommunicationMode: 'webusb' },
+          }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.connectionManager.setCurrentTransportType(
+      EHardwareTransportType.WEBUSB,
+    );
+
+    await expect(
+      service.connectionManager.shouldSwitchTransportType({
+        connectId: 'MI123456789',
+        connectProtocol: 'V1',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toEqual({
+      shouldSwitch: true,
+      targetType: EHardwareTransportType.Bridge,
+    });
+  });
+
   it('uses WebUSB for Protocol V2 even when Bridge is configured', async () => {
     const service = new ServiceHardware({
       backgroundApi: {
