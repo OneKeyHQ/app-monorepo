@@ -1,5 +1,3 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -14,7 +12,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 // Helper function to convert transport type enum to analytics string
 export type IHardwareCommunicationType =
@@ -86,34 +84,6 @@ export async function getDesktopForceUSBTransportType(options?: {
   }
   return null;
 }
-
-export const getDeviceLabel = (
-  deviceTypeItems: EDeviceType[],
-  separator = '/',
-) => {
-  return deviceTypeItems
-    .map((deviceType) => {
-      switch (deviceType) {
-        case EDeviceType.Pro:
-          return 'OneKey Pro';
-        case EDeviceType.Pro2:
-          return 'OneKey Pro2';
-        case EDeviceType.Classic:
-          return 'OneKey Classic';
-        case EDeviceType.Classic1s:
-          return 'OneKey Classic 1S';
-        case EDeviceType.ClassicPure:
-          return '1S Pure';
-        case EDeviceType.Mini:
-          return 'OneKey Mini';
-        case EDeviceType.Touch:
-          return 'OneKey Touch';
-        default:
-          return deviceType;
-      }
-    })
-    .join(separator);
-};
 
 export const sortDevicesData = (
   devices: IConnectYourDeviceItem[],
