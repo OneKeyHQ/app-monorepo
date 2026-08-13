@@ -462,10 +462,9 @@ const SwapTokenSelectPage = ({
     if (!isSwapStockSelectTarget) {
       return { tokenAddressEntries: [], tokenKey: '' };
     }
-    const metadataSourceTokens =
-      requestedSearchKeyword && currentTokens.length === 0
-        ? stockSearchBaseTokens
-        : currentTokens;
+    const metadataSourceTokens = requestedSearchKeyword
+      ? [...stockSearchBaseTokens, ...currentTokens]
+      : currentTokens;
     const tokenAddressMap = new Map<
       string,
       {
