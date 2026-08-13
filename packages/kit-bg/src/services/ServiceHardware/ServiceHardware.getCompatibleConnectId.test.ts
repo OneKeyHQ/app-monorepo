@@ -439,6 +439,306 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     },
   );
 
+  it('binds a live BLE connectId silently instead of showing the pairing dialog', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    // The live BLE connectId matches no record; the featuresDeviceId
+    // fallback resolves the USB-created record without a BLE binding.
+    mockedLocalDb.getDeviceByQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(dbDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+        serviceSetting: { setHardwareTransportType: jest.fn() },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: false,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+    // V2 state projections expose only the raw device_id field (no
+    // SDK-normalized deviceId) — the identity check must handle that shape.
+    const getFeaturesSpy = jest
+      .spyOn(service, 'getFeaturesWithoutCache')
+      .mockResolvedValue({ device_id: 'PRO2_DEVICE_ID' } as any);
+    jest
+      .spyOn(
+        service as unknown as {
+          getKnownDeviceProtocol: (
+            connectId?: string,
+          ) => Promise<'V1' | 'V2' | undefined>;
+        },
+        'getKnownDeviceProtocol',
+      )
+      .mockResolvedValue('V1');
+    // Live traffic was just observed on this connectId (paired by evidence).
+    service.recordLiveConnectIdEvidence(liveBleConnectId);
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: liveBleConnectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(liveBleConnectId);
+
+    // silentMode must be set: a failed probe would otherwise emit the
+    // global DeviceNotFound error dialog from the error constructor.
+    // The probe must pin the remembered protocol instead of forcing
+    // re-detection — a V2 Ping into an active V1 session can go unanswered
+    // (SDK error 713) and would spuriously fall back to the pairing dialog.
+    expect(getFeaturesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: liveBleConnectId,
+        silentMode: true,
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        params: expect.objectContaining({
+          retryCount: 1,
+          connectProtocol: 'V1',
+          timeout: 10_000,
+        }),
+      }),
+    );
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
+      [{ dbDeviceId: dbDevice.id, bleConnectId: liveBleConnectId }],
+    ]);
+    expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the pairing dialog when silent BLE binding fails', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const pairedBleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(dbDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const createCallback = jest.fn(
+      ({ resolve }: { resolve: (value: string) => void }) => {
+        resolve(pairedBleConnectId);
+        return 'ble-pairing-promise';
+      },
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {
+        servicePromise: { createCallback },
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+        serviceSetting: { setHardwareTransportType: jest.fn() },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: false,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+    const getFeaturesSpy = jest
+      .spyOn(service, 'getFeaturesWithoutCache')
+      .mockRejectedValue(new Error('ble subscribe timeout'));
+    jest
+      .spyOn(
+        service as unknown as {
+          getKnownDeviceProtocol: (
+            connectId?: string,
+          ) => Promise<'V1' | 'V2' | undefined>;
+        },
+        'getKnownDeviceProtocol',
+      )
+      .mockResolvedValue('V1');
+    service.recordLiveConnectIdEvidence(liveBleConnectId);
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: liveBleConnectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(pairedBleConnectId);
+
+    expect(getFeaturesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ silentMode: true }),
+    );
+
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([]);
+    expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: dbDevice,
+        usbConnectId: 'PRB09B0088A',
+        promiseId: 'ble-pairing-promise',
+      }),
+    );
+  });
+
+  it('never probes a connectId whose evidence was cleared by a disconnect', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const pairedBleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(dbDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const createCallback = jest.fn(
+      ({ resolve }: { resolve: (value: string) => void }) => {
+        resolve(pairedBleConnectId);
+        return 'ble-pairing-promise';
+      },
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {
+        servicePromise: { createCallback },
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+        serviceSetting: { setHardwareTransportType: jest.fn() },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: false,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+    const getFeaturesSpy = jest.spyOn(service, 'getFeaturesWithoutCache');
+
+    // Traffic was observed, then the device disconnected (e.g. factory
+    // reset or OS-level unpair) — the DISCONNECT handler clears the stamp.
+    service.recordLiveConnectIdEvidence(liveBleConnectId);
+    service.clearLiveConnectIdEvidence(liveBleConnectId);
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: liveBleConnectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(pairedBleConnectId);
+
+    expect(getFeaturesSpy).not.toHaveBeenCalled();
+    expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: dbDevice,
+        promiseId: 'ble-pairing-promise',
+      }),
+    );
+  });
+
+  it('never probes a connectId without recent live traffic evidence', async () => {
+    // A stale BLE UUID (device rebooted / unpaired meanwhile) must not be
+    // probed: the probe's characteristic subscription could summon the OS
+    // pairing prompt without any app guidance UI.
+    const staleBleConnectId = '99994c59ef4af3df00d92885755c4a58';
+    const pairedBleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(dbDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const createCallback = jest.fn(
+      ({ resolve }: { resolve: (value: string) => void }) => {
+        resolve(pairedBleConnectId);
+        return 'ble-pairing-promise';
+      },
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {
+        servicePromise: { createCallback },
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+        serviceSetting: { setHardwareTransportType: jest.fn() },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: false,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+    const getFeaturesSpy = jest.spyOn(service, 'getFeaturesWithoutCache');
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: staleBleConnectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(pairedBleConnectId);
+
+    expect(getFeaturesSpy).not.toHaveBeenCalled();
+    expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: dbDevice,
+        promiseId: 'ble-pairing-promise',
+      }),
+    );
+  });
+
   it('does not start BLE pairing for a no-dialog device details refresh', async () => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-pro2-device',
