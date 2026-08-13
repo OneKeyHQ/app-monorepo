@@ -49,6 +49,28 @@ import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
 import { BorrowHealthFactorTooltip } from './BorrowHealthFactorTooltip';
 
+/**
+ * The overview's two side requests poll on their own cadence, and each re-run
+ * drops its result back to undefined for a moment. Driving the skeleton off
+ * "no data right now" therefore let a value that had already rendered flip
+ * back to a skeleton mid-load — the small flicker QA sees before the alerts
+ * land, with the two fields flipping at different times.
+ *
+ * Latch on the first result instead: once a field has rendered a value it is
+ * never replaced by a skeleton again. A request that genuinely finishes empty
+ * still falls through to the placeholder, because its isLoading is false by
+ * then.
+ */
+function useLoadedOnce(hasData: boolean) {
+  const [loadedOnce, setLoadedOnce] = useState(hasData);
+  useEffect(() => {
+    if (hasData) {
+      setLoadedOnce(true);
+    }
+  }, [hasData]);
+  return loadedOnce;
+}
+
 const OverviewItem = ({
   title,
   text,
@@ -68,7 +90,9 @@ const OverviewItem = ({
     <>
       <YStack gap="$1" flexShrink={0}>
         <EarnText text={title} size="$bodyMd" color="$textSubdued" />
-        <XStack gap="$2" ai="center">
+        {/* Both branches must occupy the same height, otherwise swapping the
+            skeleton for the value nudges everything below it. */}
+        <XStack gap="$2" ai="center" minHeight="$6">
           {isLoading ? (
             <Skeleton w={60} h="$6" borderRadius="$2" />
           ) : (
@@ -174,6 +198,7 @@ export const Overview = ({
     enabled:
       isActive && !!(networkId && provider && marketAddress && earnAccountId),
   });
+  const hasLoadedHealthFactorOnce = useLoadedOnce(Boolean(healthFactorData));
   const healthFactorAlerts = healthFactorData?.alerts;
 
   useEffect(() => {
@@ -191,6 +216,8 @@ export const Overview = ({
     accountId: earnAccountId,
     enabled: !!(networkId && provider && marketAddress && earnAccountId),
   });
+
+  const hasLoadedRewardsOnce = useLoadedOnce(Boolean(borrowRewards));
 
   const handleBorrowClaim = useUniversalBorrowClaim({
     networkId: networkId ?? '',
@@ -567,7 +594,7 @@ export const Overview = ({
                 color: '$textDisabled',
               })
         }
-        isLoading={isHealthFactorLoading ? !healthFactorData : undefined}
+        isLoading={isHealthFactorLoading && !hasLoadedHealthFactorOnce}
         tooltip={
           healthFactorData?.healthFactor ? (
             <BorrowHealthFactorTooltip
@@ -617,7 +644,7 @@ export const Overview = ({
                 color: '$textDisabled',
               })
         }
-        isLoading={isRewardsLoading ? !borrowRewards : undefined}
+        isLoading={isRewardsLoading && !hasLoadedRewardsOnce}
         action={
           borrowRewards && !borrowRewards.button.disabled ? (
             <Button

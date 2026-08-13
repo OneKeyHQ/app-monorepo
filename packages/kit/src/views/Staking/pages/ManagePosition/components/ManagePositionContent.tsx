@@ -197,7 +197,13 @@ const ManageSectionShell = ({
               ) : (
                 <Skeleton w="$6" h="$6" radius="round" />
               )}
-              <SizableText size="$headingXl">{symbol}</SizableText>
+              {/* The symbol is the one real string this frame used to draw, and
+                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
+                  a full-width name sitting among skeleton bars reads worse than
+                  no name at all, and the page title already carries it. Skeleton
+                  it like everything else and let the real symbol land with the
+                  rest of the data. */}
+              <Skeleton h="$6" w="$20" borderRadius="$2" />
             </XStack>
           </XStack>
           <XStack jc="space-between" ai="center">

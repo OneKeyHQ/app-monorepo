@@ -1140,7 +1140,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     vault?: string;
   }) {
-    const { networkId, accountId, symbol, ...rest } = params;
+    const { networkId, accountId, symbol, vault, ...rest } = params;
     const accountVault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await accountVault.getAccount();
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -1152,6 +1152,12 @@ class ServiceStaking extends ServiceBase {
         accountAddress: acc.address,
         symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
+        // Several call sites normalize a missing vault to '' before it gets
+        // here. Forwarding that empty string made the backend reject the whole
+        // request with `"vault" is not allowed to be empty` for providers that
+        // have no vault at all (Stakefish SOL). undefined is dropped from the
+        // query string, which is what "no vault" is supposed to mean.
+        vault: vault || undefined,
         ...rest,
       },
     });

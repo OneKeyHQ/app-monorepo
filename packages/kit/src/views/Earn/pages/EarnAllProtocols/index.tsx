@@ -16,7 +16,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -93,6 +96,10 @@ function EarnAllProtocolsSkeleton() {
 
 function EarnAllProtocolsContent() {
   const intl = useIntl();
+  // TVL is returned by the server already converted to the user's selected
+  // fiat, so the symbol has to follow the same setting — it used to be a
+  // hard-coded "$", which left the number changing and the symbol stuck.
+  const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const tabBarHeight = useScrollContentTabBarOffset();
   const { providers, isLoading } = useEarnAllProtocols();
@@ -297,7 +304,7 @@ function EarnAllProtocolsContent() {
                 size="$bodySm"
                 color="$textSubdued"
                 formatter="marketCap"
-                formatterOptions={{ currency: '$' }}
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
                 {provider.filteredTvlValue}
               </NumberSizeableText>
@@ -309,7 +316,7 @@ function EarnAllProtocolsContent() {
         </ListItem>
       );
     },
-    [handleProviderPress, intl],
+    [handleProviderPress, intl, settings.currencyInfo.symbol],
   );
 
   const keyExtractor = useCallback(
