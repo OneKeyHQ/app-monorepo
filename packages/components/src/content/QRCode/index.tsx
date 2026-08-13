@@ -47,6 +47,10 @@ type IBasicQRCodeProps = {
 
 const DEFAULT_LOGO_MARGIN = 3;
 const DEFAULT_LOGO_SIZE = 62;
+// The wrapper's layout metrics and BasicQRCode must default to the same
+// level, or the quiet-zone math describes a different symbol than the one
+// drawn.
+const DEFAULT_ECL: IQRCodeErrorCorrectionLevel = 'H';
 
 const transformMatrixIntoPath = (matrix: number[][], size: number) => {
   const cellSize = size / matrix.length;
@@ -68,14 +72,11 @@ const transformMatrixIntoPath = (matrix: number[][], size: number) => {
       }
     });
   });
-  return {
-    cellSize,
-    path,
-  };
+  return path;
 };
 
 function BasicQRCode({
-  ecl = 'H',
+  ecl = DEFAULT_ECL,
   logo,
   logoSvg,
   logoBackgroundColor: logoBGColor,
@@ -127,10 +128,9 @@ function BasicQRCode({
         </>
       );
     }
-    const { path } = transformMatrixIntoPath(matrix, size);
     return (
       <Path
-        d={path}
+        d={transformMatrixIntoPath(matrix, size)}
         strokeLinecap="butt"
         stroke={darkColor}
         strokeWidth={cellSize}
@@ -151,24 +151,15 @@ function BasicQRCode({
   const logoWrapperSize = logoSize + logoMargin * 2;
   const logoRadius = logoBorderRadius ?? 9999;
   // clipPath ids live in the document, not the <Svg>, so two codes on one
-  // screen would both resolve to whichever defined them first and the second
-  // logo would be clipped to the first one's shape.
-  const clipIdSuffix = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const wrapperClipId = `qrLogoWrapper${clipIdSuffix}`;
-  const logoClipId = `qrLogo${clipIdSuffix}`;
+  // screen would both resolve to whichever defined the id first and the
+  // second logo would be clipped to the first one's shape. Only the logo
+  // image needs a clip — the plate is a <Rect> that rounds itself.
+  const logoClipId = `qrLogo${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <Svg height={size} width={size}>
-      {hasLogo ? (
+      {logo ? (
         <Defs>
-          <ClipPath id={wrapperClipId}>
-            <Rect
-              height={logoWrapperSize}
-              width={logoWrapperSize}
-              rx={logoRadius}
-              ry={logoRadius}
-            />
-          </ClipPath>
           <ClipPath id={logoClipId}>
             <Rect
               height={logoSize}
@@ -184,7 +175,6 @@ function BasicQRCode({
       {hasLogo ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
-            clipPath={`url(#${wrapperClipId})`}
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
@@ -229,7 +219,6 @@ export function QRCode({
   value,
   valueUr,
   interval = 500,
-  drawType,
   padding = 10,
   quietZoneModules = 0,
   ...props
@@ -253,8 +242,9 @@ export function QRCode({
           },
         );
         if (process.env.NODE_ENV !== 'production') {
-          console.log('QRCode >>>> encodeWhole', encodeWhole());
-          console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
+          const wholeParts = encodeWhole();
+          console.log('QRCode >>>> encodeWhole', wholeParts);
+          console.log(`\n\n ${wholeParts.join('\n\n').toUpperCase()} \n\n`);
         }
         timerId = setInterval(() => {
           const part = nextPart();
@@ -278,7 +268,7 @@ export function QRCode({
   const { canvasSize, qrCodeSize, symbolScale, quietZoneSize } =
     getQRCodeLayoutMetrics({
       value: displayValue,
-      ecl: props.ecl ?? 'H',
+      ecl: props.ecl ?? DEFAULT_ECL,
       size: props.size,
       padding,
       quietZoneModules,
@@ -300,7 +290,6 @@ export function QRCode({
       >
         <BasicQRCode
           value={displayValue}
-          drawType={drawType}
           {...props}
           size={qrCodeSize}
           logoSize={scaledLogoSize}

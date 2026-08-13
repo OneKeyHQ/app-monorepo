@@ -2,10 +2,11 @@ import QRCodeUtil from 'qrcode';
 
 export type IQRCodeErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
 
-// The number of modules per side of a finder pattern, and how many nested
-// rings it is drawn as.
+// The number of modules per side of a finder pattern.
 const FINDER_MODULES = 7;
-const FINDER_RINGS = 3;
+// Corner radius of each nested finder ring, outermost first, before clamping
+// to the ring's own half-size.
+const FINDER_RING_RADII = [20, 12, 6];
 
 // Dot diameter as a fraction of a module.
 export const QR_CODE_DOT_RADIUS_RATIO = 1 / 3;
@@ -123,7 +124,7 @@ export function getQRCodeFinderRings({
 }: {
   matrixSize: number;
   cellSize: number;
-}): { x: number; y: number; size: number; radius: number; isDark: boolean }[] {
+}) {
   const rings: {
     x: number;
     y: number;
@@ -139,16 +140,16 @@ export function getQRCodeFinderRings({
   ].forEach(({ x, y }) => {
     const originX = (matrixSize - FINDER_MODULES) * cellSize * x;
     const originY = (matrixSize - FINDER_MODULES) * cellSize * y;
-    for (let ring = 0; ring < FINDER_RINGS; ring += 1) {
+    FINDER_RING_RADII.forEach((ringRadius, ring) => {
       const size = cellSize * (FINDER_MODULES - ring * 2);
       rings.push({
         x: originX + cellSize * ring,
         y: originY + cellSize * ring,
         size,
-        radius: Math.min((ring - 3) * -6 + (ring === 0 ? 2 : 0), size / 2),
+        radius: Math.min(ringRadius, size / 2),
         isDark: ring % 2 === 0,
       });
-    }
+    });
   });
   return rings;
 }
@@ -166,22 +167,22 @@ export function getQRCodeDotCells({
 }: {
   matrix: number[][];
   clearArenaModules?: number;
-}): { x: number; y: number }[] {
+}) {
   const size = matrix.length;
   const clearCenter = size / 2;
   const clearRadius = clearArenaModules / 2;
   const clearRadiusSquared = clearRadius * clearRadius;
   const cells: { x: number; y: number }[] = [];
   matrix.forEach((row, y) => {
-    const isFinderRow = y < 7;
-    const isBottomFinderRow = y > size - 8;
+    const isFinderRow = y < FINDER_MODULES;
+    const isBottomFinderRow = y >= size - FINDER_MODULES;
     row.forEach((module, x) => {
       if (!module) {
         return;
       }
       const isFinderPattern =
-        (isFinderRow && (x < 7 || x > size - 8)) ||
-        (isBottomFinderRow && x < 7);
+        (isFinderRow && (x < FINDER_MODULES || x >= size - FINDER_MODULES)) ||
+        (isBottomFinderRow && x < FINDER_MODULES);
       if (isFinderPattern) {
         return;
       }
@@ -213,10 +214,17 @@ export function getQRCodeDotsPath({
   const radius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
   const r = radius.toFixed(2);
   const diameter = (radius * 2).toFixed(2);
+  // dozens of cells share each column and row, so format every axis value
+  // once instead of per cell — this runs per animation frame on the air-gap
+  // flow
+  const xStrings: string[] = [];
+  const yStrings: string[] = [];
   let path = '';
   for (const { x, y } of cells) {
-    const cx = (x * cellSize + cellSize / 2 - radius).toFixed(2);
-    const cy = (y * cellSize + cellSize / 2).toFixed(2);
+    const cx = (xStrings[x] ??= (x * cellSize + cellSize / 2 - radius).toFixed(
+      2,
+    ));
+    const cy = (yStrings[y] ??= (y * cellSize + cellSize / 2).toFixed(2));
     // two half-arcs make a full circle; `a` keeps every value relative so the
     // subpath is short
     path += `M${cx} ${cy}a${r} ${r} 0 1 0 ${diameter} 0a${r} ${r} 0 1 0 -${diameter} 0`;

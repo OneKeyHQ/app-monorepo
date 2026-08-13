@@ -14,26 +14,29 @@ import {
 
 const PLATE_COLOR = '#FFFFFF';
 
-// Kept local rather than pulling the equivalent out of shared/utils/imageUtils:
-// that module statically imports expo-file-system, expo-image-manipulator and
-// a canvas blur library, which is a lot of graph to drag into three
-// share-image screens for one path builder.
-function traceRoundedRect(
+// One rounded-rect path builder for the finder rings and the share-image
+// cards that call this module. Kept here rather than pulling the equivalent
+// out of shared/utils/imageUtils: that module statically imports
+// expo-file-system, expo-image-manipulator and a canvas blur library, which
+// is a lot of graph to drag into three share-image screens for one path.
+export function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  size: number,
+  width: number,
+  height: number,
   radius: number,
 ) {
-  const r = Math.max(0, Math.min(radius, size / 2));
   ctx.beginPath();
-  if (r === 0) {
-    ctx.rect(x, y, size, size);
-    ctx.closePath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, width, height, radius);
     return;
   }
-  const right = x + size;
-  const bottom = y + size;
+  // roundRect clamps an oversized radius on its own; the manual fallback
+  // has to do it by hand or the corners self-intersect
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  const right = x + width;
+  const bottom = y + height;
   ctx.moveTo(x + r, y);
   ctx.lineTo(right - r, y);
   ctx.quadraticCurveTo(right, y, right, y + r);
@@ -79,10 +82,11 @@ export function drawDotQRCodeOnCanvas(
     getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).forEach(
       (ring) => {
         ctx.fillStyle = ring.isDark ? darkColor : PLATE_COLOR;
-        traceRoundedRect(
+        drawRoundedRect(
           ctx,
           originX + ring.x,
           originY + ring.y,
+          ring.size,
           ring.size,
           ring.radius,
         );

@@ -135,7 +135,6 @@ export function UnifoldDepositQRCard({
             logoSize={QR_LOGO_SIZE}
             logoMargin={QR_LOGO_MARGIN}
             logoBackgroundColor="white"
-            logoBorderRadius={9999}
           />
         </Stack>
       ) : null}
