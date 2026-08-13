@@ -253,7 +253,11 @@ function main() {
     totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 160000000),
     // Current production output is 708 files. Keep limited headroom so chunk
     // fan-out regressions still fail the gate.
-    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 720),
+    // 720 -> 721: consumed by intentional feature growth on x (#12761 new
+    // perps onboarding page, #12854 chart split); the QR encoder chunk this
+    // PR briefly added was removed again by bundling it statically on
+    // web-family targets, so the raise covers x's own files only.
+    jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 721),
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
       38 * 1024 * 1024,
