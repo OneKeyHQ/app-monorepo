@@ -3,7 +3,23 @@ import {
   PERP_DESKTOP_INFO_MIN_HEIGHT,
   getPerpDesktopChartSplitSizes,
   getVerticalOrderBookLayout,
+  resetPerpDesktopLeftSplit,
 } from './perpLayoutUtils';
+
+describe('resetPerpDesktopLeftSplit', () => {
+  it('clears only the persisted chart split height', () => {
+    expect(
+      resetPerpDesktopLeftSplit({
+        chartExpanded: false,
+        chartHeight: 700,
+        orderBook: { visible: false },
+      }),
+    ).toEqual({
+      chartExpanded: false,
+      orderBook: { visible: false },
+    });
+  });
+});
 
 describe('getPerpDesktopChartSplitSizes', () => {
   const layout = {

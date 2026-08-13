@@ -43,6 +43,13 @@ function clampSize(value: number, min: number, max: number) {
   return Math.round(Math.min(Math.max(value, min), max));
 }
 
+export function resetPerpDesktopLeftSplit<T extends { chartHeight?: number }>(
+  layoutState: T,
+): Omit<T, 'chartHeight'> {
+  const { chartHeight: _chartHeight, ...rest } = layoutState;
+  return rest;
+}
+
 function getVerticalSplitSizes({
   topDefaultHeight,
   bottomDefaultHeight,

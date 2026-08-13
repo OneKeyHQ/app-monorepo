@@ -35,6 +35,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowGuide } from '../hooks/useShowGuide';
+import { resetPerpDesktopLeftSplit } from '../layouts/perpLayoutUtils';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
@@ -369,17 +370,12 @@ function PerpSettingsMainContent({
   const intl = useIntl();
   const { gtMd } = useMedia();
   // The resizable split layout only exists on desktop/web (see Perp.tsx).
-  const showResetLayoutEntry = gtMd && !platformEnv.isNative;
+  const showResetLayoutEntry =
+    gtMd && (platformEnv.isDesktop || platformEnv.isWeb);
 
   const handleResetLayout = useCallback(() => {
-    setPerpsLayoutState((prev) => {
-      const {
-        chartHeight: _chartHeight,
-        orderBook: _orderBook,
-        ...rest
-      } = prev;
-      return rest;
-    });
+    setPerpsLayoutState(resetPerpDesktopLeftSplit);
+    Toast.success({ title: 'Layout has been reset' });
   }, [setPerpsLayoutState]);
 
   return (
@@ -500,9 +496,7 @@ function PerpSettingsMainContent({
           mx="$0"
           px="$3"
           titleProps={{ size: '$bodyMdMedium' }}
-          title={intl.formatMessage({
-            id: ETranslations.perps_settings_return_to_default_layout,
-          })}
+          title="Back to default layout"
           onPress={handleResetLayout}
           cursor="default"
         />

@@ -36,6 +36,7 @@ export function PerpSettingsButton({
 }) {
   const intl = useIntl();
   const { gtXl } = useMedia();
+  const shouldShowChartPositionSetting = showChartPositionSetting || !gtXl;
   const { showGuide } = useShowGuide({ forceModal: !gtXl });
   const [isActivityCenterOpen, setIsActivityCenterOpen] = useState(false);
   const handleOpenActivityCenter = useCallback(() => {
@@ -49,14 +50,14 @@ export function PerpSettingsButton({
       onOpenActivityCenter: handleOpenActivityCenter,
       onOpenGuide: showGuide,
       showActivityCenterEntry,
-      showChartPositionSetting,
+      showChartPositionSetting: shouldShowChartPositionSetting,
       showGuideEntry,
     });
   }, [
     handleOpenActivityCenter,
     intl,
     showActivityCenterEntry,
-    showChartPositionSetting,
+    shouldShowChartPositionSetting,
     showGuide,
     showGuideEntry,
   ]);
@@ -91,7 +92,7 @@ export function PerpSettingsButton({
   const content = (
     <PerpSettingsPopover
       showActivityCenterEntry={showActivityCenterEntry}
-      showChartPositionSetting={showChartPositionSetting}
+      showChartPositionSetting={shouldShowChartPositionSetting}
       showGuideEntry={showGuideEntry}
       renderTrigger={
         <IconButton
