@@ -184,14 +184,41 @@ describe('QRCode dot rendering', () => {
     }
   });
 
-  it('drops the modules a logo would cover', () => {
+  it('clears a disc for the logo, not a square block', () => {
     const matrix = generateMatrix('https://onekey.so', 'H');
+    const clearArenaModules = 8;
     const withoutLogo = getQRCodeDotCells({ matrix });
-    const withLogo = getQRCodeDotCells({ matrix, clearArenaModules: 8 });
+    const withLogo = getQRCodeDotCells({ matrix, clearArenaModules });
 
     expect(withLogo.length).toBeLessThan(withoutLogo.length);
     for (const { x, y } of withLogo) {
       expect(matrix[y][x]).toBe(1);
+    }
+
+    // nothing survives inside the disc the round plate covers...
+    const center = matrix.length / 2;
+    const radius = clearArenaModules / 2;
+    const inside = withLogo.filter(({ x, y }) => {
+      const dx = x + 0.5 - center;
+      const dy = y + 0.5 - center;
+      return dx * dx + dy * dy <= radius * radius;
+    });
+    expect(inside).toHaveLength(0);
+
+    // ...but the corners of the enclosing square keep their dots, which is
+    // what stops the cleared area from reading as a square plate
+    const corner = withoutLogo.filter(({ x, y }) => {
+      const dx = x + 0.5 - center;
+      const dy = y + 0.5 - center;
+      return (
+        Math.abs(dx) <= radius &&
+        Math.abs(dy) <= radius &&
+        dx * dx + dy * dy > radius * radius
+      );
+    });
+    expect(corner.length).toBeGreaterThan(0);
+    for (const cell of corner) {
+      expect(withLogo).toContainEqual(cell);
     }
   });
 });

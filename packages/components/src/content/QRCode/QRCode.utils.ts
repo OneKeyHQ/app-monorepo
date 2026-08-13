@@ -149,6 +149,9 @@ export function getQRCodeFinderRings({
 // x is the column and y is the row. The three finder patterns are excluded
 // because they are drawn separately as rounded squares, and the modules under
 // the logo are dropped so the logo plate does not sit on top of stray dots.
+// The cleared area is a disc rather than a square block: the plate is round,
+// and clearing a square leaves white corners around it that read as a square
+// plate, since the cleared modules and the plate are both the plate color.
 export function getQRCodeDotCells({
   matrix,
   clearArenaModules = 0,
@@ -157,8 +160,9 @@ export function getQRCodeDotCells({
   clearArenaModules?: number;
 }): { x: number; y: number }[] {
   const size = matrix.length;
-  const clearAreaStart = size / 2 - clearArenaModules / 2;
-  const clearAreaEnd = size / 2 + clearArenaModules / 2 - 1;
+  const clearCenter = size / 2;
+  const clearRadius = clearArenaModules / 2;
+  const clearRadiusSquared = clearRadius * clearRadius;
   const cells: { x: number; y: number }[] = [];
   matrix.forEach((row, y) => {
     const isFinderRow = y < 7;
@@ -173,13 +177,13 @@ export function getQRCodeDotCells({
       if (isFinderPattern) {
         return;
       }
-      const isInsideLogoClearArea =
-        y >= clearAreaStart &&
-        y <= clearAreaEnd &&
-        x >= clearAreaStart &&
-        x <= clearAreaEnd;
-      if (isInsideLogoClearArea) {
-        return;
+      if (clearRadius > 0) {
+        // measure from the module's center so the disc edge lands evenly
+        const dx = x + 0.5 - clearCenter;
+        const dy = y + 0.5 - clearCenter;
+        if (dx * dx + dy * dy <= clearRadiusSquared) {
+          return;
+        }
       }
       cells.push({ x, y });
     });
