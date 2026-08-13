@@ -23,7 +23,10 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCommonConfigPersistAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
@@ -37,7 +40,9 @@ import {
   normalizeL2BookData,
   useL2Book,
 } from '../hooks/usePerpMarketData';
+import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
@@ -514,6 +519,20 @@ export function PerpOrderBook({
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const {
+    isLiveStatusPending,
+    perpsAccountStatus,
+    shouldShowConnectWalletPrompt: shouldCompactOrderBookForConnectWallet,
+  } = usePerpsAccountDisplayState();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const shouldCompactOrderBookForFirstDeposit = Boolean(
+    !perpConfigCommon?.ipDisablePerp &&
+    shouldShowPerpsFirstDepositPrompt({
+      status: perpsAccountStatus,
+      isLiveStatusPending,
+      isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+    }),
+  );
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;
@@ -795,7 +814,10 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 7;
+    if (shouldCompactOrderBookForFirstDeposit) return 5;
+    if (shouldShowEnableTradingButton) {
+      return shouldCompactOrderBookForConnectWallet ? 6 : 7;
+    }
     if (activeTradeInstrument.mode === 'spot')
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
     if (formData.hasTpsl) return 9;
@@ -803,6 +825,8 @@ export function PerpOrderBook({
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
+    shouldCompactOrderBookForConnectWallet,
+    shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,
   ]);
 
