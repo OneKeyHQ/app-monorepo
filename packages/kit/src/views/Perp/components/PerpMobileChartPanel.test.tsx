@@ -178,6 +178,13 @@ describe('PerpMobileChartPanel', () => {
     // No off-screen rebuild for a coin the user never expanded.
     expect(view.queryByText('Native chart')).toBeNull();
 
+    // Switching back while collapsed must not rebuild the chart either.
+    mockActiveCoin = 'BTC';
+    view.rerender(<PerpMobileChartPanel />);
+    expect(view.queryByText('Native chart')).toBeNull();
+
+    mockActiveCoin = 'ETH';
+    view.rerender(<PerpMobileChartPanel />);
     fireEvent.click(toggle);
     expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
       'ETH',

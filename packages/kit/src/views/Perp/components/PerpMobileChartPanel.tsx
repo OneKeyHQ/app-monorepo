@@ -72,15 +72,18 @@ export function PerpMobileChartPanel({
     }
   }, [coin, isExpanded]);
 
-  // Track coin switches while expanded so collapsing keeps the visible chart.
+  // Forget the hidden chart once the coin moves away so switching back while
+  // collapsed doesn't rebuild it off-screen.
   useEffect(() => {
-    if (isExpanded && coin) {
-      setMountedCoin(coin);
+    if (isExpanded) {
+      if (coin) {
+        setMountedCoin(coin);
+      }
+    } else if (mountedCoin !== undefined && mountedCoin !== coin) {
+      setMountedCoin(undefined);
     }
-  }, [coin, isExpanded]);
+  }, [coin, isExpanded, mountedCoin]);
 
-  // Keep the collapsed chart mounted only for the coin it was built for; a
-  // coin switch while hidden would otherwise rebuild it fully off-screen.
   const shouldKeepMounted =
     mountedCoin !== undefined && (isExpanded || mountedCoin === coin);
 
@@ -97,8 +100,7 @@ export function PerpMobileChartPanel({
       borderTopColor="$borderSubdued"
     >
       {shouldKeepMounted ? (
-        // Collapsing only hides the mounted chart so reopening keeps its data,
-        // subscriptions, and view state instead of a full rebuild.
+        // Hide instead of unmount so reopening keeps chart data and view state.
         <YStack
           testID={PerpTestIDs.MobileChartContent}
           h={isExpanded ? chartHeight : 0}
