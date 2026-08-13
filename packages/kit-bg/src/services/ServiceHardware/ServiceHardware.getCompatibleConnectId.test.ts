@@ -476,8 +476,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         delete: jest.fn(),
       },
     ) as typeof service.connectionManager.shouldSwitchTransportType;
-    const connectSpy = jest
-      .spyOn(service, 'connect')
+    const getFeaturesSpy = jest
+      .spyOn(service, 'getFeaturesWithoutCache')
       .mockResolvedValue({ deviceId: 'PRO2_DEVICE_ID' } as any);
 
     await expect(
@@ -488,15 +488,19 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       }),
     ).resolves.toBe(liveBleConnectId);
 
-    expect(connectSpy).toHaveBeenCalledWith(
+    // silentMode must be set: a failed probe would otherwise emit the
+    // global DeviceNotFound error dialog from the error constructor.
+    expect(getFeaturesSpy).toHaveBeenCalledWith(
       expect.objectContaining({
+        connectId: liveBleConnectId,
+        silentMode: true,
         hardwareCallContext:
           EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        device: expect.objectContaining({
-          connectId: liveBleConnectId,
-          deviceId: 'PRO2_DEVICE_ID',
-          commType: 'electron-ble',
+        params: expect.objectContaining({
+          retryCount: 1,
+          forceProtocolDetection: true,
+          timeout: 10_000,
         }),
       }),
     );
@@ -549,8 +553,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         delete: jest.fn(),
       },
     ) as typeof service.connectionManager.shouldSwitchTransportType;
-    jest
-      .spyOn(service, 'connect')
+    const getFeaturesSpy = jest
+      .spyOn(service, 'getFeaturesWithoutCache')
       .mockRejectedValue(new Error('ble subscribe timeout'));
 
     await expect(
@@ -560,6 +564,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
     ).resolves.toBe(pairedBleConnectId);
+
+    expect(getFeaturesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ silentMode: true }),
+    );
 
     expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([]);
     expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(

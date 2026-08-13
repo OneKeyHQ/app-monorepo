@@ -27,7 +27,10 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import {
+  DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
+  DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+} from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -4141,10 +4144,11 @@ class ServiceHardware extends ServiceBase {
    * Only attempted when the incoming connectId differs from the record's USB
    * identifiers (connectId/usbConnectId): a USB serial input means a genuine
    * USB→BLE switch, which must keep the scan + pairing-dialog repair flow.
-   * Before persisting, the endpoint is verified via a dialog-free connect
-   * that must report the expected raw deviceId; on an active session this
-   * reuses the live connection and is nearly free. Any failure returns
-   * undefined so the caller falls back to the existing pairing-dialog flow.
+   * Before persisting, the endpoint is verified with a bounded silent
+   * getFeatures probe that must report the expected raw deviceId; on an
+   * active session this reuses the live connection and answers in a few
+   * seconds. Any failure returns undefined so the caller falls back to the
+   * existing pairing-dialog flow.
    */
   private async silentlyBindLiveDesktopBleConnectId({
     device,
@@ -4177,20 +4181,23 @@ class ServiceHardware extends ServiceBase {
       return undefined;
     }
     try {
-      // commType 'electron-ble' makes connect() treat this as a desktop BLE
-      // search device: it keeps the Noble peripheral id as-is and skips
-      // getCompatibleConnectId, so this cannot re-enter the current method.
-      const connectResult = await this.connect({
-        device: {
-          ...deviceUtils.dbDeviceToSearchDevice(device),
-          connectId,
-          deviceId: expectedDeviceId,
-          commType: 'electron-ble',
-        } as SearchDevice,
-        forceProtocolDetection: true,
+      // Probe the caller's connectId directly over the pinned BLE transport;
+      // no connectId re-resolution happens here, so this cannot re-enter
+      // getCompatibleConnectId. silentMode must reach convertDeviceResponse:
+      // a failed probe would otherwise emit the global DeviceNotFound error
+      // dialog from the error constructor. The short SDK timeout keeps the
+      // pairing-dialog fallback fast when the endpoint is stale.
+      const connectResult = await this.getFeaturesWithoutCache({
+        connectId,
+        silentMode: true,
         hardwareCallContext:
           EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        params: {
+          retryCount: 1,
+          forceProtocolDetection: true,
+          timeout: DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+        },
       });
       if (connectResult && connectResult.deviceId === expectedDeviceId) {
         await localDb.updateDeviceConnectId({
