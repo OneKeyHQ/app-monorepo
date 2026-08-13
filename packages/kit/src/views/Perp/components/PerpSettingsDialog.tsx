@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -26,6 +27,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
   usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -354,7 +356,24 @@ function PerpSettingsMainContent({
 }) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  // The resizable split layout only exists on desktop/web (see Perp.tsx).
+  const showResetLayoutEntry = gtMd && !platformEnv.isNative;
+
+  const handleResetLayout = useCallback(() => {
+    setPerpsLayoutState((prev) => {
+      const {
+        chartHeight: _chartHeight,
+        tradingPanelHeight: _tradingPanelHeight,
+        tradingWidth: _tradingWidth,
+        orderBook: _orderBook,
+        ...rest
+      } = prev;
+      return rest;
+    });
+  }, [setPerpsLayoutState]);
 
   return (
     <YStack py="$3" px="$2">
@@ -462,6 +481,20 @@ function PerpSettingsMainContent({
         >
           <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
         </ListItem>
+      ) : null}
+
+      {showResetLayoutEntry ? (
+        <ListItem
+          testID={PerpTestIDs.ResetLayoutButton}
+          mx="$0"
+          px="$3"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perps_settings_return_to_default_layout,
+          })}
+          onPress={handleResetLayout}
+          cursor="default"
+        />
       ) : null}
 
       <DevAbstractionModeSelector />

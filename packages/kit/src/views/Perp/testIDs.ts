@@ -112,6 +112,7 @@ export const PerpTestIDs = {
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
   DesktopTradingSplit: 'perp-desktop-trading-split',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
+  ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',
   MobileChartOverlay: 'perp-mobile-chart-overlay',
   MobileChartToggle: 'perp-mobile-chart-toggle',

@@ -11,8 +11,7 @@ export const PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT = 240;
 const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
 const ORDER_BOOK_VERTICAL_ROW_GAP = 1;
-const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN = 22;
-const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX = 23;
+const ORDER_BOOK_VERTICAL_ROW_HEIGHT = 22;
 const ORDER_BOOK_VERTICAL_LEVELS_MIN = 3;
 const ORDER_BOOK_VERTICAL_LEVELS_DEFAULT = 11;
 
@@ -184,13 +183,6 @@ export function getResponsivePerpDesktopLayout(
   };
 }
 
-function getOrderBookRowHeight(
-  bookBodyHeight: number,
-  levelsPerSide: number,
-): number {
-  return bookBodyHeight / (2 * levelsPerSide + 1) - ORDER_BOOK_VERTICAL_ROW_GAP;
-}
-
 export function getVerticalOrderBookLayout(
   containerHeight: number,
   maxLevelsPerSide: number,
@@ -208,39 +200,27 @@ export function getVerticalOrderBookLayout(
         ORDER_BOOK_VERTICAL_LEVELS_MIN,
         Math.min(maxLevelsPerSide, ORDER_BOOK_VERTICAL_LEVELS_DEFAULT),
       ),
-      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
+      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
     };
   }
 
-  let levelsPerSide = Math.floor(
-    (bookBodyHeight / (ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN + 1) - 1) / 2,
-  );
-  levelsPerSide = Math.max(
+  // Fixed row height: resizing changes the visible level count, never the
+  // red/green depth bar size.
+  const levelsPerSide = Math.max(
     ORDER_BOOK_VERTICAL_LEVELS_MIN,
-    Math.min(levelsPerSide, maxLevelsPerSide),
+    Math.min(
+      Math.floor(
+        (bookBodyHeight /
+          (ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP) -
+          1) /
+          2,
+      ),
+      maxLevelsPerSide,
+    ),
   );
-
-  while (
-    levelsPerSide < maxLevelsPerSide &&
-    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) >
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX
-  ) {
-    levelsPerSide += 1;
-  }
-
-  while (
-    levelsPerSide > ORDER_BOOK_VERTICAL_LEVELS_MIN &&
-    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) <
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN
-  ) {
-    levelsPerSide -= 1;
-  }
 
   return {
     levelsPerSide,
-    rowHeight: Math.max(
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
-      getOrderBookRowHeight(bookBodyHeight, levelsPerSide),
-    ),
+    rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
   };
 }
