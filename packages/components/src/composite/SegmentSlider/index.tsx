@@ -21,6 +21,15 @@ const MARK_HIT_AREA = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
 const HIT_AREA_HEIGHT = 24;
 
+// Keep half-step marks symmetric when the slider emits integer values.
+function roundHalfToEven(value: number) {
+  const lower = Math.floor(value);
+  if (value - lower !== 0.5) {
+    return Math.round(value);
+  }
+  return lower % 2 === 0 ? lower : lower + 1;
+}
+
 export interface ISegmentSliderProps {
   value: number;
   sliderHeight?: number;
@@ -36,6 +45,8 @@ export interface ISegmentSliderProps {
   max?: number;
   disabled?: boolean;
   showBubble?: boolean;
+  /** Aligns fractional segment marks to the integer values emitted by the web slider. */
+  alignSegmentMarksToIntegerValues?: boolean;
   /**
    * When true, the slider fills from center (0) instead of left edge.
    * Negative values fill left from center, positive values fill right from
@@ -166,6 +177,7 @@ function SegmentSliderComponent({
   max = 100,
   disabled = false,
   showBubble = true,
+  alignSegmentMarksToIntegerValues = false,
   centerOrigin = false,
 }: ISegmentSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -209,13 +221,26 @@ function SegmentSliderComponent({
   const centerPct = useMemo(() => valueToPct(0), [valueToPct]);
 
   const segmentIndexToValue = useCallback(
-    (index: number) => Math.round(min + index * stepValue),
-    [min, stepValue],
+    (index: number) => {
+      const segmentValue = min + index * stepValue;
+      return alignSegmentMarksToIntegerValues
+        ? roundHalfToEven(segmentValue)
+        : Math.round(segmentValue);
+    },
+    [alignSegmentMarksToIntegerValues, min, stepValue],
   );
 
   const segmentIndexToPct = useCallback(
-    (index: number) => valueToPct(segmentIndexToValue(index)),
-    [segmentIndexToValue, valueToPct],
+    (index: number) =>
+      alignSegmentMarksToIntegerValues
+        ? valueToPct(segmentIndexToValue(index))
+        : (index / segments) * 100,
+    [
+      alignSegmentMarksToIntegerValues,
+      segmentIndexToValue,
+      segments,
+      valueToPct,
+    ],
   );
 
   const applyMarkActiveStates = useCallback(
@@ -338,14 +363,16 @@ function SegmentSliderComponent({
   const emit = useCallback(
     (rawValue: number) => {
       const snapped = snap(rawValue);
-      const rounded = Math.round(snapped);
+      const rounded = alignSegmentMarksToIntegerValues
+        ? roundHalfToEven(snapped)
+        : Math.round(snapped);
       applyVisual(rounded);
       if (rounded !== lastEmittedRef.current) {
         lastEmittedRef.current = rounded;
         onChange(rounded);
       }
     },
-    [snap, onChange, applyVisual],
+    [alignSegmentMarksToIntegerValues, snap, onChange, applyVisual],
   );
 
   const setBubbleVisible = useCallback((visible: boolean) => {
@@ -469,10 +496,26 @@ function SegmentSliderComponent({
       }
       if (delta !== 0) {
         e.preventDefault();
-        emit(lastEmittedRef.current + delta);
+        if (alignSegmentMarksToIntegerValues && hasSegments) {
+          const currentIndex = Math.round(
+            (lastEmittedRef.current - min) / stepValue,
+          );
+          const nextIndex = currentIndex + (delta > 0 ? 1 : -1);
+          emit(min + nextIndex * stepValue);
+        } else {
+          emit(lastEmittedRef.current + delta);
+        }
       }
     },
-    [disabled, hasSegments, stepValue, emit, min, max],
+    [
+      disabled,
+      alignSegmentMarksToIntegerValues,
+      hasSegments,
+      stepValue,
+      emit,
+      min,
+      max,
+    ],
   );
 
   const handleFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {

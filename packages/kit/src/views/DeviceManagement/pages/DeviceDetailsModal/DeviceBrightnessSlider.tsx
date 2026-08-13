@@ -140,6 +140,7 @@ export function DeviceBrightnessSlider({
         segments={4}
         sliderHeight={4}
         showBubble
+        alignSegmentMarksToIntegerValues
         disabled={disabled}
         onChange={handleChange}
         onSlideComplete={handleSlideComplete}
