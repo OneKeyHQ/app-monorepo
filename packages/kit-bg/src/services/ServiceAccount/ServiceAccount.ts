@@ -3907,11 +3907,19 @@ class ServiceAccount extends ServiceBase {
       passphraseState,
     });
     if (deviceLabel) {
-      result.wallet = await this.setWalletNameAndAvatar({
-        walletId: result.wallet.id,
-        name: deviceLabel,
-        shouldCheckDuplicate: false,
-      });
+      try {
+        result.wallet = await this.setWalletNameAndAvatar({
+          walletId: result.wallet.id,
+          name: deviceLabel,
+          shouldCheckDuplicate: false,
+        });
+      } catch (error) {
+        defaultLogger.hardware.sdkLog.log(
+          'createHWWalletBase: unable to persist device label',
+          error instanceof Error ? error.message : 'Unknown error',
+        );
+        result.wallet = await this.getWallet({ walletId: result.wallet.id });
+      }
     } else {
       result.wallet = await this.getWallet({ walletId: result.wallet.id });
     }

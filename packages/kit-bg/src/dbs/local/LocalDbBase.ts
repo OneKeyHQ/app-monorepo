@@ -5939,7 +5939,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: dbWalletId,
       addedHdAccountIndex,
       isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
-      withoutRefillWallet: true,
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
@@ -6507,6 +6506,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: dbWalletId,
       addedHdAccountIndex,
       isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
+      withoutRefillWallet: true,
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
