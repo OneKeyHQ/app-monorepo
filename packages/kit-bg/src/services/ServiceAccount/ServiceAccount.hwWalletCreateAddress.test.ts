@@ -1,5 +1,7 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import localDb from '../../dbs/local/localDb';
+
 import ServiceAccount from './ServiceAccount';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -29,10 +31,15 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    createHwWallet: jest.fn(),
+  },
 }));
 
 type IHwWalletCreateAddressService = {
+  createHWWalletBase(params: unknown): Promise<{ wallet: { name: string } }>;
+  setWalletNameAndAvatar(params: unknown): Promise<{ name: string }>;
+  getWallet(params: unknown): Promise<{ name: string }>;
   getFeaturesForHwWalletCreate(params: {
     dbDevice: {
       vendor: EHardwareVendor;
@@ -54,6 +61,89 @@ type IHwWalletCreateAddressService = {
 };
 
 describe('ServiceAccount hardware wallet creation address', () => {
+  const createHwWalletMock = jest.spyOn(localDb, 'createHwWallet');
+
+  beforeEach(() => {
+    createHwWalletMock.mockReset();
+  });
+
+  it('persists the current Pro2 label after reading the stored wallet name', async () => {
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-wallet-1', name: 'Previous device name' },
+    } as never);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('PRO2_USB'),
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    const setWalletNameAndAvatarMock = jest.fn().mockResolvedValue({
+      id: 'hw-wallet-1',
+      name: 'Current device name',
+    });
+    service.setWalletNameAndAvatar = setWalletNameAndAvatarMock;
+
+    await expect(
+      service.createHWWalletBase({
+        device: { connectId: 'PRO2_USB', deviceId: 'PRO2_DEVICE_ID' },
+        features: { deviceId: 'PRO2_DEVICE_ID' },
+        deviceState: {
+          protocol: 'V2',
+          identity: {
+            deviceId: 'PRO2_DEVICE_ID',
+            label: 'Current device name',
+          },
+        },
+        isMockedStandardHwWallet: true,
+      }),
+    ).resolves.toMatchObject({ wallet: { name: 'Current device name' } });
+    expect(setWalletNameAndAvatarMock).toHaveBeenCalledWith({
+      walletId: 'hw-wallet-1',
+      name: 'Current device name',
+      shouldCheckDuplicate: false,
+    });
+  });
+
+  it('keeps wallet creation successful when Pro2 label persistence fails', async () => {
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-wallet-1', name: 'Previous device name' },
+    } as never);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('PRO2_USB'),
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.setWalletNameAndAvatar = jest
+      .fn()
+      .mockRejectedValue(new Error('sync failed'));
+    const getWalletMock = jest.fn().mockResolvedValue({
+      id: 'hw-wallet-1',
+      name: 'Previous device name',
+    });
+    service.getWallet = getWalletMock;
+
+    await expect(
+      service.createHWWalletBase({
+        device: { connectId: 'PRO2_USB', deviceId: 'PRO2_DEVICE_ID' },
+        features: { deviceId: 'PRO2_DEVICE_ID' },
+        deviceState: {
+          protocol: 'V2',
+          identity: {
+            deviceId: 'PRO2_DEVICE_ID',
+            label: 'Current device name',
+          },
+        },
+        isMockedStandardHwWallet: true,
+      }),
+    ).resolves.toMatchObject({ wallet: { name: 'Previous device name' } });
+    expect(getWalletMock).toHaveBeenCalledWith({
+      walletId: 'hw-wallet-1',
+    });
+  });
+
   it('创建 Pro1 隐藏钱包时复用已持久化状态，避免打断刚建立的 passphrase 会话', async () => {
     const getDeviceState = jest.fn();
     const service = new ServiceAccount({

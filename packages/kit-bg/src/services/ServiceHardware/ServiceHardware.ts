@@ -3102,8 +3102,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // SDK DEVICE.STATE drives both persistence and UI refreshes.
-        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+        await this.handleHardwareLabelChanged({
           walletId: p.walletId,
           dbDeviceId,
           label: p.label,

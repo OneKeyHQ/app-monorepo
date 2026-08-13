@@ -1,7 +1,51 @@
 import {
+  getStandardHwWalletLabelForNameSync,
   refreshDeviceStateAfterStandardWalletUnlock,
   resolveDeviceStateForHwWalletCreate,
 } from './deviceStateForHwWalletCreate';
+
+describe('getStandardHwWalletLabelForNameSync', () => {
+  const deviceState = {
+    protocol: 'V2',
+    identity: { label: 'Current device name' },
+  } as never;
+
+  it('returns a changed Pro2 standard-wallet label for persisted name sync', () => {
+    expect(
+      getStandardHwWalletLabelForNameSync({
+        currentWalletName: 'Previous device name',
+        deviceState,
+        isThirdParty: false,
+      }),
+    ).toBe('Current device name');
+  });
+
+  it('skips sync when the wallet already has the current label', () => {
+    expect(
+      getStandardHwWalletLabelForNameSync({
+        currentWalletName: 'Current device name',
+        deviceState,
+        isThirdParty: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    { explicitName: 'Custom name' },
+    { passphraseState: 'hidden-session' },
+    { isThirdParty: true },
+    { deviceState: { protocol: 'V1', identity: { label: 'Classic' } } },
+  ])('does not sync outside a Pro2 standard-wallet restore', (overrides) => {
+    expect(
+      getStandardHwWalletLabelForNameSync({
+        currentWalletName: 'Previous device name',
+        deviceState,
+        isThirdParty: false,
+        ...overrides,
+      } as never),
+    ).toBeUndefined();
+  });
+});
 
 describe('resolveDeviceStateForHwWalletCreate', () => {
   it('loads the canonical OneKey state before creating the DB record', async () => {
