@@ -263,6 +263,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     requestedInitialResolution ?? DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
   const currentKLineResolution = useRef(bootstrapKLineResolution);
+  const hasUserSelectedKLineResolutionRef = useRef(false);
   const [activeKLineResolution, setActiveKLineResolution] = useState(
     bootstrapKLineResolution,
   );
@@ -465,7 +466,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [],
   );
   useEffect(() => {
-    if (isKLineSourceLoading) {
+    hasUserSelectedKLineResolutionRef.current = false;
+  }, [displaySymbol, kLineSourceNetworkId, kLineSourceTokenAddress]);
+  useEffect(() => {
+    if (isKLineSourceLoading || hasUserSelectedKLineResolutionRef.current) {
       return;
     }
     currentKLineResolution.current = bootstrapKLineResolution;
@@ -485,6 +489,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const handleNativeIntervalChange = useCallback(
     (interval: string) => {
+      hasUserSelectedKLineResolutionRef.current = true;
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+      cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
       setIntervalConfig((prev) =>
         prev
           ? {
@@ -1385,12 +1393,22 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
       clearMarketSymbolSyncRecoveryTimer();
       initialHistoryBootstrapSentIdentityRef.current = undefined;
+      if (
+        hasUserSelectedKLineResolutionRef.current ||
+        normalizeTradingViewKLineInterval(currentKLineResolution.current) !==
+          bootstrapKLineResolution
+      ) {
+        return;
+      }
       const requestTarget = captureTradingViewRequestTarget({
         webRef,
         webViewLoadGeneration,
         isRequestCurrent: () =>
           isDataRequestEnabledRef.current &&
-          currentDataRequestIdentityRef.current === firstPaintMetricIdentity,
+          !hasUserSelectedKLineResolutionRef.current &&
+          currentDataRequestIdentityRef.current === firstPaintMetricIdentity &&
+          normalizeTradingViewKLineInterval(currentKLineResolution.current) ===
+            bootstrapKLineResolution,
       });
       const identity = {
         symbol: chartSymbol,

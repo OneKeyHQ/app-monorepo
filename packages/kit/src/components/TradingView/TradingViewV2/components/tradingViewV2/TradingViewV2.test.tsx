@@ -46,6 +46,7 @@ const mockUseMarketTradingViewFrameIdentity = jest.fn(
 const mockUseTradingViewV2WebSocket = jest.fn();
 const mockUseTradingViewMessageHandler = jest.fn();
 const mockSubscribeTradingViewV2FirstScreenPrefetch = jest.fn();
+const mockCancelTradingViewV2FirstScreenPrefetch = jest.fn();
 const mockPrefetchTradingViewV2FirstScreenData = jest.fn(
   (_params: Record<string, unknown>) => Promise.resolve(undefined),
 );
@@ -59,6 +60,7 @@ let mockNativeIndicatorState = {
   activeIndicatorValues: new Set<string>(),
   isInitialized: false,
 };
+let mockNativeChartControlsProps: Record<string, unknown> | undefined;
 
 jest.mock('@onekeyhq/kit/src/components/WebView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -118,7 +120,10 @@ jest.mock('@onekeyhq/shared/types/swap/types', () => ({
 }));
 
 jest.mock('../TradingViewNativeChartControls', () => ({
-  TradingViewNativeChartControls: () => null,
+  TradingViewNativeChartControls: (props: Record<string, unknown>) => {
+    mockNativeChartControlsProps = props;
+    return null;
+  },
   TradingViewNativeIndicatorQuickBar: () => null,
   getTradingViewNativeSubIndicatorCount: () => 0,
   getTradingViewNativeSubIndicatorCountFromOptions: () => 0,
@@ -144,7 +149,7 @@ jest.mock('./hooks', () => ({
     params: Record<string, unknown>,
   ) => {
     mockSubscribeTradingViewV2FirstScreenPrefetch(params);
-    return () => undefined;
+    return mockCancelTradingViewV2FirstScreenPrefetch;
   },
   useAutoKLineUpdate: (params: unknown) => {
     mockUseAutoKLineUpdate(params);
@@ -229,6 +234,7 @@ describe('TradingViewV2 native source discovery', () => {
     mockUseTradingViewV2WebSocket.mockClear();
     mockUseTradingViewMessageHandler.mockClear();
     mockSubscribeTradingViewV2FirstScreenPrefetch.mockReset();
+    mockCancelTradingViewV2FirstScreenPrefetch.mockReset();
     mockPrefetchTradingViewV2FirstScreenData.mockClear();
     mockHyperLiquidKlineSource = {
       isHyperLiquidSource: false,
@@ -241,6 +247,7 @@ describe('TradingViewV2 native source discovery', () => {
       activeIndicatorValues: new Set<string>(),
       isInitialized: false,
     };
+    mockNativeChartControlsProps = undefined;
   });
 
   afterEach(() => {
@@ -376,6 +383,73 @@ describe('TradingViewV2 native source discovery', () => {
     ).toBe(true);
 
     expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a pending 1m bootstrap after the user selects another interval', () => {
+    const { rerender } = render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        enableNativeChartControls
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+    const subscription = mockSubscribeTradingViewV2FirstScreenPrefetch.mock
+      .calls[0][0] as IMockFirstScreenPrefetchSubscription;
+
+    act(() => {
+      (
+        mockNativeChartControlsProps?.onIntervalChange as
+          | ((interval: string) => void)
+          | undefined
+      )?.('5m');
+    });
+
+    expect(mockCancelTradingViewV2FirstScreenPrefetch).toHaveBeenCalled();
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith({
+      type: 'TRADINGVIEW_INTERVAL_CHANGE',
+      payload: {
+        interval: '5m',
+        resetPriceScaleRange: true,
+      },
+    });
+
+    sendMessageViaInjectedScript.mockClear();
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
+    });
+
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
+
+    mockHyperLiquidKlineSource = {
+      isHyperLiquidSource: false,
+      symbol: undefined,
+      isLoading: false,
+    };
+    rerender(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        enableNativeChartControls
+      />,
+    );
+
+    expect(mockUseTradingViewV2WebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ chartType: '5m' }),
+    );
   });
 
   it('does not register readiness for an unavailable message that was not sent', () => {
