@@ -19,14 +19,14 @@ public extension INativeHomePortfolioViewModel {
   /**
    * Create a new instance of `INativeHomePortfolioViewModel`.
    */
-  init(title: String, state: NativeHomePortfolioState, emptyText: String, showMoreTitle: String, showLessTitle: String, initialVisibleItemCount: Double, items: [INativeHomePortfolioItemViewModel]) {
+  init(title: String, state: NativeHomePortfolioState, emptyText: String, showMoreTitle: String, showLessTitle: String, initialVisibleItemCount: Double, items: [INativeHomePortfolioItemViewModel], deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel, lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel, riskAssets: INativeHomePortfolioRiskAssetsViewModel, manageTokens: INativeHomePortfolioManageTokensViewModel) {
     self.init(std.string(title), state, std.string(emptyText), std.string(showMoreTitle), std.string(showLessTitle), initialVisibleItemCount, { () -> bridge.std__vector_INativeHomePortfolioItemViewModel_ in
       var __vector = bridge.create_std__vector_INativeHomePortfolioItemViewModel_(items.count)
       for __item in items {
         __vector.push_back(__item)
       }
       return __vector
-    }())
+    }(), deFiTokensFilter, lowValueAssets, riskAssets, manageTokens)
   }
 
   @inline(__always)
@@ -62,5 +62,25 @@ public extension INativeHomePortfolioViewModel {
   @inline(__always)
   var items: [INativeHomePortfolioItemViewModel] {
     return self.__items.map({ __item in __item })
+  }
+
+  @inline(__always)
+  var deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel {
+    return self.__deFiTokensFilter
+  }
+
+  @inline(__always)
+  var lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel {
+    return self.__lowValueAssets
+  }
+
+  @inline(__always)
+  var riskAssets: INativeHomePortfolioRiskAssetsViewModel {
+    return self.__riskAssets
+  }
+
+  @inline(__always)
+  var manageTokens: INativeHomePortfolioManageTokensViewModel {
+    return self.__manageTokens
   }
 }

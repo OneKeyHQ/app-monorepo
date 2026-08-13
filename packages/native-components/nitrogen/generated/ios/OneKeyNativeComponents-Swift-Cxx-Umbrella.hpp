@@ -18,8 +18,16 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewM
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `INativeHomePortfolioDeFiTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioDeFiTokensViewModel; }
 // Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
+// Forward declaration of `INativeHomePortfolioLowValueAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioLowValueAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioManageTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioManageTokensViewModel; }
+// Forward declaration of `INativeHomePortfolioRiskAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioRiskAssetsViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
@@ -38,6 +46,8 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
 // Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomePortfolioActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioActionId; }
 // Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
@@ -53,7 +63,11 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 #include "INativeHomeHeaderViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
+#include "INativeHomePortfolioDeFiTokensViewModel.hpp"
 #include "INativeHomePortfolioItemViewModel.hpp"
+#include "INativeHomePortfolioLowValueAssetsViewModel.hpp"
+#include "INativeHomePortfolioManageTokensViewModel.hpp"
+#include "INativeHomePortfolioRiskAssetsViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
@@ -63,6 +77,7 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 #include "NativeHomeHeaderActionId.hpp"
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
+#include "NativeHomePortfolioActionId.hpp"
 #include "NativeHomePortfolioState.hpp"
 #include "NativeHomePortfolioValuationState.hpp"
 #include "NativeHomePriceChangeDirection.hpp"

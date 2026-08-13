@@ -18,8 +18,16 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewM
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `INativeHomePortfolioDeFiTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioDeFiTokensViewModel; }
 // Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
+// Forward declaration of `INativeHomePortfolioLowValueAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioLowValueAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioManageTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioManageTokensViewModel; }
+// Forward declaration of `INativeHomePortfolioRiskAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioRiskAssetsViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
@@ -38,6 +46,8 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
 // Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomePortfolioActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioActionId; }
 // Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
@@ -57,7 +67,11 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 #include "INativeHomeHeaderViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
+#include "INativeHomePortfolioDeFiTokensViewModel.hpp"
 #include "INativeHomePortfolioItemViewModel.hpp"
+#include "INativeHomePortfolioLowValueAssetsViewModel.hpp"
+#include "INativeHomePortfolioManageTokensViewModel.hpp"
+#include "INativeHomePortfolioRiskAssetsViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
@@ -67,6 +81,7 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 #include "NativeHomeHeaderActionId.hpp"
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
+#include "NativeHomePortfolioActionId.hpp"
 #include "NativeHomePortfolioState.hpp"
 #include "NativeHomePortfolioValuationState.hpp"
 #include "NativeHomePriceChangeDirection.hpp"
@@ -158,6 +173,36 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return optional.has_value();
   }
   inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return *optional;
+  }
+
+  // pragma MARK: std::optional<NativeHomePortfolioActionId>
+  /**
+   * Specialized version of `std::optional<NativeHomePortfolioActionId>`.
+   */
+  using std__optional_NativeHomePortfolioActionId_ = std::optional<NativeHomePortfolioActionId>;
+  inline std::optional<NativeHomePortfolioActionId> create_std__optional_NativeHomePortfolioActionId_(const NativeHomePortfolioActionId& value) noexcept {
+    return std::optional<NativeHomePortfolioActionId>(value);
+  }
+  inline bool has_value_std__optional_NativeHomePortfolioActionId_(const std::optional<NativeHomePortfolioActionId>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline NativeHomePortfolioActionId get_std__optional_NativeHomePortfolioActionId_(const std::optional<NativeHomePortfolioActionId>& optional) noexcept {
+    return *optional;
+  }
+
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
     return *optional;
   }
 

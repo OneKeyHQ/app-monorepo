@@ -46,6 +46,30 @@ function buildViewModel(): INativeHomeViewModel {
           enabled: true,
         },
       ],
+      deFiTokensFilter: {
+        visible: true,
+        title: 'DeFi tokens',
+        selected: false,
+        loading: false,
+        enabled: true,
+      },
+      lowValueAssets: {
+        visible: true,
+        title: '8 Low-value assets',
+        valueText: '$0.00',
+        enabled: true,
+      },
+      riskAssets: {
+        visible: true,
+        title: '70 Collapsed risk assets',
+        enabled: true,
+      },
+      manageTokens: {
+        visible: true,
+        instruction: "Can't find your token?",
+        actionTitle: 'Add token',
+        enabled: true,
+      },
     },
     theme: {
       colorScheme: 'light',
@@ -122,6 +146,52 @@ describe('Native Home intent validation', () => {
           owner: viewModel.owner,
           headerActionId: 'send',
           portfolioItemId: 'eth',
+        },
+        viewModel,
+      }),
+    ).toBe(false);
+  });
+
+  it('revalidates Portfolio actions against the current ViewModel', () => {
+    const viewModel = buildViewModel();
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: viewModel.owner,
+          portfolioActionId: 'toggleDeFiTokens',
+          portfolioActionValue: true,
+        },
+        viewModel,
+      }),
+    ).toBe(true);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: viewModel.owner,
+          portfolioActionId: 'openLowValueAssets',
+        },
+        viewModel,
+      }),
+    ).toBe(true);
+
+    viewModel.portfolio.lowValueAssets.visible = false;
+    viewModel.portfolio.deFiTokensFilter.loading = true;
+    viewModel.portfolio.deFiTokensFilter.enabled = false;
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: viewModel.owner,
+          portfolioActionId: 'openLowValueAssets',
+        },
+        viewModel,
+      }),
+    ).toBe(false);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: viewModel.owner,
+          portfolioActionId: 'toggleDeFiTokens',
+          portfolioActionValue: true,
         },
         viewModel,
       }),

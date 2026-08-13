@@ -60,16 +60,37 @@ type IProps = {
   plainMode?: boolean;
 };
 
-function TokenListFooter(props: IProps) {
+export type IHomeTokenListFooterController = {
+  lowValueAssets: {
+    visible: boolean;
+    count: number;
+    valueUsd: string;
+    onPress: () => void;
+  };
+  riskAssets: {
+    visible: boolean;
+    count: number;
+    onPress: () => void;
+  };
+  manageTokens: {
+    visible: boolean;
+    onPress: () => void;
+  };
+};
+
+function useHomeTokenListFooterController({
+  hideZeroBalanceTokens,
+  hideDeFiMarkedTokens,
+  hasTokens,
+  manageTokenEnabled,
+}: Pick<
+  IProps,
+  | 'hasTokens'
+  | 'hideDeFiMarkedTokens'
+  | 'hideZeroBalanceTokens'
+  | 'manageTokenEnabled'
+>): IHomeTokenListFooterController {
   const intl = useIntl();
-  const {
-    tableLayout,
-    hideZeroBalanceTokens,
-    hideDeFiMarkedTokens,
-    hasTokens,
-    manageTokenEnabled,
-    plainMode,
-  } = props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -406,11 +427,46 @@ function TokenListFooter(props: IProps) {
     };
   }, [run]);
 
+  return {
+    lowValueAssets: {
+      visible: !isSearchMode && filteredSmallBalanceTokens.length > 0,
+      count: filteredSmallBalanceTokens.length,
+      valueUsd: smallBalanceTokensFiatValue,
+      onPress: handleOnPressLowValueTokens,
+    },
+    riskAssets: {
+      visible: !isSearchMode && filteredRiskyTokens.length > 0,
+      count: blockedTokensLength,
+      onPress: handleOnPressRiskyTokens,
+    },
+    manageTokens: {
+      visible: !!hasTokens && !!manageTokenEnabled,
+      onPress: handleOnPressManageTokens,
+    },
+  };
+}
+
+function TokenListFooter(props: IProps) {
+  const intl = useIntl();
+  const { tableLayout, plainMode } = props;
+  const controller = useHomeTokenListFooterController(props);
+  const helpText = useMemo(
+    () => [
+      intl.formatMessage({
+        id: ETranslations.low_value_assets_desc_out_of_range,
+      }),
+      intl.formatMessage({
+        id: ETranslations.low_value_assets_desc,
+      }),
+    ],
+    [intl],
+  );
+
   return (
     <Stack mx={tableLayout ? undefined : '$2'}>
-      {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
+      {controller.lowValueAssets.visible ? (
         <ListItem
-          onPress={handleOnPressLowValueTokens}
+          onPress={controller.lowValueAssets.onPress}
           userSelect="none"
           {...(tableLayout && plainMode
             ? undefined
@@ -428,11 +484,11 @@ function TokenListFooter(props: IProps) {
               />
             </Stack>
             <ListItem.Text
-              primary={`${
-                filteredSmallBalanceTokens.length
-              } ${intl.formatMessage({
-                id: ETranslations.low_value_assets,
-              })}`}
+              primary={`${controller.lowValueAssets.count} ${intl.formatMessage(
+                {
+                  id: ETranslations.low_value_assets,
+                },
+              )}`}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },
               })}
@@ -482,14 +538,14 @@ function TokenListFooter(props: IProps) {
               sourceCurrency="usd"
               textAlign="right"
             >
-              {smallBalanceTokensFiatValue}
+              {controller.lowValueAssets.valueUsd}
             </Currency>
           </Stack>
         </ListItem>
       ) : null}
-      {!isSearchMode && filteredRiskyTokens.length > 0 ? (
+      {controller.riskAssets.visible ? (
         <ListItem
-          onPress={handleOnPressRiskyTokens}
+          onPress={controller.riskAssets.onPress}
           userSelect="none"
           {...(tableLayout && plainMode
             ? undefined
@@ -507,7 +563,7 @@ function TokenListFooter(props: IProps) {
                 {
                   id: ETranslations.wallet_collapsed_risk_assets_number,
                 },
-                { number: blockedTokensLength },
+                { number: controller.riskAssets.count },
               )}
               {...(tableLayout && {
                 primaryTextProps: { size: '$bodyMdMedium' },
@@ -516,7 +572,7 @@ function TokenListFooter(props: IProps) {
           </XStack>
         </ListItem>
       ) : null}
-      {hasTokens && manageTokenEnabled ? (
+      {controller.manageTokens.visible ? (
         <XStack
           py="$4"
           px="$4"
@@ -532,7 +588,7 @@ function TokenListFooter(props: IProps) {
             testID="token-list-footer-add-token-btn"
             size="small"
             variant="tertiary"
-            onPress={handleOnPressManageTokens}
+            onPress={controller.manageTokens.onPress}
             iconAfter="ArrowRightOutline"
             iconColor="$iconSubdued"
           >
@@ -546,4 +602,4 @@ function TokenListFooter(props: IProps) {
   );
 }
 
-export { TokenListFooter };
+export { TokenListFooter, useHomeTokenListFooterController };

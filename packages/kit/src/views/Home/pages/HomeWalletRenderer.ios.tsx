@@ -50,7 +50,7 @@ function loadNativeHomeDiagnosticPage() {
 }
 
 export function HomeWalletRenderer({
-  eligible,
+  eligibility,
   legacy,
   sceneName,
 }: IHomeWalletRendererProps) {
@@ -60,7 +60,7 @@ export function HomeWalletRenderer({
     nativeHomeRendererController.get,
   );
   const useNativeRenderer = shouldRenderNativeHomeDiagnostic({
-    isEligible: eligible,
+    eligibility,
     isNativeIOS: !!platformEnv.isNativeIOS,
     isNativeMainRuntime: !!platformEnv.isNativeMainThread,
     rendererMode: __DEV__ ? rendererMode : 'native',

@@ -19,7 +19,7 @@ public extension INativeHomeIntent {
   /**
    * Create a new instance of `INativeHomeIntent`.
    */
-  init(owner: INativeHomeOwnerToken, headerActionId: NativeHomeHeaderActionId?, portfolioItemId: String?) {
+  init(owner: INativeHomeOwnerToken, headerActionId: NativeHomeHeaderActionId?, portfolioItemId: String?, portfolioActionId: NativeHomePortfolioActionId?, portfolioActionValue: Bool?) {
     self.init(owner, { () -> bridge.std__optional_NativeHomeHeaderActionId_ in
       if let __unwrappedValue = headerActionId {
         return bridge.create_std__optional_NativeHomeHeaderActionId_(__unwrappedValue)
@@ -29,6 +29,18 @@ public extension INativeHomeIntent {
     }(), { () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = portfolioItemId {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_NativeHomePortfolioActionId_ in
+      if let __unwrappedValue = portfolioActionId {
+        return bridge.create_std__optional_NativeHomePortfolioActionId_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_bool_ in
+      if let __unwrappedValue = portfolioActionValue {
+        return bridge.create_std__optional_bool_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -51,6 +63,23 @@ public extension INativeHomeIntent {
       if bridge.has_value_std__optional_std__string_(self.__portfolioItemId) {
         let __unwrapped = bridge.get_std__optional_std__string_(self.__portfolioItemId)
         return String(__unwrapped)
+      } else {
+        return nil
+      }
+    }()
+  }
+
+  @inline(__always)
+  var portfolioActionId: NativeHomePortfolioActionId? {
+    return self.__portfolioActionId.value
+  }
+
+  @inline(__always)
+  var portfolioActionValue: Bool? {
+    return { () -> Bool? in
+      if bridge.has_value_std__optional_bool_(self.__portfolioActionValue) {
+        let __unwrapped = bridge.get_std__optional_bool_(self.__portfolioActionValue)
+        return __unwrapped
       } else {
         return nil
       }

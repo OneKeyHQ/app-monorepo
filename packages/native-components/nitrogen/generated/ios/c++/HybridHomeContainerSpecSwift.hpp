@@ -42,12 +42,22 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioIt
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePriceChangeDirection; }
 // Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioValuationState; }
+// Forward declaration of `INativeHomePortfolioDeFiTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioDeFiTokensViewModel; }
+// Forward declaration of `INativeHomePortfolioLowValueAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioLowValueAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioRiskAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioRiskAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioManageTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioManageTokensViewModel; }
 // Forward declaration of `INativeHomeThemeViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeColorScheme; }
 // Forward declaration of `INativeHomeIntent` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
+// Forward declaration of `NativeHomePortfolioActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioActionId; }
 
 #include "INativeHomeViewModel.hpp"
 #include <optional>
@@ -67,10 +77,15 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 #include "INativeHomePortfolioItemViewModel.hpp"
 #include "NativeHomePriceChangeDirection.hpp"
 #include "NativeHomePortfolioValuationState.hpp"
+#include "INativeHomePortfolioDeFiTokensViewModel.hpp"
+#include "INativeHomePortfolioLowValueAssetsViewModel.hpp"
+#include "INativeHomePortfolioRiskAssetsViewModel.hpp"
+#include "INativeHomePortfolioManageTokensViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
 #include "INativeHomeIntent.hpp"
 #include <functional>
+#include "NativeHomePortfolioActionId.hpp"
 
 #include "OneKeyNativeComponents-Swift-Cxx-Umbrella.hpp"
 

@@ -8,7 +8,7 @@ describe('Home Wallet renderer fallback', () => {
 
     expect(
       HomeWalletRenderer({
-        eligible: true,
+        eligibility: 'eligible',
         legacy,
         sceneName: EAccountSelectorSceneName.home,
       }),

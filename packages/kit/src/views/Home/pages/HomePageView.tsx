@@ -82,7 +82,10 @@ import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
-import { HomeWalletRenderer } from './HomeWalletRenderer';
+import {
+  HomeWalletRenderer,
+  type THomeWalletRendererEligibility,
+} from './HomeWalletRenderer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -1002,6 +1005,24 @@ export function HomePageView({
     { initResult: undefined },
   );
 
+  const hasNativeHomeOwner =
+    ready &&
+    !!wallet?.id &&
+    !!account?.id &&
+    !!network?.id &&
+    !isWalletNotBackedUp &&
+    !hasNoUsableWallet &&
+    !activeWalletUnavailable;
+  let nativeHomeRendererEligibility: THomeWalletRendererEligibility =
+    'ineligible';
+  if (hasNativeHomeOwner && accountNetworkNotSupported !== true) {
+    nativeHomeRendererEligibility =
+      fetchedVaultSettings === undefined ||
+      accountNetworkNotSupported === undefined
+        ? 'pending'
+        : 'eligible';
+  }
+
   const homePageContent = useMemo(() => {
     if (accountNetworkNotSupported) {
       return (
@@ -1064,23 +1085,14 @@ export function HomePageView({
 
     return (
       <HomeWalletRenderer
-        eligible={
-          ready &&
-          !!wallet?.id &&
-          !!account?.id &&
-          !!network?.id &&
-          fetchedVaultSettings !== undefined &&
-          accountNetworkNotSupported === false &&
-          !isWalletNotBackedUp &&
-          !hasNoUsableWallet &&
-          !activeWalletUnavailable
-        }
+        eligibility={nativeHomeRendererEligibility}
         legacy={tabs}
         sceneName={sceneName}
       />
     );
   }, [
     accountNetworkNotSupported,
+    nativeHomeRendererEligibility,
     softwareAccountDisabled,
     wallet?.id,
     supportedDeviceTypes,
@@ -1093,11 +1105,6 @@ export function HomePageView({
     emptyAccountView,
     network?.id,
     tabs,
-    ready,
-    fetchedVaultSettings,
-    isWalletNotBackedUp,
-    hasNoUsableWallet,
-    activeWalletUnavailable,
     sceneName,
   ]);
 

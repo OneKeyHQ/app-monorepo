@@ -32,11 +32,23 @@
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
+// Forward declaration of `INativeHomePortfolioDeFiTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioDeFiTokensViewModel; }
+// Forward declaration of `INativeHomePortfolioLowValueAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioLowValueAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioRiskAssetsViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioRiskAssetsViewModel; }
+// Forward declaration of `INativeHomePortfolioManageTokensViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioManageTokensViewModel; }
 
 #include <string>
 #include "NativeHomePortfolioState.hpp"
 #include "INativeHomePortfolioItemViewModel.hpp"
 #include <vector>
+#include "INativeHomePortfolioDeFiTokensViewModel.hpp"
+#include "INativeHomePortfolioLowValueAssetsViewModel.hpp"
+#include "INativeHomePortfolioRiskAssetsViewModel.hpp"
+#include "INativeHomePortfolioManageTokensViewModel.hpp"
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -52,10 +64,14 @@ namespace margelo::nitro::onekeynativecomponents {
     std::string showLessTitle     SWIFT_PRIVATE;
     double initialVisibleItemCount     SWIFT_PRIVATE;
     std::vector<INativeHomePortfolioItemViewModel> items     SWIFT_PRIVATE;
+    INativeHomePortfolioDeFiTokensViewModel deFiTokensFilter     SWIFT_PRIVATE;
+    INativeHomePortfolioLowValueAssetsViewModel lowValueAssets     SWIFT_PRIVATE;
+    INativeHomePortfolioRiskAssetsViewModel riskAssets     SWIFT_PRIVATE;
+    INativeHomePortfolioManageTokensViewModel manageTokens     SWIFT_PRIVATE;
 
   public:
     INativeHomePortfolioViewModel() = default;
-    explicit INativeHomePortfolioViewModel(std::string title, NativeHomePortfolioState state, std::string emptyText, std::string showMoreTitle, std::string showLessTitle, double initialVisibleItemCount, std::vector<INativeHomePortfolioItemViewModel> items): title(title), state(state), emptyText(emptyText), showMoreTitle(showMoreTitle), showLessTitle(showLessTitle), initialVisibleItemCount(initialVisibleItemCount), items(items) {}
+    explicit INativeHomePortfolioViewModel(std::string title, NativeHomePortfolioState state, std::string emptyText, std::string showMoreTitle, std::string showLessTitle, double initialVisibleItemCount, std::vector<INativeHomePortfolioItemViewModel> items, INativeHomePortfolioDeFiTokensViewModel deFiTokensFilter, INativeHomePortfolioLowValueAssetsViewModel lowValueAssets, INativeHomePortfolioRiskAssetsViewModel riskAssets, INativeHomePortfolioManageTokensViewModel manageTokens): title(title), state(state), emptyText(emptyText), showMoreTitle(showMoreTitle), showLessTitle(showLessTitle), initialVisibleItemCount(initialVisibleItemCount), items(items), deFiTokensFilter(deFiTokensFilter), lowValueAssets(lowValueAssets), riskAssets(riskAssets), manageTokens(manageTokens) {}
 
   public:
     friend bool operator==(const INativeHomePortfolioViewModel& lhs, const INativeHomePortfolioViewModel& rhs) = default;
@@ -77,7 +93,11 @@ namespace margelo::nitro {
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showMoreTitle"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount"))),
-        JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))
+        JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioDeFiTokensViewModel>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "deFiTokensFilter"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioLowValueAssetsViewModel>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "lowValueAssets"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioRiskAssetsViewModel>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "riskAssets"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioManageTokensViewModel>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "manageTokens")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::onekeynativecomponents::INativeHomePortfolioViewModel& arg) {
@@ -89,6 +109,10 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle"), JSIConverter<std::string>::toJSI(runtime, arg.showLessTitle));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount"), JSIConverter<double>::toJSI(runtime, arg.initialVisibleItemCount));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "items"), JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::toJSI(runtime, arg.items));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "deFiTokensFilter"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioDeFiTokensViewModel>::toJSI(runtime, arg.deFiTokensFilter));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "lowValueAssets"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioLowValueAssetsViewModel>::toJSI(runtime, arg.lowValueAssets));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "riskAssets"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioRiskAssetsViewModel>::toJSI(runtime, arg.riskAssets));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "manageTokens"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioManageTokensViewModel>::toJSI(runtime, arg.manageTokens));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -106,6 +130,10 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount")))) return false;
       if (!JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioDeFiTokensViewModel>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "deFiTokensFilter")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioLowValueAssetsViewModel>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "lowValueAssets")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioRiskAssetsViewModel>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "riskAssets")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomePortfolioManageTokensViewModel>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "manageTokens")))) return false;
       return true;
     }
   };

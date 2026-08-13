@@ -1,19 +1,21 @@
+import type { THomeWalletRendererEligibility } from './HomeWalletRenderer';
+
 export interface INativeHomeRendererDecisionInput {
-  isEligible: boolean;
+  eligibility: THomeWalletRendererEligibility;
   isNativeIOS: boolean;
   isNativeMainRuntime: boolean;
   rendererMode?: 'legacy' | 'native';
 }
 
 export function shouldRenderNativeHomeDiagnostic({
-  isEligible,
+  eligibility,
   isNativeIOS,
   isNativeMainRuntime,
   rendererMode = 'native',
 }: INativeHomeRendererDecisionInput): boolean {
   return (
     rendererMode === 'native' &&
-    isEligible &&
+    eligibility !== 'ineligible' &&
     isNativeIOS &&
     isNativeMainRuntime
   );

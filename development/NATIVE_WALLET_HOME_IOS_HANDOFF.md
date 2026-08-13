@@ -5,7 +5,7 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: Slice 3 valuation/style follow-up implemented; awaiting manual acceptance
+- Current phase: Slice 3 accepted and complete; Slice 4 is next
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -409,6 +409,55 @@ Slice 3 valuation/style follow-up (2026-08-13):
 - This follow-up does not claim Slice 4 completion: same-owner refresh state,
   Native pull-to-refresh, owner/request-scoped refresh completion, and release
   instrumentation remain in Slice 4.
+
+Slice 3 DeFi/footer parity follow-up (2026-08-13):
+
+- The Native producer now consumes the existing Token List DeFi filter state,
+  scoped DeFi list, scoped valuation map, and loading state directly. The
+  Native switch emits one concrete owner-scoped `toggleDeFiTokens` intent; JS
+  revalidates it against the current ViewModel before calling the existing
+  filter handler.
+- The Legacy footer's existing visibility and navigation controller is shared
+  with the Native producer. Expanded Native content now includes the same
+  low-value asset count/value, collapsed risk asset count, add-token action,
+  and `Show less` control without duplicating requests, filters, or business
+  state.
+- Low-value, risk, and manage-token rows emit concrete owner-scoped intents.
+  JS verifies that the current ViewModel still exposes the action, then invokes
+  the exact existing Legacy navigation handler.
+- Aggregate token rows use the current aggregate token map to select the same
+  network badge behavior as Legacy instead of inferring a new network identity
+  in Native.
+- Focused protocol, ViewModel, and intent suites passed (12 tests). Nitro code
+  generation, TypeScript checks, the OneKeyNativeComponents Swift target, and
+  the signed iOS Debug simulator build passed.
+- Runtime A/B verification on Account #2 confirmed the same DeFi switch state
+  and DeFi token rows in Legacy and Native. Expanding Native rendered `8
+  Low-value assets` with `$0.00`, `70 Collapsed risk assets`, the add-token
+  action, and `Show less`; both asset rows opened their existing JS-managed
+  pages. Switching back to Native briefly showed stable row skeletons and then
+  resolved the current DeFi data, as required by the progressive rendering
+  contract.
+- The Tokens header was then aligned to the Legacy measurements: a 56-point
+  row, 20/28 semibold title, 12/16 regular DeFi label, an 8-point label gap,
+  and a custom 32-by-20 switch with a 16-point thumb and theme-derived Legacy
+  off/on colors. Signed-simulator A/B verification confirmed both visual states
+  and the existing JS-owned DeFi data transition; the simulator was left off.
+- Renderer eligibility is now explicit `pending | eligible | ineligible`.
+  Pending vault-settings and network-support checks keep the iOS Native Home
+  mounted instead of mounting Legacy first; only a confirmed ineligible path
+  can fall back. Metro reload and process-level relaunch recordings showed the
+  Native loading/list states directly, with no intermediate Legacy Home frame.
+- Native token, low-value, and risk rows now match the Legacy `ListItem` touch
+  feedback: the active background uses the concrete theme color with an
+  8-point horizontal inset and 12-point continuous corner radius. Disabled and
+  loading rows do not highlight. Signed-simulator hold tests confirmed the
+  pressed state for all three row types, the existing JS-owned navigation after
+  release, and drag cancellation without a stale highlight or accidental
+  navigation.
+- Manual acceptance completed on 2026-08-13. Slice 3 is closed; later work must
+  not reopen its protocol or add a second display authority unless profiling or
+  a concrete regression demonstrates that the accepted design is insufficient.
 
 ### Slice 4 - Portfolio valuation and pull to refresh
 

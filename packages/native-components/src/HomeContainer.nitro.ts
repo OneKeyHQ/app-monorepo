@@ -39,6 +39,11 @@ export type NativeHomeHeaderActionIcon =
   | 'send'
   | 'staking'
   | 'swap';
+export type NativeHomePortfolioActionId =
+  | 'manageTokens'
+  | 'openLowValueAssets'
+  | 'openRiskAssets'
+  | 'toggleDeFiTokens';
 
 export interface INativeHomeOwnerToken {
   scopeKey: string;
@@ -89,6 +94,38 @@ export interface INativeHomePortfolioViewModel {
   showLessTitle: string;
   initialVisibleItemCount: number;
   items: INativeHomePortfolioItemViewModel[];
+  deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel;
+  lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel;
+  riskAssets: INativeHomePortfolioRiskAssetsViewModel;
+  manageTokens: INativeHomePortfolioManageTokensViewModel;
+}
+
+export interface INativeHomePortfolioDeFiTokensViewModel {
+  visible: boolean;
+  title: string;
+  selected: boolean;
+  loading: boolean;
+  enabled: boolean;
+}
+
+export interface INativeHomePortfolioLowValueAssetsViewModel {
+  visible: boolean;
+  title: string;
+  valueText: string;
+  enabled: boolean;
+}
+
+export interface INativeHomePortfolioRiskAssetsViewModel {
+  visible: boolean;
+  title: string;
+  enabled: boolean;
+}
+
+export interface INativeHomePortfolioManageTokensViewModel {
+  visible: boolean;
+  instruction: string;
+  actionTitle: string;
+  enabled: boolean;
 }
 
 export interface INativeHomePortfolioItemViewModel {
@@ -119,6 +156,8 @@ export interface INativeHomeIntent {
   owner: INativeHomeOwnerToken;
   headerActionId?: NativeHomeHeaderActionId;
   portfolioItemId?: string;
+  portfolioActionId?: NativeHomePortfolioActionId;
+  portfolioActionValue?: boolean;
 }
 
 export interface IHomeContainerNativeProps extends HybridViewProps {

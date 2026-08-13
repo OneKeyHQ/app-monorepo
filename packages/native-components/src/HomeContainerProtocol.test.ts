@@ -55,6 +55,30 @@ describe('Native Home protocol', () => {
             enabled: true,
           },
         ],
+        deFiTokensFilter: {
+          visible: true,
+          title: 'DeFi tokens',
+          selected: false,
+          loading: false,
+          enabled: true,
+        },
+        lowValueAssets: {
+          visible: true,
+          title: '8 Low-value assets',
+          valueText: '$0.00',
+          enabled: true,
+        },
+        riskAssets: {
+          visible: true,
+          title: '70 Collapsed risk assets',
+          enabled: true,
+        },
+        manageTokens: {
+          visible: true,
+          instruction: "Can't find your token?",
+          actionTitle: 'Add token',
+          enabled: true,
+        },
       },
       theme: {
         colorScheme: 'dark',

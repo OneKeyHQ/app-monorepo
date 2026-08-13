@@ -1,7 +1,12 @@
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+export type THomeWalletRendererEligibility =
+  | 'pending'
+  | 'eligible'
+  | 'ineligible';
+
 export interface IHomeWalletRendererProps {
-  eligible: boolean;
+  eligibility: THomeWalletRendererEligibility;
   legacy: React.ReactNode;
   sceneName: EAccountSelectorSceneName;
 }

@@ -1,8 +1,13 @@
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import type {
+  INativeHomePortfolioDeFiTokensViewModel,
   INativeHomePortfolioItemViewModel,
+  INativeHomePortfolioLowValueAssetsViewModel,
+  INativeHomePortfolioManageTokensViewModel,
+  INativeHomePortfolioRiskAssetsViewModel,
   INativeHomePortfolioViewModel,
 } from '@onekeyhq/native-components';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
   formatBalance,
   formatDisplayNumber,
@@ -40,6 +45,31 @@ function formatUnavailableAware(
   return value === UNAVAILABLE_DISPLAY
     ? UNAVAILABLE_DISPLAY
     : flattenDisplayNumber(formatter(String(value)));
+}
+
+export function buildNativeHomeFiatValueText({
+  valueUsd,
+  hideValue,
+  currencyMap,
+  targetCurrencyId,
+  targetCurrencySymbol,
+}: {
+  valueUsd: string;
+  hideValue: boolean;
+  currencyMap: Record<string, ICurrencyItem>;
+  targetCurrencyId: string;
+  targetCurrencySymbol: string;
+}): string {
+  if (hideValue) return '****';
+  const convertedValue = convertFiat({
+    value: valueUsd,
+    sourceCurrency: USD_CURRENCY_ID,
+    targetCurrency: targetCurrencyId,
+    currencyMap,
+  });
+  return flattenDisplayNumber(
+    formatValue(convertedValue, { currency: targetCurrencySymbol }),
+  );
 }
 
 export function buildNativeHomePortfolioItemViewModel({
@@ -145,6 +175,10 @@ export function buildNativeHomePortfolioViewModel({
   showMoreTitle,
   showLessTitle,
   initialVisibleItemCount,
+  deFiTokensFilter,
+  lowValueAssets,
+  riskAssets,
+  manageTokens,
 }: {
   ownerMatches: boolean;
   generation: number;
@@ -155,6 +189,10 @@ export function buildNativeHomePortfolioViewModel({
   showMoreTitle: string;
   showLessTitle: string;
   initialVisibleItemCount: number;
+  deFiTokensFilter: INativeHomePortfolioDeFiTokensViewModel;
+  lowValueAssets: INativeHomePortfolioLowValueAssetsViewModel;
+  riskAssets: INativeHomePortfolioRiskAssetsViewModel;
+  manageTokens: INativeHomePortfolioManageTokensViewModel;
 }): INativeHomePortfolioViewModel {
   const structureReady = ownerMatches && generation >= 0;
   const metadataReady = sourceItemCount === 0 || items.length > 0;
@@ -173,5 +211,9 @@ export function buildNativeHomePortfolioViewModel({
     showLessTitle,
     initialVisibleItemCount,
     items: visibleItems,
+    deFiTokensFilter,
+    lowValueAssets,
+    riskAssets,
+    manageTokens,
   };
 }

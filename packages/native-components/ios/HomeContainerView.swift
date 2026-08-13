@@ -1,5 +1,50 @@
 import UIKit
 
+private enum HomeContainerFooterIcons {
+  static let lowValueSolid: UIImage = {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+    return renderer.image { context in
+      context.cgContext.translateBy(x: 8, y: 8)
+      UIColor.black.setFill()
+
+      let topRing = UIBezierPath(ovalIn: CGRect(x: 8.25, y: 2, width: 7.5, height: 7.5))
+      topRing.append(UIBezierPath(ovalIn: CGRect(x: 10.25, y: 4, width: 3.5, height: 3.5)))
+      topRing.usesEvenOddFillRule = true
+      topRing.fill()
+
+      UIBezierPath(ovalIn: CGRect(x: 2, y: 8.25, width: 7.5, height: 7.5)).fill()
+      UIBezierPath(ovalIn: CGRect(x: 14.5, y: 8.25, width: 7.5, height: 7.5)).fill()
+      UIBezierPath(ovalIn: CGRect(x: 8.25, y: 14.5, width: 7.5, height: 7.5)).fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+
+  static let riskSolid: UIImage = {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+    return renderer.image { context in
+      context.cgContext.translateBy(x: 8, y: 8)
+      UIColor.black.setFill()
+
+      let path = UIBezierPath()
+      path.move(to: CGPoint(x: 23.256, y: 20))
+      path.addLine(to: CGPoint(x: 0.742, y: 20))
+      path.addLine(to: CGPoint(x: 12, y: 1.041))
+      path.close()
+      path.move(to: CGPoint(x: 11, y: 15))
+      path.addLine(to: CGPoint(x: 11, y: 17))
+      path.addLine(to: CGPoint(x: 13, y: 17))
+      path.addLine(to: CGPoint(x: 13, y: 15))
+      path.close()
+      path.move(to: CGPoint(x: 11, y: 9))
+      path.addLine(to: CGPoint(x: 11, y: 14))
+      path.addLine(to: CGPoint(x: 13, y: 14))
+      path.addLine(to: CGPoint(x: 13, y: 9))
+      path.close()
+      path.usesEvenOddFillRule = true
+      path.fill()
+    }.withRenderingMode(.alwaysTemplate)
+  }()
+}
+
 final class HomeContainerView: UIView {
   private enum Section: Hashable {
     case portfolio
@@ -8,6 +53,9 @@ final class HomeContainerView: UIView {
   private enum Item: Hashable {
     case title
     case token(String)
+    case lowValueAssets
+    case riskAssets
+    case manageTokens
     case toggle(Bool)
     case loading(Int)
     case empty
@@ -67,10 +115,14 @@ final class HomeContainerView: UIView {
   private var balanceDisabledColor = UIColor.tertiaryLabel
   private var portfolioBackgroundColor = UIColor.systemBackground
   private var portfolioSurfaceColor = UIColor.secondarySystemBackground
+  private var portfolioActiveColor = UIColor.systemGray5
   private var portfolioPrimaryTextColor = UIColor.label
   private var portfolioSecondaryTextColor = UIColor.secondaryLabel
+  private var portfolioDisabledTextColor = UIColor.tertiaryLabel
   private var portfolioSuccessTextColor = UIColor.systemGreen
   private var portfolioCriticalTextColor = UIColor.systemRed
+  private var portfolioSwitchOffColor = UIColor.systemGray4
+  private var portfolioSwitchThumbColor = UIColor.systemBackground
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -216,6 +268,14 @@ final class HomeContainerView: UIView {
       forCellWithReuseIdentifier: HomeContainerPortfolioTokenCell.reuseIdentifier
     )
     collectionView.register(
+      HomeContainerPortfolioFooterCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioFooterCell.reuseIdentifier
+    )
+    collectionView.register(
+      HomeContainerPortfolioManageTokensCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioManageTokensCell.reuseIdentifier
+    )
+    collectionView.register(
       HomeContainerPortfolioStatusCell.self,
       forCellWithReuseIdentifier: HomeContainerPortfolioStatusCell.reuseIdentifier
     )
@@ -299,10 +359,18 @@ final class HomeContainerView: UIView {
     balanceDisabledColor = disabled
     portfolioBackgroundColor = background
     portfolioSurfaceColor = surface
+    portfolioActiveColor = primary.withAlphaComponent(
+      theme.colorScheme == .dark ? 0.105 : 0.09
+    )
     portfolioPrimaryTextColor = primary
     portfolioSecondaryTextColor = secondary
+    portfolioDisabledTextColor = disabled
     portfolioSuccessTextColor = success
     portfolioCriticalTextColor = critical
+    portfolioSwitchOffColor = primary.withAlphaComponent(
+      theme.colorScheme == .dark ? 0.134 : 0.122
+    )
+    portfolioSwitchThumbColor = background
     tintColor = primary
   }
 
@@ -357,9 +425,16 @@ final class HomeContainerView: UIView {
         ) as? HomeContainerPortfolioTitleCell
         cell?.apply(
           title: portfolioTitle,
+          filter: currentState?.portfolio.deFiTokensFilter,
           backgroundColor: portfolioBackgroundColor,
-          textColor: portfolioPrimaryTextColor
-        )
+          primaryTextColor: portfolioPrimaryTextColor,
+          secondaryTextColor: portfolioSecondaryTextColor,
+          disabledTextColor: portfolioDisabledTextColor,
+          switchOffColor: portfolioSwitchOffColor,
+          switchThumbColor: portfolioSwitchThumbColor
+        ) { [weak self] value in
+          self?.emitPortfolioAction(.toggledefitokens, value: value)
+        }
         return cell
       case let .token(id):
         let cell = collectionView.dequeueReusableCell(
@@ -381,11 +456,70 @@ final class HomeContainerView: UIView {
             enabled: row.enabled,
             backgroundColor: portfolioBackgroundColor,
             surfaceColor: portfolioSurfaceColor,
+            activeColor: portfolioActiveColor,
             primaryTextColor: portfolioPrimaryTextColor,
             secondaryTextColor: portfolioSecondaryTextColor,
             successTextColor: portfolioSuccessTextColor,
             criticalTextColor: portfolioCriticalTextColor
           )
+        }
+        return cell
+      case .lowValueAssets:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioFooterCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioFooterCell
+        if let item = currentState?.portfolio.lowValueAssets {
+          cell?.apply(
+            title: item.title,
+            value: item.valueText,
+            icon: HomeContainerFooterIcons.lowValueSolid,
+            accessibilityIdentifier: "native-home-low-value-assets",
+            enabled: item.enabled,
+            backgroundColor: portfolioBackgroundColor,
+            surfaceColor: portfolioSurfaceColor,
+            activeColor: portfolioActiveColor,
+            primaryTextColor: portfolioPrimaryTextColor,
+            secondaryTextColor: portfolioSecondaryTextColor
+          )
+        }
+        return cell
+      case .riskAssets:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioFooterCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioFooterCell
+        if let item = currentState?.portfolio.riskAssets {
+          cell?.apply(
+            title: item.title,
+            value: "",
+            icon: HomeContainerFooterIcons.riskSolid,
+            accessibilityIdentifier: "native-home-risk-assets",
+            enabled: item.enabled,
+            backgroundColor: portfolioBackgroundColor,
+            surfaceColor: portfolioSurfaceColor,
+            activeColor: portfolioActiveColor,
+            primaryTextColor: portfolioPrimaryTextColor,
+            secondaryTextColor: portfolioSecondaryTextColor
+          )
+        }
+        return cell
+      case .manageTokens:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioManageTokensCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioManageTokensCell
+        if let item = currentState?.portfolio.manageTokens {
+          cell?.apply(
+            instruction: item.instruction,
+            actionTitle: item.actionTitle,
+            enabled: item.enabled,
+            backgroundColor: portfolioBackgroundColor,
+            disabledTextColor: portfolioSecondaryTextColor.withAlphaComponent(0.72),
+            actionTextColor: portfolioSecondaryTextColor
+          ) { [weak self] in
+            self?.emitPortfolioAction(.managetokens)
+          }
         }
         return cell
       case let .toggle(isExpanded):
@@ -473,6 +607,17 @@ final class HomeContainerView: UIView {
         ? allIds
         : Array(allIds.prefix(portfolioInitialVisibleItemCount))
       items.append(contentsOf: visibleIds.map(Item.token))
+      if showsAllPortfolioItems || !hasOverflow {
+        if portfolio.lowValueAssets.visible {
+          items.append(.lowValueAssets)
+        }
+        if portfolio.riskAssets.visible {
+          items.append(.riskAssets)
+        }
+        if portfolio.manageTokens.visible {
+          items.append(.manageTokens)
+        }
+      }
       if hasOverflow {
         items.append(.toggle(showsAllPortfolioItems))
       }
@@ -598,7 +743,9 @@ final class HomeContainerView: UIView {
       INativeHomeIntent(
         owner: owner,
         headerActionId: actionId,
-        portfolioItemId: nil
+        portfolioItemId: nil,
+        portfolioActionId: nil,
+        portfolioActionValue: nil
       )
     )
   }
@@ -609,7 +756,25 @@ final class HomeContainerView: UIView {
       INativeHomeIntent(
         owner: owner,
         headerActionId: nil,
-        portfolioItemId: itemId
+        portfolioItemId: itemId,
+        portfolioActionId: nil,
+        portfolioActionValue: nil
+      )
+    )
+  }
+
+  private func emitPortfolioAction(
+    _ actionId: NativeHomePortfolioActionId,
+    value: Bool? = nil
+  ) {
+    guard let owner = currentState?.owner else { return }
+    onIntent?(
+      INativeHomeIntent(
+        owner: owner,
+        headerActionId: nil,
+        portfolioItemId: nil,
+        portfolioActionId: actionId,
+        portfolioActionValue: value
       )
     )
   }
@@ -625,8 +790,10 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
       return CGSize(width: collectionView.bounds.width, height: 56)
     }
     let height: CGFloat = switch item {
-    case .title: 64
+    case .title: 56
     case .token, .loading: 60
+    case .lowValueAssets, .riskAssets: 56
+    case .manageTokens: 60
     case let .toggle(isExpanded): isExpanded ? 70 : 50
     case .empty: 240
     }
@@ -651,7 +818,13 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
     case let .token(id):
       guard portfolioRows[id]?.enabled == true else { return }
       emitPortfolioItem(id)
-    case .title, .toggle, .loading, .empty:
+    case .lowValueAssets:
+      guard currentState?.portfolio.lowValueAssets.enabled == true else { return }
+      emitPortfolioAction(.openlowvalueassets)
+    case .riskAssets:
+      guard currentState?.portfolio.riskAssets.enabled == true else { return }
+      emitPortfolioAction(.openriskassets)
+    case .title, .manageTokens, .toggle, .loading, .empty:
       break
     }
   }
@@ -746,6 +919,14 @@ private final class HomeContainerTabHeaderView: UICollectionReusableView {
 private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
   static let reuseIdentifier = "HomeContainerPortfolioTitleCell"
   private let titleLabel = UILabel()
+  private let filterLabel = UILabel()
+  private let filterSwitchHost = UIView()
+  private let filterSwitch = UIControl()
+  private let filterSwitchThumb = UIView()
+  private let filterLoading = UIActivityIndicatorView(style: .medium)
+  private var filterSwitchThumbLeadingConstraint: NSLayoutConstraint?
+  private var filterSelected = false
+  private var onFilterChange: ((Bool) -> Void)?
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -753,11 +934,59 @@ private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
     titleLabel.adjustsFontForContentSizeCategory = false
     titleLabel.translatesAutoresizingMaskIntoConstraints = false
     contentView.addSubview(titleLabel)
+
+    filterLabel.font = HomeContainerTypography.regular(12)
+    filterLabel.adjustsFontForContentSizeCategory = false
+    filterLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(filterLabel)
+
+    filterSwitchHost.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(filterSwitchHost)
+    filterSwitch.layer.cornerRadius = 10
+    filterSwitch.clipsToBounds = true
+    filterSwitch.translatesAutoresizingMaskIntoConstraints = false
+    filterSwitch.addTarget(self, action: #selector(handleFilterChange), for: .touchUpInside)
+    filterSwitch.accessibilityIdentifier = "native-home-defi-token-switch"
+    filterSwitch.isAccessibilityElement = true
+    filterSwitchHost.addSubview(filterSwitch)
+
+    filterSwitchThumb.layer.cornerRadius = 8
+    filterSwitchThumb.isUserInteractionEnabled = false
+    filterSwitchThumb.translatesAutoresizingMaskIntoConstraints = false
+    filterSwitch.addSubview(filterSwitchThumb)
+
+    filterLoading.hidesWhenStopped = true
+    filterLoading.transform = CGAffineTransform(scaleX: 0.55, y: 0.55)
+    filterLoading.translatesAutoresizingMaskIntoConstraints = false
+    filterSwitchThumb.addSubview(filterLoading)
+
+    let filterSwitchThumbLeadingConstraint = filterSwitchThumb.leadingAnchor.constraint(
+      equalTo: filterSwitch.leadingAnchor,
+      constant: 2
+    )
+    self.filterSwitchThumbLeadingConstraint = filterSwitchThumbLeadingConstraint
+
     NSLayoutConstraint.activate([
       titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
-      titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: filterLabel.leadingAnchor, constant: -12),
+      titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
       titleLabel.heightAnchor.constraint(equalToConstant: 28),
+      filterSwitchHost.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      filterSwitchHost.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      filterSwitchHost.widthAnchor.constraint(equalToConstant: 32),
+      filterSwitchHost.heightAnchor.constraint(equalToConstant: 20),
+      filterSwitch.leadingAnchor.constraint(equalTo: filterSwitchHost.leadingAnchor),
+      filterSwitch.trailingAnchor.constraint(equalTo: filterSwitchHost.trailingAnchor),
+      filterSwitch.topAnchor.constraint(equalTo: filterSwitchHost.topAnchor),
+      filterSwitch.bottomAnchor.constraint(equalTo: filterSwitchHost.bottomAnchor),
+      filterSwitchThumbLeadingConstraint,
+      filterSwitchThumb.centerYAnchor.constraint(equalTo: filterSwitch.centerYAnchor),
+      filterSwitchThumb.widthAnchor.constraint(equalToConstant: 16),
+      filterSwitchThumb.heightAnchor.constraint(equalToConstant: 16),
+      filterLoading.centerXAnchor.constraint(equalTo: filterSwitchThumb.centerXAnchor),
+      filterLoading.centerYAnchor.constraint(equalTo: filterSwitchThumb.centerYAnchor),
+      filterLabel.trailingAnchor.constraint(equalTo: filterSwitchHost.leadingAnchor, constant: -8),
+      filterLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
     ])
   }
 
@@ -766,16 +995,64 @@ private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
     fatalError("init(coder:) has not been implemented")
   }
 
-  func apply(title: String, backgroundColor: UIColor, textColor: UIColor) {
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    onFilterChange = nil
+  }
+
+  func apply(
+    title: String,
+    filter: INativeHomePortfolioDeFiTokensViewModel?,
+    backgroundColor: UIColor,
+    primaryTextColor: UIColor,
+    secondaryTextColor: UIColor,
+    disabledTextColor: UIColor,
+    switchOffColor: UIColor,
+    switchThumbColor: UIColor,
+    onFilterChange: @escaping (Bool) -> Void
+  ) {
     contentView.backgroundColor = backgroundColor
     titleLabel.text = title
-    titleLabel.textColor = textColor
+    titleLabel.textColor = primaryTextColor
+    filterLabel.text = filter?.title
+    filterLabel.textColor = filter?.enabled == true && filter?.loading != true
+      ? secondaryTextColor
+      : disabledTextColor
+    filterLabel.isHidden = filter?.visible != true
+    filterSwitchHost.isHidden = filter?.visible != true
+    filterSelected = filter?.selected == true
+    filterSwitch.isEnabled = filter?.enabled == true
+    filterSwitch.alpha = filter?.enabled == true && filter?.loading != true ? 1 : 0.5
+    filterSwitch.backgroundColor = filterSelected ? primaryTextColor : switchOffColor
+    filterSwitchThumb.backgroundColor = switchThumbColor
+    filterSwitchThumbLeadingConstraint?.constant = filterSelected ? 14 : 2
+    filterSwitch.accessibilityValue = filterSelected ? "1" : "0"
+    filterSwitch.accessibilityTraits = filterSelected ? [.button, .selected] : .button
+    if filter?.loading == true {
+      filterLoading.startAnimating()
+    } else {
+      filterLoading.stopAnimating()
+    }
+    self.onFilterChange = onFilterChange
+  }
+
+  @objc
+  private func handleFilterChange() {
+    filterSelected.toggle()
+    filterSwitchThumbLeadingConstraint?.constant = filterSelected ? 14 : 2
+    filterSwitch.accessibilityValue = filterSelected ? "1" : "0"
+    filterSwitch.accessibilityTraits = filterSelected ? [.button, .selected] : .button
+    UIView.animate(withDuration: 0.2) {
+      self.filterSwitch.layoutIfNeeded()
+    }
+    onFilterChange?(filterSelected)
   }
 }
 
 private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
   static let reuseIdentifier = "HomeContainerPortfolioTokenCell"
 
+  private let highlightView = UIView()
   private let tokenImageView = UIImageView()
   private let networkImageView = UIImageView()
   private let titleLabel = UILabel()
@@ -789,9 +1066,24 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
   private var tokenImageTask: URLSessionDataTask?
   private var networkImageTask: URLSessionDataTask?
   private var representedId = ""
+  private var activeColor = UIColor.systemGray5
+  private var isInteractive = false
+
+  override var isHighlighted: Bool {
+    didSet {
+      updateHighlight()
+    }
+  }
 
   override init(frame: CGRect) {
     super.init(frame: frame)
+
+    highlightView.layer.cornerRadius = 12
+    highlightView.layer.cornerCurve = .continuous
+    highlightView.isHidden = true
+    highlightView.isUserInteractionEnabled = false
+    highlightView.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(highlightView)
 
     tokenImageView.contentMode = .scaleAspectFill
     tokenImageView.clipsToBounds = true
@@ -837,10 +1129,11 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
       contentView.addSubview(skeleton)
     }
 
-    let selectedBackground = UIView()
-    selectedBackgroundView = selectedBackground
-
     NSLayoutConstraint.activate([
+      highlightView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+      highlightView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+      highlightView.topAnchor.constraint(equalTo: contentView.topAnchor),
+      highlightView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
       tokenImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
       tokenImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
       tokenImageView.widthAnchor.constraint(equalToConstant: 40),
@@ -897,6 +1190,8 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     networkImageTask = nil
     tokenImageView.image = nil
     networkImageView.image = nil
+    isInteractive = false
+    updateHighlight()
   }
 
   func apply(
@@ -913,6 +1208,7 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     enabled: Bool,
     backgroundColor: UIColor,
     surfaceColor: UIColor,
+    activeColor: UIColor,
     primaryTextColor: UIColor,
     secondaryTextColor: UIColor,
     successTextColor: UIColor,
@@ -920,7 +1216,9 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
   ) {
     representedId = id
     contentView.backgroundColor = backgroundColor
-    selectedBackgroundView?.backgroundColor = surfaceColor
+    self.activeColor = activeColor
+    isInteractive = enabled
+    updateHighlight()
     tokenImageView.backgroundColor = surfaceColor
     networkImageView.backgroundColor = backgroundColor
     networkImageView.layer.borderColor = backgroundColor.cgColor
@@ -971,7 +1269,8 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
   func applyLoading(backgroundColor: UIColor, surfaceColor: UIColor) {
     representedId = ""
     contentView.backgroundColor = backgroundColor
-    selectedBackgroundView?.backgroundColor = backgroundColor
+    isInteractive = false
+    updateHighlight()
     tokenImageView.image = nil
     tokenImageView.backgroundColor = surfaceColor
     networkImageView.isHidden = true
@@ -993,6 +1292,11 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     alpha = 1
     isUserInteractionEnabled = false
     accessibilityIdentifier = nil
+  }
+
+  private func updateHighlight() {
+    highlightView.backgroundColor = activeColor
+    highlightView.isHidden = !isInteractive || !isHighlighted
   }
 
   private func loadImage(
@@ -1028,6 +1332,182 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
       tokenImageTask = task
     }
     task.resume()
+  }
+}
+
+private final class HomeContainerPortfolioFooterCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioFooterCell"
+
+  private let highlightView = UIView()
+  private let iconHost = UIView()
+  private let iconView = UIImageView()
+  private let titleLabel = UILabel()
+  private let valueLabel = UILabel()
+  private var activeColor = UIColor.systemGray5
+  private var isInteractive = false
+
+  override var isHighlighted: Bool {
+    didSet {
+      updateHighlight()
+    }
+  }
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    highlightView.layer.cornerRadius = 12
+    highlightView.layer.cornerCurve = .continuous
+    highlightView.isHidden = true
+    highlightView.isUserInteractionEnabled = false
+    highlightView.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(highlightView)
+
+    iconHost.layer.cornerRadius = 20
+    iconHost.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(iconHost)
+
+    iconView.contentMode = .center
+    iconView.translatesAutoresizingMaskIntoConstraints = false
+    iconHost.addSubview(iconView)
+
+    titleLabel.font = HomeContainerTypography.medium(16)
+    titleLabel.adjustsFontForContentSizeCategory = false
+    titleLabel.lineBreakMode = .byTruncatingTail
+    titleLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(titleLabel)
+
+    valueLabel.font = HomeContainerTypography.medium(16)
+    valueLabel.adjustsFontForContentSizeCategory = false
+    valueLabel.textAlignment = .right
+    valueLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(valueLabel)
+
+    NSLayoutConstraint.activate([
+      highlightView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+      highlightView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+      highlightView.topAnchor.constraint(equalTo: contentView.topAnchor),
+      highlightView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+      iconHost.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      iconHost.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      iconHost.widthAnchor.constraint(equalToConstant: 40),
+      iconHost.heightAnchor.constraint(equalToConstant: 40),
+      iconView.leadingAnchor.constraint(equalTo: iconHost.leadingAnchor),
+      iconView.trailingAnchor.constraint(equalTo: iconHost.trailingAnchor),
+      iconView.topAnchor.constraint(equalTo: iconHost.topAnchor),
+      iconView.bottomAnchor.constraint(equalTo: iconHost.bottomAnchor),
+      titleLabel.leadingAnchor.constraint(equalTo: iconHost.trailingAnchor, constant: 12),
+      titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: valueLabel.leadingAnchor, constant: -12),
+      valueLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      valueLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func apply(
+    title: String,
+    value: String,
+    icon: UIImage,
+    accessibilityIdentifier: String,
+    enabled: Bool,
+    backgroundColor: UIColor,
+    surfaceColor: UIColor,
+    activeColor: UIColor,
+    primaryTextColor: UIColor,
+    secondaryTextColor: UIColor
+  ) {
+    contentView.backgroundColor = backgroundColor
+    self.activeColor = activeColor
+    isInteractive = enabled
+    isUserInteractionEnabled = enabled
+    updateHighlight()
+    contentView.alpha = enabled ? 1 : 0.45
+    contentView.accessibilityIdentifier = accessibilityIdentifier
+    iconHost.backgroundColor = surfaceColor
+    iconView.image = icon
+    iconView.tintColor = secondaryTextColor
+    titleLabel.text = title
+    titleLabel.textColor = primaryTextColor
+    valueLabel.text = value
+    valueLabel.textColor = primaryTextColor
+  }
+
+  private func updateHighlight() {
+    highlightView.backgroundColor = activeColor
+    highlightView.isHidden = !isInteractive || !isHighlighted
+  }
+}
+
+private final class HomeContainerPortfolioManageTokensCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioManageTokensCell"
+
+  private let stack = UIStackView()
+  private let instructionLabel = UILabel()
+  private let actionButton = UIButton(type: .system)
+  private var onPress: (() -> Void)?
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    stack.axis = .horizontal
+    stack.alignment = .center
+    stack.spacing = 10
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(stack)
+
+    instructionLabel.font = HomeContainerTypography.regular(14)
+    instructionLabel.adjustsFontForContentSizeCategory = false
+    instructionLabel.textAlignment = .center
+    instructionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    stack.addArrangedSubview(instructionLabel)
+
+    actionButton.titleLabel?.font = HomeContainerTypography.regular(14)
+    actionButton.titleLabel?.adjustsFontForContentSizeCategory = false
+    actionButton.accessibilityIdentifier = "native-home-manage-tokens"
+    actionButton.addTarget(self, action: #selector(handlePress), for: .touchUpInside)
+    stack.addArrangedSubview(actionButton)
+
+    NSLayoutConstraint.activate([
+      stack.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+      stack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      stack.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 20),
+      stack.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    onPress = nil
+  }
+
+  func apply(
+    instruction: String,
+    actionTitle: String,
+    enabled: Bool,
+    backgroundColor: UIColor,
+    disabledTextColor: UIColor,
+    actionTextColor: UIColor,
+    onPress: @escaping () -> Void
+  ) {
+    contentView.backgroundColor = backgroundColor
+    instructionLabel.text = instruction
+    instructionLabel.textColor = disabledTextColor
+    actionButton.setTitle("\(actionTitle) →", for: .normal)
+    actionButton.setTitleColor(actionTextColor, for: .normal)
+    actionButton.isEnabled = enabled
+    self.onPress = onPress
+  }
+
+  @objc
+  private func handlePress() {
+    onPress?()
   }
 }
 

@@ -1,5 +1,6 @@
 import {
   type MutableRefObject,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -27,6 +28,10 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
+import {
+  type IHomeTokenListFooterController,
+  useHomeTokenListFooterController,
+} from '@onekeyhq/kit/src/components/TokenListView/TokenListFooter';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import {
   type IScopedActiveTokenList,
@@ -225,17 +230,62 @@ function isSameActiveAccountTokenListRequestContext(
 
 export type IHomeTokenPressHandler = (token: IAccountToken) => Promise<void>;
 
+export type IHomeTokenListProducerData = {
+  deFiTokens: {
+    visible: boolean;
+    selected: boolean;
+    loading: boolean;
+    enabled: boolean;
+    onChange: (value: boolean) => void;
+  };
+  scopedTokenList: IScopedActiveTokenList;
+  scopedTokenListMap: Record<string, ITokenFiat>;
+  scopedTokenListState: IScopedActiveTokenListState;
+  footer: IHomeTokenListFooterController;
+  allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> | undefined;
+};
+
+function HomeTokenListProducerOutput({
+  allAggregateTokenMap,
+  deFiTokens,
+  footerOptions,
+  render,
+  scopedTokenList,
+  scopedTokenListMap,
+  scopedTokenListState,
+}: {
+  allAggregateTokenMap: IHomeTokenListProducerData['allAggregateTokenMap'];
+  deFiTokens: IHomeTokenListProducerData['deFiTokens'];
+  footerOptions: Parameters<typeof useHomeTokenListFooterController>[0];
+  render: (data: IHomeTokenListProducerData) => ReactNode;
+  scopedTokenList: IScopedActiveTokenList;
+  scopedTokenListMap: Record<string, ITokenFiat>;
+  scopedTokenListState: IScopedActiveTokenListState;
+}) {
+  const footer = useHomeTokenListFooterController(footerOptions);
+  return render({
+    allAggregateTokenMap,
+    deFiTokens,
+    footer,
+    scopedTokenList,
+    scopedTokenListMap,
+    scopedTokenListState,
+  });
+}
+
 function TokenListBlock({
   tableLayout,
   showRecentHistory,
   producerOnly,
   forceFocused,
+  producerRender,
   tokenPressHandlerRef,
 }: {
   tableLayout?: boolean;
   showRecentHistory?: boolean;
   producerOnly?: boolean;
   forceFocused?: boolean;
+  producerRender?: (data: IHomeTokenListProducerData) => ReactNode;
   tokenPressHandlerRef?: MutableRefObject<IHomeTokenPressHandler | undefined>;
 }) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -2844,7 +2894,32 @@ function TokenListBlock({
   ]);
 
   if (producerOnly) {
-    return null;
+    return producerRender ? (
+      <HomeTokenListProducerOutput
+        allAggregateTokenMap={allAggregateTokenMap}
+        deFiTokens={{
+          visible: showLpTokenFilterSwitch,
+          selected: showLpTokensOnly,
+          loading: isLpTokenSwitchLoading,
+          enabled: !isLpTokenSwitchLoading,
+          onChange: handleLpTokenFilterChange,
+        }}
+        footerOptions={{
+          hideZeroBalanceTokens: showLpTokensOnly
+            ? false
+            : !!network?.isAllNetworks,
+          hideDeFiMarkedTokens: !showLpTokensOnly,
+          hasTokens: showLpTokensOnly
+            ? scopedLpTokenList.tokens.length > 0
+            : listStructure.orderedIds.length > 0,
+          manageTokenEnabled: manageTokenEnabled && !showLpTokensOnly,
+        }}
+        render={producerRender}
+        scopedTokenList={scopedLpTokenList}
+        scopedTokenListMap={scopedLpTokenListMap}
+        scopedTokenListState={scopedLpTokenListState}
+      />
+    ) : null;
   }
 
   return (
@@ -2863,14 +2938,17 @@ function TokenListBlock({
 }
 
 function HomeTokenListDataProducer({
+  render,
   tokenPressHandlerRef,
 }: {
+  render: (data: IHomeTokenListProducerData) => ReactNode;
   tokenPressHandlerRef: MutableRefObject<IHomeTokenPressHandler | undefined>;
 }) {
   return (
     <TokenListBlock
       forceFocused
       producerOnly
+      producerRender={render}
       tokenPressHandlerRef={tokenPressHandlerRef}
     />
   );

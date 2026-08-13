@@ -1,4 +1,5 @@
 import {
+  type MutableRefObject,
   useCallback,
   useEffect,
   useId,
@@ -27,6 +28,7 @@ import {
   aggCell,
   cell,
   meta,
+  subcell,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
@@ -45,6 +47,7 @@ import {
   type INativeHomePortfolioItemViewModel,
   type INativeHomeViewModel,
   type NativeHomeHeaderActionId,
+  type NativeHomePortfolioActionId,
 } from '@onekeyhq/native-components';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,12 +57,14 @@ import {
   formatDisplayNumber,
   formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import {
   HomeTokenListDataProducer,
+  type IHomeTokenListProducerData,
   type IHomeTokenPressHandler,
 } from '../components/TokenListBlock/TokenListBlock';
 import { useWalletActionSend } from '../components/WalletActions';
@@ -74,6 +79,7 @@ import { useHomeOverviewResolvedBalance } from '../hooks/useHomeOverviewResolved
 
 import { isNativeHomeIntentExecutable } from './nativeHomeIntentValidation';
 import {
+  buildNativeHomeFiatValueText,
   buildNativeHomePortfolioItemViewModel,
   buildNativeHomePortfolioViewModel,
 } from './nativeHomePortfolioViewModel';
@@ -89,6 +95,10 @@ const styles = StyleSheet.create({
 type IHeaderActionHandler = () => void | Promise<void>;
 type IHeaderActionHandlers = Partial<
   Record<NativeHomeHeaderActionId, IHeaderActionHandler>
+>;
+type IPortfolioActionHandler = (value?: boolean) => void | Promise<void>;
+type IPortfolioActionHandlers = Partial<
+  Record<NativeHomePortfolioActionId, IPortfolioActionHandler>
 >;
 
 function useNativeHomeOwnerToken(
@@ -372,7 +382,7 @@ function useNativeHomeHeaderActions(): {
   };
 }
 
-function useNativeHomePortfolio(): {
+function useNativeHomePortfolio(producerData: IHomeTokenListProducerData): {
   portfolio: INativeHomeViewModel['portfolio'];
   tokensById: Map<string, IAccountToken>;
 } {
@@ -391,8 +401,12 @@ function useNativeHomePortfolio(): {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tokenListStore = useTokenListContextData().store!;
   const ownerMatches = !!ownerKey && listStructure.ownerKey === ownerKey;
+  const showDeFiTokens = producerData.deFiTokens.selected;
 
   const displayIds = useMemo(() => {
+    if (showDeFiTokens) {
+      return producerData.scopedTokenList.tokens.map((token) => token.$key);
+    }
     const getMeta = (key: string) =>
       tokenListStore.get(meta(tokenListStore, key));
     const getFiat = (key: string) => {
@@ -419,13 +433,15 @@ function useNativeHomePortfolio(): {
     listStructure,
     network?.isAllNetworks,
     ownerMatches,
+    producerData.scopedTokenList.tokens,
+    showDeFiTokens,
     sortDirection,
     sortType,
     tokenListStore,
   ]);
 
   useEffect(() => {
-    if (!ownerMatches) return undefined;
+    if (!ownerMatches || showDeFiTokens) return undefined;
     const unsubscribeFns = displayIds.map((id) => {
       const tokenMeta = tokenListStore.get(meta(tokenListStore, id));
       const fiatAtom = isAgg(id, tokenMeta)
@@ -436,7 +452,7 @@ function useNativeHomePortfolio(): {
       });
     });
     return () => unsubscribeFns.forEach((unsubscribe) => unsubscribe());
-  }, [displayIds, ownerMatches, tokenListStore]);
+  }, [displayIds, ownerMatches, showDeFiTokens, tokenListStore]);
 
   return useMemo(() => {
     void valuationRevision;
@@ -449,15 +465,60 @@ function useNativeHomePortfolio(): {
         : tokenListStore.get(cell(tokenListStore, key));
     };
     const tokensById = new Map<string, IAccountToken>();
+    const scopedTokensById = new Map(
+      producerData.scopedTokenList.tokens.map((token) => [token.$key, token]),
+    );
     const items = displayIds
       .map((id): INativeHomePortfolioItemViewModel | undefined => {
-        const tokenMeta = getMeta(id);
-        if (!tokenMeta) return undefined;
-
-        const token = { $key: id, ...tokenMeta } as IAccountToken;
+        const token = showDeFiTokens
+          ? scopedTokensById.get(id)
+          : (() => {
+              const tokenMeta = getMeta(id);
+              return tokenMeta
+                ? ({ $key: id, ...tokenMeta } as IAccountToken)
+                : undefined;
+            })();
+        if (!token) return undefined;
         tokensById.set(id, token);
+        let selectedNetworkId = token.networkId ?? '';
+        if (
+          !showDeFiTokens &&
+          network?.isAllNetworks &&
+          token.isAggregateToken
+        ) {
+          const aggregateTokenList =
+            listStructure.ownedAggregateTokenListMap[id]?.tokens ?? [];
+          const firstAggregateToken = aggregateTokenList[0];
+          const allAggregateTokenList =
+            producerData.allAggregateTokenMap?.[id]?.tokens ?? [];
+          const subTokenFiatMap = Object.fromEntries(
+            aggregateTokenList.flatMap((subToken) => {
+              const fiat = tokenListStore.get(
+                subcell(tokenListStore, id, subToken.networkId ?? ''),
+              );
+              return fiat ? [[subToken.$key, fiat]] : [];
+            }),
+          );
+          const { tokenHasBalance, tokenHasBalanceCount } =
+            checkIsOnlyOneTokenHasBalance({
+              aggregateTokenList,
+              allAggregateTokenList,
+              tokenMap: subTokenFiatMap,
+            });
+          if (
+            (firstAggregateToken?.networkId &&
+              aggregateTokenList.length === 1 &&
+              allAggregateTokenList.length === 0) ||
+            (tokenHasBalance && tokenHasBalanceCount === 1)
+          ) {
+            selectedNetworkId =
+              tokenHasBalance?.networkId ??
+              firstAggregateToken?.networkId ??
+              selectedNetworkId;
+          }
+        }
         const networkLogo = network?.isAllNetworks
-          ? networkUtils.getLocalNetworkInfo(token.networkId ?? '')?.logoURI
+          ? networkUtils.getLocalNetworkInfo(selectedNetworkId)?.logoURI
           : undefined;
         return buildNativeHomePortfolioItemViewModel({
           id,
@@ -466,8 +527,12 @@ function useNativeHomePortfolio(): {
             : (token.symbol ?? ''),
           iconUrl: token.logoURI ?? '',
           networkIconUrl: networkLogo ?? '',
-          fiat: getFiat(id),
-          valuationSettled: tokenListState.initialized,
+          fiat: showDeFiTokens
+            ? producerData.scopedTokenListMap[id]
+            : getFiat(id),
+          valuationSettled: showDeFiTokens
+            ? producerData.scopedTokenListState.initialized
+            : tokenListState.initialized,
           hideValue: settingsValue.hideValue,
           currencyMap,
           targetCurrencyId: settings.currencyInfo.id,
@@ -476,11 +541,15 @@ function useNativeHomePortfolio(): {
         });
       })
       .filter((item): item is INativeHomePortfolioItemViewModel => !!item);
+    let generation = listStructure.generation;
+    if (showDeFiTokens) {
+      generation = producerData.scopedTokenListState.initialized ? 0 : -1;
+    }
 
     return {
       portfolio: buildNativeHomePortfolioViewModel({
-        ownerMatches,
-        generation: listStructure.generation,
+        ownerMatches: showDeFiTokens ? true : ownerMatches,
+        generation,
         sourceItemCount: displayIds.length,
         items,
         title: intl.formatMessage({
@@ -496,6 +565,47 @@ function useNativeHomePortfolio(): {
           id: ETranslations.global_show_less,
         }),
         initialVisibleItemCount: 6,
+        deFiTokensFilter: {
+          visible: producerData.deFiTokens.visible,
+          title: intl.formatMessage({
+            id: ETranslations.wallet_defi_tokens__action,
+          }),
+          selected: showDeFiTokens,
+          loading: producerData.deFiTokens.loading,
+          enabled: producerData.deFiTokens.enabled,
+        },
+        lowValueAssets: {
+          visible: producerData.footer.lowValueAssets.visible,
+          title: `${
+            producerData.footer.lowValueAssets.count
+          } ${intl.formatMessage({ id: ETranslations.low_value_assets })}`,
+          valueText: buildNativeHomeFiatValueText({
+            valueUsd: producerData.footer.lowValueAssets.valueUsd,
+            hideValue: settingsValue.hideValue,
+            currencyMap,
+            targetCurrencyId: settings.currencyInfo.id,
+            targetCurrencySymbol: settings.currencyInfo.symbol,
+          }),
+          enabled: true,
+        },
+        riskAssets: {
+          visible: producerData.footer.riskAssets.visible,
+          title: intl.formatMessage(
+            { id: ETranslations.wallet_collapsed_risk_assets_number },
+            { number: producerData.footer.riskAssets.count },
+          ),
+          enabled: true,
+        },
+        manageTokens: {
+          visible: producerData.footer.manageTokens.visible,
+          instruction: intl.formatMessage({
+            id: ETranslations.add_token_instruction,
+          }),
+          actionTitle: intl.formatMessage({
+            id: ETranslations.add_token_label,
+          }),
+          enabled: true,
+        },
       }),
       tokensById,
     };
@@ -504,34 +614,39 @@ function useNativeHomePortfolio(): {
     displayIds,
     intl,
     listStructure.generation,
+    listStructure.ownedAggregateTokenListMap,
     network?.isAllNetworks,
     ownerMatches,
+    producerData,
     settings.currencyInfo.id,
     settings.currencyInfo.symbol,
     settingsValue.hideValue,
     tokenListState.initialized,
     tokenListStore,
     valuationRevision,
+    showDeFiTokens,
   ]);
 }
 
-function NativeHomeContent({
+function NativeHomeContentWithProducer({
+  producerData,
   sceneName,
+  tokenPressHandlerRef,
 }: {
+  producerData: IHomeTokenListProducerData;
   sceneName: EAccountSelectorSceneName;
+  tokenPressHandlerRef: MutableRefObject<IHomeTokenPressHandler | undefined>;
 }) {
   const intl = useIntl();
   const colorScheme = useColorScheme();
   const owner = useNativeHomeOwnerToken(sceneName);
   const balance = useNativeHomeHeaderBalance();
   const headerActions = useNativeHomeHeaderActions();
-  const { portfolio, tokensById } = useNativeHomePortfolio();
+  const { portfolio, tokensById } = useNativeHomePortfolio(producerData);
   const viewModelRef = useRef<INativeHomeViewModel | null>(null);
   const actionHandlersRef = useRef<IHeaderActionHandlers>({});
+  const portfolioActionHandlersRef = useRef<IPortfolioActionHandlers>({});
   const portfolioTokensRef = useRef<Map<string, IAccountToken>>(new Map());
-  const tokenPressHandlerRef = useRef<IHomeTokenPressHandler | undefined>(
-    undefined,
-  );
 
   const state = useMemo<INativeHomeViewModel>(() => {
     return {
@@ -590,35 +705,80 @@ function NativeHomeContent({
   ]);
   viewModelRef.current = state;
   actionHandlersRef.current = headerActions.handlers;
+  portfolioActionHandlersRef.current = {
+    manageTokens: producerData.footer.manageTokens.onPress,
+    openLowValueAssets: producerData.footer.lowValueAssets.onPress,
+    openRiskAssets: producerData.footer.riskAssets.onPress,
+    toggleDeFiTokens: (value) => {
+      if (typeof value === 'boolean') {
+        producerData.deFiTokens.onChange(value);
+      }
+    },
+  };
   portfolioTokensRef.current = tokensById;
 
-  const handleIntent = useCallback((intent: INativeHomeIntent) => {
-    const currentViewModel = viewModelRef.current;
-    if (!isNativeHomeIntentExecutable({ intent, viewModel: currentViewModel }))
-      return;
+  const handleIntent = useCallback(
+    (intent: INativeHomeIntent) => {
+      const currentViewModel = viewModelRef.current;
+      if (
+        !isNativeHomeIntentExecutable({ intent, viewModel: currentViewModel })
+      )
+        return;
 
-    if (intent.headerActionId) {
-      const handler = actionHandlersRef.current[intent.headerActionId];
-      if (handler) void handler();
-      return;
-    }
+      if (intent.headerActionId) {
+        const handler = actionHandlersRef.current[intent.headerActionId];
+        if (handler) void handler();
+        return;
+      }
 
-    if (intent.portfolioItemId) {
-      const token = portfolioTokensRef.current.get(intent.portfolioItemId);
-      const handler = tokenPressHandlerRef.current;
-      if (token && handler) void handler(token);
-    }
-  }, []);
+      if (intent.portfolioItemId) {
+        const token = portfolioTokensRef.current.get(intent.portfolioItemId);
+        const handler = tokenPressHandlerRef.current;
+        if (token && handler) void handler(token);
+        return;
+      }
+
+      if (intent.portfolioActionId) {
+        const handler =
+          portfolioActionHandlersRef.current[intent.portfolioActionId];
+        if (handler) void handler(intent.portfolioActionValue);
+      }
+    },
+    [tokenPressHandlerRef],
+  );
 
   return (
-    <>
-      <HomeTokenListDataProducer tokenPressHandlerRef={tokenPressHandlerRef} />
-      <HomeContainer
-        style={styles.container}
-        state={state}
-        onIntent={handleIntent}
+    <HomeContainer
+      style={styles.container}
+      state={state}
+      onIntent={handleIntent}
+    />
+  );
+}
+
+function NativeHomeContent({
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName;
+}) {
+  const tokenPressHandlerRef = useRef<IHomeTokenPressHandler | undefined>(
+    undefined,
+  );
+  const render = useCallback(
+    (producerData: IHomeTokenListProducerData) => (
+      <NativeHomeContentWithProducer
+        producerData={producerData}
+        sceneName={sceneName}
+        tokenPressHandlerRef={tokenPressHandlerRef}
       />
-    </>
+    ),
+    [sceneName],
+  );
+  return (
+    <HomeTokenListDataProducer
+      render={render}
+      tokenPressHandlerRef={tokenPressHandlerRef}
+    />
   );
 }
 
