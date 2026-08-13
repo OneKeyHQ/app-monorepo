@@ -12,6 +12,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useIsSplitMainActive,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import {
@@ -44,6 +45,7 @@ import {
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
+import { PerpMobileChartPanel } from '../components/PerpMobileChartPanel';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
@@ -130,6 +132,7 @@ TabBarItem.displayName = 'TabBarItem';
 
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const isSplitMainActive = useIsSplitMainActive();
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
@@ -362,125 +365,130 @@ export function PerpMobileLayout() {
   ]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: '$bgApp' }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[1]}
-      onLayout={handleScrollViewportLayout}
-      onContentSizeChange={handleContentSizeChange}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-      }
-    >
-      <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
-        <PerpTips />
-        <PerpMobileNetworkAlert />
-      </YStack>
+    <YStack flex={1} position="relative" bg="$bgApp">
+      <ScrollView
+        style={{ flex: 1, backgroundColor: '$bgApp' }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        stickyHeaderIndices={[1]}
+        onLayout={handleScrollViewportLayout}
+        onContentSizeChange={handleContentSizeChange}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        <YStack onLayout={(event) => handleTraceLayout('alerts', event)}>
+          <PerpTips />
+          <PerpMobileNetworkAlert />
+        </YStack>
 
-      <YStack onLayout={(event) => handleTraceLayout('tickerBar', event)}>
-        <PerpTickerBar />
-      </YStack>
-      <XStack
-        gap="$3.5"
-        px="$4"
-        pb="$4"
-        onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
-      >
-        {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
-        <YStack
-          flex={35}
-          flexBasis={0}
-          minWidth={0}
-          onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
-        >
-          <PerpOrderBook />
+        <YStack onLayout={(event) => handleTraceLayout('tickerBar', event)}>
+          <PerpTickerBar />
         </YStack>
-        <YStack
-          flex={65}
-          flexBasis={0}
-          minWidth={0}
-          onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
+        <XStack
+          gap="$3.5"
+          px="$4"
+          pb="$4"
+          onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
         >
-          <PerpTradingPanel isMobile />
-        </YStack>
-      </XStack>
-      <XStack
-        bg="$bgApp"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        justifyContent="space-between"
-        alignItems="center"
-        pr="$4"
-        pl="$4"
-        onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
-      >
-        <XStack gap="$5">
-          <TabBarItem
-            name={ETabName.Positions}
-            isFocused={activeTab === ETabName.Positions}
-            onPress={setActiveTab}
-            tabCount={positionsTabCount}
-          />
-          <TabBarItem
-            name={ETabName.OpenOrders}
-            isFocused={activeTab === ETabName.OpenOrders}
-            onPress={setActiveTab}
-            tabCount={openOrdersTabCount}
-          />
-          <TabBarItem
-            name={ETabName.Balances}
-            isFocused={activeTab === ETabName.Balances}
-            onPress={setActiveTab}
-            tabCount={holdingsTabCount}
+          {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
+          <YStack
+            flex={35}
+            flexBasis={0}
+            minWidth={0}
+            onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
+          >
+            <PerpOrderBook />
+          </YStack>
+          <YStack
+            flex={65}
+            flexBasis={0}
+            minWidth={0}
+            onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
+          >
+            <PerpTradingPanel isMobile />
+          </YStack>
+        </XStack>
+        <XStack
+          bg="$bgApp"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          justifyContent="space-between"
+          alignItems="center"
+          pr="$4"
+          pl="$4"
+          onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
+        >
+          <XStack gap="$5">
+            <TabBarItem
+              name={ETabName.Positions}
+              isFocused={activeTab === ETabName.Positions}
+              onPress={setActiveTab}
+              tabCount={positionsTabCount}
+            />
+            <TabBarItem
+              name={ETabName.OpenOrders}
+              isFocused={activeTab === ETabName.OpenOrders}
+              onPress={setActiveTab}
+              tabCount={openOrdersTabCount}
+            />
+            <TabBarItem
+              name={ETabName.Balances}
+              isFocused={activeTab === ETabName.Balances}
+              onPress={setActiveTab}
+              tabCount={holdingsTabCount}
+            />
+          </XStack>
+          <IconButton
+            testID="perp-icon-btn"
+            variant="tertiary"
+            size="small"
+            borderRadius="$full"
+            icon="ClockTimeHistoryOutline"
+            onPress={handleViewTradesHistory}
           />
         </XStack>
-        <IconButton
-          testID="perp-icon-btn"
-          variant="tertiary"
-          size="small"
-          borderRadius="$full"
-          icon="ClockTimeHistoryOutline"
-          onPress={handleViewTradesHistory}
-        />
-      </XStack>
-      <YStack
-        flex={1}
-        onLayout={(event) => handleTraceLayout('tabContent', event)}
-      >
         <YStack
-          display={activeTab === ETabName.Positions ? 'flex' : 'none'}
           flex={1}
-          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
+          onLayout={(event) => handleTraceLayout('tabContent', event)}
         >
-          <PerpPositionsList
-            handleViewTpslOrders={handleViewTpslOrders}
-            isMobile
-            useTabsList={false}
-            disableListScroll
-          />
+          <YStack
+            display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+            flex={1}
+            onLayout={(event) => handleTraceLayout('positionsPanel', event)}
+          >
+            <PerpPositionsList
+              handleViewTpslOrders={handleViewTpslOrders}
+              isMobile
+              useTabsList={false}
+              disableListScroll
+            />
+          </YStack>
+          <YStack
+            display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
+            flex={1}
+            onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
+          >
+            <PerpOpenOrdersList
+              isMobile
+              isPanelActive={activeTab === ETabName.OpenOrders}
+              useTabsList={false}
+              disableListScroll
+            />
+          </YStack>
+          <YStack
+            display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+            flex={1}
+            onLayout={(event) => handleTraceLayout('balancesPanel', event)}
+          >
+            <SpotBalanceList isMobile useTabsList={false} disableListScroll />
+          </YStack>
         </YStack>
-        <YStack
-          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
-        >
-          <PerpOpenOrdersList
-            isMobile
-            isPanelActive={activeTab === ETabName.OpenOrders}
-            useTabsList={false}
-            disableListScroll
-          />
-        </YStack>
-        <YStack
-          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
-          flex={1}
-          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
-        >
-          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
-        </YStack>
-      </YStack>
-    </ScrollView>
+      </ScrollView>
+      {!isSplitMainActive ? (
+        <PerpMobileChartPanel bottomOffset={tabBarHeight ?? 0} />
+      ) : null}
+    </YStack>
   );
 }

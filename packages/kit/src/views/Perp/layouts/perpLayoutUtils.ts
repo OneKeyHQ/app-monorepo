@@ -2,6 +2,11 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 
 export const ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT = 36;
 export const ORDER_BOOK_SIDE_RATIO_GAP = 4;
+export const PERP_DESKTOP_CHART_MIN_HEIGHT = 360;
+export const PERP_DESKTOP_INFO_MIN_HEIGHT = 240;
+export const PERP_DESKTOP_TRADING_MIN_WIDTH = 320;
+export const PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT = 360;
+export const PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT = 240;
 
 const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
@@ -33,13 +38,105 @@ const DESKTOP_LAYOUT_WIDTH_LIMITS = {
     max: 360,
   },
   tradingPanel: {
-    min: 320,
+    min: PERP_DESKTOP_TRADING_MIN_WIDTH,
     max: 420,
   },
 } as const;
 
 function clampSize(value: number, min: number, max: number) {
   return Math.round(Math.min(Math.max(value, min), max));
+}
+
+function getVerticalSplitSizes({
+  topDefaultHeight,
+  bottomDefaultHeight,
+  savedTopHeight,
+  topMinHeight,
+  bottomMinHeight,
+}: {
+  topDefaultHeight: number;
+  bottomDefaultHeight: number;
+  savedTopHeight?: number;
+  topMinHeight: number;
+  bottomMinHeight: number;
+}) {
+  const totalHeight = topDefaultHeight + bottomDefaultHeight;
+  const topHeightCandidate =
+    typeof savedTopHeight === 'number' && Number.isFinite(savedTopHeight)
+      ? savedTopHeight
+      : topDefaultHeight;
+  const topHeight = clampSize(
+    topHeightCandidate,
+    topMinHeight,
+    totalHeight - bottomMinHeight,
+  );
+
+  return [topHeight, totalHeight - topHeight];
+}
+
+export function getPerpDesktopMainSplitSizes({
+  availableWidth,
+  defaultTradingWidth,
+  savedTradingWidth,
+}: {
+  availableWidth: number;
+  defaultTradingWidth: number;
+  savedTradingWidth?: number;
+}) {
+  const tradingWidthCandidate =
+    typeof savedTradingWidth === 'number' && Number.isFinite(savedTradingWidth)
+      ? savedTradingWidth
+      : defaultTradingWidth;
+  const tradingMaxWidth = Math.max(
+    PERP_DESKTOP_TRADING_MIN_WIDTH,
+    Math.min(
+      PERP_LAYOUT_CONFIG.main.tradingMaxWidth,
+      availableWidth - PERP_LAYOUT_CONFIG.main.marketMinWidth,
+    ),
+  );
+  const tradingWidth = clampSize(
+    tradingWidthCandidate,
+    PERP_DESKTOP_TRADING_MIN_WIDTH,
+    tradingMaxWidth,
+  );
+
+  return [availableWidth - tradingWidth, tradingWidth];
+}
+
+export function getPerpDesktopChartSplitSizes({
+  marketContentHeight,
+  bottomPanelHeight,
+  savedChartHeight,
+}: {
+  marketContentHeight: number;
+  bottomPanelHeight: number;
+  savedChartHeight?: number;
+}) {
+  return getVerticalSplitSizes({
+    topDefaultHeight: marketContentHeight,
+    bottomDefaultHeight: bottomPanelHeight,
+    savedTopHeight: savedChartHeight,
+    topMinHeight: PERP_DESKTOP_CHART_MIN_HEIGHT,
+    bottomMinHeight: PERP_DESKTOP_INFO_MIN_HEIGHT,
+  });
+}
+
+export function getPerpDesktopTradingSplitSizes({
+  marketContentHeight,
+  bottomPanelHeight,
+  savedTradingPanelHeight,
+}: {
+  marketContentHeight: number;
+  bottomPanelHeight: number;
+  savedTradingPanelHeight?: number;
+}) {
+  return getVerticalSplitSizes({
+    topDefaultHeight: marketContentHeight,
+    bottomDefaultHeight: bottomPanelHeight,
+    savedTopHeight: savedTradingPanelHeight,
+    topMinHeight: PERP_DESKTOP_TRADING_PANEL_MIN_HEIGHT,
+    bottomMinHeight: PERP_DESKTOP_ACCOUNT_PANEL_MIN_HEIGHT,
+  });
 }
 
 export function getResponsivePerpDesktopLayout(

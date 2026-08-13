@@ -106,6 +106,16 @@ export const PerpTestIDs = {
 
   // -- Mobile candle chart button --
   CandleChartButton: 'perp-candle-chart-button',
+  DesktopSplitRoot: 'perp-desktop-split-root',
+  DesktopMainSplit: 'perp-desktop-main-split',
+  DesktopChartSplit: 'perp-desktop-chart-split',
+  DesktopChartBoundary: 'perp-desktop-chart-boundary',
+  DesktopTradingSplit: 'perp-desktop-trading-split',
+  DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
+  MobileChart: 'perp-mobile-chart',
+  MobileChartOverlay: 'perp-mobile-chart-overlay',
+  MobileChartToggle: 'perp-mobile-chart-toggle',
+  MobileChartContent: 'perp-mobile-chart-content',
 
   // -- Portfolio --
   PortfolioButton: 'perp-portfolio-button',
