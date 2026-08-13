@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import {
+  getDeviceSecondaryIdentifier,
   useCurrentWalletIdAtom,
   useDeviceMetaStateAtom,
   useDeviceMetaStaticAtom,
@@ -93,6 +94,8 @@ function DeviceBasicInfo({
   const [deviceMetaStatic] = useDeviceMetaStaticAtom();
   const [deviceMetaState] = useDeviceMetaStateAtom();
   const [refreshSettled] = useRefreshSettledAtom();
+  const deviceSecondaryIdentifier =
+    getDeviceSecondaryIdentifier(deviceMetaStatic);
 
   const isQrWallet = accountUtils.isQrWallet({ walletId: currentWalletId });
 
@@ -154,9 +157,9 @@ function DeviceBasicInfo({
           <XStack ml={-5} pr="$5">
             <DeviceWalletRenameButton textSize={titleTextSize} />
           </XStack>
-          {deviceMetaStatic.serialNo ? (
+          {deviceSecondaryIdentifier ? (
             <SizableText size="$bodyMd" color="$textSubdued" pl="$0.5">
-              {deviceMetaStatic.serialNo}
+              {deviceSecondaryIdentifier}
             </SizableText>
           ) : null}
           {isQrWallet || !showFirmwareVersion ? null : (

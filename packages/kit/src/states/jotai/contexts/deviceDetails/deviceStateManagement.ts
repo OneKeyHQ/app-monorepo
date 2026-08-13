@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   hasDeviceStateIdentityMismatch,
@@ -9,9 +9,8 @@ import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDevi
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
-import type { IDeviceMetaState } from './atoms';
+import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -200,11 +199,23 @@ export function canEditPro2DeviceWideSettings({
 export function getDeviceMetaStaticDataFromState(state: IOneKeyDeviceState) {
   return {
     deviceName: deviceUtils.getDeviceDisplayName({ state }),
+    bleName: state.identity.bleName ?? undefined,
     serialNo: state.identity.serialNo ?? undefined,
     deviceType: state.identity.deviceType,
     firmwareType: state.identity.firmwareType,
     firmwareVersion: state.versions.firmware ?? undefined,
   };
+}
+
+export function getDeviceSecondaryIdentifier(
+  deviceMetaStatic: Pick<
+    IDeviceMetaStatic,
+    'bleName' | 'deviceType' | 'serialNo'
+  >,
+) {
+  return deviceMetaStatic.deviceType === EDeviceType.Pro2
+    ? deviceMetaStatic.bleName || deviceMetaStatic.serialNo
+    : deviceMetaStatic.serialNo;
 }
 
 export function buildDeviceMetaStateFromState({

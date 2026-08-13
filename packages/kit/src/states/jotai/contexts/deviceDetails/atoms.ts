@@ -49,6 +49,7 @@ export const { atom: deviceAtom, use: useDeviceAtom } = contextAtomComputed(
 
 export type IDeviceMetaStatic = {
   deviceName?: string;
+  bleName?: string;
   serialNo?: string;
   deviceType?: EDeviceType;
   firmwareType?: Awaited<ReturnType<typeof deviceUtils.getFirmwareType>>;
@@ -60,6 +61,7 @@ export type IDeviceMetaStatic = {
 
 export const emptyMetaStatic: IDeviceMetaStatic = {
   deviceName: undefined,
+  bleName: undefined,
   serialNo: undefined,
   deviceType: undefined,
   firmwareType: undefined,

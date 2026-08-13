@@ -4,6 +4,7 @@ import { emptyMetaState } from './atoms';
 import {
   buildDeviceMetaStateFromState,
   getDeviceMetaStaticDataFromState,
+  getDeviceSecondaryIdentifier,
   getDeviceStateSnapshotFromEvent,
   isDeviceManagementWalletUsable,
   mergeDeviceSettingState,
@@ -447,11 +448,38 @@ describe('DeviceState metadata projection', () => {
       } as never),
     ).toEqual({
       deviceName: 'My OneKey',
+      bleName: 'Pro2 6136',
       serialNo: 'PR9999999999',
       deviceType: 'pro2',
       firmwareType: 'universal',
       firmwareVersion: '1.0.0',
     });
+  });
+
+  it('uses the BLE name as the Pro2 secondary identifier', () => {
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro2,
+        bleName: 'Pro2 6136',
+        serialNo: 'P2D33C0005B',
+      }),
+    ).toBe('Pro2 6136');
+
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro2,
+        bleName: '',
+        serialNo: 'P2D33C0005B',
+      }),
+    ).toBe('P2D33C0005B');
+
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro,
+        bleName: 'Pro 6136',
+        serialNo: 'SERIAL',
+      }),
+    ).toBe('SERIAL');
   });
 
   it('uses canonical state fields while retaining the V1 software-PIN preference', () => {

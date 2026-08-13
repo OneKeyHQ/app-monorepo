@@ -91,6 +91,9 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
       getRawData: jest.fn().mockResolvedValue({}),
       setRawData: jest.fn().mockResolvedValue({}),
     },
+    legacyWalletNames: {
+      setRawData: jest.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -1485,7 +1488,8 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(emitMock).toHaveBeenCalledTimes(2);
   });
 
-  it('does not duplicate label persistence after the SDK state event', async () => {
+  it('waits for the wallet name to persist after changing the device label', async () => {
+    const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
@@ -1493,6 +1497,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
             associatedDevice: 'db-device-1',
             name: 'Wallet',
           }),
+          setWalletNameAndAvatar,
         },
       } as unknown as IBackgroundApi,
     });
@@ -1502,7 +1507,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(appEventBus.emit).mockClear();
     await service.setDeviceLabel({
-      walletId: 'wallet-1',
+      walletId: 'hw-wallet-1',
       label: 'Renamed Pro 2',
     });
 
@@ -1512,9 +1517,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       expect.anything(),
     );
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(appEventBus.emit).toHaveBeenCalledWith(
+    expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+      walletId: 'hw-wallet-1',
+      name: 'Renamed Pro 2',
+      shouldCheckDuplicate: false,
+    });
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.SyncDeviceLabelToWalletName,
-      expect.objectContaining({ label: 'Renamed Pro 2' }),
+      expect.anything(),
     );
   });
 });

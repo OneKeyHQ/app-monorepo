@@ -202,7 +202,7 @@ function getPortfolioCurrencyPrefix({
 }: IPortfolioDisplayCurrency): string {
   const normalizedSymbol = symbol.trim();
   if (normalizedSymbol && isPortfolioFirmwareFontSupported(normalizedSymbol)) {
-    return /^[a-z]{2,6}$/iu.test(normalizedSymbol)
+    return /^[a-z]{1,6}$/iu.test(normalizedSymbol)
       ? `${normalizedSymbol.toUpperCase()} `
       : normalizedSymbol;
   }
