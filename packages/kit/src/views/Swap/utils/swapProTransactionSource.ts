@@ -5,7 +5,7 @@ import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
-export type ISwapProTransactionSource = 'market' | 'hyperliquid';
+export type ISwapProMarketDataSource = 'market' | 'hyperliquid';
 
 type ISwapProTransactionToken = Pick<
   ISwapTokenBase,
@@ -23,13 +23,13 @@ export function isSwapProHyperliquidBtcToken(
   );
 }
 
-export function getSwapProTransactionSource({
+export function getSwapProMarketDataSource({
   token,
   supportSpeedSwap,
 }: {
   token: Partial<ISwapProTransactionToken> | undefined;
   supportSpeedSwap?: boolean;
-}): ISwapProTransactionSource | undefined {
+}): ISwapProMarketDataSource | undefined {
   if (isSwapProHyperliquidBtcToken(token)) {
     return 'hyperliquid';
   }

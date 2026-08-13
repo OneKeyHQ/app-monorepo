@@ -3,22 +3,26 @@ import { useMemo } from 'react';
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
-  useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
-  useSwapProTokenTransactionPriceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
+import { SwapTestIDs } from '../../testIDs';
+
+import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
+
 interface ISwapProPriceInfoProps {
+  marketData: ISwapProMarketData;
   onPricePress: (price: string) => void;
 }
 
-const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
+const SwapProPriceInfo = ({
+  marketData,
+  onPricePress,
+}: ISwapProPriceInfoProps) => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [swapProTokenTransactionPrice] = useSwapProTokenTransactionPriceAtom();
   const [swapProTimeRange] = useSwapProTimeRangeAtom();
   const currencyInfo = useCurrency();
   const priceChange = useMemo(() => {
@@ -35,22 +39,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
         return '0';
     }
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
-  const unFormattedPrice = useMemo(() => {
-    if (swapProSelectToken?.isNative) {
-      return tokenMarketDetailInfo?.price || '--';
-    }
-    if (swapProTokenTransactionPrice) {
-      return swapProTokenTransactionPrice;
-    }
-    if (tokenMarketDetailInfo?.price) {
-      return tokenMarketDetailInfo?.price;
-    }
-    return '--';
-  }, [
-    swapProSelectToken?.isNative,
-    swapProTokenTransactionPrice,
-    tokenMarketDetailInfo?.price,
-  ]);
+  const unFormattedPrice = marketData.price || '--';
 
   const { formattedPriceChange, textColor } = useMemo(() => {
     const priceChangeValue = Number(priceChange);
@@ -81,6 +70,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       }}
     >
       <NumberSizeableText
+        testID={SwapTestIDs.proPrice}
         size="$headingLg"
         color={textColor}
         fontWeight="500"
@@ -91,7 +81,8 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
       >
         {unFormattedPrice}
       </NumberSizeableText>
-      {tokenMarketDetailInfo?.priceConverted ? (
+      {marketData.source === 'market' &&
+      tokenMarketDetailInfo?.priceConverted ? (
         <NumberSizeableText
           size="$bodySm"
           color="$textSubdued"

@@ -35,6 +35,7 @@ import type {
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
+  IPerpsSubscription,
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
@@ -45,6 +46,7 @@ import type {
   IWsOpenOrders,
   IWsSpotAssetCtxs,
   IWsSpotState,
+  IWsTrades,
   IWsTwapStates,
   IWsUserFills,
   IWsUserTwapHistory,
@@ -116,6 +118,11 @@ interface IActiveSubscription {
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
 
+interface IPublicTradesSubscription {
+  refCount: number;
+  subscriptionPromise: Promise<IPerpsSubscription>;
+}
+
 type IHyperliquidWsClient = {
   clientId: string;
   transport: WebSocketTransport;
@@ -168,6 +175,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _client: IHyperliquidWsClient | null = null;
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
+
+  private _publicTradesClient: SubscriptionClient | null = null;
+
+  private _publicTradesTransport: WebSocketTransport | null = null;
+
+  private _publicTradesSubscriptions = new Map<
+    string,
+    IPublicTradesSubscription
+  >();
+
+  private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -1578,6 +1596,126 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   };
 
+  private _getPublicTradesClient(): SubscriptionClient {
+    if (this._publicTradesClient) {
+      return this._publicTradesClient;
+    }
+
+    const transport = new WebSocketTransport({
+      url: 'wss://api.hyperliquid.xyz/ws',
+      reconnect: {
+        maxRetries: 999,
+        connectionTimeout: 5000,
+        // eslint-disable-next-line no-bitwise
+        reconnectionDelay: (attempt: number) =>
+          Math.min(~~(1 << attempt) * 150, 8000),
+      },
+      resubscribe: true,
+    });
+    this._publicTradesTransport = transport;
+    this._publicTradesClient = new SubscriptionClient({ transport });
+    return this._publicTradesClient;
+  }
+
+  private async _closePublicTradesClient(): Promise<void> {
+    const transport = this._publicTradesTransport;
+    this._publicTradesClient = null;
+    this._publicTradesTransport = null;
+    if (!transport) {
+      return;
+    }
+    try {
+      await transport.close();
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
+        error,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const current = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (current) {
+          current.refCount += 1;
+          await current.subscriptionPromise;
+          return;
+        }
+
+        const client = this._getPublicTradesClient();
+        const entry: IPublicTradesSubscription = {
+          refCount: 1,
+          subscriptionPromise: client.trades(
+            { coin: normalizedCoin },
+            (trades: IWsTrades) => {
+              this._emitHyperliquidDataUpdate(ESubscriptionType.TRADES, trades);
+            },
+          ),
+        };
+        this._publicTradesSubscriptions.set(normalizedCoin, entry);
+
+        try {
+          await entry.subscriptionPromise;
+        } catch (error) {
+          if (this._publicTradesSubscriptions.get(normalizedCoin) === entry) {
+            this._publicTradesSubscriptions.delete(normalizedCoin);
+          }
+          if (this._publicTradesSubscriptions.size === 0) {
+            await this._closePublicTradesClient();
+          }
+          throw error;
+        }
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async unsubscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const entry = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (!entry) {
+          return;
+        }
+
+        entry.refCount -= 1;
+        if (entry.refCount > 0) {
+          return;
+        }
+
+        this._publicTradesSubscriptions.delete(normalizedCoin);
+        try {
+          const subscription = await entry.subscriptionPromise;
+          await subscription.unsubscribe();
+        } catch (error) {
+          console.error(
+            `[ServiceHyperliquidSubscription] Failed to unsubscribe public trades for ${normalizedCoin}:`,
+            error,
+          );
+        }
+
+        if (this._publicTradesSubscriptions.size === 0) {
+          await this._closePublicTradesClient();
+        }
+      },
+    );
+  }
+
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {
       markPerpsColdStartPerfOnce('service_ws_client_reuse_first', {
@@ -1688,6 +1826,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.USER_TWAP_SLICE_FILLS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.TRADES,
         ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
         ESubscriptionType.SPOT_STATE,
         ESubscriptionType.SPOT_ASSET_CTXS,
