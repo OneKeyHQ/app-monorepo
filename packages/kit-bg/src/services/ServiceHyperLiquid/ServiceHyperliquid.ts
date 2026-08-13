@@ -2919,6 +2919,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   // of order cannot overwrite newer results with stale ones
   private perpsAccountStatusCheckSeq = 0;
 
+  private perpsAccountStatusChecksInFlight = 0;
+
+  private perpsAccountStatusCheckIdleWaiters = new Set<() => void>();
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -3085,11 +3089,49 @@ export default class ServiceHyperliquid extends ServiceBase {
     return refreshedMode;
   }
 
+  startPerpsAccountStatusCheckIfIdle(
+    params: { preserveFundedBalances?: boolean } = {},
+  ): Promise<void> | undefined {
+    if (this.perpsAccountStatusChecksInFlight > 0) {
+      return undefined;
+    }
+    return this.checkPerpsAccountStatus(params);
+  }
+
+  waitForPerpsAccountStatusCheckIdle(): Promise<void> {
+    if (this.perpsAccountStatusChecksInFlight === 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.perpsAccountStatusCheckIdleWaiters.add(resolve);
+    });
+  }
+
   @backgroundMethod()
-  async checkPerpsAccountStatus({
+  async checkPerpsAccountStatus(
+    params: {
+      isEnableTradingTrigger?: boolean;
+      preserveFundedBalances?: boolean;
+    } = {},
+  ): Promise<void> {
+    this.perpsAccountStatusChecksInFlight += 1;
+    try {
+      await this._checkPerpsAccountStatus(params);
+    } finally {
+      this.perpsAccountStatusChecksInFlight -= 1;
+      if (this.perpsAccountStatusChecksInFlight === 0) {
+        this.perpsAccountStatusCheckIdleWaiters.forEach((resolve) => resolve());
+        this.perpsAccountStatusCheckIdleWaiters.clear();
+      }
+    }
+  }
+
+  private async _checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
+    preserveFundedBalances = false,
   }: {
     isEnableTradingTrigger?: boolean;
+    preserveFundedBalances?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
     this.perpsAccountStatusCheckSeq += 1;
@@ -3156,6 +3198,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             latestCheckSeq: this.perpsAccountStatusCheckSeq,
             checkedAddress: accountAddress,
             activeAddress: latestActiveAccount?.accountAddress,
+            preserveFundedBalances,
           })
         ) {
           await spotBalancesAtom.set({ balances: [], isLoaded: true });

@@ -71,3 +71,29 @@ export const {
     spotNetworkId: '',
   },
 });
+
+export type IMarketTradingViewStorageNamespace =
+  | 'market'
+  | 'market-hyperliquid';
+
+export interface IMarketTradingViewSubIndicatorCountPersistAtom {
+  subIndicatorCountByStorageNamespace: Partial<
+    Record<IMarketTradingViewStorageNamespace, number>
+  >;
+  storageNamespaceByChartKey: Record<
+    string,
+    IMarketTradingViewStorageNamespace
+  >;
+}
+
+export const {
+  target: marketTradingViewSubIndicatorCountPersistAtom,
+  use: useMarketTradingViewSubIndicatorCountPersistAtom,
+} = globalAtom<IMarketTradingViewSubIndicatorCountPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketTradingViewSubIndicatorCountPersistAtom,
+  initialValue: {
+    subIndicatorCountByStorageNamespace: {},
+    storageNamespaceByChartKey: {},
+  },
+});

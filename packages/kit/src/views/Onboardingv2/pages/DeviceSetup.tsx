@@ -155,12 +155,24 @@ function DeviceSetupPage({
       details: [] as string[],
     };
 
-    // For Classic or Mini devices, swap the order of PIN and recovery phrase
+    // The order follows each device's own setup wizard, so there is no single
+    // house order — Pro's matches the device onboarding protocol
+    // (personalization → PIN → setup). Touch keeps the legacy order until it
+    // is checked against a real device.
     if (isClassicOrMini) {
       return [
         chooseOptionStep,
         recoveryPhraseStep,
         pinStep,
+        finishOnboardingOnDevice,
+      ];
+    }
+
+    if (deviceType === EDeviceType.Pro) {
+      return [
+        pinStep,
+        chooseOptionStep,
+        recoveryPhraseStep,
         finishOnboardingOnDevice,
       ];
     }

@@ -16,6 +16,7 @@ import {
   QRCode,
   SizableText,
   Stack,
+  Theme,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -933,31 +934,37 @@ function ReceiveToken() {
               size={platformEnv.isNative ? 208 : 176}
             />
             {network.isCustomNetwork ? null : (
-              // full-bleed overlay + flex centering: percentage translate
-              // is unreliable on native, so avoid left/top 50% -50% here
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                alignItems="center"
-                justifyContent="center"
-              >
+              // The overlay sits on the QR plate, which is always light, so
+              // resolve theme tokens (the network badge ring and its icon
+              // backing use $bgApp) against the light theme the same way the
+              // QRCode component does for the plate itself.
+              <Theme name="light">
+                {/* full-bleed overlay + flex centering: percentage translate
+                    is unreliable on native, so avoid left/top 50% -50% here */}
                 <YStack
-                  borderWidth={4}
-                  borderColor="white"
-                  borderRadius="$full"
-                  bg="white"
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  alignItems="center"
+                  justifyContent="center"
                 >
-                  <Token
-                    size="lg"
-                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                    networkImageUri={network.logoURI}
-                    networkId={networkId}
-                  />
+                  <YStack
+                    borderWidth={4}
+                    borderColor="white"
+                    borderRadius="$full"
+                    bg="white"
+                  >
+                    <Token
+                      size="lg"
+                      tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
+                      networkImageUri={network.logoURI}
+                      networkId={networkId}
+                    />
+                  </YStack>
                 </YStack>
-              </YStack>
+              </Theme>
             )}
           </YStack>
         ) : (

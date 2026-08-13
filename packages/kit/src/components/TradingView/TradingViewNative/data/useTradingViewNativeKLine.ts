@@ -3109,6 +3109,27 @@ export function useTradingViewNativeKLine({
         return;
       }
 
+      const currentChartData = chartDataRef.current;
+      if (
+        !currentChartData ||
+        currentChartData.seriesKey !== seriesKey ||
+        currentChartData.interval !== activeInterval ||
+        !currentChartData.points.length
+      ) {
+        lastRealtimeActivityAtRef.current = Date.now();
+        emitTradingViewNativeDebugEvent({
+          details: {
+            activeInterval,
+            activeProviderKey: seriesKey,
+            pointTimestamp: point.t,
+            reason: 'history-not-ready',
+          },
+          level: 'warning',
+          name: 'realtime.point.ignored',
+        });
+        return;
+      }
+
       emitTradingViewNativeDebugEvent({
         details: {
           close: point.c,
@@ -3148,30 +3169,23 @@ export function useTradingViewNativeKLine({
       ) {
         return;
       }
-      setChartData((currentChartData) => {
+      setChartData((currentData) => {
         if (
-          currentChartData?.seriesKey === seriesKey &&
-          currentChartData.interval !== activeInterval
+          !currentData ||
+          currentData.seriesKey !== seriesKey ||
+          currentData.interval !== activeInterval ||
+          !currentData.points.length
         ) {
-          return currentChartData;
+          return currentData;
         }
 
-        if (!currentChartData || currentChartData.seriesKey !== seriesKey) {
-          return {
-            chartPictureVersion: 0,
-            interval: activeInterval,
-            seriesKey,
-            points: [point],
-          };
-        }
-
-        const mergeResult = mergeRealtimePoint(currentChartData.points, point);
-        return mergeResult.points === currentChartData.points
-          ? currentChartData
+        const mergeResult = mergeRealtimePoint(currentData.points, point);
+        return mergeResult.points === currentData.points
+          ? currentData
           : {
-              ...currentChartData,
+              ...currentData,
               chartPictureVersion:
-                currentChartData.chartPictureVersion +
+                currentData.chartPictureVersion +
                 (mergeResult.didChangeHistoricalPoints ? 1 : 0),
               points: mergeResult.points,
             };

@@ -37,6 +37,7 @@ const MAIN_CHART_INDICATOR_LABEL_SET = new Set<string>([
 export interface ITradingViewNativeIndicatorState {
   activeIndicatorValues: Set<string>;
   isInitialized: boolean;
+  sourceIndicators: ITradingViewIndicatorOption[] | undefined;
   getActiveIndicatorValues: () => ReadonlySet<string>;
   updateActiveIndicatorValue: (
     indicatorValue: string,
@@ -124,6 +125,24 @@ export function getTradingViewNativeSubIndicatorCountFromOptions(
   );
 }
 
+export function getTradingViewNativeSubIndicatorCountForSnapshot({
+  activeIndicatorValues,
+  configIndicators,
+  isInitialized,
+  sourceIndicators,
+}: {
+  activeIndicatorValues: ReadonlySet<string>;
+  configIndicators: ITradingViewIndicatorOption[] | undefined;
+  isInitialized: boolean;
+  sourceIndicators: ITradingViewIndicatorOption[] | undefined;
+}) {
+  if (isInitialized && sourceIndicators === configIndicators) {
+    return getTradingViewNativeSubIndicatorCount(activeIndicatorValues);
+  }
+
+  return getTradingViewNativeSubIndicatorCountFromOptions(configIndicators);
+}
+
 function normalizeTradingViewNativeMaxSubIndicatorCount(
   maxSubIndicatorCount: number | undefined,
 ) {
@@ -198,6 +217,9 @@ export function useNativeIndicatorActiveValues(
     () => new Set<string>(),
   );
   const [isInitialized, setIsInitialized] = useState(false);
+  const [sourceIndicators, setSourceIndicators] = useState<
+    ITradingViewIndicatorOption[] | undefined
+  >(undefined);
   const activeIndicatorValuesRef = useRef(new Set<string>());
   const pendingIndicatorActiveStateRef = useRef(new Map<string, boolean>());
 
@@ -208,6 +230,7 @@ export function useNativeIndicatorActiveValues(
       activeIndicatorValuesRef.current = emptyValues;
       setActiveIndicatorValues(emptyValues);
       setIsInitialized(false);
+      setSourceIndicators(undefined);
       return;
     }
 
@@ -229,6 +252,7 @@ export function useNativeIndicatorActiveValues(
     activeIndicatorValuesRef.current = activeValues;
     setActiveIndicatorValues(activeValues);
     setIsInitialized(true);
+    setSourceIndicators(indicators);
   }, [indicators]);
 
   const getActiveIndicatorValues = useCallback(
@@ -255,6 +279,7 @@ export function useNativeIndicatorActiveValues(
     () => ({
       activeIndicatorValues,
       isInitialized,
+      sourceIndicators,
       getActiveIndicatorValues,
       updateActiveIndicatorValue,
     }),
@@ -262,6 +287,7 @@ export function useNativeIndicatorActiveValues(
       activeIndicatorValues,
       getActiveIndicatorValues,
       isInitialized,
+      sourceIndicators,
       updateActiveIndicatorValue,
     ],
   );
