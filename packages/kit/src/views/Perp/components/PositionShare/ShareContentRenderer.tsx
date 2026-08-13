@@ -119,15 +119,19 @@ export function ShareContentRenderer({
   const showsReferralQrCode = Boolean(
     SHOW_REFERRAL_CODE && isReferralReady && referralQrCodeUrl,
   );
+  // Image sources carry their URI in the key: when the background swaps
+  // (profit <-> loss) or the token icon changes, the expected key changes
+  // with it, so the stale image's ready mark no longer satisfies the gate —
+  // readiness retracts by derivation, with no effect that could misfire.
   const expectedSources = useMemo(() => {
     const expected: string[] = [];
-    if (selectedBackground) expected.push('background');
-    if (display.showTokenIcon) expected.push('tokenIcon');
+    if (selectedBackground) expected.push(`background:${selectedBackground}`);
+    if (display.showTokenIcon) expected.push(`tokenIcon:${tokenImage}`);
     // the QR code signals once its lazily-loaded encoder has drawn the
     // symbol, so a ViewShot capture can't run against an empty code
     if (showsReferralQrCode) expected.push('qrCode');
     return expected;
-  }, [selectedBackground, showsReferralQrCode]);
+  }, [selectedBackground, tokenImage, showsReferralQrCode]);
 
   const evaluateReadiness = useCallback(() => {
     onImagesReadyStateChange?.(
@@ -143,12 +147,12 @@ export function ShareContentRenderer({
     [evaluateReadiness],
   );
   const handleBackgroundReady = useCallback(
-    () => handleSourceReady('background'),
-    [handleSourceReady],
+    () => handleSourceReady(`background:${selectedBackground}`),
+    [handleSourceReady, selectedBackground],
   );
   const handleTokenIconReady = useCallback(
-    () => handleSourceReady('tokenIcon'),
-    [handleSourceReady],
+    () => handleSourceReady(`tokenIcon:${tokenImage}`),
+    [handleSourceReady, tokenImage],
   );
   const handleQrCodeReady = useCallback(
     () => handleSourceReady('qrCode'),
