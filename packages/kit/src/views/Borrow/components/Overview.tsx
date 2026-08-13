@@ -21,6 +21,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
@@ -362,8 +363,19 @@ export const Overview = ({
   ]);
 
   const { gtMd } = useMedia();
-  const showMobileHeaderHistoryAction =
-    !gtMd && (pendingCount > 0 || !reserves.data?.overview?.history?.disabled);
+  const hasHistoryAction =
+    pendingCount > 0 || !reserves.data?.overview?.history?.disabled;
+  // Narrow layouts drop the inline entry and let the host hoist it into the
+  // title bar — but only the native BorrowHomePage passes
+  // onBorrowHistoryActionChange, so on web / WebDapp / a narrow desktop window
+  // that left no way at all to reach history or see the pending count. Keep the
+  // inline entry wherever nothing can hoist it.
+  const showMobileHeaderHistoryAction = Boolean(
+    !gtMd && platformEnv.isNative && hasHistoryAction,
+  );
+  const showInlineHistoryAction = Boolean(
+    !gtMd && !platformEnv.isNative && hasHistoryAction,
+  );
 
   useEffect(() => {
     if (!onBorrowHistoryActionChange) {
@@ -431,6 +443,21 @@ export const Overview = ({
               </SizableText>
             )}
           </YStack>
+          {showInlineHistoryAction ? (
+            <XStack ai="center" gap="$3">
+              {pendingCount > 0 ? (
+                <PendingIndicator
+                  num={pendingCount}
+                  onPress={handleHistoryPress}
+                />
+              ) : (
+                <EarnActionIcon
+                  actionIcon={reserves.data?.overview?.history}
+                  onHistory={handleHistoryPress}
+                />
+              )}
+            </XStack>
+          ) : null}
         </XStack>
 
         {/* Grid: Health factor + Platform bonus + Claimable rewards */}

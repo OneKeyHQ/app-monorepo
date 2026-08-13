@@ -31,6 +31,7 @@ import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProv
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
 import {
   EARN_LIST_ESTIMATED_ITEM_SIZE,
   EARN_LIST_ROW_GAP,
@@ -281,9 +282,15 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         />
         <YStack ai="flex-end" jc="center" gap="$0.5">
           <EarnAprSuffixText
+            // aprInfo is optional. When a row only carries
+            // provider.aprWithoutFee the text was empty and fallbackUnit does
+            // not render on its own, so the whole yield column went blank —
+            // while this page's own sorting already reads that field, and
+            // EarnProtocols falls back to it through AprText.
             text={
               row.item.aprInfo?.highlight?.text ??
               row.item.aprInfo?.normal?.text ??
+              row.item.provider.aprWithoutFee ??
               ''
             }
             // Append rewardUnit when the server copy has no suffix so
@@ -370,7 +377,11 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          showSkeleton ? <EarnProtocolTokensSkeleton /> : null
+          showSkeleton ? (
+            <EarnProtocolTokensSkeleton />
+          ) : (
+            <EarnListEmptyState isFiltered={selectedNetworkIds.length > 0} />
+          )
         }
         contentContainerStyle={{ pb: tabBarHeight }}
       />

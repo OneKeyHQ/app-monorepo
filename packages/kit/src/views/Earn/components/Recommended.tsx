@@ -207,7 +207,17 @@ export function Recommended(
       onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
     });
 
-  const recommendedLoadScopeKey = allNetworkId;
+  // The request is already scoped by account (see useRecommendedTokens'
+  // fetchKey), but this gate was not: keyed on the network alone, switching
+  // accounts left `hasCompletedInitialRecommendedLoadRef` matching, so no
+  // skeleton was shown while usePromiseResult kept serving the previous
+  // account's result — account B briefly read account A's balances. Scope the
+  // gate the same way the request is scoped.
+  const recommendedLoadScopeKey = [
+    allNetworkId,
+    activeAccount?.account?.id ?? '',
+    activeAccount?.indexedAccount?.id ?? '',
+  ].join('|');
   const hasCompletedInitialRecommendedLoadRef = useRef<string | undefined>(
     undefined,
   );

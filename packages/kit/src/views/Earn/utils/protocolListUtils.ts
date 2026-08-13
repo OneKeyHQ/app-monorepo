@@ -1,6 +1,9 @@
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { parseFormattedLiquidityValue } from './availableAssetsUtils';
+import {
+  parseAprPercentValue,
+  parseFormattedLiquidityValue,
+} from './availableAssetsUtils';
 
 export type IEarnProtocolSortKey = 'tvl' | 'yield';
 export type IEarnProtocolSortDirection = 'asc' | 'desc';
@@ -35,7 +38,11 @@ function getProtocolMetric(
       item.provider.totalFiatValue || item.provider.tvl || item.tvl?.text,
     );
   }
-  return parseProtocolMetric(item.provider.aprWithoutFee);
+  // Yields come as ranges too ("2.00% - 10.00% APR"). parseProtocolMetric
+  // reads the first number, so a range sorted by its lower bound and landed
+  // below a single 5.00% — while EarnTokens and EarnProtocolTokens sort the
+  // same data by its upper bound. Share one parser so the three pages agree.
+  return parseAprPercentValue(item.provider.aprWithoutFee) || undefined;
 }
 
 export function getProtocolNetworkData(items: IStakeProtocolListItem[]) {
