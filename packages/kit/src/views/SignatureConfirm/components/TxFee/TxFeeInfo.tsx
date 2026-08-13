@@ -504,9 +504,7 @@ function TxFeeInfo(props: IProps) {
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled:
-            !gasAccountDisabledByScenario &&
-            !isPrivateSendTransfer &&
-            !gasAccountTemporarilyDisabled,
+            !gasAccountDisabledByScenario && !gasAccountTemporarilyDisabled,
           scenario: gasAccountDisabledByScenario
             ? undefined
             : gasAccountScenario,
@@ -551,9 +549,13 @@ function TxFeeInfo(props: IProps) {
         // `gasAccountUiState` for any batch (a quote is bound to one user tx
         // via payloadHash + locked nonce). Surfacing sponsor UI here would
         // show "0 network fee" / sponsor badge while the actual broadcast
-        // falls back to user-paid. Private Send is also user-paid by contract.
+        // falls back to user-paid.
         const sponsorDisabledForBatch = isMultiTxs;
-        const sponsorDisabledForPrivateSend = isPrivateSendTransfer;
+        // Private Send supports Gas Account sponsorship (OK-59993, admitted
+        // by the backend via scenario='privateSend'), but megafuel stays
+        // disabled for it: megafuel is an independent BNB-chain sponsor with
+        // no Private Send contract on the backend side.
+        const megafuelDisabledForPrivateSend = isPrivateSendTransfer;
         // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'`, even when a
@@ -562,7 +564,7 @@ function TxFeeInfo(props: IProps) {
         const nextEffectiveFeePayer: IGasPayer =
           isCustomRpcEnabled ||
           sponsorDisabledForBatch ||
-          sponsorDisabledForPrivateSend ||
+          (megafuelDisabledForPrivateSend && serverPayer === 'megafuel') ||
           (gasAccountDisabledByScenario && serverPayer === 'gasAccount') ||
           (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
             ? 'user'
@@ -572,7 +574,7 @@ function TxFeeInfo(props: IProps) {
         if (
           r.megafuelEligible &&
           !sponsorDisabledForBatch &&
-          !sponsorDisabledForPrivateSend
+          !megafuelDisabledForPrivateSend
         ) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
@@ -589,7 +591,7 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (sponsorDisabledForBatch || sponsorDisabledForPrivateSend) {
+          if (sponsorDisabledForBatch || megafuelDisabledForPrivateSend) {
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -603,14 +605,12 @@ function TxFeeInfo(props: IProps) {
           isCustomRpcEnabled ||
           gasAccountTemporarilyDisabled ||
           sponsorDisabledForBatch ||
-          sponsorDisabledForPrivateSend ||
           gasAccountDisabledByScenario
         ) {
           resetGasAccountUiState();
           if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
-            sponsorDisabledForPrivateSend ||
             gasAccountDisabledByScenario
           ) {
             // The default state already flags `selectedPayer='user'`,
