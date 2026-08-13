@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   Image,
@@ -39,8 +39,6 @@ const {
   spacing,
 } = CANVAS_CONFIG;
 
-const SHARE_IMAGE_COUNT = 2;
-
 export function ShareContentRenderer({
   data,
   localeText,
@@ -49,20 +47,50 @@ export function ShareContentRenderer({
   const { imageUrl, title, subtitle, footerText, referralCode, referralUrl } =
     data;
 
-  const imageLoadCountRef = useRef(0);
-
-  // the QR code counts as one more ready signal: its encoder loads lazily,
-  // so a ViewShot capture must not run before the symbol is drawn
-  const expectedReadyCount = SHARE_IMAGE_COUNT + (referralUrl ? 1 : 0);
-  const handleImageLoad = useCallback(() => {
-    imageLoadCountRef.current += 1;
-    if (onImagesReady && imageLoadCountRef.current >= expectedReadyCount) {
-      onImagesReady();
+  // Ready signals are one-shot (image onLoad, QR onRenderReady) and React
+  // flushes child effects before parent effects, so a counter zeroed in a
+  // mount effect would erase the QR's mount-phase signal — the encoder is
+  // already loaded on every share after the session's first, making the QR
+  // report synchronously with mount. Track named sources in a set instead;
+  // nothing is ever cleared wholesale. The QR counts as a source because a
+  // ViewShot capture must not run before the symbol is drawn.
+  const readySourcesRef = useRef<Set<string>>(new Set());
+  const expectedSources = useMemo(() => {
+    const expected = ['badge', 'logo'];
+    if (referralUrl) {
+      expected.push('qrCode');
     }
-  }, [onImagesReady, expectedReadyCount]);
+    return expected;
+  }, [referralUrl]);
 
+  const handleSourceReady = useCallback(
+    (source: string) => {
+      readySourcesRef.current.add(source);
+      if (
+        onImagesReady &&
+        expectedSources.every((s) => readySourcesRef.current.has(s))
+      ) {
+        onImagesReady();
+      }
+    },
+    [expectedSources, onImagesReady],
+  );
+  const handleBadgeReady = useCallback(
+    () => handleSourceReady('badge'),
+    [handleSourceReady],
+  );
+  const handleLogoReady = useCallback(
+    () => handleSourceReady('logo'),
+    [handleSourceReady],
+  );
+  const handleQrCodeReady = useCallback(
+    () => handleSourceReady('qrCode'),
+    [handleSourceReady],
+  );
+
+  // a changed badge URL must be awaited again; retract just that source
   useEffect(() => {
-    imageLoadCountRef.current = 0;
+    readySourcesRef.current.delete('badge');
   }, [imageUrl]);
 
   const line1Text = resolveFooterCtaText(referralCode, footerText, localeText);
@@ -112,8 +140,8 @@ export function ShareContentRenderer({
             source={{ uri: imageUrl }}
             width={badge.width}
             height={badge.height}
-            onLoad={handleImageLoad}
-            onError={handleImageLoad}
+            onLoad={handleBadgeReady}
+            onError={handleBadgeReady}
           />
 
           <Stack height={spacing.cardBadgeTitleGap} />
@@ -168,8 +196,8 @@ export function ShareContentRenderer({
             width={logo.size}
             height={logo.size}
             transform={[{ translateY: logo.footerOffsetY }]}
-            onLoad={handleImageLoad}
-            onError={handleImageLoad}
+            onLoad={handleLogoReady}
+            onError={handleLogoReady}
           />
 
           <YStack
@@ -241,7 +269,7 @@ export function ShareContentRenderer({
                 padding={5}
                 darkColor={qrCode.color}
                 logoBackgroundColor="white"
-                onRenderReady={handleImageLoad}
+                onRenderReady={handleQrCodeReady}
               />
               <SizableText
                 fontSize={fonts.qrCaption.size}
