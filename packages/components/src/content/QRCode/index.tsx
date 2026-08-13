@@ -232,15 +232,38 @@ export function QRCode({
   const [isEncoderReady, setIsEncoderReady] = useState(isQRCodeUtilLoaded);
 
   useEffect(() => {
-    if (!isEncoderReady) {
+    if (isEncoderReady) {
+      return;
+    }
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    let retryDelayMs = 2000;
+    const attempt = () => {
       ensureQRCodeUtilLoaded().then(
-        () => setIsEncoderReady(true),
         () => {
-          // stay unready; the loader dropped its cache so the next mount
-          // retries the import
+          if (!cancelled) {
+            setIsEncoderReady(true);
+          }
+        },
+        () => {
+          if (cancelled) {
+            return;
+          }
+          // a failed chunk load usually heals once the network is back, so
+          // keep retrying while the code is on screen; back off so a
+          // permanent failure (chunk replaced by an app update) stays quiet
+          timerId = setTimeout(attempt, retryDelayMs);
+          retryDelayMs = Math.min(retryDelayMs * 2, 30_000);
         },
       );
-    }
+    };
+    attempt();
+    return () => {
+      cancelled = true;
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
   }, [isEncoderReady]);
 
   useEffect(() => {
