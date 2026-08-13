@@ -151,8 +151,9 @@ export function getVerticalOrderBookLayout(
     };
   }
 
-  // Fixed row height: resizing changes the visible level count, never the
-  // red/green depth bar size.
+  // Pick the level count from the fixed-height baseline, then spread the
+  // leftover height evenly across rows so the ladder always fills the pane
+  // with no bottom gap.
   const rowStep = ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP;
   const fittedRows = Math.floor(bookBodyHeight / rowStep);
   const levelsPerSide = Math.max(
@@ -160,25 +161,19 @@ export function getVerticalOrderBookLayout(
     Math.min(Math.floor((fittedRows - 1) / 2), maxLevelsPerSide),
   );
   // Symmetric sides always leave 0-1 spare rows; give a spare row to the bid
-  // side so the book fills the pane instead of showing a bottom gap.
+  // side before stretching so the leftover stays under one row height.
   const extraBidLevels =
     fittedRows - 1 - levelsPerSide * 2 >= 1 && levelsPerSide < maxLevelsPerSide
       ? 1
       : 0;
-  // At the level cap the ladder can't grow, so stretch rows to fill the pane
-  // instead of leaving an unbounded bottom gap on tall windows.
-  const isCappedByLevels =
-    levelsPerSide === maxLevelsPerSide &&
-    bookBodyHeight > (2 * levelsPerSide + 1) * rowStep;
+  const totalRows = 2 * levelsPerSide + 1 + extraBidLevels;
 
   return {
     levelsPerSide,
     extraBidLevels,
-    rowHeight: isCappedByLevels
-      ? Math.floor(
-          bookBodyHeight / (2 * levelsPerSide + 1) -
-            ORDER_BOOK_VERTICAL_ROW_GAP,
-        )
-      : ORDER_BOOK_VERTICAL_ROW_HEIGHT,
+    rowHeight: Math.max(
+      ORDER_BOOK_VERTICAL_ROW_HEIGHT,
+      bookBodyHeight / totalRows - ORDER_BOOK_VERTICAL_ROW_GAP,
+    ),
   };
 }

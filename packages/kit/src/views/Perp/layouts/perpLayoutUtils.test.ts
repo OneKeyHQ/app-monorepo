@@ -47,12 +47,12 @@ describe('getPerpDesktopChartSplitSizes', () => {
 });
 
 describe('getVerticalOrderBookLayout', () => {
-  it('keeps the row height fixed and varies only the level count', () => {
-    expect(getVerticalOrderBookLayout(640, 18)).toEqual({
-      levelsPerSide: 12,
-      extraBidLevels: 0,
-      rowHeight: 22,
-    });
+  it('spreads the leftover height evenly so the pane has no bottom gap', () => {
+    const layout = getVerticalOrderBookLayout(640, 18);
+    expect(layout.levelsPerSide).toBe(12);
+    expect(layout.extraBidLevels).toBe(0);
+    // 25 rows * (22.12 + 1) fills the 578px book body exactly.
+    expect(layout.rowHeight).toBeCloseTo(22.12, 5);
   });
 
   it('gives the spare row to the bid side when exactly one more fits', () => {
@@ -64,18 +64,16 @@ describe('getVerticalOrderBookLayout', () => {
   });
 
   it('never exceeds maxLevelsPerSide with the extra bid row', () => {
-    expect(getVerticalOrderBookLayout(660, 12)).toEqual({
-      levelsPerSide: 12,
-      extraBidLevels: 0,
-      rowHeight: 22,
-    });
+    const layout = getVerticalOrderBookLayout(660, 12);
+    expect(layout.levelsPerSide).toBe(12);
+    expect(layout.extraBidLevels).toBe(0);
+    expect(layout.rowHeight).toBeCloseTo(22.92, 5);
   });
 
   it('stretches rows to fill the pane once the level cap is reached', () => {
-    expect(getVerticalOrderBookLayout(1000, 12)).toEqual({
-      levelsPerSide: 12,
-      extraBidLevels: 0,
-      rowHeight: 36,
-    });
+    const layout = getVerticalOrderBookLayout(1000, 12);
+    expect(layout.levelsPerSide).toBe(12);
+    expect(layout.extraBidLevels).toBe(0);
+    expect(layout.rowHeight).toBeCloseTo(36.52, 5);
   });
 });
