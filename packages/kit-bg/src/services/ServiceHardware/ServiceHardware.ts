@@ -4253,6 +4253,18 @@ class ServiceHardware extends ServiceBase {
     if (!expectedDeviceId) {
       return undefined;
     }
+    // A live session always has a remembered protocol (rememberDeviceProtocol
+    // runs on every DEVICE.STATE event). Pin it: forcing re-detection here
+    // sends a Protocol V2 Ping into an active V1 session, which the device
+    // may not answer (observed as SDK error 713), while a protocol-pinned
+    // getFeatures is exactly the same shape as the session's healthy calls.
+    const knownProtocol = await this.getKnownDeviceProtocol(connectId);
+    if (!knownProtocol) {
+      defaultLogger.hardware.sdkLog.log(
+        `[SilentBleBind] skip: unknown protocol connectId=${connectId}`,
+      );
+      return undefined;
+    }
     try {
       // Probe the caller's connectId directly over the pinned BLE transport;
       // no connectId re-resolution happens here, so this cannot re-enter
@@ -4268,7 +4280,7 @@ class ServiceHardware extends ServiceBase {
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
         params: {
           retryCount: 1,
-          forceProtocolDetection: true,
+          connectProtocol: knownProtocol,
           timeout: DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
         },
       });

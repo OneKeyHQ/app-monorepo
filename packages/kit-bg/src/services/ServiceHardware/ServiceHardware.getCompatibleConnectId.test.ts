@@ -481,6 +481,16 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     const getFeaturesSpy = jest
       .spyOn(service, 'getFeaturesWithoutCache')
       .mockResolvedValue({ device_id: 'PRO2_DEVICE_ID' } as any);
+    jest
+      .spyOn(
+        service as unknown as {
+          getKnownDeviceProtocol: (
+            connectId?: string,
+          ) => Promise<'V1' | 'V2' | undefined>;
+        },
+        'getKnownDeviceProtocol',
+      )
+      .mockResolvedValue('V1');
     // Live traffic was just observed on this connectId (paired by evidence).
     service.recordLiveConnectIdEvidence(liveBleConnectId);
 
@@ -494,6 +504,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     // silentMode must be set: a failed probe would otherwise emit the
     // global DeviceNotFound error dialog from the error constructor.
+    // The probe must pin the remembered protocol instead of forcing
+    // re-detection — a V2 Ping into an active V1 session can go unanswered
+    // (SDK error 713) and would spuriously fall back to the pairing dialog.
     expect(getFeaturesSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         connectId: liveBleConnectId,
@@ -503,7 +516,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
         params: expect.objectContaining({
           retryCount: 1,
-          forceProtocolDetection: true,
+          connectProtocol: 'V1',
           timeout: 10_000,
         }),
       }),
@@ -560,6 +573,16 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     const getFeaturesSpy = jest
       .spyOn(service, 'getFeaturesWithoutCache')
       .mockRejectedValue(new Error('ble subscribe timeout'));
+    jest
+      .spyOn(
+        service as unknown as {
+          getKnownDeviceProtocol: (
+            connectId?: string,
+          ) => Promise<'V1' | 'V2' | undefined>;
+        },
+        'getKnownDeviceProtocol',
+      )
+      .mockResolvedValue('V1');
     service.recordLiveConnectIdEvidence(liveBleConnectId);
 
     await expect(
