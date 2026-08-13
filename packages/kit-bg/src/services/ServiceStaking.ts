@@ -26,6 +26,7 @@ import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   IEarnAvailableAssetV2,
+  IEarnPageBannerListItem,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -951,6 +952,69 @@ class ServiceStaking extends ServiceBase {
     },
   );
 
+  // Full protocol list (Protocols aggregation page, 6.6.0+): the same
+  // endpoint without a symbol returns every protocol row in one response.
+  // Display-only data (TVL/APY), cached for 5 minutes.
+  _getAllProtocolList = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.post<{
+        data: { protocols: IStakeProtocolListItem[] };
+      }>('/earn/v2/stake-protocol/list', {});
+      return resp.data.data.protocols;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getAllProtocolList() {
+    const allItems = await this._getAllProtocolList();
+    // Reuse getProtocolList's enabled gating on the full-list fast path
+    // (review P1) so locally disabled / client-unsupported protocols never
+    // surface. WithdrawOnly rows are KEPT (OK-59305): sunset protocols like
+    // lido/babylon are withdraw-only, and users with existing positions need
+    // the aggregation pages to reach the redeem flow.
+    //
+    // Usability is decided BEFORE anything is dropped (PR 12791 review P1).
+    // Filtering symbol-less rows away first would make the caller's own
+    // "every row has a symbol" completeness check vacuously true, so a
+    // response the client cannot fully aggregate would look complete and the
+    // pages would silently render a subset instead of falling back to the
+    // per-symbol path. An empty result is the agreed "not usable" signal.
+    if (allItems.length === 0 || allItems.some((item) => !item.symbol)) {
+      return [];
+    }
+    const itemsWithEnabledStatus = await promiseAllSettledEnhanced(
+      allItems.map((item) => async () => {
+        const stakingConfig = await this.getStakingConfigs({
+          networkId: item.network.networkId,
+          symbol: item.symbol ?? '',
+          provider: item.provider.name,
+        });
+        return { item, isEnabled: stakingConfig?.enabled };
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    // continueOnError turns a rejected config lookup into null, which is
+    // indistinguishable from "config says disabled". Hiding a provider because
+    // its lookup happened to throw is a silent data loss on a primary surface,
+    // so treat the whole fast path as unusable instead and let the caller fall
+    // back to the per-symbol aggregation, which re-evaluates gating per symbol
+    // (PR 12791 review P1).
+    if (itemsWithEnabledStatus.some((r) => r === null || r === undefined)) {
+      return [];
+    }
+    return itemsWithEnabledStatus
+      .filter(
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r !== undefined && !!r.isEnabled,
+      )
+      .map((r) => r.item);
+  }
+
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
@@ -1076,7 +1140,7 @@ class ServiceStaking extends ServiceBase {
     provider: string;
     vault?: string;
   }) {
-    const { networkId, accountId, symbol, ...rest } = params;
+    const { networkId, accountId, symbol, vault, ...rest } = params;
     const accountVault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await accountVault.getAccount();
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -1088,6 +1152,12 @@ class ServiceStaking extends ServiceBase {
         accountAddress: acc.address,
         symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
+        // Several call sites normalize a missing vault to '' before it gets
+        // here. Forwarding that empty string made the backend reject the whole
+        // request with `"vault" is not allowed to be empty` for providers that
+        // have no vault at all (Stakefish SOL). undefined is dropped from the
+        // query string, which is what "no vault" is supposed to mean.
+        vault: vault || undefined,
         ...rest,
       },
     });
@@ -1176,7 +1246,13 @@ class ServiceStaking extends ServiceBase {
       });
       return tokensResponse.data.data;
     },
-    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }) },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
+      // Accounts arrive as a fresh array each call — key by content so the
+      // 2s dedupe still works
+      normalizer: (args) => JSON.stringify(args[0]),
+    },
   );
 
   @backgroundMethod()
@@ -1297,8 +1373,41 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAllNetworkAssetsV2() {
-    return this._getAccountAssetV2([]);
+  async fetchAllNetworkAssetsV2(params?: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+  }) {
+    // OK-59302: /earn/v2/recommend computes per-account balances
+    // (available.text -> the "Balance" subtitle), so the request must carry
+    // the wallet's per-network addresses. Calling it with an empty accounts
+    // list made every recommended row show "Balance: 0".
+    let accounts: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[] = [];
+    // An indexedAccountId alone is enough to resolve the per-network
+    // addresses, and it is a real home state: the selected network may have
+    // no address created yet, and all-network falls back to
+    // `account === undefined` when the mocked account cannot be built. Gating
+    // on accountId only would leave those users at "Balance: 0" while the
+    // overview on the same page shows real numbers. Matches the sibling earn
+    // paths (useEarnPortfolio / fetchAllNetworkAssets), which pass `''`.
+    const hasAccountScope = Boolean(
+      params?.networkId && (params?.accountId || params?.indexedAccountId),
+    );
+    if (params && hasAccountScope) {
+      try {
+        accounts = await this.getEarnAvailableAccountsParams({
+          ...params,
+          accountId: params.accountId || '',
+        });
+      } catch {
+        accounts = [];
+      }
+    }
+    return this._getAccountAssetV2(accounts);
   }
 
   @backgroundMethod()
@@ -1443,6 +1552,15 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async clearAvailableAssetsCache() {
     void this._getAvailableAssets.clear();
+  }
+
+  @backgroundMethod()
+  async getEarnPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IEarnPageBannerListItem[];
+    }>('/earn/v1/banner/list');
+    return response.data.data;
   }
 
   @backgroundMethod()

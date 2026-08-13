@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -35,6 +36,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
@@ -136,6 +138,10 @@ const ProtocolHeader = ({
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
+    if (platformEnv.isNative) {
+      EarnNavigation.pushToEarnPositions(navigation);
+      return;
+    }
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 
@@ -160,17 +166,27 @@ const ProtocolHeader = ({
   return (
     <YStack gap="$2.5">
       <XStack jc="space-between" ai="center">
+        {/* Vault symbols can be as long as
+            "Morpho-cbBTC-USDC-wrapper". The name group used to be
+            flexShrink={0} with no truncation on its text, so it pushed the
+            divider and the maturity date off the right edge. The date is
+            short and load-bearing, so it and the divider hold their size and
+            the name truncates into whatever is left. */}
         <XStack gap="$3" ai="center" minWidth={0} flex={1}>
-          <XStack gap="$2" ai="center" flexShrink={0}>
+          <XStack gap="$2" ai="center" flexShrink={1} minWidth={0}>
             <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-            <SizableText size="$bodyLgMedium">
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
               {tokenInfo?.token.symbol || symbol}
             </SizableText>
           </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$6" />
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              <Divider vertical h="$6" flexShrink={0} />
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={0}
+              >
                 {formattedMaturityDate}
               </SizableText>
             </>
@@ -727,6 +743,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     symbol: string;
     provider: string;
     vault: string | undefined;
+    logoURI?: string;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -762,13 +779,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     // Old format: normal navigation
-    const { networkId, symbol, provider, vault } = routeParams;
+    const { networkId, symbol, provider, vault, logoURI } = routeParams;
 
     return {
       networkId,
       symbol,
       provider,
       vault,
+      logoURI,
     };
   }, [route.params]);
 
@@ -777,7 +795,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const accountId = selectedAccount.othersWalletAccountId || '';
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
-  const { networkId, symbol, provider, vault } = resolvedParams;
+  const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
 
   const {
     detailInfo,
@@ -826,16 +844,33 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tokenInfo,
   });
 
+  // OK-59304: `tokenInfo` only exists once getProtocolDetailsV2 resolves, so
+  // without the logo the entry list handed over the header would render the
+  // placeholder icon on every entry and swap to the real logo on response.
+  const headerTokenLogoURI = tokenInfo?.token?.logoURI ?? logoURI;
+  // OK-59961: entries that carry no logoURI route param (a banner deep link)
+  // have nothing to draw until getProtocolDetailsV2 resolves, so the header
+  // rendered Token's placeholder coin and swapped in the real logo a beat
+  // later. Skeleton it instead while the request is still in flight — gated on
+  // isLoading rather than on the URI alone, so a token that genuinely has no
+  // logo still falls back to the placeholder instead of pulsing forever.
+  const isHeaderTokenLogoPending = !headerTokenLogoURI && isLoading;
+
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" tokenImageUri={tokenInfo?.token?.logoURI} />
+        {isHeaderTokenLogoPending ? (
+          // Matches Token size="md" (tokenImageSize $8) so nothing shifts
+          <Skeleton w="$8" h="$8" radius="round" />
+        ) : (
+          <Token size="md" tokenImageUri={headerTokenLogoURI} />
+        )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, tokenInfo?.token?.logoURI],
+    [symbol, headerTokenLogoURI, isHeaderTokenLogoPending],
   );
 
   const handleOpenManageModal = useCallback(
@@ -968,7 +1003,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               symbol={symbol}
               provider={provider}
               vault={vault}
-              tokenImageUri={tokenInfo?.token?.logoURI}
+              tokenImageUri={headerTokenLogoURI}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}

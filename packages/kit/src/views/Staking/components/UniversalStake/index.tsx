@@ -43,6 +43,7 @@ import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -52,6 +53,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
@@ -76,7 +78,6 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -112,6 +113,10 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import {
+  getCheckAmountRequestKey,
+  isLatestCheckAmountRequest,
+} from '../UniversalWithdraw/checkAmountRequestUtils';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import type {
@@ -183,6 +188,7 @@ function ProtocolSwitchTriggerRow({
   fallbackAprText,
   isLoading,
   isSwitchEnabled,
+  canSwitchProtocols,
   onPress,
 }: {
   currentProtocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
@@ -190,36 +196,48 @@ function ProtocolSwitchTriggerRow({
   fallbackProviderLogoUri?: string;
   fallbackAprText?: string;
   isLoading?: boolean;
+  /** Interactive right now — false while a tx is in flight (OK-58029) */
   isSwitchEnabled: boolean;
+  /** Switchable in principle. Drives layout only, so a transient lock cannot
+      change the rendered shape and remount the icon (OK-59957) */
+  canSwitchProtocols: boolean;
   onPress: () => void;
 }) {
-  const providerName = capitalizeString(
+  const providerName = getEarnProviderDisplayName(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
-  const subtitle = [
-    currentProtocol?.provider.vaultName,
-    tvlText ? `TVL ${tvlText}` : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // Same layout as the quick-switcher dialog item (OK-58854): bottom-left
+  // keeps only vaultName, TVL moves under APY/APR on the right
+  const subtitle = currentProtocol?.provider.vaultName || '';
   const aprDisplay = getProtocolAprDisplay({
     protocol: currentProtocol,
     fallbackText: fallbackAprText,
   });
-  const showChevron = isSwitchEnabled || isLoading;
+  // Presence follows canSwitchProtocols so locking the switcher mid-tx dims the
+  // chevron instead of removing it (its removal reflowed the row) (OK-59957)
+  const showChevron = canSwitchProtocols || isLoading;
   let aprElement = null;
 
   if (aprDisplay) {
-    aprElement = (
-      <SizableText
-        size="$headingLg"
-        color={aprDisplay.color}
-        textDecorationLine={aprDisplay.textDecorationLine}
-      >
-        {aprDisplay.text}
-      </SizableText>
-    );
+    // Strikethrough case (deprecated) keeps the original rendering; the
+    // regular case renders value + small APY/APR suffix
+    aprElement =
+      aprDisplay.textDecorationLine === 'line-through' ? (
+        <SizableText
+          size="$headingLg"
+          color={aprDisplay.color}
+          textDecorationLine={aprDisplay.textDecorationLine}
+        >
+          {aprDisplay.text}
+        </SizableText>
+      ) : (
+        <EarnAprSuffixText
+          text={aprDisplay.text}
+          size="$headingLg"
+          color={aprDisplay.color}
+        />
+      );
   } else if (isLoading) {
     aprElement = <Skeleton h="$5" w={72} borderRadius="$2" />;
   }
@@ -260,7 +278,14 @@ function ProtocolSwitchTriggerRow({
         </YStack>
       </XStack>
       <XStack alignItems="center" gap="$1" flexShrink={0}>
-        {aprElement}
+        <YStack alignItems="flex-end" gap="$0.5">
+          {aprElement}
+          {tvlText ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`TVL ${tvlText}`}
+            </SizableText>
+          ) : null}
+        </YStack>
         {showChevron ? (
           <Icon
             name="ChevronGrabberVerSolid"
@@ -301,7 +326,14 @@ function ProtocolSwitcher({
     protocols,
     selectedProtocol,
   } = protocolSwitchConfig;
-  const isSwitchEnabled = protocols.length > 1 && !disabled;
+  // Split structural from interactive (OK-59957). canSwitchProtocols decides
+  // whether the Popover wrapper exists; disabled only removes interactivity.
+  // Deriving the tree shape from `disabled` made pressing the stake button
+  // swap <Popover renderTrigger={trigger}/> for a bare <trigger/>, which
+  // unmounted and remounted the row — reloading the remote protocol image
+  // (the visible flicker) and reflowing it as the chevron vanished.
+  const canSwitchProtocols = protocols.length > 1;
+  const isSwitchEnabled = canSwitchProtocols && !disabled;
   const renderProtocolListContent = useCallback(
     ({
       closePopover,
@@ -335,6 +367,23 @@ function ProtocolSwitcher({
       tokenSymbol,
     ],
   );
+  // Always-controlled open state (OK-59957). Passing `open` only while locked
+  // would flip Popover between controlled and uncontrolled: its internal
+  // isOpen would stay true through the lock and the list would pop itself open
+  // again when the tx finished.
+  const [isProtocolListOpen, setIsProtocolListOpen] = useState(false);
+  const handleProtocolListOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setIsProtocolListOpen(nextOpen && isSwitchEnabled);
+    },
+    [isSwitchEnabled],
+  );
+  useEffect(() => {
+    if (!isSwitchEnabled) {
+      setIsProtocolListOpen(false);
+    }
+  }, [isSwitchEnabled]);
+
   const trigger = (
     <ProtocolSwitchTriggerRow
       currentProtocol={currentProtocol}
@@ -343,11 +392,15 @@ function ProtocolSwitcher({
       fallbackAprText={fallbackAprText}
       isLoading={isLoading}
       isSwitchEnabled={isSwitchEnabled}
+      canSwitchProtocols={canSwitchProtocols}
       onPress={() => {}}
     />
   );
 
-  if (!isSwitchEnabled) {
+  // Only a genuinely single-protocol asset drops the Popover wrapper — that is
+  // stable for the lifetime of the screen, so the trigger is never remounted
+  // mid-interaction (OK-59957)
+  if (!canSwitchProtocols) {
     return trigger;
   }
 
@@ -355,6 +408,10 @@ function ProtocolSwitcher({
     <Popover
       title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
       placement="bottom-end"
+      // Locked mid-tx (OK-58029) simply stays closed, rather than unmounting
+      // the Popover and changing the tree shape (OK-59957)
+      open={isProtocolListOpen}
+      onOpenChange={handleProtocolListOpenChange}
       renderTrigger={trigger}
       floatingPanelProps={{
         w: 360,
@@ -371,6 +428,11 @@ type IUniversalStakeProps = {
   balance: string;
 
   tokenImageUri?: string;
+  /**
+   * Token metadata still resolving and no image came in via route params —
+   * skeleton the icon instead of flashing the placeholder coin (OK-59961)
+   */
+  tokenImageLoading?: boolean;
   tokenSymbol?: string;
 
   decimals?: number;
@@ -433,6 +495,7 @@ export function UniversalStake({
   decimals,
   minTransactionFee = '0',
   tokenImageUri,
+  tokenImageLoading,
   tokenSymbol,
   providerName = '',
   providerLogo,
@@ -949,33 +1012,77 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const checkAmountRequestIdRef = useRef(0);
+  const checkAmountRequestKeyRef = useRef('');
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
-  const checkAmount = useDebouncedCallback(
-    async ({ amount, identity }: { amount: string; identity?: string }) => {
-      if (isInvalidAmount(amount)) {
-        return;
-      }
-      setCheckAmountLoading(true);
+  // Mirrors the withdraw side (UniversalWithdraw): a request key + id pair so a
+  // slow response can never overwrite the state of a newer amount, and a single
+  // effect that owns triggering. isInvalidAmount alone let "0" / "0.00" reach
+  // the server, which cannot be submitted anyway and only spun the confirm
+  // button for the round trip (same defect as OK-59850 on the withdraw side).
+  const checkAmountRequestParams = useMemo(
+    () => ({
+      accountId,
+      action: stakefishIdentity
+        ? ECheckAmountActionType.RESTAKE
+        : ECheckAmountActionType.STAKING,
+      amount: amountValue,
+      identity: stakefishIdentity,
+      inputTokenAddress: transactionInputTokenAddress,
+      networkId,
+      outputTokenAddress: transactionOutputTokenAddress,
+      protocolVault,
+      provider: providerName,
+      slippage: pendleSlippage,
+      stakeType,
+      symbol: actionSymbol,
+      withdrawAll: false,
+    }),
+    [
+      accountId,
+      actionSymbol,
+      amountValue,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      stakeType,
+      stakefishIdentity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  const checkAmountRequestKey = useMemo(
+    () => getCheckAmountRequestKey(checkAmountRequestParams),
+    [checkAmountRequestParams],
+  );
+  checkAmountRequestKeyRef.current = checkAmountRequestKey;
+
+  const debouncedCheckAmount = useDebouncedCallback(
+    async ({
+      requestId,
+      requestKey,
+      params,
+    }: {
+      requestId: number;
+      requestKey: string;
+      params: typeof checkAmountRequestParams;
+    }) => {
       try {
-        const response = await backgroundApiProxy.serviceStaking.checkAmount({
-          accountId,
-          networkId,
-          symbol: actionSymbol,
-          provider: providerName,
-          action: identity
-            ? ECheckAmountActionType.RESTAKE
-            : ECheckAmountActionType.STAKING,
-          amount,
-          protocolVault,
-          withdrawAll: false,
-          identity,
-          inputTokenAddress: transactionInputTokenAddress,
-          outputTokenAddress: transactionOutputTokenAddress,
-          slippage: pendleSlippage,
-          stakeType,
-        });
+        const response =
+          await backgroundApiProxy.serviceStaking.checkAmount(params);
+        if (
+          !isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          return;
+        }
 
         if (Number(response.code) === 0) {
           setCheckoutAmountMessage('');
@@ -985,18 +1092,55 @@ export function UniversalStake({
           setCheckAmountAlerts([]);
         }
       } finally {
-        setCheckAmountLoading(false);
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          setCheckAmountLoading(false);
+        }
       }
     },
     300,
   );
 
   useEffect(() => {
-    void checkAmount({
-      amount: amountValue || '0',
-      identity: stakefishIdentity,
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const requestKey = checkAmountRequestKey;
+    const isCheckableAmount =
+      !isInvalidAmount(amountValue) &&
+      new BigNumber(amountValue).isGreaterThan(0);
+
+    if (!isCheckableAmount) {
+      setCheckAmountLoading(false);
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      return undefined;
+    }
+
+    setCheckAmountLoading(true);
+    void debouncedCheckAmount({
+      params: checkAmountRequestParams,
+      requestId,
+      requestKey,
     });
-  }, [checkAmount, stakefishIdentity, amountValue]);
+
+    return () => {
+      if (checkAmountRequestIdRef.current === requestId) {
+        checkAmountRequestIdRef.current += 1;
+      }
+      debouncedCheckAmount.cancel();
+    };
+  }, [
+    amountValue,
+    checkAmountRequestKey,
+    checkAmountRequestParams,
+    debouncedCheckAmount,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -1021,10 +1165,12 @@ export function UniversalStake({
       if (!isOverflowDecimals) {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount({ amount: value, identity: stakefishIdentity });
+        // checkAmount is not called here: the effect above owns triggering off
+        // amountValue, so it also cancels the pending debounce and resets the
+        // loading state when the amount stops being checkable
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -2156,6 +2302,7 @@ export function UniversalStake({
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
+                selectedTokenImageLoading: tokenImageLoading,
                 selectedTokenSymbol: tokenSymbol?.toUpperCase(),
                 selectedNetworkImageUri: network?.logoURI,
                 ...tokenSelectorTriggerProps,
@@ -2360,7 +2507,7 @@ export function UniversalStake({
                                 borderRadius="$2"
                               />
                               <SizableText size="$bodyMd">
-                                {capitalizeString(providerName || '')}
+                                {getEarnProviderDisplayName(providerName || '')}
                               </SizableText>
                             </XStack>
                             <YStack
