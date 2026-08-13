@@ -331,8 +331,15 @@ function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
 }
 
 function waitForControllingServiceWorker(): Promise<ServiceWorker> {
-  const serviceWorkerContainer = navigator.serviceWorker;
-  if (!serviceWorkerContainer) {
+  const serviceWorkerContainer =
+    typeof navigator === 'undefined' ? undefined : navigator.serviceWorker;
+  if (
+    !serviceWorkerContainer ||
+    typeof serviceWorkerContainer.register !== 'function' ||
+    typeof serviceWorkerContainer.addEventListener !== 'function' ||
+    typeof serviceWorkerContainer.removeEventListener !== 'function' ||
+    typeof serviceWorkerContainer.ready?.then !== 'function'
+  ) {
     throw new OneKeyLocalError(
       'TradingView embed requires service worker support',
     );
@@ -343,10 +350,14 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
     if (!worker?.scriptURL) {
       return false;
     }
-    const scriptUrl = new URL(worker.scriptURL);
-    return (
-      `${scriptUrl.pathname}${scriptUrl.search}` === ROOT_SERVICE_WORKER_PATH
-    );
+    try {
+      const scriptUrl = new URL(worker.scriptURL);
+      return (
+        `${scriptUrl.pathname}${scriptUrl.search}` === ROOT_SERVICE_WORKER_PATH
+      );
+    } catch {
+      return false;
+    }
   };
   if (isExpectedWorker(serviceWorkerContainer.controller)) {
     return Promise.resolve(serviceWorkerContainer.controller);
@@ -367,9 +378,9 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
         'controllerchange',
         handleControllerChange,
       );
-      registration?.removeEventListener('updatefound', handleUpdateFound);
+      registration?.removeEventListener?.('updatefound', handleUpdateFound);
       observedWorkers.forEach((worker) => {
-        worker.removeEventListener('statechange', handleWorkerStateChange);
+        worker.removeEventListener?.('statechange', handleWorkerStateChange);
       });
     };
     const finish = (callback: () => void) => {
@@ -413,6 +424,19 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
       if (!worker || observedWorkers.has(worker)) {
         return;
       }
+      if (
+        typeof worker.addEventListener !== 'function' ||
+        typeof worker.removeEventListener !== 'function'
+      ) {
+        finish(() =>
+          reject(
+            new OneKeyLocalError(
+              'TradingView embed service worker events are unavailable',
+            ),
+          ),
+        );
+        return;
+      }
       observedWorkers.add(worker);
       worker.addEventListener('statechange', handleWorkerStateChange);
       if (worker.state === 'activated') {
@@ -423,8 +447,18 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
       observeWorker(registration?.installing);
     }
     const requestClientClaim = (
-      serviceWorkerRegistration: ServiceWorkerRegistration,
+      serviceWorkerRegistration: ServiceWorkerRegistration | undefined,
     ) => {
+      if (!serviceWorkerRegistration) {
+        finish(() =>
+          reject(
+            new OneKeyLocalError(
+              'TradingView embed service worker registration is unavailable',
+            ),
+          ),
+        );
+        return;
+      }
       if (isExpectedWorker(serviceWorkerRegistration.active)) {
         serviceWorkerRegistration.active?.postMessage({
           type: CLAIM_CLIENTS_MESSAGE_TYPE,
@@ -443,13 +477,26 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
         updateViaCache: 'none',
       })
       .then((registeredServiceWorker) => {
+        if (
+          !registeredServiceWorker ||
+          typeof registeredServiceWorker.addEventListener !== 'function' ||
+          typeof registeredServiceWorker.removeEventListener !== 'function'
+        ) {
+          throw new OneKeyLocalError(
+            'TradingView embed service worker registration is unavailable',
+          );
+        }
         registration = registeredServiceWorker;
         registration.addEventListener('updatefound', handleUpdateFound);
         observeWorker(registration.installing);
         observeWorker(registration.waiting);
         observeWorker(registration.active);
         requestClientClaim(registration);
-        void serviceWorkerContainer.ready.then(requestClientClaim);
+        void serviceWorkerContainer.ready
+          .then(requestClientClaim)
+          .catch((error: unknown) => {
+            finish(() => reject(error));
+          });
       })
       .catch((error: unknown) => {
         finish(() => reject(error));
@@ -625,13 +672,15 @@ async function loadModule(
   locale: string,
 ): Promise<ILoadedTradingViewEmbedModule> {
   const isRemoteManifest = !LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname);
-  const controllerPromise = isRemoteManifest
-    ? waitForControllingServiceWorker()
+  // Do not request a cross-origin manifest until the app service worker is
+  // available to proxy and validate it. This also keeps unsupported browsers
+  // from producing an expected-but-noisy CORS error before iframe fallback.
+  const controller = isRemoteManifest
+    ? await waitForControllingServiceWorker()
     : undefined;
   const { baseUrl, manifest } = await getManifest(manifestUrl);
   let runtimeAssetBaseUrl = baseUrl;
-  if (isRemoteManifest && controllerPromise) {
-    const controller = await controllerPromise;
+  if (isRemoteManifest && controller) {
     await ensureServiceWorkerPrefetch(
       controller,
       manifestUrl,
@@ -759,36 +808,40 @@ export function preloadTradingViewEmbedBootstrapAssets(
     return existingPromise;
   }
 
-  const preloadPromise = getManifest(manifestUrl)
-    .then(async ({ baseUrl, manifest }) => {
-      if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
-        const controller = await waitForControllingServiceWorker();
-        await ensureServiceWorkerPrefetch(
-          controller,
-          manifestUrl,
-          manifest,
-          locale,
-        );
-        return;
-      }
-      const assets = resolveBootstrapAssets(manifest, locale);
-      let index = 0;
-      const workers = Array.from(
-        { length: Math.min(BOOTSTRAP_PRELOAD_CONCURRENCY, assets.length) },
-        async () => {
-          while (index < assets.length) {
-            const asset = assets[index];
-            index += 1;
-            await preloadBootstrapAsset(asset, baseUrl);
-          }
-        },
+  const preloadPromise = (async () => {
+    const isRemoteManifest = !LOCAL_HOSTNAMES.has(
+      new URL(manifestUrl).hostname,
+    );
+    const controller = isRemoteManifest
+      ? await waitForControllingServiceWorker()
+      : undefined;
+    const { baseUrl, manifest } = await getManifest(manifestUrl);
+    if (controller) {
+      await ensureServiceWorkerPrefetch(
+        controller,
+        manifestUrl,
+        manifest,
+        locale,
       );
-      await Promise.all(workers);
-    })
-    .catch((error) => {
-      bootstrapPreloadPromises.delete(preloadKey);
-      throw error;
-    });
+      return;
+    }
+    const assets = resolveBootstrapAssets(manifest, locale);
+    let index = 0;
+    const workers = Array.from(
+      { length: Math.min(BOOTSTRAP_PRELOAD_CONCURRENCY, assets.length) },
+      async () => {
+        while (index < assets.length) {
+          const asset = assets[index];
+          index += 1;
+          await preloadBootstrapAsset(asset, baseUrl);
+        }
+      },
+    );
+    await Promise.all(workers);
+  })().catch((error) => {
+    bootstrapPreloadPromises.delete(preloadKey);
+    throw error;
+  });
   bootstrapPreloadPromises.set(preloadKey, preloadPromise);
   return preloadPromise;
 }

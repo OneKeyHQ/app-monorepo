@@ -283,11 +283,15 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       configurable: true,
       value: {
         serviceWorker: {
+          addEventListener: jest.fn(),
           controller: {
             postMessage,
             scriptURL:
               'http://localhost/service-worker.js?tradingviewEmbedProtocol=1',
           },
+          ready: Promise.resolve({}),
+          register: jest.fn(),
+          removeEventListener: jest.fn(),
         },
       },
     });
@@ -350,6 +354,46 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
     }
   });
 
+  test('rejects before fetching a remote manifest when service worker setup is blocked', async () => {
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    const fetchMock = jest.spyOn(globalThis, 'fetch');
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        serviceWorker: {
+          addEventListener: jest.fn(),
+          ready: Promise.resolve(undefined),
+          register: jest.fn(() => Promise.resolve(undefined)),
+          removeEventListener: jest.fn(),
+        },
+      },
+    });
+
+    try {
+      await expect(
+        preloadTradingViewEmbedBootstrapAssets(
+          'https://tradingview.onekeytest.com/?locale=en',
+        ),
+      ).rejects.toThrow(
+        'TradingView embed service worker registration is unavailable',
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(
+          globalThis,
+          'navigator',
+          originalNavigatorDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(globalThis, 'navigator');
+      }
+    }
+  });
+
   test('prefers the runtime TradingView origin over a build environment URL', async () => {
     const manifest = {
       schema: 2,
@@ -384,11 +428,15 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       configurable: true,
       value: {
         serviceWorker: {
+          addEventListener: jest.fn(),
           controller: {
             postMessage,
             scriptURL:
               'http://localhost/service-worker.js?tradingviewEmbedProtocol=1',
           },
+          ready: Promise.resolve({}),
+          register: jest.fn(),
+          removeEventListener: jest.fn(),
         },
       },
     });

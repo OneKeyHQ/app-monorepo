@@ -33,7 +33,14 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
   useEffect(() => {
     let cancelled = false;
     let cleanupIdlePreload: (() => void) | undefined;
-    const isLocalRuntime = LOCAL_HOSTNAMES.has(new URL(baseUrl).hostname);
+    let isLocalRuntime = false;
+    try {
+      isLocalRuntime = LOCAL_HOSTNAMES.has(new URL(baseUrl).hostname);
+    } catch (error) {
+      defaultLogger.app.error.log(
+        `[TradingViewEmbedPreload] Invalid runtime URL: ${String(error)}`,
+      );
+    }
     const immediatePreloads = [
       runImmediatePreload('TradingViewEmbedModule', () =>
         loadTradingViewEmbedModule(finalUrl),
@@ -48,20 +55,26 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
         : []),
     ];
 
-    void Promise.all(immediatePreloads).then(() => {
-      if (cancelled) {
-        return;
-      }
-      cleanupIdlePreload = preloadTasksOnIdle(
-        [
-          {
-            name: 'LegacyTradingViewStorageMigration',
-            preload: () => migrateLegacyTradingViewStorage(finalUrl),
-          },
-        ],
-        'TradingViewEmbedPreload',
-      );
-    });
+    void Promise.all(immediatePreloads)
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        cleanupIdlePreload = preloadTasksOnIdle(
+          [
+            {
+              name: 'LegacyTradingViewStorageMigration',
+              preload: () => migrateLegacyTradingViewStorage(finalUrl),
+            },
+          ],
+          'TradingViewEmbedPreload',
+        );
+      })
+      .catch((error: unknown) => {
+        defaultLogger.app.error.log(
+          `[TradingViewEmbedPreload] Startup preload failed: ${String(error)}`,
+        );
+      });
 
     return () => {
       cancelled = true;
