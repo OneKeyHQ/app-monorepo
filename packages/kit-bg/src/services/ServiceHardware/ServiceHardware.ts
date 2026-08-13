@@ -1692,14 +1692,16 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async resetHardwareSDK() {
-    await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(() =>
-      this.sdkInstanceMutex.runExclusive(async () => {
-        this.resetHardwareUiEventQueue();
-        this.registeredEvents = false;
-        await resetHardwareSDKInstance();
-        this.activeHardwareSDKInstance = undefined;
-        this.activeHardwareTransportType = undefined;
-      }),
+    await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+      () =>
+        this.sdkInstanceMutex.runExclusive(async () => {
+          this.resetHardwareUiEventQueue();
+          this.registeredEvents = false;
+          await resetHardwareSDKInstance();
+          this.activeHardwareSDKInstance = undefined;
+          this.activeHardwareTransportType = undefined;
+        }),
+      { ownerName: 'resetHardwareSDK' },
     );
   }
 
@@ -2796,6 +2798,7 @@ class ServiceHardware extends ServiceBase {
           dbDevice?.connectId ||
           connectId,
         lease: oneKeyOperationLease,
+        ownerName: 'getDeviceStateWithUnlock',
       },
     );
   }
@@ -3724,6 +3727,11 @@ class ServiceHardware extends ServiceBase {
     if (!connectId) {
       return;
     }
+    defaultLogger.hardware.sdkLog.log(
+      `[buildHwWalletXfp] start connectId=${connectId} withUserInteraction=${String(
+        withUserInteraction,
+      )}`,
+    );
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
     if (xfpProfile?.isThirdParty) {
       // Trezor can supply XFP via its adapter (master fingerprint + taproot
@@ -3884,6 +3892,7 @@ class ServiceHardware extends ServiceBase {
           throw error;
         }
       },
+      { ownerName: 'switchHardwareTransportType' },
     );
   }
 
@@ -4219,6 +4228,9 @@ class ServiceHardware extends ServiceBase {
       (candidate) => candidate?.trim().toLowerCase() === normalizedConnectId,
     );
     if (isUsbAliasInput) {
+      defaultLogger.hardware.sdkLog.log(
+        `[SilentBleBind] skip: usb-alias input connectId=${connectId}`,
+      );
       return undefined;
     }
     // Probe only endpoints that demonstrably carried device traffic moments
@@ -4227,6 +4239,9 @@ class ServiceHardware extends ServiceBase {
     // characteristic subscription would summon the OS pairing prompt with
     // no app guidance UI — those cases must keep the pairing-dialog flow.
     if (!this.hasRecentLiveConnectIdEvidence(connectId)) {
+      defaultLogger.hardware.sdkLog.log(
+        `[SilentBleBind] skip: no live evidence connectId=${connectId}`,
+      );
       return undefined;
     }
     const expectedDeviceId =
@@ -4268,10 +4283,21 @@ class ServiceHardware extends ServiceBase {
           dbDeviceId: device.id,
           bleConnectId: connectId,
         });
+        defaultLogger.hardware.sdkLog.log(
+          `[SilentBleBind] bound connectId=${connectId} deviceId=${probedDeviceId}`,
+        );
         return connectId;
       }
+      defaultLogger.hardware.sdkLog.log(
+        `[SilentBleBind] identity mismatch probed=${probedDeviceId} expected=${expectedDeviceId}`,
+      );
     } catch (error) {
       console.error('Silent BLE connectId bind failed:', error);
+      defaultLogger.hardware.sdkLog.log(
+        `[SilentBleBind] probe failed connectId=${connectId}: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
     }
     return undefined;
   }
@@ -4442,6 +4468,9 @@ class ServiceHardware extends ServiceBase {
             },
           });
         }
+        defaultLogger.hardware.sdkLog.log(
+          `[SilentBleBind] falling back to pairing dialog connectId=${connectId} context=${hardwareCallContext}`,
+        );
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({

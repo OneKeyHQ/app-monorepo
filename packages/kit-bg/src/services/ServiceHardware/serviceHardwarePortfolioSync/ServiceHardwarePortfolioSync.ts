@@ -1339,7 +1339,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           });
           return upload;
         },
-        { deviceKey: targetKey },
+        { deviceKey: targetKey, ownerName: 'portfolioSyncUpload' },
       );
     this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {

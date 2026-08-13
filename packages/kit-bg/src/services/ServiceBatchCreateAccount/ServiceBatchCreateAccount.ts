@@ -1145,6 +1145,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   await this.backgroundApi.serviceHardware.getSDKInstance({
                     connectId: deviceParams.dbDevice?.connectId,
                   });
+                defaultLogger.hardware.sdkLog.log(
+                  `[BatchCreateAccount] resolving connectId=${
+                    deviceParams.dbDevice?.connectId || ''
+                  }`,
+                );
                 const compatibleConnectId =
                   await this.backgroundApi.serviceHardware.getCompatibleConnectId(
                     {
@@ -1154,6 +1159,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
                         EHardwareCallContext.USER_INTERACTION,
                     },
                   );
+                defaultLogger.hardware.sdkLog.log(
+                  `[BatchCreateAccount] resolved connectId=${compatibleConnectId} loopMode=${String(
+                    usingSdkLoopMode,
+                  )}`,
+                );
 
                 allNetworkGetAddressResponse = (await convertDeviceResponse(
                   async () => {

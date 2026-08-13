@@ -607,6 +607,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         {
           deviceKey:
             dbDevice?.id || dbDevice?.deviceId || dbDevice?.uuid || connectId,
+          ownerName: 'firmwareUpdateDetect',
         },
       );
     if (!exclusiveResult.acquired) {
