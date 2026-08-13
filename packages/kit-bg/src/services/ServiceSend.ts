@@ -10,7 +10,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -86,17 +86,6 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
-
-function getNonBlockingKdfParams() {
-  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
-  if (kdfParams.kdfBackend !== 'webcrypto') {
-    return undefined;
-  }
-  return {
-    ...kdfParams,
-    enablePbkdf2Cache: false,
-  };
-}
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -1411,7 +1400,9 @@ class ServiceSend extends ServiceBase {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
 
-    const kdfParams = useNonBlockingKdf ? getNonBlockingKdfParams() : undefined;
+    const kdfParams = useNonBlockingKdf
+      ? getPbkdf2KdfParamsForNonDbTxNoCache()
+      : undefined;
 
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({

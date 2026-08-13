@@ -45,6 +45,7 @@ import {
   getPbkdf2BackendForCurrentPlatform,
   getPbkdf2InvocationByProbeId,
   getPbkdf2KdfParamsForNonDbTx,
+  getPbkdf2KdfParamsForNonDbTxNoCache,
   isWebCryptoPbkdf2Supported,
 } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
@@ -1838,14 +1839,9 @@ class ServiceAccount extends ServiceBase {
     params: ICoreHyperLiquidAgentCredential,
   ) {
     ensureSensitiveTextEncoded(params.privateKey);
-    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
-    const webCryptoKdfParams =
-      kdfParams.kdfBackend === 'webcrypto'
-        ? { ...kdfParams, enablePbkdf2Cache: false }
-        : undefined;
     const decodedPrivateKey = await decodeSensitiveTextAsync({
       encodedText: params.privateKey,
-      ...webCryptoKdfParams,
+      ...getPbkdf2KdfParamsForNonDbTxNoCache(),
     });
     const agentWallet = new ethers.Wallet(decodedPrivateKey);
     const credential: ICoreHyperLiquidAgentCredential = {
