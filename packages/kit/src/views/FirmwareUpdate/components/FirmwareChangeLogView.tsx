@@ -76,13 +76,7 @@ function FirmwareVersionOnlyProgressText({
     : unknownMessage;
 
   return (
-    <XStack
-      alignItems="center"
-      gap="$1.5"
-      minWidth={0}
-      flexShrink={1}
-      flexWrap="wrap"
-    >
+    <XStack alignItems="center" gap="$1.5" minWidth={0} flexShrink={1}>
       <SizableText {...versionTextProps} color={textColor}>
         {fromVersionText}
       </SizableText>
@@ -174,14 +168,7 @@ function ChangeLogSection({
       >
         {({ open }: { open: boolean }) => (
           <>
-            <XStack
-              ai="center"
-              gap="$1.5"
-              flex={1}
-              minWidth={0}
-              flexShrink={1}
-              flexWrap="wrap"
-            >
+            <XStack ai="center" gap="$1.5" flex={1} minWidth={0} flexShrink={1}>
               <SizableText
                 size="$bodyLgMedium"
                 color={open ? '$text' : '$textSubdued'}

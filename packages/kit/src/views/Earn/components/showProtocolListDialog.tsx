@@ -39,7 +39,10 @@ import {
 import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
-import { shouldShowProtocolListBalances } from './showProtocolListDialog.utils';
+import {
+  getProtocolAprColor,
+  shouldShowProtocolListBalances,
+} from './showProtocolListDialog.utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -478,6 +481,7 @@ export function ProtocolListContent({
         .filter(Boolean)
         .join(' · ');
       const balanceInfo = protocolBalanceMap[protocolKey];
+      const aprColor = getProtocolAprColor(item.aprInfo);
 
       return (
         <XStack
@@ -518,7 +522,7 @@ export function ProtocolListContent({
             ) : null}
           </YStack>
           <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
-            <SizableText size="$bodyLgMedium">
+            <SizableText size="$bodyLgMedium" color={aprColor}>
               {getProtocolAprValue(item)}
             </SizableText>
             {shouldShowProtocolBalances &&

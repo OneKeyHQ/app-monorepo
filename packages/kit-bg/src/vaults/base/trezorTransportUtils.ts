@@ -4,7 +4,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -19,16 +22,39 @@ export type IRequestTrezorBleConnectId = (params: {
 
 export type ICallTrezorWithBleFallbackOptions = {
   requestBleConnectId?: IRequestTrezorBleConnectId;
+  // Transport-correct connectId for the first attempt; without it a BLE
+  // session gets the USB handle and hangs on the noble connect timeout.
+  resolvePrimaryConnectId?: (
+    dbDevice: IDBDevice,
+  ) => Promise<string | undefined>;
 };
 
 type ITrezorTransportFailurePayload = {
   code?: unknown;
+  // SDK failure text; tells a locked device from a dead address.
+  error?: unknown;
 };
+
+// Composed by noble's Windows binding ("Device is unreachable" + " while
+// discovering services"): link up but GATT discovery failed = locked device.
+// macOS noble reports a bare "connection failed", so this never fires there.
+function isTrezorDeviceUnresponsiveFailure(
+  payload?: ITrezorTransportFailurePayload,
+): boolean {
+  const text =
+    typeof payload?.error === 'string' ? payload.error.toLowerCase() : '';
+  return text.includes('unreachable while discovering services');
+}
 
 function isTrezorTransportDownFailure(
   payload?: ITrezorTransportFailurePayload,
 ): boolean {
   const code = payload?.code;
+  // Dead/rotated address → rebind helps; locked device → it just needs
+  // unlocking. Only the former is transport-down.
+  if (code === HardwareErrorCode.BleConnectFailed) {
+    return !isTrezorDeviceUnresponsiveFailure(payload);
+  }
   return (
     code === HardwareErrorCode.DeviceDisconnected ||
     code === HardwareErrorCode.DeviceNotFound ||
@@ -63,6 +89,13 @@ export function buildTrezorBleFallbackOptions(
           device: dbDevice,
         },
       ),
+    resolvePrimaryConnectId: async (dbDevice) =>
+      backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        vendor: dbDevice.vendor,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
   };
 }
 
@@ -94,7 +127,18 @@ export async function callTrezorWithBleFallback<T>(
   fn: (connectId: string) => Promise<Response<T>>,
   options?: ICallTrezorWithBleFallbackOptions,
 ): Promise<Response<T>> {
-  const primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  // First attempt must be transport-correct; resolver failure keeps USB-first.
+  let primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  if (options?.resolvePrimaryConnectId) {
+    try {
+      const resolved = await options.resolvePrimaryConnectId(dbDevice);
+      if (resolved) {
+        primaryConnectId = resolved;
+      }
+    } catch {
+      // noop
+    }
+  }
   let result = await fn(primaryConnectId);
   if (result.success) return result;
 

@@ -13,12 +13,15 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import { ESwapProAnalyticsTokenSelectFrom } from '@onekeyhq/shared/types/swap/types';
 
 import {
   MarketNormalTokenList,
@@ -58,6 +61,21 @@ const SwapProSelectTokenPage = ({
   );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
+    if (
+      !equalTokenNoCaseSensitive({
+        token1: swapProTokenSelect,
+        token2: {
+          networkId: token.networkId,
+          contractAddress: token.address,
+        },
+      })
+    ) {
+      defaultLogger.swap.swapPro.swapProTokenSwitch({
+        selectFrom: ESwapProAnalyticsTokenSelectFrom.TOKEN_LIST,
+        tokenSymbol: token.symbol,
+        network: token.networkId,
+      });
+    }
     navigation.popStack();
     void setSwapProSelectToken({
       networkId: token.networkId,
@@ -74,6 +92,21 @@ const SwapProSelectTokenPage = ({
   const handleSearchTokenSelect = (
     token: IMarketSearchV2Token & { networkLogoURI: string },
   ) => {
+    if (
+      !equalTokenNoCaseSensitive({
+        token1: swapProTokenSelect,
+        token2: {
+          networkId: token.network,
+          contractAddress: token.address,
+        },
+      })
+    ) {
+      defaultLogger.swap.swapPro.swapProTokenSwitch({
+        selectFrom: ESwapProAnalyticsTokenSelectFrom.SEARCH,
+        tokenSymbol: token.symbol,
+        network: token.network,
+      });
+    }
     navigation.popStack();
     void setSwapProSelectToken({
       networkId: token.network,

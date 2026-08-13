@@ -1536,12 +1536,7 @@ function StockPriceChart({
   }, [chartScope]);
   const { result: chartState, isLoading } = usePromiseResult(
     async () => {
-      if (
-        !networkId ||
-        !normalizedCoinGeckoId ||
-        (!tokenAddress && !isNative) ||
-        !activeRange
-      ) {
+      if (!networkId || (!tokenAddress && !isNative) || !activeRange) {
         return {
           scope: chartScope,
           assetScope: chartAssetScope,
@@ -1555,7 +1550,11 @@ function StockPriceChart({
       const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
         normalizedCoinGeckoId,
         days,
-        { requestCurrency: 'usd' },
+        {
+          networkId,
+          requestCurrency: 'usd',
+          tokenAddress,
+        },
       );
       return {
         scope: chartScope,

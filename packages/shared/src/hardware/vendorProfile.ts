@@ -47,6 +47,13 @@ export interface IHardwareVendorProfile {
   /** Whether a connectId can be used to identify an existing device.
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
+  /**
+   * Whether a connectId-based match must be confirmed by an independent seed
+   * check before the record is reused — a connectId that isn't a stable
+   * per-device identity (see `hasPersistentConnectId`) can coincide across
+   * different physical devices/seeds.
+   */
+  requiresSeedVerifyOnConnectIdMatch: boolean;
 }
 
 const onekeyProfile: IHardwareVendorProfile = {
@@ -71,6 +78,8 @@ const onekeyProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
+  // OneKey always matches by deviceId, never by connectId alone.
+  requiresSeedVerifyOnConnectIdMatch: false,
 };
 
 const ledgerProfile: IHardwareVendorProfile = {
@@ -95,6 +104,8 @@ const ledgerProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'ledgerAppAware',
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
+  // connectId is not a proof of identity — seed-check before record reuse.
+  requiresSeedVerifyOnConnectIdMatch: true,
 };
 
 // Trezor THP (Safe 7) — the only Trezor firmware we currently support. PIN
@@ -130,6 +141,8 @@ const trezorProfile: IHardwareVendorProfile = {
   supportsHiddenWalletCreation: true,
   addAccountDefaultNetworkMode: 'onekeyDefault',
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
+  // Trezor always matches by deviceId, never by connectId alone.
+  requiresSeedVerifyOnConnectIdMatch: false,
 };
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {

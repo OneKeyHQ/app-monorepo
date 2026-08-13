@@ -27,6 +27,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -720,6 +721,7 @@ function PerpsEmptyRecommendSection() {
                       {token.displayName}
                     </SizableText>
                     <LeverageBadge leverage={token.maxLeverage} />
+                    <PerpDexBadge dexLabel={token.dexLabel} />
                   </XStack>
                   {token.subtitle ? (
                     <SubtitleText subtitle={token.subtitle} />
@@ -841,6 +843,7 @@ function PerpsEmptyRecommendSection() {
                         {token.displayName}
                       </SizableText>
                       <LeverageBadge leverage={token.maxLeverage} />
+                      <PerpDexBadge dexLabel={token.dexLabel} />
                     </XStack>
                     <XStack alignItems="center" gap="$1" minWidth={0}>
                       {token.subtitle ? (

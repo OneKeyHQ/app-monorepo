@@ -1,6 +1,7 @@
 import type {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapTradeSource,
   IFetchBuildTxParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -17,6 +18,7 @@ export function buildSpeedSwapTxParams({
   kind,
   walletType,
   quoteResultCtx,
+  tradeSource,
 }: {
   fromToken: ISwapToken;
   toToken: ISwapToken;
@@ -29,6 +31,7 @@ export function buildSpeedSwapTxParams({
   kind: ESwapQuoteKind;
   walletType?: string;
   quoteResultCtx?: IFetchBuildTxParams['quoteResultCtx'];
+  tradeSource: ESwapTradeSource;
 }): IFetchBuildTxParams {
   return {
     fromTokenAddress: fromToken.contractAddress,
@@ -44,5 +47,6 @@ export function buildSpeedSwapTxParams({
     kind,
     walletType,
     quoteResultCtx,
+    tradeSource,
   };
 }

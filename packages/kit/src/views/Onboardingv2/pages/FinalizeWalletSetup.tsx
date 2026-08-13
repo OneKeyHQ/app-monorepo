@@ -57,6 +57,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -598,11 +599,24 @@ function FinalizeWalletSetupPage({
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
             ) {
+              // After a BLE onboarding the DB's main connectId is the deviceId,
+              // which a BLE session cannot resolve (noble connect timeout).
+              // Idempotent when the input is already a BLE address.
+              const compatibleConnectId =
+                await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
+                  {
+                    connectId: thirdPartyDevice.connectId,
+                    featuresDeviceId: thirdPartyDevice.deviceId,
+                    vendor: deviceData.vendor,
+                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                  },
+                );
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
                     vendor: deviceData.vendor,
-                    connectId: thirdPartyDevice.connectId,
+                    connectId:
+                      compatibleConnectId || thirdPartyDevice.connectId,
                   },
                 );
               const connectedFeatures = connected.success
@@ -626,16 +640,12 @@ function FinalizeWalletSetupPage({
                   intl,
                 );
               }
-              if (!connectedDeviceId) {
-                throw new OneKeyLocalError({
-                  message: intl.formatMessage({
-                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
-                  }),
-                });
-              }
-              // Device has no seed yet — block creation and prompt the user to
-              // set it up first (we can't drive third-party device setup).
-              if (connectedFeatures?.initialized === false) {
+              // No firmware or no seed yet: no device_id exists, so check this
+              // before the device_id guard to show the real reason.
+              if (
+                connectedFeatures?.firmware_present === false ||
+                connectedFeatures?.initialized === false
+              ) {
                 await trackHardwareWalletConnection({
                   status: 'failure',
                   deviceType: thirdPartyDevice.deviceType,
@@ -657,6 +667,13 @@ function FinalizeWalletSetupPage({
                   }),
                 });
                 return;
+              }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
               }
               featuresForCreate = {
                 ...connectedFeatures,

@@ -246,8 +246,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * `bleConnectId`. We connect to it — the user's OWN device auto-connects via the
    * shared THP credential (no pairing) — read its `device_id`, and if it matches
    * the USB-known device we persist `bleConnectId` on the SAME DB record. A
-   * different device (device_id mismatch, or it asks to pair) → return null so
-   * the UI says "not this one, pick another".
+   * different device (device_id mismatch) → return null so the UI says "not
+   * this one, pick another"; an unreadable device_id or a user-aborted
+   * pairing → throw ("could not verify", never a mismatch verdict).
    *
    * Trezor-only by construction (uses the trezor adapter); never touches the
    * OneKey / Ledger BLE paths.
@@ -271,28 +272,31 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    // A picked candidate that ISN'T this device asks to pair (its static key
-    // doesn't match the shared credential). Suppress the THP pairing dialog and
-    // cancel silently during the probe — treat the pairing request as "not this
-    // one". Handled inside the adapter so it overrides its own pairing UI
-    // (a second listener can't stop the adapter's own handler from firing).
+    // Probe lifecycle bookkeeping only. Pairing requests are never suppressed
+    // (an expired THP credential makes the user's own device ask to pair);
+    // identity is settled by the post-handshake device_id comparison.
     adapter.beginBindingProbe?.(bleConnectId);
 
     try {
       const result = await adapter.connectDevice(bleConnectId);
       if (!result.success) {
-        // Probe suppressed the pairing request — "not this device", not an error.
-        if (adapter.wasBindingProbeCancelled?.()) {
-          defaultLogger.hardware.sdkLog.log(
-            `[TrezorBLEBind] candidate rejected by probe cancel bleConnectId=${bleConnectId}`,
-          );
-          return null;
-        }
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );
         throw convertThirdPartyDeviceError(result.payload, {
           vendor: EHardwareVendor.trezor,
+        });
+      }
+      // No device_id = "could not verify", never "different device".
+      if (!result.payload.deviceId) {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorBLEBind] candidate identity unavailable bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId}`,
+        );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.hardware_connect_failed,
+          }),
+          autoToast: true,
         });
       }
       if (result.payload.deviceId !== featuresDeviceId) {
@@ -322,6 +326,16 @@ class ServiceThirdPartyHardware extends ServiceBase {
         dbDeviceId: device.id,
         bleConnectId,
       });
+      // Drain THP credentials minted during binding, or the pairing code is
+      // re-entered on every connect. Best-effort: must never fail the bind.
+      try {
+        await this.persistTrezorThpCredentials({
+          connectId: bleConnectId,
+          deviceId: featuresDeviceId,
+        });
+      } catch {
+        // ignore — non-critical to binding
+      }
       // The DB write emits nothing on its own; notify the device-details UI so
       // the "bind Bluetooth" row reflects the new bleConnectId immediately.
       appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
@@ -431,11 +445,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
     deviceId: string;
   }): Promise<void> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorTHPTrace][service.persist] connectId=${String(
-        connectId,
-      )} deviceId=${deviceId}`,
-    );
     await adapter?.flushThpCredentials?.(deviceId, { connectId });
   }
 

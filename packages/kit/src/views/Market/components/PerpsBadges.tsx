@@ -7,8 +7,10 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,20 +19,100 @@ import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
-const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
-  <XStack
-    borderRadius="$1"
-    bg="$bgInfo"
-    justifyContent="center"
-    alignItems="center"
-    px="$1.5"
-  >
-    <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
-      {leverage}x
-    </SizableText>
-  </XStack>
-));
+const LeverageBadge = memo(
+  ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
+    <XStack
+      borderRadius="$1"
+      bg="$bgInfo"
+      justifyContent="center"
+      alignItems="center"
+      px={compact ? '$1' : '$1.5'}
+    >
+      <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
+        {leverage}x
+      </SizableText>
+    </XStack>
+  ),
+);
 LeverageBadge.displayName = 'LeverageBadge';
+
+function getPerpDexDescriptionId(dexLabel?: string) {
+  switch (dexLabel?.toLowerCase()) {
+    case 'xyz':
+      return ETranslations.perp_xyz_market__desc;
+    case 'para':
+      return ETranslations.perp_para_market__desc;
+    default:
+      return undefined;
+  }
+}
+
+const PerpDexBadge = memo(
+  ({
+    compact,
+    dexLabel,
+    testID,
+  }: {
+    compact?: boolean;
+    dexLabel?: string;
+    testID?: string;
+  }) => {
+    const intl = useIntl();
+    const descriptionId = getPerpDexDescriptionId(dexLabel);
+
+    if (!descriptionId || !dexLabel) {
+      return null;
+    }
+
+    const label = dexLabel.toLowerCase();
+    const description = intl.formatMessage({ id: descriptionId });
+    const badgeText = (
+      <SizableText color="$textInfo" fontSize={10} lineHeight={16}>
+        {label}
+      </SizableText>
+    );
+    const badge = (
+      <XStack
+        borderRadius="$1"
+        bg="$bgInfo"
+        justifyContent="center"
+        alignItems="center"
+        px={compact ? '$1' : '$1.5'}
+        testID={testID}
+      >
+        {badgeText}
+      </XStack>
+    );
+
+    if (platformEnv.isNative) {
+      return (
+        <LazyPopover
+          title={label}
+          placement="top"
+          renderTrigger={badge}
+          renderContent={
+            <YStack px="$5" pb="$4" maxWidth={360}>
+              <SizableText size="$bodyLg">{description}</SizableText>
+            </YStack>
+          }
+        />
+      );
+    }
+
+    return (
+      <LazyTooltip
+        placement="top"
+        renderTrigger={badge}
+        renderContent={
+          <SizableText size="$bodySm" maxWidth={320}>
+            {description}
+          </SizableText>
+        }
+      />
+    );
+  },
+);
+PerpDexBadge.displayName = 'PerpDexBadge';
 
 const SubtitleBadge = memo(
   ({ subtitle, noTruncate }: { subtitle: string; noTruncate?: boolean }) => {
@@ -248,6 +330,7 @@ StockSourceLogo.displayName = 'StockSourceLogo';
 
 export {
   LeverageBadge,
+  PerpDexBadge,
   StockIsOpenBadge,
   StockSourceLogo,
   SubtitleBadge,
