@@ -1,15 +1,8 @@
-import { useMemo } from 'react';
+import { createContext, useContext } from 'react';
 
-import { makeMutable, useDerivedValue } from 'react-native-reanimated';
+import { makeMutable, useAnimatedReaction } from 'react-native-reanimated';
 
-import {
-  easeInFn,
-  easeOutFn,
-  screenContentTrack,
-  screenGlowTrack,
-  trackAt,
-  useSceneClock,
-} from '../deviceScene';
+import { easeInFn, easeOutFn, trackAt } from '../deviceScene';
 
 import type { IKeyframe } from '../deviceScene';
 import type { SharedValue } from 'react-native-reanimated';
@@ -19,10 +12,10 @@ export type IClassicDeviceButtonKey = 'power' | 'up' | 'down' | 'ok';
 /**
  * Animation contract of the code-drawn Classic device, one field per layer of
  * the decomposition: ScreenPower (the glow/content opacity pair) and
- * ButtonPress (one 0..1 value per physical key). Scenes produce this object;
- * ClassicDevice only wires the values onto views - so every scenario shares
- * the same wake/sleep rendering and press feel, and a global tweak lands in
- * exactly one place.
+ * ButtonPress (one 0..1 value per physical key). Under the presence engine
+ * both screen fields ride the one screen-content opacity — the faint panel
+ * glow is part of what "content shown" looks like on this OLED, not a
+ * separate wake beat.
  */
 export interface IClassicDeviceAnimation {
   /** 0 dark .. 1 the faint powered-on luminance across the whole glass. */
@@ -52,9 +45,10 @@ export const CLASSIC_DEVICE_SCREEN_ON: IClassicDeviceAnimation = {
 };
 
 /* ---------------------------------------------------------------- *
- * Classic scene vocabulary. The screen wake/sleep tracks and the master
- * clock live in ../deviceScene (shared with ProDevice); this file adds the
- * physical-key press envelope and the Classic schedules:
+ * Classic scene vocabulary. The presence machinery (entrance, exit, the
+ * scene clock) lives in ../deviceSceneHost like every replica's; this file
+ * adds what is Classic-only — the physical-key press envelope and the
+ * schedules its scenes play on the clock:
  *  - key press: 100ms down / 150ms hold / 100ms up (the envelope of the
  *    original Lottie files)
  * ---------------------------------------------------------------- */
@@ -78,106 +72,144 @@ function pressPulsesTrack(startTimes: number[]): IKeyframe[] {
   return kfs;
 }
 
-interface ISceneTracks {
-  loopMs: number;
-  /** Clock position held when the viewer prefers reduced motion. */
-  restMs: number;
-  glow: IKeyframe[];
-  content: IKeyframe[];
-  ok: IKeyframe[];
+/* ------------------------- press drive ------------------------- *
+ * The OK key lives on the shell body, outside the screen slot the presence
+ * host swaps, so a scene cannot hand its press values over as render
+ * output. Instead the device provides one per-instance drive through this
+ * context and every scene steers it from its own clock. Per instance, not
+ * a module mutable: two Classics on one screen (the story grids) must not
+ * share a key. */
+
+export interface IClassicPressDrive {
+  ok: SharedValue<number>;
 }
 
-function sceneTracks(
-  loopMs: number,
-  restMs: number,
-  sleepAtMs: number,
-  pressStartsMs: number[],
-): ISceneTracks {
-  return {
-    loopMs,
-    restMs,
-    glow: screenGlowTrack(sleepAtMs),
-    content: screenContentTrack(sleepAtMs),
-    ok: pressPulsesTrack(pressStartsMs),
-  };
-}
+export const ClassicPressContext = createContext<IClassicPressDrive | null>(
+  null,
+);
 
-/** Assembles one scene's tracks into the device contract. */
-function useSceneAnimation(scene: ISceneTracks): {
-  animation: IClassicDeviceAnimation;
-  clock: SharedValue<number>;
-} {
-  const clock = useSceneClock(scene.loopMs, scene.restMs);
-  const screenGlow = useDerivedValue(() => trackAt(clock.value, scene.glow));
-  const screenContent = useDerivedValue(() =>
-    trackAt(clock.value, scene.content),
+/** The no-press track; scenes without key work still park the key at 0. */
+export const PRESS_IDLE_TRACK: IKeyframe[] = [{ t: 0, v: 0 }];
+
+/**
+ * Steers the device's OK key along `track` on the scene clock. Every scene
+ * mounts this — including with PRESS_IDLE_TRACK — so the key can never stay
+ * stuck where the previous scene's unmount left it.
+ */
+export function useOkPressDrive(
+  clock: SharedValue<number>,
+  track: IKeyframe[],
+): void {
+  const drive = useContext(ClassicPressContext);
+  useAnimatedReaction(
+    () => (drive ? trackAt(clock.value, track) : 0),
+    (value, previous) => {
+      if (drive && value !== previous) {
+        drive.ok.value = value;
+      }
+    },
+    [clock, drive, track],
   );
-  const okPress = useDerivedValue(() => trackAt(clock.value, scene.ok));
-  const animation = useMemo(
-    () => ({ screenGlow, screenContent, press: { ok: okPress } }),
-    [screenGlow, screenContent, okPress],
-  );
-  return { animation, clock };
 }
 
-/* ---------------------------------------------------------------- *
- * Confirm, 3.2s loop: wake -> skeleton fades in -> one OK press -> sleep.
- * ---------------------------------------------------------------- */
+/* ---------------------- character entry ---------------------- *
+ * Enter PIN / Enter Passphrase, one shared schedule: six OK presses enter
+ * characters (each fill lands mid-hold), the check appears at the cursor,
+ * one final OK press confirms — seven pulses, exactly like the original
+ * Lottie files. With no screen sleep to hide the loop seam anymore, the
+ * row closes it on its own: hold the completed row, fade the row out,
+ * fade it back in empty, and the presses start over. Rest is the
+ * completed row, key quiet. */
 
-const CONFIRM = sceneTracks(3200, 1200, 2300, [1450]);
-
-export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
-  return useSceneAnimation(CONFIRM).animation;
-}
-
-/* ---------------------------------------------------------------- *
- * Character-entry scenes (Enter PIN / Enter Passphrase - the original
- * Lottie files are frame-identical too), 5.8s loop: wake -> empty row fades in
- * -> six OK presses enter characters (each at mid-hold) -> the check appears at
- * the cursor -> one final OK press confirms -> sleep. Seven pulses total,
- * exactly like the Lottie files (their unexplained 7th press was this confirm).
- * ---------------------------------------------------------------- */
-
-const ENTRY_PRESS_START_MS = 1250;
+const ENTRY_PRESS_START_MS = 400;
 const ENTRY_PRESS_STEP_MS = 500;
-const ENTRY_FILL_COUNT = 6;
-const ENTRY = sceneTracks(
-  5800,
-  // Rest on the completed row: everything entered, the confirm press over.
-  4750,
-  4900,
+export const ENTRY_FILL_COUNT = 6;
+export const ENTRY_OK_TRACK = pressPulsesTrack(
   Array.from(
     { length: ENTRY_FILL_COUNT + 1 },
     (_, i) => ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS,
   ),
 );
 
-/** How many characters are entered at clock time t (fills land mid-hold). */
-function entryEnteredAt(t: number): number {
-  'worklet';
+const ENTRY_ROW_OUT_START_MS = 4800;
+const ENTRY_ROW_OUT_END_MS = 5100;
+const ENTRY_ROW_IN_START_MS = 5300;
+const ENTRY_ROW_IN_END_MS = 5550;
+export const ENTRY_LOOP = { loopMs: 5600, restMs: 4200 };
 
-  let entered = 0;
-  for (let i = 0; i < ENTRY_FILL_COUNT; i += 1) {
-    if (
-      t >=
-      ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS
-    ) {
-      entered += 1;
-    }
-  }
-  return entered;
+/** Opacity of the whole slot row: out at the loop seam, back just before. */
+export const ENTRY_ROW_TRACK: IKeyframe[] = [
+  { t: 0, v: 1 },
+  { t: ENTRY_ROW_OUT_START_MS, v: 1, e: easeInFn },
+  { t: ENTRY_ROW_OUT_END_MS, v: 0 },
+  { t: ENTRY_ROW_IN_START_MS, v: 0, e: easeOutFn },
+  { t: ENTRY_ROW_IN_END_MS, v: 1 },
+];
+
+/* Every changing element transitions on the clock rather than snapping:
+ * a fill cross-fades its slot pending -> entered, the check cross-fades in
+ * over the cursor's pending glyph, and the caret pair slides to the next
+ * slot. Inside the row's hidden window every track snaps back for the
+ * next pass — off-glass, so nothing pops on a lit screen. */
+
+const GLYPH_FADE_MS = 180;
+const CARET_SLIDE_MS = 240;
+const RESET_START_MS = ENTRY_ROW_OUT_END_MS;
+const RESET_END_MS = ENTRY_ROW_OUT_END_MS + 20;
+
+/** Fill i lands mid-hold of press i. */
+const entryFillMs = (i: number) =>
+  ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS;
+/** The check lands with the last fill, replacing the cursor's glyph. */
+const ENTRY_CHECK_AT_MS = entryFillMs(ENTRY_FILL_COUNT - 1);
+
+function fadeInAt(atMs: number): IKeyframe[] {
+  return [
+    { t: 0, v: 0 },
+    { t: atMs, v: 0, e: easeOutFn },
+    { t: atMs + GLYPH_FADE_MS, v: 1 },
+    { t: RESET_START_MS, v: 1 },
+    { t: RESET_END_MS, v: 0 },
+  ];
 }
 
-export function useEntryOnClassicAnimation(): {
-  animation: IClassicDeviceAnimation;
-  /** Characters entered so far, for the screen content to follow. */
-  entered: Readonly<SharedValue<number>>;
-  fillCount: number;
-} {
-  const { animation, clock } = useSceneAnimation(ENTRY);
-  const entered = useDerivedValue(() => entryEnteredAt(clock.value));
-  return useMemo(
-    () => ({ animation, entered, fillCount: ENTRY_FILL_COUNT }),
-    [animation, entered],
+function fadeOutAt(atMs: number): IKeyframe[] {
+  return [
+    { t: 0, v: 1 },
+    { t: atMs, v: 1, e: easeOutFn },
+    { t: atMs + GLYPH_FADE_MS, v: 0 },
+    { t: RESET_START_MS, v: 0 },
+    { t: RESET_END_MS, v: 1 },
+  ];
+}
+
+/** Opacity of entered glyph / pending glyph per fillable slot, cross-fading. */
+export const ENTRY_ENTERED_TRACKS = Array.from(
+  { length: ENTRY_FILL_COUNT },
+  (_, i) => fadeInAt(entryFillMs(i)),
+);
+export const ENTRY_PENDING_TRACKS = Array.from(
+  { length: ENTRY_FILL_COUNT },
+  (_, i) => fadeOutAt(entryFillMs(i)),
+);
+export const ENTRY_CHECK_TRACK = fadeInAt(ENTRY_CHECK_AT_MS);
+export const ENTRY_CURSOR_PENDING_TRACK = fadeOutAt(ENTRY_CHECK_AT_MS);
+
+/**
+ * TranslateX of the caret pair over its slot-0 base, sliding one slot per
+ * fill. `slotShiftPx` is the slot pitch on the device's content canvas.
+ */
+export function entryCaretShiftTrack(slotShiftPx: number): IKeyframe[] {
+  const kfs: IKeyframe[] = [{ t: 0, v: 0 }];
+  for (let i = 0; i < ENTRY_FILL_COUNT; i += 1) {
+    kfs.push(
+      { t: entryFillMs(i), v: i * slotShiftPx, e: easeOutFn },
+      { t: entryFillMs(i) + CARET_SLIDE_MS, v: (i + 1) * slotShiftPx },
+    );
+  }
+  kfs.push(
+    { t: RESET_START_MS, v: ENTRY_FILL_COUNT * slotShiftPx },
+    { t: RESET_END_MS, v: 0 },
   );
+  return kfs;
 }
