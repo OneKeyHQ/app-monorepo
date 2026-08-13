@@ -10,7 +10,13 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_NO_IMPORTED,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IFetchQuoteResult,
@@ -21,6 +27,8 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapAlertActionType,
+  ESwapAlertLevel,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
@@ -84,6 +92,20 @@ const mockCancelFetchQuoteEvents: jest.MockedFunction<() => Promise<void>> =
 const mockSetSwapNetworksSortRawData: jest.MockedFunction<
   (params: { data: unknown[] }) => Promise<void>
 > = jest.fn();
+const mockCheckAccountNetworkNotSupported: jest.MockedFunction<
+  (params: {
+    walletId?: string;
+    accountId?: string;
+    activeNetworkId: string;
+  }) => Promise<boolean>
+> = jest.fn();
+const mockFetchMarketTokenDetailByTokenAddress: jest.MockedFunction<
+  (
+    contractAddress: string,
+    networkId: string,
+    options: { autoHandleError: boolean },
+  ) => Promise<{ code: number; data: { token: object } }>
+> = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -101,6 +123,25 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
           mockSetSwapNetworksSortRawData(params),
       },
     },
+    serviceAccount: {
+      checkAccountNetworkNotSupported: (params: {
+        walletId?: string;
+        accountId?: string;
+        activeNetworkId: string;
+      }) => mockCheckAccountNetworkNotSupported(params),
+    },
+    serviceMarketV2: {
+      fetchMarketTokenDetailByTokenAddress: (
+        contractAddress: string,
+        networkId: string,
+        options: { autoHandleError: boolean },
+      ) =>
+        mockFetchMarketTokenDetailByTokenAddress(
+          contractAddress,
+          networkId,
+          options,
+        ),
+    },
   },
 }));
 
@@ -116,6 +157,13 @@ const bnbToken: ISwapToken = {
   contractAddress: '',
   symbol: 'BNB',
   decimals: 18,
+  isNative: true,
+};
+const trxToken: ISwapToken = {
+  networkId: 'tron--0x2b6653dc',
+  contractAddress: '',
+  symbol: 'TRX',
+  decimals: 6,
   isNative: true,
 };
 const usdcToken: ISwapToken = {
@@ -200,6 +248,7 @@ const fromAddressInfo: ISwapAddressInfo = {
   accountInfo: activeAccountInfo,
   activeAccount: activeAccountInfo,
   isAddressInfoReady: true,
+  targetCanCreateAddress: false,
 };
 
 function createWrapperWithStore(
@@ -267,6 +316,11 @@ describe('useSwapActions', () => {
     mockCloseApproving.mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(false);
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValue({
+      code: 0,
+      data: { token: {} },
+    });
     jest.spyOn(settingsAtom, 'get').mockResolvedValue({
       swapEnableRecipientAddress: false,
       swapIncognitoMode: false,
@@ -274,6 +328,242 @@ describe('useSwapActions', () => {
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapToAnotherAccountSwitchOn: false,
     });
+  });
+
+  it('does not report an unsupported source account when only the cross-chain recipient is missing', async () => {
+    const importedWallet: IDBWallet = {
+      id: WALLET_TYPE_IMPORTED,
+      name: 'Imported',
+      type: WALLET_TYPE_IMPORTED,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: WALLET_NO_IMPORTED,
+    };
+    const importedAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      wallet: importedWallet,
+      network: { id: bnbToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const importedFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      networkId: bnbToken.networkId,
+      accountInfo: importedAccountInfo,
+      activeAccount: importedAccountInfo,
+    };
+    const missingRecipientAddressInfo: ISwapAddressInfo = {
+      ...importedFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          importedFromAddressInfo,
+          missingRecipientAddressInfo,
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).not.toHaveBeenCalled();
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
+  });
+
+  it('offers address creation when the target wallet can create the missing address', async () => {
+    const hdWallet: IDBWallet = {
+      id: 'hd-1',
+      name: 'HD Wallet 1',
+      type: WALLET_TYPE_HD,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: 1,
+    };
+    const hdAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      deriveType: 'default',
+      wallet: hdWallet,
+      indexedAccount: {
+        id: 'hd-1--0',
+        name: 'Account 1',
+        walletId: hdWallet.id,
+        index: 0,
+        idHash: 'indexed-account-hash',
+      },
+      network: { id: ethToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const hdFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      accountInfo: hdAccountInfo,
+      activeAccount: hdAccountInfo,
+    };
+    const missingTargetAddressInfo: ISwapAddressInfo = {
+      ...hdFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+      targetCanCreateAddress: true,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          hdFromAddressInfo,
+          missingTargetAddressInfo,
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        action: expect.objectContaining({
+          actionType: ESwapAlertActionType.CREATE_ADDRESS,
+          directionType: ESwapDirectionType.TO,
+        }),
+      }),
+    ]);
+  });
+
+  it('reports an unsupported target when the provider rejects a custom recipient', async () => {
+    const unsupportedQuote = {
+      quoteId: 'recipient-unsupported',
+      fromAmount: '1',
+      toAmount: '1',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.SWAP,
+      fromTokenInfo: bnbToken,
+      toTokenInfo: trxToken,
+      unSupportReceiveAddressDifferent: true,
+      info: {
+        provider: 'mock-unsupported',
+        providerName: 'mock unsupported',
+      },
+    } as IFetchQuoteResult;
+    const externalAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      wallet: externalWallet,
+      network: { id: bnbToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const externalFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      networkId: bnbToken.networkId,
+      accountInfo: externalAccountInfo,
+      activeAccount: externalAccountInfo,
+    };
+    const missingTargetAddressInfo: ISwapAddressInfo = {
+      ...externalFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+      targetCanCreateAddress: false,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+      storeInstance.set(swapQuoteListAtom(), [unsupportedQuote]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          externalFromAddressInfo,
+          missingTargetAddressInfo,
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledWith({
+      accountId: evmAccount.id,
+      activeNetworkId: trxToken.networkId,
+      walletId: externalWallet.id,
+    });
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({ alertLevel: ESwapAlertLevel.ERROR }),
+    ]);
+    expect(store.get(swapAlertsAtom()).states[0]?.action).toBeUndefined();
+  });
+
+  it('checks hardware target capability before offering address creation', async () => {
+    const hardwareWallet: IDBWallet = {
+      id: 'hw-1',
+      name: 'Hardware Wallet 1',
+      type: WALLET_TYPE_HW,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: 1,
+    };
+    const hardwareAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      wallet: hardwareWallet,
+      network: { id: ethToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const hardwareFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      accountInfo: hardwareAccountInfo,
+      activeAccount: hardwareAccountInfo,
+    };
+    const missingTargetAddressInfo: ISwapAddressInfo = {
+      ...hardwareFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+      targetCanCreateAddress: true,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockImplementation(
+      async ({ activeNetworkId }) => activeNetworkId === trxToken.networkId,
+    );
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          hardwareFromAddressInfo,
+          missingTargetAddressInfo,
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledWith({
+      accountId: evmAccount.id,
+      activeNetworkId: trxToken.networkId,
+      walletId: hardwareWallet.id,
+    });
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({ alertLevel: ESwapAlertLevel.ERROR }),
+    ]);
+    expect(store.get(swapAlertsAtom()).states[0]?.action).toBeUndefined();
   });
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
@@ -483,6 +773,100 @@ describe('useSwapActions', () => {
         },
       ],
     });
+  });
+
+  it('does not commit a stale target-account alert after the current provider starts accepting a recipient', async () => {
+    const fromToken = {
+      ...ethToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const toToken = {
+      ...bnbToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const unsupportedQuote = {
+      quoteId: 'recipient-unsupported',
+      fromAmount: '1',
+      toAmount: '1',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.SWAP,
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      unSupportReceiveAddressDifferent: true,
+      info: {
+        provider: 'mock-unsupported',
+        providerName: 'mock unsupported',
+      },
+    } as IFetchQuoteResult;
+    const supportedQuote = {
+      ...unsupportedQuote,
+      quoteId: 'recipient-supported',
+      unSupportReceiveAddressDifferent: false,
+      info: {
+        provider: 'mock-supported',
+        providerName: 'mock supported',
+      },
+    } as IFetchQuoteResult;
+    const connectedFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      accountInfo: {
+        ...activeAccountInfo,
+        wallet: externalWallet,
+      },
+    };
+    const missingTargetAddressInfo: ISwapAddressInfo = {
+      address: undefined,
+      networkId: toToken.networkId,
+      accountInfo: {
+        ...activeAccountInfo,
+        wallet: externalWallet,
+      },
+      activeAccount: {
+        ...activeAccountInfo,
+        wallet: externalWallet,
+      },
+      isAddressInfoReady: true,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+      storeInstance.set(swapSelectToTokenAtom(), toToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteListAtom(), [unsupportedQuote]);
+    });
+    let resolveUnsupportedCheck: (value: boolean) => void = () => {};
+    mockCheckAccountNetworkNotSupported.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUnsupportedCheck = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      const warningPromise = result.current.checkSwapWarning(
+        connectedFromAddressInfo,
+        missingTargetAddressInfo,
+        { allowNoConnectWallet: true },
+      );
+      await waitFor(() => {
+        expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledTimes(1);
+      });
+
+      store.set(swapQuoteListAtom(), [supportedQuote]);
+      await act(async () => {
+        resolveUnsupportedCheck(true);
+        await warningPromise;
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
   });
 
   it('ignores stale Stock quote limits when the current input amount changed', async () => {

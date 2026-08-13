@@ -1,7 +1,9 @@
 import {
   buildSwapLimitOrdersAccountIdKey,
   removeSwapNoConnectWalletAlerts,
+  removeSwapToAccountUnsupportedAlerts,
   shouldAllowSwapNoConnectWalletWarning,
+  shouldCheckSwapToAccountUnsupportedAlert,
   shouldShowSwapAccountUnsupportedAlert,
   shouldShowSwapLimitOrders,
   shouldShowSwapLocalData,
@@ -115,6 +117,34 @@ describe('removeSwapNoConnectWalletAlerts', () => {
         { noConnectWallet: true },
       ]),
     ).toEqual([{ message: 'keep me' }]);
+  });
+});
+
+describe('removeSwapToAccountUnsupportedAlerts', () => {
+  const targetAccountAlert = {
+    message: 'target account unsupported',
+    toAccountNetworkNotSupported: true,
+  };
+  const sourceAccountAlert = {
+    message: 'source account unsupported',
+  };
+
+  it('removes only the target-account alert after the selected provider accepts a recipient', () => {
+    expect(
+      removeSwapToAccountUnsupportedAlerts({
+        states: [sourceAccountAlert, targetAccountAlert],
+        shouldRemove: true,
+      }),
+    ).toEqual([sourceAccountAlert]);
+  });
+
+  it('keeps the target-account alert when the selected provider still needs the wallet account', () => {
+    expect(
+      removeSwapToAccountUnsupportedAlerts({
+        states: [targetAccountAlert],
+        shouldRemove: false,
+      }),
+    ).toEqual([targetAccountAlert]);
   });
 });
 
@@ -370,5 +400,59 @@ describe('shouldShowSwapAccountUnsupportedAlert', () => {
         accountId: 'hd-1--m/44/60/0/0/0',
       }),
     ).toBe(false);
+  });
+});
+
+describe('shouldCheckSwapToAccountUnsupportedAlert', () => {
+  it('skips the alert when a cross-chain provider accepts a custom recipient', () => {
+    expect(
+      shouldCheckSwapToAccountUnsupportedAlert({
+        hasToToken: true,
+        hasToAddress: false,
+        hasToAccountWallet: true,
+        isHardwareWallet: false,
+        isCrossChain: true,
+        providerSupportsRecipient: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('checks the alert when the provider cannot accept a custom recipient', () => {
+    expect(
+      shouldCheckSwapToAccountUnsupportedAlert({
+        hasToToken: true,
+        hasToAddress: false,
+        hasToAccountWallet: true,
+        isHardwareWallet: false,
+        isCrossChain: true,
+        providerSupportsRecipient: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('checks the alert for a same-chain missing account address', () => {
+    expect(
+      shouldCheckSwapToAccountUnsupportedAlert({
+        hasToToken: true,
+        hasToAddress: false,
+        hasToAccountWallet: true,
+        isHardwareWallet: false,
+        isCrossChain: false,
+        providerSupportsRecipient: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('checks hardware target capability even when the provider accepts a custom recipient', () => {
+    expect(
+      shouldCheckSwapToAccountUnsupportedAlert({
+        hasToToken: true,
+        hasToAddress: false,
+        hasToAccountWallet: true,
+        isHardwareWallet: true,
+        isCrossChain: true,
+        providerSupportsRecipient: true,
+      }),
+    ).toBe(true);
   });
 });
