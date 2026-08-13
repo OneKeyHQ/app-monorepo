@@ -189,6 +189,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
 
+  // Public trades are owned by mounted Swap Pro consumers, independently of
+  // the Perps connection lifecycle. The final unsubscribe closes this client.
   private _publicTradesClient: SubscriptionClient | null = null;
 
   private _publicTradesTransport: WebSocketTransport | null = null;
@@ -1947,16 +1949,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._publicTradesBatches.clear();
   }
 
-  private async _disposePublicTrades(): Promise<void> {
-    await this._subscriptionMutationQueue.enqueue(
-      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
-      async () => {
-        this._publicTradesSubscriptions.clear();
-        await this._closePublicTradesClient();
-      },
-    );
-  }
-
   @backgroundMethod()
   async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
     const normalizedCoin = coin.trim();
@@ -3070,7 +3062,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   async dispose(): Promise<void> {
     this._resetFundedActivationRefreshState();
-    await this._disposePublicTrades();
     await this.disconnect();
   }
 }
