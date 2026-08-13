@@ -4,6 +4,7 @@ import {
   getSwapProMarketDataSource,
   isSwapProHyperliquidBtcToken,
   mapHyperliquidTradeToSwapProTransaction,
+  mapHyperliquidTradesToSwapProTransactions,
 } from './swapProTransactionSource';
 
 describe('swapProTransactionSource', () => {
@@ -19,12 +20,11 @@ describe('swapProTransactionSource', () => {
     expect(
       getSwapProMarketDataSource({
         token: btcToken,
-        supportSpeedSwap: true,
       }),
     ).toBe('hyperliquid');
   });
 
-  it('selects Market for supported non-BTC tokens without provider fallback', () => {
+  it('selects Market for non-BTC tokens independently of trade capability', () => {
     expect(
       getSwapProMarketDataSource({
         token: {
@@ -33,7 +33,6 @@ describe('swapProTransactionSource', () => {
           symbol: 'ETH',
           isNative: false,
         },
-        supportSpeedSwap: true,
       }),
     ).toBe('market');
     expect(
@@ -44,9 +43,8 @@ describe('swapProTransactionSource', () => {
           symbol: 'ETH',
           isNative: false,
         },
-        supportSpeedSwap: false,
       }),
-    ).toBeUndefined();
+    ).toBe('market');
   });
 
   it('maps a Hyperliquid trade to the shared Swap Pro transaction shape', () => {
@@ -66,6 +64,7 @@ describe('swapProTransactionSource', () => {
       owner: '0xbuyer',
       type: 'buy',
       timestamp: 1_700_000_000,
+      timestampMs: 1_700_000_000_123,
       from: {
         symbol: 'USD',
         amount: '16000',
@@ -77,5 +76,31 @@ describe('swapProTransactionSource', () => {
         price: '64000',
       },
     });
+  });
+
+  it('preserves millisecond ordering for trades in the same second', () => {
+    const olderTrade = {
+      coin: 'BTC',
+      side: 'B',
+      px: '64000',
+      sz: '0.25',
+      time: 1_700_000_000_123,
+      hash: '0xolder',
+      tid: 7,
+      users: ['0xseller', '0xbuyer'],
+    } as IRecentTrade;
+    const newerTrade = {
+      ...olderTrade,
+      px: '64001',
+      time: 1_700_000_000_987,
+      hash: '0xnewer' as const,
+      tid: 8,
+    };
+
+    expect(
+      mapHyperliquidTradesToSwapProTransactions([olderTrade, newerTrade]).map(
+        (transaction) => transaction.hash,
+      ),
+    ).toEqual(['0xnewer:8', '0xolder:7']);
   });
 });

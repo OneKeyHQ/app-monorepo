@@ -40,8 +40,15 @@ const SwapProPriceInfo = ({
     }
   }, [swapProTimeRange.value, tokenMarketDetailInfo]);
   const unFormattedPrice = marketData.price || '--';
+  const isMarketSource = marketData.source === 'market';
 
   const { formattedPriceChange, textColor } = useMemo(() => {
+    if (!isMarketSource) {
+      return {
+        formattedPriceChange: '',
+        textColor: '$text',
+      };
+    }
     const priceChangeValue = Number(priceChange);
     const formattedPriceChangeValue = numberFormat(priceChange, {
       formatter: 'priceChange',
@@ -59,7 +66,7 @@ const SwapProPriceInfo = ({
       formattedPriceChange: formattedPriceChangeValue,
       textColor: textColorValue,
     };
-  }, [priceChange]);
+  }, [isMarketSource, priceChange]);
   return (
     <YStack
       role="button"
@@ -81,8 +88,7 @@ const SwapProPriceInfo = ({
       >
         {unFormattedPrice}
       </NumberSizeableText>
-      {marketData.source === 'market' &&
-      tokenMarketDetailInfo?.priceConverted ? (
+      {isMarketSource && tokenMarketDetailInfo?.priceConverted ? (
         <NumberSizeableText
           size="$bodySm"
           color="$textSubdued"
@@ -92,9 +98,11 @@ const SwapProPriceInfo = ({
           {tokenMarketDetailInfo.priceConverted}
         </NumberSizeableText>
       ) : null}
-      <SizableText size="$bodySmMedium" color={textColor}>
-        {formattedPriceChange}
-      </SizableText>
+      {isMarketSource ? (
+        <SizableText size="$bodySmMedium" color={textColor}>
+          {formattedPriceChange}
+        </SizableText>
+      ) : null}
     </YStack>
   );
 };

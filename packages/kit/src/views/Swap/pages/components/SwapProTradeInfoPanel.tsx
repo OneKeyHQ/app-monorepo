@@ -19,10 +19,12 @@ import SwapProTokenTransactionList from './SwapProTokenTransactionList';
 
 interface ISwapProTradeInfoPanelProps {
   onPricePress: (price: string) => void;
+  isFocused: boolean;
   supportSpeedSwap?: boolean;
 }
 const SwapProTradeInfoPanel = ({
   onPricePress,
+  isFocused,
   supportSpeedSwap,
 }: ISwapProTradeInfoPanelProps) => {
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -42,9 +44,9 @@ const SwapProTradeInfoPanel = ({
     networkId: swapProSelectToken?.networkId ?? '',
     symbol: swapProSelectToken?.symbol ?? '',
     isNative: swapProSelectToken?.isNative,
+    enabled: isFocused,
     enableMarketWebSocket,
     marketSnapshotPrice: swapProTokenMarketDetailInfo?.price,
-    supportSpeedSwap,
   });
   const isHyperliquidBtc = isSwapProHyperliquidBtcToken(swapProSelectToken);
   return (

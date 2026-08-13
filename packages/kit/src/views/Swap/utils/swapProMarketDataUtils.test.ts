@@ -1,25 +1,28 @@
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-
 import {
   buildSwapProMarketData,
   mergeSwapProTransactions,
 } from './swapProMarketDataUtils';
 
+import type { ISwapProMarketTransaction } from './swapProTransactionSource';
+
 function buildTransaction({
   hash,
   price,
   timestamp,
+  timestampMs,
 }: {
   hash: string;
   price: string;
   timestamp: number;
-}): IMarketTokenTransaction {
+  timestampMs?: number;
+}): ISwapProMarketTransaction {
   return {
     pairAddress: '',
     hash,
     owner: '',
     type: 'buy',
     timestamp,
+    ...(timestampMs ? { timestampMs } : {}),
     url: '',
     from: {
       symbol: 'USD',
@@ -55,6 +58,25 @@ describe('swapProMarketDataUtils', () => {
         [liveTransaction, snapshotTransaction],
       ),
     ).toEqual([liveTransaction, snapshotTransaction]);
+  });
+
+  it('orders transactions in the same second by millisecond precision', () => {
+    const olderTransaction = buildTransaction({
+      hash: 'older',
+      price: '64000',
+      timestamp: 1_700_000_000,
+      timestampMs: 1_700_000_000_123,
+    });
+    const newerTransaction = buildTransaction({
+      hash: 'newer',
+      price: '64001',
+      timestamp: 1_700_000_000,
+      timestampMs: 1_700_000_000_987,
+    });
+
+    expect(
+      mergeSwapProTransactions([olderTransaction], [newerTransaction]),
+    ).toEqual([newerTransaction, olderTransaction]);
   });
 
   it('derives Hyperliquid price from its latest trade only', () => {

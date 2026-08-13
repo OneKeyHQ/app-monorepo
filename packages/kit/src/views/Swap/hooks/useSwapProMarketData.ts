@@ -8,7 +8,6 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useCurrency } from '../../../components/Currency';
@@ -24,26 +23,27 @@ import {
 } from '../utils/swapProTransactionSource';
 
 import type { ISwapProMarketData } from '../utils/swapProMarketDataUtils';
+import type { ISwapProMarketTransaction } from '../utils/swapProTransactionSource';
 
 type ISwapProMarketDataParams = {
   tokenAddress: string;
   networkId: string;
   symbol: string;
   isNative?: boolean;
+  enabled: boolean;
   enableMarketWebSocket: boolean;
   marketSnapshotPrice?: string;
-  supportSpeedSwap?: boolean;
 };
 
 type ISwapProMarketDataFeedResult = {
   feedKey: string;
-  transactions: IMarketTokenTransaction[];
+  transactions: ISwapProMarketTransaction[];
   isError: boolean;
 };
 
 type ISwapProMarketDataState = {
   feedKey: string;
-  transactions: IMarketTokenTransaction[];
+  transactions: ISwapProMarketTransaction[];
 };
 
 const SWAP_PRO_TRANSACTION_LIMIT = 10;
@@ -57,8 +57,8 @@ function useSwapProMarketDataFeed({
   networkId,
   symbol,
   isNative,
+  enabled,
   enableMarketWebSocket,
-  supportSpeedSwap,
 }: Omit<ISwapProMarketDataParams, 'marketSnapshotPrice'>) {
   const source = getSwapProMarketDataSource({
     token: {
@@ -67,7 +67,6 @@ function useSwapProMarketDataFeed({
       symbol,
       isNative,
     },
-    supportSpeedSwap,
   });
   const feedKey = [
     source ?? 'none',
@@ -81,7 +80,7 @@ function useSwapProMarketDataFeed({
   );
   const { result: feedResult } = usePromiseResult<ISwapProMarketDataFeedResult>(
     async () => {
-      if (!networkId || !source) {
+      if (!enabled || !networkId || !source) {
         return {
           feedKey,
           transactions: [],
@@ -121,10 +120,14 @@ function useSwapProMarketDataFeed({
         };
       }
     },
-    [feedKey, networkId, source, tokenAddress],
-    source === 'market' && !canUseMarketWebSocket
-      ? { pollingInterval: MARKET_TRANSACTIONS_POLLING_INTERVAL_MS }
-      : undefined,
+    [enabled, feedKey, networkId, source, tokenAddress],
+    {
+      overrideIsFocused: (isFocused) => isFocused && enabled,
+      pollingInterval:
+        source === 'market' && !canUseMarketWebSocket
+          ? MARKET_TRANSACTIONS_POLLING_INTERVAL_MS
+          : undefined,
+    },
   );
 
   return {
@@ -142,7 +145,7 @@ function useHyperliquidTradesWebSocket({
 }: {
   coin: string;
   enabled: boolean;
-  onNewTransactions: (transactions: IMarketTokenTransaction[]) => void;
+  onNewTransactions: (transactions: ISwapProMarketTransaction[]) => void;
 }) {
   const onNewTransactionsRef = useRef(onNewTransactions);
   onNewTransactionsRef.current = onNewTransactions;
@@ -152,7 +155,7 @@ function useHyperliquidTradesWebSocket({
       return;
     }
 
-    let pendingTransactions: IMarketTokenTransaction[] = [];
+    let pendingTransactions: ISwapProMarketTransaction[] = [];
     let batchTimer: ReturnType<typeof setTimeout> | undefined;
 
     const flushPendingTransactions = () => {
@@ -198,23 +201,13 @@ function useHyperliquidTradesWebSocket({
       EAppEventBusNames.HyperliquidDataUpdate,
       handleHyperliquidDataUpdate,
     );
-    void backgroundApiProxy.serviceHyperliquidSubscription
-      .subscribePublicTrades({ coin })
-      .catch((error) => {
-        console.error(
-          'Failed to subscribe to Hyperliquid public trades:',
-          error,
-        );
-      });
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.HyperliquidDataUpdate,
-        handleHyperliquidDataUpdate,
-      );
-      if (batchTimer) {
-        clearTimeout(batchTimer);
+    let disposed = false;
+    let subscriptionAcquired = false;
+    const releaseSubscription = () => {
+      if (!subscriptionAcquired) {
+        return;
       }
+      subscriptionAcquired = false;
       void backgroundApiProxy.serviceHyperliquidSubscription
         .unsubscribePublicTrades({ coin })
         .catch((error) => {
@@ -223,6 +216,32 @@ function useHyperliquidTradesWebSocket({
             error,
           );
         });
+    };
+    void backgroundApiProxy.serviceHyperliquidSubscription
+      .subscribePublicTrades({ coin })
+      .then(() => {
+        subscriptionAcquired = true;
+        if (disposed) {
+          releaseSubscription();
+        }
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to subscribe to Hyperliquid public trades:',
+          error,
+        );
+      });
+
+    return () => {
+      disposed = true;
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        handleHyperliquidDataUpdate,
+      );
+      if (batchTimer) {
+        clearTimeout(batchTimer);
+      }
+      releaseSubscription();
     };
   }, [coin, enabled]);
 }
@@ -269,7 +288,7 @@ function useSwapProMarketDataState({
   }, [feedKey, feedResult]);
 
   const handleNewTransactions = useCallback(
-    (newTransactions: IMarketTokenTransaction[]) => {
+    (newTransactions: ISwapProMarketTransaction[]) => {
       if (
         newTransactions.length === 0 ||
         activeFeedKeyRef.current !== feedKey
@@ -304,9 +323,9 @@ export function useSwapProMarketData({
   networkId,
   symbol,
   isNative,
+  enabled,
   enableMarketWebSocket,
   marketSnapshotPrice,
-  supportSpeedSwap,
 }: ISwapProMarketDataParams): ISwapProMarketData {
   const currencyInfo = useCurrency();
   const { feedKey, feedResult, source, hasLoadedSource } =
@@ -315,8 +334,8 @@ export function useSwapProMarketData({
       networkId,
       symbol,
       isNative,
+      enabled,
       enableMarketWebSocket,
-      supportSpeedSwap,
     });
   const { transactions, handleNewTransactions } = useSwapProMarketDataState({
     feedKey,
@@ -327,14 +346,17 @@ export function useSwapProMarketData({
     networkId,
     tokenAddress,
     enabled:
-      source === 'market' && enableMarketWebSocket && Boolean(tokenAddress),
+      enabled &&
+      source === 'market' &&
+      enableMarketWebSocket &&
+      Boolean(tokenAddress),
     currency: currencyInfo.id,
     maxPendingTransactions: SWAP_PRO_TRANSACTION_LIMIT,
     onNewTransactions: handleNewTransactions,
   });
   useHyperliquidTradesWebSocket({
     coin: 'BTC',
-    enabled: source === 'hyperliquid',
+    enabled: enabled && source === 'hyperliquid',
     onNewTransactions: handleNewTransactions,
   });
 

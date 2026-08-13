@@ -7,6 +7,10 @@ import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
 export type ISwapProMarketDataSource = 'market' | 'hyperliquid';
 
+export type ISwapProMarketTransaction = IMarketTokenTransaction & {
+  timestampMs?: number;
+};
+
 type ISwapProTransactionToken = Pick<
   ISwapTokenBase,
   'networkId' | 'contractAddress' | 'isNative' | 'symbol'
@@ -25,15 +29,16 @@ export function isSwapProHyperliquidBtcToken(
 
 export function getSwapProMarketDataSource({
   token,
-  supportSpeedSwap,
 }: {
   token: Partial<ISwapProTransactionToken> | undefined;
-  supportSpeedSwap?: boolean;
 }): ISwapProMarketDataSource | undefined {
+  if (!token?.networkId) {
+    return undefined;
+  }
   if (isSwapProHyperliquidBtcToken(token)) {
     return 'hyperliquid';
   }
-  return supportSpeedSwap ? 'market' : undefined;
+  return 'market';
 }
 
 export function getSwapProTransactionTokenPrice(
@@ -46,7 +51,7 @@ export function getSwapProTransactionTokenPrice(
 
 export function mapHyperliquidTradeToSwapProTransaction(
   trade: IRecentTrade,
-): IMarketTokenTransaction {
+): ISwapProMarketTransaction {
   const isBuy = trade.side === 'B';
   const quoteAmount = new BigNumber(trade.px).multipliedBy(trade.sz).toFixed();
   const token = {
@@ -70,6 +75,7 @@ export function mapHyperliquidTradeToSwapProTransaction(
     owner: trade.users[1],
     type: isBuy ? 'buy' : 'sell',
     timestamp: Math.floor(trade.time / 1000),
+    timestampMs: trade.time,
     url: '',
     from: isBuy ? quote : token,
     to: isBuy ? token : quote,
@@ -81,5 +87,5 @@ export function mapHyperliquidTradesToSwapProTransactions(
 ) {
   return trades
     .map(mapHyperliquidTradeToSwapProTransaction)
-    .toSorted((a, b) => b.timestamp - a.timestamp);
+    .toSorted((a, b) => (b.timestampMs ?? 0) - (a.timestampMs ?? 0));
 }

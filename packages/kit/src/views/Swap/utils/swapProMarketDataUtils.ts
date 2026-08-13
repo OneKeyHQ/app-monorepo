@@ -1,22 +1,23 @@
 import { orderBy, uniqBy } from 'lodash';
 
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
-
 import { getSwapProTransactionTokenPrice } from './swapProTransactionSource';
 
-import type { ISwapProMarketDataSource } from './swapProTransactionSource';
+import type {
+  ISwapProMarketDataSource,
+  ISwapProMarketTransaction,
+} from './swapProTransactionSource';
 
 export type ISwapProMarketData = {
   source: ISwapProMarketDataSource | undefined;
   price: string;
-  transactions: IMarketTokenTransaction[];
+  transactions: ISwapProMarketTransaction[];
   isSourceSupported: boolean;
   hasLoadedSource: boolean;
 };
 
 const SWAP_PRO_TRANSACTION_LIMIT = 10;
 
-function getTransactionIdentity(transaction: IMarketTokenTransaction) {
+function getTransactionIdentity(transaction: ISwapProMarketTransaction) {
   return (
     transaction.hash ||
     `${transaction.timestamp}:${transaction.type}:${transaction.from.amount}:${transaction.to.amount}`
@@ -24,16 +25,17 @@ function getTransactionIdentity(transaction: IMarketTokenTransaction) {
 }
 
 export function mergeSwapProTransactions(
-  ...transactionLists: IMarketTokenTransaction[][]
-): IMarketTokenTransaction[] {
+  ...transactionLists: ISwapProMarketTransaction[][]
+): ISwapProMarketTransaction[] {
   const uniqueTransactions = uniqBy(
     transactionLists.flat(),
     getTransactionIdentity,
   );
-  return orderBy(uniqueTransactions, ['timestamp'], ['desc']).slice(
-    0,
-    SWAP_PRO_TRANSACTION_LIMIT,
-  );
+  return orderBy(
+    uniqueTransactions,
+    [(transaction) => transaction.timestampMs ?? transaction.timestamp * 1000],
+    ['desc'],
+  ).slice(0, SWAP_PRO_TRANSACTION_LIMIT);
 }
 
 export function buildSwapProMarketData({
@@ -43,7 +45,7 @@ export function buildSwapProMarketData({
   hasLoadedSource,
 }: {
   source: ISwapProMarketDataSource | undefined;
-  transactions: IMarketTokenTransaction[];
+  transactions: ISwapProMarketTransaction[];
   marketSnapshotPrice?: string;
   hasLoadedSource: boolean;
 }): ISwapProMarketData {

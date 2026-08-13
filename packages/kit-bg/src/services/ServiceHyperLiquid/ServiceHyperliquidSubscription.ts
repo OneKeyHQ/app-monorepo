@@ -1862,9 +1862,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       reconnect: {
         maxRetries: 999,
         connectionTimeout: 5000,
-        // eslint-disable-next-line no-bitwise
         reconnectionDelay: (attempt: number) =>
-          Math.min(~~(1 << attempt) * 150, 8000),
+          Math.min(2 ** attempt * 150, 8000),
       },
       resubscribe: true,
     });
@@ -2001,9 +2000,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) =>
-            // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 8000),
+          ) => Math.min(2 ** attempt * 150, 8000),
         },
         /* spell-checker:enable */
       };
