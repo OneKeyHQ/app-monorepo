@@ -15,9 +15,9 @@ const mockFormData = {
   scaleReduceOnly: false,
   twapReduceOnly: false,
 };
-let mockActiveAssetCtx:
-  | { ctx: { markPrice: string } }
-  | undefined = { ctx: { markPrice: '100' } };
+let mockActiveAssetCtx: { ctx: { markPrice: string } } | undefined = {
+  ctx: { markPrice: '100' },
+};
 let mockActiveAssetData:
   | { leverage: { value: number }; markPx: string }
   | undefined;
