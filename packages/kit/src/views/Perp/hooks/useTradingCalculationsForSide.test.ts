@@ -15,6 +15,12 @@ const mockFormData = {
   scaleReduceOnly: false,
   twapReduceOnly: false,
 };
+let mockActiveAssetCtx:
+  | { ctx: { markPrice: string } }
+  | undefined = { ctx: { markPrice: '100' } };
+let mockActiveAssetData:
+  | { leverage: { value: number }; markPx: string }
+  | undefined;
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useActiveTradeInstrumentAtom: () => [{ coin: 'ETH', mode: 'perp' }],
@@ -28,8 +34,8 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       universe: { maxLeverage: 20, szDecimals: 4 },
     },
   ],
-  usePerpsActiveAssetCtxAtom: () => [{ ctx: { markPrice: '100' } }],
-  usePerpsActiveAssetDataAtom: () => [undefined],
+  usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
+  usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
   useSpotBalancesAtom: () => [{ balances: [] }],
 }));
 
@@ -46,10 +52,26 @@ jest.mock('./useTradingPrice', () => ({
 }));
 
 describe('useTradingCalculationsForSide', () => {
+  beforeEach(() => {
+    mockActiveAssetCtx = { ctx: { markPrice: '100' } };
+    mockActiveAssetData = undefined;
+  });
+
   it('uses market-wide mark price for TWAP while account data is loading', () => {
     const { result } = renderHook(() => useTradingCalculationsForSide('long'));
 
     expect(result.current.computedSizeForSide.toFixed()).toBe('2');
     expect(result.current.orderValue.toFixed()).toBe('200');
+  });
+
+  it('uses the account mark for all TWAP calculations while market context is loading', () => {
+    mockActiveAssetCtx = undefined;
+    mockActiveAssetData = { leverage: { value: 2 }, markPx: '100' };
+
+    const { result } = renderHook(() => useTradingCalculationsForSide('long'));
+
+    expect(result.current.computedSizeForSide.toFixed()).toBe('2');
+    expect(result.current.orderValue.toFixed()).toBe('200');
+    expect(result.current.marginRequired.toFixed()).toBe('100');
   });
 });

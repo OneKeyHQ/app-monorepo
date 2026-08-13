@@ -174,7 +174,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (isSpot) {
       markPx = effectiveSpotPriceBN.toFixed();
     } else if (formData.orderMode === 'twap') {
-      markPx = activeAssetCtx?.ctx?.markPrice;
+      markPx = activeAssetCtx?.ctx?.markPrice ?? activeAssetData?.markPx;
     }
     return new BigNumber(markPx ?? 0);
   }, [

@@ -184,6 +184,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _pingIntervalTimer: ReturnType<typeof setInterval> | null = null;
 
+  private _pingMeasurementClient: IHyperliquidWsClient | null = null;
+
   private _lastMessageAt: number | null = null;
 
   // Raw pipe liveness, unlike _lastMessageAt which freezes while the handler
@@ -2540,9 +2542,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _measurePing(): Promise<void> {
     const client = this._client;
-    if (!client) {
+    if (!client || this._pingMeasurementClient === client) {
       return;
     }
+    this._pingMeasurementClient = client;
     try {
       const start = Date.now();
       await client.ping();
@@ -2553,10 +2556,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
       );
     } catch {
+      if (this._client !== client) return;
       // Ping failed — clear displayed value without marking disconnected
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
       );
+    } finally {
+      if (this._pingMeasurementClient === client) {
+        this._pingMeasurementClient = null;
+      }
     }
   }
 
