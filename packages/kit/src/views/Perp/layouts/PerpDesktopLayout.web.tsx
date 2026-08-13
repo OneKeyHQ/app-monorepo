@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { CSSProperties } from 'react';
 
 import { Allotment } from 'allotment';
@@ -124,6 +131,11 @@ function PerpDesktopLayout() {
     layout.marketContentHeight + layout.bottomPanelHeight;
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
+  // The order book takes a fixed slice of the market pane, so widen the pane
+  // minimum to keep the chart usable while the order book is visible.
+  const marketPaneMinWidth =
+    PERP_LAYOUT_CONFIG.main.marketMinWidth +
+    (showOrderBook ? layout.widths.orderBook : 0);
   const toggleOrderBook = useCallback(() => {
     setLayoutState((prev) => ({
       ...prev,
@@ -231,21 +243,29 @@ function PerpDesktopLayout() {
     });
   }, [layout.bottomPanelHeight, layout.marketContentHeight, setLayoutState]);
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      const availableWidth =
-        mainSplitContainerRef.current?.offsetWidth || viewportWidth;
-      mainSplitRef.current?.resize(
-        getPerpDesktopMainSplitSizes({
-          availableWidth,
-          defaultTradingWidth: layout.widths.trading,
-          savedTradingWidth: layoutState.tradingWidth,
-        }),
-      );
-    });
-
-    return () => cancelAnimationFrame(frame);
+  // defaultSizes uses the window width, but Allotment rescales it to the real
+  // container (window minus side nav); re-apply before paint to avoid a jump.
+  useLayoutEffect(() => {
+    const availableWidth =
+      mainSplitContainerRef.current?.offsetWidth || viewportWidth;
+    mainSplitRef.current?.resize(
+      getPerpDesktopMainSplitSizes({
+        availableWidth,
+        defaultTradingWidth: layout.widths.trading,
+        savedTradingWidth: layoutState.tradingWidth,
+      }),
+    );
   }, [layout.widths.trading, layoutState.tradingWidth, viewportWidth]);
+
+  // Allotment only honors defaultSizes on first mount; re-apply persisted
+  // heights after async atom hydration and on responsive layout changes.
+  useLayoutEffect(() => {
+    chartSplitRef.current?.resize(chartSplitSizes);
+  }, [chartSplitSizes]);
+
+  useLayoutEffect(() => {
+    tradingSplitRef.current?.resize(tradingSplitSizes);
+  }, [tradingSplitSizes]);
 
   const tradingPanel = useMemo(() => {
     return (
@@ -420,7 +440,7 @@ function PerpDesktopLayout() {
               onDragEnd={handleMainSplitDragEnd}
               onReset={handleMainSplitReset}
             >
-              <Allotment.Pane minSize={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
+              <Allotment.Pane minSize={marketPaneMinWidth}>
                 <Stack h="100%" overflow="hidden">
                   <Allotment
                     ref={chartSplitRef}

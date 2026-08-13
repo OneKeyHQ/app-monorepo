@@ -45,7 +45,10 @@ import {
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { SpotBalanceList } from '../components/OrderInfoPanel/List/SpotBalanceList';
-import { PerpMobileChartPanel } from '../components/PerpMobileChartPanel';
+import {
+  PERP_MOBILE_CHART_BAR_SCROLL_INSET,
+  PerpMobileChartPanel,
+} from '../components/PerpMobileChartPanel';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
@@ -368,7 +371,13 @@ export function PerpMobileLayout() {
     <YStack flex={1} position="relative" bg="$bgApp">
       <ScrollView
         style={{ flex: 1, backgroundColor: '$bgApp' }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          // The floating chart bar overlays the scroll viewport bottom.
+          paddingBottom:
+            (tabBarHeight ?? 0) +
+            (isSplitMainActive ? 0 : PERP_MOBILE_CHART_BAR_SCROLL_INSET),
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         stickyHeaderIndices={[1]}

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   HeaderScrollGestureWrapper,
@@ -16,18 +17,24 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { PerpTestIDs } from '../testIDs';
 
-const MOBILE_CHART_HEIGHT = 500;
+const MOBILE_CHART_MAX_HEIGHT = 500;
+const MOBILE_CHART_MIN_HEIGHT = 240;
+// Headroom above the expanded chart so short viewports keep the ticker visible.
+const MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT = 220;
+
+// Scrolling content underneath must reserve the collapsed bar height.
+export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 48;
 
 export function PerpMobileChartPanel({
   bottomOffset = 0,
-  onExpandedChange,
 }: {
   bottomOffset?: number;
-  onExpandedChange?: (isExpanded: boolean) => void;
 }) {
   const intl = useIntl();
+  const { height: windowHeight } = useWindowDimensions();
   const { coin, displayName, mode } = useActiveTradeDisplay();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hasExpandedOnce, setHasExpandedOnce] = useState(false);
   const marketName = useMemo(() => {
     if (!displayName) {
       return '--';
@@ -49,12 +56,21 @@ export function PerpMobileChartPanel({
         : undefined,
     [coin],
   );
+  const chartHeight = Math.max(
+    MOBILE_CHART_MIN_HEIGHT,
+    Math.min(
+      MOBILE_CHART_MAX_HEIGHT,
+      windowHeight - bottomOffset - MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT,
+    ),
+  );
 
   const handleToggle = useCallback(() => {
     const next = !isExpanded;
     setIsExpanded(next);
-    onExpandedChange?.(next);
-  }, [isExpanded, onExpandedChange]);
+    if (next) {
+      setHasExpandedOnce(true);
+    }
+  }, [isExpanded]);
 
   return (
     <YStack
@@ -68,35 +84,39 @@ export function PerpMobileChartPanel({
       borderTopWidth="$px"
       borderTopColor="$borderSubdued"
     >
-      {isExpanded ? (
-        <HeaderScrollGestureWrapper
-          panActiveOffsetY={[-4, 4]}
-          panFailOffsetX={[-40, 40]}
-          excludeRightEdgeRatio={0.1}
-          scrollScale={1.2}
-          verticalPanMaxPointers={1}
-          simultaneousWithNativeGesture
-          cancelChildTouches={false}
+      {hasExpandedOnce ? (
+        // Collapsing only hides the mounted chart so reopening keeps its data,
+        // subscriptions, and view state instead of a full rebuild.
+        <YStack
+          testID={PerpTestIDs.MobileChartContent}
+          h={isExpanded ? chartHeight : 0}
+          overflow="hidden"
         >
-          <YStack
-            testID={PerpTestIDs.MobileChartContent}
-            h={MOBILE_CHART_HEIGHT}
-            overflow="hidden"
+          <HeaderScrollGestureWrapper
+            panActiveOffsetY={[-4, 4]}
+            panFailOffsetX={[-40, 40]}
+            excludeRightEdgeRatio={0.1}
+            scrollScale={1.2}
+            verticalPanMaxPointers={1}
+            simultaneousWithNativeGesture
+            cancelChildTouches={false}
           >
-            {chartSource ? (
-              <TradingViewNative
-                key={coin}
-                testID={PerpTestIDs.MobileChart}
-                source={chartSource}
-                nativeControlsLayoutMode="mobile"
-              />
-            ) : null}
-          </YStack>
-        </HeaderScrollGestureWrapper>
+            <YStack h={chartHeight} overflow="hidden">
+              {chartSource ? (
+                <TradingViewNative
+                  key={coin}
+                  testID={PerpTestIDs.MobileChart}
+                  source={chartSource}
+                  nativeControlsLayoutMode="mobile"
+                />
+              ) : null}
+            </YStack>
+          </HeaderScrollGestureWrapper>
+        </YStack>
       ) : null}
       <XStack
         testID={PerpTestIDs.MobileChartToggle}
-        minHeight="$12"
+        minHeight={PERP_MOBILE_CHART_BAR_SCROLL_INSET}
         px="$4"
         py="$3"
         alignItems="center"

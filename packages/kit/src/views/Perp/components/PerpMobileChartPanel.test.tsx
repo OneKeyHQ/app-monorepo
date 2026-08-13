@@ -12,6 +12,12 @@ const mockTradingViewSources: Array<{
   kind: string;
 }> = [];
 
+let mockWindowDimensions = { height: 852, width: 393 };
+
+jest.mock('react-native', () => ({
+  useWindowDimensions: () => mockWindowDimensions,
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) =>
@@ -53,6 +59,7 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: ({
     bottom,
     children,
+    h,
     left,
     position,
     right,
@@ -61,6 +68,7 @@ jest.mock('@onekeyhq/components', () => ({
   }: {
     bottom?: number;
     children?: ReactNode;
+    h?: number;
     left?: number;
     position?: string;
     right?: number;
@@ -69,6 +77,7 @@ jest.mock('@onekeyhq/components', () => ({
   }) => (
     <div
       data-bottom={bottom}
+      data-h={h}
       data-left={left}
       data-position={position}
       data-right={right}
@@ -110,12 +119,13 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
 describe('PerpMobileChartPanel', () => {
   beforeEach(() => {
     mockTradingViewSources.length = 0;
+    mockWindowDimensions = { height: 852, width: 393 };
   });
 
-  it('mounts the Hyperliquid native chart only while expanded', () => {
-    const onExpandedChange = jest.fn();
-    const { getByTestId, getByText, queryByTestId, queryByText, rerender } =
-      render(<PerpMobileChartPanel onExpandedChange={onExpandedChange} />);
+  it('lazy mounts the chart and keeps it mounted after collapse', () => {
+    const { getByTestId, getByText, queryByTestId, queryByText } = render(
+      <PerpMobileChartPanel />,
+    );
     const toggle = getByTestId('perp-mobile-chart-toggle');
 
     expect(getByText('BTCUSDC Perp Chart')).toBeTruthy();
@@ -130,19 +140,48 @@ describe('PerpMobileChartPanel', () => {
     expect(nativeChart.getAttribute('data-coin')).toBe('BTC');
     expect(nativeChart.getAttribute('data-environment')).toBe('mainnet');
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(getByTestId('perp-mobile-chart-content')).toBeTruthy();
-    expect(onExpandedChange).toHaveBeenLastCalledWith(true);
-
-    const source = mockTradingViewSources.at(-1);
-    rerender(<PerpMobileChartPanel onExpandedChange={onExpandedChange} />);
-    expect(mockTradingViewSources.at(-1)).toBe(source);
+    expect(
+      getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
+    ).toBe('500');
 
     fireEvent.click(toggle);
 
+    // Collapse hides the chart without unmounting so reopening keeps state.
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(queryByTestId('perp-mobile-chart-content')).toBeNull();
-    expect(queryByText('Native chart')).toBeNull();
-    expect(onExpandedChange).toHaveBeenLastCalledWith(false);
+    expect(
+      getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
+    ).toBe('0');
+    expect(getByText('Native chart')).toBeTruthy();
+
+    const mountedSources = mockTradingViewSources.length;
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(mockTradingViewSources.at(-1)).toBe(
+      mockTradingViewSources[mountedSources - 1],
+    );
+  });
+
+  it('clamps the expanded chart height to short viewports', () => {
+    mockWindowDimensions = { height: 568, width: 320 };
+    const { getByTestId } = render(<PerpMobileChartPanel bottomOffset={34} />);
+
+    fireEvent.click(getByTestId('perp-mobile-chart-toggle'));
+
+    expect(
+      getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
+    ).toBe('314');
+  });
+
+  it('never collapses the chart below its minimum usable height', () => {
+    mockWindowDimensions = { height: 400, width: 320 };
+    const { getByTestId } = render(<PerpMobileChartPanel bottomOffset={34} />);
+
+    fireEvent.click(getByTestId('perp-mobile-chart-toggle'));
+
+    expect(
+      getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
+    ).toBe('240');
   });
 
   it('anchors the chart panel as a bottom overlay', () => {

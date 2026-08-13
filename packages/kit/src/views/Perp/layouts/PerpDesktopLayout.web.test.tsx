@@ -210,6 +210,31 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockLayoutState.tradingPanelHeight).toBe(620);
   });
 
+  it('re-applies persisted vertical split sizes after hydration updates', () => {
+    const view = render(<PerpDesktopLayout />);
+
+    expect(
+      mockAllotmentResize.get('perp-desktop-chart-split'),
+    ).toHaveBeenLastCalledWith([700, 368]);
+    expect(
+      mockAllotmentResize.get('perp-desktop-trading-split'),
+    ).toHaveBeenLastCalledWith([680, 388]);
+
+    mockLayoutState = {
+      ...mockLayoutState,
+      chartHeight: 620,
+      tradingPanelHeight: 600,
+    };
+    view.rerender(<PerpDesktopLayout />);
+
+    expect(
+      mockAllotmentResize.get('perp-desktop-chart-split'),
+    ).toHaveBeenLastCalledWith([620, 448]);
+    expect(
+      mockAllotmentResize.get('perp-desktop-trading-split'),
+    ).toHaveBeenLastCalledWith([600, 468]);
+  });
+
   it('keeps the TradingView workspace mounted when fullscreen changes', () => {
     const view = render(<PerpDesktopLayout />);
 
