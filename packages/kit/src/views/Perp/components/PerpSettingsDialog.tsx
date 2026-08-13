@@ -11,7 +11,6 @@ import {
   ESwitchSize,
   Icon,
   Popover,
-  SegmentControl,
   SizableText,
   Stack,
   Switch,
@@ -40,6 +39,11 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
 import { PerpGuideContent } from './Guide/PerpGuideContent';
+import {
+  PerpLayoutSettingsEntry,
+  getPerpLayoutSettingsTitle,
+  showPerpLayoutSettingsDialog,
+} from './PerpLayoutSettings';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -352,9 +356,11 @@ function PerpSettingsMainContent({
   showChartPositionSetting = false,
   showGuideEntry = false,
   onOpenActivityCenter,
+  onOpenLayoutSettings,
   onOpenGuide,
 }: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
   onOpenActivityCenter: () => void;
+  onOpenLayoutSettings: () => void;
   onOpenGuide: () => void;
 }) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
@@ -404,50 +410,6 @@ function PerpSettingsMainContent({
         />
       </ListItem>
 
-      {showChartPositionSetting ? (
-        <ListItem
-          testID={PerpTestIDs.MobileChartPositionSetting}
-          mx="$0"
-          px="$3"
-          titleProps={{ size: '$bodyMdMedium' }}
-          title={intl.formatMessage({
-            id: ETranslations.market_chart_settings__chart_display,
-          })}
-          cursor="default"
-        >
-          <SegmentControl
-            testID={PerpTestIDs.MobileChartPositionControl}
-            value={perpsCustomSettings.chartPosition ?? 'bottom'}
-            options={[
-              {
-                label: intl.formatMessage({ id: ETranslations.global_top }),
-                value: 'top',
-              },
-              {
-                label: intl.formatMessage({ id: ETranslations.global_bottom }),
-                value: 'bottom',
-              },
-              {
-                label: intl.formatMessage({
-                  id: ETranslations.market_chart_settings__none,
-                }),
-                value: 'hidden',
-              },
-            ]}
-            h={26}
-            segmentControlItemStyleProps={{ px: '$2', py: '$1' }}
-            onChange={(value) => {
-              const chartPosition =
-                value === 'top' || value === 'hidden' ? value : 'bottom';
-              setPerpsCustomSettings((prev) => ({
-                ...prev,
-                chartPosition,
-              }));
-            }}
-          />
-        </ListItem>
-      ) : null}
-
       <SpotDustingOptOutSetting />
 
       <ListItem
@@ -495,6 +457,10 @@ function PerpSettingsMainContent({
           }}
         />
       </ListItem>
+
+      {showChartPositionSetting ? (
+        <PerpLayoutSettingsEntry onPress={onOpenLayoutSettings} />
+      ) : null}
 
       {showActivityCenterEntry ? (
         <ListItem
@@ -600,6 +566,14 @@ function PerpSettingsPopoverContent({
     navigate('activityCenter');
   }, [closePopover, navigate, onOpenActivityCenter]);
 
+  const handleOpenLayoutSettings = useCallback(() => {
+    void Promise.resolve(closePopover()).then(() => {
+      showPerpLayoutSettingsDialog({
+        title: getPerpLayoutSettingsTitle(intl.locale),
+      });
+    });
+  }, [closePopover, intl.locale]);
+
   const handleOpenGuide = useCallback(() => {
     if (onOpenGuide) {
       void Promise.resolve(closePopover()).then(onOpenGuide);
@@ -621,6 +595,7 @@ function PerpSettingsPopoverContent({
           showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
           onOpenActivityCenter={handleOpenActivityCenter}
+          onOpenLayoutSettings={handleOpenLayoutSettings}
           onOpenGuide={handleOpenGuide}
         />
       );
@@ -654,6 +629,7 @@ function PerpSettingsPopoverContent({
     back,
     closePopover,
     handleOpenActivityCenter,
+    handleOpenLayoutSettings,
     handleOpenGuide,
     intl,
     showActivityCenterEntry,

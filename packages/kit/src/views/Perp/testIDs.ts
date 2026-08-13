@@ -4,6 +4,10 @@ export const PerpTestIDs = {
   MobileSettingsButton: 'perp-mobile-settings-button',
   MobileChartPositionSetting: 'perp-mobile-chart-position-setting',
   MobileChartPositionControl: 'perp-mobile-chart-position-control',
+  MobileLayoutSettingsButton: 'perp-mobile-layout-settings-button',
+  MobileLayoutSettingsPage: 'perp-mobile-layout-settings-page',
+  MobileChartPositionOption: (position: string) =>
+    `perp-mobile-chart-position-option-${position}`,
 
   // -- Market selector --
   TokenSelector: 'perp-token-selector',
