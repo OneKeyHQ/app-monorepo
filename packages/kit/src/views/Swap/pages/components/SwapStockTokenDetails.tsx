@@ -9,7 +9,6 @@ import {
   Dialog,
   InteractiveIcon,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   useClipboard,
@@ -23,6 +22,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { SwapTestIDs } from '../../testIDs';
+
+import { SwapSmoothReveal } from './SwapSmoothReveal';
 
 // cspell:words xstock xStocks
 const STOCK_ISSUER_NAMES: Record<string, string> = {
@@ -248,47 +249,33 @@ export function SwapStockTokenDetails({
     });
   }, []);
 
-  if (!loading && (!stock || !tokenAddress)) {
-    return null;
-  }
+  const ratioValue = stock?.tokenToAssetRatio
+    ? [stock.tokenToAssetRatio, stock.underlyingAssetTicker]
+        .filter(Boolean)
+        .join(' ')
+    : undefined;
 
-  const ratioValue =
-    !loading && stock?.tokenToAssetRatio
-      ? [stock.tokenToAssetRatio, stock.underlyingAssetTicker]
-          .filter(Boolean)
-          .join(' ')
-      : undefined;
-
-  return (
-    <YStack mt="$6" gap="$2.5" testID={SwapTestIDs.stockTokenDetails}>
-      <SizableText size="$bodyMdMedium" color="$text">
-        {intl.formatMessage({ id: ETranslations.trade_stocks_token_details })}
-      </SizableText>
-      <YStack
-        gap="$2"
-        testID={loading ? SwapTestIDs.stockTokenDetailsLoading : undefined}
-      >
-        <TokenDetailRow
-          label={intl.formatMessage({
-            id: ETranslations.trade_stocks_underlying_asset,
-          })}
-        >
-          {loading ? (
-            <Skeleton h="$5" w="$12" />
-          ) : (
+  const tokenDetailsContent =
+    stock && tokenAddress ? (
+      <YStack pt="$6" gap="$2.5" testID={SwapTestIDs.stockTokenDetails}>
+        <SizableText size="$bodyMdMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.trade_stocks_token_details })}
+        </SizableText>
+        <YStack gap="$2">
+          <TokenDetailRow
+            label={intl.formatMessage({
+              id: ETranslations.trade_stocks_underlying_asset,
+            })}
+          >
             <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {stock?.underlyingAssetTicker ?? '--'}
+              {stock.underlyingAssetTicker ?? '--'}
             </SizableText>
-          )}
-        </TokenDetailRow>
-        <TokenDetailRow
-          label={intl.formatMessage({
-            id: ETranslations.trade_stocks_token_issuer,
-          })}
-        >
-          {loading ? (
-            <Skeleton h="$5" w="$16" />
-          ) : (
+          </TokenDetailRow>
+          <TokenDetailRow
+            label={intl.formatMessage({
+              id: ETranslations.trade_stocks_token_issuer,
+            })}
+          >
             <XStack alignItems="center" gap="$1.5">
               <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
                 {issuerName}
@@ -302,42 +289,43 @@ export function SwapStockTokenDetails({
                 />
               ) : null}
             </XStack>
-          )}
-        </TokenDetailRow>
-        {ratioValue ? (
+          </TokenDetailRow>
+          {ratioValue ? (
+            <TokenDetailRow
+              label={intl.formatMessage({
+                id: ETranslations.trade_stocks_token_to_share_ratio,
+              })}
+              labelAction={
+                <InteractiveIcon
+                  testID={SwapTestIDs.stockTokenRatioInfo}
+                  icon="InfoCircleOutline"
+                  size="$4"
+                  onPress={handleShowRatioInfo}
+                />
+              }
+            >
+              <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+                {ratioValue}
+              </SizableText>
+            </TokenDetailRow>
+          ) : null}
           <TokenDetailRow
             label={intl.formatMessage({
-              id: ETranslations.trade_stocks_token_to_share_ratio,
+              id: ETranslations.trade_stocks_contract_address,
             })}
-            labelAction={
-              <InteractiveIcon
-                testID={SwapTestIDs.stockTokenRatioInfo}
-                icon="InfoCircleOutline"
-                size="$4"
-                onPress={handleShowRatioInfo}
-              />
-            }
           >
-            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {ratioValue}
-            </SizableText>
-          </TokenDetailRow>
-        ) : null}
-        <TokenDetailRow
-          label={intl.formatMessage({
-            id: ETranslations.trade_stocks_contract_address,
-          })}
-        >
-          {loading || !tokenAddress ? (
-            <Skeleton h="$5" w="$32" />
-          ) : (
             <ContractAddressValue
               address={tokenAddress}
               networkId={networkId}
             />
-          )}
-        </TokenDetailRow>
+          </TokenDetailRow>
+        </YStack>
       </YStack>
-    </YStack>
+    ) : null;
+
+  return (
+    <SwapSmoothReveal visible={!loading && !!tokenDetailsContent}>
+      {tokenDetailsContent}
+    </SwapSmoothReveal>
   );
 }

@@ -56,7 +56,6 @@ export const SwapTestIDs = {
   stockTokenRatioInfo: 'swap-stock-token-ratio-info',
   stockTokenRatioDialog: 'swap-stock-token-ratio-dialog',
   stockTokenRatioDialogClose: 'swap-stock-token-ratio-dialog-close',
-  stockTokenDetailsLoading: 'swap-stock-token-details-loading',
   stockChartLoading: 'swap-stock-chart-loading',
   stockChartContent: 'swap-stock-chart-content',
   stockChartEmpty: 'swap-stock-chart-empty',
