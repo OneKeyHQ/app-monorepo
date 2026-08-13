@@ -1,4 +1,3 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { IDBFactory } from 'fake-indexeddb';
 
 import {
@@ -653,70 +652,6 @@ describe('LocalDbBase.createHDWallet', () => {
         layer.kind === adapter.kind ? adapter : undefined,
     });
     expect(innerCredential.credential).toBe(rs);
-  });
-});
-
-describe('LocalDbBase.createHwWallet', () => {
-  it('refreshes an existing standard wallet name from the current device label', async () => {
-    const db = new TestLocalDb();
-    db.wallets = [
-      {
-        id: 'hw-device-db-1',
-        name: 'Previous device name',
-        type: 'hw',
-        backuped: true,
-        accounts: [],
-        nextIds: {},
-        associatedDevice: 'device-db-1',
-        walletNo: 1,
-      },
-    ];
-    jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
-      dbDeviceId: 'device-db-1',
-      dbWalletId: 'hw-device-db-1',
-      deviceUUID: 'PRO2_SERIAL',
-      rawDeviceId: 'PRO2_DEVICE_ID',
-    });
-    jest.spyOn(db, 'timeNow').mockResolvedValue(1);
-
-    await db.createHwWallet({
-      device: {
-        connectId: 'PRO2_USB',
-        uuid: 'PRO2_SERIAL',
-        deviceId: 'PRO2_DEVICE_ID',
-        deviceType: EDeviceType.Pro2,
-        name: 'Pro2 6136',
-      },
-      features: {
-        label: 'Current device name',
-        bleName: 'Pro2 6136',
-        deviceType: EDeviceType.Pro2,
-        deviceId: 'PRO2_DEVICE_ID',
-        serialNo: 'PRO2_SERIAL',
-      } as never,
-      deviceState: {
-        schemaVersion: 1,
-        revision: 1,
-        updatedAt: 1,
-        protocol: 'V2',
-        identity: {
-          deviceType: EDeviceType.Pro2,
-          firmwareType: EFirmwareType.Universal,
-          model: 'pro2',
-          vendor: 'onekey.so',
-          deviceId: 'PRO2_DEVICE_ID',
-          serialNo: 'PRO2_SERIAL',
-          label: 'Current device name',
-          bleName: 'Pro2 6136',
-        },
-        status: { mode: 'normal' },
-        settings: {},
-        versions: {},
-        capabilities: [],
-      } as never,
-    });
-
-    expect(db.wallets[0].name).toBe('Current device name');
   });
 });
 

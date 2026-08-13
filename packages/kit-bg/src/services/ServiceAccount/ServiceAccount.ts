@@ -214,6 +214,7 @@ import {
 } from './botWalletCreateUtils';
 import { buildBtcOnlyFirmwareCacheKey } from './btcOnlyFirmwareCacheUtils';
 import {
+  getStandardHwWalletLabelForNameSync,
   refreshDeviceStateAfterStandardWalletUnlock,
   resolveDeviceStateForHwWalletCreate,
 } from './deviceStateForHwWalletCreate';
@@ -3898,6 +3899,22 @@ class ServiceAccount extends ServiceBase {
         : undefined,
       transportType,
     });
+    const deviceLabel = getStandardHwWalletLabelForNameSync({
+      currentWalletName: result.wallet.name,
+      deviceState,
+      explicitName: params.name,
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      passphraseState,
+    });
+    if (deviceLabel) {
+      result.wallet = await this.setWalletNameAndAvatar({
+        walletId: result.wallet.id,
+        name: deviceLabel,
+        shouldCheckDuplicate: false,
+      });
+    } else {
+      result.wallet = await this.getWallet({ walletId: result.wallet.id });
+    }
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
 
     // Trezor: THP pairing credentials were minted while probing the device above
