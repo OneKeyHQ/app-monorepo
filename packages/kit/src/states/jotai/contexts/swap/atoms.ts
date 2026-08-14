@@ -780,11 +780,6 @@ export const {
 } = contextAtom<IMarketPerpsInfo | undefined>(undefined);
 
 export const {
-  atom: swapProTokenTransactionPriceAtom,
-  use: useSwapProTokenTransactionPriceAtom,
-} = contextAtom<string>('');
-
-export const {
   atom: swapProTokenDetailWebsocketAtom,
   use: useSwapProTokenDetailWebsocketAtom,
 } = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);

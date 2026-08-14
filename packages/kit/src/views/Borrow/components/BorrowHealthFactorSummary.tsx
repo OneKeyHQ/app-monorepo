@@ -59,7 +59,11 @@ export function BorrowHealthFactorSummary({
       tooltip={detail ? <BorrowHealthFactorTooltip detail={detail} /> : null}
       action={
         detail?.status ? (
-          <Badge badgeType={detail.status.badge} flexShrink={0}>
+          <Badge
+            badgeType={detail.status.badge}
+            flexShrink={widthMode === 'equal' ? 1 : 0}
+            minWidth={0}
+          >
             {detail.status.tag}
           </Badge>
         ) : null

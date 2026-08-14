@@ -261,6 +261,7 @@ export interface ISwapToken extends ISwapTokenBase {
 
   isPopular?: boolean;
   isWrapped?: boolean;
+  subtitles?: string;
 
   freeFeeObject?: IFreeFeeObject;
 }
@@ -288,6 +289,7 @@ export interface IFetchTokensParams {
   accountNetworkId?: string;
   accountId?: string;
   onlyAccountTokens?: boolean;
+  onlySwapTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   throwOnError?: boolean;
   lpToken?: boolean;
@@ -305,6 +307,7 @@ export interface IFetchTokenListParams {
   keywords?: string;
   skipReservationValue?: boolean;
   onlyAccountTokens?: boolean;
+  onlySwapTokens?: boolean;
   lpToken?: boolean;
 }
 
