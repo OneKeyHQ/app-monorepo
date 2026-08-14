@@ -3,6 +3,12 @@ import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
+const flexBasisByWidthMode = {
+  columns: '50%',
+  equal: 0,
+  hug: 'auto',
+} as const;
+
 export type IOverviewMetricProps = {
   title: IEarnText;
   text?: IEarnText;
@@ -12,7 +18,7 @@ export type IOverviewMetricProps = {
   onPress?: () => void;
   testID?: string;
   valueLayout?: 'inline' | 'stacked';
-  widthMode?: 'columns' | 'hug';
+  widthMode?: 'columns' | 'equal' | 'hug';
 };
 
 export function OverviewMetric({
@@ -28,7 +34,7 @@ export function OverviewMetric({
 }: IOverviewMetricProps) {
   const valueContent = isLoading ? (
     <>
-      <Skeleton w={72} h="$6" borderRadius="$1" />
+      <Skeleton w="100%" maxWidth={72} h="$6" borderRadius="$1" />
       {valueLayout === 'stacked' ? (
         <Skeleton w={56} h="$5" borderRadius="$1" />
       ) : null}
@@ -42,6 +48,8 @@ export function OverviewMetric({
           color="$text"
           flexShrink={1}
           numberOfLines={1}
+          adjustsFontSizeToFit={widthMode === 'equal'}
+          minimumFontScale={widthMode === 'equal' ? 0.75 : undefined}
         />
       ) : null}
       {action}
@@ -53,8 +61,10 @@ export function OverviewMetric({
     <MetricFrame
       testID={testID}
       p="$3"
-      flexBasis={widthMode === 'hug' ? 'auto' : '50%'}
-      $gtMd={{ flexBasis: 'auto', minWidth: 168 }}
+      flexBasis={flexBasisByWidthMode[widthMode]}
+      flexGrow={widthMode === 'equal' ? 1 : 0}
+      minWidth={widthMode === 'equal' ? 0 : undefined}
+      $gtMd={{ flexBasis: 'auto', flexGrow: 0, minWidth: 168 }}
       {...(onPress && {
         onPress,
         accessibilityLabel: title.text,
@@ -89,7 +99,7 @@ export function OverviewMetric({
           {valueContent}
         </YStack>
       ) : (
-        <XStack ai="center" gap="$1" minHeight="$6">
+        <XStack ai="center" gap="$1" minHeight="$6" width="100%">
           {valueContent}
         </XStack>
       )}
