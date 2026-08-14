@@ -307,7 +307,11 @@ export function MobileLayout({
     marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
   ] = useMarketTradingViewSubIndicatorCountPersistAtom();
+  const hasAttemptedMarketTradingViewPersistNormalizationRef = useRef(false);
   useEffect(() => {
+    if (hasAttemptedMarketTradingViewPersistNormalizationRef.current) {
+      return;
+    }
     if (
       normalizeMarketTradingViewSubIndicatorCountPersist(
         marketTradingViewSubIndicatorCountPersist,
@@ -315,6 +319,7 @@ export function MobileLayout({
     ) {
       return;
     }
+    hasAttemptedMarketTradingViewPersistNormalizationRef.current = true;
     setMarketTradingViewSubIndicatorCountPersist((prev) =>
       normalizeMarketTradingViewSubIndicatorCountPersist(prev),
     );
