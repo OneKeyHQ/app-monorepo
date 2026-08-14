@@ -290,6 +290,7 @@ jobs:
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
@@ -321,6 +322,7 @@ jobs:
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
