@@ -15,6 +15,7 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import {
@@ -45,8 +46,11 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+      },
     });
-  }, [navigation]);
+  }, [navigation, tabRoute]);
 
   return (
     <XStack ai="center" gap="$3" $gtMd={{ gap: '$5' }}>
