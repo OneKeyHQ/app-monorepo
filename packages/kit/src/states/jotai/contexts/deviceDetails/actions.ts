@@ -1,9 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import serviceHardwareUtils from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwareUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { stringifyFunc } from '@onekeyhq/shared/src/logger/stringifyFunc';
-import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -246,8 +245,10 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       });
       // File-backed evidence for silently dropped events (OK-60121): the
       // page shows stale settings exactly when this reports applied=false.
-      loggerUtils.consoleFunc(
-        `DeviceDetailsLog@applyDeviceStateEvent : ${stringifyFunc({
+      // Written only while the 'showDeviceDebugLogs' dev setting is enabled.
+      serviceHardwareUtils.deviceDebugFileLog(
+        'DeviceDetailsLog@applyDeviceStateEvent',
+        {
           applied: Boolean(snapshot),
           source: event.source,
           revision: event.state?.revision,
@@ -255,7 +256,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
           currentUpdatedAt: currentState?.updatedAt,
           currentRevision: currentState?.revision,
           language: event.state?.settings?.language,
-        })}`,
+        },
       );
       if (!snapshot) {
         return false;

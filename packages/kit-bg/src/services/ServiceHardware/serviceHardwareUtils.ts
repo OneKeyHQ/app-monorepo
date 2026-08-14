@@ -4,17 +4,34 @@ import { stringifyFunc } from '@onekeyhq/shared/src/logger/stringifyFunc';
 import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
+/**
+ * Write hardware debug evidence through the platform log transport
+ * (file-backed on desktop/native) so it survives without an attached
+ * DevTools console. Gated behind developer mode + the existing
+ * 'showDeviceDebugLogs' dev setting (default off), so normal builds keep
+ * console-only behavior and exported logs stay unchanged.
+ */
+function deviceDebugFileLog(prefix: string, ...args: any[]) {
+  void (async () => {
+    try {
+      const enabled = await getGatedFirmwareUpdateDevSetting(
+        'showDeviceDebugLogs',
+      );
+      if (!enabled) {
+        return;
+      }
+      loggerUtils.consoleFunc(`${prefix} : ${stringifyFunc(...args)}`);
+    } catch {
+      // Logging must never throw.
+    }
+  })();
+}
+
 function hardwareLog(name: string, ...args: any[]) {
-  // Route through the platform log transport (file-backed on desktop/native)
-  // so hardware event evidence survives without an attached DevTools console.
-  // Intentionally NOT gated by the per-scope loggerConfig opt-in.
-  try {
-    loggerUtils.consoleFunc(
-      `ServiceHardwareLog@${name} : ${stringifyFunc(...args)}`,
-    );
-  } catch {
-    console.log(`ServiceHardwareLog@${name}`, ...args);
-  }
+  console.log(`ServiceHardwareLog@${name}`, ...args);
+  deviceDebugFileLog(`ServiceHardwareLog@${name}`, ...args);
 }
 
 function getHomeScreenServerDeviceType(deviceType: EDeviceType): EDeviceType {
@@ -47,6 +64,7 @@ function getPro2NftSizeFallback({
 }
 
 export default {
+  deviceDebugFileLog,
   getHomeScreenServerDeviceType,
   getPro2HomeScreenSizeFallback,
   getPro2NftSizeFallback,
