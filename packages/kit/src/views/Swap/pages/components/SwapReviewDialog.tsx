@@ -20,6 +20,7 @@ import { SwapReviewInitializer } from './SwapReviewInitializer';
 
 type ISwapReviewDialogProps = {
   onDone: () => void;
+  onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
   storeName: EJotaiContextStoreNames;
@@ -45,6 +46,7 @@ function SwapReviewDialogContent({
   defaultNetworkFeeLevel,
   showCustomNetworkFeeOption,
   onDone,
+  onConfirmStart,
 }: {
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
@@ -53,6 +55,7 @@ function SwapReviewDialogContent({
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
+  onConfirmStart?: () => void;
 }) {
   const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
     useSwapReviewActions({
@@ -63,7 +66,10 @@ function SwapReviewDialogContent({
   return (
     <PreSwapDialogContent
       disableGlobalApproveSync={disableGlobalApproveSync}
-      onConfirm={onConfirm}
+      onConfirm={() => {
+        onConfirmStart?.();
+        onConfirm();
+      }}
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
@@ -76,6 +82,7 @@ function SwapReviewDialogContent({
 
 export function SwapReviewDialog({
   onDone,
+  onConfirmStart,
   adapter,
   reviewState,
   storeName,
@@ -119,6 +126,7 @@ export function SwapReviewDialog({
             defaultCustomPriorityFee={defaultCustomPriorityFee}
             showCustomNetworkFeeOption={showCustomNetworkFeeOption}
             onDone={onDone}
+            onConfirmStart={onConfirmStart}
           />
         </SwapReviewInitializer>
       </SwapProviderMirror>
