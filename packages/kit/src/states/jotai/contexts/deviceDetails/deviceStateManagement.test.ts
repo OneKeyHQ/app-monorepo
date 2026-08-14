@@ -89,7 +89,7 @@ describe('device reset wallet isolation', () => {
   });
 
   it.each(firmwareTypeSwitchDeviceTypes)(
-    'keeps a deprecated %s wallet manageable after switching firmware type',
+    'does not expose a deprecated %s wallet after switching firmware type',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -107,9 +107,9 @@ describe('device reset wallet isolation', () => {
         },
       };
 
-      expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-        walletWithDevice,
-      );
+      expect(
+        resolveUsableWalletWithDevice(walletWithDevice as never),
+      ).toBeUndefined();
     },
   );
 
@@ -140,7 +140,7 @@ describe('device reset wallet isolation', () => {
     },
   );
 
-  it('keeps a Bitcoin-only wallet manageable after switching back to Universal firmware', () => {
+  it('does not expose a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
     const walletWithDevice = {
       wallet: {
         id: 'hw-wallet-1',
@@ -156,12 +156,12 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 
-  it('uses normalized firmwareType for legacy Protocol V1 device records', () => {
+  it('does not revive a deprecated Protocol V1 wallet from normalized firmwareType', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-classic1s-wallet',
@@ -178,12 +178,12 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 
-  it('treats legacy wallets without firmwareTypeAtCreated as universal', () => {
+  it('does not expose a deprecated legacy wallet without firmwareTypeAtCreated', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-hw-wallet-1',
@@ -200,9 +200,9 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 });
 
