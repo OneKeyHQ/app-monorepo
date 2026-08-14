@@ -1226,14 +1226,19 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.objectContaining({ state, revision: 2 }),
     );
-    expect(hardwareLogSpy).toHaveBeenCalledWith('device state update', {
-      changedKeys: ['identity.label'],
-      revision: 2,
-      source: 'apply-settings',
-    });
+    expect(hardwareLogSpy).toHaveBeenCalledWith(
+      'device state update',
+      expect.objectContaining({
+        changedKeys: ['identity.label'],
+        revision: 2,
+        source: 'apply-settings',
+      }),
+    );
+    // Device identifiers must never enter hardwareLog unmasked.
     expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain(
       'PRO2_SERIAL',
     );
+    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain('PRO2_USB');
     hardwareLogSpy.mockRestore();
   });
 

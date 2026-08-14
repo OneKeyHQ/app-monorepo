@@ -56,6 +56,7 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -1477,6 +1478,17 @@ class ServiceHardware extends ServiceBase {
           revision: event.revision,
           source: event.source,
           changedKeys: event.changedKeys,
+          // Device identifiers must stay masked in persisted logs (see the
+          // PRO2_SERIAL contract in ServiceHardware.pro2DeviceManagement
+          // tests); the suffix is enough to correlate multi-device sessions.
+          connectId: serviceHardwareUtils.maskLogIdentifier(event.connectId),
+          serialNo: serviceHardwareUtils.maskLogIdentifier(
+            event.state?.identity?.serialNo,
+          ),
+          // The device-reported language is the key evidence for language
+          // sync issues (OK-60121); keep it visible in persisted logs.
+          language: event.state?.settings?.language,
+          updatedAt: event.state?.updatedAt,
         });
         const queueKeys = this.getDeviceStateSyncKeys([
           event.state.identity.serialNo,
@@ -1501,9 +1513,23 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state persistence failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
+            serviceHardwareUtils.hardwareLog('device state persist result', {
+              kind: persistenceResult?.kind ?? 'unknown',
+              reason:
+                persistenceResult?.kind === 'ignored'
+                  ? persistenceResult.reason
+                  : undefined,
+              revision: event.revision,
+              source: event.source,
+              eventLanguage: event.state?.settings?.language,
+              persistedLanguage:
+                persistenceResult?.kind === 'updated'
+                  ? persistenceResult.state.settings?.language
+                  : undefined,
+            });
             if (persistenceResult?.kind === 'identity-mismatch') {
               await this.backgroundApi.serviceHardwarePortfolioSync
                 ?.notifyHardwareDeviceIdentityMismatch({
@@ -1531,7 +1557,7 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state subscriber failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
           });
@@ -1564,7 +1590,12 @@ class ServiceHardware extends ServiceBase {
           }
 
           // TODO: save features to dbDevice
-          serviceHardwareUtils.hardwareLog('features update', features);
+          // Full features dumps are dev-only; production logs keep the event
+          // name without the device blob.
+          serviceHardwareUtils.hardwareLog(
+            'features update',
+            devOnlyData(features),
+          );
 
           void localDb.updateDevice({
             features,
