@@ -10,15 +10,19 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import {
   type IPerpsChartPosition,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 import { getTradingButtonStyleValues } from '../utils/styleUtils';
+
+import { PerpFeatureDot } from './PerpFeatureDot';
 
 const CHART_POSITION_OPTIONS: IPerpsChartPosition[] = [
   'top',
@@ -194,8 +198,29 @@ function ChartPositionOption({
   );
 }
 
-export function PerpLayoutSettingsEntry({ onPress }: { onPress: () => void }) {
+export function PerpLayoutSettingsEntry({
+  onPress,
+  showFeatureDot = false,
+}: {
+  onPress: () => void;
+  showFeatureDot?: boolean;
+}) {
   const copy = useLayoutSettingsCopy();
+  const {
+    isFirstVisit: isLayoutSettingsFeatureFirstVisit,
+    tourVisited: markLayoutSettingsFeatureVisited,
+  } = useSpotlight(ESpotlightTour.perpLayoutSettings);
+  const handlePress = useCallback(() => {
+    if (showFeatureDot && isLayoutSettingsFeatureFirstVisit) {
+      void markLayoutSettingsFeatureVisited();
+    }
+    onPress();
+  }, [
+    isLayoutSettingsFeatureFirstVisit,
+    markLayoutSettingsFeatureVisited,
+    onPress,
+    showFeatureDot,
+  ]);
 
   return (
     <XStack
@@ -203,16 +228,20 @@ export function PerpLayoutSettingsEntry({ onPress }: { onPress: () => void }) {
       minHeight={52}
       mx="$0"
       px="$3"
+      gap="$2"
       alignItems="center"
       borderRadius="$3"
       cursor="pointer"
-      onPress={onPress}
+      onPress={handlePress}
       hoverStyle={{ backgroundColor: '$bgHover' }}
       pressStyle={{ backgroundColor: '$bgActive' }}
     >
-      <SizableText size="$bodyMdMedium" color="$text" flex={1}>
+      <SizableText flex={1} size="$bodyMdMedium" color="$text">
         {copy.pageTitle}
       </SizableText>
+      {showFeatureDot && isLayoutSettingsFeatureFirstVisit ? (
+        <PerpFeatureDot testID={PerpTestIDs.MobileLayoutSettingsFeatureDot} />
+      ) : null}
       <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
     </XStack>
   );

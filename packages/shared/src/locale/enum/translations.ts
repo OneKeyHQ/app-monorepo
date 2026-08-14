@@ -3285,6 +3285,7 @@ export enum ETranslations {
   perps__snooze_remind_later__action = 'perps__snooze_remind_later__action',
   perps_back_to_default_layout__action = 'perps_back_to_default_layout__action',
   perps_chart_do_not_show__action = 'perps_chart_do_not_show__action',
+  perps_desktop_resize_panels__desc = 'perps_desktop_resize_panels__desc',
   perps_footer_help_us_better = 'perps_footer.help_us_better',
   perps_hide_other_pairs = 'perps_hide_other_pairs',
   perps_layout_reset__msg = 'perps_layout_reset__msg',

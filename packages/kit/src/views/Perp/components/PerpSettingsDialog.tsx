@@ -457,7 +457,10 @@ function PerpSettingsMainContent({
       </ListItem>
 
       {showChartPositionSetting ? (
-        <PerpLayoutSettingsEntry onPress={onOpenLayoutSettings} />
+        <PerpLayoutSettingsEntry
+          onPress={onOpenLayoutSettings}
+          showFeatureDot={platformEnv.isNative || !gtMd}
+        />
       ) : null}
 
       {showActivityCenterEntry ? (

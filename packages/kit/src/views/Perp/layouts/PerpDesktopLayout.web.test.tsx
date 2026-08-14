@@ -19,6 +19,7 @@ type IMockAllotmentProps = {
   onDragEnd?: (sizes: number[]) => void;
   onDragStart?: (sizes: number[]) => void;
   onReset?: () => void;
+  separator?: boolean;
   vertical?: boolean;
 };
 
@@ -78,6 +79,50 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsLayoutStateAtom: () => [mockLayoutState, mockSetLayoutState],
 }));
+
+jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Spotlight: ({
+      children,
+      containerProps,
+      highlightBackgroundOpacity,
+      isVisible,
+      message,
+      replaceChildren,
+      showHighlightBackground,
+      tourName,
+    }: {
+      children?: ReactNode;
+      containerProps?: { testID?: string };
+      highlightBackgroundOpacity?: number;
+      isVisible?: boolean;
+      message: string;
+      replaceChildren?: ReactNode;
+      showHighlightBackground?: boolean;
+      tourName: string;
+    }) => {
+      const replacementProps = React.isValidElement(replaceChildren)
+        ? (replaceChildren.props as { bg?: string; h?: number })
+        : undefined;
+      return (
+        <div
+          data-testid={containerProps?.testID}
+          data-visible={String(isVisible)}
+          data-message={message}
+          data-highlight-background-opacity={String(highlightBackgroundOpacity)}
+          data-has-replace-children={String(Boolean(replaceChildren))}
+          data-replace-background={replacementProps?.bg}
+          data-replace-height={String(replacementProps?.h)}
+          data-show-highlight-background={String(showHighlightBackground)}
+          data-tour-name={tourName}
+        >
+          {children}
+        </div>
+      );
+    },
+  };
+});
 
 jest.mock('allotment', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -167,6 +212,9 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockAllotmentProps.get('perp-desktop-chart-split')?.vertical).toBe(
       true,
     );
+    expect(mockAllotmentProps.get('perp-desktop-chart-split')?.separator).toBe(
+      false,
+    );
     expect(mockAllotmentProps.size).toBe(1);
     expect(mockAllotmentProps.has('perp-desktop-main-split')).toBe(false);
     expect(mockAllotmentProps.has('perp-desktop-trading-split')).toBe(false);
@@ -245,9 +293,46 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(root.style.getPropertyValue('--focus-border')).toBe('#0055CC');
   });
 
-  it('preserves the themed top border on the order info panel', () => {
+  it('uses a 1px line on the order info panel boundary', () => {
     const view = render(<PerpDesktopLayout />);
     const boundary = view.getByTestId('perp-desktop-chart-boundary');
+
+    expect(boundary.style.borderTopColor).toBe('#223344');
+    expect(boundary.style.borderTopStyle).toBe('solid');
+    expect(boundary.style.borderTopWidth).toBe('1px');
+
+    mockTheme = {
+      borderActive: { val: '#0055CC' },
+      borderStrong: { val: '#CCDDEE' },
+      borderSubdued: { val: '#AABBCC' },
+    };
+    view.rerender(<PerpDesktopLayout />);
+
+    expect(boundary.style.borderTopColor).toBe('#AABBCC');
+  });
+
+  it('introduces the draggable chart boundary with a one-time spotlight', () => {
+    const view = render(<PerpDesktopLayout />);
+    const spotlight = view.getByTestId('perp-desktop-chart-resize-spotlight');
+
+    expect(spotlight.dataset.visible).toBe('true');
+    expect(spotlight.dataset.tourName).toBe('perpDesktopChartResize');
+    expect(spotlight.dataset.message).toBe('perps_desktop_resize_panels__desc');
+    expect(spotlight.dataset.showHighlightBackground).toBe('true');
+    expect(spotlight.dataset.highlightBackgroundOpacity).toBe('0.6');
+    expect(spotlight.dataset.hasReplaceChildren).toBe('true');
+    expect(spotlight.dataset.replaceBackground).toBe('$borderActive');
+    expect(spotlight.dataset.replaceHeight).toBe('4');
+
+    mockLayoutState = { ...mockLayoutState, chartExpanded: true };
+    view.rerender(<PerpDesktopLayout />);
+
+    expect(spotlight.dataset.visible).toBe('false');
+  });
+
+  it('uses a 1px line on the account panel boundary', () => {
+    const view = render(<PerpDesktopLayout />);
+    const boundary = view.getByTestId('perp-desktop-account-boundary');
 
     expect(boundary.style.borderTopColor).toBe('#223344');
     expect(boundary.style.borderTopStyle).toBe('solid');

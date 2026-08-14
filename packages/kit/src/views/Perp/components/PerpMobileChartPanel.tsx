@@ -26,7 +26,7 @@ const MOBILE_CHART_CONTENT_OFFSET = -4;
 const MOBILE_CHART_FOOTER_SPACING = 8;
 
 // Scrolling content underneath must reserve the collapsed bar height.
-export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 48;
+export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 40;
 
 function PerpMobileChartContent({
   chartHeight,
@@ -258,7 +258,7 @@ export function PerpMobileChartPanel({
         right={0}
         left={0}
         zIndex={1}
-        h={12}
+        h={8}
         pointerEvents="none"
         borderWidth={0.5}
         borderBottomWidth={0}

@@ -7,7 +7,9 @@ import { fireEvent, render } from '@testing-library/react';
 import { PerpSettingsButton } from './PerpSettingsButton';
 
 const mockShowPerpSettingsDialog = jest.fn();
+const mockSettingsTourVisited = jest.fn();
 let mockMedia = { gtMd: false, gtXl: false };
+let mockSettingsIsFirstVisit = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -22,8 +24,18 @@ jest.mock('@onekeyhq/components', () => ({
       settings
     </button>
   ),
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
   useMedia: () => mockMedia,
+}));
+
+jest.mock('@onekeyhq/kit/src/components/Spotlight', () => ({
+  useSpotlight: () => ({
+    isFirstVisit: mockSettingsIsFirstVisit,
+    tourTimes: mockSettingsIsFirstVisit ? 0 : 1,
+    tourVisited: mockSettingsTourVisited,
+  }),
 }));
 
 jest.mock('../hooks/useShowGuide', () => ({
@@ -44,6 +56,8 @@ jest.mock('./PerpSettingsDialog', () => ({
 describe('PerpSettingsButton', () => {
   beforeEach(() => {
     mockShowPerpSettingsDialog.mockReset();
+    mockSettingsTourVisited.mockReset();
+    mockSettingsIsFirstVisit = true;
     mockMedia = { gtMd: false, gtXl: false };
   });
 
@@ -55,6 +69,18 @@ describe('PerpSettingsButton', () => {
     expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
       expect.objectContaining({ showChartPositionSetting: true }),
     );
+    expect(mockSettingsTourVisited).toHaveBeenCalledTimes(1);
+    expect(view.getByTestId('perp-mobile-settings-feature-dot')).toBeTruthy();
+  });
+
+  it('hides the mobile feature dot after the menu feature is visited', () => {
+    mockSettingsIsFirstVisit = false;
+    const view = render(<PerpSettingsButton />);
+
+    fireEvent.click(view.getByRole('button', { name: 'settings' }));
+
+    expect(view.queryByTestId('perp-mobile-settings-feature-dot')).toBeNull();
+    expect(mockSettingsTourVisited).not.toHaveBeenCalled();
   });
 
   it('hides layout settings in the medium desktop menu', () => {
@@ -66,6 +92,8 @@ describe('PerpSettingsButton', () => {
     expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
       expect.objectContaining({ showChartPositionSetting: false }),
     );
+    expect(view.queryByTestId('perp-mobile-settings-feature-dot')).toBeNull();
+    expect(mockSettingsTourVisited).not.toHaveBeenCalled();
   });
 
   it('keeps an explicitly requested layout setting visible', () => {
