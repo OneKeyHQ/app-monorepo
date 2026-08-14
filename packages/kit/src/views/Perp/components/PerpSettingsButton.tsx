@@ -35,8 +35,10 @@ export function PerpSettingsButton({
   showGuideEntry?: boolean;
 }) {
   const intl = useIntl();
-  const { gtXl } = useMedia();
-  const shouldShowChartPositionSetting = showChartPositionSetting || !gtXl;
+  const { gtMd, gtXl } = useMedia();
+  const isMobileLayout = platformEnv.isNative || !gtMd;
+  const shouldShowChartPositionSetting =
+    showChartPositionSetting || isMobileLayout;
   const { showGuide } = useShowGuide({ forceModal: !gtXl });
   const [isActivityCenterOpen, setIsActivityCenterOpen] = useState(false);
   const handleOpenActivityCenter = useCallback(() => {

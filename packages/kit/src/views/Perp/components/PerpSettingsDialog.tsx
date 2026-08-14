@@ -368,9 +368,8 @@ function PerpSettingsMainContent({
   const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
   const { gtMd } = useMedia();
-  // The resizable split layout only exists on desktop/web (see Perp.tsx).
-  const showResetLayoutEntry =
-    gtMd && (platformEnv.isDesktop || platformEnv.isWeb);
+  // The resizable split layout is used by every non-native large-screen target.
+  const showResetLayoutEntry = gtMd && !platformEnv.isNative;
 
   const handleResetLayout = useCallback(() => {
     setPerpsLayoutState(resetPerpDesktopLeftSplit);

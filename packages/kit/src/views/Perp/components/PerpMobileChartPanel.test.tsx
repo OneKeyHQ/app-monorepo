@@ -310,13 +310,20 @@ describe('PerpMobileChartPanel', () => {
 
   it('never collapses the chart below its minimum usable height', () => {
     mockWindowDimensions = { height: 400, width: 320 };
-    const { getByTestId } = render(<PerpMobileChartPanel bottomOffset={34} />);
+    const handleScrollInsetChange = jest.fn();
+    const { getByTestId } = render(
+      <PerpMobileChartPanel
+        bottomOffset={34}
+        onScrollInsetChange={handleScrollInsetChange}
+      />,
+    );
 
     fireEvent.click(getByTestId('perp-mobile-chart-toggle'));
 
     expect(
       getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
     ).toBe('200');
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(208);
   });
 
   it('anchors the chart panel as a bottom overlay', () => {

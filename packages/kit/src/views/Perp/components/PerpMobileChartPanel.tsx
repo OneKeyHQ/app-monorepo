@@ -150,6 +150,22 @@ function useMobileChartHeight(bottomOffset = 0) {
   );
 }
 
+function useMobileBottomChartLayout(bottomOffset = 0) {
+  const { height: windowHeight } = useWindowDimensions();
+  const overlayHeight = Math.max(
+    MOBILE_CHART_MIN_HEIGHT + MOBILE_CHART_FOOTER_SPACING,
+    Math.min(
+      MOBILE_CHART_MAX_HEIGHT + MOBILE_CHART_FOOTER_SPACING,
+      windowHeight - bottomOffset - MOBILE_CHART_VIEWPORT_RESERVED_HEIGHT,
+    ),
+  );
+
+  return {
+    chartHeight: overlayHeight - MOBILE_CHART_FOOTER_SPACING,
+    overlayHeight,
+  };
+}
+
 export function PerpMobileTopChartPanel({
   isExpanded,
   onClose,
@@ -204,9 +220,10 @@ export function PerpMobileChartPanel({
       ? ` ${intl.formatMessage({ id: ETranslations.perp_label_perp })}`
       : '';
   const footerSpacing = isExpanded ? MOBILE_CHART_FOOTER_SPACING : 0;
-  const chartHeight = useMobileChartHeight(bottomOffset + footerSpacing);
+  const { chartHeight, overlayHeight } =
+    useMobileBottomChartLayout(bottomOffset);
   const scrollInset = isExpanded
-    ? chartHeight + footerSpacing
+    ? overlayHeight
     : PERP_MOBILE_CHART_BAR_SCROLL_INSET;
 
   useEffect(() => {

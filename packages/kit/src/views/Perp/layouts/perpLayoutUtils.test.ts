@@ -7,7 +7,7 @@ import {
 } from './perpLayoutUtils';
 
 describe('resetPerpDesktopLeftSplit', () => {
-  it('clears only the persisted chart split height', () => {
+  it('clears the persisted chart split and order book visibility', () => {
     expect(
       resetPerpDesktopLeftSplit({
         chartExpanded: false,
@@ -16,7 +16,6 @@ describe('resetPerpDesktopLeftSplit', () => {
       }),
     ).toEqual({
       chartExpanded: false,
-      orderBook: { visible: false },
     });
   });
 });
