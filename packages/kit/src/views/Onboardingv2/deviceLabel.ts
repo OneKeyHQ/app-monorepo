@@ -6,10 +6,10 @@ export const getDeviceLabel = (
 ) => {
   const labels = deviceTypeItems.map((deviceType) => {
     switch (deviceType) {
-      // Pro 2 is sold under the shared "OneKey Pro" product name, so the
-      // connection copy must not spell out a separate Pro 2 entry.
+      // Protocol V2 variants share the OneKey Pro connection entry.
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
+      case EDeviceType.Neo:
         return 'OneKey Pro';
       case EDeviceType.Classic:
         return 'OneKey Classic';
@@ -25,6 +25,6 @@ export const getDeviceLabel = (
         return deviceType;
     }
   });
-  // Pro + Pro 2 collapse to the same label; keep the copy free of duplicates.
+  // Shared product variants collapse to one label; keep the copy free of duplicates.
   return Array.from(new Set(labels)).join(separator);
 };

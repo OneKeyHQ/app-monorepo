@@ -1031,7 +1031,7 @@ function ConnectYourDevicePage({
   const reactNavigation = useNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(supportsHardwareQrWallet);
+    return deviceTypeItems.some(supportsHardwareQrWallet);
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
     await timerUtils.wait(100);
