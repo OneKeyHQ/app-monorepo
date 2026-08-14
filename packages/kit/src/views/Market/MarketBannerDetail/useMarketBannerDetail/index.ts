@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { MARKET_CLIENT_SORT_FIELD_MAP } from '../../MarketHomeV2/components/MarketTokenList/utils/marketListClientSort';
 import {
   getNetworkLogoUri,
   transformApiItemToToken,
@@ -12,12 +13,13 @@ import {
 import type { IMarketTokenListResult } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 
 const BANNER_DETAIL_CHANGE_SORT_BY = 'change24h';
-type IBannerDetailSortBy = typeof BANNER_DETAIL_CHANGE_SORT_BY;
 
-function isBannerDetailSortBy(
-  sortBy: string | undefined,
-): sortBy is IBannerDetailSortBy {
-  return sortBy === BANNER_DETAIL_CHANGE_SORT_BY;
+// Any column the shared client sort can express is accepted, so the desktop
+// table's headers all sort here like they do on the home lists. The mobile
+// change toggle still reads `changeSortType` below, which narrows back to the
+// change column on its own.
+function isBannerDetailSortBy(sortBy: string | undefined): sortBy is string {
+  return Boolean(sortBy && MARKET_CLIENT_SORT_FIELD_MAP[sortBy]);
 }
 
 type IUseMarketBannerDetailParams = {
@@ -89,7 +91,7 @@ export function useMarketBannerDetail({
   );
 
   const toggleSort = useCallback(
-    (sortBy: IBannerDetailSortBy) => {
+    (sortBy: string) => {
       const activeSortType =
         sortRef.current.sortBy === sortBy
           ? sortRef.current.sortType

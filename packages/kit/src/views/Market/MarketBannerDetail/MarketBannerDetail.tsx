@@ -17,6 +17,7 @@ import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/H
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -55,11 +56,6 @@ type IMarketBannerDetailRouteParams = RouteProp<
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
 
-// Banner detail's sort state (useMarketBannerDetail) only supports
-// change24h — keep the rest of the client-sortable columns from
-// MARKET_CLIENT_SORT_FIELD_MAP from becoming clickable no-ops here.
-const BANNER_DETAIL_CLIENT_SORTABLE_COLUMNS = ['change24h'] as const;
-
 // Spot banner lists are dominated by tokenized stocks, whose liquidity is not
 // reported by the market API, so the column is dropped instead of rendering a
 // near-empty one. Perps banners use their own columns and never had it.
@@ -84,6 +80,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { gtMd } = useMedia();
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
+  // Row/header visuals only — the banner table keeps its own columns.
+  const [devSettings] = useDevSettingsPersistAtom();
+  const redesignVisualsActive = Boolean(
+    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
+  );
   const {
     changeSortType,
     handleChangeSortPress,
@@ -224,7 +225,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         onItemPress={handleItemPress}
         hideTokenAge
         clientSort
-        clientSortableColumns={BANNER_DETAIL_CLIENT_SORTABLE_COLUMNS}
+        redesignEnabled={redesignVisualsActive}
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
@@ -257,6 +258,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     changeSortType,
     handleChangeSortPress,
     intl,
+    redesignVisualsActive,
   ]);
 
   let bodyTopInset: number;
