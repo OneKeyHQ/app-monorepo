@@ -10,22 +10,42 @@ describe('pbkdf2 module variants', () => {
     );
   });
 
-  it.each([
-    ['pbkdf2.ts', pbkdf2Module],
-    ['pbkdf2.web-only.ts', pbkdf2WebOnlyModule],
-  ])(
-    '%s no-cache params opt out only when webcrypto is selected',
-    (_name, mod) => {
-      const params = mod.getPbkdf2KdfParamsForNonDbTxNoCache();
-      if (params) {
-        expect(params.kdfBackend).toBe('webcrypto');
-        expect(params.enablePbkdf2Cache).toBe(false);
-      } else {
-        // Without a non-blocking backend the cached platform default stays.
-        expect(params).toBeUndefined();
-      }
-    },
-  );
+  it('pbkdf2.ts keeps the cached default when webcrypto does not apply', () => {
+    // jest counts as a non-web platform for pbkdf2.ts, so no backend is
+    // selected and the transaction-safe cached default must stay in place.
+    expect(pbkdf2Module.getPbkdf2KdfParamsForNonDbTxNoCache()).toBeUndefined();
+  });
+
+  it('pbkdf2.ts opts out of the cache on desktop-like platforms', () => {
+    // The desktop/extension production path lives in pbkdf2.ts, not the
+    // web-only variant, so force a desktop platformEnv to reach it in jest.
+    let isolated: typeof pbkdf2Module | undefined;
+    jest.isolateModules(() => {
+      jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
+        __esModule: true,
+        default: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ...jest.requireActual('@onekeyhq/shared/src/platformEnv').default,
+          isJest: false,
+          isNative: false,
+          isWebEmbed: false,
+          isWeb: false,
+          isExtension: false,
+          isDesktop: true,
+        },
+      }));
+      // eslint-disable-next-line global-require
+      isolated = require('../pbkdf2') as typeof pbkdf2Module;
+    });
+    jest.dontMock('@onekeyhq/shared/src/platformEnv');
+    if (!isolated || !isolated.isWebCryptoPbkdf2Supported()) {
+      return;
+    }
+    expect(isolated.getPbkdf2KdfParamsForNonDbTxNoCache()).toEqual({
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    });
+  });
 
   it('web-only variant opts out of the cache when webcrypto is available', () => {
     if (!pbkdf2WebOnlyModule.isWebCryptoPbkdf2Supported()) {
