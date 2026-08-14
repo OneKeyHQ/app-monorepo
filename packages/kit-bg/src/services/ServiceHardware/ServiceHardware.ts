@@ -27,7 +27,10 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import {
+  DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
+  DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+} from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -123,6 +126,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
+import type { IDBDevice } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -241,6 +245,8 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
+  /** Reuse an existing desktop BLE link without scanning or reconnecting. */
+  desktopBleReuseConnectedOnly?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -280,6 +286,13 @@ function getPersistedDesktopBleConnectId(
   );
   return aliasesUsbConnectId ? undefined : bleConnectId;
 }
+
+// Evidence window for treating a caller-held connectId as a live session.
+// Receiving device traffic implies the OS pairing already exists, so only
+// connectIds stamped this recently may be probed by
+// silentlyBindLiveDesktopBleConnectId; probing anything else could summon
+// the OS pairing prompt without any app guidance UI.
+const LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS = 60_000;
 
 const isOneKeyLoaderMode = (mode?: string | null) =>
   mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
@@ -399,6 +412,36 @@ class ServiceHardware extends ServiceBase {
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
   private sdkInstanceMutex = new Semaphore(1);
+
+  private async runInDesktopBleConnectedOnlyScope<T>({
+    connectId,
+    enabled,
+    task,
+  }: {
+    connectId?: string;
+    enabled?: boolean;
+    task: () => Promise<T>;
+  }): Promise<T> {
+    if (!enabled) {
+      return task();
+    }
+    const nobleBle = globalThis.desktopApi?.nobleBle;
+    if (
+      !connectId ||
+      !nobleBle?.beginConnectedOnlyScope ||
+      !nobleBle.endConnectedOnlyScope
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only scope is unavailable',
+      );
+    }
+    const scopeId = nobleBle.beginConnectedOnlyScope(connectId);
+    try {
+      return await task();
+    } finally {
+      nobleBle.endConnectedOnlyScope(connectId, scopeId);
+    }
+  }
 
   private bindDeviceProtocolToSDK({
     connectId,
@@ -979,14 +1022,23 @@ class ServiceHardware extends ServiceBase {
     const currentTransportType =
       await this.connectionManager.getCurrentTransportType();
     const { forceTransportType } = await hardwareForceTransportAtom.get();
+    const isDesktopBackgroundCall =
+      platformEnv.isSupportDesktopBle &&
+      (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+        hardwareCallContext ===
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
     const normalizedForceTransportType = forceTransportType
       ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
           transportType: forceTransportType,
           connectProtocol: resolvedConnectProtocol,
         })
       : undefined;
+    const effectiveForceTransportType =
+      isDesktopBackgroundCall && options.hardwareTransportType
+        ? undefined
+        : normalizedForceTransportType;
     let hardwareTransportType =
-      normalizedForceTransportType ??
+      effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
     let shouldSwitch = false;
@@ -994,7 +1046,7 @@ class ServiceHardware extends ServiceBase {
     // Desktop Auto switch transport type
     if (
       platformEnv.isSupportDesktopBle &&
-      normalizedForceTransportType === undefined &&
+      effectiveForceTransportType === undefined &&
       options.hardwareTransportType === undefined
     ) {
       // Check if we should switch transport type based on optimal connection strategy
@@ -1415,6 +1467,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
+        this.recordLiveConnectIdEvidence(event.connectId);
         deviceStateEventSequence += 1;
         const sdkEventSequence = deviceStateEventSequence;
         serviceHardwareUtils.hardwareLog('device state update', {
@@ -1547,6 +1600,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        this.recordLiveConnectIdEvidence(message.device?.connectId);
         const connectedIdentityKeys = this.trackConnectedDevice(message.device);
         if (connectedIdentityKeys.length > 0) {
           void this.backgroundApi.serviceHardwarePortfolioSync
@@ -1613,6 +1667,11 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        // A disconnect ends the "connected and OS-paired right now" proof:
+        // factory reset and OS-level unpair both surface as a disconnect
+        // first, so the silent BLE bind probe must not trust this endpoint
+        // again until new traffic re-stamps it.
+        this.clearLiveConnectIdEvidence(message.device?.connectId);
         const disconnectedIdentityKeys = this.untrackConnectedDevice(
           message.device,
         );
@@ -2712,6 +2771,7 @@ class ServiceHardware extends ServiceBase {
   _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
     const {
       connectId,
+      desktopBleReuseConnectedOnly,
       params,
       silentMode,
       hardwareCallContext,
@@ -2743,10 +2803,15 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
       hardwareTransportType,
     });
-    const state = await convertDeviceResponse(
-      () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-      { silentMode },
-    );
+    const state = await this.runInDesktopBleConnectedOnlyScope({
+      connectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(
+          () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
+          { silentMode },
+        ),
+    });
     await this.rememberDeviceProtocol({
       connectIds: [connectId, state.identity.serialNo],
       protocol: state.protocol,
@@ -2776,6 +2841,7 @@ class ServiceHardware extends ServiceBase {
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
           hardwareCallContext,
+          hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
     return this._getDeviceStateWithMutex({
@@ -3111,8 +3177,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // SDK DEVICE.STATE drives both persistence and UI refreshes.
-        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+        await this.handleHardwareLabelChanged({
           walletId: p.walletId,
           dbDeviceId,
           label: p.label,
@@ -3323,24 +3388,45 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPortfolioPackage({
     connectId,
+    desktopBleReuseConnectedOnly,
+    hardwareTransportType,
     packageBase64,
   }: {
     connectId: string;
+    desktopBleReuseConnectedOnly?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
     packageBase64: string;
   }) {
+    if (
+      desktopBleReuseConnectedOnly &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only reuse requires a pinned BLE transport',
+      );
+    }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
-    return convertDeviceResponse(() =>
-      hardwareSDK.uploadPortfolio(compatibleConnectId, {
-        packageBase64,
-      }),
-    );
+    return this.runInDesktopBleConnectedOnlyScope({
+      connectId: compatibleConnectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(
+          () =>
+            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+              packageBase64,
+            }),
+          { silentMode: true },
+        ),
+    });
   }
 
   @backgroundMethod()
@@ -3537,9 +3623,13 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
-      willUpdateDeprecateMap,
-    });
+    const result =
+      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   /**
@@ -4163,6 +4253,141 @@ class ServiceHardware extends ServiceBase {
     return bleConnectId;
   }
 
+  // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
+  // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
+  // is connected and OS-paired at that moment; DEVICE.DISCONNECT deletes
+  // the entry because factory reset and OS-level unpair surface as a
+  // disconnect first, invalidating that proof.
+  private liveConnectIdEvidence = new Map<string, number>();
+
+  recordLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.set(normalized, Date.now());
+  }
+
+  clearLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.delete(normalized);
+  }
+
+  private hasRecentLiveConnectIdEvidence(connectId: string): boolean {
+    const stampedAt = this.liveConnectIdEvidence.get(
+      connectId.trim().toLowerCase(),
+    );
+    return (
+      stampedAt !== undefined &&
+      Date.now() - stampedAt <= LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS
+    );
+  }
+
+  /**
+   * Silently bind a live desktop BLE connectId held by the caller onto a
+   * device record that lacks a BLE binding, so an in-progress BLE session
+   * never raises the Bluetooth pairing dialog (OK-60091).
+   *
+   * Only attempted when the incoming connectId differs from the record's USB
+   * identifiers (connectId/usbConnectId) — a USB serial input means a genuine
+   * USB→BLE switch, which must keep the scan + pairing-dialog repair flow —
+   * AND the connectId carried real device traffic within
+   * LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS, which proves the endpoint is
+   * connected and OS-paired, so the probe can never summon the OS pairing
+   * prompt. The endpoint is then verified with a bounded silent getFeatures
+   * probe that must report the expected raw deviceId; on an active session
+   * this reuses the live connection and answers in a few seconds. Any
+   * failure returns undefined so the caller falls back to the existing
+   * pairing-dialog flow.
+   */
+  private async silentlyBindLiveDesktopBleConnectId({
+    device,
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    device: IDBDevice;
+    connectId: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<string | undefined> {
+    const normalizedConnectId = connectId.trim().toLowerCase();
+    if (!normalizedConnectId) {
+      return undefined;
+    }
+    const isUsbAliasInput = [device.connectId, device.usbConnectId].some(
+      (candidate) => candidate?.trim().toLowerCase() === normalizedConnectId,
+    );
+    if (isUsbAliasInput) {
+      return undefined;
+    }
+    // Probe only endpoints that demonstrably carried device traffic moments
+    // ago. Anything else (e.g. a stale UUID kept by the UI across a device
+    // reboot or an unpair) might be an unpaired peripheral, and the probe's
+    // characteristic subscription would summon the OS pairing prompt with
+    // no app guidance UI — those cases must keep the pairing-dialog flow.
+    if (!this.hasRecentLiveConnectIdEvidence(connectId)) {
+      return undefined;
+    }
+    const expectedDeviceId =
+      featuresDeviceId ||
+      deviceUtils.getRawDeviceId({
+        device: deviceUtils.dbDeviceToSearchDevice(device),
+        features: features || device.featuresInfo,
+      });
+    if (!expectedDeviceId) {
+      return undefined;
+    }
+    // A live session always has a remembered protocol (rememberDeviceProtocol
+    // runs on every DEVICE.STATE event). Pin it: forcing re-detection here
+    // sends a Protocol V2 Ping into an active V1 session, which the device
+    // may not answer (observed as SDK error 713), while a protocol-pinned
+    // getFeatures is exactly the same shape as the session's healthy calls.
+    const knownProtocol = await this.getKnownDeviceProtocol(connectId);
+    if (!knownProtocol) {
+      return undefined;
+    }
+    try {
+      // Probe the caller's connectId directly over the pinned BLE transport;
+      // no connectId re-resolution happens here, so this cannot re-enter
+      // getCompatibleConnectId. silentMode must reach convertDeviceResponse:
+      // a failed probe would otherwise emit the global DeviceNotFound error
+      // dialog from the error constructor. The short SDK timeout keeps the
+      // pairing-dialog fallback fast when the endpoint is stale.
+      const connectResult = await this.getFeaturesWithoutCache({
+        connectId,
+        silentMode: true,
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        params: {
+          retryCount: 1,
+          connectProtocol: knownProtocol,
+          timeout: DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+        },
+      });
+      // The probe identity must come from the probe result itself. V1
+      // features carry the SDK-normalized `deviceId`; V2 state projections
+      // (projectLegacyDeviceFeaturesFromState) only carry the raw
+      // `device_id` field.
+      const probedDeviceId =
+        connectResult?.deviceId || connectResult?.device_id || '';
+      if (probedDeviceId && probedDeviceId === expectedDeviceId) {
+        await localDb.updateDeviceConnectId({
+          dbDeviceId: device.id,
+          bleConnectId: connectId,
+        });
+        return connectId;
+      }
+    } catch (error) {
+      console.error('Silent BLE connectId bind failed:', error);
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   async getCompatibleConnectId({
     hardwareCallContext,
@@ -4225,7 +4450,8 @@ class ServiceHardware extends ServiceBase {
           hardwareCallContext ===
             EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
         ) {
-          const currentTransportType = await this.getCurrentTransportType();
+          const currentTransportType =
+            hardwareTransportType ?? (await this.getCurrentTransportType());
           const preferredBle = await this.resolveTrezorPreferredBleConnectId({
             device,
             bleConnectId: persistedDesktopBleConnectId,
@@ -4272,7 +4498,8 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
       hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
     ) {
-      const currentTransportType = await this.getCurrentTransportType();
+      const currentTransportType =
+        hardwareTransportType ?? (await this.getCurrentTransportType());
       if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
         if (persistedDesktopBleConnectId) {
           return persistedDesktopBleConnectId;
@@ -4302,6 +4529,20 @@ class ServiceHardware extends ServiceBase {
       if (device && !persistedDesktopBleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
           return device.usbConnectId || device.connectId || connectId;
+        }
+        // The caller may already hold a live BLE connectId (e.g. onboarding
+        // communicates over an active Noble session while the device record
+        // was created via USB and lacks bleConnectId). Verify and persist it
+        // silently before falling back to the pairing dialog (OK-60091).
+        const silentlyBoundBleConnectId =
+          await this.silentlyBindLiveDesktopBleConnectId({
+            device,
+            connectId,
+            featuresDeviceId,
+            features,
+          });
+        if (silentlyBoundBleConnectId) {
+          return silentlyBoundBleConnectId;
         }
         if (
           hardwareCallContext ===

@@ -4,6 +4,7 @@ import { emptyMetaState } from './atoms';
 import {
   buildDeviceMetaStateFromState,
   getDeviceMetaStaticDataFromState,
+  getDeviceSecondaryIdentifier,
   getDeviceStateSnapshotFromEvent,
   isDeviceManagementWalletUsable,
   mergeDeviceSettingState,
@@ -89,7 +90,7 @@ describe('device reset wallet isolation', () => {
   });
 
   it.each(firmwareTypeSwitchDeviceTypes)(
-    'keeps a deprecated %s wallet manageable after switching firmware type',
+    'does not expose a deprecated %s wallet after switching firmware type',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -107,9 +108,9 @@ describe('device reset wallet isolation', () => {
         },
       };
 
-      expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-        walletWithDevice,
-      );
+      expect(
+        resolveUsableWalletWithDevice(walletWithDevice as never),
+      ).toBeUndefined();
     },
   );
 
@@ -140,7 +141,7 @@ describe('device reset wallet isolation', () => {
     },
   );
 
-  it('keeps a Bitcoin-only wallet manageable after switching back to Universal firmware', () => {
+  it('does not expose a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
     const walletWithDevice = {
       wallet: {
         id: 'hw-wallet-1',
@@ -156,12 +157,12 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 
-  it('uses normalized firmwareType for legacy Protocol V1 device records', () => {
+  it('does not revive a deprecated Protocol V1 wallet from normalized firmwareType', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-classic1s-wallet',
@@ -178,12 +179,12 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 
-  it('treats legacy wallets without firmwareTypeAtCreated as universal', () => {
+  it('does not expose a deprecated legacy wallet without firmwareTypeAtCreated', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-hw-wallet-1',
@@ -200,9 +201,9 @@ describe('device reset wallet isolation', () => {
       },
     };
 
-    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-      walletWithDevice,
-    );
+    expect(
+      resolveUsableWalletWithDevice(walletWithDevice as never),
+    ).toBeUndefined();
   });
 });
 
@@ -571,11 +572,38 @@ describe('DeviceState metadata projection', () => {
       } as never),
     ).toEqual({
       deviceName: 'My OneKey',
+      bleName: 'Pro2 6136',
       serialNo: 'PR9999999999',
       deviceType: 'pro2',
       firmwareType: 'universal',
       firmwareVersion: '1.0.0',
     });
+  });
+
+  it('uses the BLE name as the Pro2 secondary identifier', () => {
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro2,
+        bleName: 'Pro2 6136',
+        serialNo: 'P2D33C0005B',
+      }),
+    ).toBe('Pro2 6136');
+
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro2,
+        bleName: '',
+        serialNo: 'P2D33C0005B',
+      }),
+    ).toBe('P2D33C0005B');
+
+    expect(
+      getDeviceSecondaryIdentifier({
+        deviceType: EDeviceType.Pro,
+        bleName: 'Pro 6136',
+        serialNo: 'SERIAL',
+      }),
+    ).toBe('SERIAL');
   });
 
   it('uses canonical state fields while retaining the V1 software-PIN preference', () => {

@@ -126,6 +126,9 @@ async function buildDeviceMetaStatic(
 
   return {
     deviceName,
+    bleName: isThirdParty
+      ? undefined
+      : deviceUtils.buildDeviceBleName({ features }),
     serialNo: device.uuid,
     deviceType,
     firmwareType,

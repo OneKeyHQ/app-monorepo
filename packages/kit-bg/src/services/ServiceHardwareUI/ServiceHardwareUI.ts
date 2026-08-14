@@ -21,7 +21,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -525,9 +527,24 @@ class ServiceHardwareUI extends ServiceBase {
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
     const device = params.deviceParams?.dbDevice;
+    const vendor = device?.vendor ?? device?.settings?.vendor;
     const isThirdPartyVendor = getVendorProfile(
-      device?.vendor ?? EHardwareVendor.onekey,
+      vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
+    const supportsPortfolioSync = Boolean(
+      device &&
+      isProtocolV2ProductType(device.deviceType) &&
+      (device.connectProtocol === 'V2' ||
+        device.deviceStateInfo?.protocol === 'V2') &&
+      vendor === EHardwareVendor.onekey,
+    );
+    // Nested calls reuse the active OneKey operation lease. Only the lease
+    // owner represents a complete interaction and may resume Portfolio sync.
+    const shouldNotifyPortfolioInteraction =
+      !params.oneKeyOperationLease &&
+      !isThirdPartyVendor &&
+      supportsPortfolioSync;
+    let desktopInteractionGeneration: number | undefined;
     if (
       !params.allowDuringFirmwareUpdate &&
       (this.firmwareUpdateExclusiveDepth > 0 ||
@@ -552,19 +569,68 @@ class ServiceHardwareUI extends ServiceBase {
     // Keep operation-level serialization during the mixed-SDK rollout and for
     // shared lifecycle work outside the correlated PIN/passphrase response path.
     try {
+      let successfulTransportType: EHardwareTransportType | undefined;
       const result = await this.runExclusiveOneKeyOperation(
-        (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
+        async (lease) => {
+          const operationResult = await this.withHardwareProcessingInternal(
+            async () => {
+              if (
+                shouldNotifyPortfolioInteraction &&
+                platformEnv.isDesktop &&
+                device?.id
+              ) {
+                const generation =
+                  await this.backgroundApi.serviceHardwarePortfolioSync
+                    .notifyInteractiveHardwareOperationStarted({
+                      connectId: device.connectId,
+                      deviceDbId: device.id,
+                    })
+                    .catch(() => undefined);
+                if (typeof generation === 'number') {
+                  desktopInteractionGeneration = generation;
+                }
+              }
+              return fn(lease);
+            },
+            params,
+          );
+          if (platformEnv.isDesktop && device?.id) {
+            successfulTransportType = await this.backgroundApi.serviceHardware
+              .getCurrentTransportType()
+              .catch(() => undefined);
+          }
+          return operationResult;
+        },
         {
           deviceKey:
             device?.id || device?.deviceId || device?.uuid || device?.connectId,
           lease: params.oneKeyOperationLease,
         },
       );
-      if (platformEnv.isNative && device?.id) {
+      if (
+        shouldNotifyPortfolioInteraction &&
+        platformEnv.isNative &&
+        device?.id
+      ) {
         void this.backgroundApi.serviceHardwarePortfolioSync
           .notifyInteractiveHardwareOperationSucceeded({
             connectId: device.connectId,
             deviceDbId: device.id,
+          })
+          .catch(() => undefined);
+      } else if (
+        shouldNotifyPortfolioInteraction &&
+        platformEnv.isDesktop &&
+        device?.id &&
+        desktopInteractionGeneration !== undefined &&
+        successfulTransportType
+      ) {
+        void this.backgroundApi.serviceHardwarePortfolioSync
+          .notifyInteractiveHardwareOperationSucceeded({
+            connectId: device.connectId,
+            deviceDbId: device.id,
+            interactionGeneration: desktopInteractionGeneration,
+            transportType: successfulTransportType,
           })
           .catch(() => undefined);
       }

@@ -2,6 +2,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -38,8 +39,20 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDev: false, isJest: true, isNative: true },
+  default: {
+    isDev: false,
+    isDesktop: false,
+    isJest: true,
+    isNative: true,
+    isSupportDesktopBle: false,
+  },
 }));
+
+const mutablePlatformEnv = platformEnv as unknown as {
+  isDesktop: boolean;
+  isNative: boolean;
+  isSupportDesktopBle: boolean;
+};
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
@@ -274,6 +287,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       type: 'hw',
     } as never);
     jest.mocked(localDb.getWalletDeviceSafe).mockResolvedValue({
+      bleConnectId: 'PRO2_BLE_ID',
       id: 'db-device-1',
       connectId: 'PRO2_CONNECT_ID',
       connectProtocol: 'V2',
@@ -282,6 +296,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       vendor: EHardwareVendor.onekey,
     } as never);
     jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      bleConnectId: 'PRO2_BLE_ID',
       id: 'db-device-1',
       connectId: 'PRO2_CONNECT_ID',
       deviceId: 'PRO2_DEVICE_ID',
@@ -398,13 +413,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
   function prepareHardwareSync({
     busyResults,
+    cooldownRemainingMs = 0,
     hardwareTransportType = EHardwareTransportType.BLE,
     isConnected = true,
     selectedIndexedAccountId = 'indexed-account-1',
     selectedWalletId = 'hw-1',
     targetState,
+    tryAcquire = true,
   }: {
     busyResults: boolean[];
+    cooldownRemainingMs?: number;
     hardwareTransportType?: EHardwareTransportType;
     isConnected?: boolean;
     selectedIndexedAccountId?: string;
@@ -416,12 +434,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       lastTransferAt?: number;
       lastWalletId?: string;
     };
+    tryAcquire?: boolean | boolean[];
   }) {
     let operationLeaseHeld = false;
     const getDeviceState = jest.fn().mockResolvedValue({
       identity: { deviceId: 'PRO2_DEVICE_ID' },
       protocol: 'V2',
     });
+    const getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(hardwareTransportType);
     const isHardwareDeviceConnected = jest.fn().mockResolvedValue(isConnected);
     const uploadPortfolioPackage = jest.fn(
       async (_params: { connectId: string; packageBase64: string }) => {
@@ -448,19 +470,40 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         }
       },
     );
+    const tryRunExclusiveOneKeyOperation = jest.fn(
+      async (operation: (lease: object) => Promise<unknown>) => {
+        const acquired = Array.isArray(tryAcquire)
+          ? (tryAcquire.shift() ?? true)
+          : tryAcquire;
+        if (!acquired) {
+          return { acquired: false } as const;
+        }
+        operationLeaseHeld = true;
+        try {
+          return {
+            acquired: true,
+            result: await operation({
+              deviceKey: 'db-device-1',
+              owner: Symbol('test'),
+            }),
+          } as const;
+        } finally {
+          operationLeaseHeld = false;
+        }
+      },
+    );
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
         serviceHardware: {
           getDeviceState,
-          getCurrentTransportType: jest
-            .fn()
-            .mockResolvedValue(hardwareTransportType),
+          getCurrentTransportType,
           isHardwareDeviceConnected,
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
           isHardwareChannelBusy,
           runExclusiveOneKeyOperation,
+          tryRunExclusiveOneKeyOperation,
         },
         simpleDb: {
           accountSelector: {
@@ -489,7 +532,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     };
     serviceInternals.getHardwareCooldownRemainingMs = jest
       .fn()
-      .mockResolvedValue(0);
+      .mockResolvedValue(cooldownRemainingMs);
     serviceInternals.getCurrencyMapForBuild = jest.fn().mockResolvedValue({
       currencyMap: {},
       displayCurrency: { id: 'usd', symbol: '$' },
@@ -506,14 +549,31 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
     return {
       getDeviceState,
+      getCurrentTransportType,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
       runExclusiveOneKeyOperation,
       service,
       serviceInternals,
+      tryRunExclusiveOneKeyOperation,
       updateTargetState,
       uploadPortfolioPackage,
     };
+  }
+
+  async function armDesktopBleIdleLease(service: ServiceHardwarePortfolioSync) {
+    const interactionGeneration =
+      await service.notifyInteractiveHardwareOperationStarted({
+        connectId: 'PRO2_CONNECT_ID',
+        deviceDbId: 'db-device-1',
+      });
+    expect(typeof interactionGeneration).toBe('number');
+    await service.notifyInteractiveHardwareOperationSucceeded({
+      connectId: 'PRO2_CONNECT_ID',
+      deviceDbId: 'db-device-1',
+      interactionGeneration: interactionGeneration as number,
+      transportType: EHardwareTransportType.DesktopWebBle,
+    });
   }
 
   test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {
@@ -899,6 +959,477 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }),
     );
     jest.useRealTimers();
+  });
+
+  test('skips desktop BLE sync without waiting for a later USB connection', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getDeviceState,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(getDeviceState).not.toHaveBeenCalled();
+      expect(
+        serviceInternals.submitPortfolioJsonToServer,
+      ).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(
+        (
+          service as unknown as {
+            pendingDisconnectedPayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingDisconnectedPayloadByTargetKey.has('db-device-1'),
+      ).toBe(false);
+      expect(
+        (service as unknown as { lastResult: unknown }).lastResult,
+      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
+
+      const resumedPayloadHandler = jest.fn();
+      (
+        service as unknown as {
+          handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
+        }
+      ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
+      await service.notifyHardwareDeviceConnected({
+        identityKeys: ['PRO2_CONNECT_ID'],
+      });
+      expect(resumedPayloadHandler).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('uploads the desktop Portfolio snapshot through the active USB transport', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getDeviceState,
+        runExclusiveOneKeyOperation,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      });
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_CONNECT_ID',
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+        }),
+      );
+      expect(
+        serviceInternals.submitPortfolioJsonToServer,
+      ).toHaveBeenCalledTimes(1);
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+        packageBase64: 'AQID',
+      });
+    } finally {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('suspends a prepared desktop upload if the transport changes to BLE', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getCurrentTransportType,
+        getDeviceState,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      });
+      getCurrentTransportType
+        .mockResolvedValueOnce(EHardwareTransportType.WEBUSB)
+        .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(
+        serviceInternals.submitPortfolioJsonToServer,
+      ).toHaveBeenCalledTimes(1);
+      expect(getDeviceState).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(
+        (service as unknown as { lastResult: unknown }).lastResult,
+      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
+    } finally {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('silently uploads through the still-connected desktop BLE link after the idle delay', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getDeviceState,
+        runExclusiveOneKeyOperation,
+        service,
+        serviceInternals,
+        tryRunExclusiveOneKeyOperation,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false, false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+
+      await jest.advanceTimersByTimeAsync(29_999);
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(1);
+
+      expect(runExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_BLE_ID',
+          desktopBleReuseConnectedOnly: true,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        }),
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+        connectId: 'PRO2_BLE_ID',
+        desktopBleReuseConnectedOnly: true,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        packageBase64: 'AQID',
+      });
+      expect(
+        (
+          service as unknown as {
+            pendingDesktopBlePayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingDesktopBlePayloadByTargetKey.has('db-device-1'),
+      ).toBe(false);
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('keeps the desktop BLE snapshot pending when the non-queued lock is busy', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        service,
+        serviceInternals,
+        tryRunExclusiveOneKeyOperation,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        tryAcquire: [false, true],
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(
+        (
+          service as unknown as {
+            pendingDesktopBlePayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingDesktopBlePayloadByTargetKey.has('db-device-1'),
+      ).toBe(true);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(2);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('replaces the pending desktop BLE snapshot before debounce completes', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const { service, serviceInternals } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      (
+        service as unknown as {
+          handleAllNetworksTokenListSettled: (
+            payload: IPortfolioSyncSettledPayload,
+          ) => void;
+        }
+      ).handleAllNetworksTokenListSettled({
+        ...buildHardwarePayload(),
+        totalFiat: '2',
+      });
+
+      expect(
+        (
+          service as unknown as {
+            pendingDesktopBlePayloadByTargetKey: Map<
+              string,
+              IPortfolioSyncSettledPayload
+            >;
+          }
+        ).pendingDesktopBlePayloadByTargetKey.get('db-device-1')?.totalFiat,
+      ).toBe('2');
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('does not arm desktop BLE reuse without a persisted BLE connectId', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const { service } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      jest.mocked(localDb.getDeviceSafe).mockResolvedValueOnce({
+        id: 'db-device-1',
+        uuid: 'PRO2_SERIAL_NUMBER',
+      } as never);
+      const interactionGeneration =
+        await service.notifyInteractiveHardwareOperationStarted({
+          deviceDbId: 'db-device-1',
+        });
+
+      await expect(
+        service.notifyInteractiveHardwareOperationSucceeded({
+          deviceDbId: 'db-device-1',
+          interactionGeneration: interactionGeneration as number,
+          transportType: EHardwareTransportType.DesktopWebBle,
+        }),
+      ).resolves.toBe(false);
+    } finally {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('does not rearm an idle lease from an older BLE operation completion', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const { service, serviceInternals, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        });
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      const olderGeneration =
+        await service.notifyInteractiveHardwareOperationStarted({
+          deviceDbId: 'db-device-1',
+        });
+      await service.notifyInteractiveHardwareOperationStarted({
+        deviceDbId: 'db-device-1',
+      });
+
+      await expect(
+        service.notifyInteractiveHardwareOperationSucceeded({
+          deviceDbId: 'db-device-1',
+          interactionGeneration: olderGeneration as number,
+          transportType: EHardwareTransportType.DesktopWebBle,
+        }),
+      ).resolves.toBe(false);
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('cancels the desktop BLE idle attempt when the physical link disconnects', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const { service, serviceInternals, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+      await service.notifyHardwareDeviceDisconnected({
+        identityKeys: ['PRO2_BLE_ID'],
+      });
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('abandons desktop BLE reuse if the active transport changes to USB', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getCurrentTransportType,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+      getCurrentTransportType.mockResolvedValue(EHardwareTransportType.WEBUSB);
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(
+        serviceInternals.submitPortfolioJsonToServer,
+      ).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
+  });
+
+  test('does not extend a desktop BLE lease beyond the low-frequency cooldown', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        service,
+        serviceInternals,
+        tryRunExclusiveOneKeyOperation,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        cooldownRemainingMs: 5 * 60_000,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+      await jest.advanceTimersByTimeAsync(30_000);
+      await jest.advanceTimersByTimeAsync(5 * 60_000);
+
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+    }
   });
 
   test('keeps a fresh snapshot that arrives during the BLE resume delay', async () => {
@@ -1441,6 +1972,93 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(updateTargetState).toHaveBeenCalledWith(
       'db-device-1',
       expect.objectContaining({ lastContentHash: expect.any(String) }),
+    );
+  });
+
+  test('does not record a phantom attempt when a newer generation arrives during persistence', async () => {
+    const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    let notifyAttemptWriteStarted!: () => void;
+    const attemptWriteStarted = new Promise<void>((resolve) => {
+      notifyAttemptWriteStarted = resolve;
+    });
+    let releaseAttemptWrite!: () => void;
+    const attemptWriteGate = new Promise<void>((resolve) => {
+      releaseAttemptWrite = resolve;
+    });
+    updateTargetState.mockImplementationOnce(async () => {
+      notifyAttemptWriteStarted();
+      await attemptWriteGate;
+    });
+
+    const syncTask = serviceInternals.syncSettledPortfolio(
+      buildHardwarePayload(),
+    );
+    await attemptWriteStarted;
+
+    // The hardware call and lastAttemptAt persistence start together. Evicting
+    // the generation while storage is pending must not leave a phantom cooldown.
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    (
+      serviceInternals as typeof serviceInternals & {
+        advanceSyncGeneration: (targetKey: string) => number;
+      }
+    ).advanceSyncGeneration('db-device-1');
+    releaseAttemptWrite();
+    await syncTask;
+
+    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledWith('db-device-1', {
+      lastAttemptAt: expect.any(Number),
+    });
+  });
+
+  test('keeps the operation lock until upload settles when attempt persistence fails', async () => {
+    const {
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    let notifyUploadStarted!: () => void;
+    const uploadStarted = new Promise<void>((resolve) => {
+      notifyUploadStarted = resolve;
+    });
+    let resolveUpload!: (value: { portfolioUpdated: boolean }) => void;
+    uploadPortfolioPackage.mockImplementationOnce(
+      () =>
+        new Promise<{ portfolioUpdated: boolean }>((resolve) => {
+          resolveUpload = resolve;
+          notifyUploadStarted();
+        }),
+    );
+    updateTargetState.mockRejectedValueOnce(new Error('storage failed'));
+    let syncSettled = false;
+
+    const syncTask = serviceInternals
+      .syncSettledPortfolio(buildHardwarePayload())
+      .finally(() => {
+        syncSettled = true;
+      });
+    await uploadStarted;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncSettled).toBe(false);
+    resolveUpload({ portfolioUpdated: true });
+    await syncTask;
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'uploaded',
+      }),
+    );
+    expect(updateTargetState).toHaveBeenLastCalledWith(
+      'db-device-1',
+      expect.objectContaining({
+        lastAttemptAt: expect.any(Number),
+        lastContentHash: expect.any(String),
+        lastTransferAt: expect.any(Number),
+      }),
     );
   });
 

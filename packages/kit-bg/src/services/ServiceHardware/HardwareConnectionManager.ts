@@ -375,23 +375,31 @@ export class HardwareConnectionManager {
         await hardwareForceTransportAtom.get();
       const forceTransportType =
         hardwareForceTransportAtomState.forceTransportType;
-
-      // If a specific transport type is forced (e.g., for onboarding), use it directly
-      if (forceTransportType) {
-        const targetType =
-          deviceUtils.normalizeHardwareTransportTypeForPlatform({
+      const normalizedForceTransportType = forceTransportType
+        ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
             transportType: forceTransportType,
             connectProtocol,
-          });
-        const shouldSwitch = this.actualTransportType !== targetType;
-        return {
-          shouldSwitch,
-          targetType,
-        };
-      }
+          })
+        : undefined;
 
       // quick detect mini device
       const isMiniDevice = connectId && connectId.startsWith('MI');
+
+      // If a specific transport type is forced (e.g., for onboarding), use it directly
+      if (
+        normalizedForceTransportType &&
+        (!isMiniDevice ||
+          normalizedForceTransportType === EHardwareTransportType.WEBUSB ||
+          normalizedForceTransportType === EHardwareTransportType.Bridge)
+      ) {
+        const shouldSwitch =
+          this.actualTransportType !== normalizedForceTransportType;
+        return {
+          shouldSwitch,
+          targetType: normalizedForceTransportType,
+        };
+      }
+
       // Mini does not support BLE, so it must always use the configured USB transport.
       if (isMiniDevice) {
         const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
