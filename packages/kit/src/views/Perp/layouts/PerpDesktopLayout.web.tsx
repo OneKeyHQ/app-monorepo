@@ -56,7 +56,9 @@ function PerpDesktopLayout() {
   const { width: viewportWidth, height: viewportHeight } =
     useWindowDimensions();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
-  const [isChartSplitDragging, setIsChartSplitDragging] = useState(false);
+  const [desktopSplitCursor, setDesktopSplitCursor] = useState<
+    'row-resize' | undefined
+  >();
   const chartSplitRef = useRef<AllotmentHandle>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
 
@@ -76,7 +78,6 @@ function PerpDesktopLayout() {
   const chartExpanded = layoutState.chartExpanded ?? false;
   const showOrderBook =
     gtXl && !chartExpanded && (layoutState.orderBook?.visible ?? true);
-  const tradingWidth = layout.widths.trading;
   const chartSplitSizes = useMemo(
     () =>
       getPerpDesktopChartSplitSizes({
@@ -109,12 +110,12 @@ function PerpDesktopLayout() {
   const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
     scrollContainerRef.current?.scrollBy({ top: deltaY });
   }, []);
-  const handleChartSplitDragStart = useCallback(() => {
-    setIsChartSplitDragging(true);
+  const handleVerticalSplitDragStart = useCallback(() => {
+    setDesktopSplitCursor('row-resize');
   }, []);
   const handleChartSplitDragEnd = useCallback(
     (sizes: number[]) => {
-      setIsChartSplitDragging(false);
+      setDesktopSplitCursor(undefined);
       const nextChartHeight = Math.round(sizes[0] ?? 0);
       if (!Number.isFinite(nextChartHeight) || nextChartHeight <= 0) {
         return;
@@ -140,17 +141,16 @@ function PerpDesktopLayout() {
       return rest;
     });
   }, [layout.bottomPanelHeight, layout.marketContentHeight, setLayoutState]);
-
-  // Allotment only honors defaultSizes on first mount; re-apply the persisted
-  // height after async atom hydration and on responsive layout changes.
+  // Allotment only honors defaultSizes on first mount; re-apply persisted
+  // heights after async atom hydration and on responsive layout changes.
   useLayoutEffect(() => {
     chartSplitRef.current?.resize(chartSplitSizes);
   }, [chartSplitSizes]);
 
   const tradingPanel = useMemo(() => {
     return (
-      <YStack minHeight={layout.marketContentHeight}>
-        <YStack pb="$4">
+      <YStack h="100%" style={{ overflowY: 'auto' }}>
+        <YStack minHeight={layout.marketContentHeight} pb="$4">
           <PerpTradingPanel />
         </YStack>
       </YStack>
@@ -159,24 +159,21 @@ function PerpDesktopLayout() {
 
   const accountPanel = useMemo(() => {
     return (
-      <YStack
-        minHeight={layout.bottomPanelHeight}
-        alignSelf="stretch"
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-      >
-        <XStack alignItems="center">
-          <XStack py="$3" px="$2.5">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview,
-              })}
-            </SizableText>
+      <YStack h="100%" alignSelf="stretch" style={{ overflowY: 'auto' }}>
+        <YStack minHeight={layout.bottomPanelHeight}>
+          <XStack alignItems="center">
+            <XStack py="$3" px="$2.5">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_account_overview,
+                })}
+              </SizableText>
+            </XStack>
           </XStack>
-        </XStack>
-        <YStack pb="$4">
-          <PerpAccountPanel />
-          <PerpAccountDebugInfo />
+          <YStack pb="$4">
+            <PerpAccountPanel />
+            <PerpAccountDebugInfo />
+          </YStack>
         </YStack>
       </YStack>
     );
@@ -189,7 +186,7 @@ function PerpDesktopLayout() {
           onTouchScroll={handleTradingViewTouchScroll}
         />
 
-        {isChartSplitDragging ? (
+        {desktopSplitCursor ? (
           <Stack
             testID={PerpTestIDs.DesktopChartDragShield}
             position="absolute"
@@ -198,7 +195,7 @@ function PerpDesktopLayout() {
             bottom={0}
             left={0}
             zIndex={30}
-            cursor="row-resize"
+            cursor={desktopSplitCursor}
           />
         ) : null}
 
@@ -308,15 +305,15 @@ function PerpDesktopLayout() {
         >
           <PerpTickerBar />
 
-          <XStack
+          <Stack
             flex={chartExpanded ? 1 : undefined}
-            alignItems="stretch"
-            overflow="visible"
+            h={chartExpanded ? undefined : leftContentHeight}
+            overflow="hidden"
           >
-            <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
-              <Stack
-                flex={chartExpanded ? 1 : undefined}
-                h={chartExpanded ? undefined : leftContentHeight}
+            <XStack h="100%" overflow="hidden">
+              <YStack
+                flex={1}
+                minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}
                 overflow="hidden"
               >
                 <Allotment
@@ -325,7 +322,7 @@ function PerpDesktopLayout() {
                   vertical
                   separator={!chartExpanded}
                   defaultSizes={chartSplitSizes}
-                  onDragStart={handleChartSplitDragStart}
+                  onDragStart={handleVerticalSplitDragStart}
                   onDragEnd={handleChartSplitDragEnd}
                   onReset={handleChartSplitReset}
                 >
@@ -342,21 +339,31 @@ function PerpDesktopLayout() {
                     {orderInfoPanel}
                   </Allotment.Pane>
                 </Allotment>
-              </Stack>
-            </YStack>
+              </YStack>
 
-            <YStack
-              display={chartExpanded ? 'none' : 'flex'}
-              minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
-              maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
-              w={tradingWidth}
-              borderLeftWidth="$px"
-              borderLeftColor="$borderSubdued"
-            >
-              {tradingPanel}
-              {accountPanel}
-            </YStack>
-          </XStack>
+              <YStack
+                display={chartExpanded ? 'none' : 'flex'}
+                w={layout.widths.trading}
+                minWidth={PERP_LAYOUT_CONFIG.main.tradingMinWidth}
+                maxWidth={PERP_LAYOUT_CONFIG.main.tradingMaxWidth}
+                borderLeftWidth="$px"
+                borderLeftColor="$borderSubdued"
+                overflow="hidden"
+              >
+                <YStack h={layout.marketContentHeight} overflow="hidden">
+                  {tradingPanel}
+                </YStack>
+                <YStack
+                  h={layout.bottomPanelHeight}
+                  borderTopWidth="$px"
+                  borderTopColor="$borderSubdued"
+                  overflow="hidden"
+                >
+                  {accountPanel}
+                </YStack>
+              </YStack>
+            </XStack>
+          </Stack>
         </YStack>
       </YStack>
     </Stack>

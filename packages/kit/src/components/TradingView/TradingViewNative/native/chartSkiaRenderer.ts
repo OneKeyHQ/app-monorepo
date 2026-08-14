@@ -16,10 +16,7 @@ import {
   createPicture,
 } from '@shopify/react-native-skia';
 
-import {
-  TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
-  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
-} from '../chartConstants';
+import { TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE } from '../chartConstants';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   type ITradingViewNativeChartSceneColors,
@@ -41,23 +38,32 @@ export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
   priceAxisFont,
+  priceAxisFontSize,
+  timeAxisFontSize,
+  timeAxisBorderWidth,
   watermarkSvg,
 }: {
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
   priceAxisFont: SkFont | null;
+  priceAxisFontSize: number;
+  timeAxisFontSize: number;
+  timeAxisBorderWidth?: number;
   watermarkSvg: SkSVG | null;
 }): ITradingViewNativeSkiaResources {
   'worklet';
 
-  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors);
+  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors, {
+    timeAxisBorderWidth,
+  });
   const paints = {} as Record<ITradingViewNativeChartScenePaint, SkPaint>;
   const typeface = Skia.FontMgr.System().matchFamilyStyle(fontFamily, {
     slant: FontSlant.Upright,
     weight: FontWeight.Normal,
     width: FontWidth.Normal,
   });
-  const axisFont = Skia.Font(typeface, TRADING_VIEW_NATIVE_AXIS_FONT_SIZE);
+  const axisFont = Skia.Font(typeface, timeAxisFontSize);
+  const priceAxisFallbackFont = Skia.Font(typeface, priceAxisFontSize);
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -91,7 +97,7 @@ export function createTradingViewNativeSkiaResources({
     fonts: {
       axis: axisFont,
       legend: Skia.Font(typeface, TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE),
-      priceAxis: priceAxisFont ?? axisFont,
+      priceAxis: priceAxisFont ?? priceAxisFallbackFont,
     },
     paints,
     watermarkPaint: Skia.Paint(),

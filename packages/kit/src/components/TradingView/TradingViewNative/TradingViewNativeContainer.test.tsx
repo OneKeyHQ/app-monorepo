@@ -219,6 +219,72 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
+  it('uses the compact chart presentation without legends or volume', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [
+      { c: 100, h: 101, l: 99, o: 100, t: 1000, v: 10 },
+      { c: 101, h: 102, l: 100, o: 100, t: 2000, v: 20 },
+    ];
+
+    render(
+      <TradingViewNativeContainer
+        nativeChartDisplayMode="compact"
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: true,
+        hasVolume: false,
+        priceAxisFontSize: 11,
+        priceAxisTickCount: 4,
+        showLegend: false,
+        timeAxisFontSize: 11,
+        timeAxisHeight: 20,
+        timeAxisBorderWidth: 0.5,
+      }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+  });
+
+  it('keeps shared chart defaults outside compact mode', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: false,
+        priceAxisFontSize: undefined,
+        priceAxisTickCount: undefined,
+        showLegend: true,
+        timeAxisFontSize: undefined,
+        timeAxisHeight: undefined,
+        timeAxisBorderWidth: undefined,
+      }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: false }),
+    );
+  });
+
   it('starts without indicators and updates series from indicator controls', () => {
     mockDataState = { status: 'live' };
     mockPoints = Array.from({ length: 25 }, (_, index) => ({
@@ -288,6 +354,51 @@ describe('TradingViewNativeContainer', () => {
         isFullscreen: true,
         fullscreenHeader,
         onFullscreenChange: handleFullscreenChange,
+      }),
+    );
+  });
+
+  it('forwards the native close action to chart controls', () => {
+    const handleChartClose = jest.fn();
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartClose={handleChartClose}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onChartClose: handleChartClose,
+      }),
+    );
+  });
+
+  it('forwards native close-control visibility to chart controls', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartClose={jest.fn()}
+        showNativeChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showChartCloseControl: false,
       }),
     );
   });

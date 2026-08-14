@@ -161,16 +161,18 @@ describe('PerpDesktopLayout web chart split', () => {
     };
   });
 
-  it('renders only the chart/order-info split as draggable', () => {
+  it('renders only the left chart boundary as draggable', () => {
     render(<PerpDesktopLayout />);
 
-    expect(mockAllotmentProps.size).toBe(1);
     expect(mockAllotmentProps.get('perp-desktop-chart-split')?.vertical).toBe(
       true,
     );
+    expect(mockAllotmentProps.size).toBe(1);
+    expect(mockAllotmentProps.has('perp-desktop-main-split')).toBe(false);
+    expect(mockAllotmentProps.has('perp-desktop-trading-split')).toBe(false);
   });
 
-  it('persists the chart height on drag end', () => {
+  it('persists only the left chart split size', () => {
     render(<PerpDesktopLayout />);
 
     act(() => {
@@ -181,14 +183,17 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockLayoutState.chartHeight).toBe(640);
   });
 
-  it('re-applies the persisted chart height after hydration updates', () => {
+  it('re-applies the persisted left chart boundary after hydration updates', () => {
     const view = render(<PerpDesktopLayout />);
 
     expect(
       mockAllotmentResize.get('perp-desktop-chart-split'),
     ).toHaveBeenLastCalledWith([700, 368]);
 
-    mockLayoutState = { ...mockLayoutState, chartHeight: 620 };
+    mockLayoutState = {
+      ...mockLayoutState,
+      chartHeight: 620,
+    };
     view.rerender(<PerpDesktopLayout />);
 
     expect(
@@ -209,7 +214,7 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockMarketPanelUnmount).not.toHaveBeenCalled();
   });
 
-  it('resets the split immediately before clearing persistence', () => {
+  it('resets the visible split immediately before clearing persistence', () => {
     render(<PerpDesktopLayout />);
 
     act(() => {

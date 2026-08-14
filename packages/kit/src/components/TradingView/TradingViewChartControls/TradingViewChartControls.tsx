@@ -32,6 +32,7 @@ type IPriceMarketCapConfig =
 
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
+  compactMobileLayout?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -59,6 +60,8 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
+  rightControl?: ReactNode;
+  rightControlLabel?: string;
   onIntervalChange: (interval: string) => void;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
   onShowIndicatorsDialog: () => void;
@@ -72,6 +75,7 @@ export interface ITradingViewChartControlsProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenToggle?: () => void;
+  onRightControlPress?: () => void;
 }
 
 function ToolbarSeparator() {
@@ -85,6 +89,7 @@ export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
+    compactMobileLayout = false,
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -112,6 +117,8 @@ export const TradingViewChartControls = memo(
     calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
+    rightControl,
+    rightControlLabel,
     onIntervalChange,
     onIndicatorPress,
     onShowIndicatorsDialog,
@@ -125,6 +132,7 @@ export const TradingViewChartControls = memo(
     onUndo,
     onRedo,
     onFullscreenToggle,
+    onRightControlPress,
   }: ITradingViewChartControlsProps) => {
     const intl = useIntl();
     const isDesktopLayout = layoutMode === 'desktop';
@@ -316,6 +324,7 @@ export const TradingViewChartControls = memo(
       !hasCalendarControl &&
       !hasFullscreenControl &&
       !hasHistoryControls &&
+      !rightControl &&
       !desktopFullscreenHeader
     ) {
       return null;
@@ -323,8 +332,10 @@ export const TradingViewChartControls = memo(
 
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
+        compactMobileLayout={compactMobileLayout}
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
+        showActiveBackground={isDesktopLayout || !compactMobileLayout}
         onIntervalChange={onIntervalChange}
         onControlInteraction={onControlInteraction}
       />
@@ -397,6 +408,7 @@ export const TradingViewChartControls = memo(
               ) : null}
 
               {fullscreenControl}
+              {rightControl}
             </XStack>
           </XStack>
         </Stack>
@@ -404,7 +416,16 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
+      <Stack
+        bg={backgroundColor}
+        px="$2"
+        py={compactMobileLayout ? undefined : '$2'}
+        pt={compactMobileLayout ? '$1.5' : undefined}
+        pb={compactMobileLayout ? '$0.5' : undefined}
+        borderBottomWidth={compactMobileLayout ? 0.5 : 0}
+        borderBottomColor="$borderSubdued"
+        zIndex={3}
+      >
         <XStack
           alignItems="center"
           justifyContent="space-between"
@@ -413,17 +434,37 @@ export const TradingViewChartControls = memo(
           opacity={isControlsReady ? 1 : 0}
           pointerEvents={isControlsReady ? 'auto' : 'none'}
         >
-          <XStack flex={1} minWidth={0} alignItems="center">
+          <XStack
+            flex={onRightControlPress ? undefined : 1}
+            minWidth={0}
+            alignItems="center"
+          >
             {intervalSelector}
           </XStack>
 
-          <XStack gap="$2" alignItems="center" justifyContent="flex-end">
+          <XStack
+            testID={
+              onRightControlPress
+                ? 'trading-view-native-chart-close'
+                : undefined
+            }
+            flex={onRightControlPress ? 1 : undefined}
+            alignSelf={onRightControlPress ? 'stretch' : undefined}
+            gap="$2"
+            alignItems="center"
+            justifyContent="flex-end"
+            accessibilityRole={onRightControlPress ? 'button' : undefined}
+            accessibilityLabel={rightControlLabel}
+            cursor={onRightControlPress ? 'pointer' : undefined}
+            onPress={onRightControlPress}
+          >
             {chartTypeControl}
             {priceMarketCapControl}
             {indicatorControl}
             {calendarControl}
             {settingsControl}
             {fullscreenControl}
+            {rightControl}
           </XStack>
         </XStack>
       </Stack>
