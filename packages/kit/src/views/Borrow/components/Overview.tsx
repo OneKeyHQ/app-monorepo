@@ -276,10 +276,9 @@ export const Overview = ({
           </XStack>
         </YStack>
       ) : (
-        /* Phones give the three headline numbers the same weight on one row,
-           wrapping onto a second only when they stop fitting, with the tools
-           pinned to the right of that first row. Top-aligned rather than
-           centred so they stay on the net worth line once the numbers wrap. */
+        /* Phones keep the three headline numbers in equal-width columns so
+           staggered loading results cannot move the later metrics. The tools
+           stay pinned to the right and top-aligned with that row. */
         <>
           <XStack ai="flex-start" gap="$2">
             <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
@@ -287,18 +286,18 @@ export const Overview = ({
                 title={{ text: labels.netWorth }}
                 text={netWorthText}
                 isLoading={isNetWorthLoading}
-                widthMode="hug"
+                widthMode="equal"
               />
               <BorrowHealthFactorSummary
                 {...healthSummaryProps}
-                widthMode="hug"
+                widthMode="equal"
               />
               <OverviewMetric
                 testID={BorrowTestIDs.overviewNetApy}
                 title={{ text: labels.netApy }}
                 text={netApyText}
                 isLoading={isNetApyLoading}
-                widthMode="hug"
+                widthMode="equal"
               />
             </XStack>
             {/* Clears the metric cells' own $3 of top padding */}
