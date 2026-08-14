@@ -1603,6 +1603,10 @@ class ServiceHardware extends ServiceBase {
         this.recordLiveConnectIdEvidence(message.device?.connectId);
         const connectedIdentityKeys = this.trackConnectedDevice(message.device);
         if (connectedIdentityKeys.length > 0) {
+          appEventBus.emit(
+            EAppEventBusNames.HardwareConnectionStateUpdate,
+            undefined,
+          );
           void this.backgroundApi.serviceHardwarePortfolioSync
             ?.notifyHardwareDeviceConnected({
               identityKeys: connectedIdentityKeys,
@@ -1676,6 +1680,10 @@ class ServiceHardware extends ServiceBase {
           message.device,
         );
         if (disconnectedIdentityKeys.length > 0) {
+          appEventBus.emit(
+            EAppEventBusNames.HardwareConnectionStateUpdate,
+            undefined,
+          );
           void this.backgroundApi.serviceHardwarePortfolioSync
             ?.notifyHardwareDeviceDisconnected({
               identityKeys: disconnectedIdentityKeys,
@@ -1864,6 +1872,17 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async isDeviceSearchInProgress() {
     return this.deviceSearchInProgressCount > 0;
+  }
+
+  @backgroundMethod()
+  async getConnectedHardwareDeviceIdentityKeys() {
+    return [
+      ...new Set(
+        [...this.connectedDeviceIdentityKeysByConnection.values()].flatMap(
+          (identityKeys) => [...identityKeys],
+        ),
+      ),
+    ];
   }
 
   @backgroundMethod()

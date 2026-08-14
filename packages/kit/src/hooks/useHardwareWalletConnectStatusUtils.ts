@@ -30,6 +30,23 @@ export function getWebUsbConnectedDeviceKey(
   return device.serialNumber || undefined;
 }
 
+export function buildHardwareConnectedDeviceKeys({
+  backgroundIdentityKeys,
+  webUsbDevices,
+}: {
+  backgroundIdentityKeys: readonly string[];
+  webUsbDevices: readonly IUsbDeviceIdentity[];
+}): Set<string> {
+  const connectedDeviceKeys = new Set(backgroundIdentityKeys);
+  for (const device of webUsbDevices) {
+    const key = getWebUsbConnectedDeviceKey(device);
+    if (key) {
+      connectedDeviceKeys.add(key);
+    }
+  }
+  return connectedDeviceKeys;
+}
+
 export function getWalletHardwareConnectionKeys(
   wallet: IWalletHardwareIdentity | undefined,
 ): string[] {

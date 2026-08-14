@@ -38,6 +38,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
+    HardwareConnectionStateUpdate: 'HardwareConnectionStateUpdate',
     HardwareDeviceStateUpdate: 'HardwareDeviceStateUpdate',
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     WalletUpdate: 'WalletUpdate',
@@ -780,6 +781,11 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       device: { connectId: 'DEVICE_A_USB' },
     });
     await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(
+      expect.arrayContaining(['DEVICE_A_USB', 'DEVICE_B_USB']),
+    );
+    await expect(
       service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
     ).resolves.toBe(true);
 
@@ -787,8 +793,15 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       device: { connectId: 'DEVICE_A_USB' },
     });
     await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['DEVICE_B_USB']);
+    await expect(
       service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
     ).resolves.toBe(false);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   });
 
   it('forwards all tracked identity keys when a device disconnects', async () => {
