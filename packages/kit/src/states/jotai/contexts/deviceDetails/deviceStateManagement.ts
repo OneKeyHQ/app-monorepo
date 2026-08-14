@@ -34,12 +34,26 @@ export function getDeviceStateSnapshotFromEvent({
   if (
     currentState &&
     typeof currentState.updatedAt === 'number' &&
-    typeof event.state.updatedAt === 'number' &&
-    (event.state.updatedAt < currentState.updatedAt ||
-      (event.state.updatedAt === currentState.updatedAt &&
-        event.state.revision <= currentState.revision))
+    typeof event.state.updatedAt === 'number'
   ) {
-    return undefined;
+    // 'settings-read' events are authoritative hardware read-backs. When the
+    // SDK cache already holds a device-side change the app never observed
+    // (e.g. BLE initialize runs before event listeners attach), the SDK
+    // force-emits them without bumping revision/updatedAt, so an event with
+    // stamps EQUAL to the current state must still be applied. A lower
+    // revision at the same timestamp is still an out-of-order older event
+    // and must not roll the newer snapshot back.
+    const isStale =
+      event.source === 'settings-read'
+        ? event.state.updatedAt < currentState.updatedAt ||
+          (event.state.updatedAt === currentState.updatedAt &&
+            event.state.revision < currentState.revision)
+        : event.state.updatedAt < currentState.updatedAt ||
+          (event.state.updatedAt === currentState.updatedAt &&
+            event.state.revision <= currentState.revision);
+    if (isStale) {
+      return undefined;
+    }
   }
   const currentDeviceId = currentState?.identity.deviceId ?? device?.deviceId;
   if (
@@ -110,6 +124,36 @@ export function resolveDeviceState({
   snapshot?: IDeviceStateSnapshot;
 }) {
   return snapshot?.state ?? persistedState;
+}
+
+/**
+ * Refresh reads can be served from short-lived DB record caches that may
+ * predate the write which triggered the refresh. Never let such a read
+ * regress a snapshot that a newer device-state event already applied.
+ */
+export function pickNewerDeviceStateSnapshot({
+  current,
+  incoming,
+}: {
+  current?: IDeviceStateSnapshot;
+  incoming?: IDeviceStateSnapshot;
+}): IDeviceStateSnapshot | undefined {
+  if (!current) {
+    return incoming;
+  }
+  if (!incoming) {
+    return current;
+  }
+  const currentUpdatedAt =
+    typeof current.state.updatedAt === 'number' ? current.state.updatedAt : 0;
+  const incomingUpdatedAt =
+    typeof incoming.state.updatedAt === 'number' ? incoming.state.updatedAt : 0;
+  if (incomingUpdatedAt !== currentUpdatedAt) {
+    return incomingUpdatedAt > currentUpdatedAt ? incoming : current;
+  }
+  return (incoming.state.revision ?? 0) >= (current.state.revision ?? 0)
+    ? incoming
+    : current;
 }
 
 export function isDeviceManagementWalletUsable(

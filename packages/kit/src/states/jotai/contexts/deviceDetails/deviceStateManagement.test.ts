@@ -8,6 +8,7 @@ import {
   getDeviceStateSnapshotFromEvent,
   isDeviceManagementWalletUsable,
   mergeDeviceSettingState,
+  pickNewerDeviceStateSnapshot,
   resolveDeviceState,
   resolveDeviceWithCurrentType,
   resolveUsableWalletWithDevice,
@@ -401,6 +402,129 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     expect(snapshot?.state.status.unlocked).toBe(false);
   });
 
+  it('applies a force-emitted settings read whose store revision did not change', () => {
+    // On Protocol V1 the SDK cache can learn a device-side change (e.g.
+    // language) before app listeners attach. The follow-up settings read then
+    // finds nothing new, so the SDK force-emits with the OLD revision and
+    // updatedAt. The event must still be applied.
+    const currentState = {
+      revision: 4,
+      updatedAt: 400,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal', unlocked: true },
+      settings: { language: 'zh_cn', brightness: 30 },
+      versions: { firmware: '1.0.0' },
+    };
+
+    const snapshot = getDeviceStateSnapshotFromEvent({
+      device: {
+        connectId: 'PRO_BLE',
+        uuid: 'SERIAL',
+        deviceId: 'DEVICE_ID',
+      },
+      currentState,
+      event: {
+        connectId: 'PRO_BLE',
+        revision: 4,
+        source: 'settings-read',
+        changedKeys: ['settings'],
+        state: {
+          ...currentState,
+          settings: { language: 'zh_hk', brightness: 30 },
+        },
+      },
+    } as never);
+
+    expect(snapshot?.state.settings.language).toBe('zh_hk');
+  });
+
+  it('drops a same-timestamp settings read with a lower revision', () => {
+    const currentState = {
+      revision: 5,
+      updatedAt: 400,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: { language: 'zh_hk' },
+      versions: { firmware: '1.0.0' },
+    };
+
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'PRO_BLE', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'PRO_BLE',
+          revision: 4,
+          source: 'settings-read',
+          changedKeys: ['settings'],
+          state: {
+            ...currentState,
+            revision: 4,
+            settings: { language: 'zh_cn' },
+          },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
+  it('still drops a settings read strictly older than the current state', () => {
+    const currentState = {
+      revision: 4,
+      updatedAt: 400,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: { language: 'zh_hk' },
+      versions: { firmware: '1.0.0' },
+    };
+
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'PRO_BLE', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'PRO_BLE',
+          revision: 3,
+          source: 'settings-read',
+          changedKeys: ['settings'],
+          state: {
+            ...currentState,
+            revision: 3,
+            updatedAt: 300,
+            settings: { language: 'zh_cn' },
+          },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
+  it('keeps dropping equal-revision events from non-authoritative sources', () => {
+    const currentState = {
+      revision: 4,
+      updatedAt: 400,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: { language: 'zh_cn' },
+      versions: { firmware: '1.0.0' },
+    };
+
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'PRO_BLE', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'PRO_BLE',
+          revision: 4,
+          source: 'initialize',
+          changedKeys: ['settings.language'],
+          state: {
+            ...currentState,
+            settings: { language: 'zh_hk' },
+          },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
   it('rejects a new wallet identity even when the physical serial still matches', () => {
     expect(
       getDeviceStateSnapshotFromEvent({
@@ -541,5 +665,48 @@ describe('DeviceState metadata projection', () => {
         snapshot: { state: snapshotState },
       } as never),
     ).toBe(snapshotState);
+  });
+});
+
+describe('pickNewerDeviceStateSnapshot', () => {
+  const buildSnapshot = (updatedAt: number, revision: number) =>
+    ({ state: { updatedAt, revision } }) as never;
+
+  it('keeps the applied event snapshot when a refresh serves older DB data', () => {
+    const current = buildSnapshot(400, 4);
+    const incoming = buildSnapshot(300, 3);
+
+    expect(pickNewerDeviceStateSnapshot({ current, incoming })).toBe(current);
+  });
+
+  it('takes the incoming snapshot when it is newer', () => {
+    const current = buildSnapshot(300, 3);
+    const incoming = buildSnapshot(400, 4);
+
+    expect(pickNewerDeviceStateSnapshot({ current, incoming })).toBe(incoming);
+  });
+
+  it('takes the incoming snapshot on equal stamps', () => {
+    const current = buildSnapshot(400, 4);
+    const incoming = buildSnapshot(400, 4);
+
+    expect(pickNewerDeviceStateSnapshot({ current, incoming })).toBe(incoming);
+  });
+
+  it('never clears an existing snapshot with an empty refresh result', () => {
+    const current = buildSnapshot(400, 4);
+
+    expect(pickNewerDeviceStateSnapshot({ current, incoming: undefined })).toBe(
+      current,
+    );
+    expect(
+      pickNewerDeviceStateSnapshot({ current: undefined, incoming: current }),
+    ).toBe(current);
+    expect(
+      pickNewerDeviceStateSnapshot({
+        current: undefined,
+        incoming: undefined,
+      }),
+    ).toBeUndefined();
   });
 });
