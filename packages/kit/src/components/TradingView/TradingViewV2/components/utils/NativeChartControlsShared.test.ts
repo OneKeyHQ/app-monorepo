@@ -55,7 +55,7 @@ describe('NativeChartControlsShared', () => {
       'TradingViewCandlesOutline',
     );
     expect(getChartTypeIconName({ label: 'Heikin Ashi', value: 8 })).toBe(
-      'TradingViewCandlesOutline',
+      'TradingViewBarsOutline',
     );
     expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
       'TradingViewCandlesHlcOutline',

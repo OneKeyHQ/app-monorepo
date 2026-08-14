@@ -94,6 +94,9 @@ export function getChartTypeIconName(chartType?: ITradingViewChartTypeOption) {
   if (normalizedLabel.includes('hlc')) {
     return 'TradingViewCandlesHlcOutline';
   }
+  if (normalizedLabel.includes('heikin')) {
+    return 'TradingViewBarsOutline';
+  }
   if (normalizedLabel.includes('bar')) {
     return 'TradingViewCandlesHlcOutline';
   }
