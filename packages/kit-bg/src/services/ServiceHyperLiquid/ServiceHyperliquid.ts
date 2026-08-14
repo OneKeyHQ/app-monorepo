@@ -6,6 +6,7 @@ import { isEqual, isNil, omit } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
+import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -3661,6 +3662,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           const encodedPrivateKey =
             await this.backgroundApi.servicePassword.encodeSensitiveText({
               text: privateKeyHex,
+              ...getPbkdf2KdfParamsForNonDbTxNoCache(),
             });
 
           const { credentialId } =
