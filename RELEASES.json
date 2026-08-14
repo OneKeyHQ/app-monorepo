@@ -93,5 +93,23 @@
     "date": "2026-08-10T11:02:19Z",
     "prs": ["#12765", "#12792"],
     "notes": "Support Spark and Bitway Earn integrations (#12765); add DEX labels to Perps market lists (#12792)"
+  },
+  {
+    "seq": 7,
+    "commit": "fd071a7c71c050041ecb43d4885056f8ebd6006b",
+    "date": "2026-08-14T07:37:28Z",
+    "prs": [
+      "#12791",
+      "#12793",
+      "#12806",
+      "#12813",
+      "#12821",
+      "#12823",
+      "#12826",
+      "#12827",
+      "#12834",
+      "#12848"
+    ],
+    "notes": "Revamp the mobile DeFi experience (#12791); keep the Perps first screen height stable on cold start (#12793); prevent iPad DApp touch freeze (#12806); correct iPad settings scrolling (#12813); restore the Perps chart on Android foldables (#12821); add gas account funnel analytics (#12823); center the desktop browser banner (#12826); self-heal unreadable SimpleDB records and support clearing Perps data (#12827); track universal search source (#12834); harden Swap recipient and warning flows (#12848)"
   }
 ]
