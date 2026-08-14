@@ -136,6 +136,7 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
       unsignedMessage,
       accountId: this.accountId,
       networkId: PERPS_NETWORK_ID,
+      useNonBlockingKdf: true,
     });
 
     if (!result || typeof result !== 'string') {
