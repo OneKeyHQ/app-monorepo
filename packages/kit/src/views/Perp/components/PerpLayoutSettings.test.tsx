@@ -22,7 +22,9 @@ jest.mock('react-intl', () => ({
       const labels: Record<string, string> = {
         global_top: '顶部',
         global_bottom: '底部',
-        'market.chart_settings__none': '无',
+        perps_layout_settings__title: '布局设置',
+        perps_trading_page_chart__title: '交易页 K 线',
+        perps_chart_do_not_show__action: '不展示',
       };
       return labels[id] ?? id;
     },

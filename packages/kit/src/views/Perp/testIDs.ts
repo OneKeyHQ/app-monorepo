@@ -119,6 +119,7 @@ export const PerpTestIDs = {
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',
   MobileChartOverlay: 'perp-mobile-chart-overlay',
+  MobileChartCornerBorder: 'perp-mobile-chart-corner-border',
   MobileChartToggle: 'perp-mobile-chart-toggle',
   MobileChartContent: 'perp-mobile-chart-content',
   MobileTopChartToggle: 'perp-mobile-top-chart-toggle',

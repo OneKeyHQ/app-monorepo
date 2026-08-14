@@ -44,29 +44,26 @@ const MINI_CANDLES = [
   { bodyHeight: 3, height: 7.5, id: 'o', offsetY: -1, side: 'long' },
 ] as const;
 
-export function getPerpLayoutSettingsTitle(locale: string) {
-  return locale.toLowerCase().startsWith('zh') ? '布局设置' : 'Layout settings';
-}
-
 function useLayoutSettingsCopy() {
   const intl = useIntl();
-  const isChinese = intl.locale.toLowerCase().startsWith('zh');
 
   return useMemo(
     () => ({
-      pageTitle: getPerpLayoutSettingsTitle(intl.locale),
-      sectionTitle: isChinese ? '交易页 K 线' : 'Trading page chart',
+      pageTitle: intl.formatMessage({
+        id: ETranslations.perps_layout_settings__title,
+      }),
+      sectionTitle: intl.formatMessage({
+        id: ETranslations.perps_trading_page_chart__title,
+      }),
       optionLabels: {
         top: intl.formatMessage({ id: ETranslations.global_top }),
         bottom: intl.formatMessage({ id: ETranslations.global_bottom }),
-        hidden: isChinese
-          ? '不展示'
-          : intl.formatMessage({
-              id: ETranslations.market_chart_settings__none,
-            }),
+        hidden: intl.formatMessage({
+          id: ETranslations.perps_chart_do_not_show__action,
+        }),
       } satisfies Record<IPerpsChartPosition, string>,
     }),
-    [intl, isChinese],
+    [intl],
   );
 }
 

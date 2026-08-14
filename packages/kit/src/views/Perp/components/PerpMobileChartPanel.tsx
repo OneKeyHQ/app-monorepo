@@ -26,7 +26,7 @@ const MOBILE_CHART_CONTENT_OFFSET = -4;
 const MOBILE_CHART_FOOTER_SPACING = 8;
 
 // Scrolling content underneath must reserve the collapsed bar height.
-export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 40;
+export const PERP_MOBILE_CHART_BAR_SCROLL_INSET = 48;
 
 function PerpMobileChartContent({
   chartHeight,
@@ -185,8 +185,10 @@ export function PerpMobileTopChartPanel({
 
 export function PerpMobileChartPanel({
   bottomOffset = 0,
+  onScrollInsetChange,
 }: {
   bottomOffset?: number;
+  onScrollInsetChange?: (inset: number) => void;
 }) {
   const intl = useIntl();
   const { coin, displayName, mode } = useActiveTradeDisplay();
@@ -203,6 +205,13 @@ export function PerpMobileChartPanel({
       : '';
   const footerSpacing = isExpanded ? MOBILE_CHART_FOOTER_SPACING : 0;
   const chartHeight = useMobileChartHeight(bottomOffset + footerSpacing);
+  const scrollInset = isExpanded
+    ? chartHeight + footerSpacing
+    : PERP_MOBILE_CHART_BAR_SCROLL_INSET;
+
+  useEffect(() => {
+    onScrollInsetChange?.(scrollInset);
+  }, [onScrollInsetChange, scrollInset]);
 
   const handleToggle = useCallback(() => {
     setIsExpanded((currentValue) => !currentValue);
@@ -221,9 +230,25 @@ export function PerpMobileChartPanel({
       zIndex={FLOAT_NAV_BAR_Z_INDEX}
       bg="$bgApp"
       pb={footerSpacing}
-      borderTopWidth={0.5}
-      borderTopColor="$borderSubdued"
+      overflow="hidden"
+      borderTopLeftRadius="$2"
+      borderTopRightRadius="$2"
     >
+      <YStack
+        testID={PerpTestIDs.MobileChartCornerBorder}
+        position="absolute"
+        top={0}
+        right={0}
+        left={0}
+        zIndex={1}
+        h={12}
+        pointerEvents="none"
+        borderWidth={0.5}
+        borderBottomWidth={0}
+        borderColor="$borderSubdued"
+        borderTopLeftRadius="$2"
+        borderTopRightRadius="$2"
+      />
       <PerpMobileChartContent
         chartHeight={chartHeight}
         coin={coin}

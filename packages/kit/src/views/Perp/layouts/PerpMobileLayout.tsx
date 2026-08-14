@@ -147,6 +147,9 @@ export function PerpMobileLayout() {
   const shouldShowTopChart = chartPosition === 'top' && !isSplitMainActive;
   const shouldShowBottomChart =
     chartPosition === 'bottom' && !isSplitMainActive;
+  const [bottomChartScrollInset, setBottomChartScrollInset] = useState(
+    PERP_MOBILE_CHART_BAR_SCROLL_INSET,
+  );
   const [tradeRouteViewState] = useTradeRouteViewStateAtom();
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
@@ -395,7 +398,7 @@ export function PerpMobileLayout() {
             // The floating chart bar overlays the scroll viewport bottom.
             paddingBottom:
               (tabBarHeight ?? 0) +
-              (shouldShowBottomChart ? PERP_MOBILE_CHART_BAR_SCROLL_INSET : 0),
+              (shouldShowBottomChart ? bottomChartScrollInset : 0),
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -531,7 +534,10 @@ export function PerpMobileLayout() {
         />
       ) : null}
       {shouldShowBottomChart ? (
-        <PerpMobileChartPanel bottomOffset={tabBarHeight ?? 0} />
+        <PerpMobileChartPanel
+          bottomOffset={tabBarHeight ?? 0}
+          onScrollInsetChange={setBottomChartScrollInset}
+        />
       ) : null}
     </YStack>
   );

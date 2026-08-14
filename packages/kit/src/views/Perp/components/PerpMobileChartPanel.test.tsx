@@ -80,45 +80,66 @@ jest.mock('@onekeyhq/components', () => ({
   },
   YStack: ({
     borderBottomWidth,
+    borderColor,
+    borderTopLeftRadius,
+    borderTopRightRadius,
     borderTopWidth,
+    borderWidth,
     bottom,
     children,
     h,
     left,
     mb,
     mt,
+    overflow,
     pb,
+    pointerEvents,
     position,
     right,
     testID,
+    top,
     zIndex,
   }: {
     borderBottomWidth?: number | string;
+    borderColor?: string;
+    borderTopLeftRadius?: number | string;
+    borderTopRightRadius?: number | string;
     borderTopWidth?: number | string;
+    borderWidth?: number | string;
     bottom?: number;
     children?: ReactNode;
     h?: number;
     left?: number;
     mb?: number | string;
     mt?: number;
+    overflow?: string;
     pb?: number;
+    pointerEvents?: string;
     position?: string;
     right?: number;
     testID?: string;
+    top?: number;
     zIndex?: number;
   }) => (
     <div
       data-border-bottom-width={borderBottomWidth}
+      data-border-color={borderColor}
+      data-border-top-left-radius={borderTopLeftRadius}
+      data-border-top-right-radius={borderTopRightRadius}
       data-border-top-width={borderTopWidth}
+      data-border-width={borderWidth}
       data-bottom={bottom}
       data-h={h}
       data-left={left}
       data-mb={mb}
       data-mt={mt}
+      data-overflow={overflow}
       data-pb={pb}
+      data-pointer-events={pointerEvents}
       data-position={position}
       data-right={right}
       data-testid={testID}
+      data-top={top}
       data-z-index={zIndex}
     >
       {children}
@@ -191,7 +212,7 @@ describe('PerpMobileChartPanel', () => {
     expect(getByText('BTCUSDC Perp Chart').getAttribute('data-size')).toBe(
       '$bodySmMedium',
     );
-    expect(toggle.getAttribute('data-min-height')).toBe('40');
+    expect(toggle.getAttribute('data-min-height')).toBe('48');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(
       toggle.querySelector('[data-icon="TradingViewCandlesOutline"]'),
@@ -222,7 +243,11 @@ describe('PerpMobileChartPanel', () => {
       getByTestId('perp-mobile-chart-content').querySelector('[data-mt="-4"]'),
     ).toBeTruthy();
     const expandedOverlay = getByTestId('perp-mobile-chart-overlay');
-    expect(expandedOverlay.getAttribute('data-border-top-width')).toBe('0.5');
+    expect(
+      getByTestId('perp-mobile-chart-corner-border').getAttribute(
+        'data-border-width',
+      ),
+    ).toBe('0.5');
     expect(expandedOverlay.getAttribute('data-pb')).toBe('8');
     expect(expandedOverlay.getAttribute('data-border-bottom-width')).toBeNull();
 
@@ -302,8 +327,44 @@ describe('PerpMobileChartPanel', () => {
     expect(overlay.getAttribute('data-bottom')).toBe('34');
     expect(overlay.getAttribute('data-left')).toBe('0');
     expect(overlay.getAttribute('data-right')).toBe('0');
-    expect(overlay.getAttribute('data-border-top-width')).toBe('0.5');
+    expect(overlay.getAttribute('data-border-top-left-radius')).toBe('$2');
+    expect(overlay.getAttribute('data-border-top-right-radius')).toBe('$2');
+    expect(overlay.getAttribute('data-overflow')).toBe('hidden');
     expect(overlay.getAttribute('data-pb')).toBe('0');
+
+    const cornerBorder = getByTestId('perp-mobile-chart-corner-border');
+    expect(cornerBorder.getAttribute('data-position')).toBe('absolute');
+    expect(cornerBorder.getAttribute('data-top')).toBe('0');
+    expect(cornerBorder.getAttribute('data-h')).toBe('12');
+    expect(cornerBorder.getAttribute('data-border-width')).toBe('0.5');
+    expect(cornerBorder.getAttribute('data-border-bottom-width')).toBe('0');
+    expect(cornerBorder.getAttribute('data-border-color')).toBe(
+      '$borderSubdued',
+    );
+    expect(cornerBorder.getAttribute('data-border-top-left-radius')).toBe('$2');
+    expect(cornerBorder.getAttribute('data-border-top-right-radius')).toBe(
+      '$2',
+    );
+  });
+
+  it('reports the full overlay height as the scroll inset while expanded', () => {
+    const handleScrollInsetChange = jest.fn();
+    const view = render(
+      <PerpMobileChartPanel
+        bottomOffset={34}
+        onScrollInsetChange={handleScrollInsetChange}
+      />,
+    );
+
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(48);
+
+    fireEvent.click(view.getByTestId('perp-mobile-chart-toggle'));
+
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(258);
+
+    fireEvent.click(view.getByTestId('mock-native-chart-close'));
+
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(48);
   });
 
   it('renders the top chart as a controlled inline panel', () => {

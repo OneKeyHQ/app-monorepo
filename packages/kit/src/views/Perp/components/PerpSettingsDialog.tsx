@@ -42,7 +42,6 @@ import { PerpTestIDs } from '../testIDs';
 import { PerpGuideContent } from './Guide/PerpGuideContent';
 import {
   PerpLayoutSettingsEntry,
-  getPerpLayoutSettingsTitle,
   showPerpLayoutSettingsDialog,
 } from './PerpLayoutSettings';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
@@ -375,8 +374,12 @@ function PerpSettingsMainContent({
 
   const handleResetLayout = useCallback(() => {
     setPerpsLayoutState(resetPerpDesktopLeftSplit);
-    Toast.success({ title: 'Layout has been reset' });
-  }, [setPerpsLayoutState]);
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.perps_layout_reset__msg,
+      }),
+    });
+  }, [intl, setPerpsLayoutState]);
 
   return (
     <YStack py="$3" px="$2">
@@ -496,7 +499,9 @@ function PerpSettingsMainContent({
           mx="$0"
           px="$3"
           titleProps={{ size: '$bodyMdMedium' }}
-          title="Back to default layout"
+          title={intl.formatMessage({
+            id: ETranslations.perps_back_to_default_layout__action,
+          })}
           onPress={handleResetLayout}
           cursor="default"
         />
@@ -563,10 +568,12 @@ function PerpSettingsPopoverContent({
   const handleOpenLayoutSettings = useCallback(() => {
     void Promise.resolve(closePopover()).then(() => {
       showPerpLayoutSettingsDialog({
-        title: getPerpLayoutSettingsTitle(intl.locale),
+        title: intl.formatMessage({
+          id: ETranslations.perps_layout_settings__title,
+        }),
       });
     });
-  }, [closePopover, intl.locale]);
+  }, [closePopover, intl]);
 
   const handleOpenGuide = useCallback(() => {
     if (onOpenGuide) {

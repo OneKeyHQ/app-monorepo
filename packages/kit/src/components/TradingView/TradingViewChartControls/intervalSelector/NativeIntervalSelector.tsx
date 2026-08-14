@@ -69,6 +69,7 @@ function IntervalMoreTrigger({
     >
       <SizableText
         size={compactMobileLayout ? '$bodySmMedium' : '$bodyMdMedium'}
+        fontWeight={compactMobileLayout && isActive ? '600' : undefined}
         numberOfLines={1}
         color={isActive ? '$text' : '$textSubdued'}
       >
@@ -248,6 +249,9 @@ export const TradingViewNativeIntervalSelector = memo(
               label: compactMobileLayout ? (
                 <SizableText
                   size="$bodySmMedium"
+                  fontWeight={
+                    option.value === activeInterval ? '600' : undefined
+                  }
                   textAlign="center"
                   numberOfLines={1}
                   color={

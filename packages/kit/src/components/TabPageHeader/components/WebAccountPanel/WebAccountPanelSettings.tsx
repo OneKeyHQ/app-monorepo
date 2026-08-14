@@ -293,8 +293,12 @@ function PerpsSwitchSection() {
   const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const handleResetLayout = useCallback(() => {
     setPerpsLayoutState(resetPerpDesktopLeftSplit);
-    Toast.success({ title: 'Layout has been reset' });
-  }, [setPerpsLayoutState]);
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.perps_layout_reset__msg,
+      }),
+    });
+  }, [intl, setPerpsLayoutState]);
   return (
     <YStack w="100%">
       <WebAccountPanelSectionTitle>
@@ -374,7 +378,9 @@ function PerpsSwitchSection() {
       <WebPerpsSpotDustingSetting />
       <WebAccountPanelListItem
         testID="web-account-panel-settings-reset-perps-layout"
-        renderLeft="Back to default layout"
+        renderLeft={intl.formatMessage({
+          id: ETranslations.perps_back_to_default_layout__action,
+        })}
         onPress={handleResetLayout}
       />
     </YStack>

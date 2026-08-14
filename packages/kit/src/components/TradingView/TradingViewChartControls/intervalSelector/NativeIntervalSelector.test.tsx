@@ -22,13 +22,15 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({
     children,
     color,
+    fontWeight,
     size,
   }: {
     children?: ReactNode;
     color?: string;
+    fontWeight?: string;
     size?: string;
   }) => (
-    <span data-color={color} data-size={size}>
+    <span data-color={color} data-font-weight={fontWeight} data-size={size}>
       {children}
     </span>
   ),
@@ -144,12 +146,16 @@ describe('TradingViewNativeIntervalSelector', () => {
       }),
     );
     const segmentControlProps = mockSegmentControl.mock.calls[0][0] as {
-      options: { label: ReactElement<{ size?: string }> }[];
+      options: {
+        label: ReactElement<{ fontWeight?: string; size?: string }>;
+      }[];
     };
     expect(segmentControlProps.options[0].label.props.size).toBe(
       '$bodySmMedium',
     );
+    expect(segmentControlProps.options[0].label.props.fontWeight).toBe('600');
     expect(getByText('More').getAttribute('data-size')).toBe('$bodySmMedium');
+    expect(getByText('More').getAttribute('data-font-weight')).toBe('600');
     expect(getByText('More').parentElement?.getAttribute('data-height')).toBe(
       '26',
     );

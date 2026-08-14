@@ -59,7 +59,7 @@ function PerpTopChartButtonMobile({
     <DebugRenderTracker name="PerpTopChartButtonMobile">
       <IconButton
         testID={PerpTestIDs.MobileTopChartToggle}
-        icon="ChartTrending2Outline"
+        icon="ChartPositionOutline"
         size="small"
         iconProps={{
           color: isExpanded ? TOP_CHART_ACTIVE_ICON_COLOR : '$iconSubdued',
@@ -329,7 +329,7 @@ export function PerpTickerBarMobile({
         <PerpBadgesRow />
       </YStack>
 
-      <XStack pt="$0.5" gap="$3" alignItems="center">
+      <XStack pt="$0.5" gap="$4" alignItems="center">
         {showTopChartToggle && onToggleTopChart ? (
           <PerpTopChartButtonMobile
             isExpanded={isTopChartExpanded}
@@ -339,6 +339,7 @@ export function PerpTickerBarMobile({
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          mr="$-4"
           showActivityCenterEntry
           showChartPositionSetting
           showGuideEntry
