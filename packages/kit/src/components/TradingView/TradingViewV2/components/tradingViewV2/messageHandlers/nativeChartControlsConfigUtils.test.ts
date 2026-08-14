@@ -1,6 +1,5 @@
 import {
-  normalizeTradingViewActiveChartType,
-  normalizeTradingViewChartTypes,
+  normalizeTradingViewChartTypeState,
   normalizeTradingViewLayoutRestored,
 } from './nativeChartControlsConfigUtils';
 
@@ -16,63 +15,110 @@ describe('normalizeTradingViewLayoutRestored', () => {
   });
 });
 
-describe('normalizeTradingViewActiveChartType', () => {
-  it('falls back to a surviving chart type when the active option was removed', () => {
-    const chartTypes = normalizeTradingViewChartTypes([
-      { label: 'Candles', value: 1 },
-      { label: 'Candles HLC', value: 21 },
-      { label: 'Line', value: 2 },
-    ]);
-
-    expect(chartTypes).not.toBeNull();
-    expect(normalizeTradingViewActiveChartType(chartTypes ?? [], 21)).toBe(1);
+describe('normalizeTradingViewChartTypeState', () => {
+  it('falls back to Candles when the retired active option is removed', () => {
+    expect(
+      normalizeTradingViewChartTypeState(
+        [
+          { label: 'Bars', value: 0 },
+          { label: 'Candles HLC', value: 21 },
+          { label: 'Candles', value: 1 },
+          { label: 'Line', value: 2 },
+        ],
+        21,
+      ),
+    ).toEqual({
+      chartTypes: [
+        { label: 'Bars', value: 0 },
+        { label: 'Candles', value: 1 },
+        { label: 'Line', value: 2 },
+      ],
+      activeChartType: 1,
+      chartTypeToSync: 1,
+    });
   });
 
-  it('preserves active values that remain in the normalized options', () => {
+  it('preserves an unrelated active value missing from the options', () => {
     expect(
-      normalizeTradingViewActiveChartType(
+      normalizeTradingViewChartTypeState(
         [
           { label: 'Candles', value: 1 },
+          { label: 'Line', value: 2 },
+        ],
+        100,
+      ),
+    ).toEqual({
+      chartTypes: [
+        { label: 'Candles', value: 1 },
+        { label: 'Line', value: 2 },
+      ],
+      activeChartType: 100,
+    });
+  });
+
+  it('preserves an active value that remains after filtering', () => {
+    expect(
+      normalizeTradingViewChartTypeState(
+        [
+          { label: 'Candles', value: 1 },
+          { label: 'Candles HLC', value: 21 },
           { label: 'Legacy Style', value: 21 },
         ],
         21,
       ),
-    ).toBe(21);
+    ).toEqual({
+      chartTypes: [
+        { label: 'Candles', value: 1 },
+        { label: 'Legacy Style', value: 21 },
+      ],
+      activeChartType: 21,
+    });
   });
 
-  it('rejects invalid active values', () => {
-    expect(normalizeTradingViewActiveChartType([], 'invalid')).toBeNull();
-  });
-});
-
-describe('normalizeTradingViewChartTypes', () => {
   it('removes only the retired Candles HLC bridge option', () => {
     expect(
-      normalizeTradingViewChartTypes([
+      normalizeTradingViewChartTypeState(
+        [
+          { label: 'Candles', value: 1 },
+          { label: 'Heikin Ashi', value: 8 },
+          { label: 'Bars', value: 0 },
+          { label: 'Candles HLC', value: 21 },
+          { label: 'Legacy Style', value: 21 },
+          { label: 'Candles HLC', value: 100 },
+          { label: 'HLC Area', value: 16 },
+          { label: 'Line', value: 2 },
+          { label: 'Area', value: 3 },
+        ],
+        1,
+      ),
+    ).toEqual({
+      chartTypes: [
         { label: 'Candles', value: 1 },
         { label: 'Heikin Ashi', value: 8 },
         { label: 'Bars', value: 0 },
-        { label: 'Candles HLC', value: 21 },
         { label: 'Legacy Style', value: 21 },
+        { label: 'Candles HLC', value: 100 },
         { label: 'HLC Area', value: 16 },
         { label: 'Line', value: 2 },
         { label: 'Area', value: 3 },
-      ]),
-    ).toEqual([
-      { label: 'Candles', value: 1 },
-      { label: 'Heikin Ashi', value: 8 },
-      { label: 'Bars', value: 0 },
-      { label: 'Legacy Style', value: 21 },
-      { label: 'HLC Area', value: 16 },
-      { label: 'Line', value: 2 },
-      { label: 'Area', value: 3 },
-    ]);
+      ],
+      activeChartType: 1,
+    });
   });
 
-  it('rejects invalid chart type payloads', () => {
-    expect(normalizeTradingViewChartTypes(null)).toBeNull();
+  it('rejects invalid chart type state', () => {
+    expect(normalizeTradingViewChartTypeState(null, 1)).toBeNull();
     expect(
-      normalizeTradingViewChartTypes([{ label: 'Candles', value: 'invalid' }]),
+      normalizeTradingViewChartTypeState(
+        [{ label: 'Candles', value: 'invalid' }],
+        1,
+      ),
+    ).toBeNull();
+    expect(
+      normalizeTradingViewChartTypeState(
+        [{ label: 'Candles', value: 1 }],
+        'invalid',
+      ),
     ).toBeNull();
   });
 });

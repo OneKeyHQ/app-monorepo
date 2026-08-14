@@ -1,6 +1,7 @@
 import type { ITradingViewNativeChartControlsConfigData } from '../../../types';
 
-// TradingView Charting Library defines SeriesType.HLCBars as 21.
+// TradingView defines SeriesType.HLCBars as 21; the app bridge fixture was
+// introduced in c1bb2df6c5.
 const REMOVED_HLC_CHART_TYPE = {
   label: 'candles hlc',
   value: 21,
@@ -14,15 +15,22 @@ export function normalizeTradingViewLayoutRestored(value: unknown) {
   return typeof value === 'boolean' ? value : undefined;
 }
 
-export function normalizeTradingViewChartTypes(
+export function normalizeTradingViewChartTypeState(
   chartTypes: unknown,
-): ITradingViewNativeChartControlsConfigData['chartTypes'] | null {
-  if (!Array.isArray(chartTypes)) {
+  activeChartType: unknown,
+): {
+  chartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'];
+  activeChartType: number;
+  chartTypeToSync?: number;
+} | null {
+  const activeValue = Number(activeChartType);
+  if (!Array.isArray(chartTypes) || !Number.isFinite(activeValue)) {
     return null;
   }
 
   const normalizedChartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'] =
     [];
+  let removedActiveHlcChartType = false;
   for (const chartType of chartTypes) {
     if (!isRecord(chartType)) {
       return null;
@@ -38,29 +46,35 @@ export function normalizeTradingViewChartTypes(
     const isRemovedHlcChartType =
       value === REMOVED_HLC_CHART_TYPE.value &&
       label.toLowerCase() === REMOVED_HLC_CHART_TYPE.label;
-    if (!isRemovedHlcChartType) {
+    if (isRemovedHlcChartType) {
+      removedActiveHlcChartType ||= value === activeValue;
+    } else {
       normalizedChartTypes.push({ label, value });
     }
   }
 
-  return normalizedChartTypes;
-}
-
-export function normalizeTradingViewActiveChartType(
-  chartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'],
-  activeChartType: unknown,
-): number | null {
-  const value = Number(activeChartType);
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-
+  const activeChartTypeStillExists = normalizedChartTypes.some(
+    (chartType) => chartType.value === activeValue,
+  );
+  const fallbackChartType =
+    normalizedChartTypes.find((chartType) => {
+      const normalizedLabel = chartType.label.toLowerCase();
+      return normalizedLabel === 'candle' || normalizedLabel === 'candles';
+    }) ?? normalizedChartTypes[0];
   if (
-    !chartTypes.length ||
-    chartTypes.some((chartType) => chartType.value === value)
+    removedActiveHlcChartType &&
+    !activeChartTypeStillExists &&
+    fallbackChartType
   ) {
-    return value;
+    return {
+      chartTypes: normalizedChartTypes,
+      activeChartType: fallbackChartType.value,
+      chartTypeToSync: fallbackChartType.value,
+    };
   }
 
-  return chartTypes[0].value;
+  return {
+    chartTypes: normalizedChartTypes,
+    activeChartType: activeValue,
+  };
 }

@@ -14,8 +14,7 @@ import {
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 import {
-  normalizeTradingViewActiveChartType,
-  normalizeTradingViewChartTypes,
+  normalizeTradingViewChartTypeState,
   normalizeTradingViewLayoutRestored,
 } from './nativeChartControlsConfigUtils';
 
@@ -68,6 +67,11 @@ interface IUseTradingViewMessageHandlerParams {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+}
+
+interface INormalizedNativeChartControlsConfig {
+  config: ITradingViewNativeChartControlsConfigData;
+  chartTypeToSync?: number;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -521,17 +525,17 @@ function normalizePriceScale(
 
 function normalizeNativeChartControlsConfig(
   data: unknown,
-): ITradingViewNativeChartControlsConfigData | null {
+): INormalizedNativeChartControlsConfig | null {
   if (!isRecord(data)) {
     return null;
   }
 
   const indicators = normalizeIndicators(data.indicators);
-  const chartTypes = normalizeTradingViewChartTypes(data.chartTypes);
-  const activeChartType = chartTypes
-    ? normalizeTradingViewActiveChartType(chartTypes, data.activeChartType)
-    : null;
-  if (!indicators || !chartTypes || activeChartType === null) {
+  const chartTypeState = normalizeTradingViewChartTypeState(
+    data.chartTypes,
+    data.activeChartType,
+  );
+  if (!indicators || !chartTypeState) {
     return null;
   }
 
@@ -553,23 +557,28 @@ function normalizeNativeChartControlsConfig(
   );
 
   return {
-    ...(intervals?.length ? { intervals } : {}),
-    ...(activeInterval ? { activeInterval } : {}),
-    ...(typeof data.indicatorsEnabled === 'boolean'
-      ? { indicatorsEnabled: data.indicatorsEnabled }
-      : {}),
-    indicators,
-    ...(typeof data.chartTypesEnabled === 'boolean'
-      ? { chartTypesEnabled: data.chartTypesEnabled }
-      : {}),
-    chartTypes,
-    activeChartType,
-    ...(resetLayout ? { resetLayout } : {}),
-    ...(priceMarketCap ? { priceMarketCap } : {}),
-    ...(priceScale ? { priceScale } : {}),
-    ...(layoutRestored !== undefined ? { layoutRestored } : {}),
-    ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
-      ? { timestamp: data.timestamp }
+    config: {
+      ...(intervals?.length ? { intervals } : {}),
+      ...(activeInterval ? { activeInterval } : {}),
+      ...(typeof data.indicatorsEnabled === 'boolean'
+        ? { indicatorsEnabled: data.indicatorsEnabled }
+        : {}),
+      indicators,
+      ...(typeof data.chartTypesEnabled === 'boolean'
+        ? { chartTypesEnabled: data.chartTypesEnabled }
+        : {}),
+      chartTypes: chartTypeState.chartTypes,
+      activeChartType: chartTypeState.activeChartType,
+      ...(resetLayout ? { resetLayout } : {}),
+      ...(priceMarketCap ? { priceMarketCap } : {}),
+      ...(priceScale ? { priceScale } : {}),
+      ...(layoutRestored !== undefined ? { layoutRestored } : {}),
+      ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
+        ? { timestamp: data.timestamp }
+        : {}),
+    },
+    ...(chartTypeState.chartTypeToSync !== undefined
+      ? { chartTypeToSync: chartTypeState.chartTypeToSync }
       : {}),
   };
 }
@@ -697,25 +706,22 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG
       ) {
-        const nativeChartControlsConfigData =
+        const normalizedNativeChartControlsConfig =
           normalizeNativeChartControlsConfig(data.data);
-        if (nativeChartControlsConfigData) {
-          const reportedActiveChartType = isRecord(data.data)
-            ? Number(data.data.activeChartType)
-            : Number.NaN;
+        if (normalizedNativeChartControlsConfig) {
           if (
-            Number.isFinite(reportedActiveChartType) &&
-            nativeChartControlsConfigData.activeChartType !==
-              reportedActiveChartType
+            normalizedNativeChartControlsConfig.chartTypeToSync !== undefined
           ) {
             webRef.current?.sendMessageViaInjectedScript({
               type: TRADINGVIEW_CHART_TYPE_CHANGE,
               payload: {
-                chartType: nativeChartControlsConfigData.activeChartType,
+                chartType: normalizedNativeChartControlsConfig.chartTypeToSync,
               },
             });
           }
-          onNativeChartControlsConfigChange?.(nativeChartControlsConfigData);
+          onNativeChartControlsConfigChange?.(
+            normalizedNativeChartControlsConfig.config,
+          );
         }
       }
 
