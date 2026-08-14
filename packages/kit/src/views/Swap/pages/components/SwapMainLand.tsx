@@ -252,13 +252,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   hasInFlightStepsRef.current = hasInFlightSteps;
 
   const resetPendingReview = useCallback(() => {
+    endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
     setSwapSteps({
       steps: [],
       preSwapData: {},
     });
-  }, [setSwapBuildTxFetching, setSwapSteps]);
+  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
   const dialogClose = useCallback(() => {
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);

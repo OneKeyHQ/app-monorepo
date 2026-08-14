@@ -726,12 +726,14 @@ export function useSwapBuildTx({
       token,
       amount,
       otherFeeInfos,
+      cachedNativeBalance,
     }: {
       gasInfos?: { gasInfo?: ISwapGasInfo; txSize?: number }[];
       networkId?: string;
       token?: ISwapToken;
       amount?: string;
       otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+      cachedNativeBalance?: string;
     }) => {
       const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
         gasInfos,
@@ -740,6 +742,12 @@ export function useSwapBuildTx({
         fromAmount: amount,
         otherFeeInfos,
       });
+      if (!nativeBalanceRequirement && cachedNativeBalance !== undefined) {
+        return {
+          isSufficient: true,
+          nativeBalance: cachedNativeBalance,
+        };
+      }
       const firstGasInfo = gasInfos?.find((item) => item.gasInfo)?.gasInfo;
       const nativeToken =
         nativeBalanceRequirement?.token ??
@@ -1000,6 +1008,7 @@ export function useSwapBuildTx({
         amount: unsignedTxItem.swapInfo?.sender.amount,
         otherFeeInfos:
           unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+        cachedNativeBalance: gasAccountReviewSessionRef.current?.nativeBalance,
       });
       const gasAccountAnalyticsContext =
         buildDirectSwapGasAccountAnalyticsContext({
@@ -3443,6 +3452,8 @@ export function useSwapBuildTx({
           gasAccountReviewSession &&
           gasAccountReviewSessionRef.current === gasAccountReviewSession
         ) {
+          gasAccountReviewSession.nativeBalance =
+            checkLatestNativeBalanceRes.nativeBalance;
           gasAccountReviewSession.analyticsContext = gasAccountAnalyticsContext;
           if (!gasAccountReviewSession.decisionLogged) {
             gasAccountReviewSession.decisionLogged = true;

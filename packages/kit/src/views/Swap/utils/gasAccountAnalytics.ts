@@ -45,6 +45,7 @@ export function logDirectSwapGasAccountAction(
 
 export type IGasAccountReviewSession = {
   analyticsContext?: IGasAccountAnalyticsContext;
+  nativeBalance?: string;
   decisionLogged: boolean;
   submitted: boolean;
   exitLogged: boolean;
@@ -61,9 +62,13 @@ export function createGasAccountReviewSession(): IGasAccountReviewSession {
 export function markGasAccountReviewSubmitted(
   session: IGasAccountReviewSession | undefined,
 ) {
-  if (session) {
-    session.submitted = true;
+  if (!session || session.submitted) {
+    return;
   }
+  logDirectSwapGasAccountAction(session.analyticsContext, {
+    action: 'confirmClicked',
+  });
+  session.submitted = true;
 }
 
 export function logGasAccountReviewExit(
@@ -138,7 +143,7 @@ export function buildDirectSwapGasAccountAnalyticsContext({
   fiatCurrency: string | undefined;
 }): IGasAccountAnalyticsContext | undefined {
   const swapInfo = unsignedTx.swapInfo;
-  if (!swapInfo || !gasInfo.common) {
+  if (!swapInfo?.sender?.token || !gasInfo.common) {
     return undefined;
   }
 

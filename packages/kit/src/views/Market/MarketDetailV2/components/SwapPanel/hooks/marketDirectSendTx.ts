@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EGasAccountErrorStrategy } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import {
   buildDirectSwapGasAccountAnalyticsContext,
   buildDirectSwapGasAccountUiState,
@@ -12,7 +13,6 @@ import {
   buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
-import { EGasAccountErrorStrategy } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import type {
   IBuildUnsignedTxParams,
   ITransferInfo,

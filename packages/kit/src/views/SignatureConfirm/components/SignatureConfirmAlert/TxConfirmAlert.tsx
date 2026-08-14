@@ -76,11 +76,7 @@ function TxConfirmAlert(props: IProps) {
     const isInsufficient =
       sendTxStatus.isInsufficientNativeBalance ||
       sendTxStatus.isInsufficientTokenBalance;
-    if (
-      isInsufficient &&
-      gasAccountAnalyticsContext &&
-      !insufficientFeeLoggedRef.current
-    ) {
+    if (isInsufficient && !insufficientFeeLoggedRef.current) {
       insufficientFeeLoggedRef.current = true;
       defaultLogger.transaction.send.insufficientFeeOnConfirm({
         ...gasAccountAnalyticsContext,

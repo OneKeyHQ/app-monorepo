@@ -80,7 +80,10 @@ export function useGasAccountAnalyticsContext({
     let gasAccountSupported: boolean | null = null;
     if (hasEligibleQuote) {
       gasAccountSupported = true;
-    } else if (clientUnsupported) {
+    } else if (
+      clientUnsupported ||
+      gasAccountUiState.gasAccountScenarioReason
+    ) {
       gasAccountSupported = false;
     }
 

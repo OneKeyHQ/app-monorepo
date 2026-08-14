@@ -642,6 +642,7 @@ function TxFeeInfo(props: IProps) {
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
             gasAccountScenarioReason: r.gasAccountScenarioReason,
+            sponsorDisabledByCustomRpc: false,
           });
         } else {
           resetGasAccountUiState();

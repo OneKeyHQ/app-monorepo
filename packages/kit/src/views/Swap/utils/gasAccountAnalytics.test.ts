@@ -185,7 +185,7 @@ describe('buildDirectSwapGasAccountAnalyticsContext', () => {
     );
   });
 
-  it('does not track an exit after the review starts submitting', () => {
+  it('tracks confirm once and does not track an exit after submit starts', () => {
     const context = buildDirectSwapGasAccountAnalyticsContext({
       entryPoint: 'marketSwapDirect',
       networkId: 'evm--1',
@@ -199,9 +199,16 @@ describe('buildDirectSwapGasAccountAnalyticsContext', () => {
     session.analyticsContext = context;
 
     markGasAccountReviewSubmitted(session);
+    markGasAccountReviewSubmitted(session);
     logGasAccountReviewExit(session);
 
-    expect(mockGasAccountAction).not.toHaveBeenCalled();
+    expect(mockGasAccountAction).toHaveBeenCalledTimes(1);
+    expect(mockGasAccountAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'confirmClicked',
+        entryPoint: 'marketSwapDirect',
+      }),
+    );
   });
 
   it('tracks Gas Account fallback without duplicating send logic in callers', async () => {
@@ -248,5 +255,50 @@ describe('buildDirectSwapGasAccountAnalyticsContext', () => {
         orderId: 'swap-order-id',
       }),
     );
+  });
+
+  it('waits for fallback preparation before retrying as user-paid', async () => {
+    const context = buildDirectSwapGasAccountAnalyticsContext({
+      entryPoint: 'marketSwapDirect',
+      networkId: 'evm--1',
+      unsignedTx,
+      gasInfo,
+      nativeBalance: '0.105',
+      useGasAccountByDefault: true,
+      fiatCurrency: 'usd',
+    });
+    const gasAccountUiState = buildDirectSwapGasAccountUiState({
+      gasInfo,
+      unsignedTx,
+    });
+    const callOrder: string[] = [];
+    const send = jest
+      .fn()
+      .mockImplementationOnce(async () => {
+        callOrder.push('sponsored-send');
+        throw Object.assign(new Error('sponsor unavailable'), {
+          code: 40_213,
+        });
+      })
+      .mockImplementationOnce(async () => {
+        callOrder.push('user-send');
+        return 'signed';
+      });
+
+    await sendDirectSwapWithGasAccountAnalytics({
+      context,
+      gasAccountUiState,
+      send,
+      onGasAccountError: async () => {
+        await Promise.resolve();
+        callOrder.push('fallback-prepared');
+      },
+    });
+
+    expect(callOrder).toEqual([
+      'sponsored-send',
+      'fallback-prepared',
+      'user-send',
+    ]);
   });
 });

@@ -375,10 +375,11 @@ export class SendScene extends BaseScene {
   @LogToServer()
   public insufficientFeeOnConfirm(
     params: {
+      network: string | undefined;
       tokenSymbol: string | undefined;
       fillUpAmount: string | undefined;
       feeType: 'native' | 'token';
-    } & IGasAccountAnalyticsContext,
+    } & Partial<Omit<IGasAccountAnalyticsContext, 'network'>>,
   ) {
     return {
       sendFlowId: this._sendFlowId,

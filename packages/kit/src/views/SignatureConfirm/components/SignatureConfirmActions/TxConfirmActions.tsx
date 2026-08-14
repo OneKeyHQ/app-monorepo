@@ -212,19 +212,38 @@ function TxConfirmActions(props: IProps) {
     gasAccountScenario,
     isPrivateSend: transferPayload?.isPrivateSend === true,
   });
-  const gasAccountAnalyticsContextRef = useRef(gasAccountAnalyticsContext);
-  gasAccountAnalyticsContextRef.current = gasAccountAnalyticsContext;
+  const gasAccountActionSessionKey =
+    unsignedTx?.uuid ??
+    `${networkId}:${gasAccountAnalyticsContext?.scenario ?? gasAccountScenario ?? 'unknown'}`;
+  const gasAccountActionSessionRef = useRef<{
+    key: string;
+    context?: IGasAccountAnalyticsContext;
+    effectiveFeePayer?: IGasAccountAnalyticsContext['effectiveFeePayer'];
+  }>({ key: gasAccountActionSessionKey });
+  if (gasAccountActionSessionRef.current.key !== gasAccountActionSessionKey) {
+    gasAccountActionSessionRef.current = { key: gasAccountActionSessionKey };
+  }
+  if (isGasSponsoredAnalyticsContext(gasAccountAnalyticsContext)) {
+    gasAccountActionSessionRef.current.context = gasAccountAnalyticsContext;
+    gasAccountActionSessionRef.current.effectiveFeePayer =
+      gasAccountAnalyticsContext.effectiveFeePayer;
+  }
 
   const logGasAccountAction = useCallback(
     (details: IGasAccountActionDetails) => {
-      const context = gasAccountAnalyticsContextRef.current;
-      if (!isGasSponsoredAnalyticsContext(context)) {
+      const session = gasAccountActionSessionRef.current;
+      if (!session.context) {
         return;
       }
       defaultLogger.transaction.send.gasAccountAction({
-        ...context,
+        ...session.context,
+        effectiveFeePayer:
+          session.effectiveFeePayer ?? session.context.effectiveFeePayer,
         ...details,
       });
+      if (details.action === 'payerChanged' && details.toPayer) {
+        session.effectiveFeePayer = details.toPayer;
+      }
     },
     [],
   );
@@ -248,17 +267,14 @@ function TxConfirmActions(props: IProps) {
     if (!gasAccountAnalyticsContext) {
       return;
     }
-    const decisionKey =
-      unsignedTxs[0]?.uuid ??
-      `${networkId}:${gasAccountAnalyticsContext.scenario ?? 'unknown'}`;
-    if (gasAccountDecisionKeyRef.current === decisionKey) {
+    if (gasAccountDecisionKeyRef.current === gasAccountActionSessionKey) {
       return;
     }
-    gasAccountDecisionKeyRef.current = decisionKey;
+    gasAccountDecisionKeyRef.current = gasAccountActionSessionKey;
     defaultLogger.transaction.send.gasAccountDecision(
       gasAccountAnalyticsContext,
     );
-  }, [gasAccountAnalyticsContext, networkId, unsignedTxs]);
+  }, [gasAccountActionSessionKey, gasAccountAnalyticsContext]);
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
