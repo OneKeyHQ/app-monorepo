@@ -884,7 +884,6 @@ function MobileLayoutComponent({
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
           onTabChange={onTabChangeHandler}
-          tabPressAnimationEnabled={false}
           useNativeHeaderAnimation={useNativeHeaderAnimation}
           pagerProps={pagerProps}
           {...containerProps}
