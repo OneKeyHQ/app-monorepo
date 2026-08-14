@@ -12,15 +12,24 @@ const intl = {
     if (id === ETranslations.market_candle) {
       return 'Candles';
     }
+    if (id === ETranslations.market_heikin_ashi) {
+      return 'Heikin Ashi';
+    }
+    if (id === ETranslations.market_bars) {
+      return 'Bars';
+    }
     if (id === ETranslations.market_line) {
       return 'Line';
+    }
+    if (id === ETranslations.market_area) {
+      return 'Area';
     }
     return id ?? '';
   },
 } as IntlShape;
 
 describe('NativeChartControlsShared', () => {
-  it('formats only exact candle and line chart type labels', () => {
+  it('formats all supported chart type labels', () => {
     expect(
       formatChartTypeOptionLabel(intl, { label: 'Candle', value: 1 }),
     ).toBe('Candles');
@@ -28,19 +37,28 @@ describe('NativeChartControlsShared', () => {
       'Line',
     );
     expect(
-      formatChartTypeOptionLabel(intl, { label: 'Candles HLC', value: 21 }),
-    ).toBe('Candles HLC');
+      formatChartTypeOptionLabel(intl, { label: 'Heikin Ashi', value: 8 }),
+    ).toBe('Heikin Ashi');
+    expect(formatChartTypeOptionLabel(intl, { label: 'Bars', value: 0 })).toBe(
+      'Bars',
+    );
     expect(formatChartTypeOptionLabel(intl, { label: 'Area', value: 3 })).toBe(
       'Area',
     );
+    expect(
+      formatChartTypeOptionLabel(intl, { label: 'Candles HLC', value: 21 }),
+    ).toBe('Candles HLC');
   });
 
   it('uses distinct icons for supported chart type labels', () => {
     expect(getChartTypeIconName({ label: 'Candles', value: 1 })).toBe(
       'TradingViewCandlesOutline',
     );
+    expect(getChartTypeIconName({ label: 'Heikin Ashi', value: 8 })).toBe(
+      'TradingViewCandlesOutline',
+    );
     expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
-      'TradingViewBarsOutline',
+      'TradingViewCandlesHlcOutline',
     );
     expect(getChartTypeIconName({ label: 'Candles HLC', value: 21 })).toBe(
       'TradingViewCandlesHlcOutline',
