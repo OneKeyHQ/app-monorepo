@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ESwitchSize, Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { saveLoggerConfigToAllRuntimes } from '@onekeyhq/kit/src/utils/loggerConfigUtils';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 
 import { useMatchesDevSearch } from './DevSettingsSearchContext';
@@ -32,7 +33,7 @@ export function SectionLoggerParityItem() {
   const handleChange = useCallback(async (value: boolean) => {
     setEnabled(value);
     const config = await defaultLoggerConfig.getSavedLoggerConfig();
-    defaultLoggerConfig.saveLoggerConfig({
+    await saveLoggerConfigToAllRuntimes({
       ...config,
       enableAllScenes: value,
     });

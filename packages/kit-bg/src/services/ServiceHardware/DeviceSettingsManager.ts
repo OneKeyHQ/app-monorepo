@@ -20,6 +20,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -184,7 +185,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       // The read-back is best-effort; the mutation itself already succeeded.
       serviceHardwareUtils.hardwareLog(
         'v1 settings read-back failed',
-        error instanceof Error ? error.message : error,
+        devOnlyData(error instanceof Error ? error.message : error),
       );
     } finally {
       if (timeoutId !== undefined) {
@@ -192,10 +193,20 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       }
       // Consumers re-read whatever the DB holds; this signal must fire on
       // every path, especially when updateDevice suppressed its own event
-      // via skipFeaturesUpdateEvent.
-      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-        deviceId: device.id,
-      });
+      // via skipFeaturesUpdateEvent. Subscribers run synchronously in the
+      // same heap on desktop/web, so a throwing subscriber must not fail
+      // the already-successful mutation (or leak as an unhandled rejection
+      // from fire-and-forget callers).
+      try {
+        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+          deviceId: device.id,
+        });
+      } catch (error) {
+        serviceHardwareUtils.hardwareLog(
+          'v1 settings refresh subscriber failed',
+          devOnlyData(error instanceof Error ? error.message : error),
+        );
+      }
     }
   }
 
@@ -206,17 +217,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     device: IDBDevice;
     compatibleConnectId?: string;
   }) {
+    const syncConnectIds = [
+      compatibleConnectId,
+      device.connectId,
+      device.usbConnectId,
+      device.bleConnectId,
+      device.uuid,
+      device.deviceId,
+      device.deviceStateInfo?.identity.serialNo,
+      device.deviceStateInfo?.identity.deviceId,
+    ];
     await this.serviceHardware.waitForDeviceStateSync({
-      connectIds: [
-        compatibleConnectId,
-        device.connectId,
-        device.usbConnectId,
-        device.bleConnectId,
-        device.uuid,
-        device.deviceId,
-        device.deviceStateInfo?.identity.serialNo,
-        device.deviceStateInfo?.identity.deviceId,
-      ],
+      connectIds: syncConnectIds,
     });
     const connectId = compatibleConnectId || device.connectId;
     if (!connectId) {
@@ -240,6 +252,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       revision: state.revision,
       source: 'settings-read',
       state,
+    });
+    // The read-back GetFeatures may itself have emitted a DEVICE.STATE event
+    // whose persistence task was queued after the first drain; drain again so
+    // the refresh signal only fires once the authoritative state is in the DB.
+    await this.serviceHardware.waitForDeviceStateSync({
+      connectIds: syncConnectIds,
     });
     serviceHardwareUtils.hardwareLog('v1 settings read-back', {
       kind: persistResult.kind,
@@ -769,7 +787,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     if (!this._isProtocolV2Product(device) && !this._isTrezorDevice(device)) {
       // Fire-and-forget: the wallpaper is already applied and the processing
       // dialog closed; the caller must not stay pending on the read-back.
-      void this._notifyProtocolV1SettingsSynced({ device });
+      void this._notifyProtocolV1SettingsSynced({ device }).catch(
+        () => undefined,
+      );
     }
     return result;
   }

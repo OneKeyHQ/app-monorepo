@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { saveLoggerConfigToAllRuntimes } from '@onekeyhq/kit/src/utils/loggerConfigUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
@@ -53,7 +54,7 @@ const LoggingConfigCheckbox = () => {
     async () => {
       // use debounce to wait state update
       await timerUtils.wait(0);
-      void defaultLoggerConfig.saveLoggerConfig({
+      void saveLoggerConfigToAllRuntimes({
         ...configRef.current,
         highlightDurationGt: highlightDurationGtRef.current,
         enabled: enabledConfigRef.current as any,

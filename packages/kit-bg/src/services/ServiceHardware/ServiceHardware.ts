@@ -1456,7 +1456,7 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state persistence failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
             serviceHardwareUtils.hardwareLog('device state persist result', {
@@ -1500,7 +1500,7 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state subscriber failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
           });

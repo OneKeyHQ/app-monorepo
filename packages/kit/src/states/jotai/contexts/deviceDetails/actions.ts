@@ -328,7 +328,14 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
             deviceStateSnapshotAtom(),
             pickNewerDeviceStateSnapshot({
               current: get(deviceStateSnapshotAtom()),
-              incoming: snapshot,
+              // When the live read fails (e.g. the device reboots right
+              // after a firmware update), fall back to the persisted state
+              // so a retained snapshot cannot outlive newer DB data.
+              incoming:
+                snapshot ??
+                (data?.device?.deviceStateInfo
+                  ? { state: data.device.deviceStateInfo }
+                  : undefined),
             }),
           );
         } else if (!vendorProfile.isThirdParty) {
