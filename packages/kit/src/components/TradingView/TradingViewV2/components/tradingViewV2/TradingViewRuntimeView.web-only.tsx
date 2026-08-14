@@ -21,6 +21,7 @@ import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTyp
 
 const TRADING_VIEW_EMBED_FAILURE_KEY_PREFIX =
   'onekey_tradingview_embed_failed:';
+const EMBED_MODULE_READY_GRACE_PERIOD_MS = 500;
 
 function getRuntimeFailureKey(runtimeUrl: string): string | undefined {
   try {
@@ -160,24 +161,27 @@ export default function TradingViewRuntimeView({
 
     let cancelled = false;
     let runtimeFailed = false;
+    let moduleReadyTimer: ReturnType<typeof setTimeout> | undefined;
     let readyMonitor: ReturnType<
       typeof createTradingViewEmbedReadyMonitor
     > | null = null;
-    const useIframeFallback = (error: unknown) => {
+    const switchToIframeFallback = (error: unknown, persistFailure = true) => {
       if (runtimeFailed) {
         return;
       }
       runtimeFailed = true;
-      rememberRuntimeFailure(runtimeUrl);
+      if (persistFailure) {
+        rememberRuntimeFailure(runtimeUrl);
+      }
       readyMonitor?.cancel();
       if (!cancelled) {
         handleRef.current?.unmount();
         handleRef.current = null;
         mountingModuleRef.current = null;
         defaultLogger.app.error.log(
-          `[TradingViewRuntimeView] DOM runtime failed, using iframe: ${String(
-            error,
-          )}`,
+          `[TradingViewRuntimeView] DOM runtime ${
+            persistFailure ? 'failed' : 'not ready'
+          }, using iframe: ${String(error)}`,
         );
         setFallback(true);
       }
@@ -188,48 +192,77 @@ export default function TradingViewRuntimeView({
     readyMonitor = monitor;
     // Chart readiness includes the first data request, so it must not be used
     // as an embed startup timeout. Explicit chart errors still fall back.
-    void monitor.wait().catch(useIframeFallback);
+    void monitor.wait().catch(switchToIframeFallback);
 
-    const mountPromise = loadTradingViewEmbedModule(runtimeUrl).then(
-      async ({ assetBaseUrl, module }) => {
-        if (cancelled || runtimeFailed) {
-          return;
-        }
-        const url = new URL(runtimeUrl, globalThis.location.href);
-        mountingModuleRef.current = module;
-        await module
-          .mountTradingView({
-            assetBaseUrl,
-            container,
-            onMessage(payload) {
-              monitor.notify(payload);
-              void Promise.resolve(
-                customReceiveHandlerRef.current?.({ data: payload }),
-              ).catch((error: unknown) => {
-                defaultLogger.app.error.log(
-                  `[TradingViewRuntimeView] Message handling failed: ${String(
-                    error,
-                  )}`,
-                );
-              });
-            },
-            params: url.searchParams,
-          })
-          .then((handle) => {
-            if (cancelled || runtimeFailed) {
-              handle.unmount();
-              return;
-            }
-            handleRef.current = handle;
-            mountingModuleRef.current = null;
-          });
-      },
+    const moduleReadinessPromise = loadTradingViewEmbedModule(runtimeUrl).then(
+      (value) => ({ status: 'ready' as const, value }),
+      (error: unknown) => ({ error, status: 'failed' as const }),
     );
-    void mountPromise.catch(useIframeFallback);
+    const gracePeriodPromise = new Promise<{
+      status: 'preparing';
+    }>((resolve) => {
+      moduleReadyTimer = setTimeout(
+        () => resolve({ status: 'preparing' }),
+        EMBED_MODULE_READY_GRACE_PERIOD_MS,
+      );
+    });
+    const mountPromise = Promise.race([
+      moduleReadinessPromise,
+      gracePeriodPromise,
+    ]).then(async (result) => {
+      if (moduleReadyTimer) {
+        clearTimeout(moduleReadyTimer);
+      }
+      if (result.status === 'preparing') {
+        // Keep the shared preload alive so a later detail page can use embed.
+        switchToIframeFallback('embed module is still preparing', false);
+        return;
+      }
+      if (result.status === 'failed') {
+        switchToIframeFallback(result.error);
+        return;
+      }
+      const { assetBaseUrl, module } = result.value;
+      if (cancelled || runtimeFailed) {
+        return;
+      }
+      const url = new URL(runtimeUrl, globalThis.location.href);
+      mountingModuleRef.current = module;
+      await module
+        .mountTradingView({
+          assetBaseUrl,
+          container,
+          onMessage(payload) {
+            monitor.notify(payload);
+            void Promise.resolve(
+              customReceiveHandlerRef.current?.({ data: payload }),
+            ).catch((error: unknown) => {
+              defaultLogger.app.error.log(
+                `[TradingViewRuntimeView] Message handling failed: ${String(
+                  error,
+                )}`,
+              );
+            });
+          },
+          params: url.searchParams,
+        })
+        .then((handle) => {
+          if (cancelled || runtimeFailed) {
+            handle.unmount();
+            return;
+          }
+          handleRef.current = handle;
+          mountingModuleRef.current = null;
+        });
+    });
+    void mountPromise.catch(switchToIframeFallback);
 
     return () => {
       cancelled = true;
       runtimeFailed = true;
+      if (moduleReadyTimer) {
+        clearTimeout(moduleReadyTimer);
+      }
       readyMonitor?.cancel();
       handleRef.current?.unmount();
       handleRef.current = null;
@@ -245,7 +278,6 @@ export default function TradingViewRuntimeView({
         customReceiveHandler={customReceiveHandler}
         onLoadStart={onLoadStart}
         onWebViewRef={handleFallbackWebViewRef}
-        skipBackgroundBridge
         src={runtimeUrl}
       />
     );

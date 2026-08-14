@@ -89,7 +89,11 @@ const ROOT_SERVICE_WORKER_PATH =
   '/service-worker.js?tradingviewEmbedProtocol=1';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const CLAIM_CLIENTS_MESSAGE_TYPE = 'CLAIM_CLIENTS';
+const GET_EMBED_PROTOCOL_MESSAGE_TYPE = 'GET_TRADINGVIEW_EMBED_PROTOCOL';
 const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
+const TRADING_VIEW_EMBED_PROTOCOL_VERSION = 1;
+const SERVICE_WORKER_PROTOCOL_PROBE_TIMEOUT_MS = 500;
+const SERVICE_WORKER_CONTROLLER_TIMEOUT_MS = 15_000;
 const SERVICE_WORKER_PREFETCH_TIMEOUT_MS = 60_000;
 const TRUSTED_MANIFEST_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL).origin,
@@ -330,6 +334,54 @@ function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
   );
 }
 
+function supportsTradingViewEmbedProtocol(
+  worker: ServiceWorker | null | undefined,
+): Promise<boolean> {
+  if (!worker || typeof worker.postMessage !== 'function') {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    let settled = false;
+    const timeoutRef: {
+      current?: ReturnType<typeof setTimeout>;
+    } = {};
+    const finish = (supported: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      channel.port1.close();
+      resolve(supported);
+    };
+    timeoutRef.current = setTimeout(
+      () => finish(false),
+      SERVICE_WORKER_PROTOCOL_PROBE_TIMEOUT_MS,
+    );
+    channel.port1.onmessage = (event: MessageEvent<unknown>) => {
+      const response = event.data as {
+        ok?: boolean;
+        protocol?: number;
+      };
+      finish(
+        response?.ok === true &&
+          response.protocol === TRADING_VIEW_EMBED_PROTOCOL_VERSION,
+      );
+    };
+    try {
+      worker.postMessage({ type: GET_EMBED_PROTOCOL_MESSAGE_TYPE }, [
+        channel.port2,
+      ]);
+    } catch {
+      finish(false);
+    }
+  });
+}
+
 function waitForControllingServiceWorker(): Promise<ServiceWorker> {
   const serviceWorkerContainer =
     typeof navigator === 'undefined' ? undefined : navigator.serviceWorker;
@@ -344,24 +396,6 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
       'TradingView embed requires service worker support',
     );
   }
-  const isExpectedWorker = (
-    worker: ServiceWorker | null | undefined,
-  ): worker is ServiceWorker => {
-    if (!worker?.scriptURL) {
-      return false;
-    }
-    try {
-      const scriptUrl = new URL(worker.scriptURL);
-      return (
-        `${scriptUrl.pathname}${scriptUrl.search}` === ROOT_SERVICE_WORKER_PATH
-      );
-    } catch {
-      return false;
-    }
-  };
-  if (isExpectedWorker(serviceWorkerContainer.controller)) {
-    return Promise.resolve(serviceWorkerContainer.controller);
-  }
   const pendingPromise = serviceWorkerControllerPromises.get(
     serviceWorkerContainer,
   );
@@ -372,8 +406,18 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
   const controllerPromise = new Promise<ServiceWorker>((resolve, reject) => {
     let settled = false;
     let registration: ServiceWorkerRegistration | undefined;
+    const timeoutRef: {
+      current?: ReturnType<typeof setTimeout>;
+    } = {};
     const observedWorkers = new Set<ServiceWorker>();
+    const controllerProbePromises = new WeakMap<
+      ServiceWorker,
+      Promise<boolean>
+    >();
     const cleanup = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       serviceWorkerContainer.removeEventListener(
         'controllerchange',
         handleControllerChange,
@@ -391,37 +435,68 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
       cleanup();
       callback();
     };
-    const resolveController = () => {
+    timeoutRef.current = setTimeout(() => {
+      finish(() =>
+        reject(
+          new OneKeyLocalError(
+            'TradingView embed service worker controller timed out',
+          ),
+        ),
+      );
+    }, SERVICE_WORKER_CONTROLLER_TIMEOUT_MS);
+    const probeController = (controller: ServiceWorker): Promise<boolean> => {
+      const pendingProbe = controllerProbePromises.get(controller);
+      if (pendingProbe) {
+        return pendingProbe;
+      }
+      const probePromise = supportsTradingViewEmbedProtocol(controller);
+      controllerProbePromises.set(controller, probePromise);
+      void probePromise.finally(() => {
+        if (controllerProbePromises.get(controller) === probePromise) {
+          controllerProbePromises.delete(controller);
+        }
+      });
+      return probePromise;
+    };
+    const resolveController = async (): Promise<boolean> => {
       const controller = serviceWorkerContainer.controller;
-      if (isExpectedWorker(controller)) {
+      if (!controller || settled) {
+        return false;
+      }
+      const supported = await probeController(controller);
+      if (settled) {
+        return supported;
+      }
+      if (serviceWorkerContainer.controller !== controller) {
+        return resolveController();
+      }
+      if (supported) {
         finish(() => resolve(controller));
       }
+      return supported;
     };
     function handleControllerChange() {
-      resolveController();
+      void resolveController();
     }
     const handleWorkerState = (worker: ServiceWorker | null) => {
-      if (!isExpectedWorker(worker)) {
+      if (!worker || settled) {
         return;
       }
       if (worker?.state === 'activated') {
-        worker.postMessage({ type: CLAIM_CLIENTS_MESSAGE_TYPE });
-        resolveController();
-      } else if (worker?.state === 'redundant') {
-        finish(() =>
-          reject(
-            new OneKeyLocalError(
-              'TradingView embed service worker activation failed',
-            ),
-          ),
-        );
+        void probeController(worker).then((supported) => {
+          if (!supported || settled) {
+            return;
+          }
+          worker.postMessage({ type: CLAIM_CLIENTS_MESSAGE_TYPE });
+          void resolveController();
+        });
       }
     };
     function handleWorkerStateChange(event: Event) {
       handleWorkerState(event.currentTarget as ServiceWorker | null);
     }
     const observeWorker = (worker: ServiceWorker | null | undefined) => {
-      if (!worker || observedWorkers.has(worker)) {
+      if (!worker || settled || observedWorkers.has(worker)) {
         return;
       }
       if (
@@ -449,6 +524,9 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
     const requestClientClaim = (
       serviceWorkerRegistration: ServiceWorkerRegistration | undefined,
     ) => {
+      if (settled) {
+        return;
+      }
       if (!serviceWorkerRegistration) {
         finish(() =>
           reject(
@@ -459,48 +537,52 @@ function waitForControllingServiceWorker(): Promise<ServiceWorker> {
         );
         return;
       }
-      if (isExpectedWorker(serviceWorkerRegistration.active)) {
-        serviceWorkerRegistration.active?.postMessage({
-          type: CLAIM_CLIENTS_MESSAGE_TYPE,
-        });
-      }
-      resolveController();
+      observeWorker(serviceWorkerRegistration.active);
+      void resolveController();
     };
 
     serviceWorkerContainer.addEventListener(
       'controllerchange',
       handleControllerChange,
     );
-    void serviceWorkerContainer
-      .register(ROOT_SERVICE_WORKER_PATH, {
-        scope: '/',
-        updateViaCache: 'none',
-      })
-      .then((registeredServiceWorker) => {
-        if (
-          !registeredServiceWorker ||
-          typeof registeredServiceWorker.addEventListener !== 'function' ||
-          typeof registeredServiceWorker.removeEventListener !== 'function'
-        ) {
-          throw new OneKeyLocalError(
-            'TradingView embed service worker registration is unavailable',
-          );
-        }
-        registration = registeredServiceWorker;
-        registration.addEventListener('updatefound', handleUpdateFound);
-        observeWorker(registration.installing);
-        observeWorker(registration.waiting);
-        observeWorker(registration.active);
-        requestClientClaim(registration);
-        void serviceWorkerContainer.ready
-          .then(requestClientClaim)
-          .catch((error: unknown) => {
-            finish(() => reject(error));
-          });
-      })
-      .catch((error: unknown) => {
-        finish(() => reject(error));
-      });
+    void resolveController().then((supported) => {
+      if (settled) {
+        return;
+      }
+      if (supported) {
+        return;
+      }
+      void serviceWorkerContainer
+        .register(ROOT_SERVICE_WORKER_PATH, {
+          scope: '/',
+          updateViaCache: 'none',
+        })
+        .then((registeredServiceWorker) => {
+          if (
+            !registeredServiceWorker ||
+            typeof registeredServiceWorker.addEventListener !== 'function' ||
+            typeof registeredServiceWorker.removeEventListener !== 'function'
+          ) {
+            throw new OneKeyLocalError(
+              'TradingView embed service worker registration is unavailable',
+            );
+          }
+          registration = registeredServiceWorker;
+          registration.addEventListener('updatefound', handleUpdateFound);
+          observeWorker(registration.installing);
+          observeWorker(registration.waiting);
+          observeWorker(registration.active);
+          requestClientClaim(registration);
+          void serviceWorkerContainer.ready
+            .then(requestClientClaim)
+            .catch((error: unknown) => {
+              finish(() => reject(error));
+            });
+        })
+        .catch((error: unknown) => {
+          finish(() => reject(error));
+        });
+    });
   }).finally(() => {
     serviceWorkerControllerPromises.delete(serviceWorkerContainer);
   });

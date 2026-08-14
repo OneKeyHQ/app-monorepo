@@ -274,9 +274,13 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       'navigator',
     );
     const postMessage = jest.fn(
-      (_message: unknown, transfer: Transferable[] | undefined) => {
+      (message: { type?: string }, transfer: Transferable[] | undefined) => {
         const replyPort = transfer?.[0] as MessagePort | undefined;
-        replyPort?.postMessage({ ok: true, version: manifest.version });
+        replyPort?.postMessage(
+          message.type === 'GET_TRADINGVIEW_EMBED_PROTOCOL'
+            ? { ok: true, protocol: 1 }
+            : { ok: true, version: manifest.version },
+        );
       },
     );
     Object.defineProperty(globalThis, 'navigator', {
@@ -419,9 +423,13 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       'navigator',
     );
     const postMessage = jest.fn(
-      (_message: unknown, transfer: Transferable[] | undefined) => {
+      (message: { type?: string }, transfer: Transferable[] | undefined) => {
         const replyPort = transfer?.[0] as MessagePort | undefined;
-        replyPort?.postMessage({ ok: true, version: manifest.version });
+        replyPort?.postMessage(
+          message.type === 'GET_TRADINGVIEW_EMBED_PROTOCOL'
+            ? { ok: true, protocol: 1 }
+            : { ok: true, version: manifest.version },
+        );
       },
     );
     Object.defineProperty(globalThis, 'navigator', {

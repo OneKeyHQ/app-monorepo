@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 
@@ -64,12 +64,16 @@ describe('TradingViewRuntimeView web fallback', () => {
       .mockRejectedValue(new Error('embed unavailable'));
   });
 
-  it('keeps TradingView messages out of the generic background bridge', async () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('keeps the legacy iframe background bridge enabled', async () => {
     render(<TradingViewRuntimeView src="https://tradingview.onekeytest.com" />);
 
     expect(await screen.findByTestId('fallback-webview')).toBeTruthy();
-    expect(webViewProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ skipBackgroundBridge: true }),
+    expect(webViewProps.mock.lastCall?.[0]).not.toHaveProperty(
+      'skipBackgroundBridge',
     );
   });
 
@@ -256,6 +260,58 @@ describe('TradingViewRuntimeView web fallback', () => {
     expect(screen.queryByTestId('fallback-webview')).toBeNull();
 
     resolveReady?.();
+  });
+
+  it('falls back after the grace period without remembering a temporary wait', async () => {
+    jest.useFakeTimers();
+    const runtimeUrl = 'https://tradingview.onekeytest.com';
+    let resolveModule:
+      | ((
+          value: Awaited<ReturnType<typeof loadTradingViewEmbedModule>>,
+        ) => void)
+      | undefined;
+    const mountTradingView = jest.fn(() =>
+      Promise.resolve({ postMessage: jest.fn(), unmount: jest.fn() }),
+    );
+    const modulePromise = new Promise<
+      Awaited<ReturnType<typeof loadTradingViewEmbedModule>>
+    >((resolve) => {
+      resolveModule = resolve;
+    });
+    jest.mocked(loadTradingViewEmbedModule).mockReturnValue(modulePromise);
+
+    const firstView = render(<TradingViewRuntimeView src={runtimeUrl} />);
+
+    expect(loadTradingViewEmbedModule).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('fallback-webview')).toBeTruthy();
+    expect(
+      globalThis.sessionStorage.getItem(
+        'onekey_tradingview_embed_failed:https://tradingview.onekeytest.com',
+      ),
+    ).toBeNull();
+
+    await act(async () => {
+      resolveModule?.({
+        assetBaseUrl: 'https://app-bundle.onekeytest.com/tv/',
+        module: {
+          mountTradingView,
+          postTradingViewMessage: jest.fn(() => true),
+        },
+      });
+      await modulePromise;
+    });
+    firstView.unmount();
+
+    render(<TradingViewRuntimeView src={runtimeUrl} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mountTradingView).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('fallback-webview')).toBeNull();
   });
 
   it('remembers an explicit embed failure for the current session', async () => {

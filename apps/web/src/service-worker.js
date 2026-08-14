@@ -42,8 +42,10 @@ const MESSAGE_TYPES = {
   UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
   CLAIM_CLIENTS: 'CLAIM_CLIENTS',
+  GET_TRADINGVIEW_EMBED_PROTOCOL: 'GET_TRADINGVIEW_EMBED_PROTOCOL',
   PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
+const TRADINGVIEW_EMBED_PROTOCOL_VERSION = 1;
 
 let versionCheckPromise = null;
 const tradingViewBootstrapPromises = new Map();
@@ -1615,6 +1617,14 @@ self.addEventListener('message', (event) => {
   const type = event.data?.type;
   const payload = event.data?.payload || {};
   const client = event.source;
+
+  if (type === MESSAGE_TYPES.GET_TRADINGVIEW_EMBED_PROTOCOL) {
+    event.ports?.[0]?.postMessage({
+      ok: true,
+      protocol: TRADINGVIEW_EMBED_PROTOCOL_VERSION,
+    });
+    return;
+  }
 
   if (type === MESSAGE_TYPES.CLAIM_CLIENTS) {
     event.waitUntil(self.clients.claim());
