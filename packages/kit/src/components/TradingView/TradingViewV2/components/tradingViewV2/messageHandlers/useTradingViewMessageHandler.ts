@@ -14,6 +14,7 @@ import {
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 import {
+  normalizeTradingViewActiveChartType,
   normalizeTradingViewChartTypes,
   normalizeTradingViewLayoutRestored,
 } from './nativeChartControlsConfigUtils';
@@ -39,6 +40,7 @@ const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 const TRADINGVIEW_INTERVAL_CONFIG = 'tradingview_intervalConfig';
 const TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG =
   'tradingview_nativeChartControlsConfig';
+const TRADINGVIEW_CHART_TYPE_CHANGE = 'TRADINGVIEW_CHART_TYPE_CHANGE';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -526,8 +528,10 @@ function normalizeNativeChartControlsConfig(
 
   const indicators = normalizeIndicators(data.indicators);
   const chartTypes = normalizeTradingViewChartTypes(data.chartTypes);
-  const activeChartType = Number(data.activeChartType);
-  if (!indicators || !chartTypes || !Number.isFinite(activeChartType)) {
+  const activeChartType = chartTypes
+    ? normalizeTradingViewActiveChartType(chartTypes, data.activeChartType)
+    : null;
+  if (!indicators || !chartTypes || activeChartType === null) {
     return null;
   }
 
@@ -696,6 +700,21 @@ export function useTradingViewMessageHandler({
         const nativeChartControlsConfigData =
           normalizeNativeChartControlsConfig(data.data);
         if (nativeChartControlsConfigData) {
+          const reportedActiveChartType = isRecord(data.data)
+            ? Number(data.data.activeChartType)
+            : Number.NaN;
+          if (
+            Number.isFinite(reportedActiveChartType) &&
+            nativeChartControlsConfigData.activeChartType !==
+              reportedActiveChartType
+          ) {
+            webRef.current?.sendMessageViaInjectedScript({
+              type: TRADINGVIEW_CHART_TYPE_CHANGE,
+              payload: {
+                chartType: nativeChartControlsConfigData.activeChartType,
+              },
+            });
+          }
           onNativeChartControlsConfigChange?.(nativeChartControlsConfigData);
         }
       }

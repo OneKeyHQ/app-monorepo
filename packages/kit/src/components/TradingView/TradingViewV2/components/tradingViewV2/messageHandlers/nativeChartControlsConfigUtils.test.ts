@@ -1,4 +1,5 @@
 import {
+  normalizeTradingViewActiveChartType,
   normalizeTradingViewChartTypes,
   normalizeTradingViewLayoutRestored,
 } from './nativeChartControlsConfigUtils';
@@ -12,6 +13,35 @@ describe('normalizeTradingViewLayoutRestored', () => {
   it('returns undefined for legacy or invalid values', () => {
     expect(normalizeTradingViewLayoutRestored(undefined)).toBeUndefined();
     expect(normalizeTradingViewLayoutRestored('true')).toBeUndefined();
+  });
+});
+
+describe('normalizeTradingViewActiveChartType', () => {
+  it('falls back to a surviving chart type when the active option was removed', () => {
+    const chartTypes = normalizeTradingViewChartTypes([
+      { label: 'Candles', value: 1 },
+      { label: 'Candles HLC', value: 21 },
+      { label: 'Line', value: 2 },
+    ]);
+
+    expect(chartTypes).not.toBeNull();
+    expect(normalizeTradingViewActiveChartType(chartTypes ?? [], 21)).toBe(1);
+  });
+
+  it('preserves active values that remain in the normalized options', () => {
+    expect(
+      normalizeTradingViewActiveChartType(
+        [
+          { label: 'Candles', value: 1 },
+          { label: 'Legacy Style', value: 21 },
+        ],
+        21,
+      ),
+    ).toBe(21);
+  });
+
+  it('rejects invalid active values', () => {
+    expect(normalizeTradingViewActiveChartType([], 'invalid')).toBeNull();
   });
 });
 

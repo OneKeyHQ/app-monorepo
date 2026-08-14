@@ -45,3 +45,22 @@ export function normalizeTradingViewChartTypes(
 
   return normalizedChartTypes;
 }
+
+export function normalizeTradingViewActiveChartType(
+  chartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'],
+  activeChartType: unknown,
+): number | null {
+  const value = Number(activeChartType);
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  if (
+    !chartTypes.length ||
+    chartTypes.some((chartType) => chartType.value === value)
+  ) {
+    return value;
+  }
+
+  return chartTypes[0].value;
+}
