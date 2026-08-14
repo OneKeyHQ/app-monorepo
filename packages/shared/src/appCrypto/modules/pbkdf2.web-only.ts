@@ -379,11 +379,17 @@ function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
   };
 }
 
-// Keys derived on private-key handling paths must never linger in the cache,
-// so the cache is disabled on every platform, not only when webcrypto is used.
-function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams {
+// Private-key handling paths skip the cache only where the non-blocking
+// webcrypto backend applies; platforms without it keep the transaction-safe
+// cached default, since disabling the cache there would only repeat slow
+// derivations without switching to a faster backend.
+function getPbkdf2KdfParamsForNonDbTxNoCache(): IPbkdf2KdfParams | undefined {
+  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
+  if (kdfParams.kdfBackend !== 'webcrypto') {
+    return undefined;
+  }
   return {
-    ...getPbkdf2KdfParamsForNonDbTx(),
+    ...kdfParams,
     enablePbkdf2Cache: false,
   };
 }

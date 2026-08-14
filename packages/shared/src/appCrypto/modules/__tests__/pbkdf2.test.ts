@@ -14,12 +14,28 @@ describe('pbkdf2 module variants', () => {
     ['pbkdf2.ts', pbkdf2Module],
     ['pbkdf2.web-only.ts', pbkdf2WebOnlyModule],
   ])(
-    '%s non-db-tx no-cache params disable the cache on every platform',
+    '%s no-cache params opt out only when webcrypto is selected',
     (_name, mod) => {
       const params = mod.getPbkdf2KdfParamsForNonDbTxNoCache();
-      expect(params.enablePbkdf2Cache).toBe(false);
+      if (params) {
+        expect(params.kdfBackend).toBe('webcrypto');
+        expect(params.enablePbkdf2Cache).toBe(false);
+      } else {
+        // Without a non-blocking backend the cached platform default stays.
+        expect(params).toBeUndefined();
+      }
     },
   );
+
+  it('web-only variant opts out of the cache when webcrypto is available', () => {
+    if (!pbkdf2WebOnlyModule.isWebCryptoPbkdf2Supported()) {
+      return;
+    }
+    expect(pbkdf2WebOnlyModule.getPbkdf2KdfParamsForNonDbTxNoCache()).toEqual({
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: false,
+    });
+  });
 
   it('reuses the cached value when the cache is enabled', async () => {
     const password = Buffer.from('pbkdf2-cache-test-password');
