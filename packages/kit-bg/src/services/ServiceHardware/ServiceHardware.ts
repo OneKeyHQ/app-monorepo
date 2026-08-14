@@ -3527,9 +3527,13 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
-      willUpdateDeprecateMap,
-    });
+    const result =
+      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   /**
