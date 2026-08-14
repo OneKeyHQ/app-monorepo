@@ -1,4 +1,5 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
@@ -39,6 +40,7 @@ export type IPasswordPromptPromiseTriggerAtom = {
         type: EPasswordPromptType;
         dialogProps?: IDialogShowProps;
         skipPostVerifyBackgroundTasks?: boolean;
+        kdfParams?: IPbkdf2KdfParams;
       }
     | undefined;
 };
