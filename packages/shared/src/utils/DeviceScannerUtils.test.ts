@@ -493,8 +493,8 @@ describe('DeviceScannerUtils', () => {
     search.resolve({
       success: false,
       payload: {
-        code: HardwareErrorCode.RuntimeError,
-        error: 'Failure_ProcessError,link disabled',
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+        error: 'Bluetooth is unavailable while USB is connected',
       },
     });
     await flushMicrotasks();

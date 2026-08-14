@@ -458,7 +458,7 @@ export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareEr
     );
   }
 
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.BleUnavailableWhileUsbConnected;
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
