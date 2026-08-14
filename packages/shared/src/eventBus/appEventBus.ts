@@ -2,11 +2,7 @@
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import { cloneDeep } from 'lodash';
 
-import type {
-  IDialogLoadingProps,
-  IQrcodeDrawType,
-} from '@onekeyhq/components';
-import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
+import type { IDialogLoadingProps } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
@@ -41,6 +37,7 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
   INotificationViewDialogPayload,
@@ -51,9 +48,8 @@ import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -133,6 +129,10 @@ export type IEventBusPayloadAccountDataUpdate =
       isManualRefresh?: boolean;
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
+
+// The item shape is owned by kit's settings config; it stays opaque here so
+// shared never depends on kit types or its search-results presentation.
+export type ISettingsSearchResultItem = FuseResult<unknown>;
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -236,10 +236,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
-    drawType: IQrcodeDrawType;
     promiseId?: number;
-    value?: string;
-    valueUr?: IAirGapUrJson;
+    valueUr: IAirGapUrJson;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
@@ -409,13 +407,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
@@ -472,8 +464,23 @@ export interface IAppEventBusPayload {
     authSessionSource: EPrimeAuthSessionSource;
     callerName: string;
   };
+  [EAppEventBusNames.IdentityLifecycleCommitted]: {
+    revision: number;
+    oneKeyIdState: 'loggedIn' | 'loggedOut';
+  };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
-  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: {
+    operationId: string;
+    messageId: string;
+  };
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
   [EAppEventBusNames.PrimeTransferDataReceived]: {
     data: IPrimeTransferData;
@@ -511,15 +518,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
-  [EAppEventBusNames.MarketWSDataUpdate]: {
-    channel: string;
-    tokenAddress: string;
-    networkId?: string;
-    isSubscriptionAmbiguous?: boolean;
-    messageType?: string;
-    data: any;
-    originalData?: any;
-  };
+  [EAppEventBusNames.MarketWSDataUpdate]: IMarketWsDataUpdatePayload;
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };
@@ -528,11 +527,7 @@ export interface IAppEventBusPayload {
     sourceId: string;
   };
   [EAppEventBusNames.SettingsSearchResult]: {
-    list: {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[];
+    list: ISettingsSearchResultItem[];
     searchText: string;
   };
   [EAppEventBusNames.DesktopBleRepairRequired]: {
@@ -550,6 +545,14 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
+    symbol: string;
+    priceScale: number;
+  };
+  [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
+    deliveryId: string;
+  };
+  [EAppEventBusNames.PerpsSubscriptionsRecovered]: undefined;
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;
@@ -608,6 +611,9 @@ export interface IAppEventBusPayload {
     progressPercent?: number;
     retry?: number;
     message?: string;
+  };
+  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
+    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:

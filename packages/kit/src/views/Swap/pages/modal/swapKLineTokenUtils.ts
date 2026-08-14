@@ -161,6 +161,47 @@ export async function fetchSwapKLineTokenIsStable(
   return getSwapKLineTokenStableStatusFromMap({ stableStatusMap, token });
 }
 
+export async function prefetchSwapKLineTokenInfo(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  const tokenInfoRequests = new Map<
+    string,
+    { networkId: string; tokenAddress: string }
+  >();
+
+  tokens.forEach((token) => {
+    if (!token?.networkId || isKnownSwapKLineUnsupportedToken(token)) {
+      return;
+    }
+
+    const tokenAddress = token.contractAddress ?? '';
+    const requestKey = `${token.networkId}:${tokenAddress}`;
+    tokenInfoRequests.set(requestKey, {
+      networkId: token.networkId,
+      tokenAddress,
+    });
+  });
+
+  await Promise.all(
+    Array.from(tokenInfoRequests.values()).map(async (params) => {
+      try {
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly(params);
+      } catch {
+        // Prefetch must not block opening; mounted consumers own retry handling.
+      }
+    }),
+  );
+}
+
+export async function prefetchSwapKLineMetadata(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  await Promise.all([
+    prefetchSwapKLineTokenInfo(tokens),
+    fetchSwapKLineTokensStableStatus(tokens),
+  ]);
+}
+
 export function getDefaultSwapKLineSide({
   fromToken,
   fromTokenIsStable = false,

@@ -10,6 +10,7 @@ import {
   usePrimeCloudSyncPersistAtom,
   usePrimeLoginDialogAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -20,11 +21,12 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
 import { PrimeForgetMasterPasswordDialog } from '../../../views/Prime/components/PrimeForgetMasterPasswordDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
 import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
 import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
+
+import { presentRemoteOneKeyIdLogoutBestEffort } from './remoteOneKeyIdLogoutPresentation';
 
 let hasShownTimeErrorDialogInAppLifecycle = false;
 
@@ -278,12 +280,18 @@ export function PrimeLoginContainer() {
   }, [navigation]);
 
   useEffect(() => {
-    const fn = () => {
-      Dialog.show({
-        renderContent: <PrimeDeviceLogoutAlertDialog />,
-      });
+    const fn = (payload: { operationId: string; messageId: string }) => {
+      presentRemoteOneKeyIdLogoutBestEffort(payload);
     };
     appEventBus.on(EAppEventBusNames.PrimeDeviceLogout, fn);
+    void backgroundApiProxy.serviceIdentityExit
+      .getPendingRemoteOneKeyIdLogoutPresentations()
+      .then((presentations) => {
+        presentations.forEach(presentRemoteOneKeyIdLogoutBestEffort);
+      })
+      .catch((error) => {
+        errorUtils.autoPrintErrorIgnore(error);
+      });
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeDeviceLogout, fn);
     };

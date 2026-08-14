@@ -179,6 +179,34 @@ function reuseStableMarketTokenRows({
   return changed ? reused : prev;
 }
 
+function transformMarketTokenListResponse({
+  response,
+  networkId,
+  networkLogoUri,
+  timeRange,
+  type,
+}: {
+  response: IMarketTokenListResponseWithSource | undefined;
+  networkId: string;
+  networkLogoUri: string;
+  timeRange: IMarketTimeRangeValue | undefined;
+  type: string | undefined;
+}) {
+  const transformed = (response?.list ?? []).map((item) =>
+    transformApiItemToToken(item, {
+      chainId: networkId,
+      networkLogoUri,
+      timeRange,
+    }),
+  );
+  // Hiding the injected BTC row belongs here rather than at the call sites:
+  // the seed/SWR initializer transforms the same response, so filtering in
+  // only one place would let the row flash in from cache.
+  return shouldHideInjectedBtcRowForType(type)
+    ? filterInjectedBtcRow(transformed)
+    : transformed;
+}
+
 export function useMarketTokenList({
   networkId,
   initialSortBy = 'v24hUSD',
@@ -195,7 +223,6 @@ export function useMarketTokenList({
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
@@ -460,6 +487,19 @@ export function useMarketTokenList({
     },
   );
 
+  // Seed and SWR values are available synchronously during render. Initialize
+  // the table rows from that value so remounting Market never starts from an
+  // empty list while the same cached response waits for an effect.
+  const [transformedData, setTransformedData] = useState<IMarketToken[]>(() =>
+    transformMarketTokenListResponse({
+      response: apiResult,
+      networkId,
+      networkLogoUri,
+      timeRange: timeRangeRef.current,
+      type,
+    }),
+  );
+
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
@@ -549,17 +589,13 @@ export function useMarketTokenList({
       platformEnv.isWeb && typeof performance !== 'undefined'
         ? performance.now()
         : 0;
-    const transformed = apiResult.list.map((item) =>
-      transformApiItemToToken(item, {
-        chainId: networkId,
-        networkLogoUri,
-        timeRange: timeRangeRef.current,
-      }),
-    );
-    const hideInjectedBtcRow = shouldHideInjectedBtcRowForType(type);
-    const visibleTokens = hideInjectedBtcRow
-      ? filterInjectedBtcRow(transformed)
-      : transformed;
+    const visibleTokens = transformMarketTokenListResponse({
+      response: apiResult,
+      networkId,
+      networkLogoUri,
+      timeRange: timeRangeRef.current,
+      type,
+    });
     const transformDuration =
       transformStart > 0 ? performance.now() - transformStart : undefined;
     markMarketReactPerf({

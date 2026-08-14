@@ -27,6 +27,7 @@ import type {
   IFeeInfoUnit,
   IGasAccountScenario,
 } from '@onekeyhq/shared/types/fee';
+import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -52,6 +53,9 @@ type IBuildUnsignedTxParams = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
+  onBeforeSend?: () => void | Promise<void>;
+  broadcastDeadline?: number;
+  beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
   transferPayload?: ITransferPayload;
   signOnly?: boolean;
@@ -126,6 +130,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onSuccess,
         onFail,
         onCancel,
+        onBeforeSend,
+        broadcastDeadline,
+        beforeBroadcastAction,
         transferPayload: transferPayloadBase,
         signOnly,
         useFeeInTx,
@@ -211,9 +218,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
-        const target = params.isInternalSwap
-          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
-          : EModalSignatureConfirmRoutes.TxConfirm;
+        const target =
+          params.isInternalSwap && !transferPayloadBase?.isPrivateSend
+            ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+            : EModalSignatureConfirmRoutes.TxConfirm;
 
         try {
           const preActionsBeforeConfirmResult =
@@ -243,6 +251,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onSuccess,
             onFail,
             onCancel,
+            onBeforeSend,
+            broadcastDeadline,
+            beforeBroadcastAction,
             transferPayload,
             signOnly,
             useFeeInTx,
@@ -259,6 +270,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onSuccess,
               onFail,
               onCancel,
+              onBeforeSend,
+              broadcastDeadline,
+              beforeBroadcastAction,
               transferPayload,
               signOnly,
               useFeeInTx,

@@ -280,6 +280,7 @@ export type ISendTxOnSuccessData = {
   decodedTx: IDecodedTx;
   feeInfo?: IFeeInfoUnit;
   approveInfo?: IApproveInfo;
+  isNetworkFeeSponsored?: boolean;
 };
 
 export type IReplaceTxInfo = {

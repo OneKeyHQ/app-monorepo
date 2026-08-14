@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
   getNativeIndicatorSelectionUpdates,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
   useNativeIndicatorControls,
 } from './useNativeIndicatorActiveValues';
@@ -31,6 +32,35 @@ const nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData = {
 };
 
 describe('native indicator controls', () => {
+  it('uses the count from a new config until app state syncs to that snapshot', () => {
+    const provisionalIndicators = indicators.map((indicator, index) => ({
+      ...indicator,
+      active: index === 0,
+    }));
+    const restoredIndicators = indicators.map((indicator, index) => ({
+      ...indicator,
+      active: index < 3,
+    }));
+
+    expect(
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: new Set(['VOL']),
+        configIndicators: restoredIndicators,
+        isInitialized: true,
+        sourceIndicators: provisionalIndicators,
+      }),
+    ).toBe(3);
+
+    expect(
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: new Set(['VOL', 'MACD', 'RSI', 'StochRSI']),
+        configIndicators: restoredIndicators,
+        isInitialized: true,
+        sourceIndicators: restoredIndicators,
+      }),
+    ).toBe(4);
+  });
+
   it('sends removals before additions when a dialog swaps indicators', () => {
     expect(
       getNativeIndicatorSelectionUpdates({

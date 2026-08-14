@@ -151,10 +151,6 @@ const ManagePositionPage = () => {
       },
     );
 
-  const selectedProtocolKey = useMemo(
-    () => getProtocolKey(selectedProtocol),
-    [selectedProtocol],
-  );
   const currentProtocol = useMemo(
     () =>
       protocols.find(
@@ -207,8 +203,10 @@ const ManagePositionPage = () => {
     <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header title={symbol} />
       <Page.Body>
+        {/* No key remount on protocol switch: useManagePage keeps stale data
+            while refetching, so the switcher / trade-or-buy / input stay put and
+            only the changed values update — no full skeleton flash on switch. */}
         <ManagePositionContent
-          key={selectedProtocolKey}
           showApyDetail
           isInModalContext
           networkId={selectedProtocol.networkId}

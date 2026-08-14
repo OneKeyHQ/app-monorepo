@@ -18,6 +18,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -107,7 +108,13 @@ function TokenDetailsTabToolbar(props: IProps) {
                       >
                         {displayFiatValueOrUnavailable(
                           tokenDetail.fiatValue,
-                          tokenDetail.balanceParsed,
+                          tokenRebaseUtils.applyBalanceMultiplier({
+                            amount: tokenDetail.balanceParsed,
+                            balanceMultiplier:
+                              tokenRebaseUtils.pickBalanceMultiplier(
+                                tokenDetail,
+                              ),
+                          }),
                         )}
                       </Currency>
                     }

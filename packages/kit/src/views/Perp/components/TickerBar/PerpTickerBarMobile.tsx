@@ -15,10 +15,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsMaxBuilderFeeAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -32,7 +33,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
@@ -69,10 +69,12 @@ function PerpBadgesRow() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const requestedBuilderFeeRef = useRef(false);
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
+  // The instrument is what the price and order book already render, so reading
+  // the mode from it keeps this row from labelling a pair it is not showing.
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = usePerpsMaxBuilderFeeAtom();
-  const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
+  const { baseName, rawBaseName, coin, dexLabel } = useActiveTradeDisplay();
   const [tokenSearchAliases, setTokenSearchAliases] =
     usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
@@ -211,6 +213,11 @@ function PerpBadgesRow() {
               })}
         </SizableText>
       </Badge>
+      <PerpDexBadge
+        compact
+        dexLabel={dexLabel}
+        testID={PerpTestIDs.ActiveDexBadge}
+      />
       {subtitle ? (
         <Popover
           title={intl.formatMessage({
@@ -287,10 +294,10 @@ export function PerpTickerBarMobile() {
       </YStack>
 
       <XStack pt="$0.5" gap="$3" alignItems="center">
-        <PerpsActivityCenterAction size="small" copyAsUrl />
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          showActivityCenterEntry
           showGuideEntry
         />
       </XStack>

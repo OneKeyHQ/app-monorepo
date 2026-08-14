@@ -1,7 +1,148 @@
 import {
+  buildInitialTradeInstrumentSwitchParams,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
+
+describe('buildInitialTradeInstrumentSwitchParams', () => {
+  // The optimistic instrument is written synchronously when a switch starts,
+  // while the mode and asset atoms are written near the end and can be skipped
+  // by a superseding request. Restoring anything else flips the pair the first
+  // frame already rendered.
+  it('restores the rendered instrument over a half-written spot mode', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        spotAsset: { coin: '' },
+        perpAsset: { coin: 'xyz:SKHX' },
+        preferredInstrument: { mode: 'spot', coin: 'SOL' },
+        force: true,
+        allowPerpFallback: true,
+      }),
+    ).toEqual({
+      mode: 'spot',
+      coin: 'SOL',
+      spotUniverse: undefined,
+      force: true,
+    });
+  });
+
+  // The mode atom is written after the instrument, so a superseded switch can
+  // leave it on 'perp' while the user is looking at a spot pair.
+  it('restores the rendered instrument over a stale perp mode', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'perp',
+        perpAsset: { coin: 'xyz:SKHX' },
+        preferredInstrument: { mode: 'spot', coin: 'SOL' },
+        allowPerpFallback: true,
+      }),
+    ).toMatchObject({ mode: 'spot', coin: 'SOL' });
+  });
+
+  // A completed earlier switch leaves the spot atom on that older pair.
+  it('restores the rendered instrument over an older completed spot asset', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        spotAsset: { coin: 'HYPE' },
+        preferredInstrument: { mode: 'spot', coin: 'SOL' },
+      }),
+    ).toMatchObject({ mode: 'spot', coin: 'SOL' });
+  });
+
+  it('falls through to the atoms when nothing was rendered yet', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        spotAsset: { coin: '@107' },
+        preferredInstrument: { mode: 'perp', coin: '' },
+      }),
+    ).toMatchObject({ mode: 'spot', coin: '@107' });
+  });
+
+  it('restores the persisted spot mode and asset after restart', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '@107' },
+        force: true,
+      }),
+    ).toEqual({
+      mode: 'spot',
+      coin: '@107',
+      spotUniverse: undefined,
+      force: true,
+    });
+  });
+
+  it('restores the persisted perp mode and asset after restart', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'perp',
+        perpAsset: { coin: 'xyz:SKHX' },
+        spotAsset: { coin: '@107' },
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'xyz:SKHX',
+    });
+  });
+
+  // The initial symbol latch is process-wide and already consumed by then, so
+  // bailing out here strands the page for the rest of the session.
+  it('falls back to the perp asset when the restored spot mode has no coin', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        allowPerpFallback: true,
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+  });
+
+  it('treats an empty spot coin as unusable, matching the atom default', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '' },
+        force: true,
+        allowPerpFallback: true,
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'BTC',
+      force: true,
+    });
+  });
+
+  // A resync firing inside that same window would abort the user's in-flight
+  // spot switch.
+  it('stays a no-op for the spot write window unless the fallback is opted in', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '' },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not switch when neither mode has a usable asset', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: '' },
+        allowPerpFallback: true,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('shouldCheckPerpsAccountStatusOnFocus', () => {
   const staleMs = 60 * 60 * 1000;

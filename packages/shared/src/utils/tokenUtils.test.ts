@@ -8,6 +8,7 @@ import {
   buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  checkWrappedTokenPair,
   flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
@@ -20,6 +21,34 @@ import type {
   IFetchAccountTokensResp,
   ITokenFiat,
 } from '../../types/token';
+
+describe('checkWrappedTokenPair', () => {
+  const wrappedNativeToken = {
+    networkId: 'evm--4663',
+    contractAddress: '',
+    isNative: true,
+  };
+  const wrappedContractToken = {
+    networkId: 'evm--4663',
+    contractAddress: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    isNative: false,
+  };
+
+  test('recognizes Robinhood ETH and WETH in both directions', () => {
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedNativeToken,
+        toToken: wrappedContractToken,
+      }),
+    ).toBe(true);
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedContractToken,
+        toToken: wrappedNativeToken,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('buildTokenSearchKeywordQueries', () => {
   test('adds ether fallback for multi-word eth network searches', () => {
@@ -198,6 +227,237 @@ describe('getFilteredTokenBySearchKey — aggregate token network search', () =>
         enableNetworkSearch: true,
       }),
     ).toEqual([baseEth]);
+  });
+});
+
+describe('getFilteredTokenBySearchKey — separators, aliases, address fallback, sort', () => {
+  const aggregateUsdt = buildTestToken({
+    $key: 'aggregate_USDT_',
+    address: 'aggregate_USDT_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'USDT',
+    name: 'Tether USD',
+    commonSymbol: 'USDT',
+  });
+  const ethereumUsdt = buildTestToken({
+    $key: 'eth-usdt',
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    networkId: 'evm--1',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const tronUsdt = buildTestToken({
+    $key: 'tron-usdt',
+    address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    networkId: 'tron--0x2b6653dc',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  // NEAR-style contract address: contains '-' but no whitespace, so the
+  // tokenizer would split it into several AND-ed words without the fallback.
+  const nearUsdt = buildTestToken({
+    $key: 'near-usdt',
+    address: 'usdt.tether-token.near',
+    networkId: 'near--0',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const aggregateTokenListMap = {
+    [aggregateUsdt.$key]: {
+      tokens: [ethereumUsdt, tronUsdt, nearUsdt],
+    },
+  };
+  // The Tron id must be the real preset id — network aliases are keyed by
+  // getNetworkIdsMap() values.
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'tron--0x2b6653dc': buildTestNetwork({
+      id: 'tron--0x2b6653dc',
+      name: 'Tron',
+      code: 'trx',
+      shortname: 'TRX',
+    }),
+    'near--0': buildTestNetwork({
+      id: 'near--0',
+      name: 'Near',
+      code: 'near',
+      shortname: 'NEAR',
+    }),
+  };
+
+  test.each(['usdt trc20', 'usdt-trc20', 'USDT-Trc20', 'usdt波场', 'usdt trx'])(
+    'splits out the Tron sub row for %s',
+    (searchKey) => {
+      expect(
+        getFilteredTokenBySearchKey({
+          tokens: [aggregateUsdt],
+          searchKey,
+          aggregateTokenListMap,
+          networksMap,
+          enableNetworkSearch: true,
+        }),
+      ).toEqual([tronUsdt]);
+    },
+  );
+
+  test('separator-containing address still matches as a full string (aggregate sub)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt.tether-token.near',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateUsdt]);
+  });
+
+  test('separator-containing address still matches as a full string (plain token)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [nearUsdt],
+        searchKey: 'usdt.tether-token.near',
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: symbol search outputs every sub row, no aggregate row', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumUsdt, tronUsdt, nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: owned sub floats to top, unowned keep server config order', () => {
+    const tokenFiatMap = {
+      [tronUsdt.$key]: { fiatValue: '5' } as ITokenFiat,
+    };
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+        tokenFiatMap,
+      }),
+    ).toEqual([tronUsdt, ethereumUsdt, nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: symbol/chain-name collision ("eth") also flattens', () => {
+    const aggregateEth = buildTestToken({
+      $key: 'aggregate_ETH_',
+      address: 'aggregate_ETH_',
+      networkId: 'aggregate',
+      isAggregateToken: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      commonSymbol: 'ETH',
+    });
+    const ethereumEth = buildTestToken({
+      $key: 'eth-native',
+      address: '',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+      name: 'Ethereum',
+      isNative: true,
+    });
+    const baseEth = buildTestToken({
+      $key: 'base-native',
+      address: '',
+      networkId: 'evm--8453',
+      symbol: 'ETH',
+      name: 'Ethereum',
+      isNative: true,
+    });
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth',
+        aggregateTokenListMap: {
+          [aggregateEth.$key]: { tokens: [ethereumEth, baseEth] },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumEth, baseEth]);
+  });
+
+  test('flattenAggregateTokens: aggregate row survives via self-field match when config is missing', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap: {},
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([aggregateUsdt]);
+  });
+
+  test('flattenAggregateTokens: sub shared by two aggregate configs dedupes by $key', () => {
+    const secondAggregate = buildTestToken({
+      $key: 'aggregate_USDT2_',
+      address: 'aggregate_USDT2_',
+      networkId: 'aggregate',
+      isAggregateToken: true,
+      symbol: 'USDT',
+      name: 'Tether USD',
+      commonSymbol: 'USDT',
+    });
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt, secondAggregate],
+        searchKey: 'usdt',
+        aggregateTokenListMap: {
+          [aggregateUsdt.$key]: { tokens: [ethereumUsdt, tronUsdt] },
+          [secondAggregate.$key]: { tokens: [tronUsdt, nearUsdt] },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumUsdt, tronUsdt, nearUsdt]);
+  });
+
+  test('exact symbol hits sort before includes hits at equal strength, ahead of fiat', () => {
+    const ethAusdt = buildTestToken({
+      $key: 'eth-ausdt',
+      address: '0x3ed3b47dd13ec9a98b44e6204a523e766b225811',
+      networkId: 'evm--1',
+      symbol: 'aUSDT',
+      name: 'Aave interest bearing USDT',
+    });
+    const tokenFiatMap = {
+      [ethAusdt.$key]: { fiatValue: '1000' } as ITokenFiat,
+      [ethereumUsdt.$key]: { fiatValue: '1' } as ITokenFiat,
+    };
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [ethAusdt, ethereumUsdt],
+        searchKey: 'usdt',
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap,
+      }),
+    ).toEqual([ethereumUsdt, ethAusdt]);
   });
 });
 
@@ -577,6 +837,34 @@ describe('nest+flatten aggregateTokenMap — token selector seam (PR-6)', () => 
         }),
       ),
     ).toEqual({});
+  });
+
+  it('scaled-UI (rebase) members: multiplies each member by its OWN balanceMultiplier before summing balanceParsed, raw balance stays unmultiplied, and the flattened entry carries NO balanceMultiplier', () => {
+    const flattened = flattenAggregateTokensMap({
+      'eth-agg': {
+        'evm--1': {
+          balance: '4',
+          balanceParsed: '4',
+          fiatValue: '0',
+          price: 0,
+          balanceMultiplier: '1.1',
+        },
+        'sol--101': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '0',
+          price: 0,
+        },
+      },
+    });
+
+    // 4 * 1.1 + 1 = 5.4 (display basis)
+    expect(flattened['eth-agg'].balanceParsed).toBe('5.4');
+    // raw balance is summed as-is (not multiplied)
+    expect(flattened['eth-agg'].balance).toBe('5');
+    // the flattened entry is display-basis already; it must NOT carry a
+    // multiplier, otherwise a display selector would multiply it again
+    expect(flattened['eth-agg'].balanceMultiplier).toBeUndefined();
   });
 });
 

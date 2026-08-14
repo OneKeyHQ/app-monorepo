@@ -27,6 +27,7 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   sortTokensByOrder,
   sortTokensCommon,
@@ -40,6 +41,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
+import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -222,9 +224,14 @@ function AggregateTokenListItem({
       testID={AssetSelectorTestIDs.aggregateTokenListItem}
       key={token.$key}
       title={token.networkName || network?.name}
-      avatarProps={{
-        src: network?.logoURI,
-      }}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isCustomNetwork={network?.isCustomNetwork}
+          networkName={network?.name}
+          size="$10"
+        />
+      }
       onPress={handleOnPress}
       disabled={isOtherTokenProcessing}
       opacity={isOtherTokenProcessing ? 0.5 : 1}
@@ -243,7 +250,16 @@ function AggregateTokenListItem({
               formatter="balance"
               textAlign="right"
             >
-              {tokenInfo?.balanceParsed}
+              {
+                // tokenInfo is a per-network sub-token entry (not a summed
+                // aggregate row), so it carries its own balanceMultiplier —
+                // scale the raw balanceParsed to display basis (OK-58046 Plan
+                // A). fiatValue is server-multiplied already; do not touch it.
+                tokenRebaseUtils.applyBalanceMultiplier({
+                  amount: tokenInfo?.balanceParsed,
+                  balanceMultiplier: tokenInfo?.balanceMultiplier,
+                })
+              }
             </NumberSizeableText>
           }
           secondary={
@@ -542,14 +558,22 @@ function AggregateTokenSelector() {
     hideBalanceAndValue,
   ]);
 
+  const aggregateTokenSymbol =
+    aggregateToken.commonSymbol || aggregateToken.symbol;
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={
           title ||
-          intl.formatMessage({
-            id: ETranslations.global_select_network,
-          })
+          (aggregateTokenSymbol
+            ? intl.formatMessage(
+                { id: ETranslations.select_token_network__title },
+                { token: aggregateTokenSymbol },
+              )
+            : intl.formatMessage({
+                id: ETranslations.global_select_network,
+              }))
         }
         headerSearchBarOptions={{
           onSearchTextChange: handleSearchTextChange,

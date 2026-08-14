@@ -5,17 +5,21 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
   shouldShowSwapAccountUnsupportedAlert,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
-import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
-  isUSMarketStatusStockTokenSource,
-  shouldCheckSwapWarningUSMarketClosed,
-} from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
+  getValidSwapProPositionsCache,
+  shouldReuseSwapProPositionsCache,
+  upsertSwapProPositionsCacheEntry,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
+import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import { buildWrappedSwapQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/wrappedQuoteUtils';
 import {
   currencyPersistAtom,
   settingsAtom,
@@ -26,16 +30,18 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
+  dedupeTokenSelectorNetworkAccounts,
   isTokenSelectorDappTokenFilterSupportedNetworkBase,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
@@ -45,7 +51,11 @@ import {
 import {
   getSwapBridgeDefaultToToken,
   swapDefaultSetTokens,
+  swapQuoteIntervalMaxCount,
+  swapRefreshInterval,
+  swapStockTokenListMaxCount,
   swapTokenCatchMapMaxCount,
+  wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
@@ -56,11 +66,11 @@ import type {
   ISwapLimitPriceInfo,
   ISwapNetwork,
   ISwapPreSwapData,
-  ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
+  ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -80,8 +90,9 @@ import {
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  type ISwapInputAmountDraft,
   type ISwapQuoteEventErrorState,
-  SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
+  type ISwapTokenAmountState,
   buildSwapProPositionsOwnerKey,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
@@ -90,9 +101,11 @@ import {
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
   swapAutoSlippageSuggestedValueAtom,
+  swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountDraftsAtom,
   swapLastNonLimitSelectedTokensAtom,
   swapLimitExpirationTimeAtom,
   swapLimitPartiallyFillAtom,
@@ -103,17 +116,24 @@ import {
   swapProDirectionAtom,
   swapProInputAmountAtom,
   swapProPositionsCacheAtom,
+  swapProPositionsCurrentOwnerKeyAtom,
+  swapProPositionsDataOwnerKeyAtom,
+  swapProPositionsRequestIdAtom,
+  swapProPositionsRequestIdsAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
   swapProSupportNetworksTokenListAtom,
-  swapProSupportNetworksTokenListLoadingAtom,
+  swapProTokenBalanceLoadingAtom,
+  swapProTokenBalanceRequestIdAtom,
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
   swapProTokenMarketDetailPerpsInfoAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
+  swapProviderSupportReceiveAddressAtom,
   swapQuoteActionLockAtom,
+  swapQuoteAutoRefreshTimerAtom,
   swapQuoteCurrentEventProviderKeysAtom,
   swapQuoteCurrentEventReceivedCountAtom,
   swapQuoteCurrentSelectAtom,
@@ -132,6 +152,8 @@ import {
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSpeedQuoteFetchingAtom,
+  swapSpeedQuoteRequestIdAtom,
+  swapSpeedQuoteRequestScopeKeyAtom,
   swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
@@ -142,15 +164,108 @@ import {
   swapTokenMapAtom,
   swapTokenMetadataAtom,
   swapTypeSwitchAtom,
+  swapWarningRequestIdAtom,
 } from './atoms';
 import {
+  ESwapQuoteRefreshAction,
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   hasSwapZeroProviderQuoteEvent,
+  isSameSwapQuoteAmountValue,
+  isSwapOrBridgeQuoteType,
+  isSwapQuoteActionable,
   isSwapQuoteEventFetching,
+  resolveSwapQuoteRefreshAction,
 } from './quoteProgress';
+
+type IIndependentSwapInputAmountType =
+  | ESwapTabSwitchType.SWAP
+  | ESwapTabSwitchType.STOCK
+  | ESwapTabSwitchType.LIMIT;
+
+function isIndependentSwapInputAmountType(
+  type: ESwapTabSwitchType,
+): type is IIndependentSwapInputAmountType {
+  return (
+    type === ESwapTabSwitchType.SWAP ||
+    type === ESwapTabSwitchType.STOCK ||
+    type === ESwapTabSwitchType.LIMIT
+  );
+}
+
+function buildSwapInputAmountDraft({
+  fromTokenAmount,
+  toTokenAmount,
+  fromToken,
+  toToken,
+}: {
+  fromTokenAmount: ISwapTokenAmountState;
+  toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}): ISwapInputAmountDraft | undefined {
+  const emptyAmount = { value: '', isInput: false };
+  if (fromTokenAmount.isInput && fromTokenAmount.value) {
+    return {
+      fromTokenAmount,
+      toTokenAmount: emptyAmount,
+      fromToken,
+      toToken,
+    };
+  }
+  if (toTokenAmount.isInput && toTokenAmount.value) {
+    return {
+      fromTokenAmount: emptyAmount,
+      toTokenAmount,
+      fromToken,
+      toToken,
+    };
+  }
+  return undefined;
+}
+
+function isSameOptionalSwapToken({
+  token1,
+  token2,
+}: {
+  token1?: ISwapToken;
+  token2?: ISwapToken;
+}) {
+  return (
+    (!token1 && !token2) ||
+    equalTokenNoCaseSensitive({
+      token1,
+      token2,
+    })
+  );
+}
+
+function isSwapInputAmountDraftForTokenPair({
+  draft,
+  fromToken,
+  toToken,
+}: {
+  draft: ISwapInputAmountDraft;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  const hasInputToken =
+    (draft.fromTokenAmount.isInput && draft.fromToken) ||
+    (draft.toTokenAmount.isInput && draft.toToken);
+  return Boolean(
+    hasInputToken &&
+    isSameOptionalSwapToken({
+      token1: draft.fromToken,
+      token2: fromToken,
+    }) &&
+    isSameOptionalSwapToken({
+      token1: draft.toToken,
+      token2: toToken,
+    }),
+  );
+}
 
 function getSelectedPairLimitPriceRate({
   protocol,
@@ -211,6 +326,38 @@ function isStockProtocol(protocol?: string) {
   );
 }
 
+function isQuoteEventProtocolForCurrentSwapType({
+  currentSwapType,
+  protocol,
+}: {
+  currentSwapType: ESwapTabSwitchType;
+  protocol?: string;
+}) {
+  switch (currentSwapType) {
+    case ESwapTabSwitchType.LIMIT:
+      return (
+        protocol === ESwapTabSwitchType.LIMIT ||
+        protocol === EProtocolOfExchange.LIMIT
+      );
+    case ESwapTabSwitchType.PRIVATE_SEND:
+      return (
+        protocol === ESwapTabSwitchType.PRIVATE_SEND ||
+        protocol === EProtocolOfExchange.PRIVATE_SEND
+      );
+    case ESwapTabSwitchType.STOCK:
+      return isStockProtocol(protocol);
+    case ESwapTabSwitchType.BRIDGE:
+    case ESwapTabSwitchType.SWAP:
+      return (
+        protocol === ESwapTabSwitchType.BRIDGE ||
+        protocol === ESwapTabSwitchType.SWAP ||
+        protocol === EProtocolOfExchange.SWAP
+      );
+    default:
+      return false;
+  }
+}
+
 function isQuoteEventErrorSelectedTokenPair({
   fromTokenAmount,
   quoteEventError,
@@ -235,58 +382,40 @@ function isQuoteEventErrorSelectedTokenPair({
       token2: toToken,
     }) &&
     (!quoteEventError.isStock ||
-      isSameSwapAmountValue({
+      isSameSwapQuoteAmountValue({
         currentAmount: fromTokenAmount,
-        eventAmount: quoteEventError.fromTokenAmount,
+        requestAmount: quoteEventError.fromTokenAmount,
       })),
   );
 }
 
-function isSameSwapAmountValue({
-  currentAmount,
-  eventAmount,
-}: {
-  currentAmount?: string;
-  eventAmount?: string;
-}) {
-  if (eventAmount === undefined) {
-    return true;
-  }
-  const normalizedCurrentAmount = currentAmount ?? '';
-  if (!eventAmount && !normalizedCurrentAmount) {
-    return true;
-  }
-  const eventAmountBN = new BigNumber(eventAmount);
-  const currentAmountBN = new BigNumber(normalizedCurrentAmount);
-  if (
-    eventAmountBN.isFinite() &&
-    !eventAmountBN.isNaN() &&
-    currentAmountBN.isFinite() &&
-    !currentAmountBN.isNaN()
-  ) {
-    return eventAmountBN.eq(currentAmountBN);
-  }
-  return eventAmount === normalizedCurrentAmount;
-}
-
-function isCurrentStockQuoteEventParams({
+function isCurrentQuoteEventParams({
+  currentQuoteRequestId,
   currentSwapType,
   fromToken,
   fromTokenAmount,
   params,
+  quoteRequestActive,
+  quoteRequestId,
   toToken,
+  toTokenAmount,
   tokenPairs,
 }: {
+  currentQuoteRequestId?: string;
   currentSwapType: ESwapTabSwitchType;
   fromToken?: ISwapToken;
   fromTokenAmount?: string;
   params: IFetchQuotesParams;
+  quoteRequestActive: boolean;
+  quoteRequestId: string;
   toToken?: ISwapToken;
+  toTokenAmount?: string;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
 }) {
-  if (!isStockProtocol(params.protocol)) {
-    return true;
-  }
+  const isExpectedProtocol = isQuoteEventProtocolForCurrentSwapType({
+    currentSwapType,
+    protocol: params.protocol,
+  });
   const isSameTokenPair =
     equalTokenNoCaseSensitive({
       token1: tokenPairs.fromToken,
@@ -296,14 +425,24 @@ function isCurrentStockQuoteEventParams({
       token1: tokenPairs.toToken,
       token2: toToken,
     });
-  const isSameFromAmount = isSameSwapAmountValue({
-    currentAmount: fromTokenAmount,
-    eventAmount: params.fromTokenAmount,
-  });
-  return (
-    currentSwapType === ESwapTabSwitchType.STOCK &&
+  const quoteKind = params.kind ?? ESwapQuoteKind.SELL;
+  const requestAmount =
+    quoteKind === ESwapQuoteKind.BUY
+      ? params.toTokenAmount
+      : params.fromTokenAmount;
+  const isSameInputAmount =
+    requestAmount !== undefined &&
+    isSameSwapQuoteAmountValue({
+      currentAmount:
+        quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount,
+      requestAmount,
+    });
+  return Boolean(
+    quoteRequestActive &&
+    currentQuoteRequestId === quoteRequestId &&
+    isExpectedProtocol &&
     isSameTokenPair &&
-    isSameFromAmount
+    isSameInputAmount,
   );
 }
 
@@ -379,24 +518,140 @@ function getLimitDefaultNetworkId({
 }
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
-  private quoteInterval: ReturnType<typeof setTimeout> | undefined;
-
-  private stockTokenCheckCache = new Map<string, Promise<boolean>>();
-
-  private usMarketStatusCache:
-    | {
-        expiresAt: number;
-        promise: ReturnType<
-          typeof backgroundApiProxy.serviceSwap.fetchCheckUSMarketStatus
-        >;
-      }
-    | undefined;
-
   private limitOrderMarketPriceInterval:
     | ReturnType<typeof setTimeout>
     | undefined;
 
   private limitOrderMarketPriceRequestId = 0;
+
+  scheduleQuoteAutoRefresh = contextAtomMethod(
+    (
+      get,
+      set,
+      event: Pick<
+        ISwapQuoteEventPayload,
+        'accountId' | 'params' | 'quoteRequestId' | 'tokenPairs'
+      >,
+    ) => {
+      this.cleanQuoteInterval.call(set);
+      const currentSwapType = get(swapTypeSwitchAtom());
+      const supportsAutoRefresh =
+        isSwapOrBridgeQuoteType(currentSwapType) ||
+        currentSwapType === ESwapTabSwitchType.STOCK;
+      if (!supportsAutoRefresh || get(swapShouldRefreshQuoteAtom())) {
+        return;
+      }
+
+      const quoteAutoRefreshTimer = setTimeout(() => {
+        set(swapQuoteAutoRefreshTimerAtom(), undefined);
+        const currentQuoteRequest = get(swapQuoteActionLockAtom());
+        const activeSwapType = get(swapTypeSwitchAtom());
+        const currentFromToken = get(swapSelectFromTokenAtom());
+        const currentToToken = get(swapSelectToTokenAtom());
+        const quoteKind = event.params.kind ?? ESwapQuoteKind.SELL;
+        const currentInputAmount =
+          quoteKind === ESwapQuoteKind.BUY
+            ? get(swapToTokenAmountAtom()).value
+            : get(swapFromTokenAmountAtom()).value;
+        const requestInputAmount =
+          quoteKind === ESwapQuoteKind.BUY
+            ? event.params.toTokenAmount
+            : event.params.fromTokenAmount;
+        const isCurrentRefreshScope =
+          currentQuoteRequest.quoteRequestId === event.quoteRequestId &&
+          (isSwapOrBridgeQuoteType(activeSwapType) ||
+            activeSwapType === ESwapTabSwitchType.STOCK) &&
+          isQuoteEventProtocolForCurrentSwapType({
+            currentSwapType: activeSwapType,
+            protocol: event.params.protocol,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: currentFromToken,
+            token2: event.tokenPairs.fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: currentToToken,
+            token2: event.tokenPairs.toToken,
+          }) &&
+          requestInputAmount !== undefined &&
+          isSameSwapQuoteAmountValue({
+            currentAmount: currentInputAmount,
+            requestAmount: requestInputAmount,
+          });
+        if (!isCurrentRefreshScope || get(swapShouldRefreshQuoteAtom())) {
+          return;
+        }
+
+        const refreshTransition = resolveSwapQuoteRefreshAction({
+          automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
+          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+        });
+        if (
+          refreshTransition.action ===
+          ESwapQuoteRefreshAction.RequireManualRefresh
+        ) {
+          this.requireManualQuoteRefresh.call(set);
+          return;
+        }
+
+        set(
+          swapQuoteIntervalCountAtom(),
+          refreshTransition.nextAutomaticRefreshCount,
+        );
+        void this.quoteAction.call(
+          set,
+          {
+            key: event.params.autoSlippage
+              ? ESwapSlippageSegmentKey.AUTO
+              : ESwapSlippageSegmentKey.CUSTOM,
+            value: event.params.slippagePercentage,
+          },
+          event.params.userAddress,
+          event.accountId,
+          undefined, // Approval block only applies to the first post-approval quote.
+          true,
+          quoteKind,
+          undefined,
+          event.params.receivingAddress,
+          event.params.incognito,
+        );
+      }, swapRefreshInterval);
+      set(swapQuoteAutoRefreshTimerAtom(), quoteAutoRefreshTimer);
+    },
+  );
+
+  beginSwapProTokenBalanceRequest = contextAtomMethod((get, set) => {
+    const requestId = get(swapProTokenBalanceRequestIdAtom()) + 1;
+    set(swapProTokenBalanceRequestIdAtom(), requestId);
+    set(swapProTokenBalanceLoadingAtom(), true);
+    return requestId;
+  });
+
+  isSwapProTokenBalanceRequestLatest = contextAtomMethod(
+    (get, _set, requestId: number) =>
+      get(swapProTokenBalanceRequestIdAtom()) === requestId,
+  );
+
+  invalidateSwapProTokenBalanceRequest = contextAtomMethod(
+    (get, set, requestId: number) => {
+      if (get(swapProTokenBalanceRequestIdAtom()) === requestId) {
+        set(swapProTokenBalanceRequestIdAtom(), requestId + 1);
+        set(swapProTokenBalanceLoadingAtom(), false);
+        return true;
+      }
+      return false;
+    },
+  );
+
+  finishSwapProTokenBalanceRequest = contextAtomMethod(
+    (get, set, requestId: number) => {
+      if (get(swapProTokenBalanceRequestIdAtom()) === requestId) {
+        set(swapProTokenBalanceLoadingAtom(), false);
+        return true;
+      }
+      return false;
+    },
+  );
 
   /**
    * Execute promises in batches with concurrency control to prevent overwhelming the system
@@ -440,8 +695,28 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return rest;
       };
 
+      const setSelectedToken = (nextToken: ISwapToken) => {
+        const currentToken = get(swapProSelectTokenAtom());
+        const isSameToken =
+          currentToken &&
+          equalTokenNoCaseSensitive({
+            token1: currentToken,
+            token2: nextToken,
+          });
+        if (!isSameToken) {
+          // These atoms belong to the previous selected token. Clear them in
+          // the same state transition so its detail and websocket config
+          // cannot render under the next token.
+          set(swapProTokenMarketDetailInfoAtom(), undefined);
+          set(swapProTokenMarketDetailPerpsInfoAtom(), undefined);
+          set(swapProTokenDetailWebsocketAtom(), undefined);
+          set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        }
+        set(swapProSelectTokenAtom(), nextToken);
+      };
+
       if (token) {
-        set(swapProSelectTokenAtom(), token);
+        setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
           getTokenForStorage(token),
         );
@@ -449,9 +724,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
         if (savedToken) {
-          set(swapProSelectTokenAtom(), savedToken);
+          setSelectedToken(savedToken);
         } else if (defaultToken) {
-          set(swapProSelectTokenAtom(), defaultToken);
+          setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
             getTokenForStorage(defaultToken),
           );
@@ -727,6 +1002,39 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } else {
         set(swapStockExecutionTokensAtom(), undefined);
       }
+      const stockInputAmountDraft = get(swapInputAmountDraftsAtom())[
+        ESwapTabSwitchType.STOCK
+      ];
+      if (
+        getVisibleSwapTabSwitchType(get(swapTypeSwitchAtom())) ===
+          ESwapTabSwitchType.STOCK &&
+        stockInputAmountDraft &&
+        fromToken &&
+        toToken
+      ) {
+        const fromTokenAmount = get(swapFromTokenAmountAtom());
+        const toTokenAmount = get(swapToTokenAmountAtom());
+        const inputIsEmpty =
+          !fromTokenAmount.value &&
+          !fromTokenAmount.isInput &&
+          !toTokenAmount.value &&
+          !toTokenAmount.isInput;
+        if (
+          inputIsEmpty &&
+          isSwapInputAmountDraftForTokenPair({
+            draft: stockInputAmountDraft,
+            fromToken,
+            toToken,
+          })
+        ) {
+          set(swapFromTokenAmountAtom(), stockInputAmountDraft.fromTokenAmount);
+          set(swapToTokenAmountAtom(), stockInputAmountDraft.toTokenAmount);
+        }
+        set(swapInputAmountDraftsAtom(), (drafts) => ({
+          ...drafts,
+          [ESwapTabSwitchType.STOCK]: undefined,
+        }));
+      }
 
       const networkIds = Array.from(
         new Set(
@@ -783,24 +1091,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   quoteEventHandler = contextAtomMethod(
-    (
-      get,
-      set,
-      event: {
-        event: ISwapQuoteEvent;
-        type: 'done' | 'close' | 'error' | 'message' | 'open';
-        params: IFetchQuotesParams;
-        tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-        accountId?: string;
-      },
-    ) => {
+    (get, set, event: ISwapQuoteEventPayload) => {
+      const quoteActionLock = get(swapQuoteActionLockAtom());
       if (
-        !isCurrentStockQuoteEventParams({
+        !isCurrentQuoteEventParams({
+          currentQuoteRequestId: quoteActionLock.quoteRequestId,
           currentSwapType: get(swapTypeSwitchAtom()),
-          fromToken: get(swapSelectFromTokenAtom()),
-          fromTokenAmount: get(swapFromTokenAmountAtom()).value,
+          fromToken:
+            quoteActionLock.fromToken ?? get(swapSelectFromTokenAtom()),
+          fromTokenAmount:
+            quoteActionLock.fromTokenAmount ??
+            get(swapFromTokenAmountAtom()).value,
           params: event.params,
-          toToken: get(swapSelectToTokenAtom()),
+          quoteRequestActive: quoteActionLock.actionLock,
+          quoteRequestId: event.quoteRequestId,
+          toToken: quoteActionLock.toToken ?? get(swapSelectToTokenAtom()),
+          toTokenAmount:
+            quoteActionLock.toTokenAmount ?? get(swapToTokenAmountAtom()).value,
           tokenPairs: event.tokenPairs,
         })
       ) {
@@ -819,6 +1126,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               const isStockQuoteEventError =
                 Boolean(errorData.isStock) ||
                 isStockProtocol(event.params.protocol);
+              const isStockMarketClosed =
+                isStockQuoteEventError && errorData.isMarketOpen === false;
+              const currentSwapType = get(swapTypeSwitchAtom());
+              const shouldRequireManualRefresh =
+                isSwapOrBridgeQuoteType(currentSwapType) ||
+                currentSwapType === ESwapTabSwitchType.STOCK;
               const errorAlert: ISwapAlertState = {
                 message: errorData.errorMessage,
                 alertLevel: ESwapAlertLevel.ERROR,
@@ -846,11 +1159,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 quoteId: '',
               });
               this.reconcileManualSelectQuoteProviders.call(set);
-              set(swapQuoteActionLockAtom(), (v) => ({
-                ...v,
-                actionLock: false,
-              }));
-              this.closeQuoteEvent();
+              if (isStockMarketClosed || !shouldRequireManualRefresh) {
+                this.cleanQuoteInterval.call(set);
+                set(swapShouldRefreshQuoteAtom(), false);
+                set(swapQuoteActionLockAtom(), (v) => ({
+                  ...v,
+                  actionLock: false,
+                }));
+                this.closeQuoteEvent(event.quoteRequestId);
+              } else {
+                this.requireManualQuoteRefresh.call(set);
+              }
               break;
             }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
@@ -916,6 +1235,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 count: totalQuoteCount,
                 totalQuoteCountReceived: true,
               });
+              const currentEventProviderKeys = get(
+                swapQuoteCurrentEventProviderKeysAtom(),
+              );
+              set(
+                swapQuoteCurrentEventReceivedCountAtom(),
+                Math.min(totalQuoteCount, currentEventProviderKeys.length),
+              );
               const isZeroProviderQuoteEvent = hasSwapZeroProviderQuoteEvent({
                 quoteEventTotalCount: {
                   eventId,
@@ -926,6 +1252,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 set(swapQuoteListAtom(), []);
               }
               if (quoteEventError || isZeroProviderQuoteEvent) {
+                const shouldScheduleAutoRefresh = get(swapQuoteFetchingAtom());
                 this.reconcileManualSelectQuoteProviders.call(set);
                 set(swapQuoteEventCompletedAtom(), true);
                 set(swapQuoteFetchingAtom(), false);
@@ -933,7 +1260,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ...v,
                   actionLock: false,
                 }));
-                this.closeQuoteEvent();
+                this.closeQuoteEvent(event.quoteRequestId);
+                if (shouldScheduleAutoRefresh) {
+                  this.scheduleQuoteAutoRefresh.call(set, event);
+                }
                 break;
               }
               set(swapQuoteEventCompletedAtom(), false);
@@ -944,19 +1274,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               );
               const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
               const quoteResultEventId = quoteResultData.data?.[0]?.eventId;
-              const shouldSeedStockQuoteEventFromResult =
-                isStockProtocol(event.params.protocol) &&
+              const shouldSeedQuoteEventFromResult =
+                (isStockProtocol(event.params.protocol) ||
+                  get(swapTypeSwitchAtom()) === ESwapTabSwitchType.SWAP) &&
                 Boolean(quoteResultEventId) &&
                 !quoteEventTotalCount.eventId;
               const activeQuoteEventTotalCount =
-                shouldSeedStockQuoteEventFromResult && quoteResultEventId
+                shouldSeedQuoteEventFromResult && quoteResultEventId
                   ? {
                       eventId: quoteResultEventId,
                       count: quoteResultData.data.length,
                       totalQuoteCountReceived: false,
                     }
                   : quoteEventTotalCount;
-              if (shouldSeedStockQuoteEventFromResult && quoteResultEventId) {
+              if (shouldSeedQuoteEventFromResult && quoteResultEventId) {
                 set(swapQuoteEventTotalCountAtom(), activeQuoteEventTotalCount);
               }
               if (
@@ -1009,9 +1340,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   // 实现再次询价时保留旧报价、只更新部分渠道商报价的效果
                   if (
                     (isStockProtocol(event.params.protocol)
-                      ? isSameSwapAmountValue({
+                      ? isSameSwapQuoteAmountValue({
                           currentAmount: oldQuoteRes.fromAmount,
-                          eventAmount: event.params.fromTokenAmount,
+                          requestAmount: event.params.fromTokenAmount,
                         })
                       : oldQuoteRes.fromAmount ===
                         event.params.fromTokenAmount) &&
@@ -1054,48 +1385,77 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       activeQuoteEventTotalCount.eventId === q.eventId,
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
-                set(swapQuoteCurrentEventProviderKeysAtom(), (keys) => [
+                const currentEventProviderKeys = [
                   ...new Set([
-                    ...keys,
+                    ...get(swapQuoteCurrentEventProviderKeysAtom()),
                     ...quoteResults.map((quote) =>
                       buildSwapQuoteProviderKey(quote),
                     ),
                   ]),
-                ]);
-                set(swapQuoteCurrentEventReceivedCountAtom(), (count) =>
+                ];
+                set(
+                  swapQuoteCurrentEventProviderKeysAtom(),
+                  currentEventProviderKeys,
+                );
+                set(
+                  swapQuoteCurrentEventReceivedCountAtom(),
                   Math.min(
                     activeQuoteEventTotalCount.count,
-                    count + quoteResultData.data.length,
+                    currentEventProviderKeys.length,
                   ),
                 );
+                const selectedQuote = get(swapQuoteCurrentSelectAtom());
+                const shouldEndQuoteStartup =
+                  get(swapTypeSwitchAtom()) !== ESwapTabSwitchType.SWAP ||
+                  (isSwapQuoteActionable(selectedQuote) &&
+                    selectedQuote?.eventId ===
+                      activeQuoteEventTotalCount.eventId);
+                if (shouldEndQuoteStartup) {
+                  const shouldScheduleAutoRefresh = get(
+                    swapQuoteFetchingAtom(),
+                  );
+                  set(swapQuoteFetchingAtom(), false);
+                  if (shouldScheduleAutoRefresh) {
+                    this.scheduleQuoteAutoRefresh.call(set, event);
+                  }
+                }
               }
-              set(swapQuoteFetchingAtom(), false);
             }
           }
           break;
         }
         case 'done': {
+          const shouldScheduleAutoRefresh = get(swapQuoteFetchingAtom());
           this.reconcileManualSelectQuoteProviders.call(set);
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          if (platformEnv.isExtension) {
-            set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteFetchingAtom(), false);
+          this.closeQuoteEvent(event.quoteRequestId);
+          if (shouldScheduleAutoRefresh) {
+            this.scheduleQuoteAutoRefresh.call(set, event);
           }
-          this.closeQuoteEvent();
           break;
         }
         case 'error': {
+          const shouldScheduleAutoRefresh = get(swapQuoteFetchingAtom());
           this.reconcileManualSelectQuoteProviders.call(set);
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          this.closeQuoteEvent();
+          this.closeQuoteEvent(event.quoteRequestId);
+          if (shouldScheduleAutoRefresh) {
+            this.scheduleQuoteAutoRefresh.call(set, event);
+          }
           break;
         }
         case 'close': {
+          const shouldScheduleAutoRefresh = get(swapQuoteFetchingAtom());
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+          if (shouldScheduleAutoRefresh) {
+            this.scheduleQuoteAutoRefresh.call(set, event);
+          }
           break;
         }
         default:
@@ -1119,6 +1479,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toTokenAmount?: string,
       receivingAddress?: string,
       incognito?: boolean,
+      quoteRequestId?: string,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
@@ -1128,15 +1489,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol === ESwapTabSwitchType.STOCK
           ? false
           : (incognito ?? swapIncognitoMode);
+      const isActiveQuoteRequest = () => {
+        const activeQuoteRequest = get(swapQuoteActionLockAtom());
+        return (
+          activeQuoteRequest.actionLock &&
+          activeQuoteRequest.quoteRequestId === quoteRequestId
+        );
+      };
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
       const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
-      if (shouldRefreshQuote) {
-        this.cleanQuoteInterval();
-        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+      if (shouldRefreshQuote || !isActiveQuoteRequest()) {
+        this.cleanQuoteInterval.call(set);
+        if (shouldRefreshQuote && isActiveQuoteRequest()) {
+          set(swapQuoteActionLockAtom(), (value) => ({
+            ...value,
+            actionLock: false,
+          }));
+        }
         return;
       }
-      await backgroundApiProxy.serviceSwap.closeApproving();
+      const handleQuoteRequestFailure = () => {
+        if (!isActiveQuoteRequest()) {
+          return;
+        }
+        this.closeQuoteEvent(quoteRequestId);
+        set(swapQuoteEventCompletedAtom(), true);
+        set(swapQuoteFetchingAtom(), false);
+        set(swapShouldRefreshQuoteAtom(), true);
+        set(swapQuoteActionLockAtom(), (value) => ({
+          ...value,
+          actionLock: false,
+        }));
+      };
+      try {
+        await backgroundApiProxy.serviceSwap.closeApproving();
+      } catch {
+        handleQuoteRequestFailure();
+        return;
+      }
+      if (!isActiveQuoteRequest()) {
+        return;
+      }
       set(swapQuoteEventErrorAtom(), undefined);
       set(swapQuoteFetchingAtom(), true);
       set(swapQuoteEventCompletedAtom(), false);
@@ -1147,30 +1541,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         fromToken,
         toToken,
       });
-      await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
-        fromToken,
-        toToken,
-        fromTokenAmount,
-        userAddress: address,
-        slippagePercentage,
-        autoSlippage,
-        blockNumber,
-        accountId,
-        kind,
-        toTokenAmount,
-        protocol,
-        receivingAddress,
-        incognito: incognitoEnabled,
-        userMarketPriceRate,
-        ...(protocol === ESwapTabSwitchType.LIMIT
-          ? {
-              expirationTime: Number(expirationTime.value),
-              limitPartiallyFillable,
-            }
-          : {}),
-      });
+      try {
+        await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          userAddress: address,
+          slippagePercentage,
+          autoSlippage,
+          blockNumber,
+          accountId,
+          kind,
+          toTokenAmount,
+          protocol,
+          receivingAddress,
+          incognito: incognitoEnabled,
+          userMarketPriceRate,
+          quoteRequestId,
+          ...(protocol === ESwapTabSwitchType.LIMIT
+            ? {
+                expirationTime: Number(expirationTime.value),
+                limitPartiallyFillable,
+              }
+            : {}),
+        });
+      } catch {
+        handleQuoteRequestFailure();
+      }
     },
   );
+
+  requireManualQuoteRefresh = contextAtomMethod((get, set) => {
+    this.cleanQuoteInterval.call(set);
+    const quoteRequestId = get(swapQuoteActionLockAtom()).quoteRequestId;
+    this.closeQuoteEvent(quoteRequestId);
+    set(swapQuoteEventCompletedAtom(), true);
+    set(swapQuoteFetchingAtom(), false);
+    set(swapShouldRefreshQuoteAtom(), true);
+    set(swapQuoteActionLockAtom(), (value) => ({
+      ...value,
+      actionLock: false,
+    }));
+  });
 
   resetQuoteAction = contextAtomMethod(async (get, set) => {
     const fromToken = get(swapSelectFromTokenAtom());
@@ -1255,7 +1667,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toTokenAmountNumber = Number(toTokenAmount.value);
       let quoteKind = kind;
       if (reQuote) {
-        if (
+        const lockedQuoteKind = get(swapQuoteActionLockAtom()).kind;
+        if (lockedQuoteKind) {
+          quoteKind = lockedQuoteKind;
+        } else if (
           kind === ESwapQuoteKind.SELL &&
           !Number.isNaN(toTokenAmountNumber) &&
           toTokenAmountNumber > 0 &&
@@ -1281,8 +1696,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             !Number.isNaN(toTokenAmountNumber) &&
             toTokenAmountNumber > 0));
 
-      this.cleanQuoteInterval();
-      this.closeQuoteEvent();
+      this.cleanQuoteInterval.call(set);
+      this.closeQuoteEvent(get(swapQuoteActionLockAtom()).quoteRequestId);
       if (!unResetCount) {
         set(swapQuoteIntervalCountAtom(), 0);
       }
@@ -1311,6 +1726,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       // check limit zero
+      const quoteRequestId = generateUUID();
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
@@ -1319,10 +1735,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken,
         fromTokenAmount: fromTokenAmount.value,
         toTokenAmount: toTokenAmount.value,
-        kind,
+        kind: quoteKind,
         accountId,
         address,
         receivingAddress,
+        quoteRequestId,
       }));
       void this.runQuoteEvent.call(
         set,
@@ -1338,6 +1755,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toTokenAmount.value,
         receivingAddress,
         incognito,
+        quoteRequestId,
       );
     },
   );
@@ -1348,6 +1766,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       fromToken: ISwapToken,
       toToken: ISwapToken,
+      requestId: number,
+      requestScopeKey: string,
       slippagePercentage: number,
       autoSlippage?: boolean,
       address?: string,
@@ -1363,6 +1783,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const res = await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
           fromToken,
           toToken,
+          requestScopeKey,
           fromTokenAmount,
           toTokenAmount,
           kind,
@@ -1373,6 +1794,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountId,
           protocol: ESwapTabSwitchType.SWAP,
         });
+        if (requestId !== get(swapSpeedQuoteRequestIdAtom())) {
+          return;
+        }
         if (res && res.length > 0) {
           const quoteResult = res[0];
           const quoteResultFromAmount = quoteResult.fromAmount;
@@ -1387,6 +1811,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         set(swapSpeedQuoteFetchingAtom(), false);
       } catch (e: any) {
+        if (requestId !== get(swapSpeedQuoteRequestIdAtom())) {
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL) {
           set(swapSpeedQuoteFetchingAtom(), false);
@@ -1404,7 +1831,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       receivingAddress?: string,
     ) => {
-      this.cancelSpeedQuote();
+      let requestScopeKey = get(swapSpeedQuoteRequestScopeKeyAtom());
+      if (!requestScopeKey) {
+        requestScopeKey = generateUUID();
+        set(swapSpeedQuoteRequestScopeKeyAtom(), requestScopeKey);
+      }
+      const requestId = get(swapSpeedQuoteRequestIdAtom()) + 1;
+      set(swapSpeedQuoteRequestIdAtom(), requestId);
       const selectedToken = get(swapProSelectTokenAtom());
       const buySelectToken = get(swapProUseSelectBuyTokenAtom());
       const sellSelectToken = get(swapProSellToTokenAtom());
@@ -1419,12 +1852,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? selectedToken
           : sellSelectToken;
       if (!fromToken || !toToken || fromToken.networkId !== toToken.networkId) {
+        void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+          requestScopeKey,
+        );
+        set(swapSpeedQuoteFetchingAtom(), false);
+        set(swapSpeedQuoteResultAtom(), undefined);
+        return;
+      }
+      if (checkWrappedTokenPair({ fromToken, toToken })) {
+        void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+          requestScopeKey,
+        );
+        set(swapSpeedQuoteFetchingAtom(), false);
+        set(
+          swapSpeedQuoteResultAtom(),
+          buildWrappedSwapQuoteResult({
+            fromToken,
+            toToken,
+            amount: fromTokenAmount,
+            providerLogo: wrappedTokens.find(
+              (item) => item.networkId === fromToken.networkId,
+            )?.logo,
+          }),
+        );
         return;
       }
       void this.runSpeedQuote.call(
         set,
         fromToken,
         toToken,
+        requestId,
+        requestScopeKey,
         slippageItem.value,
         slippageItem.key === ESwapSlippageSegmentKey.AUTO,
         address,
@@ -1437,22 +1895,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  cleanQuoteInterval = () => {
-    if (this.quoteInterval) {
-      clearTimeout(this.quoteInterval);
-      this.quoteInterval = undefined;
+  cleanQuoteInterval = contextAtomMethod((get, set) => {
+    const quoteAutoRefreshTimer = get(swapQuoteAutoRefreshTimerAtom());
+    if (quoteAutoRefreshTimer !== undefined) {
+      clearTimeout(quoteAutoRefreshTimer);
+      set(swapQuoteAutoRefreshTimerAtom(), undefined);
     }
+  });
+
+  closeQuoteEvent = (quoteRequestId?: string) => {
+    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(quoteRequestId);
   };
 
-  closeQuoteEvent = () => {
-    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
-  };
+  cancelSpeedQuote = contextAtomMethod((get, set) => {
+    set(swapSpeedQuoteRequestIdAtom(), get(swapSpeedQuoteRequestIdAtom()) + 1);
+    const requestScopeKey = get(swapSpeedQuoteRequestScopeKeyAtom());
+    if (requestScopeKey) {
+      void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+        requestScopeKey,
+      );
+    }
+  });
 
-  cancelSpeedQuote = () => {
-    void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote();
-  };
-
-  cleanSpeedQuote = contextAtomMethod(async (get, set) => {
+  cleanSpeedQuote = contextAtomMethod((get, set) => {
+    set(swapSpeedQuoteRequestIdAtom(), get(swapSpeedQuoteRequestIdAtom()) + 1);
     set(swapSpeedQuoteFetchingAtom(), false);
     set(swapSpeedQuoteResultAtom(), undefined);
   });
@@ -1467,22 +1933,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   checkAddressNeedCreate = (
     swapSupportAllNetworks: ISwapNetwork[],
-    fromToken: ISwapToken,
+    token: ISwapToken,
     addressInfo: ReturnType<typeof useSwapAddressInfo>,
     directionType: ESwapDirectionType,
   ) => {
+    const networkId = addressInfo.networkId || token.networkId;
     const netInfo = swapSupportAllNetworks.find(
-      (net) => net.networkId === fromToken.networkId,
+      (net) => net.networkId === networkId,
     );
-    const isAllNetwork = networkUtils.isAllNetwork({
-      networkId: addressInfo.accountInfo?.network?.id,
-    });
-    const networkId = isAllNetwork
-      ? fromToken.networkId
-      : addressInfo.accountInfo?.network?.id;
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const indexedAccountId = addressInfo.accountInfo?.indexedAccount?.id;
-    const deriveType = addressInfo.accountInfo?.deriveType;
+    const deriveType = addressInfo.deriveType;
     const account = {
       walletId,
       indexedAccountId,
@@ -1526,9 +1987,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   checkAccountNetworkNotSupportedAlert = async ({
     addressInfo,
     activeNetworkId,
+    message,
   }: {
     addressInfo?: ReturnType<typeof useSwapAddressInfo>;
     activeNetworkId: string;
+    message?: string;
   }) => {
     if (!addressInfo) {
       return undefined;
@@ -1544,121 +2007,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         activeNetworkId,
       });
     if (accountNetworkNotSupported) {
-      return {
+      let unsupportedMessage = message;
+      if (!unsupportedMessage) {
         // eslint-disable-next-line onekey/no-app-locale-main-thread
-        message: appLocale.intl.formatMessage({
+        unsupportedMessage = appLocale.intl.formatMessage({
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
-        }),
+        });
+      }
+      return {
+        message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
       };
     }
     return undefined;
   };
-
-  private async checkSwapTokenIsStock(token?: ISwapToken) {
-    if (!token?.networkId) {
-      return false;
-    }
-
-    const cacheKey = `${token.networkId}:${token.contractAddress}`;
-    const cached = this.stockTokenCheckCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const checkPromise = backgroundApiProxy.serviceMarketV2
-      .fetchMarketTokenDetailByTokenAddress(
-        token.contractAddress,
-        token.networkId,
-        {
-          autoHandleError: false,
-        },
-      )
-      .then((tokenDetail) => {
-        if (tokenDetail?.code !== 0 || !tokenDetail?.data?.token) {
-          throw new OneKeyLocalError(
-            `Market token detail is not available: ${
-              tokenDetail?.code ?? 'empty'
-            }`,
-          );
-        }
-        return isUSMarketStatusStockTokenSource(
-          tokenDetail.data.token.stock?.source,
-        );
-      })
-      .catch((error) => {
-        defaultLogger.swap.stockTokenCheck.stockTokenCheckUnavailable({
-          cacheKey,
-          networkId: token.networkId,
-          tokenSymbol: token.symbol,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-        this.stockTokenCheckCache.delete(cacheKey);
-        return false;
-      });
-    this.stockTokenCheckCache.set(cacheKey, checkPromise);
-    return checkPromise;
-  }
-
-  private async fetchCheckUSMarketStatus() {
-    const now = Date.now();
-    if (this.usMarketStatusCache && this.usMarketStatusCache.expiresAt > now) {
-      return this.usMarketStatusCache.promise;
-    }
-
-    const promise = backgroundApiProxy.serviceSwap
-      .fetchCheckUSMarketStatus()
-      .then((marketStatus) => {
-        if (!marketStatus || marketStatus.unavailable) {
-          this.usMarketStatusCache = undefined;
-        }
-        return marketStatus;
-      })
-      .catch(() => {
-        this.usMarketStatusCache = undefined;
-        return {
-          open: false,
-          session: 'CLOSED' as const,
-          reason: 'market-status-unavailable',
-          unavailable: true,
-        };
-      });
-    this.usMarketStatusCache = {
-      expiresAt: now + 30_000,
-      promise,
-    };
-    return promise;
-  }
-
-  private async checkSwapPairUSMarketClosed({
-    fromToken,
-    toToken,
-  }: {
-    fromToken?: ISwapToken;
-    toToken?: ISwapToken;
-  }) {
-    const [fromTokenIsStock, toTokenIsStock] = await Promise.all([
-      this.checkSwapTokenIsStock(fromToken),
-      this.checkSwapTokenIsStock(toToken),
-    ]);
-
-    if (!fromTokenIsStock && !toTokenIsStock) {
-      return false;
-    }
-
-    const marketStatus = await this.fetchCheckUSMarketStatus();
-    return marketStatus?.open === false && marketStatus.unavailable !== true;
-  }
-
-  private getUSMarketClosedAlert(): ISwapAlertState & { message: string } {
-    return {
-      // eslint-disable-next-line onekey/no-app-locale-main-thread
-      message: appLocale.intl.formatMessage({
-        id: ETranslations.dexmarket_stock_status_closed_error,
-      }),
-      alertLevel: ESwapAlertLevel.ERROR,
-    };
-  }
 
   checkSwapWarning = contextAtomMethod(
     async (
@@ -1670,8 +2032,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         allowNoConnectWallet?: boolean;
       },
     ) => {
+      const warningRequestId = get(swapWarningRequestIdAtom()) + 1;
+      set(swapWarningRequestIdAtom(), warningRequestId);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
+      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      const isLatestSwapWarningCheck = () =>
+        get(swapWarningRequestIdAtom()) === warningRequestId &&
+        get(swapTypeSwitchAtom()) === swapTypeSwitch &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectFromTokenAtom()),
+          token2: fromToken,
+        }) &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectToTokenAtom()),
+          token2: toToken,
+        });
       const networks = get(swapNetworks());
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
@@ -1685,7 +2061,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapQuoteCurrentEventReceivedCountAtom(),
       );
       const { swapIncognitoMode } = await settingsAtom.get();
-      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      if (!isLatestSwapWarningCheck()) {
+        return;
+      }
       const quoteEventProgressTotalCount = getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
@@ -1737,6 +2115,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteEventErrorAtom(), undefined);
       }
       const isLatestStockWarningCheck = () => {
+        if (!isLatestSwapWarningCheck()) {
+          return false;
+        }
         if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
           return true;
         }
@@ -1751,9 +2132,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             fromToken: latestFromToken,
             toToken: latestToToken,
           }) &&
-            isSameSwapAmountValue({
+            isSameSwapQuoteAmountValue({
               currentAmount: latestFromTokenAmount.value,
-              eventAmount: quoteResult.fromAmount,
+              requestAmount: quoteResult.fromAmount,
             }));
         const isLatestStockQuoteEventError =
           !quoteEventError ||
@@ -1826,42 +2207,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         return;
       }
-      if (
-        shouldCheckSwapWarningUSMarketClosed({
-          alerts: alertsRes,
-          swapTypeSwitch,
-          fromToken,
-          toToken,
-          accountReady: swapFromAddressInfo.accountInfo?.ready,
-          isWaitingActionableQuote,
-          hasFromAccountWallet: Boolean(
-            swapFromAddressInfo.accountInfo?.wallet,
-          ),
-        })
-      ) {
-        const isUSMarketClosed = await this.checkSwapPairUSMarketClosed({
-          fromToken,
-          toToken,
-        });
-        const latestFromToken = get(swapSelectFromTokenAtom());
-        const latestToToken = get(swapSelectToTokenAtom());
-        const latestSwapTypeSwitch = get(swapTypeSwitchAtom());
-        const isSameTokenPair =
-          equalTokenNoCaseSensitive({
-            token1: latestFromToken,
-            token2: fromToken,
-          }) &&
-          equalTokenNoCaseSensitive({
-            token1: latestToToken,
-            token2: toToken,
-          });
-        if (!isSameTokenPair || latestSwapTypeSwitch !== swapTypeSwitch) {
-          return;
-        }
-        if (isUSMarketClosed) {
-          alertsRes = [this.getUSMarketClosedAlert()];
-        }
-      }
       if (!isLatestStockWarningCheck()) {
         return;
       }
@@ -1870,6 +2215,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
       if (
+        swapFromAddressInfo.isAddressInfoReady &&
         shouldShowSwapAccountUnsupportedAlert({
           hasFromToken: Boolean(fromToken),
           fromAddress: swapFromAddressInfo.address,
@@ -1887,6 +2233,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       if (
+        swapFromAddressInfo.isAddressInfoReady &&
         fromToken &&
         swapFromAddressInfo.accountInfo?.wallet?.id &&
         alertsRes.every((item) => item.message !== notSupportSwapMessage)
@@ -1903,6 +2250,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               addressInfo: swapFromAddressInfo,
               activeNetworkId: fromToken.networkId,
             });
+          if (!isLatestSwapWarningCheck()) {
+            return;
+          }
           if (accountNetworkNotSupportedAlert) {
             alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
             set(swapAlertsAtom(), {
@@ -1913,17 +2263,36 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
+      const toWalletId = swapToAddressInfo.accountInfo?.wallet?.id;
+      const shouldCheckToAccountNetwork =
+        Boolean(fromToken && fromToken.networkId === toToken?.networkId) ||
+        accountUtils.isHwWallet({ walletId: toWalletId }) ||
+        !get(swapProviderSupportReceiveAddressAtom());
       if (
+        swapToAddressInfo.isAddressInfoReady &&
         toToken &&
         !swapToAddressInfo.address &&
-        swapToAddressInfo.accountInfo?.wallet?.id &&
+        toWalletId &&
+        shouldCheckToAccountNetwork &&
         alertsRes.every((item) => item.message !== notSupportSwapMessage)
       ) {
+        const toNetworkName =
+          swapSupportAllNetworks.find(
+            (network) => network.networkId === toToken.networkId,
+          )?.name ?? toToken.symbol;
         const accountNetworkNotSupportedAlert =
           await this.checkAccountNetworkNotSupportedAlert({
             addressInfo: swapToAddressInfo,
             activeNetworkId: toToken.networkId,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage(
+              { id: ETranslations.wallet_unsupported_network_title },
+              { network: toNetworkName },
+            ),
           });
+        if (!isLatestSwapWarningCheck()) {
+          return;
+        }
         if (accountNetworkNotSupportedAlert) {
           alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
           set(swapAlertsAtom(), {
@@ -1933,7 +2302,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           return;
         }
       }
-
       // check from address
       if (
         fromToken &&
@@ -2220,6 +2588,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  invalidateSwapWarningCheck = contextAtomMethod((get, set) => {
+    set(swapWarningRequestIdAtom(), get(swapWarningRequestIdAtom()) + 1);
+  });
+
   loadSwapSelectTokenDetail = contextAtomMethod(
     async (
       get,
@@ -2228,6 +2600,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
       fetchBalance?: boolean,
     ) => {
+      const currentSwapType = get(swapTypeSwitchAtom());
+      if (
+        currentSwapType === ESwapTabSwitchType.STOCK ||
+        (platformEnv.isNative && currentSwapType === ESwapTabSwitchType.LIMIT)
+      ) {
+        return;
+      }
       const token =
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
@@ -2271,7 +2650,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountNetworkId = swapAddressInfo.networkId;
         accountId = swapAddressInfo.accountInfo?.account?.id;
       }
-      let balanceDisplay;
+      let balanceDisplay: string | undefined;
+      let hasAuthoritativeBalance = false;
       if (
         (token &&
           accountAddress &&
@@ -2289,6 +2669,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           balanceDisplay = balanceParsedBN.isNaN()
             ? '0.0'
             : balanceParsedBN.toFixed();
+          hasAuthoritativeBalance = true;
         } else {
           try {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
@@ -2317,6 +2698,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceDisplay = balanceParsedBN.isNaN()
                 ? '0.0'
                 : balanceParsedBN.toFixed();
+              hasAuthoritativeBalance =
+                detailInfo[0].balanceParsed !== undefined;
               const condition: {
                 price?: string;
                 fiatValue?: string;
@@ -2402,6 +2785,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else {
           set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
         }
+        if (
+          token &&
+          accountAddress &&
+          hasAuthoritativeBalance &&
+          balanceDisplay !== undefined
+        ) {
+          const accountKey = buildSwapSelectedTokensColdStartAccountKey(
+            swapAddressInfo.activeAccount,
+          );
+          set(swapBalanceDisplayCacheAtom(), (cache) =>
+            updateSwapBalanceDisplayCache({
+              accountAddress,
+              accountKey,
+              balance: balanceDisplay,
+              cache,
+              token,
+            }),
+          );
+        }
       }
     },
   );
@@ -2411,6 +2813,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       get,
       set,
       accountNetworkId: string,
+      protocol: ESwapTabSwitchType,
       accountId?: string,
       accountAddress?: string,
       isFirstFetch?: boolean,
@@ -2418,7 +2821,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       lpToken?: boolean,
       currency?: string,
     ) => {
-      const protocol = get(swapTypeSwitchAtom());
       const shouldFetchOnlyAccountTokens = !isStockProtocol(protocol);
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
@@ -2430,6 +2832,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol,
         lpToken,
         currency,
+        ...(isStockProtocol(protocol)
+          ? { limit: swapStockTokenListMaxCount }
+          : {}),
       });
       if (result?.length) {
         if (isFirstFetch && allNetAccountId) {
@@ -2490,114 +2895,197 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       lpToken?: boolean,
       currency?: string,
     ) => {
-      const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
-      const swapSupportNetworks = get(swapNetworks());
-      let currentTypeSupportNetworks = swapSupportNetworks.filter(
-        (item) => item.supportLimit,
-      );
-      if (
-        swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
-        swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE
-      ) {
-        currentTypeSupportNetworks = swapSupportNetworks;
-      } else if (swapTypeSwitchValue === ESwapTabSwitchType.STOCK) {
-        currentTypeSupportNetworks = swapSupportNetworks.filter(
-          (item) => item.supportStock,
-        );
-      }
-      const tokenListSupportNetworks = lpToken
-        ? currentTypeSupportNetworks.filter(
-            isTokenSelectorDappTokenFilterSupportedNetworkBase,
-          )
-        : currentTypeSupportNetworks;
-      const { accountIdKey, swapSupportAccounts } =
-        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
-          indexedAccountId,
-          otherWalletTypeAccountId,
-          swapSupportNetworks: tokenListSupportNetworks,
-        });
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
-        accountId: accountIdKey,
+        accountId:
+          indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId',
         lpToken,
         currency,
         protocol: swapTypeSwitchValue,
       });
-      if (swapAllNetworkActionLock[tokenListCacheKey]) {
-        return;
-      }
-      if (swapSupportAccounts.length > 0) {
-        set(swapAllNetworkActionLockAtom(), (v) => ({
-          ...v,
-          [tokenListCacheKey]: true,
-        }));
-        const currentSwapAllNetworkTokenList = get(
-          swapAllNetworkTokenListMapAtom(),
-        )[tokenListCacheKey];
-        const accountAddressList = swapSupportAccounts
-          .filter((item) => item.apiAddress)
-          .filter(
-            (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+      const buildRequestContext = () => {
+        const swapSupportNetworks = get(swapNetworks());
+        let currentTypeSupportNetworks = swapSupportNetworks.filter(
+          (item) => item.supportLimit,
+        );
+        if (
+          swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
+          swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE
+        ) {
+          currentTypeSupportNetworks = swapSupportNetworks;
+        } else if (swapTypeSwitchValue === ESwapTabSwitchType.STOCK) {
+          currentTypeSupportNetworks = swapSupportNetworks.filter(
+            (item) => item.supportStock,
           );
-
-        // Create tasks as functions to delay execution until batched
-        const tasks = accountAddressList.map((networkDataString) => {
-          const {
-            apiAddress,
-            networkId: accountNetworkId,
-            accountId,
-          } = networkDataString;
-          return () =>
-            this.updateAllNetworkTokenList.call(
-              set,
-              accountNetworkId,
-              accountId,
-              apiAddress,
-              !currentSwapAllNetworkTokenList,
-              tokenListCacheKey,
-              lpToken,
-              currency,
-            );
-        });
-
-        try {
-          // Execute requests in batches of 3 to prevent UI thread blocking
-          const results = await this.executeBatched(tasks, 3);
-
-          if (!currentSwapAllNetworkTokenList) {
-            set(swapAllNetworkTokenListMapAtom(), (v) => {
-              if (v[tokenListCacheKey] !== undefined) {
-                return v;
-              }
-              return {
-                ...v,
-                [tokenListCacheKey]: [],
-              };
-            });
-          } else {
-            // Subsequent fetches: collect results and update atom
-            const allTokensResult = results
-              .filter((r) => r.status === 'fulfilled' && r.value)
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-              .map((r) => (r as PromiseFulfilledResult<any>).value)
-              .filter(Boolean)
-              .flat();
-            set(swapAllNetworkTokenListMapAtom(), (v) => ({
-              ...v,
-              [tokenListCacheKey]: allTokensResult,
+        }
+        const tokenListSupportNetworks = lpToken
+          ? currentTypeSupportNetworks.filter(
+              isTokenSelectorDappTokenFilterSupportedNetworkBase,
+            )
+          : currentTypeSupportNetworks;
+        return {
+          requestKey: buildSwapNetworkReadyKey(tokenListSupportNetworks),
+          tokenListSupportNetworks,
+        };
+      };
+      let requestContext = buildRequestContext();
+      const currentLock = get(swapAllNetworkActionLockAtom())[
+        tokenListCacheKey
+      ];
+      if (currentLock) {
+        if (currentLock.activeRequestKey === requestContext.requestKey) {
+          if (currentLock.pendingRequestKey) {
+            set(swapAllNetworkActionLockAtom(), (value) => ({
+              ...value,
+              [tokenListCacheKey]: {
+                ...currentLock,
+                pendingRequestKey: undefined,
+              },
             }));
           }
-        } finally {
-          set(swapAllNetworkActionLockAtom(), (v) => ({
-            ...v,
-            [tokenListCacheKey]: false,
-          }));
+          await currentLock.completionPromise;
+          return;
         }
-      } else {
-        set(swapAllNetworkTokenListMapAtom(), (v) => ({
-          ...v,
-          [tokenListCacheKey]: [],
+        if (currentLock.pendingRequestKey === requestContext.requestKey) {
+          await currentLock.completionPromise;
+          return;
+        }
+        set(swapAllNetworkActionLockAtom(), (value) => ({
+          ...value,
+          [tokenListCacheKey]: {
+            ...currentLock,
+            pendingRequestKey: requestContext.requestKey,
+          },
         }));
+        await currentLock.completionPromise;
+        return;
+      }
+      let resolveCompletionPromise: (() => void) | undefined;
+      const completionPromise = new Promise<void>((resolve) => {
+        resolveCompletionPromise = resolve;
+      });
+      set(swapAllNetworkActionLockAtom(), (value) => ({
+        ...value,
+        [tokenListCacheKey]: {
+          activeRequestKey: requestContext.requestKey,
+          completionPromise,
+        },
+      }));
+      let activeRequestKey = requestContext.requestKey;
+      try {
+        for (;;) {
+          let requestError: unknown;
+          try {
+            const { swapSupportAccounts } =
+              await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+                indexedAccountId,
+                otherWalletTypeAccountId,
+                swapSupportNetworks: requestContext.tokenListSupportNetworks,
+              });
+            if (swapSupportAccounts.length > 0) {
+              const currentSwapAllNetworkTokenList = get(
+                swapAllNetworkTokenListMapAtom(),
+              )[tokenListCacheKey];
+              const accountAddressList = dedupeTokenSelectorNetworkAccounts(
+                swapSupportAccounts,
+              ).filter(
+                (item) =>
+                  !networkUtils.isAllNetwork({ networkId: item.networkId }),
+              );
+
+              // Create tasks as functions to delay execution until batched
+              const tasks: Array<() => Promise<ISwapToken[] | undefined>> =
+                accountAddressList.map((networkDataString) => {
+                  const {
+                    apiAddress,
+                    networkId: accountNetworkId,
+                    accountId,
+                  } = networkDataString;
+                  return async () =>
+                    (await this.updateAllNetworkTokenList.call(
+                      set,
+                      accountNetworkId,
+                      swapTypeSwitchValue,
+                      accountId,
+                      apiAddress,
+                      !currentSwapAllNetworkTokenList,
+                      tokenListCacheKey,
+                      lpToken,
+                      currency,
+                    )) as ISwapToken[] | undefined;
+                });
+
+              // Execute requests in batches of 3 to prevent UI thread blocking
+              const results = await this.executeBatched(tasks, 3);
+
+              if (!currentSwapAllNetworkTokenList) {
+                set(swapAllNetworkTokenListMapAtom(), (value) => {
+                  if (value[tokenListCacheKey] !== undefined) {
+                    return value;
+                  }
+                  return {
+                    ...value,
+                    [tokenListCacheKey]: [],
+                  };
+                });
+              } else {
+                // Subsequent fetches: collect results and update atom
+                const allTokensResult = results.flatMap((result) =>
+                  result.status === 'fulfilled' ? (result.value ?? []) : [],
+                );
+                set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                  ...value,
+                  [tokenListCacheKey]: allTokensResult,
+                }));
+              }
+            } else {
+              set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                ...value,
+                [tokenListCacheKey]: [],
+              }));
+            }
+          } catch (error) {
+            requestError = error;
+          }
+
+          const latestLock = get(swapAllNetworkActionLockAtom())[
+            tokenListCacheKey
+          ];
+          if (
+            latestLock?.activeRequestKey === activeRequestKey &&
+            latestLock.pendingRequestKey
+          ) {
+            const nextRequestContext = buildRequestContext();
+            const nextActiveRequestKey = nextRequestContext.requestKey;
+            requestContext = nextRequestContext;
+            activeRequestKey = nextActiveRequestKey;
+            set(swapAllNetworkActionLockAtom(), (value) => ({
+              ...value,
+              [tokenListCacheKey]: {
+                ...latestLock,
+                activeRequestKey: nextActiveRequestKey,
+                pendingRequestKey: undefined,
+              },
+            }));
+          } else {
+            if (requestError) {
+              throw requestError instanceof Error
+                ? requestError
+                : new OneKeyLocalError(String(requestError));
+            }
+            break;
+          }
+        }
+      } finally {
+        set(swapAllNetworkActionLockAtom(), (value) => {
+          if (value[tokenListCacheKey]?.activeRequestKey !== activeRequestKey) {
+            return value;
+          }
+          const nextValue = { ...value };
+          delete nextValue[tokenListCacheKey];
+          return nextValue;
+        });
+        resolveCompletionPromise?.();
       }
     },
   );
@@ -2609,8 +3097,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       supportNetworks: ISwapNetwork[],
       indexedAccountId?: string,
       otherWalletTypeAccountId?: string,
+      currencyId?: string,
+      options?: {
+        forceRefresh?: boolean;
+      },
     ) => {
-      set(swapProSupportNetworksTokenListLoadingAtom(), true);
+      const positionCurrencyId = currencyId?.toLowerCase() ?? '';
       const positionNetworkIdsKey = supportNetworks
         .map((item) => item.networkId)
         .filter(Boolean)
@@ -2619,84 +3111,232 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const positionOwnerKey = buildSwapProPositionsOwnerKey({
         accountId: indexedAccountId ?? otherWalletTypeAccountId,
         networkIdsKey: positionNetworkIdsKey,
+        currencyId: positionCurrencyId,
       });
+      if (!positionOwnerKey) {
+        set(swapProPositionsCurrentOwnerKeyAtom(), '');
+        set(swapProPositionsDataOwnerKeyAtom(), '');
+        set(swapProSupportNetworksTokenListAtom(), []);
+        return;
+      }
+      set(swapProPositionsCurrentOwnerKeyAtom(), positionOwnerKey);
+      const positionsCache = getValidSwapProPositionsCache(
+        get(swapProPositionsCacheAtom()),
+      );
+      const cachedPositionEntry = positionsCache.byOwner[positionOwnerKey];
+      const activeRequestId = get(swapProPositionsRequestIdsAtom())[
+        positionOwnerKey
+      ];
+      if (activeRequestId && !options?.forceRefresh) {
+        return;
+      }
+      if (
+        shouldReuseSwapProPositionsCache({
+          cacheEntry: cachedPositionEntry,
+          forceRefresh: options?.forceRefresh,
+          ownerKey: positionOwnerKey,
+        }) &&
+        get(swapProPositionsDataOwnerKeyAtom()) === positionOwnerKey
+      ) {
+        // Only authoritative data loaded in this runtime may short-circuit.
+        // The persisted top-N snapshot is a display seed, never the live list.
+        return;
+      }
+      // Requests are tracked per owner. Pro and Stock may load concurrently,
+      // but only the currently visible owner may update the shared live list.
+      const requestId = get(swapProPositionsRequestIdAtom()) + 1;
+      set(swapProPositionsRequestIdAtom(), requestId);
+      set(swapProPositionsRequestIdsAtom(), (previousRequestIds) => ({
+        ...previousRequestIds,
+        [positionOwnerKey]: requestId,
+      }));
+      const isLatestOwnerRequest = () =>
+        get(swapProPositionsRequestIdsAtom())[positionOwnerKey] === requestId;
+      const isCurrentOwner = () =>
+        get(swapProPositionsCurrentOwnerKeyAtom()) === positionOwnerKey;
+      const settleRequestFailure = () => {
+        if (
+          isLatestOwnerRequest() &&
+          isCurrentOwner() &&
+          get(swapProPositionsDataOwnerKeyAtom()) !== positionOwnerKey &&
+          !cachedPositionEntry
+        ) {
+          // A failed first load must leave the loading surface. Keep any
+          // last-good persisted seed display-only, but do not persist this
+          // fallback as cache or mark the seed as authoritative live data.
+          set(swapProSupportNetworksTokenListAtom(), []);
+          set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
+        }
+      };
       const updatePositionsCache = (tokens: ISwapToken[]) => {
         if (!positionOwnerKey || !positionNetworkIdsKey) {
           return;
         }
         set(swapProPositionsCacheAtom(), (prev) => {
           const updatedAt = Date.now();
-          const byOwner = {
-            ...prev.byOwner,
-            [positionOwnerKey]: {
+          return upsertSwapProPositionsCacheEntry({
+            cache: prev,
+            entry: {
               ownerKey: positionOwnerKey,
               networkIdsKey: positionNetworkIdsKey,
+              currencyId: positionCurrencyId,
               tokens,
               updatedAt,
             },
-          };
-          const entries = Object.entries(byOwner)
-            .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
-            .slice(0, SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS);
-          return {
-            byOwner: Object.fromEntries(entries),
-          };
+          });
         });
       };
-      const { swapSupportAccounts: swapProSupportAccounts } =
-        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+      try {
+        const {
+          supportAccountsFetchFailed,
+          swapSupportAccounts: swapProSupportAccounts,
+        } = await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
           indexedAccountId,
           otherWalletTypeAccountId,
           swapSupportNetworks: supportNetworks,
         });
-      if (swapProSupportAccounts.length > 0) {
-        const accountAddressList = swapProSupportAccounts
-          .filter((item) => item.apiAddress)
-          .filter(
-            (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
-          );
-
-        // Create tasks as functions to delay execution until batched
-        const tasks = accountAddressList.map((networkDataString) => {
-          const {
-            apiAddress,
-            networkId: accountNetworkId,
-            accountId,
-          } = networkDataString;
-          return () =>
-            backgroundApiProxy.serviceSwap.fetchSwapTokens({
-              networkId: accountNetworkId,
-              accountNetworkId,
-              accountAddress: apiAddress,
-              accountId,
-              onlyAccountTokens: true,
-              isAllNetworkFetchAccountTokens: true,
-              protocol: ESwapTabSwitchType.SWAP,
-            });
-        });
-
-        // Execute requests in batches of 3 to prevent UI thread blocking
-        const results = await this.executeBatched(tasks, 3);
-
-        // Extract successful results and sort by fiat value
-        const sortedResult = results
-          .filter((r) => r.status === 'fulfilled' && r.value)
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          .map((r) => (r as PromiseFulfilledResult<any>).value)
-          .filter(Boolean)
-          .flat()
-          .toSorted((a, b) => {
-            return new BigNumber(b.fiatValue ?? '0').comparedTo(
-              new BigNumber(a.fiatValue ?? '0'),
+        if (supportAccountsFetchFailed) {
+          settleRequestFailure();
+          return;
+        }
+        if (swapProSupportAccounts.length > 0) {
+          const accountAddressList = swapProSupportAccounts
+            .filter((item) => item.apiAddress)
+            .filter(
+              (item) =>
+                !networkUtils.isAllNetwork({ networkId: item.networkId }),
             );
+
+          // Create tasks as functions to delay execution until batched
+          const tasks = accountAddressList.map((networkDataString) => {
+            const {
+              apiAddress,
+              networkId: accountNetworkId,
+              accountId,
+            } = networkDataString;
+            return () =>
+              backgroundApiProxy.serviceSwap.fetchSwapTokens({
+                networkId: accountNetworkId,
+                accountNetworkId,
+                accountAddress: apiAddress,
+                accountId,
+                onlyAccountTokens: true,
+                isAllNetworkFetchAccountTokens: true,
+                throwOnError: true,
+                currency: positionCurrencyId,
+                protocol: ESwapTabSwitchType.SWAP,
+              });
           });
-        set(swapProSupportNetworksTokenListAtom(), sortedResult);
-        updatePositionsCache(sortedResult);
-      } else {
-        set(swapProSupportNetworksTokenListAtom(), []);
-        updatePositionsCache([]);
+
+          // Execute requests in batches of 3 to prevent UI thread blocking
+          const results = await this.executeBatched(tasks, 3);
+          if (!isLatestOwnerRequest()) {
+            return;
+          }
+          if (results.some((result) => result.status === 'rejected')) {
+            settleRequestFailure();
+            return;
+          }
+
+          // Extract successful results and sort by fiat value
+          const sortedResult = results
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            .map((r) => (r as PromiseFulfilledResult<any>).value)
+            .filter(Boolean)
+            .flat()
+            .toSorted((a, b) => {
+              return new BigNumber(b.fiatValue ?? '0').comparedTo(
+                new BigNumber(a.fiatValue ?? '0'),
+              );
+            });
+          updatePositionsCache(sortedResult);
+          if (isCurrentOwner()) {
+            set(swapProSupportNetworksTokenListAtom(), sortedResult);
+            set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
+          }
+        } else if (isLatestOwnerRequest()) {
+          updatePositionsCache([]);
+          if (isCurrentOwner()) {
+            set(swapProSupportNetworksTokenListAtom(), []);
+            set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
+          }
+        }
+      } catch (error) {
+        settleRequestFailure();
+        console.error('swapPro__loadPositions error', error);
+      } finally {
+        if (isLatestOwnerRequest()) {
+          set(swapProPositionsRequestIdsAtom(), (previousRequestIds) => {
+            const { [positionOwnerKey]: _, ...remainingRequestIds } =
+              previousRequestIds;
+            return remainingRequestIds;
+          });
+        }
       }
-      set(swapProSupportNetworksTokenListLoadingAtom(), false);
+    },
+  );
+
+  updateSwapProPositionTokenBalances = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        positionOwnerKey,
+        tokens,
+      }: {
+        positionOwnerKey: string;
+        tokens: ISwapToken[];
+      },
+    ) => {
+      if (
+        !positionOwnerKey ||
+        get(swapProPositionsCurrentOwnerKeyAtom()) !== positionOwnerKey ||
+        get(swapProPositionsDataOwnerKeyAtom()) !== positionOwnerKey
+      ) {
+        return;
+      }
+      const mergeTokenBalances = (previousTokens: ISwapToken[]) => {
+        const updatedTokens = [...previousTokens];
+        for (const tokenDetail of tokens) {
+          const existingIndex = updatedTokens.findIndex((token) =>
+            equalTokenNoCaseSensitive({
+              token1: token,
+              token2: tokenDetail,
+            }),
+          );
+          const nextToken = {
+            ...tokenDetail,
+            balanceParsed: tokenDetail.balanceParsed ?? '',
+            fiatValue: tokenDetail.fiatValue ?? '',
+            price: tokenDetail.price ?? '',
+          };
+          if (existingIndex === -1) {
+            updatedTokens.push(nextToken);
+          } else {
+            updatedTokens[existingIndex] = {
+              ...updatedTokens[existingIndex],
+              ...nextToken,
+            };
+          }
+        }
+        return updatedTokens;
+      };
+      set(swapProSupportNetworksTokenListAtom(), mergeTokenBalances);
+      set(swapProPositionsCacheAtom(), (previousCache) => {
+        const validPreviousCache = getValidSwapProPositionsCache(previousCache);
+        const cachedEntry = validPreviousCache.byOwner[positionOwnerKey];
+        if (!cachedEntry) {
+          return validPreviousCache;
+        }
+        return upsertSwapProPositionsCacheEntry({
+          cache: validPreviousCache,
+          entry: {
+            ...cachedEntry,
+            tokens: mergeTokenBalances(cachedEntry.tokens),
+          },
+        });
+      });
     },
   );
 
@@ -2709,6 +3349,73 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
+      let currentFromToken = get(swapSelectFromTokenAtom());
+      let currentToToken = get(swapSelectToTokenAtom());
+      const shouldHandleInputAmountDraft =
+        oldVisibleType !== normalizedType &&
+        isIndependentSwapInputAmountType(oldVisibleType) &&
+        isIndependentSwapInputAmountType(normalizedType);
+      // Native Limit owns its own amount state. Preserve the non-Limit side in
+      // the shared draft map without copying the Limit owner's state into it.
+      const shouldSaveInputAmountDraft =
+        shouldHandleInputAmountDraft &&
+        (!platformEnv.isNative || oldVisibleType !== ESwapTabSwitchType.LIMIT);
+      const shouldRestoreInputAmountDraft =
+        shouldHandleInputAmountDraft &&
+        (!platformEnv.isNative || normalizedType !== ESwapTabSwitchType.LIMIT);
+      let targetInputAmountDraft: ISwapInputAmountDraft | undefined;
+      if (shouldSaveInputAmountDraft || shouldRestoreInputAmountDraft) {
+        const inputAmountDrafts = get(swapInputAmountDraftsAtom());
+        if (shouldSaveInputAmountDraft) {
+          const currentInputAmountDraft = buildSwapInputAmountDraft({
+            fromTokenAmount: get(swapFromTokenAmountAtom()),
+            toTokenAmount: get(swapToTokenAmountAtom()),
+            fromToken: currentFromToken,
+            toToken: currentToToken,
+          });
+          const shouldPreservePendingStockDraft =
+            oldVisibleType === ESwapTabSwitchType.STOCK &&
+            Boolean(inputAmountDrafts[ESwapTabSwitchType.STOCK]) &&
+            !currentInputAmountDraft;
+          set(swapInputAmountDraftsAtom(), {
+            ...inputAmountDrafts,
+            [oldVisibleType]: shouldPreservePendingStockDraft
+              ? inputAmountDrafts[ESwapTabSwitchType.STOCK]
+              : currentInputAmountDraft,
+          });
+        }
+        targetInputAmountDraft = shouldRestoreInputAmountDraft
+          ? inputAmountDrafts[normalizedType]
+          : undefined;
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
+      }
+      const restoreTargetInputAmountDraft = () => {
+        if (
+          !targetInputAmountDraft ||
+          normalizedType === ESwapTabSwitchType.STOCK
+        ) {
+          return;
+        }
+        if (
+          isSwapInputAmountDraftForTokenPair({
+            draft: targetInputAmountDraft,
+            fromToken: get(swapSelectFromTokenAtom()),
+            toToken: get(swapSelectToTokenAtom()),
+          })
+        ) {
+          set(
+            swapFromTokenAmountAtom(),
+            targetInputAmountDraft.fromTokenAmount,
+          );
+          set(swapToTokenAmountAtom(), targetInputAmountDraft.toTokenAmount);
+        }
+        set(swapInputAmountDraftsAtom(), (drafts) => ({
+          ...drafts,
+          [normalizedType]: undefined,
+        }));
+      };
       const isCrossingStockBoundary =
         (oldType === ESwapTabSwitchType.STOCK) !==
         (normalizedType === ESwapTabSwitchType.STOCK);
@@ -2721,9 +3428,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
       }
-      let currentFromToken = get(swapSelectFromTokenAtom());
-      let currentToToken = get(swapSelectToTokenAtom());
-      const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (
         oldType !== ESwapTabSwitchType.STOCK &&
         oldType !== ESwapTabSwitchType.LIMIT &&
@@ -2868,6 +3572,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (sortNetworkId) {
             void this.syncNetworksSort.call(set, sortNetworkId);
           }
+          restoreTargetInputAmountDraft();
           return;
         }
       }
@@ -3031,6 +3736,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
+      restoreTargetInputAmountDraft();
     },
   );
 
@@ -3125,6 +3831,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
         const currentSelectToken = get(swapProSelectTokenAtom());
+        if (
+          !currentSelectToken ||
+          !equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress,
+            },
+            token2: currentSelectToken,
+          })
+        ) {
+          return;
+        }
         const currentTokenDetail = get(swapProTokenMarketDetailInfoAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -3174,7 +3892,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } catch (error) {
         console.error('swap__tokenDetail error', error);
       } finally {
-        set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        const currentSelectToken = get(swapProSelectTokenAtom());
+        if (
+          currentSelectToken &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress,
+            },
+            token2: currentSelectToken,
+          })
+        ) {
+          set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        }
       }
     },
   );
@@ -3191,7 +3921,9 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const quoteAction = actions.quoteAction.use();
+  const requireManualQuoteRefresh = actions.requireManualQuoteRefresh.use();
   const checkSwapWarning = actions.checkSwapWarning.use();
+  const invalidateSwapWarningCheck = actions.invalidateSwapWarningCheck.use();
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
@@ -3203,22 +3935,33 @@ export const useSwapActions = () => {
     actions.swapProTokenMarketDetailFetchAction.use();
   const swapProLoadSupportNetworksTokenList =
     actions.swapProLoadSupportNetworksTokenList.use();
+  const updateSwapProPositionTokenBalances =
+    actions.updateSwapProPositionTokenBalances.use();
+  const beginSwapProTokenBalanceRequest =
+    actions.beginSwapProTokenBalanceRequest.use();
+  const isSwapProTokenBalanceRequestLatest =
+    actions.isSwapProTokenBalanceRequestLatest.use();
+  const invalidateSwapProTokenBalanceRequest =
+    actions.invalidateSwapProTokenBalanceRequest.use();
+  const finishSwapProTokenBalanceRequest =
+    actions.finishSwapProTokenBalanceRequest.use();
   const quoteSpeedAction = actions.quoteSpeedAction.use();
+  const cancelSpeedQuote = actions.cancelSpeedQuote.use();
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
+  const cleanQuoteInterval = actions.cleanQuoteInterval.use();
   const setSwapProSelectToken = actions.setSwapProSelectToken.use();
   const resetSwapTokenData = actions.resetSwapTokenData.use();
   const resetQuoteAction = actions.resetQuoteAction.use();
   const {
-    cleanQuoteInterval,
     closeQuoteEvent,
     needChangeToken,
     cleanLimitOrderMarketPriceInterval,
-    cancelSpeedQuote,
   } = actions;
 
   return useRef({
     selectFromToken,
     quoteAction,
+    requireManualQuoteRefresh,
     selectToToken,
     selectStockExecutionTokens,
     alternationToken,
@@ -3227,6 +3970,7 @@ export const useSwapActions = () => {
     cleanQuoteInterval,
     tokenListFetchAction,
     checkSwapWarning,
+    invalidateSwapWarningCheck,
     loadSwapSelectTokenDetail,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
@@ -3237,6 +3981,11 @@ export const useSwapActions = () => {
     cleanLimitOrderMarketPriceInterval,
     swapProTokenMarketDetailFetchAction,
     swapProLoadSupportNetworksTokenList,
+    updateSwapProPositionTokenBalances,
+    beginSwapProTokenBalanceRequest,
+    isSwapProTokenBalanceRequestLatest,
+    invalidateSwapProTokenBalanceRequest,
+    finishSwapProTokenBalanceRequest,
     quoteSpeedAction,
     cancelSpeedQuote,
     cleanSpeedQuote,

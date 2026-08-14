@@ -19,11 +19,11 @@ import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 const SwapInputActions = ({
   showPercentageInput,
@@ -50,32 +50,21 @@ const SwapInputActions = ({
   const handleBuyPress = useCallback(() => {
     if (!fromToken || !accountInfo) return;
 
-    defaultLogger.wallet.walletActions.buyOnLowBalance({
-      source: 'swap',
-      networkId: fromToken.networkId ?? '',
-      tokenSymbol: fromToken.symbol ?? '',
-      tokenAddress: fromToken.contractAddress ?? '',
-      walletType: accountInfo.wallet?.type ?? '',
+    const pushed = pushSwapReceiveSelector({
+      navigation,
+      token: fromToken,
+      accountInfo,
     });
-
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveSelector,
-      params: {
-        accountId: accountInfo.account?.id ?? '',
+    // Only count the funnel event when the selector actually opened.
+    if (pushed) {
+      defaultLogger.wallet.walletActions.buyOnLowBalance({
+        source: 'swap',
         networkId: fromToken.networkId ?? '',
-        walletId: accountInfo.wallet?.id ?? '',
-        indexedAccountId: accountInfo.indexedAccount?.id,
-        token: {
-          networkId: fromToken.networkId ?? '',
-          address: fromToken.contractAddress ?? '',
-          name: fromToken.name ?? '',
-          symbol: fromToken.symbol ?? '',
-          decimals: fromToken.decimals,
-          logoURI: fromToken.logoURI,
-          isNative: fromToken.isNative,
-        },
-      },
-    });
+        tokenSymbol: fromToken.symbol ?? '',
+        tokenAddress: fromToken.contractAddress ?? '',
+        walletType: accountInfo.wallet?.type ?? '',
+      });
+    }
   }, [navigation, fromToken, accountInfo]);
 
   return (

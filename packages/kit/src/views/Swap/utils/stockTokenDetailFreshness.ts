@@ -24,6 +24,24 @@ export type IStockTokenDetailFetchState = {
 };
 
 /**
+ * Returns a scope-safe display seed without treating it as trade readiness.
+ * Stale detail can keep the header, chart and market stats stable while the
+ * channel independently revalidates market-open state before enabling trade.
+ */
+export function getStockTokenDetailDisplaySeed({
+  state,
+  scope,
+}: {
+  state: IStockTokenDetailFetchState | undefined;
+  scope: string;
+}) {
+  if (state?.scope !== scope || !state.token?.stock) {
+    return undefined;
+  }
+  return state.token;
+}
+
+/**
  * Decides whether a stock token-detail state is authoritative ("landed")
  * for the given scope. Anything not landed keeps the channel pending
  * (Initializing) until a real request resolves.

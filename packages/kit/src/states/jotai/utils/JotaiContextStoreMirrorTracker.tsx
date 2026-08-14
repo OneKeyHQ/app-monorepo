@@ -8,6 +8,7 @@ import type {
   IJotaiContextStoreMapValue,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
@@ -38,6 +39,7 @@ type ISelectedAccountsSnapshot = Record<
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
+const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
 
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
@@ -91,7 +93,19 @@ function hasPerpsColdStartSnapshot() {
   );
 }
 
-function hasSwapColdStartSnapshot() {
+const SWAP_COLD_START_CACHE_KEYS = [
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
+];
+
+function hasSwapColdStartSnapshotForScope(coldStartScopeKey: string) {
   if (!platformEnv.isNative && !platformEnv.isDesktop) {
     return false;
   }
@@ -101,19 +115,20 @@ function hasSwapColdStartSnapshot() {
     return false;
   }
 
-  const swapColdStartCacheKeys = [
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
-    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
-  ];
+  const scopePrefix = `${coldStartScopeKey}${COLD_START_SCOPED_KEY_SEPARATOR}`;
+  return Object.keys(snapshot).some(
+    (key) =>
+      key.startsWith(scopePrefix) &&
+      SWAP_COLD_START_CACHE_KEYS.some((cacheKey) =>
+        key.endsWith(`${COLD_START_SCOPED_KEY_SEPARATOR}${cacheKey}`),
+      ),
+  );
+}
+
+function hasSwapColdStartSnapshot() {
   return (
-    Object.keys(snapshot).some((key) =>
-      swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
-    ) || hasAllNetworkHomeSelectedAccountSnapshot()
+    hasSwapColdStartSnapshotForScope(SWAP_COLD_START_SCOPE_KEY) ||
+    hasAllNetworkHomeSelectedAccountSnapshot()
   );
 }
 

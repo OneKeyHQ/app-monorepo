@@ -7,6 +7,9 @@ export const PerpTestIDs = {
   TokenSelector: 'perp-token-selector',
   TokenSelectorMobile: 'perp-token-selector-mobile',
   TokenSelectorSearch: 'perp-token-selector-search',
+  ActiveDexBadge: 'perp-active-dex-badge',
+  TokenSelectorDexBadge: (coin: string) =>
+    `perp-token-selector-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-dex-badge`,
 
   // -- Trading form: margin & leverage --
   MarginModeSelector: 'perp-margin-mode-selector',
@@ -62,18 +65,26 @@ export const PerpTestIDs = {
   PositionSetTpslButton: 'perp-position-set-tpsl-button',
   PositionShareButton: 'perp-position-share-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
+  PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',
 
   // -- Open orders list --
   OpenOrderRow: 'perp-open-order-row',
   CancelOrderButton: (orderId: string | number) =>
     `perp-cancel-order-${orderId}-button`,
+  ChaseOrderButton: (orderId: string | number) =>
+    `perp-chase-order-${orderId}-button`,
   CancelAllOrdersButton: 'perp-cancel-all-orders-button',
 
   // -- Close position modal --
   ClosePositionConfirmButton: 'perp-close-position-confirm-button',
   ClosePositionAmountInput: 'perp-close-position-amount-input',
   ClosePositionTypeToggle: 'perp-close-position-type-toggle',
+
+  // -- Add position modal --
+  AddPositionConfirmButton: 'perp-add-position-confirm-button',
+  AddPositionAmountInput: 'perp-add-position-amount-input',
+  AddPositionTypeToggle: 'perp-add-position-type-toggle',
 
   // -- Set TP/SL modal --
   SetTpslConfirmButton: 'perp-set-tpsl-confirm-button',

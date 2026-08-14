@@ -13,6 +13,7 @@ import {
 
 // ICustomTokenItem
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import { CUSTOM_TOKEN_ACCOUNT_KEY_SPLITTER } from '../base/simpleDbFacadeCompatibility';
 
 interface ICustomTokenDBStructV1Legacy {
   hiddenTokens: Record<string, IAccountToken>;
@@ -36,7 +37,6 @@ export interface ICustomTokenDBStruct {
   };
 }
 
-const AccountKeySplitter = '__account:';
 const TokenKeySplitter = '__token:';
 
 export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenDBStruct> {
@@ -210,11 +210,6 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     }
   }
 
-  getXpubOrAddressFromAccountKey(accountKey: string): string | null {
-    const [, accountXpubOrAddress] = accountKey.split(AccountKeySplitter);
-    return accountXpubOrAddress;
-  }
-
   async buildAccountKey(params: {
     networkId: string | undefined;
     accountXpubOrAddress: string | undefined;
@@ -232,7 +227,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
       if (!info.accountXpubOrAddress) {
         return null;
       }
-      return `${info.networkId}${AccountKeySplitter}${info.accountXpubOrAddress}`;
+      return `${info.networkId}${CUSTOM_TOKEN_ACCOUNT_KEY_SPLITTER}${info.accountXpubOrAddress}`;
     };
 
     if (!networkId || !accountXpubOrAddressInToken) {
@@ -248,7 +243,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     });
   }
 
-  buildTokenKey(token: ICloudSyncCustomToken): string | null {
+  private buildTokenKey(token: ICloudSyncCustomToken): string | null {
     if (!token.networkId) {
       return null;
     }

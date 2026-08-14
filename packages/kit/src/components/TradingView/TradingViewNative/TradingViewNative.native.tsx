@@ -1,1 +1,1 @@
-export { TradingViewNative } from './native/TradingViewNative';
+export { TradingViewNativeContainer as TradingViewNative } from './TradingViewNativeContainer';

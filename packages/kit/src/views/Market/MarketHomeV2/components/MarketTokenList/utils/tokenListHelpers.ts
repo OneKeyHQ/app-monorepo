@@ -116,8 +116,19 @@ export function shouldShowStockSubtitleForTokens(
 
 export function shouldUseStockMetadataColumnsForTokens(
   items: Array<Pick<IMarketToken, 'stock'>>,
+  options?: {
+    forceStockMetadataColumns?: boolean;
+    enableAutoDetection?: boolean;
+  },
 ) {
-  return items.length > 0 && items.every((item) => !!item.stock);
+  const { forceStockMetadataColumns = false, enableAutoDetection = true } =
+    options ?? {};
+  return (
+    forceStockMetadataColumns ||
+    (enableAutoDetection &&
+      items.length > 0 &&
+      items.every((item) => !!item.stock))
+  );
 }
 
 const ONE_HOUR = 60 * 60 * 1000;

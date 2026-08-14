@@ -97,6 +97,7 @@ export interface ITradingViewNativeChartControlsConfigData {
     options: ITradingViewPriceScaleOption[];
     activeMode: ITradingViewPriceScaleMode;
   };
+  layoutRestored?: boolean;
   timestamp?: number;
 }
 

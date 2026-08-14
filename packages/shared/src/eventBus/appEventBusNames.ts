@@ -113,6 +113,8 @@ export enum EAppEventBusNames {
   // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
   // and re-read both persisted session slots when this arrives.
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
+  PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
@@ -169,6 +171,9 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
+  PerpsUnifoldDepositTerminalDelivery = 'PerpsUnifoldDepositTerminalDelivery',
+  PerpsSubscriptionsRecovered = 'PerpsSubscriptionsRecovered',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
@@ -176,6 +181,9 @@ export enum EAppEventBusNames {
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
+  // OK-59246: earn home banner drag state, used to pause the outer
+  // Discovery pager so nested horizontal swipes don't switch top tabs
+  EarnHomeBannerDragStateChanged = 'EarnHomeBannerDragStateChanged',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',

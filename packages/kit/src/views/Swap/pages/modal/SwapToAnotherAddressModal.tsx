@@ -39,6 +39,7 @@ import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQui
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
 import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { getSwapRecipientValidationAccountId } from '../../hooks/useSwapAccount.utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
@@ -55,9 +56,17 @@ const SwapToAnotherAddressPage = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const { accountInfo, activeAccount, networkId } = useSwapAddressInfo(
-    ESwapDirectionType.TO,
-  );
+  const {
+    accountInfo,
+    activeAccount,
+    address: recipientAccountAddress,
+    networkId,
+  } = useSwapAddressInfo(ESwapDirectionType.TO);
+  const validationAccountId = getSwapRecipientValidationAccountId({
+    accountId: accountInfo?.account?.id,
+    accountAddress: accountInfo?.account?.addressDetail?.address,
+    recipientAddress: recipientAccountAddress,
+  });
 
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
@@ -136,6 +145,7 @@ const SwapToAnotherAddressPage = () => {
       }
       setSettings((v) => ({
         ...v,
+        swapEnableRecipientAddress: true,
         swapToAnotherAccountSwitchOn: true,
       }));
       setSwapToAddress((v) => ({
@@ -190,7 +200,7 @@ const SwapToAnotherAddressPage = () => {
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
-            accountId={accountInfo?.account?.id}
+            accountId={validationAccountId}
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
@@ -202,7 +212,7 @@ const SwapToAnotherAddressPage = () => {
             </SizableText>
           </XStack>
           <RecipientQuickSelect
-            accountId={accountInfo?.account?.id ?? ''}
+            accountId={validationAccountId ?? ''}
             networkId={networkId}
             senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}

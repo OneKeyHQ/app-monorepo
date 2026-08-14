@@ -13,6 +13,8 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import { isSwapGasSponsored } from './swapGasUtils';
+
 type ISwapLatestBalanceCheckParams = {
   token: ISwapToken;
   amount: string;
@@ -299,11 +301,7 @@ export function getSwapRequiredNativeBalanceAmount({
     // toward the user's required native balance. estimate-fee only sets these
     // flags when sponsorship is actually available, so the original
     // insufficient-gas block still applies whenever sponsorship is off.
-    if (
-      item.gasInfo.gasAccountEligible ||
-      item.gasInfo.megafuelEligible?.sponsorable ||
-      item.gasInfo.payer === 'megafuel'
-    ) {
+    if (isSwapGasSponsored(item.gasInfo)) {
       return acc;
     }
 

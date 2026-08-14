@@ -22,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -32,11 +33,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
-  type ESwapSource,
+  ESwapProAnalyticsEnterFrom,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
   getSwapAnalyticsEnterFrom,
@@ -98,6 +101,7 @@ function CustomTabItem({
             },
           })}
       {...rest}
+      testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
       onLayout={(event) => {
         handleItemLayout(itemId, event);
@@ -142,6 +146,7 @@ const SwapHeaderContainer = ({
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProEntryIntent] = useSwapProJumpTokenAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -156,6 +161,48 @@ const SwapHeaderContainer = ({
   const hasPendingSwapProEntry = Boolean(
     platformEnv.isNative && pageType !== 'modal' && swapProEntryIntent.token,
   );
+  const isSwapProCategory = Boolean(platformEnv.isNative && showSwapPro);
+  const isSwapProActive = Boolean(
+    isSwapProCategory && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+  );
+  const swapProEntryFromRef = useRef<ESwapProAnalyticsEnterFrom | undefined>(
+    hasPendingSwapProEntry
+      ? ESwapProAnalyticsEnterFrom.MARKET_DETAIL
+      : undefined,
+  );
+  const wasSwapProActiveRef = useRef<boolean | undefined>(undefined);
+  if (hasPendingSwapProEntry) {
+    swapProEntryFromRef.current = ESwapProAnalyticsEnterFrom.MARKET_DETAIL;
+  }
+  useEffect(() => {
+    if (!isSwapProActive) {
+      wasSwapProActiveRef.current = false;
+      return;
+    }
+    if (wasSwapProActiveRef.current && !hasPendingSwapProEntry) {
+      return;
+    }
+    const token = swapProEntryIntent.token ?? swapProSelectToken;
+    if (!token) {
+      return;
+    }
+    defaultLogger.swap.swapPro.enterSwapPro({
+      enterFrom:
+        swapProEntryFromRef.current ??
+        (wasSwapProActiveRef.current === false
+          ? ESwapProAnalyticsEnterFrom.TRADE_TAB
+          : ESwapProAnalyticsEnterFrom.DEFAULT),
+      tokenSymbol: token.symbol,
+      network: token.networkId,
+    });
+    wasSwapProActiveRef.current = true;
+    swapProEntryFromRef.current = undefined;
+  }, [
+    isSwapProActive,
+    hasPendingSwapProEntry,
+    swapProEntryIntent.token,
+    swapProSelectToken,
+  ]);
   const hadPendingSwapProEntryOnMountRef = useRef(hasPendingSwapProEntry);
   useEffect(() => {
     if (hasPendingSwapProEntry) {
@@ -165,7 +212,11 @@ const SwapHeaderContainer = ({
     }
   }, [hasPendingSwapProEntry, navigation]);
   useEffect(() => {
-    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+    ) {
       return;
     }
     // Avoid switching the default toToken before it has been loaded,
@@ -210,8 +261,14 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromCategory: getSwapAnalyticsCategoryFromSwapType(swapTypeSwitch),
-        toCategory: getSwapAnalyticsCategoryFromSwapType(newType),
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(
+          swapTypeSwitch,
+          isSwapProCategory,
+        ),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(
+          newType,
+          isSwapProCategory,
+        ),
         enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
       });
 
@@ -243,6 +300,7 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      isSwapProCategory,
     ],
   );
 
@@ -267,10 +325,12 @@ const SwapHeaderContainer = ({
     {
       label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.SWAP),
     },
     {
       label: stockLabel,
       value: ESwapTabSwitchType.STOCK,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.STOCK),
     },
     {
       label: intl.formatMessage({
@@ -279,6 +339,7 @@ const SwapHeaderContainer = ({
           : ETranslations.swap_page_limit,
       }),
       value: ESwapTabSwitchType.LIMIT,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.LIMIT),
     },
   ];
 

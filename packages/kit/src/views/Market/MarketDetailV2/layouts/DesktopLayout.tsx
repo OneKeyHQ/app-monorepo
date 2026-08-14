@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
@@ -33,6 +34,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
+import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
@@ -146,6 +148,7 @@ function useIframeWheelPassthrough({
 export interface IDesktopLayoutProps {
   isChartFullscreen: boolean;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
+  isNative: boolean;
   networkId: string;
   tokenAddress: string;
   showFavoriteButton?: boolean;
@@ -154,6 +157,7 @@ export interface IDesktopLayoutProps {
 export function DesktopLayout({
   isChartFullscreen,
   onChartFullscreenChange,
+  isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
   showFavoriteButton = true,
@@ -162,13 +166,18 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
-    isNative,
+    isNative: storeIsNative,
     websocketConfig,
+    perpsInfo,
     isStockToken,
   } = useTokenDetail();
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const isNative =
+    networkId === routeNetworkId && tokenAddress === routeTokenAddress
+      ? routeIsNative
+      : storeIsNative;
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -182,6 +191,8 @@ export function DesktopLayout({
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
+  const nativeHyperliquidCoin =
+    isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
 
   const swapToken = useMemo(
     () => ({
@@ -228,16 +239,36 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
+  const tradingViewNativeSource = useMemo(
+    () =>
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: nativeHyperliquidCoin,
+        isNative,
+        marketDataSource: marketTradingViewParams?.dataSource,
+        networkId,
+        symbol: tokenDetail?.symbol ?? '',
+        tokenAddress,
+      }),
+    [
+      marketTradingViewParams?.dataSource,
+      nativeHyperliquidCoin,
+      isNative,
+      networkId,
+      tokenAddress,
+      tokenDetail?.symbol,
+    ],
+  );
   const marketTradingView = useMemo(() => {
     if (useTradingViewNative) {
       return networkId ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          symbol={tokenDetail?.symbol ?? ''}
-          decimal={tokenDetail?.decimals ?? 8}
+          source={tradingViewNativeSource}
+          enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
+          isNativeChartFullscreen={isChartFullscreen}
+          nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
+          onNativeChartFullscreenChange={handleChartFullscreenChange}
         />
       ) : null;
     }
@@ -270,9 +301,7 @@ export function DesktopLayout({
     isChartFullscreen,
     marketTradingViewParams,
     networkId,
-    tokenAddress,
-    tokenDetail?.decimals,
-    tokenDetail?.symbol,
+    tradingViewNativeSource,
     useTradingViewNative,
   ]);
   return (

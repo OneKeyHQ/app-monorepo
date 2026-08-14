@@ -115,6 +115,7 @@ export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().base,
+  getNetworkIdsMap().katana,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
@@ -177,6 +178,7 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'lista': 'LISTA',
     'u': 'U',
     'btw': 'BTW',
+    'vbusdc': 'vbUSDC',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -202,6 +204,26 @@ export function normalizeToEarnProvider(
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
+}
+
+/**
+ * Display name for an earn provider (OK-59245).
+ *
+ * The canonical casing lives in EEarnProviderEnum (Lido / Stakefish / Bitway
+ * ...), so a known provider resolves to it. Unknown providers — new ones the
+ * server ships before the client knows about them — fall back to capitalizing
+ * the raw name, which is what the protocol lists used to do everywhere and is
+ * still better than rendering the raw lowercase id.
+ */
+export function getEarnProviderDisplayName(provider?: string): string {
+  if (!provider) {
+    return '';
+  }
+  const known = normalizeToEarnProvider(provider);
+  if (known) {
+    return known;
+  }
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
 export function getImportFromToken({
@@ -313,5 +335,6 @@ export function getSymbolSupportedNetworks(): Record<
     'LISTA': [networkIdsMap.bsc],
     'U': [networkIdsMap.bsc],
     'BTW': [networkIdsMap.bsc],
+    'vbUSDC': [networkIdsMap.katana],
   };
 }

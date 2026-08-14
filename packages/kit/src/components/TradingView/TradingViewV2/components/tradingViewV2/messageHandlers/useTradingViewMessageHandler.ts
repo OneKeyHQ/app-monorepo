@@ -13,6 +13,10 @@ import {
   shouldMockEmptyKLineData,
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
+import {
+  normalizeTradingViewChartTypeState,
+  normalizeTradingViewLayoutRestored,
+} from './nativeChartControlsConfigUtils';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type {
@@ -35,6 +39,7 @@ const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 const TRADINGVIEW_INTERVAL_CONFIG = 'tradingview_intervalConfig';
 const TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG =
   'tradingview_nativeChartControlsConfig';
+const TRADINGVIEW_CHART_TYPE_CHANGE = 'TRADINGVIEW_CHART_TYPE_CHANGE';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -62,6 +67,11 @@ interface IUseTradingViewMessageHandlerParams {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+}
+
+interface INormalizedNativeChartControlsConfig {
+  config: ITradingViewNativeChartControlsConfigData;
+  chartTypeToSync?: number;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -375,33 +385,6 @@ function normalizeIndicators(
   });
 }
 
-function normalizeChartTypes(
-  chartTypes: unknown,
-): ITradingViewNativeChartControlsConfigData['chartTypes'] | null {
-  if (!Array.isArray(chartTypes)) {
-    return null;
-  }
-
-  const normalizedChartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'] =
-    [];
-  for (const chartType of chartTypes) {
-    if (!isRecord(chartType)) {
-      return null;
-    }
-
-    const label =
-      typeof chartType.label === 'string' ? chartType.label.trim() : '';
-    const value = Number(chartType.value);
-    if (!label || !Number.isFinite(value)) {
-      return null;
-    }
-
-    normalizedChartTypes.push({ label, value });
-  }
-
-  return normalizedChartTypes;
-}
-
 function normalizeResetLayout(
   resetLayout: unknown,
 ): ITradingViewNativeChartControlsConfigData['resetLayout'] | undefined {
@@ -542,15 +525,17 @@ function normalizePriceScale(
 
 function normalizeNativeChartControlsConfig(
   data: unknown,
-): ITradingViewNativeChartControlsConfigData | null {
+): INormalizedNativeChartControlsConfig | null {
   if (!isRecord(data)) {
     return null;
   }
 
   const indicators = normalizeIndicators(data.indicators);
-  const chartTypes = normalizeChartTypes(data.chartTypes);
-  const activeChartType = Number(data.activeChartType);
-  if (!indicators || !chartTypes || !Number.isFinite(activeChartType)) {
+  const chartTypeState = normalizeTradingViewChartTypeState(
+    data.chartTypes,
+    data.activeChartType,
+  );
+  if (!indicators || !chartTypeState) {
     return null;
   }
 
@@ -567,24 +552,33 @@ function normalizeNativeChartControlsConfig(
   const resetLayout = normalizeResetLayout(data.resetLayout);
   const priceMarketCap = normalizePriceMarketCap(data.priceMarketCap);
   const priceScale = normalizePriceScale(data.priceScale);
+  const layoutRestored = normalizeTradingViewLayoutRestored(
+    data.layoutRestored,
+  );
 
   return {
-    ...(intervals?.length ? { intervals } : {}),
-    ...(activeInterval ? { activeInterval } : {}),
-    ...(typeof data.indicatorsEnabled === 'boolean'
-      ? { indicatorsEnabled: data.indicatorsEnabled }
-      : {}),
-    indicators,
-    ...(typeof data.chartTypesEnabled === 'boolean'
-      ? { chartTypesEnabled: data.chartTypesEnabled }
-      : {}),
-    chartTypes,
-    activeChartType,
-    ...(resetLayout ? { resetLayout } : {}),
-    ...(priceMarketCap ? { priceMarketCap } : {}),
-    ...(priceScale ? { priceScale } : {}),
-    ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
-      ? { timestamp: data.timestamp }
+    config: {
+      ...(intervals?.length ? { intervals } : {}),
+      ...(activeInterval ? { activeInterval } : {}),
+      ...(typeof data.indicatorsEnabled === 'boolean'
+        ? { indicatorsEnabled: data.indicatorsEnabled }
+        : {}),
+      indicators,
+      ...(typeof data.chartTypesEnabled === 'boolean'
+        ? { chartTypesEnabled: data.chartTypesEnabled }
+        : {}),
+      chartTypes: chartTypeState.chartTypes,
+      activeChartType: chartTypeState.activeChartType,
+      ...(resetLayout ? { resetLayout } : {}),
+      ...(priceMarketCap ? { priceMarketCap } : {}),
+      ...(priceScale ? { priceScale } : {}),
+      ...(layoutRestored !== undefined ? { layoutRestored } : {}),
+      ...(typeof data.timestamp === 'number' && Number.isFinite(data.timestamp)
+        ? { timestamp: data.timestamp }
+        : {}),
+    },
+    ...(chartTypeState.chartTypeToSync !== undefined
+      ? { chartTypeToSync: chartTypeState.chartTypeToSync }
       : {}),
   };
 }
@@ -712,10 +706,22 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG
       ) {
-        const nativeChartControlsConfigData =
+        const normalizedNativeChartControlsConfig =
           normalizeNativeChartControlsConfig(data.data);
-        if (nativeChartControlsConfigData) {
-          onNativeChartControlsConfigChange?.(nativeChartControlsConfigData);
+        if (normalizedNativeChartControlsConfig) {
+          if (
+            normalizedNativeChartControlsConfig.chartTypeToSync !== undefined
+          ) {
+            webRef.current?.sendMessageViaInjectedScript({
+              type: TRADINGVIEW_CHART_TYPE_CHANGE,
+              payload: {
+                chartType: normalizedNativeChartControlsConfig.chartTypeToSync,
+              },
+            });
+          }
+          onNativeChartControlsConfigChange?.(
+            normalizedNativeChartControlsConfig.config,
+          );
         }
       }
 

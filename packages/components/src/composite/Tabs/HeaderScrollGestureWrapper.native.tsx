@@ -11,6 +11,8 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
+import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
+
 import { CollapsibleTabContext } from './CollapsibleTabContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
@@ -49,7 +51,12 @@ export function HeaderScrollGestureWrapper({
   const containerHeight = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
   const hasNotifiedGestureActive = useSharedValue(false);
+  const hasTriggeredRefreshHaptic = useSharedValue(false);
   const [measuredWidth, setMeasuredWidth] = useState(0);
+
+  const triggerRefreshHaptic = useCallback(() => {
+    Haptics.impact(ImpactFeedbackStyle.Medium);
+  }, []);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -139,6 +146,7 @@ export function HeaderScrollGestureWrapper({
       .onStart((e) => {
         'worklet';
 
+        hasTriggeredRefreshHaptic.value = false;
         isGestureEnabled.value = !shouldIgnoreByStartPoint(e.x, e.y);
         if (!isGestureEnabled.value) {
           hasNotifiedGestureActive.value = false;
@@ -158,6 +166,17 @@ export function HeaderScrollGestureWrapper({
           return;
         }
         targetScrollY.value = startScrollY.value - e.translationY * scrollScale;
+        const isRefreshThresholdReached =
+          startScrollY.value <= contentInset &&
+          e.translationY > REFRESH_THRESHOLD;
+        if (
+          onRefresh &&
+          isRefreshThresholdReached &&
+          !hasTriggeredRefreshHaptic.value
+        ) {
+          hasTriggeredRefreshHaptic.value = true;
+          runOnJS(triggerRefreshHaptic)();
+        }
       })
       .onEnd((e) => {
         'worklet';
@@ -265,6 +284,8 @@ export function HeaderScrollGestureWrapper({
     measuredWidth,
     isGestureEnabled,
     hasNotifiedGestureActive,
+    hasTriggeredRefreshHaptic,
+    triggerRefreshHaptic,
   ]);
 
   return (

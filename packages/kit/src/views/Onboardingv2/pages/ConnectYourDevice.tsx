@@ -27,7 +27,6 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
-  useThemeName,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -544,13 +543,7 @@ function BluetoothCard({
   );
 }
 
-function DeviceVideo({
-  themeVariant,
-  deviceTypeItems,
-}: {
-  themeVariant: 'light' | 'dark';
-  deviceTypeItems: EDeviceType[];
-}) {
+function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -572,29 +565,20 @@ function DeviceVideo({
     );
   }, [deviceTypeItems]);
 
+  // The onboarding flow is force-dark, so every device uses its dark (-D) asset
+  // and no theme branching is needed.
   const videoSource = useMemo<ReactVideoSource>(() => {
     if (isMini) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource;
     }
-
     if (isClassic) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource;
     }
-
     if (isTouch) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
     }
-
-    return themeVariant === 'dark'
-      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
-      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
-  }, [isClassic, isMini, isTouch, themeVariant]);
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+  }, [isClassic, isMini, isTouch]);
 
   return (
     <Video
@@ -616,7 +600,6 @@ function USBOrBLEConnectionIndicator({
   connectDevice,
   vendor,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -787,10 +770,7 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <DeviceVideo
-                themeVariant={themeVariant}
-                deviceTypeItems={deviceTypeItems}
-              />
+              <DeviceVideo deviceTypeItems={deviceTypeItems} />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>

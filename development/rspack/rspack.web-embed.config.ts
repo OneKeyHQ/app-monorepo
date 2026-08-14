@@ -28,6 +28,7 @@ export function createWebEmbedConfig({
     },
     enableImportMetaCompat: true,
     enableSentryMinimalCompat: true,
+    removeFirstPartyConsole: true,
     transpileDependencies: [
       /node_modules[\\/]@onekeyfe[\\/]kaspa-wasm/,
       /node_modules[\\/]@revenuecat[\\/]purchases-js/,
@@ -47,7 +48,6 @@ export function createWebEmbedConfig({
         createProductionConfig({
           platform,
           basePath,
-          dropConsole: true,
         }),
         {
           optimization: {

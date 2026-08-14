@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
@@ -17,6 +20,11 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
   pb: '$4',
 } as const;
 
+export type IStockChartCoinGeckoIdLookupResult = {
+  tokenScope: string;
+  coinGeckoId?: string;
+};
+
 export const STOCK_CHART_RANGE_ITEMS: {
   label: IStockChartRange;
   interval: string;
@@ -28,9 +36,54 @@ export const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 
+export function getStockNetworkLogoUri({
+  networkId,
+  networkLogoUri,
+}: {
+  networkId?: string;
+  networkLogoUri?: string;
+}) {
+  if (networkLogoUri) {
+    return networkLogoUri;
+  }
+  return networkId
+    ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+    : undefined;
+}
+
+export function getStockChartCoinGeckoIdState({
+  lookupResult,
+  networkId,
+  tokenDetailCoinGeckoId,
+  tokenScope,
+}: {
+  lookupResult?: IStockChartCoinGeckoIdLookupResult;
+  networkId?: string;
+  tokenDetailCoinGeckoId?: string;
+  tokenScope: string;
+}) {
+  const currentLookupResult =
+    lookupResult?.tokenScope === tokenScope ? lookupResult : undefined;
+  return {
+    coinGeckoId:
+      tokenDetailCoinGeckoId || currentLookupResult?.coinGeckoId || undefined,
+    isLoading: Boolean(
+      networkId && !tokenDetailCoinGeckoId && !currentLookupResult,
+    ),
+  };
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
+  channelStage: ESwapStockChannelStage,
 ) {
+  if (
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    channelStage === ESwapStockChannelStage.MarketClosed
+  ) {
+    return undefined;
+  }
+
   return {
     bg:
       tradeSide === ESwapStockTradeSide.Sell
@@ -50,6 +103,57 @@ export function isStockMarketPanelLoadingStage(
     channelStage === ESwapStockChannelStage.InitializingStock ||
     channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function shouldShowStockMarketHeaderSkeleton({
+  channelStage,
+  hasStockIdentity,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasStockIdentity: boolean;
+}) {
+  return (
+    !hasStockIdentity &&
+    channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function getStockMarketTokenSubtitle({
+  currentStockSubtitle,
+  currentTokenName,
+  hasTokenDetail,
+  tokenDetailStockSubtitle,
+}: {
+  currentStockSubtitle?: string;
+  currentTokenName?: string;
+  hasTokenDetail: boolean;
+  tokenDetailStockSubtitle?: string;
+}) {
+  return (
+    tokenDetailStockSubtitle ??
+    currentStockSubtitle ??
+    (hasTokenDetail ? undefined : currentTokenName)
+  );
+}
+
+export function shouldShowStockQuoteActionLoading({
+  inputAmount,
+  quoteEventCompleted,
+  quoteRequestMatchesStockTrade,
+}: {
+  inputAmount: string;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesStockTrade: boolean;
+}) {
+  if (!new BigNumber(inputAmount || 0).gt(0)) {
+    return false;
+  }
+
+  if (!quoteEventCompleted) {
+    return true;
+  }
+
+  return !quoteRequestMatchesStockTrade;
 }
 
 export function mergeStockChartRealtimePoint({
@@ -96,13 +200,20 @@ export function getStockChartDisplayState({
   baseChartData,
   isChartStateForCurrentScope,
   isLoading,
+  requestStatus,
   realtimeChartPoint,
 }: {
   baseChartData: IMarketTokenChart;
   isChartStateForCurrentScope: boolean;
   isLoading?: boolean;
+  requestStatus?: 'pending' | 'success' | 'error';
   realtimeChartPoint?: IMarketTokenChart[number];
 }) {
+  const shouldShowChartError =
+    baseChartData.length === 0 &&
+    isChartStateForCurrentScope &&
+    !isLoading &&
+    requestStatus === 'error';
   return {
     chartData: mergeStockChartRealtimePoint({
       baseChartData,
@@ -110,8 +221,12 @@ export function getStockChartDisplayState({
         ? realtimeChartPoint
         : undefined,
     }),
+    shouldShowChartError,
     shouldShowChartLoading:
       baseChartData.length === 0 &&
-      (Boolean(isLoading) || !isChartStateForCurrentScope),
+      !shouldShowChartError &&
+      (requestStatus === 'pending' ||
+        Boolean(isLoading) ||
+        !isChartStateForCurrentScope),
   };
 }

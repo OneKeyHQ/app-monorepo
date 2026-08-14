@@ -68,6 +68,7 @@ export enum EAtomNames {
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  bulkExportHistorySupportedNetworksPersistAtom = 'bulkExportHistorySupportedNetworksPersistAtom',
   tokenSelectorFilterPersistAtom = 'tokenSelectorFilterPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
@@ -100,6 +101,8 @@ export enum EAtomNames {
   perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsUnifoldActiveRecipientAtom = 'perpsUnifoldActiveRecipientAtom',
+  perpsUnifoldDepositTrackingAtom = 'perpsUnifoldDepositTrackingAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
   perpsPendingInfoPanelTabAtom = 'perpsPendingInfoPanelTabAtom',
@@ -109,6 +112,8 @@ export enum EAtomNames {
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
   tradingModeAtom = 'tradingModeAtom',
+  // borrow
+  borrowSelectedMarketAtom = 'borrowSelectedMarketAtom',
   // spot
   spotActiveAssetAtom = 'spotActiveAssetAtom',
   spotActiveAssetCtxAtom = 'spotActiveAssetCtxAtom',
@@ -134,6 +139,7 @@ export enum EAtomNames {
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
@@ -161,6 +167,12 @@ export const atomsConfig: Partial<
   [EAtomNames.spotActiveAssetAtom]: {
     mergeInitialValue: false,
   },
+  // A bare string value, where lodash merge is not merely lossy but destructive:
+  // it spreads the string into a character-indexed object, so every later
+  // `=== 'spot'` comparison fails and the app behaves as if it were on perp.
+  [EAtomNames.tradingModeAtom]: {
+    mergeInitialValue: false,
+  },
   [EAtomNames.perpsCommonConfigPersistAtom]: {
     mergeInitialValue: false,
   },
@@ -174,6 +186,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsUnifoldDepositTrackingAtom]: {
     mergeInitialValue: false,
   },
 };

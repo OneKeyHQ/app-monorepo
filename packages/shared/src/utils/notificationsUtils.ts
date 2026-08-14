@@ -8,6 +8,7 @@ import {
   ENotificationPushMessageMode,
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -103,6 +104,14 @@ export async function navigateToNotificationDetailByLocalParams({
   getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
+  // Covers callers that bypass parseNotificationPayload (the mode=dialog
+  // navigate action): throwing surfaces their fallback dialog instead of
+  // dispatching push(undefined).
+  if (typeof screen !== 'string' || !screen) {
+    throw new OneKeyLocalError(
+      'navigateToNotificationDetail: payload has no target screen',
+    );
+  }
   // Recursively find and merge the deepest params
 
   const localParams = { ...originalLocalParams };
@@ -366,12 +375,26 @@ export function parseNotificationPayload(
     };
     [key: string]: any;
   },
-) {
+): boolean {
+  // The `false` branches include deliberate no-ops (blocked WebView URL,
+  // empty payload, unknown mode) that never run `fallbackHandler`, so callers
+  // cannot use the handler alone to detect that nothing happened.
   const normalizedMode = normalizeNotificationMode(mode);
   switch (normalizedMode) {
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
+        // `JSON.parse('{}')` succeeds, so a payload with no target used to
+        // reach the navigator as `push(undefined)` — a silent dead tap.
+        if (
+          !payloadObj ||
+          typeof payloadObj !== 'object' ||
+          typeof payloadObj.screen !== 'string' ||
+          !payloadObj.screen
+        ) {
+          fallbackHandler();
+          return false;
+        }
         // When mode=page targets the WebView overlay, apply the same URL safety
         // and source enforcement as mode=openInApp to prevent policy bypass.
         // Without this guard an attacker could craft a page payload that routes
@@ -384,7 +407,7 @@ export function parseNotificationPayload(
             leaf = leaf.params as Record<string, unknown>;
           }
           const url = typeof leaf.url === 'string' ? leaf.url : null;
-          if (!url || !isAllowedWebViewUrl(url)) break;
+          if (!url || !isAllowedWebViewUrl(url)) return false;
           // Force source so resolveOverlayDisplay enforces notification-entry
           // display restrictions (hides attacker-supplied title, etc.).
           leaf.source = 'notification';
@@ -393,30 +416,35 @@ export function parseNotificationPayload(
           payload: payloadObj,
           extras,
         });
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-      break;
     case ENotificationPushMessageMode.dialog:
       try {
         const payloadObj = JSON.parse(payload || '');
         appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
           payload: payloadObj,
         });
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-
-      break;
     case ENotificationPushMessageMode.openInBrowser:
-      if (payload) {
-        // The push protocol's openInBrowser mode promises the OS browser;
-        // openInApp below is the in-app counterpart.
-        openUrlExternal(payload, { useSystemBrowser: true });
+      if (!payload) {
+        return false;
       }
-      break;
+      // The push protocol's openInBrowser mode promises the OS browser;
+      // openInApp below is the in-app counterpart.
+      openUrlExternal(payload, { useSystemBrowser: true });
+      return true;
     case ENotificationPushMessageMode.openInApp:
-      if (payload) {
+      if (!payload) {
+        return false;
+      }
+      {
         // payload accepts two shapes — both end up in the root-level WebView
         // overlay; the kit-side subscriber runs the same URL safety policy
         // as in-app callers:
@@ -460,7 +488,7 @@ export function parseNotificationPayload(
         // check inside the kit subscriber, but extension background bypasses
         // it because the subscriber doesn't exist in that runtime.
         if (!isAllowedWebViewUrl(webViewParams.url)) {
-          break;
+          return false;
         }
         // `appEventBus` is in-process per runtime, and the
         // `ShowNotificationInWebViewOverlay` subscriber lives in the kit UI
@@ -476,14 +504,14 @@ export function parseNotificationPayload(
             webViewParams,
           );
         }
+        return true;
       }
-      break;
     case ENotificationPushMessageMode.openInDapp:
-      appEventBus.emit(
-        EAppEventBusNames.ShowNotificationInDappPage,
-        payload as string,
-      );
-      break;
+      if (!payload) {
+        return false;
+      }
+      appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, payload);
+      return true;
     case ENotificationPushMessageMode.command:
       try {
         const { action, data } = JSON.parse(payload || '{}') as {
@@ -492,7 +520,7 @@ export function parseNotificationPayload(
         };
         if (!action) {
           fallbackHandler();
-          return;
+          return false;
         }
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
@@ -500,12 +528,13 @@ export function parseNotificationPayload(
           action,
           data: mergedData,
         });
+        return true;
       } catch (_error) {
         fallbackHandler();
+        return false;
       }
-      break;
     default:
-      break;
+      return false;
   }
 }
 

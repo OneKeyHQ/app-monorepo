@@ -6,6 +6,7 @@ import {
   resetAboveMainRoute,
   rootNavigationRef,
   switchTabAsync,
+  willTabFocusTransition,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import type {
   IDBAccount,
@@ -28,6 +29,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
@@ -50,7 +55,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -834,9 +839,10 @@ export function useTrayDataProvider() {
                         name: '',
                         icon:
                           coin.tokenImageUrl ||
-                          getHyperliquidTokenImageUrl(
-                            parsedCoin.displayName || displayName,
-                          ),
+                          // The bare symbol collides across dexs.
+                          getHyperliquidTokenImageUris(
+                            item.perpsCoin || coin.name || displayName,
+                          )[0],
                         price: formatTrayUsdPrice(coin.markPrice),
                         change24h: coin.change24hPercent || 0,
                         type: 'perps',
@@ -1102,6 +1108,9 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
+          if (willTabFocusTransition(ETabRoutes.Perp)) {
+            setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
+          }
           void switchTabAsync(ETabRoutes.Perp).then(async () => {
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({

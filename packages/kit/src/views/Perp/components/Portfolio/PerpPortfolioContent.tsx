@@ -33,6 +33,7 @@ import {
   formatChartUsdPrice,
   formatPerpsCompactUsd,
   formatPerpsUsd,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getPerpsValueColor,
   getSpotTokenDisplayName,
@@ -282,7 +283,7 @@ function PerpPortfolioContentComponent({
   const intl = useIntl();
   const theme = useTheme();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('portfolio');
   const portfolioPalette = useMemo(
     () => ({
       positive: theme.bgAccent?.val ?? '#31E72F',
@@ -1159,9 +1160,18 @@ function PerpPortfolioContentComponent({
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
-                  tokenImageUri={getHyperliquidTokenImageUrl(
-                    mostTradedTokenDisplayName,
-                  )}
+                  tokenImageUris={
+                    // A spot `mostTraded` is a raw fill coin (`@149`,
+                    // `PURR/USDC`) whose slash breaks the image path.
+                    fillsStats.mostTraded &&
+                    !isSpotInstrument(fillsStats.mostTraded)
+                      ? getHyperliquidTokenImageUris(fillsStats.mostTraded)
+                      : [
+                          getHyperliquidTokenImageUrl(
+                            mostTradedTokenDisplayName,
+                          ),
+                        ]
+                  }
                 />
                 <SizableText size="$headingSm" color="$text">
                   {mostTradedTokenDisplayName}

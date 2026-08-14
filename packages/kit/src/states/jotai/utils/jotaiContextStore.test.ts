@@ -20,6 +20,7 @@ import {
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -349,6 +350,54 @@ describe('jotaiContextStore reset flow', () => {
     await waitFor(() => {
       expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
     });
+  });
+
+  it('hydrates a late-created provider from durable storage after the boot snapshot is cleared', () => {
+    const coldStartCacheKey =
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom;
+    const originalRegistryEntry =
+      contextAtomSnapshotRegistry.get(coldStartCacheKey);
+    const coldStartScopeKey = `store:${EJotaiContextStoreNames.swapModal}`;
+    const scopedKey = `${coldStartScopeKey}::${coldStartCacheKey}`;
+    const cachedValue = {
+      version: 1,
+      entries: [{ accountAddress: '0xaccount', balance: '1' }],
+    };
+    const coldStartAtom = contextAtomBase<typeof cachedValue>({
+      initialValue: { version: 1, entries: [] },
+      coldStartCache: true,
+      coldStartCacheKey,
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>(
+        _atomInstance: WritableAtom<Value2, Args, Result>,
+      ) =>
+        [
+          cachedValue as Awaited<Value2>,
+          jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
+        ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
+    });
+    jest.spyOn(coldStartCacheStorage, 'getString').mockReturnValue(
+      JSON.stringify({
+        [scopedKey]: cachedValue,
+      }),
+    );
+
+    try {
+      const store = jotaiContextStore.prepareStoreForImmediateUse({
+        storeName: EJotaiContextStoreNames.swapModal,
+      });
+
+      expect(store.get(coldStartAtom.atom())).toEqual(cachedValue);
+    } finally {
+      if (originalRegistryEntry) {
+        contextAtomSnapshotRegistry.set(
+          coldStartCacheKey,
+          originalRegistryEntry,
+        );
+      } else {
+        contextAtomSnapshotRegistry.delete(coldStartCacheKey);
+      }
+    }
   });
 
   it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {

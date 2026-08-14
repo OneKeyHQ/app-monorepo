@@ -51,7 +51,7 @@ export function prewarmMarketTokenImages(
   uris.forEach((uri) => prewarmingMarketTokenImageUris.add(uri));
 
   void Promise.allSettled([
-    preloadImages(uris.map((uri) => ({ uri }))),
+    preloadImages(uris.map((uri) => ({ uri, optimize: false }))),
     primeCachedImageRefs({
       uris,
       timeoutMs: MARKET_TOKEN_IMAGE_DECODE_TIMEOUT_MS,

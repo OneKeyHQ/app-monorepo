@@ -12,6 +12,16 @@ async function closeNativeWebViewModal() {
   });
 }
 
+async function closeNativeWebViewModalAfterPrimePurchaseSuccess(
+  onekeyUserId: string,
+) {
+  await globalThis.$onekey.$private.request({
+    method:
+      EWebEmbedPrivateRequestMethod.closeWebViewModalAfterPrimePurchaseSuccess,
+    params: { onekeyUserId },
+  });
+}
+
 async function showNativeToast({
   title,
   message,
@@ -132,7 +142,11 @@ export default function PageWebEmbedPrimePurchase() {
       setDebugText(debugMessage);
       await showNativeDebugMessageDialog(debugMessage);
 
-      await closeNativeWebViewModal();
+      if (purchaseResult?.customerInfo.entitlements.active.Prime?.isActive) {
+        await closeNativeWebViewModalAfterPrimePurchaseSuccess(primeUserId);
+      } else {
+        await closeNativeWebViewModal();
+      }
     } catch (error) {
       const trace = (error instanceof Error ? error.stack : '') || '';
       const debugMessage =

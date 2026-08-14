@@ -200,6 +200,11 @@ const baseResolve = ({
         }
       : {}),
     'bn.js$': require.resolve('bn.js'),
+    // algosdk's browser field value ('.': 'dist/browser/algosdk.min.js') lacks
+    // the './' prefix; rspack's strict resolver fails on it, so bare 'algosdk'
+    // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
+    // directly), keeping a single algosdk module graph in the bundle.
+    'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
   },
   fallback: {
     crypto:
@@ -219,7 +224,6 @@ const baseResolve = ({
     os: false,
     wbg: false,
     buffer: require.resolve('buffer/'),
-    algosdk: false,
   },
   fullySpecified: false,
 });
@@ -366,6 +370,7 @@ interface IBaseConfigOptions {
   enableImportMetaCompat?: boolean;
   enableSentryMinimalCompat?: boolean;
   transpileDependencies?: RegExp[];
+  removeFirstPartyConsole?: boolean;
 }
 
 export function createBaseConfig({
@@ -377,6 +382,7 @@ export function createBaseConfig({
   enableImportMetaCompat = false,
   enableSentryMinimalCompat = false,
   transpileDependencies = [],
+  removeFirstPartyConsole = false,
 }: IBaseConfigOptions): RspackOptions {
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
@@ -528,7 +534,7 @@ export function createBaseConfig({
           },
         },
         {
-          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/],
+          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
@@ -662,6 +668,11 @@ export function createBaseConfig({
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',
+                  // Keep console stripping in the first-party-only rule so
+                  // dependency runtime fallbacks remain intact.
+                  ...(!isDev && removeFirstPartyConsole
+                    ? ['babel-plugin-transform-remove-console']
+                    : []),
                   // Fold platformEnv.* to literals so platform branches are
                   // dead-code-eliminated (parity with webpack babelTools). Must
                   // be a babel plugin: rspack.DefinePlugin cannot fold member

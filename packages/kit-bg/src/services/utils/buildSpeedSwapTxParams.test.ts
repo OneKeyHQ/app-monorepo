@@ -2,6 +2,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapQuoteKind,
+  ESwapTradeSource,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { buildSpeedSwapTxParams } from './buildSpeedSwapTxParams';
@@ -35,6 +36,7 @@ describe('buildSpeedSwapTxParams', () => {
       protocol: EProtocolOfExchange.SWAP,
       kind: ESwapQuoteKind.SELL,
       walletType: 'hd',
+      tradeSource: ESwapTradeSource.MARKET_DEX,
       quoteResultCtx: {
         oneInchFusionOrderCtx: {
           quoteId: 'quote-1',
@@ -55,6 +57,7 @@ describe('buildSpeedSwapTxParams', () => {
       slippagePercentage: 0.5,
       kind: ESwapQuoteKind.SELL,
       walletType: 'hd',
+      tradeSource: ESwapTradeSource.MARKET_DEX,
       quoteResultCtx: {
         oneInchFusionOrderCtx: {
           quoteId: 'quote-1',

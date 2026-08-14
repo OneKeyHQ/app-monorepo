@@ -64,6 +64,7 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EReplaceTxType,
@@ -93,6 +94,9 @@ type IProps = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
+  onBeforeSend?: () => void | Promise<void>;
+  broadcastDeadline?: number;
+  beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
   transferPayload?: ITransferPayload;
@@ -115,6 +119,9 @@ function TxConfirmActions(props: IProps) {
     onSuccess,
     onFail,
     onCancel,
+    onBeforeSend,
+    broadcastDeadline,
+    beforeBroadcastAction,
     sourceInfo,
     signOnly,
     transferPayload,
@@ -128,7 +135,9 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
-  const [continueOperate, setContinueOperate] = useState(false);
+  const [riskAcceptedForUnsignedTxs, setRiskAcceptedForUnsignedTxs] = useState<
+    IUnsignedTxPro[] | null
+  >(null);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -139,6 +148,9 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  // Risk acknowledgement belongs to the exact transaction revision. Editing
+  // an approval or other payload replaces this array and requires a new check.
+  const continueOperate = riskAcceptedForUnsignedTxs === unsignedTxs;
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
@@ -179,7 +191,10 @@ function TxConfirmActions(props: IProps) {
   const unsignedTx = unsignedTxs[0];
   const isMegafuelSponsored =
     effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
-  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+  const isGasAccountSponsored =
+    effectiveFeePayer === 'gasAccount' &&
+    gasAccountUiState.selectedPayer === 'gasAccount' &&
+    !!gasAccountUiState.gasAccountQuote?.quoteId;
   const isFeeSponsored = isMegafuelSponsored || isGasAccountSponsored;
 
   const dappApprove = useDappApproveAction({
@@ -428,6 +443,18 @@ function TxConfirmActions(props: IProps) {
     }
 
     try {
+      await onBeforeSend?.();
+    } catch (error) {
+      const sendError = error as Error;
+      updateSendTxStatus({ isSubmitting: false });
+      onFail?.(sendError);
+      isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
+      void dappApprove.reject({ error: sendError });
+      throw error;
+    }
+
+    try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
         vaultSettings?.replaceTxEnabled &&
@@ -471,6 +498,8 @@ function TxConfirmActions(props: IProps) {
           tronResourceRentalInfo,
           gasAccountUiState,
           gasAccountSubmitId: submitId,
+          broadcastDeadline,
+          beforeBroadcastAction,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -572,7 +601,12 @@ function TxConfirmActions(props: IProps) {
       }
 
       updateSendTxStatus({ isSubmitting: false });
-      onSuccess?.(result);
+      onSuccess?.(
+        result.map((item) => ({
+          ...item,
+          isNetworkFeeSponsored: isFeeSponsored,
+        })),
+      );
 
       // Save recent recipient for all transfer types
       const isLightningNetwork =
@@ -679,6 +713,9 @@ function TxConfirmActions(props: IProps) {
     toAddress,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
+    onBeforeSend,
+    broadcastDeadline,
+    beforeBroadcastAction,
     onFail,
     dappApprove,
     tronResourceRentalInfo,
@@ -1048,7 +1085,7 @@ function TxConfirmActions(props: IProps) {
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setContinueOperate(!!checked);
+                setRiskAcceptedForUnsignedTxs(checked ? unsignedTxs : null);
               }}
             />
           ) : null}

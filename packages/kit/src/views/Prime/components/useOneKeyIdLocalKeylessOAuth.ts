@@ -7,13 +7,18 @@ import { showKeylessWalletAccountMismatchError } from '@onekeyhq/kit/src/compone
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
+import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
+
+import {
+  logOneKeyIdLoginFailureReason,
+  throwLocalizedOneKeyIdLoginError,
+} from './oneKeyIdLoginToastUtils';
 
 export function isOneKeyIdLocalKeylessOAuthMode(
   status?: EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -25,6 +30,11 @@ export function isOneKeyIdLocalKeylessOAuthMode(
   );
 }
 
+export type IOneKeyIdLocalKeylessOAuthContext = {
+  walletId: string;
+  provider: EOAuthSocialLoginProvider;
+};
+
 export function useOneKeyIdLocalKeylessOAuth({
   localKeylessLoginPrepareResult,
   onAccountMismatch,
@@ -35,13 +45,10 @@ export function useOneKeyIdLocalKeylessOAuth({
   forceAccountMismatchToast?: boolean;
 }) {
   const intl = useIntl();
-  const {
-    signInWithSocialLogin,
-    keylessSupabaseSignOut,
-    persistKeylessOAuthSession,
-  } = useOneKeyAuth();
+  const { signInWithSocialLogin, persistKeylessOAuthSession } = useOneKeyAuth();
   const localKeylessPrepareStatus = localKeylessLoginPrepareResult?.status;
   const localKeylessProvider = localKeylessLoginPrepareResult?.provider;
+  const localKeylessWalletId = localKeylessLoginPrepareResult?.walletId;
   const isLocalKeylessOAuthMode = isOneKeyIdLocalKeylessOAuthMode(
     localKeylessPrepareStatus,
   );
@@ -62,8 +69,16 @@ export function useOneKeyIdLocalKeylessOAuth({
   );
 
   const assertTokenMatchesLocalKeylessWallet = useCallback(
-    async ({ accessToken }: { accessToken: string }) => {
-      if (!isLocalKeylessOAuthMode) {
+    async ({
+      accessToken,
+      forceValidation,
+      expectedProvider,
+    }: {
+      accessToken: string;
+      forceValidation?: boolean;
+      expectedProvider?: EOAuthSocialLoginProvider;
+    }) => {
+      if (!isLocalKeylessOAuthMode && !forceValidation) {
         return;
       }
       const { isValid } =
@@ -73,7 +88,7 @@ export function useOneKeyIdLocalKeylessOAuth({
       if (!isValid) {
         showKeylessWalletAccountMismatchError({
           intl,
-          keylessProvider: localKeylessProvider,
+          keylessProvider: expectedProvider ?? localKeylessProvider,
           forceToast: forceAccountMismatchToast,
         });
         onAccountMismatch?.();
@@ -94,18 +109,7 @@ export function useOneKeyIdLocalKeylessOAuth({
     ],
   );
 
-  // Clear the temporary keyless OAuth session persisted by
-  // signInWithSocialLogin (main runtime client sign-out + bg-side shared
-  // storage). The bg method is source-guarded: when the OneKey ID login is
-  // backed by the keyless session (authSessionSource === KeylessOAuth), it
-  // also clears the auth tokens and the logged-in atom so clearing the
-  // session can never leave a zombie logged-in state behind.
-  const clearOAuthSignInTempSession = useCallback(async () => {
-    await keylessSupabaseSignOut();
-    await backgroundApiProxy.serviceKeylessWallet.clearKeylessAuthSessionAndLoginState();
-  }, [keylessSupabaseSignOut]);
-
-  const getOAuthAccessToken = useCallback(
+  const getInteractiveOAuthTokens = useCallback(
     async ({
       provider,
       missingTokenMessage,
@@ -113,28 +117,69 @@ export function useOneKeyIdLocalKeylessOAuth({
       provider: EOAuthSocialLoginProvider;
       missingTokenMessage: string;
     }) => {
+      const result = await signInWithSocialLogin(provider);
+      const accessToken = result?.session?.accessToken || '';
+      const refreshToken = result?.session?.refreshToken || '';
+      if (!accessToken) {
+        logOneKeyIdLoginFailureReason(
+          `OneKey ID OAuth login failed: access token not found for ${provider}.`,
+        );
+        throw new OneKeyLocalError(missingTokenMessage);
+      }
+      return {
+        accessToken,
+        refreshToken,
+      };
+    },
+    [signInWithSocialLogin],
+  );
+
+  const getOAuthAccessToken = useCallback(
+    async ({
+      provider,
+      missingTokenMessage,
+      localKeylessContext,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      missingTokenMessage: string;
+      localKeylessContext?: IOneKeyIdLocalKeylessOAuthContext;
+    }) => {
       let accessToken = '';
       let didUseOAuthSignIn = false;
+      let rollbackHandle: IKeylessOAuthSessionRollbackHandle | undefined;
+      const effectiveLocalKeylessProvider =
+        localKeylessContext?.provider ?? localKeylessProvider;
+      const effectiveLocalKeylessWalletId =
+        localKeylessContext?.walletId ?? localKeylessWalletId;
+      const shouldValidateLocalKeyless = Boolean(
+        localKeylessContext || isLocalKeylessOAuthMode,
+      );
       const shouldTryLocalKeylessSession =
-        isLocalKeylessOAuthMode && provider === localKeylessProvider;
+        shouldValidateLocalKeyless &&
+        provider === effectiveLocalKeylessProvider;
 
       if (shouldTryLocalKeylessSession) {
-        try {
-          const result =
-            await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
-          accessToken = result.accessToken;
-        } catch (error) {
-          // Dead/expired legacy blob -> fall back to a fresh OAuth
-          // round-trip below. But a user-initiated cancel (the legacy-blob
-          // migration's passcode prompt was dismissed) must settle the flow
-          // instead — a "Cancel" click must never escalate into opening the
-          // system browser. Both hosts skip toasts for cancel-style errors
-          // (errorToastUtils.isUserCancelStyleError), so rethrowing is
-          // silent there.
-          if (errorToastUtils.isUserCancelStyleError(error)) {
-            throw error;
-          }
-          accessToken = '';
+        const localSessionResult =
+          await backgroundApiProxy.serviceKeylessWallet.continueOneKeyIdLoginWithLocalKeyless();
+        if (
+          localSessionResult.provider !== provider ||
+          (effectiveLocalKeylessWalletId &&
+            localSessionResult.walletId !== effectiveLocalKeylessWalletId)
+        ) {
+          throwLocalizedOneKeyIdLoginError({
+            intl,
+            reason:
+              'OneKey ID login stopped because the local Keyless wallet changed before continuation.',
+          });
+        }
+        if (localSessionResult.status === 'retryable') {
+          logOneKeyIdLoginFailureReason(
+            'OneKey ID login could not reuse the local Keyless OAuth session because credential migration is retryable.',
+          );
+          throw new OneKeyLocalError(missingTokenMessage);
+        }
+        if (localSessionResult.status === 'ready') {
+          accessToken = localSessionResult.accessToken;
         }
       }
 
@@ -143,17 +188,20 @@ export function useOneKeyIdLocalKeylessOAuth({
         // shared keyless session slot, and persisting before validation
         // would let a wrong-account session overwrite the still-valid one
         // (see the persistKeylessOAuthSession contract in useSupabaseAuth).
-        const result = await signInWithSocialLogin(provider);
-        accessToken = result?.session?.accessToken || '';
-        const refreshToken = result?.session?.refreshToken || '';
-        if (!accessToken) {
-          throw new OneKeyLocalError(missingTokenMessage);
-        }
+        const interactiveTokens = await getInteractiveOAuthTokens({
+          provider,
+          missingTokenMessage,
+        });
+        accessToken = interactiveTokens.accessToken;
         didUseOAuthSignIn = true;
         // Throws on mismatch. Nothing has been persisted yet, so the
         // previously persisted keyless session stays intact and no cleanup
         // is needed here.
-        await assertTokenMatchesLocalKeylessWallet({ accessToken });
+        await assertTokenMatchesLocalKeylessWallet({
+          accessToken,
+          forceValidation: Boolean(localKeylessContext),
+          expectedProvider: effectiveLocalKeylessProvider,
+        });
         // No OneKey ID account-conflict check is needed before persisting
         // here (unlike checkKeylessWalletCreatedOnServer): both hosts of
         // this hook guarantee no live KeylessOAuth-backed OneKey ID login
@@ -161,31 +209,78 @@ export function useOneKeyIdLocalKeylessOAuth({
         // showOneKeyIdLoginDialog logged out / cleared the OneKey ID state,
         // and OneKeyIdLegacyOAuthBind runs only for LegacyEmailSupabase-
         // sourced logins, whose session does not live in the keyless slot.
-        await persistKeylessOAuthSession({ accessToken, refreshToken });
+        const persisted = await persistKeylessOAuthSession({
+          accessToken,
+          refreshToken: interactiveTokens.refreshToken,
+        });
+        rollbackHandle = persisted.rollbackHandle;
       }
 
       return {
         accessToken,
         didUseOAuthSignIn,
+        rollbackHandle,
       };
     },
     [
       assertTokenMatchesLocalKeylessWallet,
+      getInteractiveOAuthTokens,
+      intl,
       isLocalKeylessOAuthMode,
       localKeylessProvider,
+      localKeylessWalletId,
       persistKeylessOAuthSession,
-      signInWithSocialLogin,
     ],
+  );
+
+  const getFreshOAuthTokensForRegularLogin = useCallback(
+    async ({
+      provider,
+      missingTokenMessage,
+    }: {
+      provider: EOAuthSocialLoginProvider;
+      missingTokenMessage: string;
+    }) => {
+      const { accessToken, refreshToken } = await getInteractiveOAuthTokens({
+        provider,
+        missingTokenMessage,
+      });
+      if (!refreshToken) {
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          reason: 'OneKey ID OAuth login failed: refresh token not found.',
+        });
+      }
+      return {
+        accessToken,
+        refreshToken,
+      };
+    },
+    [getInteractiveOAuthTokens, intl],
+  );
+
+  const rollbackProvisionalOAuthSession = useCallback(
+    async ({
+      rollbackHandle,
+    }: {
+      rollbackHandle: IKeylessOAuthSessionRollbackHandle;
+    }) =>
+      backgroundApiProxy.servicePrime.rollbackProvisionalKeylessOAuthSession({
+        rollbackHandle,
+      }),
+    [],
   );
 
   return {
     localKeylessPrepareStatus,
     localKeylessProvider,
+    localKeylessWalletId,
     localKeylessProviderName,
     isLocalKeylessOAuthMode,
     canContinueWithLocalKeyless,
     shouldShowProvider,
     getOAuthAccessToken,
-    clearOAuthSignInTempSession,
+    getFreshOAuthTokensForRegularLogin,
+    rollbackProvisionalOAuthSession,
   };
 }

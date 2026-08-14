@@ -271,6 +271,7 @@ type IMarketTokenListBaseProps = {
   ) => void;
   onScrollBegin?: () => void;
   showStockSubtitle?: boolean | 'auto';
+  forceStockMetadataColumns?: boolean;
   hiddenDesktopColumns?: readonly string[];
   change24hColumnTitle?: string;
   liveTokenOverride?: IMarketTokenListLiveOverride;
@@ -303,6 +304,7 @@ function MarketTokenListBase({
   onItemContextMenu,
   onScrollBegin,
   showStockSubtitle = true,
+  forceStockMetadataColumns = false,
   hiddenDesktopColumns,
   change24hColumnTitle,
   liveTokenOverride,
@@ -481,10 +483,13 @@ function MarketTokenListBase({
   }, [rawData, showStockSubtitle]);
   const useStockMetadataColumns = useMemo(
     () =>
-      (showStockSubtitle === 'auto' ||
-        (isWatchlistMode && showStockSubtitle !== false)) &&
-      shouldUseStockMetadataColumnsForTokens(rawData),
-    [isWatchlistMode, rawData, showStockSubtitle],
+      shouldUseStockMetadataColumnsForTokens(rawData, {
+        forceStockMetadataColumns,
+        enableAutoDetection:
+          showStockSubtitle === 'auto' ||
+          (isWatchlistMode && showStockSubtitle !== false),
+      }),
+    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
   );
   // Web tab integration gives the inner FlatList the full tab height so the
   // outer Tabs.Container can own vertical scroll. During cold start, keep only

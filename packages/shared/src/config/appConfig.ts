@@ -45,7 +45,7 @@ export const HARDWARE_TROUBLESHOOTING_URL =
 export const LINUX_UDEV_HELP_URL = 'https://help.onekey.so/articles/11461181';
 export const TREZOR_TROUBLESHOOTING_URL = 'https://trezor.io/support';
 export const RECEIVE_RISK_MONITORING_HELP_LINK =
-  'https://help.onekey.so/articles/15338240-how-to-use-onekey-incoming-transfer-risk-monitoring-kyt';
+  'https://help.onekey.so/articles/15338240';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
@@ -61,6 +61,8 @@ export const TWITTER_FOLLOW_URL =
 export const TWITTER_FOLLOW_URL_CN =
   'https://x.com/intent/follow?screen_name=OneKeyCN';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
+export const INSTAGRAM_URL = 'https://www.instagram.com/onekeyhq/';
+export const REDDIT_URL = 'https://www.reddit.com/r/OneKeyHQ/';
 export const ONEKEY_URL = 'https://onekey.so';
 export const ONEKEY_TEST_URL = 'https://onekeytest.com';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';

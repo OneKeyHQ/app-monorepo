@@ -11,6 +11,7 @@ import {
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   AnimatePresence,
   Button,
   Dialog,
@@ -57,6 +58,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -599,11 +601,28 @@ function FinalizeWalletSetupPage({
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
             ) {
+              // Route the finalize re-connect through getCompatibleConnectId
+              // (Trezor-only, inside this vendor guard). After a BLE onboarding
+              // the DB's main connectId is the deviceId (the USB handle), which
+              // the BLE transport can't resolve — passing it raw makes this
+              // connectDevice hang on a 31s noble timeout. Resolving it yields the
+              // bound bleConnectId for a BLE session; idempotent when the input is
+              // already a BLE address (device not yet in DB → returned unchanged).
+              const compatibleConnectId =
+                await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
+                  {
+                    connectId: thirdPartyDevice.connectId,
+                    featuresDeviceId: thirdPartyDevice.deviceId,
+                    vendor: deviceData.vendor,
+                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                  },
+                );
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
                     vendor: deviceData.vendor,
-                    connectId: thirdPartyDevice.connectId,
+                    connectId:
+                      compatibleConnectId || thirdPartyDevice.connectId,
                   },
                 );
               const connectedFeatures = connected.success
@@ -622,16 +641,12 @@ function FinalizeWalletSetupPage({
                   intl,
                 );
               }
-              if (!connectedDeviceId) {
-                throw new OneKeyLocalError({
-                  message: intl.formatMessage({
-                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
-                  }),
-                });
-              }
-              // Device has no seed yet — block creation and prompt the user to
-              // set it up first (we can't drive third-party device setup).
-              if (connectedFeatures?.initialized === false) {
+              // No firmware or no seed yet: no device_id exists, so check this
+              // before the device_id guard to show the real reason.
+              if (
+                connectedFeatures?.firmware_present === false ||
+                connectedFeatures?.initialized === false
+              ) {
                 await trackHardwareWalletConnection({
                   status: 'failure',
                   deviceType: thirdPartyDevice.deviceType,
@@ -653,6 +668,13 @@ function FinalizeWalletSetupPage({
                   }),
                 });
                 return;
+              }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
               }
               featuresForCreate = {
                 ...connectedFeatures,
@@ -1094,44 +1116,42 @@ function FinalizeWalletSetupPage({
           </YStack>
         ) : null}
         {setupError ? (
-          <YStack flex={1} justifyContent="center" alignItems="center" gap="$7">
-            <SizableText size="$heading5xl" fontWeight={600}>
-              {intl.formatMessage({
-                id: ETranslations.failed_to_create_wallet,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              maxWidth={620}
-              pl="$3"
-              borderLeftWidth={1}
-              borderLeftColor="$borderSubdued"
-            >
-              {intl.formatMessage({
-                id: setupError.messageId,
-                defaultMessage: setupError.messageId,
-              })}
-            </SizableText>
-            <XStack gap="$2.5" mt="$4" maxWidth={420}>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupRetryBtn}
-                flex={1}
-                variant="primary"
-                size="large"
-                onPress={retrySetup}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-              <Button
-                testID={OnboardingTestIDs.finalizeSetupExitBtn}
-                flex={1}
-                size="large"
-                onPress={closePage}
-              >
-                {intl.formatMessage({ id: ETranslations.global_exit })}
-              </Button>
-            </XStack>
+          <YStack flex={1} justifyContent="center" alignItems="center">
+            <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
+              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              <SizableText size="$heading4xl" fontWeight={600}>
+                {intl.formatMessage({
+                  id: ETranslations.failed_to_create_wallet,
+                })}
+              </SizableText>
+              <Alert
+                icon="InfoCircleOutline"
+                type="info"
+                description={intl.formatMessage({
+                  id: setupError.messageId,
+                  defaultMessage: setupError.messageId,
+                })}
+              />
+              <XStack gap="$4" alignItems="center">
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                  flex={1}
+                  variant="primary"
+                  size="large"
+                  onPress={retrySetup}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+                <Button
+                  testID={OnboardingTestIDs.finalizeSetupExitBtn}
+                  variant="tertiary"
+                  onPress={closePage}
+                  minWidth="$20"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_exit })}
+                </Button>
+              </XStack>
+            </YStack>
           </YStack>
         ) : (
           <>
