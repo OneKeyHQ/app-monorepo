@@ -1,5 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import type { IntlShape } from 'react-intl';
+
 // U+2212 MINUS SIGN (not a hyphen) to match the outgoing-amount style used
 // across the app's transaction rows. The container owns amount formatting,
 // including the zero-amount exception for degenerate no-value psbts.
@@ -13,16 +17,28 @@ export const MINUS_SIGN = '−';
 export function formatRecipientLine({
   recipient,
   extraRecipientCount,
+  intl,
 }: {
   recipient: string;
   extraRecipientCount: number;
+  intl: Pick<IntlShape, 'formatMessage'>;
 }): string {
   if (!recipient) {
-    return 'To multiple outputs';
+    return intl.formatMessage({
+      id: ETranslations.batch_psbt_to_multiple_outputs__desc,
+    });
   }
   return extraRecipientCount > 0
-    ? `To ${recipient} +${extraRecipientCount}`
-    : `To ${recipient}`;
+    ? intl.formatMessage(
+        {
+          id: ETranslations.batch_psbt_to_address_additional_outputs__desc,
+        },
+        { address: recipient, count: extraRecipientCount },
+      )
+    : intl.formatMessage(
+        { id: ETranslations.batch_psbt_to_address__desc },
+        { address: recipient },
+      );
 }
 
 // The wallet API delivers `price` as a number, a numeric string, or a

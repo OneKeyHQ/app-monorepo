@@ -63,8 +63,6 @@ import { MINUS_SIGN, formatRecipientLine, normalizeNativePrice } from './utils';
 import type { RouteProp } from '@react-navigation/core';
 import type { NavigationAction } from '@react-navigation/routers';
 
-const BATCH_PAGE_TITLE = 'Batch PSBT Signing';
-
 function BatchTxConfirm() {
   const route =
     useRoute<
@@ -76,6 +74,9 @@ function BatchTxConfirm() {
   const { batchId, accountId, networkId, sourceInfo } = route.params;
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const batchPageTitle = intl.formatMessage({
+    id: ETranslations.batch_psbt_signing__title,
+  });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -273,10 +274,14 @@ function BatchTxConfirm() {
   );
   const currentRow = currentItem
     ? {
-        title: `Transaction ${currentItem.index + 1}`,
+        title: intl.formatMessage(
+          { id: ETranslations.batch_psbt_transaction_number__title },
+          { number: currentItem.index + 1 },
+        ),
         recipient: formatRecipientLine({
           recipient: currentItem.recipient,
           extraRecipientCount: currentItem.extraRecipientCount,
+          intl,
         }),
         amountText: formatOutgoingAmount(currentItem.amountValue),
       }
@@ -383,7 +388,12 @@ function BatchTxConfirm() {
                     })
                     .then(() => {
                       Toast.success({
-                        title: `Transaction ${item.index + 1} signed`,
+                        title: intl.formatMessage(
+                          {
+                            id: ETranslations.batch_psbt_transaction_signed__msg,
+                          },
+                          { number: item.index + 1 },
+                        ),
                       });
                     })
                     .catch(() => {});
@@ -391,10 +401,14 @@ function BatchTxConfirm() {
               },
         });
       } catch (_error) {
-        Toast.error({ title: 'Unable to open this transaction' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.batch_psbt_unable_to_open_transaction__msg,
+          }),
+        });
       }
     },
-    [accountId, networkId, batchId, navigation],
+    [accountId, networkId, batchId, intl, navigation],
   );
 
   const startSigning = useCallback(() => {
@@ -418,22 +432,37 @@ function BatchTxConfirm() {
         const message = error instanceof Error ? error.message : '';
         if (message.includes('unknown batchId')) {
           Toast.error({
-            title: 'This signing request is no longer available',
+            title: intl.formatMessage({
+              id: ETranslations.batch_psbt_request_no_longer_available__msg,
+            }),
           });
         }
       });
-  }, [batchId, sourceInfo]);
+  }, [batchId, intl, sourceInfo]);
 
   const showSigningNotice = useCallback(() => {
     Dialog.show({
       icon: isHw ? 'LaptopOutline' : 'WalletOutline',
       title:
         remainingCount === totalCount
-          ? `Sign all ${remainingCount} transactions?`
-          : `Sign ${remainingCount} remaining transactions?`,
+          ? intl.formatMessage(
+              { id: ETranslations.batch_psbt_sign_all_transactions__title },
+              { count: remainingCount },
+            )
+          : intl.formatMessage(
+              {
+                id: ETranslations.batch_psbt_sign_remaining_transactions__title,
+              },
+              { count: remainingCount },
+            ),
       description: isHw
-        ? "You'll review and approve each transaction on your hardware wallet. Keep the device connected until signing is complete."
-        : `Authorize once to sign all ${remainingCount} transactions. Review the transaction summary carefully before continuing, as signing will begin immediately after you confirm.`,
+        ? intl.formatMessage({
+            id: ETranslations.batch_psbt_hardware_signing_notice__desc,
+          })
+        : intl.formatMessage(
+            { id: ETranslations.batch_psbt_software_signing_notice__desc },
+            { count: remainingCount },
+          ),
       renderContent: (
         <XStack
           px="$4"
@@ -443,16 +472,22 @@ function BatchTxConfirm() {
           bg="$bgSubdued"
         >
           <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-            Transactions
+            {intl.formatMessage({
+              id: ETranslations.batch_psbt_transactions__title,
+            })}
           </SizableText>
           <SizableText size="$bodyMdMedium">{remainingCount}</SizableText>
         </XStack>
       ),
-      onCancelText: 'Cancel',
-      onConfirmText: isHw ? 'Continue' : 'Sign all',
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+      onConfirmText: isHw
+        ? intl.formatMessage({ id: ETranslations.global_continue })
+        : intl.formatMessage({
+            id: ETranslations.batch_psbt_sign_all__action,
+          }),
       onConfirm: startSigning,
     });
-  }, [isHw, remainingCount, totalCount, startSigning]);
+  }, [intl, isHw, remainingCount, totalCount, startSigning]);
 
   const closeAndReject = useCallback(
     (closePageStack: () => void) => {
@@ -477,11 +512,18 @@ function BatchTxConfirm() {
     (closePageStack: () => void) => {
       Dialog.show({
         tone: 'destructive',
-        title: 'Cancel this request?',
-        description:
-          'Signatures already generated have not been returned to the DApp and will be discarded.',
-        onConfirmText: 'Cancel request',
-        onCancelText: 'Go back',
+        title: intl.formatMessage({
+          id: ETranslations.batch_psbt_cancel_request__title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.batch_psbt_discard_generated_signatures__desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.batch_psbt_cancel_request__action,
+        }),
+        onCancelText: intl.formatMessage({
+          id: ETranslations.shortcut_go_back,
+        }),
         onConfirm: () => {
           void backgroundApiProxy.serviceBatchTxSign
             .cancelBatch({ batchId })
@@ -490,7 +532,7 @@ function BatchTxConfirm() {
         },
       });
     },
-    [batchId, closeAndReject],
+    [batchId, closeAndReject, intl],
   );
 
   // Page.FooterActions does not await onConfirm or auto-disable the button
@@ -527,24 +569,35 @@ function BatchTxConfirm() {
         // disposes it, so retrying Done re-runs takeFinalizedResults against
         // the intact batch; Cancel request stays available as the fallback.
         setClosingSnapshot(undefined);
-        Toast.error({ title: 'Failed to collect signatures' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.batch_psbt_failed_to_collect_signatures__msg,
+          }),
+        });
       } finally {
         isDoneInFlightRef.current = false;
         setIsDoneLoading(false);
       }
     },
-    [batch, batchId, dappApprove],
+    [batch, batchId, dappApprove, intl],
   );
 
   const handlePreventRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       Dialog.show({
         tone: 'destructive',
-        title: 'Stop signing and cancel the request?',
-        description:
-          'Signatures already generated will be discarded and the DApp request will be rejected.',
-        onConfirmText: 'Stop and cancel',
-        onCancelText: 'Keep signing',
+        title: intl.formatMessage({
+          id: ETranslations.batch_psbt_stop_signing_and_cancel_request__title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.batch_psbt_discard_signatures_and_reject_request__desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.batch_psbt_stop_and_cancel__action,
+        }),
+        onCancelText: intl.formatMessage({
+          id: ETranslations.batch_psbt_keep_signing__action,
+        }),
         onConfirm: () => {
           void backgroundApiProxy.serviceBatchTxSign
             .cancelBatch({ batchId })
@@ -555,7 +608,7 @@ function BatchTxConfirm() {
         },
       });
     },
-    [batchId, dappApprove, navigation],
+    [batchId, dappApprove, intl, navigation],
   );
   usePreventRemove(isSigningNow, handlePreventRemove);
 
@@ -579,7 +632,7 @@ function BatchTxConfirm() {
   if (loadError) {
     return (
       <Page onClose={handlePageClose}>
-        <Page.Header title={BATCH_PAGE_TITLE} />
+        <Page.Header title={batchPageTitle} />
         <Page.Body>
           <YStack
             flex={1}
@@ -590,10 +643,14 @@ function BatchTxConfirm() {
           >
             <Icon name="ErrorOutline" size="$10" color="$iconCritical" />
             <SizableText size="$headingLg" textAlign="center">
-              Unable to load this request
+              {intl.formatMessage({
+                id: ETranslations.batch_psbt_unable_to_load_request__title,
+              })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-              This signing request is no longer available.
+              {intl.formatMessage({
+                id: ETranslations.batch_psbt_request_no_longer_available__msg,
+              })}
             </SizableText>
           </YStack>
         </Page.Body>
@@ -604,7 +661,7 @@ function BatchTxConfirm() {
   if (!batch) {
     return (
       <Page onClose={handlePageClose}>
-        <Page.Header title={BATCH_PAGE_TITLE} />
+        <Page.Header title={batchPageTitle} />
         <Page.Body>
           <Stack flex={1} alignItems="center" justifyContent="center" py="$12">
             <Spinner size="large" />
@@ -617,7 +674,7 @@ function BatchTxConfirm() {
   if (showHwProgressStage || isComplete) {
     return (
       <Page onClose={handlePageClose}>
-        <Page.Header title={BATCH_PAGE_TITLE} />
+        <Page.Header title={batchPageTitle} />
         <Page.Body px="$5">
           <BatchSigningProgress
             totalCount={totalCount}
@@ -628,7 +685,13 @@ function BatchTxConfirm() {
         </Page.Body>
         <Page.Footer>
           <Page.FooterActions
-            onConfirmText={isComplete ? 'Done' : 'Waiting for signature…'}
+            onConfirmText={
+              isComplete
+                ? intl.formatMessage({ id: ETranslations.global_done })
+                : intl.formatMessage({
+                    id: ETranslations.batch_psbt_waiting_for_signature__action,
+                  })
+            }
             confirmButtonProps={{
               // isBlockingRisk / isRiskUnacknowledged gate EVERY path that
               // hands signatures back to the dapp — Sign all, per-row
@@ -657,7 +720,7 @@ function BatchTxConfirm() {
 
   return (
     <Page scrollEnabled onClose={handlePageClose}>
-      <Page.Header title={BATCH_PAGE_TITLE} />
+      <Page.Header title={batchPageTitle} />
       <Page.Body px="$5">
         <YStack width="100%" maxWidth={640} alignSelf="center" gap="$4" pb="$6">
           {sourceInfo?.origin ? (
@@ -681,15 +744,24 @@ function BatchTxConfirm() {
           ) : null}
 
           <YStack bg="$bgSubdued" borderRadius="$3" overflow="hidden">
-            <SummaryRow label="Transactions" value={`${totalCount}`} />
+            <SummaryRow
+              label={intl.formatMessage({
+                id: ETranslations.batch_psbt_transactions__title,
+              })}
+              value={`${totalCount}`}
+            />
             <Stack height={1} bg="$borderSubdued" />
             <SummaryRow
-              label="Total outgoing"
+              label={intl.formatMessage({
+                id: ETranslations.batch_psbt_total_outgoing__title,
+              })}
               value={formatAmount(totalOutgoingSatoshi)}
             />
             <Stack height={1} bg="$borderSubdued" />
             <SummaryRow
-              label="Total network fee"
+              label={intl.formatMessage({
+                id: ETranslations.batch_psbt_total_network_fee__title,
+              })}
               value={formatAmount(totalFeeSatoshi)}
             />
           </YStack>
@@ -697,10 +769,15 @@ function BatchTxConfirm() {
           <YStack gap="$2.5">
             <XStack alignItems="center">
               <SizableText flex={1} size="$bodyMdMedium" color="$textSubdued">
-                Transactions
+                {intl.formatMessage({
+                  id: ETranslations.batch_psbt_transactions__title,
+                })}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                {`${remainingCount} remaining`}
+                {intl.formatMessage(
+                  { id: ETranslations.batch_psbt_remaining_count__desc },
+                  { count: remainingCount },
+                )}
               </SizableText>
             </XStack>
 
@@ -739,8 +816,14 @@ function BatchTxConfirm() {
         <Page.FooterActions
           onConfirmText={
             remainingCount === totalCount
-              ? `Sign all ${totalCount}`
-              : `Sign remaining ${remainingCount}`
+              ? intl.formatMessage(
+                  { id: ETranslations.batch_psbt_sign_all_count__action },
+                  { count: totalCount },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.batch_psbt_sign_remaining__action },
+                  { count: remainingCount },
+                )
           }
           confirmButtonProps={{
             loading: isSigningNow,
@@ -754,7 +837,15 @@ function BatchTxConfirm() {
               remainingCount === 0,
           }}
           onConfirm={showSigningNotice}
-          onCancelText={hasSignedAny ? 'Cancel request' : 'Reject all'}
+          onCancelText={
+            hasSignedAny
+              ? intl.formatMessage({
+                  id: ETranslations.batch_psbt_cancel_request__action,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.batch_psbt_reject_all__action,
+                })
+          }
           cancelButtonProps={{ variant: 'secondary', disabled: isSigningNow }}
           onCancel={(_close, closePageStack) => {
             if (hasSignedAny) {
