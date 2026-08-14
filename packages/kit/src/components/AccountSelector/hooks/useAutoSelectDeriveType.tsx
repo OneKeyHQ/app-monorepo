@@ -5,6 +5,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -13,6 +15,11 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import {
+  getAccountSelectorPerfTimestamp,
+  getNextAccountSelectorPerfOperationId,
+  isAccountSelectorPerfDebugEnabled,
+} from '../../../states/jotai/contexts/accountSelector/perfDebug';
 
 export function useAutoSelectDeriveType({ num }: { num: number }) {
   const {
@@ -23,67 +30,142 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
   }
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
-  const { serviceNetwork, serviceAccountSelector } = backgroundApiProxy;
+  const { serviceNetwork } = backgroundApiProxy;
   const networkId = network?.id;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
-  // **** auto select derive type from global when network changed
+  // Sync the global derive type first, then resolve a network fallback only
+  // when no global choice exists. Keeping the steps in one task avoids two
+  // concurrent global-derive RPCs after a network change.
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       if (!isReady || !networkId || isOthersWallet) {
         return;
       }
-      await actions.current.syncLocalDeriveTypeFromGlobal({
-        num,
-        sceneName,
-        sceneUrl,
-      });
-    })();
-  }, [actions, isOthersWallet, isReady, networkId, num, sceneName, sceneUrl]);
-
-  // **** auto select first derive type of network
-  useEffect(() => {
-    void (async () => {
-      if (!isReady || !networkId || isOthersWallet) {
-        return;
+      const perfEnabled = isAccountSelectorPerfDebugEnabled();
+      const operationId = perfEnabled
+        ? getNextAccountSelectorPerfOperationId()
+        : undefined;
+      const requestedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
+      const stageMs: Record<string, number> = {};
+      let phase = 'sync-global';
+      let resultLogged = false;
+      const logResult = (outcome: string, transitionId?: number) => {
+        if (!perfEnabled || resultLogged) {
+          return;
+        }
+        resultLogged = true;
+        defaultLogger.accountSelector.perf.trace('autoDeriveResult', {
+          num,
+          operationId,
+          outcome,
+          phase,
+          sceneName,
+          stageMs,
+          totalMs: Math.round(getAccountSelectorPerfTimestamp() - requestedAt),
+          transitionId,
+          trigger: 'network-change',
+        });
+      };
+      if (perfEnabled) {
+        defaultLogger.accountSelector.perf.trace('autoDeriveRequested', {
+          num,
+          operationId,
+          sceneName,
+          trigger: 'network-change',
+        });
       }
-      let newDeriveType: IAccountDeriveTypes | undefined;
-
-      if (!deriveInfo) {
+      try {
+        let stageStartedAt = perfEnabled
+          ? getAccountSelectorPerfTimestamp()
+          : 0;
+        const globalSyncResult =
+          await actions.current.syncLocalDeriveTypeFromGlobal({
+            num,
+            parentOperationId: operationId,
+            sceneName,
+            sceneUrl,
+            source: 'network-change',
+          });
+        if (perfEnabled) {
+          stageMs.syncGlobal = Math.round(
+            getAccountSelectorPerfTimestamp() - stageStartedAt,
+          );
+        }
+        if (cancelled) {
+          logResult('cancelled');
+          return;
+        }
+        if (globalSyncResult.globalDeriveType) {
+          logResult(
+            `global-${globalSyncResult.selectionResult?.outcome || 'resolved'}`,
+            globalSyncResult.selectionResult?.transitionId,
+          );
+          return;
+        }
+        if (deriveInfo) {
+          logResult('skip-existing-derive');
+          return;
+        }
+        const expectedSelection = actions.current.getSelectedAccount({ num });
+        if (expectedSelection.networkId !== networkId) {
+          logResult('stale-network');
+          return;
+        }
+        phase = 'get-derive-options';
+        stageStartedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
         const deriveInfoItems =
           await serviceNetwork.getDeriveInfoItemsOfNetwork({
             networkId,
           });
-        if (deriveInfoItems.length > 0) {
-          const selectedAccount = actions.current.getSelectedAccount({
-            num,
-          });
-          let globalDeriveType =
-            await serviceAccountSelector.getGlobalDeriveType({
-              selectedAccount,
-              sceneName,
-            });
-          if (!globalDeriveType && selectedAccount.networkId) {
-            globalDeriveType =
-              await serviceNetwork.getDeriveTypeOrFallbackToGlobal({
-                deriveType: globalDeriveType,
-                networkId: selectedAccount.networkId,
-              });
-          }
-          newDeriveType =
-            globalDeriveType ||
-            (deriveInfoItems?.[0]?.value as IAccountDeriveTypes) ||
-            'default';
+        if (perfEnabled) {
+          stageMs.getDeriveOptions = Math.round(
+            getAccountSelectorPerfTimestamp() - stageStartedAt,
+          );
         }
-      }
-
-      if (newDeriveType) {
-        await actions.current.updateSelectedAccountDeriveType({
-          num,
-          deriveType: newDeriveType || 'default',
-        });
+        if (!deriveInfoItems.length) {
+          logResult('no-derive-options');
+          return;
+        }
+        phase = 'resolve-fallback';
+        stageStartedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
+        const fallbackDeriveType = expectedSelection.networkId
+          ? await serviceNetwork.getDeriveTypeOrFallbackToGlobal({
+              deriveType: undefined,
+              networkId: expectedSelection.networkId,
+            })
+          : undefined;
+        if (perfEnabled) {
+          stageMs.resolveFallback = Math.round(
+            getAccountSelectorPerfTimestamp() - stageStartedAt,
+          );
+        }
+        const newDeriveType =
+          fallbackDeriveType ||
+          (deriveInfoItems[0]?.value as IAccountDeriveTypes) ||
+          'default';
+        if (cancelled) {
+          logResult('cancelled');
+          return;
+        }
+        phase = 'update-selection';
+        const selectionResult =
+          await actions.current.updateSelectedAccountDeriveType({
+            num,
+            deriveType: newDeriveType,
+            expectedSelection,
+            parentOperationId: operationId,
+            reason: 'autoDeriveFallback',
+          });
+        logResult(selectionResult.outcome, selectionResult.transitionId);
+      } catch {
+        logResult(cancelled ? 'cancelled' : 'error');
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     actions,
     deriveInfo,
@@ -92,7 +174,7 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
     networkId,
     num,
     sceneName,
-    serviceAccountSelector,
+    sceneUrl,
     serviceNetwork,
   ]);
 
@@ -106,15 +188,33 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
     if (!isReady || isOthersWallet) {
       return;
     }
-    const fn = () =>
-      actions.current.syncLocalDeriveTypeFromGlobal({
-        num,
-        sceneName,
-        sceneUrl,
-      });
+    const fn = (payload: unknown) => {
+      const networkImpl =
+        payload &&
+        typeof payload === 'object' &&
+        'networkImpl' in payload &&
+        typeof payload.networkImpl === 'string'
+          ? payload.networkImpl
+          : undefined;
+      if (
+        networkImpl &&
+        (!networkId ||
+          networkUtils.getNetworkImpl({ networkId }) !== networkImpl)
+      ) {
+        return;
+      }
+      void actions.current
+        .syncLocalDeriveTypeFromGlobal({
+          num,
+          sceneName,
+          sceneUrl,
+          source: 'global-event',
+        })
+        .catch(() => undefined);
+    };
     appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, fn);
     };
-  }, [actions, isOthersWallet, isReady, num, sceneName, sceneUrl]);
+  }, [actions, isOthersWallet, isReady, networkId, num, sceneName, sceneUrl]);
 }

@@ -348,6 +348,7 @@ export function useSwapProAccount() {
       void updateSelectedAccountNetwork({
         num: 0,
         networkId: accountNetworkSyncTargetId,
+        reason: 'swapProNetworkSync',
       });
     }
   }, [

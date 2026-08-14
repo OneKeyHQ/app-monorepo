@@ -1,7 +1,5 @@
 import { memo, useEffect, useMemo } from 'react';
 
-import { uniq } from 'lodash';
-
 import type {
   IJotaiContextStoreData,
   IJotaiContextStoreMap,
@@ -40,6 +38,7 @@ type ISelectedAccountsSnapshot = Record<
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
+const accountSelectorEnabledNumCounts = new Map<string, Map<number, number>>();
 
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
@@ -148,7 +147,14 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
       const mapCache = getJotaiContextTrackerMap();
 
       const key = storeId;
-      let value: IJotaiContextStoreMapValue | undefined = mapCache[key];
+      let value: IJotaiContextStoreMapValue | undefined = mapCache[key]
+        ? {
+            ...mapCache[key],
+            accountSelectorInfo: mapCache[key].accountSelectorInfo
+              ? { ...mapCache[key].accountSelectorInfo }
+              : undefined,
+          }
+        : undefined;
       if (!value) {
         value = {
           storeName,
@@ -158,18 +164,33 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
       }
       if (action === 'add') {
         value.count += 1;
-        if (accountSelectorInfo && value.accountSelectorInfo) {
-          value.accountSelectorInfo.enabledNum = uniq([
-            ...value.accountSelectorInfo.enabledNum,
-            ...accountSelectorInfo.enabledNum,
-          ]).toSorted();
-        }
       }
       if (action === 'remove') {
         value.count -= 1;
       }
+      if (accountSelectorInfo && value.accountSelectorInfo) {
+        let enabledNumCounts = accountSelectorEnabledNumCounts.get(key);
+        if (!enabledNumCounts) {
+          enabledNumCounts = new Map<number, number>();
+          accountSelectorEnabledNumCounts.set(key, enabledNumCounts);
+        }
+        accountSelectorInfo.enabledNum.forEach((num) => {
+          const nextCount =
+            (enabledNumCounts?.get(num) || 0) + (action === 'add' ? 1 : -1);
+          if (nextCount <= 0) {
+            enabledNumCounts?.delete(num);
+          } else {
+            enabledNumCounts?.set(num, nextCount);
+          }
+        });
+        value.accountSelectorInfo = {
+          ...value.accountSelectorInfo,
+          enabledNum: [...enabledNumCounts.keys()].toSorted((a, b) => a - b),
+        };
+      }
       if (value.count <= 0) {
         delete mapCache[key];
+        accountSelectorEnabledNumCounts.delete(key);
       } else {
         toMergeMap[key] = value;
       }

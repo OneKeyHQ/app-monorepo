@@ -1,6 +1,18 @@
 export const startViewTransition = (fn: () => void) => {
   if (typeof document !== 'undefined' && document.startViewTransition) {
-    document.startViewTransition(fn);
+    const transition = document.startViewTransition(fn);
+    void transition.ready.catch((error: unknown) => {
+      if (
+        error instanceof Error &&
+        error.name === 'AbortError' &&
+        error.message === 'Transition was skipped'
+      ) {
+        return;
+      }
+      queueMicrotask(() => {
+        throw error;
+      });
+    });
   } else {
     fn();
   }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import {
+  getAccountSelectorPerfTimestamp,
+  isAccountSelectorPerfDebugEnabled,
+} from '../../../states/jotai/contexts/accountSelector/perfDebug';
 import { isAccountIdDeactivatedBotWallet } from '../../../utils/botWalletAccountUtils';
 import { shouldWarnBotWalletInteract } from '../../../utils/botWalletStatusUtils';
 import { showBotWalletDeactivatedWarningDialog } from '../../../utils/botWalletWarningDialog';
@@ -67,15 +71,55 @@ function ConnectionModal() {
 
   const [connectedAccountInfo, setConnectedAccountInfo] =
     useState<IConnectedAccountInfoChangedParams | null>(null);
+  const accountObservationRef = useRef<{
+    activeAccount: IAccountSelectorActiveAccountInfo;
+    count: number;
+    observedAt: number;
+    rawSelectedAccount: IAccountSelectorSelectedAccount;
+  }>(undefined);
 
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
-    ({ activeAccount, selectedAccount: rawSelectedAccountData }) => {
+    ({ activeAccount, selectedAccount: rawSelectedAccountData }, num) => {
+      const appliedToModal = Boolean(activeAccount.account);
+      if (isAccountSelectorPerfDebugEnabled()) {
+        const observedAt = getAccountSelectorPerfTimestamp();
+        const previous = accountObservationRef.current;
+        const count = (previous?.count || 0) + 1;
+        defaultLogger.accountSelector.perf.trace(
+          'dappConnectionAccountObserved',
+          {
+            activeAccountChanged:
+              previous?.activeAccount !== activeAccount || !previous,
+            activeReady: activeAccount.ready,
+            appliedToModal,
+            hasAccount: Boolean(activeAccount.account),
+            hasAddress: Boolean(
+              activeAccount.account?.address ||
+              activeAccount.account?.addressDetail?.isValid,
+            ),
+            hasNetwork: Boolean(activeAccount.network),
+            num,
+            observationCount: count,
+            selectedAccountChanged:
+              previous?.rawSelectedAccount !== rawSelectedAccountData ||
+              !previous,
+            sincePreviousObservationMs: previous
+              ? Math.round(observedAt - previous.observedAt)
+              : undefined,
+          },
+        );
+        accountObservationRef.current = {
+          activeAccount,
+          count,
+          observedAt,
+          rawSelectedAccount: rawSelectedAccountData,
+        };
+      }
+      if (!appliedToModal) {
+        return;
+      }
       setSelectedAccount(activeAccount);
       setRawSelectedAccount(rawSelectedAccountData);
-      console.log(
-        'connectionmodal setActiveAccount: ',
-        activeAccount.account?.id,
-      );
     },
     [],
   );

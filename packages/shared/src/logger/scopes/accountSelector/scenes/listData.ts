@@ -1,67 +1,124 @@
-import type {
-  IAccountSelectorSelectedAccount,
-  IAccountSelectorSelectedAccountsMap,
-} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import { LogToLocalDevOnly } from '../../../base/decorators';
 
-import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { AccountSelectorDevOnlyScene } from './devOnlyScene';
 
-export class AccountSelectorListDataScene extends BaseScene {
-  @LogToLocal()
+type ISelectedAccountLike = {
+  deriveType?: string;
+  focusedWallet?: unknown;
+  indexedAccountId?: string;
+  networkId?: string;
+  othersWalletAccountId?: string;
+  walletId?: string;
+};
+type ISelectedAccountsMapLike = Partial<Record<number, ISelectedAccountLike>>;
+
+function buildSelectionSummary(
+  selectedAccount: ISelectedAccountLike | undefined,
+) {
+  let accountKind = 'none';
+  if (selectedAccount?.indexedAccountId) {
+    accountKind = 'indexed';
+  } else if (selectedAccount?.othersWalletAccountId) {
+    accountKind = 'others';
+  }
+  return {
+    accountKind,
+    deriveType: selectedAccount?.deriveType,
+    hasFocusedWallet: Boolean(selectedAccount?.focusedWallet),
+    hasNetwork: Boolean(selectedAccount?.networkId),
+    hasWallet: Boolean(selectedAccount?.walletId),
+  };
+}
+
+function buildSelectionMapSummary(
+  selectedAccountsMap: ISelectedAccountsMapLike | undefined,
+) {
+  const selections = Object.values(selectedAccountsMap || {});
+  return {
+    identityCount: selections.filter(
+      (selection) =>
+        selection?.indexedAccountId || selection?.othersWalletAccountId,
+    ).length,
+    selectionCount: selections.length,
+  };
+}
+
+export class AccountSelectorListDataScene extends AccountSelectorDevOnlyScene {
+  @LogToLocalDevOnly()
   public listDataMissingParams(params: {
     focusedWallet: string | undefined;
-    deriveType: IAccountDeriveTypes | undefined;
-    selectedAccount: IAccountSelectorSelectedAccount | undefined;
+    deriveType: string | undefined;
+    selectedAccount: ISelectedAccountLike | undefined;
   }) {
-    return params;
+    return {
+      deriveType: params.deriveType,
+      hasFocusedWallet: Boolean(params.focusedWallet),
+      selection: buildSelectionSummary(params.selectedAccount),
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public buildAccountsListData(params: {
     focusedWallet: string | undefined;
     othersNetworkId: string | undefined;
     linkedNetworkId: string | undefined;
     selectedNetworkId: string | undefined;
-    deriveType: IAccountDeriveTypes;
+    deriveType: string;
     keepAllOtherAccounts: boolean | undefined;
   }) {
-    return params;
+    return {
+      deriveType: params.deriveType,
+      hasFocusedWallet: Boolean(params.focusedWallet),
+      hasLinkedNetwork: Boolean(params.linkedNetworkId),
+      hasOthersNetwork: Boolean(params.othersNetworkId),
+      hasSelectedNetwork: Boolean(params.selectedNetworkId),
+      keepAllOtherAccounts: params.keepAllOtherAccounts,
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public focusedWalletMissing(params: { focusedWallet: string | undefined }) {
-    return params;
+    return { hasFocusedWallet: Boolean(params.focusedWallet) };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public getIndexedAccountsOfWallet(params: {
     accountsLength: number;
     walletId: string;
   }) {
-    return params;
+    return {
+      accountsLength: params.accountsLength,
+      hasWallet: Boolean(params.walletId),
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public buildAccountsData(params: {
     accountsLength: number;
     walletId: string;
     title: string | undefined;
   }) {
-    return params;
+    return {
+      accountsLength: params.accountsLength,
+      hasTitle: Boolean(params.title),
+      hasWallet: Boolean(params.walletId),
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public dbGetWalletSafe(params: {
     isDbWalletFromParams: boolean;
     walletId: string;
     isMocked: boolean | undefined;
   }) {
-    return params;
+    return {
+      hasWallet: Boolean(params.walletId),
+      isDbWalletFromParams: params.isDbWalletFromParams,
+      isMocked: params.isMocked,
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public dbGetAllIndexedAccounts(params: {
     indexedAccountsLength: number;
     isFromCache: boolean;
@@ -69,67 +126,77 @@ export class AccountSelectorListDataScene extends BaseScene {
     return params;
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public dbFilterAllIndexedAccounts(params: {
     indexedAccountsLength: number;
     walletIdFilter: string;
     accountsFilteredLength: number;
   }) {
-    return params;
+    return {
+      accountsFilteredLength: params.accountsFilteredLength,
+      hasWalletFilter: Boolean(params.walletIdFilter),
+      indexedAccountsLength: params.indexedAccountsLength,
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public dbGetIndexedAccountsOfWallet(params: {
     allIndexedAccountsFromParamsLength: number | undefined;
     isDbWalletFromParams: boolean;
     walletId: string;
     resultAccountsLength: number;
   }) {
-    return params;
+    return {
+      allIndexedAccountsFromParamsLength:
+        params.allIndexedAccountsFromParamsLength,
+      hasWallet: Boolean(params.walletId),
+      isDbWalletFromParams: params.isDbWalletFromParams,
+      resultAccountsLength: params.resultAccountsLength,
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public simpleDbSelectedAccountsMap(params: {
-    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+    selectedAccountsMap: ISelectedAccountsMapLike | undefined;
   }) {
-    return params;
+    return buildSelectionMapSummary(params.selectedAccountsMap);
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public simpleDbDappConnectionSelectedAccountsMap(params: {
-    connectionMap:
-      | {
-          [x: number]: IConnectionAccountInfo;
-        }
-      | undefined;
+    connectionMap: Partial<Record<number, unknown>> | undefined;
   }) {
-    return params;
+    return { connectionCount: Object.keys(params.connectionMap || {}).length };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public initFromStorageDiscoverySelectedAccountsMapMerged(params: {
-    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+    selectedAccountsMap: ISelectedAccountsMapLike | undefined;
   }) {
-    return params;
+    return buildSelectionMapSummary(params.selectedAccountsMap);
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public fixDeriveTypesForInitAccountSelectorMap(params: {
-    selectedAccount: IAccountSelectorSelectedAccount;
-    globalDeriveType: IAccountDeriveTypes | undefined;
-    fixedDeriveType: IAccountDeriveTypes;
+    selectedAccount: ISelectedAccountLike;
+    globalDeriveType: string | undefined;
+    fixedDeriveType: string;
   }) {
-    return params;
+    return {
+      fixedDeriveType: params.fixedDeriveType,
+      globalDeriveType: params.globalDeriveType,
+      selection: buildSelectionSummary(params.selectedAccount),
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public fixDeriveTypesForInitAccountSelectorMapResult(params: {
-    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+    selectedAccountsMap: ISelectedAccountsMapLike | undefined;
   }) {
-    return params;
+    return buildSelectionMapSummary(params.selectedAccountsMap);
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public fixOthersWalletAccountNetworkPair(params: {
     source: string | undefined;
     walletId: string | undefined;
@@ -139,13 +206,21 @@ export class AccountSelectorListDataScene extends BaseScene {
     accountCreateAtNetwork: string | undefined;
     accountNetworksCount: number | undefined;
   }) {
-    return params;
+    return {
+      accountCreateAtNetwork: params.accountCreateAtNetwork,
+      accountImpl: params.accountImpl,
+      accountNetworksCount: params.accountNetworksCount,
+      hasFixedNetwork: Boolean(params.fixedNetworkId),
+      hasNetwork: Boolean(params.networkId),
+      hasWallet: Boolean(params.walletId),
+      source: params.source,
+    };
   }
 
-  @LogToLocal()
+  @LogToLocalDevOnly()
   public initFromStorageSelectedAccountsMapResult(params: {
-    selectedAccountsMap: IAccountSelectorSelectedAccountsMap | undefined;
+    selectedAccountsMap: ISelectedAccountsMapLike | undefined;
   }) {
-    return params;
+    return buildSelectionMapSummary(params.selectedAccountsMap);
   }
 }

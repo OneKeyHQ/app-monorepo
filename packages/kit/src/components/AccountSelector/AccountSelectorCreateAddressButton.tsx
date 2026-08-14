@@ -63,7 +63,6 @@ export function AccountSelectorCreateAddressButton({
   createAllEnabledNetworks?: boolean;
 }) {
   const intl = useIntl();
-  const { serviceAccount } = backgroundApiProxy;
   const [accountIsAutoCreating, setAccountIsAutoCreating] =
     useAccountIsAutoCreatingAtom();
   const [indexedAccountAddressCreationState] =
@@ -166,13 +165,6 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined;
     try {
-      if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
-        const wallet = await serviceAccount.getWallet({
-          walletId: accountToCreate.walletId,
-        });
-        console.log({ wallet });
-      }
-
       const customNetworks: {
         networkId: string;
         deriveType: IAccountDeriveTypes;
@@ -217,7 +209,6 @@ export function AccountSelectorCreateAddressButton({
     num,
     selectAfterCreate,
     createAllDeriveTypes,
-    serviceAccount,
     onCreateDone,
   ]);
 

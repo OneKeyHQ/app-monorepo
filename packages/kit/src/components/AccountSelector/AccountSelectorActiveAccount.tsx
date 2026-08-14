@@ -18,6 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -223,14 +224,14 @@ export function AccountSelectorActiveAccountHome({
   }, [handleAllNetworkCopyAddress, isCopyDisabled]);
 
   const logActiveAccount = useCallback(() => {
-    console.log({
-      selectedAccount,
-      addressDetail: activeAccount?.account?.addressDetail,
-      activeAccount,
-      walletAvatar: activeAccount?.wallet?.avatar,
+    defaultLogger.accountSelector.perf.trace('activeAccountInteraction', {
+      hasAccount: Boolean(activeAccount?.account),
+      hasAddressDetail: Boolean(activeAccount?.account?.addressDetail),
+      hasIndexedAccount: Boolean(activeAccount?.indexedAccount),
+      hasWallet: Boolean(activeAccount?.wallet),
+      num,
     });
-    console.log(activeAccount?.wallet?.avatar);
-  }, [activeAccount, selectedAccount]);
+  }, [activeAccount, num]);
 
   const handleAddressOnPress = useCallback(async () => {
     if (!account?.address || !network || !wallet) {

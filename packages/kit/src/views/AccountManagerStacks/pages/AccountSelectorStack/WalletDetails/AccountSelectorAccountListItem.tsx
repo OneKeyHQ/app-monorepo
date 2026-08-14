@@ -428,6 +428,7 @@ export function AccountSelectorAccountListItem({
                 indexedAccount: undefined,
                 othersWalletAccount: account,
                 autoChangeToAccountMatchedNetworkId,
+                reason: 'userSelectAccount',
               });
               if (!confirmed) {
                 return;
@@ -438,6 +439,7 @@ export function AccountSelectorAccountListItem({
                 indexedAccount,
                 othersWalletAccount: undefined,
                 autoChangeToAccountMatchedNetworkId: undefined,
+                reason: 'userSelectAccount',
               });
               if (!confirmed) {
                 return;

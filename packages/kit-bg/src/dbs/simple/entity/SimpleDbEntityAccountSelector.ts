@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -64,6 +65,40 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
 
   override enableCache = true;
 
+  private globalDeriveTypeUpdateTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+
+  private scheduleGlobalDeriveTypeUpdate(networkImpl: string) {
+    const previousTimer = this.globalDeriveTypeUpdateTimers.get(networkImpl);
+    if (previousTimer) {
+      clearTimeout(previousTimer);
+      defaultLogger.accountSelector.perf.trace('globalDeriveEventCoalesced', {
+        networkImpl,
+      });
+    }
+    const timer = setTimeout(() => {
+      this.globalDeriveTypeUpdateTimers.delete(networkImpl);
+      const globalDeriveEventBus = appEventBus as {
+        emit: (
+          eventName: EAppEventBusNames.GlobalDeriveTypeUpdate,
+          payload: { networkImpl: string },
+        ) => void;
+      };
+      globalDeriveEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+        networkImpl,
+      });
+      defaultLogger.accountSelector.perf.trace('globalDeriveEventDispatched', {
+        networkImpl,
+      });
+    }, 100);
+    this.globalDeriveTypeUpdateTimers.set(networkImpl, timer);
+    defaultLogger.accountSelector.perf.trace('globalDeriveEventScheduled', {
+      networkImpl,
+    });
+  }
+
   @backgroundMethod()
   async saveSelectedAccount({
     selectedAccount,
@@ -80,7 +115,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     checkIsDefined(sceneName);
     if (!accountSelectorUtils.isSceneCanPersist({ sceneName })) {
       // console.log(`skip ${sceneName} account selector persist`);
-      return;
+      return { persisted: false };
     }
     const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
       sceneName,
@@ -106,6 +141,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     //   sceneUrl,
     //   num,
     // });
+    return { persisted: true };
   }
 
   @backgroundMethod()
@@ -210,12 +246,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       if (rawData.globalDeriveTypesMap[scope][key] !== deriveType) {
         rawData.globalDeriveTypesMap[scope][key] = deriveType;
         if (!eventEmitDisabled) {
-          setTimeout(() => {
-            appEventBus.emit(
-              EAppEventBusNames.GlobalDeriveTypeUpdate,
-              undefined,
-            );
-          }, 100);
+          this.scheduleGlobalDeriveTypeUpdate(key);
         }
       }
       return rawData;

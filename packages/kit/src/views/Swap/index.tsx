@@ -19,6 +19,7 @@ const Swap = () => {
 
   return (
     <AccountSelectorProviderMirror
+      perfDebugName="swap-route"
       config={{
         sceneName: EAccountSelectorSceneName.swap,
         sceneUrl: '',

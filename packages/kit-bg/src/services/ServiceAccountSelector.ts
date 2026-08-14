@@ -144,16 +144,41 @@ class ServiceAccountSelector extends ServiceBase {
     selectedAccount: IAccountSelectorSelectedAccount;
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
+    perfTiming?: {
+      bgTotalMs: number;
+      errorStages: string[];
+      stageMs: Record<string, number>;
+    };
   }> {
+    const stageMs: Record<string, number> = {};
+    const errorStages: string[] = [];
+    const getPerfTimestamp = () =>
+      typeof performance !== 'undefined' && performance.now
+        ? performance.now()
+        : Date.now();
+    const startStage = () => (nonce === undefined ? 0 : getPerfTimestamp());
+    const perfStartedAt = startStage();
+    const finishStage = (stage: string, startedAt: number) => {
+      if (nonce !== undefined) {
+        stageMs[stage] = Math.round(getPerfTimestamp() - startedAt);
+      }
+    };
+    const recordStageError = (stage: string) => {
+      if (nonce !== undefined && !errorStages.includes(stage)) {
+        errorStages.push(stage);
+      }
+    };
     const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
       selectedAccount;
     const deriveType = selectedAccount.deriveType;
 
-    defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
-      {
-        selectedAccount,
-      },
-    );
+    if (nonce !== undefined) {
+      defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
+        {
+          selectedAccount,
+        },
+      );
+    }
 
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network
@@ -167,13 +192,14 @@ class ServiceAccountSelector extends ServiceBase {
     let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
 
+    const walletAndIndexedStartedAt = startStage();
     if (walletId) {
       try {
         wallet = await serviceAccount.getWallet({
           walletId,
         });
-      } catch (e) {
-        console.error(e);
+      } catch (_error) {
+        recordStageError('wallet');
       }
     }
 
@@ -182,27 +208,29 @@ class ServiceAccountSelector extends ServiceBase {
         indexedAccount = await serviceAccount.getIndexedAccount({
           id: indexedAccountId,
         });
-      } catch (e) {
-        console.error(e);
+      } catch (_error) {
+        recordStageError('indexedAccount');
       }
     }
 
     let dbAccountId = othersWalletAccountId || '';
-    if (!dbAccountId && indexedAccountId && networkId && deriveType) {
+    if (!dbAccountId && indexedAccount && networkId && deriveType) {
       try {
         dbAccountId =
           await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
             {
-              indexedAccountId,
+              indexedAccountId: indexedAccount.id,
               networkId,
               deriveType,
             },
           );
       } catch (error) {
-        //
+        recordStageError('dbAccountId');
       }
     }
+    finishStage('walletAndIndexed', walletAndIndexedStartedAt);
 
+    const networkAndVaultStartedAt = startStage();
     if (networkId) {
       try {
         network = await serviceNetwork.getNetwork({
@@ -215,14 +243,18 @@ class ServiceAccountSelector extends ServiceBase {
             });
           }
         } catch (error) {
-          //
+          recordStageError('vaultSettings');
         }
-      } catch (e) {
-        console.error(e);
+      } catch (_error) {
+        recordStageError('network');
       }
+    }
+    finishStage('networkAndVault', networkAndVaultStartedAt);
 
+    const networkAccountAndDeriveStartedAt = startStage();
+    if (networkId) {
       const canQueryIndexedNetworkAccount = Boolean(
-        deriveType && indexedAccountId && wallet,
+        deriveType && indexedAccount && wallet,
       );
       const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
       if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
@@ -234,9 +266,9 @@ class ServiceAccountSelector extends ServiceBase {
             networkId,
           });
           account = r;
-        } catch (e) {
+        } catch (_error) {
           // account may not compatible with network
-          console.error(e);
+          recordStageError('networkAccount');
         }
       }
 
@@ -248,31 +280,41 @@ class ServiceAccountSelector extends ServiceBase {
               deriveType,
             });
         } catch (error) {
-          //
+          recordStageError('deriveInfo');
         }
       }
     }
+    finishStage('networkAccountAndDerive', networkAccountAndDeriveStartedAt);
 
     const isAllNetwork = Boolean(
       networkId && networkUtils.isAllNetwork({ networkId }),
     );
 
+    const dbAccountAndWalletStateStartedAt = startStage();
     if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
       try {
         const r = await serviceAccount.getDBAccount({
           accountId: dbAccountId,
         });
         dbAccount = r;
-      } catch (e) {
-        console.error(e);
+      } catch (_error) {
+        recordStageError('dbAccount');
       }
     }
 
-    if (wallet && (await serviceAccount.isTempWalletRemoved({ wallet }))) {
-      wallet = undefined;
-      account = undefined;
-      indexedAccount = undefined;
+    if (wallet) {
+      try {
+        if (await serviceAccount.isTempWalletRemoved({ wallet })) {
+          wallet = undefined;
+          account = undefined;
+          indexedAccount = undefined;
+        }
+      } catch (error) {
+        recordStageError('tempWalletState');
+        throw error;
+      }
     }
+    finishStage('dbAccountAndWalletState', dbAccountAndWalletStateStartedAt);
 
     const isOthersWallet =
       accountUtils.isOthersWallet({
@@ -307,13 +349,14 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
+    const deviceAndAllNetworkStartedAt = startStage();
     if ((isHwWallet || isQrWallet) && wallet?.associatedDevice) {
       try {
         device = await serviceAccount.getDevice({
           dbDeviceId: wallet?.associatedDevice,
         });
-      } catch (e) {
-        //
+      } catch (_error) {
+        recordStageError('device');
       }
     }
     // Mocked/deprecated wallets are "zombie" records still in DB but no
@@ -336,6 +379,7 @@ class ServiceAccountSelector extends ServiceBase {
         } catch (error) {
           account = undefined;
           canCreateAddress = true;
+          recordStageError('allNetworkMockAccount');
         }
       } else if (
         !isOthersWallet &&
@@ -362,6 +406,7 @@ class ServiceAccountSelector extends ServiceBase {
           !isWalletUnusable && !!vaultSettings.qrAccountEnabled;
       }
     }
+    finishStage('deviceAndAllNetwork', deviceAndAllNetworkStartedAt);
 
     const isNetworkNotMatched = (() => {
       if (!account && !indexedAccount) {
@@ -376,14 +421,16 @@ class ServiceAccountSelector extends ServiceBase {
       }
       return false;
     })();
+    const deriveInfoItemsStartedAt = startStage();
     let deriveInfoItems: IAccountDeriveInfoItems[] = [];
     try {
       deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
         networkId,
       });
     } catch (error) {
-      //
+      recordStageError('deriveInfoItems');
     }
+    finishStage('deriveInfoItems', deriveInfoItemsStartedAt);
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
@@ -428,7 +475,20 @@ class ServiceAccountSelector extends ServiceBase {
     };
 
     // throw new OneKeyLocalError('Method not implemented.');
-    return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
+    return {
+      activeAccount,
+      selectedAccount: selectedAccountFixed,
+      nonce,
+      ...(nonce === undefined
+        ? {}
+        : {
+            perfTiming: {
+              bgTotalMs: Math.round(getPerfTimestamp() - perfStartedAt),
+              errorStages,
+              stageMs,
+            },
+          }),
+    };
   }
 
   @backgroundMethod()
@@ -697,9 +757,11 @@ class ServiceAccountSelector extends ServiceBase {
     // make sure wallet exists
     try {
       await serviceAccount.getWallet({ walletId });
-    } catch (error) {
+    } catch {
       // wallet may be removed
-      console.error(error);
+      defaultLogger.accountSelector.perf.trace('walletLookupFailed', {
+        phase: 'buildAccountsData',
+      });
       return [];
     }
 
@@ -801,9 +863,11 @@ class ServiceAccountSelector extends ServiceBase {
         wallet,
         device,
       };
-    } catch (error) {
+    } catch {
       // wallet may be removed
-      console.error(error);
+      defaultLogger.accountSelector.perf.trace('walletLookupFailed', {
+        phase: 'buildWalletData',
+      });
       return undefined;
     }
   }

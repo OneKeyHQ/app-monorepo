@@ -291,6 +291,54 @@ describe('jotaiContextStore reset flow', () => {
     expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toBeUndefined();
   });
 
+  it('removes enabled numbers owned only by an unmounted mirror', () => {
+    const buildAccountSelectorData = (
+      enabledNum: number[],
+    ): IJotaiContextStoreData => ({
+      storeName: EJotaiContextStoreNames.accountSelector,
+      accountSelectorInfo: {
+        sceneName: EAccountSelectorSceneName.swap,
+        sceneUrl: '',
+        enabledNum,
+      },
+    });
+    const num0Data = buildAccountSelectorData([0]);
+    const num1Data = buildAccountSelectorData([1]);
+    const accountSelectorStoreId = buildJotaiContextStoreId(num0Data);
+    const renderTrackers = (showNum1: boolean) =>
+      createElement(
+        'div',
+        undefined,
+        createElement(JotaiContextStoreMirrorTracker, {
+          ...num0Data,
+          key: 'num0',
+        }),
+        showNum1
+          ? createElement(JotaiContextStoreMirrorTracker, {
+              ...num1Data,
+              key: 'num1',
+            })
+          : undefined,
+      );
+
+    const { rerender, unmount } = render(renderTrackers(true));
+
+    expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toMatchObject({
+      count: 2,
+      accountSelectorInfo: { enabledNum: [0, 1] },
+    });
+
+    rerender(renderTrackers(false));
+
+    expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toMatchObject({
+      count: 1,
+      accountSelectorInfo: { enabledNum: [0] },
+    });
+
+    unmount();
+    expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toBeUndefined();
+  });
+
   it('does not mount duplicate root providers for active stores already owned by cold-start roots', async () => {
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {

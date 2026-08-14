@@ -107,6 +107,8 @@
     "test:e2e:native:lse:android": "yarn workspace @onekeyhq/mobile harness:test:android --runTestsByPath e2e/local-secret-envelope.harness.ts",
     "test:e2e:native:lse:ios": "yarn workspace @onekeyhq/mobile harness:test --runTestsByPath e2e/local-secret-envelope.harness.ts",
     "test:e2e:web:lse": "node apps/web/e2e/local-secret-envelope.e2e.js",
+    "test:e2e:web:account-selector": "node apps/web/e2e/account-selector.e2e.js",
+    "test:e2e:web:account-selector:loop": "cross-env ACCOUNT_SELECTOR_E2E_CYCLES=0 node apps/web/e2e/account-selector.e2e.js",
     "test:unit": "yarn workspace @onekeyfe/cli test:unit",
     "test:integration:cli": "yarn workspace @onekeyfe/cli test:integration:cli",
     "ci:gate": "yarn lint:staged && yarn tsc:staged && yarn test:unit && bash apps/cli/scripts/audit-persistence-fields.sh && yarn test:integration:cli",

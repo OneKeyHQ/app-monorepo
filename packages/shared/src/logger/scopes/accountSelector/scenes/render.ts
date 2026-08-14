@@ -1,19 +1,23 @@
-import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole } from '../../../base/decorators';
+import { LogToConsoleDevOnly } from '../../../base/decorators';
 
-export class AccountSelectorRenderScene extends BaseScene {
-  @LogToConsole()
+import { AccountSelectorDevOnlyScene } from './devOnlyScene';
+
+export class AccountSelectorRenderScene extends AccountSelectorDevOnlyScene {
+  @LogToConsoleDevOnly()
   public selectAccount(params: {
     accountId: string;
     networkId: string;
     walletId: string;
   }) {
-    return params;
+    return {
+      hasAccount: Boolean(params.accountId),
+      hasNetwork: Boolean(params.networkId),
+      hasWallet: Boolean(params.walletId),
+    };
   }
 
-  @LogToConsole()
-  public showAccountSelector(p: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return ['showAccountSelector', p];
+  @LogToConsoleDevOnly()
+  public showAccountSelector(payload: unknown) {
+    return { hasPayload: payload !== undefined };
   }
 }

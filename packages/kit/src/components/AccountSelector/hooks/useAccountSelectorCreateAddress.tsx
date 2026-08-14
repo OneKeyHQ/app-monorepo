@@ -110,7 +110,6 @@ export function useAccountSelectorCreateAddress() {
             }
           | undefined,
       ) => {
-        console.log(result);
         // await refreshCurrentAccount();
         await callAccountSelectorAction('refresh', { num });
 

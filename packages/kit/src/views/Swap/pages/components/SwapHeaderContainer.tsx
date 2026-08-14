@@ -236,6 +236,7 @@ const SwapHeaderContainer = ({
       await updateSelectedAccountNetwork({
         num: 0,
         networkId: targetNetworkId,
+        reason: 'swapTypeNetworkSync',
       });
     },
     [updateSelectedAccountNetwork],

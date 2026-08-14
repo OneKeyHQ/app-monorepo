@@ -75,6 +75,7 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
           actions.current.updateSelectedAccountNetwork({
             num,
             networkId: id,
+            reason: 'userSelectNetwork',
           })
         }
         title="网络"

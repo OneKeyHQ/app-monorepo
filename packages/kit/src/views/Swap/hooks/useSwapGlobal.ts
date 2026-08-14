@@ -1497,6 +1497,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: params?.importNetworkId,
+          reason: 'swapImportNetworkSync',
         });
       }
     })();

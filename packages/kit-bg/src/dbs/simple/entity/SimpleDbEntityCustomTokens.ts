@@ -1,6 +1,7 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { NATIVE_TOKEN_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/tokenConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -395,14 +396,32 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     accountId: string;
   }): Promise<IAccountTokenWithAccountId[]> {
     if (!accountXpubOrAddress) {
-      // eslint-disable-next-line no-param-reassign
-      accountXpubOrAddress =
-        await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
-          {
-            networkId,
-            accountId,
-          },
-        );
+      try {
+        // eslint-disable-next-line no-param-reassign
+        accountXpubOrAddress =
+          await appGlobals.$backgroundApiProxy.serviceAccount.getAccountXpubOrAddress(
+            {
+              networkId,
+              accountId,
+            },
+          );
+      } catch (error) {
+        const serviceAccount = appGlobals.$backgroundApiProxy.serviceAccount;
+        const dbAccount = await serviceAccount.getDBAccountSafe({ accountId });
+        const indexedAccount = dbAccount?.indexedAccountId
+          ? await serviceAccount.getIndexedAccountSafe({
+              id: dbAccount.indexedAccountId,
+            })
+          : undefined;
+        if (!dbAccount || (dbAccount.indexedAccountId && !indexedAccount)) {
+          defaultLogger.accountSelector.perf.trace('consumerReadSkipped', {
+            consumer: 'customTokens',
+            reason: dbAccount ? 'indexed-account-removed' : 'account-removed',
+          });
+          return [];
+        }
+        throw error;
+      }
     }
     const tokens = await this.getTokensByStatus({
       customTokensRawData,

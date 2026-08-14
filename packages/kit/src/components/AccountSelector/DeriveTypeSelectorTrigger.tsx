@@ -194,6 +194,7 @@ export function DeriveTypeSelectorTrigger({
         await actions.current.updateSelectedAccountDeriveType({
           num,
           deriveType: type,
+          reason: 'userSelectDeriveType',
         });
       }}
       renderTrigger={renderTrigger}

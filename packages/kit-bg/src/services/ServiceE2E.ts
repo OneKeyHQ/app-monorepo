@@ -32,11 +32,17 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  defaultLoggerConfig,
+  loggerConfig,
+} from '@onekeyhq/shared/src/logger/loggerConfig';
+import { drainAccountSelectorPerfE2ETrace } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perf';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -619,6 +625,62 @@ function buildLocalSecretEnvelopeRestoreCredentialId({
 class ServiceE2E extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethodForDev()
+  async configureAccountSelectorPerfE2E({
+    enabled,
+    ...params
+  }: IBackgroundMethodWithDevOnlyPassword & { enabled: boolean }) {
+    checkDevOnlyPassword(params);
+    const currentConfig = await defaultLoggerConfig.getSavedLoggerConfig();
+    defaultLoggerConfig.saveLoggerConfig({
+      ...currentConfig,
+      colorfulLog: enabled,
+      enabled: {
+        ...currentConfig.enabled,
+        accountSelector: {
+          ...currentConfig.enabled.accountSelector,
+          perf: enabled,
+        },
+      },
+    });
+    await timerUtils.wait(400);
+    return {
+      enabled: loggerConfig.shouldLog('accountSelector', 'perf'),
+    };
+  }
+
+  @backgroundMethodForDev()
+  async drainAccountSelectorPerfE2ETrace(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ) {
+    checkDevOnlyPassword(params);
+    return drainAccountSelectorPerfE2ETrace();
+  }
+
+  @backgroundMethodForDev()
+  async removeAccountSelectorE2EWallet({
+    walletId,
+    ...params
+  }: IBackgroundMethodWithDevOnlyPassword & { walletId: string }) {
+    checkDevOnlyPassword(params);
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+    });
+    if (!wallet?.name?.startsWith('E2E Wallet ')) {
+      throw new OneKeyLocalError(
+        'removeAccountSelectorE2EWallet only accepts isolated E2E fixtures',
+      );
+    }
+    await localDb.removeWallet({
+      isRemoveToMocked: false,
+      walletId,
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
   }
 
   @backgroundMethodForDev()

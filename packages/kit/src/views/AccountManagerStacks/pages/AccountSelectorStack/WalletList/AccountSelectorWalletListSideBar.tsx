@@ -241,6 +241,7 @@ export function AccountSelectorWalletListSideBar({
         void actions.current.updateSelectedAccountFocusedWallet({
           num,
           focusedWallet: walletsResult.wallets[0]?.id,
+          reason: 'autoRepairFocusedWallet',
         });
       }
 
@@ -271,6 +272,7 @@ export function AccountSelectorWalletListSideBar({
       void actions.current.updateSelectedAccountFocusedWallet({
         num,
         focusedWallet,
+        reason: 'userSelectWallet',
       });
     },
     [actions, num],

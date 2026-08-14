@@ -247,10 +247,6 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
         showAccountSelector();
       }, [beforeShowTrigger, showAccountSelector]);
 
-      useEffect(() => {
-        console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-      }, []);
-
       return (
         <AccountSelectorTriggerDappConnectionCmp
           account={account}
