@@ -81,8 +81,13 @@ function BasicEarnHome({
     useBlockRegion();
 
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
-  const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
-  const [isEarnDataActive, setIsEarnDataActive] = useState(false);
+  const isEarnTabFocusedRef = useRef(false);
+  // Desktop data hooks already gate work through their non-rendering route
+  // focus ref. Keep their inner-tab active state stable so a top-level tab
+  // switch doesn't re-render the entire Earn tree.
+  const [isEarnDataActive, setIsEarnDataActive] = useState(
+    platformEnv.isDesktop,
+  );
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
@@ -383,8 +388,8 @@ function BasicEarnHome({
     [navigation, route.params?.tab],
   );
 
-  useEffect(() => {
-    if (!showContent || !isEarnTabFocused) {
+  const logEarnModeSwitch = useCallback(() => {
+    if (!showContent || !isEarnTabFocusedRef.current) {
       return;
     }
 
@@ -403,7 +408,11 @@ function BasicEarnHome({
       switchType,
     });
     earnModeSwitchTypeRef.current = 'default';
-  }, [defaultMode, isEarnTabFocused, showContent]);
+  }, [defaultMode, showContent]);
+
+  useEffect(() => {
+    logEarnModeSwitch();
+  }, [defaultMode, logEarnModeSwitch]);
 
   useEffect(() => {
     if (platformEnv.isNative) {
@@ -450,8 +459,10 @@ function BasicEarnHome({
       if (isVisibleFocus && !wasFocused && !wasHiddenByModal) {
         shouldLogEnterEarnRef.current = true;
       }
-      setIsEarnTabFocused(isVisibleFocus);
-      setIsEarnDataActive(isDataActive);
+      isEarnTabFocusedRef.current = isVisibleFocus;
+      if (!platformEnv.isDesktop) {
+        setIsEarnDataActive(isDataActive);
+      }
       if (
         !isVisibleFocus ||
         showContent === false ||
@@ -459,6 +470,8 @@ function BasicEarnHome({
       ) {
         return;
       }
+
+      logEarnModeSwitch();
 
       void refetchFAQ();
 
@@ -485,7 +498,13 @@ function BasicEarnHome({
         actions.current.triggerRefresh();
       }
     },
-    [actions, prefetchEarnAvailableAssets, refetchFAQ, showContent],
+    [
+      actions,
+      logEarnModeSwitch,
+      prefetchEarnAvailableAssets,
+      refetchFAQ,
+      showContent,
+    ],
   );
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);

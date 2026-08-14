@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -452,9 +452,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   // Existing WatchList Actions
   flushWatchListV2Atom = contextAtomMethod(
-    (_, set, payload: IMarketWatchListItemV2[]) => {
+    (get, set, payload: IMarketWatchListItemV2[]) => {
+      const previous = get(marketWatchListV2Atom());
+      if (isEqual(previous.data, payload)) {
+        return previous;
+      }
       const result = { data: payload };
       set(marketWatchListV2Atom(), result);
+      return result;
     },
   );
 

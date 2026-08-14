@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
 
+import { isEqual } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -62,6 +64,9 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
       availableAssets: IAvailableAsset[],
     ) => {
       const earnData = get(earnAtom());
+      if (isEqual(earnData.availableAssetsByType?.[type], availableAssets)) {
+        return;
+      }
       this.syncToDb.call(set, {
         availableAssetsByType: {
           ...earnData.availableAssetsByType,
