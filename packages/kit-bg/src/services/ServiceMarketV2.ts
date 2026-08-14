@@ -67,6 +67,9 @@ type IMarketTokenListRequestParams = {
   type?: string;
   category?: string;
   timeFrame?: string;
+  // hot-token v6 filter params (marketCapMin, liquidityMin, volumeMin, ...),
+  // already flattened by buildHotTokenFilterParams on the caller side.
+  filterParams?: Record<string, number>;
 };
 
 type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
@@ -184,6 +187,7 @@ class ServiceMarketV2 extends ServiceBase {
     type,
     category,
     timeFrame,
+    filterParams,
   }: INormalizedMarketTokenListRequestParams) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
@@ -202,6 +206,7 @@ class ServiceMarketV2 extends ServiceBase {
         type,
         category,
         timeFrame,
+        ...filterParams,
         currency: 'usd',
       },
     });
@@ -341,6 +346,7 @@ class ServiceMarketV2 extends ServiceBase {
       type,
       category,
       timeFrame,
+      filterParams,
     }: IMarketTokenListRequestParams,
     options?: IFetchMarketTokenListOptions,
   ) {
@@ -355,6 +361,7 @@ class ServiceMarketV2 extends ServiceBase {
       type,
       category,
       timeFrame,
+      filterParams,
     });
     if (options?.forceRemote) {
       return this._fetchMarketTokenListFromApi(normalizedParams);

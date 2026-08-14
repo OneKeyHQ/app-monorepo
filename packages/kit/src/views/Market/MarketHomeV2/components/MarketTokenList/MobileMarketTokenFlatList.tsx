@@ -16,6 +16,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
 import {
   applyMarketListLocalFilter,
+  buildHotTokenFilterParams,
+  pickLocalOnlyConditions,
   useMarketListFilter,
 } from '../MarketFilterChipsBar';
 
@@ -57,6 +59,19 @@ function MobileMarketTokenFlatListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
 
+  const { filterState } = useMarketListFilter();
+  // Filters apply to trending only; stock categories keep server-driven data.
+  const filtersActive = selectedCategory === 'trending' && !stockCategory;
+  // Server-side passthrough for everything the API supports; the local pass
+  // below only handles what it cannot (token age).
+  const filterParams = useMemo(
+    () =>
+      filtersActive
+        ? buildHotTokenFilterParams(filterState.conditions)
+        : undefined,
+    [filtersActive, filterState.conditions],
+  );
+
   // Data management
   const {
     data: fetchedData,
@@ -74,15 +89,16 @@ function MobileMarketTokenFlatListBase({
     type: selectedCategory,
     category: stockCategory,
     timeRange,
+    filterParams,
   });
 
-  const { filterState } = useMarketListFilter();
-  // Filters apply to trending only; stock categories keep server-driven data.
-  const filtersActive = selectedCategory === 'trending' && !stockCategory;
   const data = useMemo(
     () =>
       filtersActive
-        ? applyMarketListLocalFilter(fetchedData, filterState.conditions)
+        ? applyMarketListLocalFilter(
+            fetchedData,
+            pickLocalOnlyConditions(filterState.conditions),
+          )
         : fetchedData,
     [filtersActive, fetchedData, filterState.conditions],
   );

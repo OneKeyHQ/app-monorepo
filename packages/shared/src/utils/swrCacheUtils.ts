@@ -524,6 +524,7 @@ export const swrKeys = {
     type,
     category,
     timeFrame,
+    filterKey,
   }: {
     networkId: string;
     sortBy?: string;
@@ -533,6 +534,9 @@ export const swrKeys = {
     type?: string;
     category?: string;
     timeFrame?: string;
+    // Serialized hot-token filter params. Without it a filtered response
+    // would be cached under the same key as the unfiltered list.
+    filterKey?: string;
   }) => {
     const parts = [
       NS.marketHomeTokenList,
@@ -547,6 +551,9 @@ export const swrKeys = {
     ];
     if (category) {
       parts.push(category);
+    }
+    if (filterKey) {
+      parts.push(filterKey);
     }
     return parts.join(':');
   },

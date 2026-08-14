@@ -8,6 +8,10 @@ import {
   useMarketRenderCommitProbe,
 } from '../../../utils/marketReactPerf';
 import { applyMarketListLocalFilter } from '../MarketFilterChipsBar/applyMarketListLocalFilter';
+import {
+  buildHotTokenFilterParams,
+  pickLocalOnlyConditions,
+} from '../MarketFilterChipsBar/marketListFilterConfig';
 import { useMarketListFilter } from '../MarketFilterChipsBar/MarketListFilterContext';
 
 import { useClientSortResult } from './hooks/useClientSortResult';
@@ -70,6 +74,25 @@ function MarketNormalTokenList({
     stockCategory,
     timeRange,
   });
+  const { filterState, sortState, setSortState } = useMarketListFilter();
+
+  // Redesign features (filters, client sort overrides, columns) apply only to
+  // trending; stocks keep server-driven behavior.
+  const redesignActive =
+    marketListRedesignEnabled &&
+    selectedCategory === 'trending' &&
+    !stockCategory;
+
+  // Server-side passthrough for every dimension the API supports; the local
+  // pass below only handles what it cannot (token age).
+  const filterParams = useMemo(
+    () =>
+      redesignActive
+        ? buildHotTokenFilterParams(filterState.conditions)
+        : undefined,
+    [redesignActive, filterState.conditions],
+  );
+
   const normalResult = useMarketTokenList({
     networkId,
     initialSortBy,
@@ -78,6 +101,7 @@ function MarketNormalTokenList({
     type: selectedCategory,
     category: stockCategory,
     timeRange,
+    filterParams,
     pollingInterval,
   });
 
@@ -86,22 +110,15 @@ function MarketNormalTokenList({
     [normalResult.data],
   );
 
-  const { filterState, sortState, setSortState } = useMarketListFilter();
-
-  // Redesign features (local filter, client sort overrides, columns) apply only
-  // to trending; stocks keep server-driven behavior.
-  const redesignActive =
-    marketListRedesignEnabled &&
-    selectedCategory === 'trending' &&
-    !stockCategory;
-
   const filteredData = useMemo(() => {
     if (!redesignActive) {
       return normalResult.data;
     }
+    // Only the conditions the server cannot express — the rest already
+    // narrowed the pool upstream, before it was sliced.
     return applyMarketListLocalFilter(
       normalResult.data,
-      filterState.conditions,
+      pickLocalOnlyConditions(filterState.conditions),
     );
   }, [redesignActive, normalResult.data, filterState.conditions]);
 

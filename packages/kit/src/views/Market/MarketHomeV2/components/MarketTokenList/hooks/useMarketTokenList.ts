@@ -40,6 +40,8 @@ interface IUseMarketTokenListParams {
   type?: string;
   category?: string;
   timeRange?: IMarketTimeRangeValue;
+  // hot-token v6 filter params from buildHotTokenFilterParams.
+  filterParams?: Record<string, number>;
   pollingInterval?: number;
 }
 
@@ -215,9 +217,32 @@ export function useMarketTokenList({
   type,
   category,
   timeRange,
+  filterParams,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
+  // filterParams is a fresh object every render, so every cache key and deps
+  // array keys off this stable serialization instead. Sorted so key identity
+  // does not depend on the order conditions happened to be applied in.
+  const filterParamsKey = useMemo(() => {
+    const entries = Object.entries(filterParams ?? {}).toSorted(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    return entries.length ? JSON.stringify(entries) : '';
+  }, [filterParams]);
+  const hasFilterParams = filterParamsKey !== '';
+  // Rebuilt from the serialized key so the identity only changes when the
+  // conditions do — depending on the caller's object would refetch on every
+  // render if that caller forgot to memoize it.
+  const stableFilterParams = useMemo(
+    () =>
+      filterParamsKey
+        ? (Object.fromEntries(
+            JSON.parse(filterParamsKey) as [string, number][],
+          ) as Record<string, number>)
+        : undefined,
+    [filterParamsKey],
+  );
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
   // Get minLiquidity from market config
@@ -266,6 +291,7 @@ export function useMarketTokenList({
         category,
         timeFrame,
         networkId,
+        filterParamsKey,
       }),
     [
       apiNetworkId,
@@ -277,6 +303,7 @@ export function useMarketTokenList({
       category,
       timeFrame,
       networkId,
+      filterParamsKey,
     ],
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
@@ -296,6 +323,7 @@ export function useMarketTokenList({
       type,
       category,
       timeFrame,
+      filterKey: filterParamsKey,
     });
   }, [
     apiNetworkId,
@@ -307,6 +335,7 @@ export function useMarketTokenList({
     category,
     timeFrame,
     type,
+    filterParamsKey,
   ]);
   const cachedMarketTokenListEntry = useMemo(() => {
     // `usePromiseResult` synchronously replays any value under swrKey during
@@ -324,7 +353,10 @@ export function useMarketTokenList({
     minLiquidity === 5000 &&
     type === 'trending' &&
     category === undefined &&
-    timeFrame === '2';
+    timeFrame === '2' &&
+    // The HTML bootstrap seed is the UNFILTERED first page. Serving it under a
+    // filtered query would show unfiltered rows until the remote page lands.
+    !hasFilterParams;
   const marketTokenListSeedInitResult = useMemo(() => {
     // The HTML bootstrap seed is only a first-page fallback for a brand-new
     // web load. A valid local SWR cache is usually fresher, so seed is used
@@ -404,6 +436,7 @@ export function useMarketTokenList({
             type,
             category,
             timeFrame,
+            filterParams: stableFilterParams,
           },
           shouldBypassWebSeed ? { forceRemote: true } : undefined,
         );
@@ -468,6 +501,7 @@ export function useMarketTokenList({
       type,
       category,
       timeFrame,
+      stableFilterParams,
     ],
     {
       checkIsFocused: !platformEnv.isWeb,
@@ -714,6 +748,7 @@ export function useMarketTokenList({
         type,
         category,
         timeFrame,
+        filterParams: stableFilterParams,
       });
 
       if (
@@ -776,6 +811,7 @@ export function useMarketTokenList({
     type,
     category,
     timeFrame,
+    stableFilterParams,
     trackNetworkLoading,
     networkLogoUri,
   ]);
