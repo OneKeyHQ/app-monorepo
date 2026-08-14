@@ -1,4 +1,4 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
   hasDeviceStateIdentityMismatch,
@@ -116,38 +116,12 @@ export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
   const wallet = walletWithDevice?.wallet;
-  const device = walletWithDevice?.device;
   if (!wallet) {
     return false;
   }
-  if (!wallet.deprecated) {
-    // Hidden-only devices retain a mocked standard wallet as their
-    // device-management proxy.
-    return true;
-  }
-  if (wallet.isMocked) {
-    return false;
-  }
-
-  const deviceType =
-    device?.deviceStateInfo?.identity.deviceType ?? device?.deviceType;
-  if (!deviceType || !deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
-    return false;
-  }
-
-  const currentFirmwareType =
-    device?.deviceStateInfo?.identity.firmwareType ??
-    device?.featuresInfo?.$app_firmware_type ??
-    device?.featuresInfo?.firmwareType;
-  if (!currentFirmwareType) {
-    return false;
-  }
-
-  // Legacy wallets were created on Universal firmware. Switching firmware
-  // invalidates accounts, but the device must remain manageable to switch back.
-  const firmwareTypeAtCreated =
-    wallet.firmwareTypeAtCreated ?? EFirmwareType.Universal;
-  return currentFirmwareType !== firmwareTypeAtCreated;
+  // Hidden-only devices retain an active mocked standard wallet as their
+  // device-management proxy, while deprecated wallets stay hidden.
+  return !wallet.deprecated;
 }
 
 export function resolveUsableWalletWithDevice(

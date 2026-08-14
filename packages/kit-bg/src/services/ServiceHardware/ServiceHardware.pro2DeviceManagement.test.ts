@@ -888,6 +888,40 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     );
   });
 
+  it('refreshes wallet consumers after a firmware switch deprecates wallets', async () => {
+    const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
+            'hw-wallet-1': {
+              wallet: { id: 'hw-wallet-1' },
+              device: { connectId: 'CLASSIC_USB' },
+            },
+          }),
+          updateWalletsDeprecatedState,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on this binding.
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
+
+    await service.updateHwWalletsDeprecatedStatus({
+      connectId: 'CLASSIC_USB',
+    });
+
+    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
+      willUpdateDeprecateMap: {
+        'hw-wallet-1': true,
+      },
+    });
+    expect(emitMock).toHaveBeenCalledWith(
+      EAppEventBusNames.WalletUpdate,
+      undefined,
+    );
+  });
+
   it('applies async hardware UI events in SDK arrival order', async () => {
     const listeners = new Map<
       string,
