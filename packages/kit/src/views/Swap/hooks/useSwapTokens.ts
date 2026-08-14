@@ -411,7 +411,7 @@ export function useSwapTokenList(
       : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
     {
       shouldSort: false,
-      keys: ['symbol', 'contractAddress'],
+      keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
     },
   );
 
@@ -623,7 +623,7 @@ export function useSwapTokenList(
   const searchBaseTokens = searchBaseTokensRef.current.tokens;
   const fuseSearchBaseTokens = useFuse(searchBaseTokens, {
     shouldSort: false,
-    keys: ['symbol', 'contractAddress'],
+    keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
   });
   const currentTokens = useMemo(() => {
     if (!isSwapSupportAllAccountsReady) {
