@@ -13,16 +13,16 @@ const intl = {
       return 'Candles';
     }
     if (id === ETranslations.market_heikin_ashi) {
-      return 'Heikin Ashi';
+      return 'HEIKIN_ASHI_I18N';
     }
     if (id === ETranslations.market_bars) {
-      return 'Bars';
+      return 'BARS_I18N';
     }
     if (id === ETranslations.market_line) {
       return 'Line';
     }
     if (id === ETranslations.market_area) {
-      return 'Area';
+      return 'AREA_I18N';
     }
     return id ?? '';
   },
@@ -38,12 +38,12 @@ describe('NativeChartControlsShared', () => {
     );
     expect(
       formatChartTypeOptionLabel(intl, { label: 'Heikin Ashi', value: 8 }),
-    ).toBe('Heikin Ashi');
+    ).toBe('HEIKIN_ASHI_I18N');
     expect(formatChartTypeOptionLabel(intl, { label: 'Bars', value: 0 })).toBe(
-      'Bars',
+      'BARS_I18N',
     );
     expect(formatChartTypeOptionLabel(intl, { label: 'Area', value: 3 })).toBe(
-      'Area',
+      'AREA_I18N',
     );
     expect(
       formatChartTypeOptionLabel(intl, { label: 'Candles HLC', value: 21 }),
