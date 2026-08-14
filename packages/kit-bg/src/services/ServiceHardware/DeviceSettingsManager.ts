@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -35,6 +39,7 @@ import {
 
 import { getWallpaperResourceType } from './getWallpaperResourceType';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
+import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type { TrezorDeviceSettingsParams } from './adapters/types';
 import type {
@@ -132,6 +137,9 @@ type IWithDeviceProcessingParams = {
   dbDevice?: IDBDevice;
   params?: IWithHardwareProcessingControlParams;
   preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
+  // Set for destructive V1 flows (e.g. wipe) whose aftermath is handled by
+  // their own teardown flow; a settings-sync refresh would only race it.
+  skipV1SettingsSyncNotify?: boolean;
 };
 
 type ITrezorDeviceSettingsAction = (params: {
@@ -140,6 +148,72 @@ type ITrezorDeviceSettingsAction = (params: {
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
+  /**
+   * Protocol V1 settings mutations cannot rely on SDK DEVICE.STATE events
+   * alone: legacy SDKs emit nothing when the optimistic ApplySettings patch
+   * matches the SDK cache (same-value writes, on-device brightness), and
+   * events can be dropped by staleness/identity guards. After the mutation,
+   * drain the pending event persists, then explicitly read the settings back
+   * (a V1 GetFeatures round trip) and persist that snapshot, so device-side
+   * changes (e.g. a language changed on the device itself) always reach the
+   * DB. Finally force UI consumers to re-read the DB.
+   */
+  private async _notifyProtocolV1SettingsSynced({
+    device,
+    compatibleConnectId,
+  }: {
+    device: IDBDevice;
+    compatibleConnectId?: string;
+  }) {
+    await this.serviceHardware.waitForDeviceStateSync({
+      connectIds: [
+        compatibleConnectId,
+        device.connectId,
+        device.usbConnectId,
+        device.bleConnectId,
+        device.uuid,
+        device.deviceId,
+        device.deviceStateInfo?.identity.serialNo,
+        device.deviceStateInfo?.identity.deviceId,
+      ],
+    });
+    try {
+      const connectId = compatibleConnectId || device.connectId;
+      if (connectId) {
+        const state = await this.serviceHardware.getDeviceState({
+          connectId,
+          params: { scope: 'settings' },
+          hardwareCallContext:
+            EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+          silentMode: true,
+        });
+        if (state) {
+          const persistResult = await localDb.updateDeviceState({
+            changedKeys: ['settings'],
+            connectId,
+            revision: state.revision,
+            source: 'settings-read',
+            state,
+          });
+          serviceHardwareUtils.hardwareLog('v1 settings read-back', {
+            kind: persistResult.kind,
+            language: state.settings?.language,
+            revision: state.revision,
+          });
+        }
+      }
+    } catch (error) {
+      // The read-back is best-effort; the mutation itself already succeeded.
+      serviceHardwareUtils.hardwareLog(
+        'v1 settings read-back failed',
+        error instanceof Error ? error.message : error,
+      );
+    }
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
+  }
+
   private async _getDeviceForSettings({
     walletId,
     connectId,
@@ -284,6 +358,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     action,
     params,
     preciseUpdateFields,
+    skipV1SettingsSyncNotify,
   }: IWithDeviceProcessingParams & {
     action: (
       hardwareSDK: CoreApi,
@@ -325,11 +400,24 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               device.deviceStateInfo?.identity.deviceId,
             ],
           });
-        } else if (preciseUpdateFields && device.featuresInfo) {
-          await localDb.updateDevice({
-            features: device.featuresInfo,
-            preciseUpdateFields,
-          });
+        } else {
+          const shouldNotifySettingsSynced = !skipV1SettingsSyncNotify;
+          if (preciseUpdateFields && device.featuresInfo) {
+            await localDb.updateDevice({
+              features: device.featuresInfo,
+              preciseUpdateFields,
+              // When the authoritative notify below fires (after the SDK's
+              // settings-read event persisted), emitting here as well would
+              // trigger a redundant refresh that can read the DB too early.
+              skipFeaturesUpdateEvent: shouldNotifySettingsSynced,
+            });
+          }
+          if (shouldNotifySettingsSynced) {
+            await this._notifyProtocolV1SettingsSynced({
+              device,
+              compatibleConnectId,
+            });
+          }
         }
         return result;
       },
@@ -560,16 +648,44 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
 
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
-        // pro touch custom upload wallpaper
-        if (needUploadResource) {
-          if (this._isProtocolV2Product(device)) {
-            if (!screenBase64) {
+    const result: DeviceUploadResourceResponse =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          // pro touch custom upload wallpaper
+          if (needUploadResource) {
+            if (this._isProtocolV2Product(device)) {
+              if (!screenBase64) {
+                throw new OneKeyLocalError(
+                  'Upload Pro2 wallpaper error: screenBase64 not defined',
+                );
+              }
+              const compatibleConnectId =
+                await this.serviceHardware.getCompatibleConnectId({
+                  connectId: device.connectId,
+                  featuresDeviceId: device.deviceId,
+                  hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                });
+              const hardwareSDK = await this.getSDKInstance({
+                connectId: compatibleConnectId,
+              });
+              const response = await convertDeviceResponse(() =>
+                hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
+                  jpegBase64: screenBase64,
+                  fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
+                }),
+              );
+              return {
+                ...response,
+                message: response.message ?? 'Success',
+                applyScreen: true,
+              };
+            }
+            if (!finallyThumbnailHex) {
               throw new OneKeyLocalError(
-                'Upload Pro2 wallpaper error: screenBase64 not defined',
+                'Upload screen item error: thumbnailHex not defined',
               );
             }
+
             const compatibleConnectId =
               await this.serviceHardware.getCompatibleConnectId({
                 connectId: device.connectId,
@@ -579,70 +695,47 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             const hardwareSDK = await this.getSDKInstance({
               connectId: compatibleConnectId,
             });
-            const response = await convertDeviceResponse(() =>
-              hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
-                jpegBase64: screenBase64,
-                fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
-              }),
-            );
-            return {
-              ...response,
-              message: response.message ?? 'Success',
-              applyScreen: true,
+            const uploadResParams: DeviceUploadResourceParams = {
+              resType: getWallpaperResourceType(),
+              suffix: 'jpeg',
+              dataHex: finallyScreenHex,
+              thumbnailDataHex: finallyThumbnailHex,
+              blurDataHex: blurScreenHex ?? '',
+              nftMetaData: '',
             };
-          }
-          if (!finallyThumbnailHex) {
-            throw new OneKeyLocalError(
-              'Upload screen item error: thumbnailHex not defined',
+            // upload wallpaper resource will automatically set the home screen
+            return convertDeviceResponse(() =>
+              hardwareSDK.deviceUploadResource(
+                compatibleConnectId,
+                uploadResParams,
+              ),
             );
           }
-
-          const compatibleConnectId =
-            await this.serviceHardware.getCompatibleConnectId({
-              connectId: device.connectId,
-              featuresDeviceId: device.deviceId,
-              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-            });
-          const hardwareSDK = await this.getSDKInstance({
-            connectId: compatibleConnectId,
+          // Pro、Touch: built-in wallpaper
+          // Classic、mini、1s、pure: custom upload and built-in wallpaper
+          if (!finallyScreenHex && !isMonochrome) {
+            // empty string will clear the home screen(classic,mini)
+            throw new OneKeyLocalError('Invalid home screen hex');
+          }
+          const response = await this.applySettingsToDevice(device.connectId, {
+            homescreen: finallyScreenHex,
           });
-          const uploadResParams: DeviceUploadResourceParams = {
-            resType: getWallpaperResourceType(),
-            suffix: 'jpeg',
-            dataHex: finallyScreenHex,
-            thumbnailDataHex: finallyThumbnailHex,
-            blurDataHex: blurScreenHex ?? '',
-            nftMetaData: '',
+          return {
+            ...response,
+            applyScreen: true,
           };
-          // upload wallpaper resource will automatically set the home screen
-          return convertDeviceResponse(() =>
-            hardwareSDK.deviceUploadResource(
-              compatibleConnectId,
-              uploadResParams,
-            ),
-          );
-        }
-        // Pro、Touch: built-in wallpaper
-        // Classic、mini、1s、pure: custom upload and built-in wallpaper
-        if (!finallyScreenHex && !isMonochrome) {
-          // empty string will clear the home screen(classic,mini)
-          throw new OneKeyLocalError('Invalid home screen hex');
-        }
-        const response = await this.applySettingsToDevice(device.connectId, {
-          homescreen: finallyScreenHex,
-        });
-        return {
-          ...response,
-          applyScreen: true,
-        };
-      },
-      {
-        deviceParams: {
-          dbDevice: device,
         },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
-      },
-    );
+        {
+          deviceParams: {
+            dbDevice: device,
+          },
+          debugMethodName: 'deviceSettings.applySettingsToDevice',
+        },
+      );
+    if (!this._isProtocolV2Product(device) && !this._isTrezorDevice(device)) {
+      await this._notifyProtocolV1SettingsSynced({ device });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -925,6 +1018,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.wipeDevice',
+      // Wipe teardown (wallet removal) drives its own UI updates; a
+      // settings-sync refresh here would race the removal flow.
+      skipV1SettingsSyncNotify: true,
       action: async (sdk, compatibleConnectId, targetDevice) => {
         const response = await sdk.deviceWipe(compatibleConnectId);
         if (

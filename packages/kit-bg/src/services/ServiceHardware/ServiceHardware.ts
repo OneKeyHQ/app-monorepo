@@ -1420,6 +1420,12 @@ class ServiceHardware extends ServiceBase {
           revision: event.revision,
           source: event.source,
           changedKeys: event.changedKeys,
+          connectId: event.connectId,
+          serialNo: event.state?.identity?.serialNo,
+          // The device-reported language is the key evidence for language
+          // sync issues (OK-60121); keep it visible in persisted logs.
+          language: event.state?.settings?.language,
+          updatedAt: event.state?.updatedAt,
         });
         const queueKeys = this.getDeviceStateSyncKeys([
           event.state.identity.serialNo,
@@ -1447,6 +1453,20 @@ class ServiceHardware extends ServiceBase {
                 error,
               );
             }
+            serviceHardwareUtils.hardwareLog('device state persist result', {
+              kind: persistenceResult?.kind ?? 'error',
+              reason:
+                persistenceResult?.kind === 'ignored'
+                  ? persistenceResult.reason
+                  : undefined,
+              revision: event.revision,
+              source: event.source,
+              eventLanguage: event.state?.settings?.language,
+              persistedLanguage:
+                persistenceResult?.kind === 'updated'
+                  ? persistenceResult.state.settings?.language
+                  : undefined,
+            });
             if (persistenceResult?.kind === 'identity-mismatch') {
               await this.backgroundApi.serviceHardwarePortfolioSync
                 ?.notifyHardwareDeviceIdentityMismatch({

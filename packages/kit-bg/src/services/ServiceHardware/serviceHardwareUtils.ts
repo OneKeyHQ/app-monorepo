@@ -1,9 +1,20 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { stringifyFunc } from '@onekeyhq/shared/src/logger/stringifyFunc';
+import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 function hardwareLog(name: string, ...args: any[]) {
-  console.log(`ServiceHardwareLog@${name}`, ...args);
+  // Route through the platform log transport (file-backed on desktop/native)
+  // so hardware event evidence survives without an attached DevTools console.
+  // Intentionally NOT gated by the per-scope loggerConfig opt-in.
+  try {
+    loggerUtils.consoleFunc(
+      `ServiceHardwareLog@${name} : ${stringifyFunc(...args)}`,
+    );
+  } catch {
+    console.log(`ServiceHardwareLog@${name}`, ...args);
+  }
 }
 
 function getHomeScreenServerDeviceType(deviceType: EDeviceType): EDeviceType {
