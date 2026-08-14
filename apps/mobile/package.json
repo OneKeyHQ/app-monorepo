@@ -156,7 +156,7 @@
     "react-native-image-crop-picker": "0.51.1",
     "react-native-keyboard-controller": "1.20.7",
     "react-native-level-fs": "3.0.1",
-    "react-native-mmkv": "4.1.0",
+    "react-native-mmkv": "4.2.0",
     "react-native-modal": "^13.0.1",
     "react-native-network-info": "npm:@onekeyfe/react-native-network-info@3.0.78",
     "react-native-network-logger": "2.0.1",

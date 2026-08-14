@@ -10382,7 +10382,7 @@ __metadata:
     react-native-image-crop-picker: "npm:0.51.1"
     react-native-keyboard-controller: "npm:1.20.7"
     react-native-level-fs: "npm:3.0.1"
-    react-native-mmkv: "npm:4.1.0"
+    react-native-mmkv: "npm:4.2.0"
     react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@3.0.78"
     react-native-network-logger: "npm:2.0.1"
@@ -42430,14 +42430,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-mmkv@npm:4.1.0":
-  version: 4.1.0
-  resolution: "react-native-mmkv@npm:4.1.0"
+"react-native-mmkv@npm:4.2.0":
+  version: 4.2.0
+  resolution: "react-native-mmkv@npm:4.2.0"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: "*"
-  checksum: 10/306b2b1371bb58152ec562326d93f25e5cf173f31a313ce78202d3681c3cc6f5a0ca792726f94d3482d3bd0fa341735b046223bbe4b85baacba006307d76a792
+  checksum: 10/8f0e919eb3add26d47a9d5e171672928c322c89ef92108375ffcc2829d40a5d1727f6b9bed771d1fc7abf76f80695e522d47699c8a891c36a98b04afd3a8d1d1
   languageName: node
   linkType: hard
 
