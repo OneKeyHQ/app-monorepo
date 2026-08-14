@@ -48,6 +48,8 @@ export function OverviewMetric({
           color="$text"
           flexShrink={1}
           numberOfLines={1}
+          adjustsFontSizeToFit={widthMode === 'equal'}
+          minimumFontScale={widthMode === 'equal' ? 0.75 : undefined}
         />
       ) : null}
       {action}

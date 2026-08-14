@@ -966,19 +966,29 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const checkAmountRequestIdRef = useRef(0);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(
-    async ({ amount, identity }: { amount: string; identity?: string }) => {
-      if (isInvalidAmount(amount)) {
+    async ({
+      amount,
+      identity,
+      requestId,
+    }: {
+      amount: string;
+      identity?: string;
+      requestId: number;
+    }) => {
+      if (
+        requestId !== checkAmountRequestIdRef.current ||
+        isInvalidAmount(amount)
+      ) {
         return;
       }
       // An empty form is represented as "0" by the initial effect. Treat it as
       // not entered yet so the disabled CTA does not flash a loading spinner.
       if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts([]);
         return;
       }
       setCheckAmountLoading(true);
@@ -1001,6 +1011,10 @@ export function UniversalStake({
           stakeType,
         });
 
+        if (requestId !== checkAmountRequestIdRef.current) {
+          return;
+        }
+
         if (Number(response.code) === 0) {
           setCheckoutAmountMessage('');
           setCheckAmountAlerts(response.data?.alerts || []);
@@ -1009,17 +1023,40 @@ export function UniversalStake({
           setCheckAmountAlerts([]);
         }
       } finally {
-        setCheckAmountLoading(false);
+        if (requestId === checkAmountRequestIdRef.current) {
+          setCheckAmountLoading(false);
+        }
       }
     },
     300,
   );
 
   useEffect(() => {
-    void checkAmount({
-      amount: amountValue || '0',
-      identity: stakefishIdentity,
-    });
+    checkAmount.cancel();
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const amount = amountValue || '0';
+    const cleanup = () => {
+      checkAmount.cancel();
+      if (requestId === checkAmountRequestIdRef.current) {
+        checkAmountRequestIdRef.current += 1;
+      }
+    };
+
+    if (isInvalidAmount(amount)) {
+      setCheckAmountLoading(false);
+      return cleanup;
+    }
+
+    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      setCheckAmountLoading(false);
+      return cleanup;
+    }
+
+    void checkAmount({ amount, identity: stakefishIdentity, requestId });
+    return cleanup;
   }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
@@ -1045,10 +1082,9 @@ export function UniversalStake({
       if (!isOverflowDecimals) {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -2514,7 +2550,7 @@ export function UniversalStake({
           </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
-            reserveSpaceUntilKeyboardShown
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (

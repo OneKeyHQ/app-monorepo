@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { XStack, useIsKeyboardShown } from '@onekeyhq/components';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const countLeadingZeroDecimals = (value: string) => {
   const num = new BigNumber(value);
@@ -98,8 +99,9 @@ export function PercentageStageOnKeyboard({
     }
   }, [isShow]);
 
-  const shouldRender =
-    isShow || (reserveSpaceUntilKeyboardShown && !hasKeyboardShown);
+  const shouldReserveSpace =
+    platformEnv.isNative && reserveSpaceUntilKeyboardShown && !hasKeyboardShown;
+  const shouldRender = isShow || shouldReserveSpace;
 
   return shouldRender ? (
     <XStack

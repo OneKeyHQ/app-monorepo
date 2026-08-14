@@ -69,7 +69,22 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock('../../Staking/components/ProtocolDetails/EarnText', () => ({
-  EarnText: ({ text }: { text: { text: string } }) => <span>{text.text}</span>,
+  EarnText: ({
+    adjustsFontSizeToFit,
+    minimumFontScale,
+    text,
+  }: {
+    adjustsFontSizeToFit?: boolean;
+    minimumFontScale?: number;
+    text: { text: string };
+  }) => (
+    <span
+      data-adjusts-font-size-to-fit={adjustsFontSizeToFit}
+      data-minimum-font-scale={minimumFontScale}
+    >
+      {text.text}
+    </span>
+  ),
 }));
 
 describe('OverviewMetric', () => {
@@ -133,5 +148,20 @@ describe('OverviewMetric', () => {
     const skeleton = screen.getByTestId('skeleton');
     expect(skeleton.getAttribute('data-width')).toBe('100%');
     expect(skeleton.getAttribute('data-max-width')).toBe('72');
+  });
+
+  it('scales long equal-width values instead of relying on truncation', () => {
+    render(
+      <OverviewMetric
+        testID="equal-metric"
+        title={{ text: 'Net worth' }}
+        text={{ text: '$1,234,567.89' }}
+        widthMode="equal"
+      />,
+    );
+
+    const value = screen.getByText('$1,234,567.89');
+    expect(value.getAttribute('data-adjusts-font-size-to-fit')).toBe('true');
+    expect(value.getAttribute('data-minimum-font-scale')).toBe('0.75');
   });
 });

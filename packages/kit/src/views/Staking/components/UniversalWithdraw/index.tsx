@@ -2081,7 +2081,7 @@ export function UniversalWithdraw({
           />
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
-            reserveSpaceUntilKeyboardShown
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (
