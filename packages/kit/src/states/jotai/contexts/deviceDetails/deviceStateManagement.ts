@@ -41,10 +41,14 @@ export function getDeviceStateSnapshotFromEvent({
     // SDK cache already holds a device-side change the app never observed
     // (e.g. BLE initialize runs before event listeners attach), the SDK
     // force-emits them without bumping revision/updatedAt, so an event with
-    // stamps equal to the current state must still be applied.
+    // stamps EQUAL to the current state must still be applied. A lower
+    // revision at the same timestamp is still an out-of-order older event
+    // and must not roll the newer snapshot back.
     const isStale =
       event.source === 'settings-read'
-        ? event.state.updatedAt < currentState.updatedAt
+        ? event.state.updatedAt < currentState.updatedAt ||
+          (event.state.updatedAt === currentState.updatedAt &&
+            event.state.revision < currentState.revision)
         : event.state.updatedAt < currentState.updatedAt ||
           (event.state.updatedAt === currentState.updatedAt &&
             event.state.revision <= currentState.revision);

@@ -437,6 +437,35 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     expect(snapshot?.state.settings.language).toBe('zh_hk');
   });
 
+  it('drops a same-timestamp settings read with a lower revision', () => {
+    const currentState = {
+      revision: 5,
+      updatedAt: 400,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: { language: 'zh_hk' },
+      versions: { firmware: '1.0.0' },
+    };
+
+    expect(
+      getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'PRO_BLE', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'PRO_BLE',
+          revision: 4,
+          source: 'settings-read',
+          changedKeys: ['settings'],
+          state: {
+            ...currentState,
+            revision: 4,
+            settings: { language: 'zh_cn' },
+          },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
   it('still drops a settings read strictly older than the current state', () => {
     const currentState = {
       revision: 4,

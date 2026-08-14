@@ -15,6 +15,17 @@ function hardwareLog(name: string, ...args: any[]) {
   }
 }
 
+/**
+ * Device identifiers (serial numbers, connect ids) must never enter
+ * persisted logs in full; keep a short suffix for multi-device correlation.
+ */
+function maskLogIdentifier(value?: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return `***${value.slice(-4)}`;
+}
+
 function getHomeScreenServerDeviceType(deviceType: EDeviceType): EDeviceType {
   // TODO: Remove this compatibility mapping after Dashboard supports
   // deviceType=pro2 for wallet homescreen resources.
@@ -49,4 +60,5 @@ export default {
   getPro2HomeScreenSizeFallback,
   getPro2NftSizeFallback,
   hardwareLog,
+  maskLogIdentifier,
 };

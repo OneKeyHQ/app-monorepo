@@ -23,6 +23,7 @@ import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUt
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -156,9 +157,49 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
    * drain the pending event persists, then explicitly read the settings back
    * (a V1 GetFeatures round trip) and persist that snapshot, so device-side
    * changes (e.g. a language changed on the device itself) always reach the
-   * DB. Finally force UI consumers to re-read the DB.
+   * DB. The whole sync is bounded: a device that dropped off right after the
+   * write would otherwise hold the flow for the SDK's 60s timeout, and a
+   * stuck event queue must never block the final UI refresh signal.
    */
   private async _notifyProtocolV1SettingsSynced({
+    device,
+    compatibleConnectId,
+  }: {
+    device: IDBDevice;
+    compatibleConnectId?: string;
+  }) {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutGuard = new Promise<void>((resolve) => {
+      timeoutId = setTimeout(
+        resolve,
+        timerUtils.getTimeDurationMs({ seconds: 8 }),
+      );
+    });
+    try {
+      await Promise.race([
+        this._syncProtocolV1SettingsSnapshot({ device, compatibleConnectId }),
+        timeoutGuard,
+      ]);
+    } catch (error) {
+      // The read-back is best-effort; the mutation itself already succeeded.
+      serviceHardwareUtils.hardwareLog(
+        'v1 settings read-back failed',
+        error instanceof Error ? error.message : error,
+      );
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+      // Consumers re-read whatever the DB holds; this signal must fire on
+      // every path, especially when updateDevice suppressed its own event
+      // via skipFeaturesUpdateEvent.
+      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+        deviceId: device.id,
+      });
+    }
+  }
+
+  private async _syncProtocolV1SettingsSnapshot({
     device,
     compatibleConnectId,
   }: {
@@ -177,40 +218,33 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         device.deviceStateInfo?.identity.deviceId,
       ],
     });
-    try {
-      const connectId = compatibleConnectId || device.connectId;
-      if (connectId) {
-        const state = await this.serviceHardware.getDeviceState({
-          connectId,
-          params: { scope: 'settings' },
-          hardwareCallContext:
-            EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
-          silentMode: true,
-        });
-        if (state) {
-          const persistResult = await localDb.updateDeviceState({
-            changedKeys: ['settings'],
-            connectId,
-            revision: state.revision,
-            source: 'settings-read',
-            state,
-          });
-          serviceHardwareUtils.hardwareLog('v1 settings read-back', {
-            kind: persistResult.kind,
-            language: state.settings?.language,
-            revision: state.revision,
-          });
-        }
-      }
-    } catch (error) {
-      // The read-back is best-effort; the mutation itself already succeeded.
-      serviceHardwareUtils.hardwareLog(
-        'v1 settings read-back failed',
-        error instanceof Error ? error.message : error,
-      );
+    const connectId = compatibleConnectId || device.connectId;
+    if (!connectId) {
+      return;
     }
-    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-      deviceId: device.id,
+    const state = await this.serviceHardware.getDeviceState({
+      connectId,
+      params: { scope: 'settings' },
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+      silentMode: true,
+    });
+    if (!state) {
+      return;
+    }
+    // The snapshot also carries status fields written by V1 settings (e.g.
+    // passphraseProtection after setPassphraseEnabled); persist both
+    // sections, not just settings.
+    const persistResult = await localDb.updateDeviceState({
+      changedKeys: ['settings', 'status'],
+      connectId,
+      revision: state.revision,
+      source: 'settings-read',
+      state,
+    });
+    serviceHardwareUtils.hardwareLog('v1 settings read-back', {
+      kind: persistResult.kind,
+      language: state.settings?.language,
+      revision: state.revision,
     });
   }
 
@@ -733,7 +767,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
       );
     if (!this._isProtocolV2Product(device) && !this._isTrezorDevice(device)) {
-      await this._notifyProtocolV1SettingsSynced({ device });
+      // Fire-and-forget: the wallpaper is already applied and the processing
+      // dialog closed; the caller must not stay pending on the read-back.
+      void this._notifyProtocolV1SettingsSynced({ device });
     }
     return result;
   }

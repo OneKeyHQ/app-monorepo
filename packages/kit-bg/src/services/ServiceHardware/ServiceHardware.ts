@@ -1421,8 +1421,13 @@ class ServiceHardware extends ServiceBase {
           revision: event.revision,
           source: event.source,
           changedKeys: event.changedKeys,
-          connectId: event.connectId,
-          serialNo: event.state?.identity?.serialNo,
+          // Device identifiers must stay masked in persisted logs (see the
+          // PRO2_SERIAL contract in ServiceHardware.pro2DeviceManagement
+          // tests); the suffix is enough to correlate multi-device sessions.
+          connectId: serviceHardwareUtils.maskLogIdentifier(event.connectId),
+          serialNo: serviceHardwareUtils.maskLogIdentifier(
+            event.state?.identity?.serialNo,
+          ),
           // The device-reported language is the key evidence for language
           // sync issues (OK-60121); keep it visible in persisted logs.
           language: event.state?.settings?.language,
@@ -1455,7 +1460,7 @@ class ServiceHardware extends ServiceBase {
               );
             }
             serviceHardwareUtils.hardwareLog('device state persist result', {
-              kind: persistenceResult?.kind ?? 'error',
+              kind: persistenceResult?.kind ?? 'unknown',
               reason:
                 persistenceResult?.kind === 'ignored'
                   ? persistenceResult.reason

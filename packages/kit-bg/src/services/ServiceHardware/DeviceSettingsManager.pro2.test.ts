@@ -352,13 +352,14 @@ describe('DeviceSettingsManager device adapters', () => {
     ],
     ['setLanguage', { language: 'en-US' }, { language: 'en-US' }],
   ] as const)(
-    'persists legacy OneKey %s settings without waiting for Pro2 state events',
+    'persists legacy OneKey %s settings and reads device settings back',
     async (methodName, params, preciseUpdateFields) => {
       const device = buildDevice(EDeviceType.Pro);
       device.featuresInfo = {
         device_id: 'LEGACY_DEVICE_ID',
       } as never;
       const waitForDeviceStateSync = jest.fn(async () => undefined);
+      const getDeviceState = jest.fn(async () => undefined);
       const deviceSettings = jest.fn(async () => ({
         success: true as const,
         payload: { message: 'Success' },
@@ -372,6 +373,7 @@ describe('DeviceSettingsManager device adapters', () => {
           serviceHardware: {
             getCompatibleConnectId: jest.fn(async () => device.connectId),
             waitForDeviceStateSync,
+            getDeviceState,
           },
           serviceHardwareUI: {
             withHardwareProcessing: jest.fn(
@@ -392,12 +394,20 @@ describe('DeviceSettingsManager device adapters', () => {
         ...params,
       });
 
+      // The V1 refresh path owns the HardwareFeaturesUpdate signal, so the
+      // direct DB write must suppress its own event.
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       expect(localDb.updateDevice).toHaveBeenCalledWith({
         features: device.featuresInfo,
         preciseUpdateFields,
+        skipFeaturesUpdateEvent: true,
       });
-      expect(waitForDeviceStateSync).not.toHaveBeenCalled();
+      // V1 mutations now drain pending state-event persists and read the
+      // settings back before notifying UI consumers.
+      expect(waitForDeviceStateSync).toHaveBeenCalled();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({ params: { scope: 'settings' } }),
+      );
     },
   );
 
