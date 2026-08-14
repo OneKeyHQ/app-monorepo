@@ -72,8 +72,10 @@ abstract class SimpleDbEntityBase<T> {
   // flight cannot re-publish a stale value into the memory cache afterwards.
   private readGeneration = 0;
 
-  @backgroundMethod()
-  clearRawDataCache() {
+  // Stays protected and sync: both call sites need the cache cleared within the
+  // same tick, and SimpleDbEntityAsyncMethods requires every *public* entity
+  // method to be async — widening this would break that contract.
+  protected clearRawDataCache() {
     this.readGeneration += 1;
     this.cachedRawData = null;
     this.cachedRawDataPromise = null;
