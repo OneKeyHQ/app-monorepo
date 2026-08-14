@@ -39,30 +39,9 @@ const EarnProtocolTokens = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolTokens'),
   earnLazyPageFallback,
 );
-const EarnTokens = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnTokens'),
-);
-const EarnFixedRateTokens = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnFixedRateTokens'),
-);
-const EarnAllProtocols = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnAllProtocols'),
-);
-const EarnProtocolTokens = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocolTokens'),
-);
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
   earnLazyPageFallback,
-);
-const BorrowHome = LazyLoadRootTabPage(
-  () => import('../../../views/Borrow/pages/BorrowHomePage'),
-);
-const EarnPositions = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnPositions'),
-);
-const BorrowReserveDetails = LazyLoadRootTabPage(
-  () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 const BorrowHome = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/BorrowHomePage'),
