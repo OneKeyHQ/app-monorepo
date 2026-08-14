@@ -16,14 +16,15 @@ describe('normalizeTradingViewLayoutRestored', () => {
 });
 
 describe('normalizeTradingViewChartTypes', () => {
-  it('removes HLC chart types from legacy or cached chart bundles', () => {
+  it('removes only the retired Candles HLC bridge option', () => {
     expect(
       normalizeTradingViewChartTypes([
         { label: 'Candles', value: 1 },
         { label: 'Heikin Ashi', value: 8 },
         { label: 'Bars', value: 0 },
+        { label: 'Candles HLC', value: 21 },
         { label: 'Legacy Style', value: 21 },
-        { label: 'Legacy HLC', value: 100 },
+        { label: 'HLC Area', value: 16 },
         { label: 'Line', value: 2 },
         { label: 'Area', value: 3 },
       ]),
@@ -31,6 +32,8 @@ describe('normalizeTradingViewChartTypes', () => {
       { label: 'Candles', value: 1 },
       { label: 'Heikin Ashi', value: 8 },
       { label: 'Bars', value: 0 },
+      { label: 'Legacy Style', value: 21 },
+      { label: 'HLC Area', value: 16 },
       { label: 'Line', value: 2 },
       { label: 'Area', value: 3 },
     ]);

@@ -1,6 +1,10 @@
 import type { ITradingViewNativeChartControlsConfigData } from '../../../types';
 
-const REMOVED_HLC_CHART_TYPE_VALUE = 21;
+// TradingView Charting Library defines SeriesType.HLCBars as 21.
+const REMOVED_HLC_CHART_TYPE = {
+  label: 'candles hlc',
+  value: 21,
+} as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -32,8 +36,8 @@ export function normalizeTradingViewChartTypes(
     }
 
     const isRemovedHlcChartType =
-      value === REMOVED_HLC_CHART_TYPE_VALUE ||
-      label.toLowerCase().includes('hlc');
+      value === REMOVED_HLC_CHART_TYPE.value &&
+      label.toLowerCase() === REMOVED_HLC_CHART_TYPE.label;
     if (!isRemovedHlcChartType) {
       normalizedChartTypes.push({ label, value });
     }
