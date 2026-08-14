@@ -2,9 +2,11 @@ export const PerpTestIDs = {
   // -- Settings --
   HeaderSettingsButton: 'perp-header-settings-button',
   MobileSettingsButton: 'perp-mobile-settings-button',
+  MobileSettingsFeatureDot: 'perp-mobile-settings-feature-dot',
   MobileChartPositionSetting: 'perp-mobile-chart-position-setting',
   MobileChartPositionControl: 'perp-mobile-chart-position-control',
   MobileLayoutSettingsButton: 'perp-mobile-layout-settings-button',
+  MobileLayoutSettingsFeatureDot: 'perp-mobile-layout-settings-feature-dot',
   MobileLayoutSettingsPage: 'perp-mobile-layout-settings-page',
   MobileChartPositionOption: (position: string) =>
     `perp-mobile-chart-position-option-${position}`,
@@ -115,6 +117,7 @@ export const PerpTestIDs = {
   DesktopSplitRoot: 'perp-desktop-split-root',
   DesktopChartSplit: 'perp-desktop-chart-split',
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
+  DesktopChartResizeSpotlight: 'perp-desktop-chart-resize-spotlight',
   DesktopAccountBoundary: 'perp-desktop-account-boundary',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
   ResetLayoutButton: 'perp-reset-layout-button',

@@ -12,8 +12,10 @@ import {
 
 const mockSetPerpsCustomSettings = jest.fn();
 const mockOnOpen = jest.fn();
+const mockLayoutSettingsTourVisited = jest.fn();
 
 let mockChartPosition: 'top' | 'bottom' | 'hidden' | undefined = 'bottom';
+let mockLayoutSettingsIsFirstVisit = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -81,6 +83,14 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit/src/components/Spotlight', () => ({
+  useSpotlight: () => ({
+    isFirstVisit: mockLayoutSettingsIsFirstVisit,
+    tourTimes: mockLayoutSettingsIsFirstVisit ? 0 : 1,
+    tourVisited: mockLayoutSettingsTourVisited,
+  }),
+}));
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [
     {
@@ -108,18 +118,41 @@ describe('PerpLayoutSettings', () => {
     mockChartPosition = 'bottom';
     mockSetPerpsCustomSettings.mockReset();
     mockOnOpen.mockReset();
+    mockLayoutSettingsTourVisited.mockReset();
+    mockLayoutSettingsIsFirstVisit = true;
   });
 
   it('opens layout settings from the menu entry', () => {
-    const view = render(<PerpLayoutSettingsEntry onPress={mockOnOpen} />);
+    const view = render(
+      <PerpLayoutSettingsEntry onPress={mockOnOpen} showFeatureDot />,
+    );
 
     fireEvent.click(view.getByTestId('perp-mobile-layout-settings-button'));
 
     expect(mockOnOpen).toHaveBeenCalledTimes(1);
+    expect(mockLayoutSettingsTourVisited).toHaveBeenCalledTimes(1);
     expect(view.getByText('布局设置')).toBeTruthy();
     expect(
       view.container.querySelector('[data-icon="ChevronRightOutline"]'),
     ).toBeTruthy();
+    expect(
+      view.getByTestId('perp-mobile-layout-settings-feature-dot'),
+    ).toBeTruthy();
+  });
+
+  it('hides the feature dot after layout settings is visited', () => {
+    mockLayoutSettingsIsFirstVisit = false;
+    const view = render(
+      <PerpLayoutSettingsEntry onPress={mockOnOpen} showFeatureDot />,
+    );
+
+    fireEvent.click(view.getByTestId('perp-mobile-layout-settings-button'));
+
+    expect(
+      view.queryByTestId('perp-mobile-layout-settings-feature-dot'),
+    ).toBeNull();
+    expect(mockLayoutSettingsTourVisited).not.toHaveBeenCalled();
+    expect(mockOnOpen).toHaveBeenCalledTimes(1);
   });
 
   it('opens chart positions in a standalone dialog', () => {
