@@ -771,7 +771,7 @@ export interface IBatchSignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
-export interface ISignMessageParams {
+export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
