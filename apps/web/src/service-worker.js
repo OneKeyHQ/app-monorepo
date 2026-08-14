@@ -8,6 +8,10 @@ import { CacheFirst } from 'workbox-strategies';
 import { resolveTradingViewEmbedProxySourceUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
 
 import { putTradingViewResponseInCache } from './tradingViewEmbedCache';
+import {
+  cacheTradingViewRecoveryManifest,
+  matchTradingViewRecoveryManifest,
+} from './tradingViewEmbedManifestCache';
 import { runTradingViewEmbedPrefetch } from './tradingViewEmbedPrefetch';
 
 const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
@@ -664,7 +668,10 @@ async function restoreTradingViewManifestState(requestUrl) {
   }
   const manifestUrl = new URL('/embed/latest.json', requestUrl).toString();
   const cache = await caches.open(getTradingViewCacheName(version));
-  const cachedManifestResponse = await cache.match(new Request(manifestUrl));
+  const cachedManifestResponse = await matchTradingViewRecoveryManifest(
+    cache,
+    manifestUrl,
+  );
   if (cachedManifestResponse) {
     const cachedManifest = await cachedManifestResponse
       .clone()
@@ -852,6 +859,19 @@ async function prepareTradingViewEmbed(
       await caches.delete(cacheName);
       cache = await caches.open(cacheName);
     }
+    const recoveryManifestResponse = await matchTradingViewRecoveryManifest(
+      cache,
+      normalizedManifestUrl,
+    );
+    if (recoveryManifestResponse) {
+      const recoveryManifest = await recoveryManifestResponse
+        .json()
+        .catch(() => null);
+      if (!areTradingViewManifestsEqual(recoveryManifest, manifest)) {
+        await caches.delete(cacheName);
+        cache = await caches.open(cacheName);
+      }
+    }
     const bootstrapAssetFiles = new Set(
       getTradingViewBootstrapAssetFiles(manifest, locale),
     );
@@ -859,6 +879,13 @@ async function prepareTradingViewEmbed(
       bootstrapAssetFiles.has(asset.file),
     );
     await cacheTradingViewAssets(cache, bootstrapAssets, baseUrl, 'high');
+    // Persist recovery metadata before reporting bootstrap readiness. The full
+    // manifest request remains reserved for the offline-complete marker.
+    await cacheTradingViewRecoveryManifest(
+      cache,
+      normalizedManifestUrl,
+      manifestResponse,
+    );
     return {
       complete: () =>
         startTradingViewFullPrefetch({
