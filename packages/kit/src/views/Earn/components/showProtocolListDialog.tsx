@@ -32,7 +32,6 @@ import {
 } from '../../Staking/components/ProtocolDisplayShared';
 
 import { AprText } from './AprText';
-import { EarnAprSuffixText } from './EarnAprSuffixText';
 
 import type { IntlShape } from 'react-intl';
 
@@ -160,19 +159,6 @@ const groupProtocolsByGroup = (
   });
 
   return sections;
-};
-
-// Keep the APY/APR suffix; EarnAprSuffixText splits it into "value + smaller
-// unit" rendering (OK-58854)
-const getProtocolAprText = (item: IStakeProtocolListItem) => {
-  return (
-    item.aprInfo?.highlight?.text ||
-    item.aprInfo?.normal?.text ||
-    item.aprInfo?.deprecated?.text ||
-    `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}% ${
-      item.provider.rewardUnit || 'APR'
-    }`
-  );
 };
 
 // Quick-switcher provider grouping (OK-58854): native is hidden; bitway is
@@ -439,9 +425,24 @@ export function ProtocolListContent({
             networkLogoURI={item.network.logoURI}
           />
           <YStack flex={1} minWidth={0} gap="$0.5">
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {getEarnProviderDisplayName(item.provider.name)}
-            </SizableText>
+            <XStack alignItems="center" gap="$1.5" minWidth={0}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {getEarnProviderDisplayName(item.provider.name)}
+              </SizableText>
+              {item.provider.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
+                >
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
             {secondaryText ? (
               <SizableText
                 size="$bodySm"
@@ -453,7 +454,7 @@ export function ProtocolListContent({
             ) : null}
           </YStack>
           <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
-            <EarnAprSuffixText text={getProtocolAprText(item)} />
+            <AprText asset={createAssetFromProtocol(item)} />
             {tvlText ? (
               <SizableText size="$bodySm" color="$textSubdued">
                 {`TVL ${tvlText}`}
