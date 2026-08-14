@@ -97,7 +97,7 @@ export function convertDeviceError(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const info = params;
 
-  if (code === HardwareErrors.BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE) {
+  if (code === HardwareErrorCode.BleUnavailableWhileUsbConnected) {
     return new HardwareErrors.BluetoothUnavailableWhileUsbConnectedError({
       payload,
     });

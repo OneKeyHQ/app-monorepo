@@ -1,25 +1,22 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import {
-  BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
-  BluetoothUnavailableWhileUsbConnectedError,
-} from '../errors/hardwareErrors';
+import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/hardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
 
 describe('convertDeviceError Bluetooth unavailable while USB is connected', () => {
   it('explains that Bluetooth is unavailable while USB is connected', () => {
     const error = convertDeviceError({
-      code: BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
       error: 'firmware wording may change',
     });
 
     expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
     expect(error).toMatchObject({
-      code: BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
       key: 'troubleshooting.desktop_bluetooth_usb_priority',
       payload: {
-        code: BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
         error: 'firmware wording may change',
       },
     });
@@ -41,7 +38,7 @@ describe('convertDeviceError Bluetooth unavailable while USB is connected', () =
 
   it('maps the dedicated code without a firmware message', () => {
     const error = convertDeviceError({
-      code: BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
     });
 
     expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);

@@ -2,10 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import {
-  BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
-  BluetoothUnavailableWhileUsbConnectedError,
-} from '../errors/errors/hardwareErrors';
+import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/errors/hardwareErrors';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 
@@ -496,7 +493,7 @@ describe('DeviceScannerUtils', () => {
     search.resolve({
       success: false,
       payload: {
-        code: BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE,
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
         error: 'Bluetooth is unavailable while USB is connected',
       },
     });

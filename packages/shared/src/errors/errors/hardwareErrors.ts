@@ -447,9 +447,6 @@ export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
 }
 
-// Keep this in sync with HardwareErrorCode.BleUnavailableWhileUsbConnected.
-export const BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE = 723;
-
 export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -461,7 +458,7 @@ export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareEr
     );
   }
 
-  override code = BLE_UNAVAILABLE_WHILE_USB_CONNECTED_ERROR_CODE;
+  override code = HardwareErrorCode.BleUnavailableWhileUsbConnected;
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
