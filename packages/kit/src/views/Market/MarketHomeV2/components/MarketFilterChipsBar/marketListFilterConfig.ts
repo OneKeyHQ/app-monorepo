@@ -163,11 +163,12 @@ export const MARKET_FILTER_GROUP_LABELS: Record<EMarketFilterGroup, string> = {
   [EMarketFilterGroup.Audit]: 'Holdings audit',
 };
 
-// Metrics first: those are the conditions the demo can actually apply; the
-// audit block is still a placeholder pending Spike A#8.
+// Holdings audit is out of scope for this delivery: its rows are placeholders
+// pending Spike A#8 and `top10HoldPercentMax` is a confirmed dead param
+// upstream. Add EMarketFilterGroup.Audit back here to restore the section —
+// its labels, rows and rendering are all still in place.
 export const MARKET_FILTER_GROUP_ORDER: EMarketFilterGroup[] = [
   EMarketFilterGroup.Metrics,
-  EMarketFilterGroup.Audit,
 ];
 
 export const MARKET_FILTER_DIMENSION_MAP = new Map(
@@ -212,6 +213,25 @@ export function buildHotTokenFilterParams(
     }
   });
   return params;
+}
+
+// Splits the applied conditions into the half the server can filter and the
+// half it cannot. Token age has no upstream param, so it stays a client-side
+// pass over the rows already fetched; everything else goes through
+// buildHotTokenFilterParams and is filtered before the pool is sliced.
+export function pickLocalOnlyConditions(
+  conditions: IMarketListFilterConditions,
+): IMarketListFilterConditions {
+  const localOnly: IMarketListFilterConditions = {};
+  Object.entries(conditions).forEach(([dimensionId, optionId]) => {
+    const dimension = MARKET_FILTER_DIMENSION_MAP.get(
+      dimensionId as EMarketFilterDimension,
+    );
+    if (dimension?.isLocalOnly) {
+      localOnly[dimensionId as EMarketFilterDimension] = optionId;
+    }
+  });
+  return localOnly;
 }
 
 // P2-9 chip roster (frozen 2026-07-21). Three chips; Early tokens moved to
