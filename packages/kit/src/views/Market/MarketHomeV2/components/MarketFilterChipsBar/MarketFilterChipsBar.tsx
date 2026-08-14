@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   Icon,
@@ -15,6 +17,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
@@ -28,6 +31,7 @@ import {
   MARKET_FILTER_CHIPS,
   MARKET_FILTER_DIMENSION_MAP,
   findActiveMarketFilterChip,
+  formatMarketFilterOptionLabel,
   getMarketFilterOption,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
@@ -49,20 +53,20 @@ const noop = () => undefined;
 
 // Sortable column dataIndex -> chip copy. The chip has no column header next
 // to it, so it has to name the column itself.
-const SORT_COLUMN_LABELS: Record<string, string> = {
-  name: 'Token age',
-  price: 'Price',
-  change24h: 'Change',
-  marketCap: 'Market cap',
-  liquidity: 'Liquidity',
-  transactions: 'Txns',
-  holders: 'Holders',
-  turnover: 'Turnover',
+const SORT_COLUMN_LABEL_KEYS: Record<string, ETranslations> = {
+  name: ETranslations.dexmarket_token_age,
+  price: ETranslations.global_price,
+  change24h: ETranslations.dexmarket_token_change,
+  marketCap: ETranslations.dexmarket_market_cap,
+  liquidity: ETranslations.dexmarket_liquidity,
+  transactions: ETranslations.dexmarket_txns,
+  holders: ETranslations.dexmarket_holders,
+  turnover: ETranslations.dexmarket_turnover,
 };
 
-const SORT_DIRECTION_LABELS: Record<'asc' | 'desc', string> = {
-  desc: 'High to Low',
-  asc: 'Low to High',
+const SORT_DIRECTION_LABEL_KEYS: Record<'asc' | 'desc', ETranslations> = {
+  desc: ETranslations.high_to_low__action,
+  asc: ETranslations.low_to_high__action,
 };
 
 // Rounded pill shared by time-range buttons, quick chips and the Filters
@@ -149,6 +153,7 @@ function ClearTextButton({
   onPress: () => void;
   testID?: string;
 }) {
+  const intl = useIntl();
   const [isHovered, setIsHovered] = useState(false);
   return (
     <XStack
@@ -171,7 +176,7 @@ function ClearTextButton({
         size="$bodySmMedium"
         color={isHovered ? '$text' : '$textSubdued'}
       >
-        Clear
+        {intl.formatMessage({ id: ETranslations.global_clear })}
       </SizableText>
     </XStack>
   );
@@ -378,14 +383,16 @@ function FilterConditionChip({
   onSelectOption: (optionId: string) => void;
   onRemove: () => void;
 }) {
+  const intl = useIntl();
   const dimension = MARKET_FILTER_DIMENSION_MAP.get(dimensionId);
   const option = getMarketFilterOption(dimensionId, optionId);
   if (!dimension || !option) {
     return null;
   }
+  const dimensionLabel = intl.formatMessage({ id: dimension.labelKey });
   return (
     <Popover
-      title={dimension.label}
+      title={dimensionLabel}
       open={isOpen}
       onOpenChange={onOpenChange}
       floatingPanelProps={{
@@ -395,8 +402,8 @@ function FilterConditionChip({
       }}
       renderTrigger={
         <ConditionChipShell
-          label={dimension.label}
-          value={option.chipLabel}
+          label={dimensionLabel}
+          value={formatMarketFilterOptionLabel(intl, option, 'chipLabel')}
           isOpen={isOpen}
           onRemove={onRemove}
           testID={`market-filter-chip-${dimensionId}`}
@@ -405,8 +412,11 @@ function FilterConditionChip({
       }
       renderContent={
         <TierPopoverContent
-          title={dimension.label}
-          options={dimension.options}
+          title={dimensionLabel}
+          options={dimension.options.map((item) => ({
+            id: item.id,
+            label: formatMarketFilterOptionLabel(intl, item),
+          }))}
           selectedOptionId={option.id}
           onSelect={onSelectOption}
           onClear={onRemove}
@@ -439,11 +449,17 @@ function SortConditionChip({
   onSelectDirection: (direction: 'asc' | 'desc') => void;
   onRemove: () => void;
 }) {
+  const intl = useIntl();
   const { sortBy, sortType } = sortState;
   if (!sortBy || !sortType) {
     return null;
   }
-  const columnLabel = SORT_COLUMN_LABELS[sortBy] ?? sortBy;
+  const columnLabelKey = SORT_COLUMN_LABEL_KEYS[sortBy];
+  const columnLabel = columnLabelKey
+    ? intl.formatMessage({ id: columnLabelKey })
+    : sortBy;
+  const directionLabel = (direction: 'asc' | 'desc') =>
+    intl.formatMessage({ id: SORT_DIRECTION_LABEL_KEYS[direction] });
   return (
     <Popover
       title={columnLabel}
@@ -457,7 +473,7 @@ function SortConditionChip({
       renderTrigger={
         <ConditionChipShell
           label={columnLabel}
-          value={SORT_DIRECTION_LABELS[sortType]}
+          value={directionLabel(sortType)}
           isOpen={isOpen}
           onRemove={onRemove}
           testID="market-filter-chip-sort"
@@ -468,10 +484,10 @@ function SortConditionChip({
         <TierPopoverContent
           title={columnLabel}
           options={[
-            { id: 'desc', label: SORT_DIRECTION_LABELS.desc },
+            { id: 'desc', label: directionLabel('desc') },
             {
               id: 'asc',
-              label: SORT_DIRECTION_LABELS.asc,
+              label: directionLabel('asc'),
               disabled: lockAscending,
             },
           ]}
@@ -494,18 +510,19 @@ function QuickChip({
   chip: IMarketFilterChip;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   return (
     <LazyTooltip
       placement="top"
       onPress={onPress}
       renderTrigger={
         <MarketToolbarPill
-          label={chip.label}
+          label={intl.formatMessage({ id: chip.labelKey })}
           icon={chip.icon}
           testID={`market-filter-chip-quick-${chip.id}`}
         />
       }
-      renderContent={chip.tooltip}
+      renderContent={intl.formatMessage({ id: chip.tooltipKey })}
     />
   );
 }

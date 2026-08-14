@@ -81,13 +81,12 @@ const REDESIGN_COLUMN_ORDER = [
 ];
 
 // Figma: these headers carry a dotted underline plus an explainer tooltip.
-// Demo copy is hardcoded English (P1-2 finalizes wording via i18n later).
-const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
-  marketCap: 'Circulating market value of the token.',
-  liquidity: 'Total liquidity available in pools.',
-  transactions: 'Buy and sell transactions in the selected time range.',
-  holders: 'Number of addresses holding the token.',
-  turnover: 'Trading volume in the selected time range.',
+const REDESIGN_HEADER_TOOLTIP_KEYS: Record<string, ETranslations> = {
+  marketCap: ETranslations.market_market_cap_tips,
+  liquidity: ETranslations.market_liquidity_tips,
+  transactions: ETranslations.market_txns_tips,
+  holders: ETranslations.market_holders_tips,
+  turnover: ETranslations.market_turnover_tips,
 };
 
 // Figma (24967-41343): 240px leaves 186px for the text block after the 40px
@@ -440,16 +439,17 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        // Redesign merges the standalone tokenAge column into this one; title
-        // is a mock hardcoded label per Figma (not localized yet). Only lists
-        // whose rows carry an age use it — stocks and the watchlist, which
-        // never render a token age, keep the plain Name header.
+        // Redesign merges the standalone tokenAge column into this one, so the
+        // header names both — but only where rows actually carry an age.
+        // Stocks and the watchlist never render one and keep the plain Name.
         title:
           redesignEnabled &&
           !useStockMetadataColumns &&
           !hideTokenAge &&
           !isWatchlistMode
-            ? 'Name/Token Age'
+            ? intl.formatMessage({
+                id: ETranslations.market_column_name_token_age,
+              })
             : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
@@ -778,9 +778,12 @@ export const useColumnsDesktop = (
           // Stock columns repurpose the liquidity/turnover/marketCap slots for
           // 24h volume and P/E, so the metric explainers keyed by dataIndex
           // would describe the wrong number. Only spot columns get tooltips.
-          const tooltip = useStockMetadataColumns
+          const tooltipKey = useStockMetadataColumns
             ? undefined
-            : REDESIGN_HEADER_TOOLTIPS[dataIndex];
+            : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
+          const tooltip = tooltipKey
+            ? intl.formatMessage({ id: tooltipKey })
+            : undefined;
           return {
             ...column,
             renderTitle: (

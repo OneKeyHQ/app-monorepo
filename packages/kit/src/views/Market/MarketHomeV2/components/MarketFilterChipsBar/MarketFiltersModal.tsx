@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -11,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { MARKET_TOOLBAR_ITEM_HEIGHT } from '../marketToolbarFrame';
@@ -19,6 +22,7 @@ import {
   MARKET_FILTER_DIMENSIONS,
   MARKET_FILTER_GROUP_LABELS,
   MARKET_FILTER_GROUP_ORDER,
+  formatMarketFilterOptionLabel,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { EMarketFilterGroup } from './marketListFilterTypes';
@@ -164,20 +168,18 @@ function DimensionRow({
   selectedOptionId?: string;
   onSelect: (optionId: string | undefined) => void;
 }) {
+  const intl = useIntl();
+  const label = intl.formatMessage({ id: dimension.labelKey });
   return (
     <FilterRow
-      label={
-        dimension.unit
-          ? `${dimension.label} (${dimension.unit})`
-          : dimension.label
-      }
+      label={dimension.unit ? `${label} (${dimension.unit})` : label}
       note={dimension.note}
     >
       <TierGrid
         columns={getTierColumns(dimension.options.length)}
         items={dimension.options.map((option) => ({
           key: option.id,
-          label: option.label,
+          label: formatMarketFilterOptionLabel(intl, option),
           selected: option.id === selectedOptionId,
           onPress: () =>
             onSelect(option.id === selectedOptionId ? undefined : option.id),
@@ -208,6 +210,7 @@ function MarketFiltersModalContent({
   onApplyTimeRange: (v: IMarketTimeRangeValue) => void;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const [draft, setDraft] = useState<IMarketListFilterConditions>({
     ...initialConditions,
   });
@@ -245,10 +248,18 @@ function MarketFiltersModalContent({
             return (
               <YStack key={group} gap="$4">
                 {groupIndex > 0 ? <Divider mb="$2" /> : null}
-                <GroupHeader label={MARKET_FILTER_GROUP_LABELS[group]} />
+                <GroupHeader
+                  label={intl.formatMessage({
+                    id: MARKET_FILTER_GROUP_LABELS[group],
+                  })}
+                />
                 <YStack gap="$6">
                   {group === EMarketFilterGroup.Metrics ? (
-                    <FilterRow label="Time frame">
+                    <FilterRow
+                      label={intl.formatMessage({
+                        id: ETranslations.market_filters_time_frame,
+                      })}
+                    >
                       <XStack
                         width={CONTROL_COLUMN_WIDTH}
                         gap={TIME_RANGE_GAP}
@@ -308,7 +319,7 @@ function MarketFiltersModalContent({
           onPress={() => setDraft({})}
           testID="market-filters-modal-reset"
         >
-          Reset
+          {intl.formatMessage({ id: ETranslations.global_reset })}
         </Button>
         <Button
           flex={1}
@@ -327,7 +338,7 @@ function MarketFiltersModalContent({
           }}
           testID="market-filters-modal-apply"
         >
-          Confirm
+          {intl.formatMessage({ id: ETranslations.global_confirm })}
         </Button>
       </XStack>
     </YStack>
@@ -346,10 +357,11 @@ function useOpenMarketFiltersDialog({
   timeRange: IMarketTimeRangeValue;
   onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
 }) {
+  const intl = useIntl();
   const { filterState, applyConditions } = useMarketListFilter();
   return useCallback(() => {
     const dialog = Dialog.show({
-      title: 'Filters',
+      title: intl.formatMessage({ id: ETranslations.market_filters }),
       showFooter: false,
       renderContent: (
         <MarketFiltersModalContent
@@ -363,7 +375,13 @@ function useOpenMarketFiltersDialog({
         />
       ),
     });
-  }, [filterState.conditions, timeRange, applyConditions, onTimeRangeChange]);
+  }, [
+    filterState.conditions,
+    timeRange,
+    applyConditions,
+    onTimeRangeChange,
+    intl,
+  ]);
 }
 
 // Applied-condition count badge (Figma 24980-5127 / 25169-44218).
@@ -429,6 +447,7 @@ export function MarketFiltersTrigger({
   timeRange: IMarketTimeRangeValue;
   onTimeRangeChange: (v: IMarketTimeRangeValue) => void;
 }) {
+  const intl = useIntl();
   const { activeConditionCount } = useMarketListFilter();
   const openDialog = useOpenMarketFiltersDialog({
     timeRange,
@@ -452,7 +471,7 @@ export function MarketFiltersTrigger({
       testID="market-filters-modal-trigger"
     >
       <SizableText size="$bodySmMedium" color="$textSubdued">
-        Filters
+        {intl.formatMessage({ id: ETranslations.market_filters })}
       </SizableText>
       <FiltersCountBadge count={activeConditionCount} />
       <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMarketTimeRangeValue } from '../../types';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
@@ -21,11 +22,16 @@ export enum EMarketFilterDimension {
 // label like "$5K+"); token age uses only `max`, read as an age ceiling.
 export type IMarketFilterOption = {
   id: string;
-  // Copy shown inside the tier pill (e.g. "500K+", "≤ 48h").
+  // Copy shown inside the tier pill (e.g. "500K+"). Numeric tiers are the same
+  // in every locale, so they stay literal; token age carries `age` instead.
   label: string;
   // Copy for the condition chip in the toolbar, which carries no row title
   // and so has to spell out the unit (e.g. "$500K+").
   chipLabel: string;
+  // Token age tiers read as "≤ 48H" and have to go through the existing
+  // dexmarket_token_age_* keys, so the amount and unit are kept apart from the
+  // copy and composed at render time.
+  age?: { amount: number; unit: 'h' | 'd' };
   min?: number;
   max?: number;
 };
@@ -39,7 +45,7 @@ export enum EMarketFilterGroup {
 
 export type IMarketFilterDimensionConfig = {
   id: EMarketFilterDimension;
-  label: string; // hardcoded EN copy, demo only
+  labelKey: ETranslations;
   // Optional unit shown after the label in the Filters popover row title.
   unit?: string;
   // hot-token v6 param names backing the future server passthrough.
@@ -79,11 +85,11 @@ export type IMarketListSortState = {
 
 export type IMarketFilterChip = {
   id: string;
-  label: string;
+  labelKey: ETranslations;
   // Leading icon; also reused as the group anchor icon once expanded.
   icon: IKeyOfIcons;
   // Honest disclosure of what the chip does to the list (P1-2 wording).
-  tooltip: string;
+  tooltipKey: ETranslations;
   // Conditions the chip applies. Every value is a tier option id.
   conditions: IMarketListFilterConditions;
   // Sort the chip dispatches, if any. Same state machine as the column header

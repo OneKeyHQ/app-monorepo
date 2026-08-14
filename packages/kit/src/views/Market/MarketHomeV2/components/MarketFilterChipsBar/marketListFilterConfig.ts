@@ -1,3 +1,5 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   EMarketFilterDimension,
   EMarketFilterGroup,
@@ -10,6 +12,7 @@ import type {
   IMarketListFilterConditions,
   IMarketListSortState,
 } from './marketListFilterTypes';
+import type { IntlShape } from 'react-intl';
 
 const H = 60 * 60 * 1000;
 const D = 24 * H;
@@ -61,7 +64,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   {
     id: EMarketFilterDimension.MarketCap,
     group: EMarketFilterGroup.Metrics,
-    label: 'Market cap',
+    labelKey: ETranslations.dexmarket_market_cap,
     unit: '$',
     minParam: 'marketCapMin',
     maxParam: 'marketCapMax',
@@ -71,7 +74,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Liquidity,
-    label: 'Liquidity',
+    labelKey: ETranslations.dexmarket_liquidity,
     group: EMarketFilterGroup.Metrics,
     unit: '$',
     minParam: 'liquidityMin',
@@ -84,7 +87,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Holders,
-    label: 'Holders',
+    labelKey: ETranslations.dexmarket_holders,
     group: EMarketFilterGroup.Metrics,
     minParam: 'holdersMin',
     maxParam: 'holdersMax',
@@ -94,7 +97,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Turnover,
-    label: 'Turnover',
+    labelKey: ETranslations.dexmarket_turnover,
     group: EMarketFilterGroup.Metrics,
     unit: '$',
     minParam: 'volumeMin',
@@ -107,7 +110,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Change,
-    label: 'Change',
+    labelKey: ETranslations.dexmarket_token_change,
     group: EMarketFilterGroup.Metrics,
     minParam: 'priceChangePercentMin',
     maxParam: 'priceChangePercentMax',
@@ -123,7 +126,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Txns,
-    label: 'Txns',
+    labelKey: ETranslations.dexmarket_txns,
     group: EMarketFilterGroup.Metrics,
     minParam: 'txsMin',
     maxParam: 'txsMax',
@@ -134,7 +137,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.TokenAge,
-    label: 'Token age',
+    labelKey: ETranslations.dexmarket_token_age,
     group: EMarketFilterGroup.Metrics,
     // No server-side age param exists, so this row filters the slice already
     // fetched instead of the upstream pool — the only row that does, hence the
@@ -145,9 +148,29 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
     // Finer tiers (≤5m…≤24h) are dead in every pool: tokens take ≥24h to
     // enter the hot list at all.
     options: [
-      { id: 'under-48h', label: '≤ 48h', chipLabel: '≤ 48h', max: 2 * D },
-      { id: 'under-7d', label: '≤ 7d', chipLabel: '≤ 7d', max: 7 * D },
-      { id: 'under-30d', label: '≤ 30d', chipLabel: '≤ 30d', max: 30 * D },
+      // `label`/`chipLabel` are the untranslated fallback; `age` is what the
+      // renderer actually formats, through the existing token-age keys.
+      {
+        id: 'under-48h',
+        label: '≤ 48h',
+        chipLabel: '≤ 48h',
+        age: { amount: 48, unit: 'h' },
+        max: 2 * D,
+      },
+      {
+        id: 'under-7d',
+        label: '≤ 7d',
+        chipLabel: '≤ 7d',
+        age: { amount: 7, unit: 'd' },
+        max: 7 * D,
+      },
+      {
+        id: 'under-30d',
+        label: '≤ 30d',
+        chipLabel: '≤ 30d',
+        age: { amount: 30, unit: 'd' },
+        max: 30 * D,
+      },
     ],
   },
   // Traders (uniqueTraderMin/Max) and Net inflow (inflowUsdMin/Max) are
@@ -156,12 +179,38 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   // must not reference metrics the user cannot see in the table.
 ];
 
-export const MARKET_FILTER_GROUP_LABELS: Record<EMarketFilterGroup, string> = {
-  [EMarketFilterGroup.Metrics]: 'Metrics',
+export const MARKET_FILTER_GROUP_LABELS: Record<
+  EMarketFilterGroup,
+  ETranslations
+> = {
+  [EMarketFilterGroup.Metrics]: ETranslations.market_filters_group_metrics,
   // Names the metric these rows measure, so the rows themselves can stay
   // short enough to fit the label column ("Top 10 %", "Dev %", ...).
-  [EMarketFilterGroup.Audit]: 'Holdings audit',
+  // Hidden this wave, so it has no key yet — reuses the single-word Audit
+  // string until the group is restored.
+  [EMarketFilterGroup.Audit]: ETranslations.dexmarket_audit,
 };
+
+const TOKEN_AGE_UNIT_KEYS = {
+  h: ETranslations.dexmarket_token_age_h,
+  d: ETranslations.dexmarket_token_age_d,
+} as const;
+
+// Token age tiers read as "≤ 48H"; every other tier is a numeric format that
+// is identical in all locales and needs no translation.
+export function formatMarketFilterOptionLabel(
+  intl: IntlShape,
+  option: IMarketFilterOption,
+  variant: 'label' | 'chipLabel' = 'label',
+): string {
+  if (!option.age) {
+    return option[variant];
+  }
+  return `≤ ${intl.formatMessage(
+    { id: TOKEN_AGE_UNIT_KEYS[option.age.unit] },
+    { amount: option.age.amount },
+  )}`;
+}
 
 // Holdings audit is out of scope for this delivery: its rows are placeholders
 // pending Spike A#8 and `top10HoldPercentMax` is a confirmed dead param
@@ -245,18 +294,18 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
     // chip and the column arrow are one state, and the expanded form shows
     // both halves rather than hiding the floor.
     id: 'topTurnover',
-    label: 'Top turnover',
+    labelKey: ETranslations.market_filter_chip_top_turnover,
     icon: 'ChartColumnarOutline',
     conditions: {
       [EMarketFilterDimension.Holders]: 'min-1000',
     },
     sort: { sortBy: 'turnover', sortType: 'desc' },
     timeRange: '1h',
-    tooltip: 'Current hot list sorted by turnover',
+    tooltipKey: ETranslations.market_filter_chip_top_turnover_tips,
   },
   {
     id: 'midCap',
-    label: 'Mid-cap tokens',
+    labelKey: ETranslations.market_filter_chip_mid_cap,
     icon: 'WorldOutline',
     conditions: {
       [EMarketFilterDimension.MarketCap]: 'min-500000',
@@ -264,14 +313,14 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
       [EMarketFilterDimension.Turnover]: 'min-50000',
     },
     timeRange: '1h',
-    tooltip: 'Hot tokens matching these conditions',
+    tooltipKey: ETranslations.market_filter_chip_conditions_tips,
   },
   {
     // Holders floor dropped per PM 2026-07-21 (was the PRD's optional
     // quality-floor note, open question 5). Large-cap now filters on the three
     // size/liquidity/turnover floors only.
     id: 'largeCap',
-    label: 'Large-cap tokens',
+    labelKey: ETranslations.market_filter_chip_large_cap,
     icon: 'GalaxyOutline',
     conditions: {
       [EMarketFilterDimension.MarketCap]: 'min-1000000',
@@ -279,7 +328,7 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
       [EMarketFilterDimension.Turnover]: 'min-100000',
     },
     timeRange: '1h',
-    tooltip: 'Hot tokens matching these conditions',
+    tooltipKey: ETranslations.market_filter_chip_conditions_tips,
   },
 ];
 
