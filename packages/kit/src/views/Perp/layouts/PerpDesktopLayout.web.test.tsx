@@ -19,6 +19,7 @@ type IMockAllotmentProps = {
   onDragEnd?: (sizes: number[]) => void;
   onDragStart?: (sizes: number[]) => void;
   onReset?: () => void;
+  separator?: boolean;
   vertical?: boolean;
 };
 
@@ -167,6 +168,9 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(mockAllotmentProps.get('perp-desktop-chart-split')?.vertical).toBe(
       true,
     );
+    expect(mockAllotmentProps.get('perp-desktop-chart-split')?.separator).toBe(
+      false,
+    );
     expect(mockAllotmentProps.size).toBe(1);
     expect(mockAllotmentProps.has('perp-desktop-main-split')).toBe(false);
     expect(mockAllotmentProps.has('perp-desktop-trading-split')).toBe(false);
@@ -245,9 +249,27 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(root.style.getPropertyValue('--focus-border')).toBe('#0055CC');
   });
 
-  it('preserves the themed top border on the order info panel', () => {
+  it('uses a 1px line on the order info panel boundary', () => {
     const view = render(<PerpDesktopLayout />);
     const boundary = view.getByTestId('perp-desktop-chart-boundary');
+
+    expect(boundary.style.borderTopColor).toBe('#223344');
+    expect(boundary.style.borderTopStyle).toBe('solid');
+    expect(boundary.style.borderTopWidth).toBe('1px');
+
+    mockTheme = {
+      borderActive: { val: '#0055CC' },
+      borderStrong: { val: '#CCDDEE' },
+      borderSubdued: { val: '#AABBCC' },
+    };
+    view.rerender(<PerpDesktopLayout />);
+
+    expect(boundary.style.borderTopColor).toBe('#AABBCC');
+  });
+
+  it('uses a 1px line on the account panel boundary', () => {
+    const view = render(<PerpDesktopLayout />);
+    const boundary = view.getByTestId('perp-desktop-account-boundary');
 
     expect(boundary.style.borderTopColor).toBe('#223344');
     expect(boundary.style.borderTopStyle).toBe('solid');

@@ -115,6 +115,7 @@ export const PerpTestIDs = {
   DesktopSplitRoot: 'perp-desktop-split-root',
   DesktopChartSplit: 'perp-desktop-chart-split',
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
+  DesktopAccountBoundary: 'perp-desktop-account-boundary',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
   ResetLayoutButton: 'perp-reset-layout-button',
   MobileChart: 'perp-mobile-chart',

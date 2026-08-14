@@ -320,7 +320,7 @@ function PerpDesktopLayout() {
                   ref={chartSplitRef}
                   id={PerpTestIDs.DesktopChartSplit}
                   vertical
-                  separator={!chartExpanded}
+                  separator={false}
                   defaultSizes={chartSplitSizes}
                   onDragStart={handleVerticalSplitDragStart}
                   onDragEnd={handleChartSplitDragEnd}
@@ -354,10 +354,14 @@ function PerpDesktopLayout() {
                   {tradingPanel}
                 </YStack>
                 <YStack
+                  testID={PerpTestIDs.DesktopAccountBoundary}
                   h={layout.bottomPanelHeight}
-                  borderTopWidth="$px"
-                  borderTopColor="$borderSubdued"
                   overflow="hidden"
+                  style={{
+                    borderTopColor: theme.borderSubdued.val,
+                    borderTopStyle: 'solid',
+                    borderTopWidth: 1,
+                  }}
                 >
                   {accountPanel}
                 </YStack>

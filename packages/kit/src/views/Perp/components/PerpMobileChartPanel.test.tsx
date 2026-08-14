@@ -212,7 +212,7 @@ describe('PerpMobileChartPanel', () => {
     expect(getByText('BTCUSDC Perp Chart').getAttribute('data-size')).toBe(
       '$bodySmMedium',
     );
-    expect(toggle.getAttribute('data-min-height')).toBe('48');
+    expect(toggle.getAttribute('data-min-height')).toBe('40');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(
       toggle.querySelector('[data-icon="TradingViewCandlesOutline"]'),
@@ -342,7 +342,7 @@ describe('PerpMobileChartPanel', () => {
     const cornerBorder = getByTestId('perp-mobile-chart-corner-border');
     expect(cornerBorder.getAttribute('data-position')).toBe('absolute');
     expect(cornerBorder.getAttribute('data-top')).toBe('0');
-    expect(cornerBorder.getAttribute('data-h')).toBe('12');
+    expect(cornerBorder.getAttribute('data-h')).toBe('8');
     expect(cornerBorder.getAttribute('data-border-width')).toBe('0.5');
     expect(cornerBorder.getAttribute('data-border-bottom-width')).toBe('0');
     expect(cornerBorder.getAttribute('data-border-color')).toBe(
@@ -363,7 +363,7 @@ describe('PerpMobileChartPanel', () => {
       />,
     );
 
-    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(48);
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(40);
 
     fireEvent.click(view.getByTestId('perp-mobile-chart-toggle'));
 
@@ -371,7 +371,7 @@ describe('PerpMobileChartPanel', () => {
 
     fireEvent.click(view.getByTestId('mock-native-chart-close'));
 
-    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(48);
+    expect(handleScrollInsetChange).toHaveBeenLastCalledWith(40);
   });
 
   it('renders the top chart as a controlled inline panel', () => {
