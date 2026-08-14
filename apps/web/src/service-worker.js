@@ -7,7 +7,10 @@ import { CacheFirst } from 'workbox-strategies';
 
 import { resolveTradingViewEmbedProxySourceUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
 
-import { putTradingViewResponseInCache } from './tradingViewEmbedCache';
+import {
+  cacheTradingViewCompletionMarker,
+  putTradingViewResponseInCache,
+} from './tradingViewEmbedCache';
 import {
   cacheTradingViewRecoveryManifest,
   matchTradingViewRecoveryManifest,
@@ -718,6 +721,7 @@ async function fetchTradingViewAsset(asset, baseUrl, priority = 'low') {
 }
 
 async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
+  let assetsCached = true;
   await runConcurrent(
     assets,
     TRADINGVIEW_PREFETCH_CONCURRENCY,
@@ -727,13 +731,17 @@ async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
         return;
       }
       const fetched = await fetchTradingViewAsset(asset, baseUrl, priority);
-      await putTradingViewResponseInCache(
+      const assetCached = await putTradingViewResponseInCache(
         cache,
         fetched.request,
         fetched.response,
       );
+      if (!assetCached) {
+        assetsCached = false;
+      }
     },
   );
+  return assetsCached;
 }
 
 async function runConcurrent(items, concurrency, task) {
@@ -787,20 +795,211 @@ function startTradingViewFullPrefetch({
     return existingPromise;
   }
   const prefetchPromise = (async () => {
-    await cacheTradingViewAssets(cache, manifest.assets, baseUrl, 'low');
-    // This marker means the entire integrity-indexed release is offline-ready.
-    await cache.put(manifestRequest, manifestResponse);
+    const assetsCached = await cacheTradingViewAssets(
+      cache,
+      manifest.assets,
+      baseUrl,
+      'low',
+    );
+    const cacheComplete = await cacheTradingViewCompletionMarker(
+      cache,
+      manifestRequest,
+      manifestResponse,
+      assetsCached,
+    );
+    if (!cacheComplete) {
+      throw new ServiceWorkerVersionError('tradingview_cache_write_failed');
+    }
     await deleteOldTradingViewCaches(cacheName);
     return manifest.version;
   })();
-  tradingViewPrefetchPromises.set(prefetchKey, prefetchPromise);
+  return trackTradingViewPromise(
+    tradingViewPrefetchPromises,
+    prefetchKey,
+    prefetchPromise,
+  );
+}
+
+function trackTradingViewPromise(promiseMap, key, promise) {
+  promiseMap.set(key, promise);
   const clearPromise = () => {
-    if (tradingViewPrefetchPromises.get(prefetchKey) === prefetchPromise) {
-      tradingViewPrefetchPromises.delete(prefetchKey);
+    if (promiseMap.get(key) === promise) {
+      promiseMap.delete(key);
     }
   };
-  void prefetchPromise.then(clearPromise, clearPromise);
-  return prefetchPromise;
+  void promise.then(clearPromise, clearPromise);
+  return promise;
+}
+
+async function resolveTradingViewBootstrapManifest(
+  manifestUrl,
+  expectedVersion,
+  providedManifest,
+) {
+  const resolvedManifest = providedManifest
+    ? createProvidedTradingViewManifest(providedManifest, manifestUrl)
+    : await fetchTradingViewManifest(manifestUrl);
+  if (
+    expectedVersion &&
+    resolvedManifest.manifest.version !== expectedVersion
+  ) {
+    throw new ServiceWorkerVersionError(
+      'tradingview_manifest_version_mismatch',
+    );
+  }
+  return resolvedManifest;
+}
+
+async function resetTradingViewCache(cacheName) {
+  await caches.delete(cacheName);
+  return caches.open(cacheName);
+}
+
+async function parseTradingViewManifestResponse(response) {
+  return response ? response.json().catch(() => null) : null;
+}
+
+async function openTradingViewBootstrapCache(
+  cacheName,
+  manifestUrl,
+  manifestRequest,
+  manifest,
+) {
+  let cache = await caches.open(cacheName);
+  const completedManifestResponse = await cache.match(manifestRequest);
+  if (completedManifestResponse) {
+    const completedManifest = await parseTradingViewManifestResponse(
+      completedManifestResponse,
+    );
+    if (areTradingViewManifestsEqual(completedManifest, manifest)) {
+      return { cache, complete: true };
+    }
+    cache = await resetTradingViewCache(cacheName);
+  }
+  const recoveryManifestResponse = await matchTradingViewRecoveryManifest(
+    cache,
+    manifestUrl,
+  );
+  if (recoveryManifestResponse) {
+    const recoveryManifest = await parseTradingViewManifestResponse(
+      recoveryManifestResponse,
+    );
+    if (!areTradingViewManifestsEqual(recoveryManifest, manifest)) {
+      cache = await resetTradingViewCache(cacheName);
+    }
+  }
+  return { cache, complete: false };
+}
+
+function getTradingViewBootstrapAssets(manifest, locale) {
+  const bootstrapAssetFiles = new Set(
+    getTradingViewBootstrapAssetFiles(manifest, locale),
+  );
+  return manifest.assets.filter((asset) => bootstrapAssetFiles.has(asset.file));
+}
+
+function createTradingViewPrefetchResult({
+  baseUrl,
+  cache,
+  cacheName,
+  manifest,
+  manifestRequest,
+  manifestResponse,
+  prefetchKey,
+}) {
+  return {
+    complete: () =>
+      startTradingViewFullPrefetch({
+        baseUrl,
+        cache,
+        cacheName,
+        manifest,
+        manifestRequest,
+        manifestResponse,
+        prefetchKey,
+      }),
+    version: manifest.version,
+  };
+}
+
+function createCompletedTradingViewResult(manifest) {
+  return {
+    complete: () => Promise.resolve(manifest.version),
+    version: manifest.version,
+  };
+}
+
+async function createTradingViewBootstrapCacheState(
+  resolvedManifest,
+  manifestUrl,
+) {
+  const { baseUrl, manifest, response: manifestResponse } = resolvedManifest;
+  const cacheName = getTradingViewCacheName(manifest.version);
+  const manifestRequest = new Request(manifestUrl);
+  const cacheState = await openTradingViewBootstrapCache(
+    cacheName,
+    manifestUrl,
+    manifestRequest,
+    manifest,
+  );
+  return {
+    baseUrl,
+    cache: cacheState.cache,
+    cacheName,
+    complete: cacheState.complete,
+    manifest,
+    manifestRequest,
+    manifestResponse,
+  };
+}
+
+async function cacheTradingViewBootstrapAssets(
+  bootstrapState,
+  manifestUrl,
+  locale,
+) {
+  const bootstrapAssets = getTradingViewBootstrapAssets(
+    bootstrapState.manifest,
+    locale,
+  );
+  await cacheTradingViewAssets(
+    bootstrapState.cache,
+    bootstrapAssets,
+    bootstrapState.baseUrl,
+    'high',
+  );
+  await cacheTradingViewRecoveryManifest(
+    bootstrapState.cache,
+    manifestUrl,
+    bootstrapState.manifestResponse,
+  );
+}
+
+async function bootstrapTradingViewEmbed({
+  expectedVersion,
+  locale,
+  manifestUrl,
+  prefetchKey,
+  providedManifest,
+}) {
+  const resolvedManifest = await resolveTradingViewBootstrapManifest(
+    manifestUrl,
+    expectedVersion,
+    providedManifest,
+  );
+  const bootstrapState = await createTradingViewBootstrapCacheState(
+    resolvedManifest,
+    manifestUrl,
+  );
+  if (bootstrapState.complete) {
+    await deleteOldTradingViewCaches(bootstrapState.cacheName);
+    return createCompletedTradingViewResult(bootstrapState.manifest);
+  }
+  await cacheTradingViewBootstrapAssets(bootstrapState, manifestUrl, locale);
+  return createTradingViewPrefetchResult({
+    ...bootstrapState,
+    prefetchKey,
+  });
 }
 
 async function prepareTradingViewEmbed(
@@ -823,91 +1022,18 @@ async function prepareTradingViewEmbed(
   if (existingPromise) {
     return existingPromise;
   }
-
-  const bootstrapPromise = (async () => {
-    const resolvedManifest = providedManifest
-      ? createProvidedTradingViewManifest(
-          providedManifest,
-          normalizedManifestUrl,
-        )
-      : await fetchTradingViewManifest(normalizedManifestUrl);
-    if (
-      expectedVersion &&
-      resolvedManifest.manifest.version !== expectedVersion
-    ) {
-      throw new ServiceWorkerVersionError(
-        'tradingview_manifest_version_mismatch',
-      );
-    }
-    const { baseUrl, manifest, response: manifestResponse } = resolvedManifest;
-
-    const cacheName = getTradingViewCacheName(manifest.version);
-    let cache = await caches.open(cacheName);
-    const manifestRequest = new Request(normalizedManifestUrl);
-    const completedManifestResponse = await cache.match(manifestRequest);
-    if (completedManifestResponse) {
-      const completedManifest = await completedManifestResponse
-        .json()
-        .catch(() => null);
-      if (areTradingViewManifestsEqual(completedManifest, manifest)) {
-        await deleteOldTradingViewCaches(cacheName);
-        return {
-          complete: () => Promise.resolve(manifest.version),
-          version: manifest.version,
-        };
-      }
-      await caches.delete(cacheName);
-      cache = await caches.open(cacheName);
-    }
-    const recoveryManifestResponse = await matchTradingViewRecoveryManifest(
-      cache,
-      normalizedManifestUrl,
-    );
-    if (recoveryManifestResponse) {
-      const recoveryManifest = await recoveryManifestResponse
-        .json()
-        .catch(() => null);
-      if (!areTradingViewManifestsEqual(recoveryManifest, manifest)) {
-        await caches.delete(cacheName);
-        cache = await caches.open(cacheName);
-      }
-    }
-    const bootstrapAssetFiles = new Set(
-      getTradingViewBootstrapAssetFiles(manifest, locale),
-    );
-    const bootstrapAssets = manifest.assets.filter((asset) =>
-      bootstrapAssetFiles.has(asset.file),
-    );
-    await cacheTradingViewAssets(cache, bootstrapAssets, baseUrl, 'high');
-    // Persist recovery metadata before reporting bootstrap readiness. The full
-    // manifest request remains reserved for the offline-complete marker.
-    await cacheTradingViewRecoveryManifest(
-      cache,
-      normalizedManifestUrl,
-      manifestResponse,
-    );
-    return {
-      complete: () =>
-        startTradingViewFullPrefetch({
-          baseUrl,
-          cache,
-          cacheName,
-          manifest,
-          manifestRequest,
-          manifestResponse,
-          prefetchKey,
-        }),
-      version: manifest.version,
-    };
-  })();
-  tradingViewBootstrapPromises.set(bootstrapKey, bootstrapPromise);
-  const clearPromise = () => {
-    if (tradingViewBootstrapPromises.get(bootstrapKey) === bootstrapPromise) {
-      tradingViewBootstrapPromises.delete(bootstrapKey);
-    }
-  };
-  void bootstrapPromise.then(clearPromise, clearPromise);
-  return bootstrapPromise;
+  const bootstrapPromise = bootstrapTradingViewEmbed({
+    expectedVersion,
+    locale,
+    manifestUrl: normalizedManifestUrl,
+    prefetchKey,
+    providedManifest,
+  });
+  return trackTradingViewPromise(
+    tradingViewBootstrapPromises,
+    bootstrapKey,
+    bootstrapPromise,
+  );
 }
 
 function createTradingViewProxyResponse(response) {
