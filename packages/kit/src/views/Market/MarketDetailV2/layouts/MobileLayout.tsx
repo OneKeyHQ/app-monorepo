@@ -68,6 +68,7 @@ import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndic
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 import {
   getMarketTradingViewSubIndicatorCount,
+  normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
@@ -306,6 +307,21 @@ export function MobileLayout({
     marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
   ] = useMarketTradingViewSubIndicatorCountPersistAtom();
+  useEffect(() => {
+    if (
+      normalizeMarketTradingViewSubIndicatorCountPersist(
+        marketTradingViewSubIndicatorCountPersist,
+      ) === marketTradingViewSubIndicatorCountPersist
+    ) {
+      return;
+    }
+    setMarketTradingViewSubIndicatorCountPersist((prev) =>
+      normalizeMarketTradingViewSubIndicatorCountPersist(prev),
+    );
+  }, [
+    marketTradingViewSubIndicatorCountPersist,
+    setMarketTradingViewSubIndicatorCountPersist,
+  ]);
   const marketTradingViewStorageNamespace: IMarketTradingViewStorageNamespace =
     'market';
   const persistedWebViewSubIndicatorCount = platformEnv.isNative
