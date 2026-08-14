@@ -157,6 +157,22 @@ const LoggingConfigCheckbox = () => {
 
       <Stack py="$4" flexDirection="row" alignItems="center" gap="$2">
         <Switch
+          value={config.enableAllScenes}
+          onChange={(v) => {
+            setConfig((prev) => ({
+              ...prev,
+              enableAllScenes: v,
+            }));
+            void saveLoggerConfig();
+          }}
+        />
+        <SizableText>
+          Enable all scenes (persist logs like production)
+        </SizableText>
+      </Stack>
+
+      <Stack py="$4" flexDirection="row" alignItems="center" gap="$2">
+        <Switch
           value={config.colorfulLog}
           onChange={(v) => {
             setConfig((prev) => ({

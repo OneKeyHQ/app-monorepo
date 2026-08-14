@@ -49,6 +49,7 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -1527,7 +1528,12 @@ class ServiceHardware extends ServiceBase {
           }
 
           // TODO: save features to dbDevice
-          serviceHardwareUtils.hardwareLog('features update', features);
+          // Full features dumps are dev-only; production logs keep the event
+          // name without the device blob.
+          serviceHardwareUtils.hardwareLog(
+            'features update',
+            devOnlyData(features),
+          );
 
           void localDb.updateDevice({
             features,
