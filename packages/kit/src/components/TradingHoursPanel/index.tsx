@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
-import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -273,7 +272,6 @@ function TradingHoursContent({
   dense?: boolean;
 }) {
   const intl = useIntl();
-  const marketStatus = useUSMarketStatus();
   const pagePx = dense ? '$4' : '$5';
   const detailTextSize = dense ? '$bodySm' : '$bodyMd';
 
@@ -289,7 +287,6 @@ function TradingHoursContent({
   const activeRow = resolveUSTradingHoursActiveRow({
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
-    status: marketStatus,
     tradingHours,
     now,
   });

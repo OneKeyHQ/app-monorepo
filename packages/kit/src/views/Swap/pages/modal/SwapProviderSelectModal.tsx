@@ -22,6 +22,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -77,6 +78,11 @@ const SwapProviderSelectModal = () => {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const activeFromTokenAmount =
+    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+  const activeFromToken = quoteActionLock.fromToken ?? fromToken;
+  const activeToToken = quoteActionLock.toToken ?? toToken;
   const [manualSelectQuoteProvider, setSwapManualSelect] =
     useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
@@ -179,7 +185,7 @@ const SwapProviderSelectModal = () => {
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
       let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
+      const fromTokenAmountBN = new BigNumber(activeFromTokenAmount || 0);
       if (item.limit) {
         if (item.limit.min) {
           const minBN = new BigNumber(item.limit.min);
@@ -220,9 +226,9 @@ const SwapProviderSelectModal = () => {
           autoOpenRoute={autoOpenRoute}
           autoOpenRouteTrigger={autoOpenRouteTrigger}
           routeCollapseTrigger={selectedProviderKey}
-          fromTokenAmount={fromTokenAmount.value}
-          fromToken={fromToken}
-          toToken={toToken}
+          fromTokenAmount={activeFromTokenAmount}
+          fromToken={activeFromToken}
+          toToken={activeToToken}
           providerResult={item}
           currencySymbol={settingsPersist.currencyInfo.symbol}
           disabled={disabled}
@@ -230,15 +236,15 @@ const SwapProviderSelectModal = () => {
       );
     },
     [
-      fromToken,
-      fromTokenAmount,
+      activeFromToken,
+      activeFromTokenAmount,
+      activeToToken,
       manualSelectQuoteProvider,
       onSelectQuote,
       selectedProviderKey,
       selectedProviderInfo?.provider,
       selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
-      toToken,
     ],
   );
 

@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -22,10 +23,14 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { SwapProviderMirror } from '@onekeyhq/kit/src/views/Swap/pages/SwapProviderMirror';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
@@ -56,7 +61,7 @@ interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
 }
 
-export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
+function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
   const {
     networkId,
     tokenAddress,
@@ -100,7 +105,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     supportSpeedSwap: originalSupportSpeedSwap,
     onlySupportCrossChain,
     defaultTokens,
-    provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
   const marketPresetSettings = useMarketPresetSettings({
@@ -227,7 +231,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
-    spenderAddress: speedConfig.spenderAddress,
     marketToken: {
       networkId: networkId || '',
       contractAddress: tokenDetail?.address || '',
@@ -248,7 +251,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       currency: paymentToken?.currency,
       isNative: paymentToken?.isNative || false,
     },
-    provider,
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
@@ -269,10 +271,16 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     balanceToken,
     fetchBalanceLoading,
     priceRate,
+    quoteResult,
+    quoteList,
+    quoteFetching,
+    quoteError,
+    quoteReadyForReview,
+    quoteNeedsRefresh,
+    refreshMarketQuote,
+    paymentTokenPrice,
     swapNativeTokenReserveGas,
     isWrapped,
-    speedCheckError,
-    speedCheckLoading,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
@@ -514,11 +522,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       speedSwapBuildTxLoading ||
       swapApprovingMatchLoading ||
       checkTokenAllowanceLoading ||
-      speedCheckLoading
+      quoteFetching
     );
   }, [
     checkTokenAllowanceLoading,
-    speedCheckLoading,
+    quoteFetching,
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
   ]);
@@ -530,6 +538,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         isReviewOpening ||
         marketPresetSettings.isLoading
       ) {
+        return;
+      }
+      if (!isWrap && !quoteReadyForReview) {
+        if (quoteNeedsRefresh) {
+          refreshMarketQuote();
+        }
         return;
       }
 
@@ -615,6 +629,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       effectiveNetworkFeeLevel,
       marketPresetSettings,
       prepareMarketSwapReview,
+      quoteNeedsRefresh,
+      quoteReadyForReview,
+      refreshMarketQuote,
       reviewAdapter,
     ],
   );
@@ -628,6 +645,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     () => openReviewDialog(true),
     [openReviewDialog],
   );
+
+  const navigation = useAppNavigation();
+  const handleOpenProviderList = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName: EJotaiContextStoreNames.marketSwap,
+      },
+    });
+  }, [navigation]);
 
   useEffect(() => {
     return () => {
@@ -663,7 +691,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   // Stock market-closed alert (reuses the shared StockMarketStatusAlert): when
   // the underlying stock's market is closed, show the standard alert + optional
   // Perps handoff and disable the trade button (handled in SwapPanelContent).
-  // Other (non-closed) backend errors keep the generic speedCheckError text.
+  // Other (non-closed) backend errors keep the generic quote error text.
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketStockClosed,
   );
@@ -715,8 +743,14 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
+      paymentTokenPrice={paymentTokenPrice}
       isLoading={isActionLoading || isReviewOpening}
-      isActionDisabled={marketPresetSettings.isLoading}
+      isActionDisabled={
+        marketPresetSettings.isLoading ||
+        (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
+      }
+      isRefreshQuote={quoteNeedsRefresh}
+      onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}
@@ -724,11 +758,22 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
-      speedCheckError={speedCheckError}
+      quoteResult={quoteResult}
+      quoteListLength={quoteList.length}
+      onOpenProviderList={handleOpenProviderList}
+      quoteError={quoteError}
       stockMarketClosedAlert={stockMarketClosedAlert}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
     />
+  );
+}
+
+export function SwapPanelWrap(props: ISwapPanelWrapProps) {
+  return (
+    <SwapProviderMirror storeName={EJotaiContextStoreNames.marketSwap}>
+      <SwapPanelWrapContent {...props} />
+    </SwapProviderMirror>
   );
 }

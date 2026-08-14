@@ -78,7 +78,6 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -775,8 +774,7 @@ export function useSwapProTokenInfoSync() {
 }
 
 export function useSwapProTokenInit() {
-  const { setSwapProSelectToken, cancelSpeedQuote, cleanSpeedQuote } =
-    useSwapActions().current;
+  const { setSwapProSelectToken, resetQuoteAction } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
@@ -859,8 +857,7 @@ export function useSwapProTokenInit() {
       if (swapProUseSelectBuyTokenAtom) {
         setSwapProUseSelectBuyTokenAtom(undefined);
         setSwapProInputAmount('');
-        cancelSpeedQuote();
-        void cleanSpeedQuote();
+        void resetQuoteAction();
       }
       return;
     }
@@ -918,8 +915,7 @@ export function useSwapProTokenInit() {
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     setSwapProInputAmount,
-    cancelSpeedQuote,
-    cleanSpeedQuote,
+    resetQuoteAction,
     defaultTokensFromType,
     findPreferredToken,
   ]);
@@ -968,8 +964,7 @@ export function useSwapProTokenInit() {
       if (swapProSellToToken) {
         setSwapProSellToToken(undefined);
         setSwapFromInputAmount({ value: '', isInput: true });
-        cancelSpeedQuote();
-        void cleanSpeedQuote();
+        void resetQuoteAction();
       }
       return;
     }
@@ -1072,8 +1067,7 @@ export function useSwapProTokenInit() {
     defaultTokensFromType,
     setSwapProSellToToken,
     setSwapFromInputAmount,
-    cancelSpeedQuote,
-    cleanSpeedQuote,
+    resetQuoteAction,
     swapProSelectToken?.networkId,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.isStock,
@@ -1756,7 +1750,6 @@ export function useSwapProPositionsListFilter(
 export function useSwapBuildTxInfo() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
@@ -1765,12 +1758,7 @@ export function useSwapBuildTxInfo() {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
-  const currentQuoteRes = useMemo(() => {
-    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return currentQuote;
-  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
+  const currentQuoteRes = currentQuote;
   const fromSelectToken = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken;
@@ -1801,8 +1789,7 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, cancelSpeedQuote, cleanSpeedQuote } =
-    useSwapActions().current;
+  const { quoteSpeedAction, resetQuoteAction } = useSwapActions().current;
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -1870,10 +1857,9 @@ export function useSwapProActionsQuote() {
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
     if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
-      cancelSpeedQuote();
-      void cleanSpeedQuote();
+      void resetQuoteAction();
     }
-  }, [cancelSpeedQuote, cleanSpeedQuote, debounceInputAmount]);
+  }, [debounceInputAmount, resetQuoteAction]);
 
   useEffect(() => {
     if (
@@ -1883,7 +1869,6 @@ export function useSwapProActionsQuote() {
       setSwapProInputAmount('');
     }
   }, [
-    cleanSpeedQuote,
     enableSwapProMarketQuote,
     setSwapProInputAmount,
     swapProAccount.result?.addressDetail.address,
@@ -1907,15 +1892,8 @@ export function useSwapProErrorAlert({
 }) {
   const intl = useIntl();
   const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return swapCurrentQuote;
-  }, [swapProTradeType, swapProQuoteResult, swapCurrentQuote]);
+  const currentQuoteRes = swapCurrentQuote;
   const previousAccountScopeRef = useRef('');
   useEffect(() => {
     if (!isAccountContextReady) {

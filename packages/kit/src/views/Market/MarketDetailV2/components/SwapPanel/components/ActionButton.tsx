@@ -30,7 +30,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import { resolveMarketTradeActionState } from './ActionButton.utils';
@@ -46,12 +45,14 @@ export interface IActionButtonProps extends IButtonProps {
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
+  paymentTokenPrice?: BigNumber;
   balance?: BigNumber;
   networkId?: string;
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
   onSwapAction?: () => void;
+  isRefreshQuote?: boolean;
   // Hard-disable that wins over the no-amount "enter amount" re-enable below
   // (e.g. stock market closed — trading is impossible regardless of input).
   forceDisabled?: boolean;
@@ -68,11 +69,13 @@ export function ActionButton({
   onPress,
   isWrapped,
   paymentToken,
+  paymentTokenPrice,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
+  isRefreshQuote,
   forceDisabled,
   ...otherProps
 }: IActionButtonProps) {
@@ -88,13 +91,6 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
-  const paymentTokenNetworkId =
-    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
-  const { price: paymentTokenPrice } = usePaymentTokenPrice(
-    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    paymentTokenNetworkId,
-    currencyInfo.id,
-  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -286,6 +282,12 @@ export function ActionButton({
     });
   }
 
+  if (isRefreshQuote && hasAmount) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+  }
+
   if (shouldCreateAddress?.result || createAddressLoading) {
     buttonText = intl.formatMessage({
       id: ETranslations.global_create_address,
@@ -298,11 +300,17 @@ export function ActionButton({
     });
   }
   // Use colored style only for normal trading states (has amount, not disabled, has account)
+  const quoteRefreshAvailable = Boolean(isRefreshQuote && hasAmount);
   let shouldUseColoredStyle =
-    hasAmount && !shouldDisable && !noAccount && !disabled;
+    hasAmount &&
+    (quoteRefreshAvailable || !shouldDisable) &&
+    !noAccount &&
+    !disabled;
 
   let isButtonDisabled = Boolean(
-    (shouldDisable || disabled || !hasAmount) &&
+    ((quoteRefreshAvailable ? false : shouldDisable) ||
+      disabled ||
+      !hasAmount) &&
     !shouldCreateAddress?.result &&
     !noAccount,
   );
@@ -403,12 +411,14 @@ export function ActionButton({
         return;
       }
 
-      // Log swap action before executing - with error protection
-      try {
-        onSwapAction?.();
-      } catch (analyticsError) {
-        // Don't let analytics errors block the swap action
-        console.warn('Analytics logging failed:', analyticsError);
+      if (!isRefreshQuote) {
+        // Log swap action before executing - with error protection
+        try {
+          onSwapAction?.();
+        } catch (analyticsError) {
+          // Don't let analytics errors block the swap action
+          console.warn('Analytics logging failed:', analyticsError);
+        }
       }
 
       void onPress?.(event);
@@ -422,6 +432,7 @@ export function ActionButton({
       shouldCreateAddress?.result,
       onPress,
       forceDisabled,
+      isRefreshQuote,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,

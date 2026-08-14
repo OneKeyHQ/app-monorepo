@@ -16,12 +16,10 @@ import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
-import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUSMarketStatusVariant,
-  isOndoUSMarketStock,
   resolveUSMarketStatusVariant,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -331,11 +329,6 @@ const StockIsOpenBadge = memo(
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
-    const marketStatus = useUSMarketStatus({
-      enabled:
-        isOndoUSMarketStock(source) && isOpen === true && isPaused !== true,
-    });
-
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(
@@ -344,9 +337,8 @@ const StockIsOpenBadge = memo(
           source,
           isOpen,
           isPaused,
-          status: marketStatus,
         }),
-      [source, isOpen, isPaused, marketStatus],
+      [source, isOpen, isPaused],
     );
 
     if (!variant) {

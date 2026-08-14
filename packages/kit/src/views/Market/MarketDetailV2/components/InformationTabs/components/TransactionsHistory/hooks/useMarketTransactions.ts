@@ -167,6 +167,7 @@ export function useMarketTransactions({
     result: transactionsData,
     isLoading: isRefreshing,
     run: fetchTransactions,
+    setStopPolling,
   } = usePromiseResult(
     async () => {
       const response =
@@ -178,15 +179,18 @@ export function useMarketTransactions({
       return response;
     },
     [tokenAddress, networkId],
-    normalMode
-      ? {
-          watchLoading: true,
-          pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
-        }
-      : {
-          watchLoading: true,
-        },
+    {
+      watchLoading: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+    },
   );
+
+  useEffect(() => {
+    // Keep the initial REST snapshot, but pause the polling chain when the
+    // realtime transport is active. This avoids a second identical request
+    // when responsive/websocket state settles after the first render.
+    setStopPolling(!normalMode);
+  }, [normalMode, setStopPolling]);
 
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {
