@@ -76,8 +76,12 @@ function MarketNormalTokenList({
   });
   const { filterState, sortState, setSortState } = useMarketListFilter();
 
-  // Redesign features (filters, client sort overrides, columns) apply only to
-  // trending; stocks keep server-driven behavior.
+  // The redesigned row/header visuals are shared across every list, so stocks
+  // opt in too and stay consistent with trending.
+  const redesignVisualsActive = marketListRedesignEnabled;
+
+  // Filters, the chip-driven sort and the fixed column roster are trending
+  // features; stocks keep their own columns and server-driven behavior.
   const redesignActive =
     marketListRedesignEnabled &&
     selectedCategory === 'trending' &&
@@ -122,8 +126,11 @@ function MarketNormalTokenList({
     );
   }, [redesignActive, normalResult.data, filterState.conditions]);
 
-  // Stocks keep server-driven behavior; trending gets full-pool client sort.
-  const clientSortEnabled = selectedCategory === 'trending' && !stockCategory;
+  // Header sorting is a view concern, so stocks sort in-table too. It covers
+  // the rows already fetched, not the server-side pool.
+  const clientSortEnabled = marketListRedesignEnabled
+    ? true
+    : selectedCategory === 'trending' && !stockCategory;
   // Only the redesigned trending view has a chip row to stay in sync with;
   // everywhere else the hook keeps its own private sort state.
   const externalSort = useMemo(
@@ -178,7 +185,8 @@ function MarketNormalTokenList({
       clientSortFieldMapOverride={
         redesignActive ? { name: 'firstTradeTime' } : undefined
       }
-      redesignEnabled={redesignActive}
+      redesignEnabled={redesignVisualsActive}
+      redesignColumnOrderEnabled={redesignActive}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}

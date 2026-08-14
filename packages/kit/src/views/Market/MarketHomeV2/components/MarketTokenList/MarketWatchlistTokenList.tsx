@@ -13,6 +13,7 @@ import {
   useWatchListV2Actions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -148,6 +149,12 @@ function MarketWatchlistTokenList({
   // sortWatchListV2Items, which computes sortIndex against the full watchlist,
   // producing incorrect order for hidden items.
   const isDraggable = filteredResult.data === watchlistResult.data;
+  // Row visuals only. The watchlist is ordered by drag, so it deliberately
+  // does not take the redesign's header sorting.
+  const [devSettings] = useDevSettingsPersistAtom();
+  const redesignVisualsActive = Boolean(
+    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
+  );
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -356,6 +363,7 @@ function MarketWatchlistTokenList({
       toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
       result={filteredResult}
       isWatchlistMode
+      redesignEnabled={redesignVisualsActive}
       showEndReachedIndicator
       draggable={isDraggable}
       tabIntegrated={tabIntegrated}

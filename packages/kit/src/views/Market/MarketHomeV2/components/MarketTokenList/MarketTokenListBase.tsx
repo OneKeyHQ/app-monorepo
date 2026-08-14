@@ -56,6 +56,7 @@ import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
   MARKET_CLIENT_SORT_FIELD_MAP,
+  MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS,
   sortMarketTokensClient,
 } from './utils/marketListClientSort';
 import {
@@ -279,6 +280,9 @@ type IMarketTokenListBaseProps = {
   rowBg?: string;
   testID?: string;
   redesignEnabled?: boolean;
+  // Trending-only column roster. Other lists opt into the visuals above
+  // without losing their own columns.
+  redesignColumnOrderEnabled?: boolean;
 };
 
 function MarketTokenListBase({
@@ -312,6 +316,7 @@ function MarketTokenListBase({
   rowBg,
   testID,
   redesignEnabled,
+  redesignColumnOrderEnabled,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -361,18 +366,39 @@ function MarketTokenListBase({
     () => (clientSortableColumns ? new Set(clientSortableColumns) : undefined),
     [clientSortableColumns],
   );
+  // Declared before the sort below: stock rows sort by their own metadata.
+  const useStockMetadataColumns = useMemo(
+    () =>
+      shouldUseStockMetadataColumnsForTokens(rawData, {
+        forceStockMetadataColumns,
+        enableAutoDetection:
+          showStockSubtitle === 'auto' ||
+          (isWatchlistMode && showStockSubtitle !== false),
+      }),
+    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
+  );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
       return rawData;
     }
 
-    const field = clientSortFieldMap[currentSortBy];
+    const stockGetter = useStockMetadataColumns
+      ? MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[currentSortBy]
+      : undefined;
+    const field = stockGetter ?? clientSortFieldMap[currentSortBy];
     if (!field) {
       return rawData;
     }
 
     return sortMarketTokensClient(rawData, field, currentSortType);
-  }, [clientSort, clientSortFieldMap, currentSortBy, currentSortType, rawData]);
+  }, [
+    clientSort,
+    clientSortFieldMap,
+    currentSortBy,
+    currentSortType,
+    rawData,
+    useStockMetadataColumns,
+  ]);
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
@@ -481,16 +507,6 @@ function MarketTokenListBase({
 
     return shouldShowStockSubtitleForTokens(rawData);
   }, [rawData, showStockSubtitle]);
-  const useStockMetadataColumns = useMemo(
-    () =>
-      shouldUseStockMetadataColumnsForTokens(rawData, {
-        forceStockMetadataColumns,
-        enableAutoDetection:
-          showStockSubtitle === 'auto' ||
-          (isWatchlistMode && showStockSubtitle !== false),
-      }),
-    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
-  );
   // Web tab integration gives the inner FlatList the full tab height so the
   // outer Tabs.Container can own vertical scroll. During cold start, keep only
   // the first rows rich and defer extra media/interactive decoration until
@@ -512,7 +528,7 @@ function MarketTokenListBase({
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
-    { redesignEnabled },
+    { redesignEnabled, redesignColumnOrderEnabled },
   );
 
   const data = useMemo(() => {
@@ -588,9 +604,15 @@ function MarketTokenListBase({
         return undefined;
       }
 
+      // Stock metadata columns are not server-sortable, but in clientSort mode
+      // they sort locally off the displayed `record.stock` value.
       if (
         useStockMetadataColumns &&
-        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex)) &&
+        !(
+          clientSort &&
+          MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[String(column.dataIndex)]
+        )
       ) {
         return undefined;
       }

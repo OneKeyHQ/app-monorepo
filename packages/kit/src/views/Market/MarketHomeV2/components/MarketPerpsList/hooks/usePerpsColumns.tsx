@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +12,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
+import type {
+  ITableColumn,
+  ITableColumnSortContext,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { MarketPerpsStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
@@ -21,11 +25,20 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  REDESIGN_NAME_ICON_GAP,
+  REDESIGN_STAR_COLUMN_WIDTH,
+  REDESIGN_STAR_ICON_SIZE,
+  renderRedesignHeaderTitle,
+} from '../../marketListRedesignVisuals';
+
 import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
 
 import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
 
-export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
+export function usePerpsColumnsDesktop(
+  redesignEnabled?: boolean,
+): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
   const { gtXl } = useMedia();
 
@@ -40,10 +53,16 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             </SizableText>
           ) as any,
           dataIndex: 'star',
-          columnWidth: 50,
+          columnWidth: redesignEnabled ? REDESIGN_STAR_COLUMN_WIDTH : 50,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <Stack pl="$2">
-              <MarketPerpsStarV2 perpsCoin={record.name} />
+            <Stack pl={redesignEnabled ? '$3' : '$2'}>
+              <MarketPerpsStarV2
+                perpsCoin={record.name}
+                size={redesignEnabled ? 'small' : undefined}
+                customIconSize={
+                  redesignEnabled ? REDESIGN_STAR_ICON_SIZE : undefined
+                }
+              />
             </Stack>
           ),
           renderSkeleton: () => (
@@ -57,9 +76,14 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           dataIndex: 'name',
           columnWidth: gtXl ? 340 : 260,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
+            <XStack
+              alignItems="center"
+              gap={redesignEnabled ? REDESIGN_NAME_ICON_GAP : '$3'}
+              minWidth={0}
+              overflow="hidden"
+            >
               <Token
-                size="md"
+                size={redesignEnabled ? 'lg' : 'md'}
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUrl}
                 fallbackIcon="CryptoCoinOutline"
@@ -235,13 +259,36 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               renderSkeleton: () => <Skeleton width={60} height={16} />,
             }
           : undefined,
-      ].filter(Boolean) as ITableColumn<IMarketPerpsToken>[],
-    [intl, gtXl],
+      ]
+        .filter(Boolean)
+        .map((column) => {
+          const typed = column as ITableColumn<IMarketPerpsToken>;
+          // Same header chrome as the spot lists. Perps has no sorting, so
+          // sortContext carries no onSortPress and no glyph is drawn.
+          if (
+            !redesignEnabled ||
+            String(typed.dataIndex) === 'star' ||
+            typeof typed.title !== 'string'
+          ) {
+            return typed;
+          }
+          const label = typed.title;
+          return {
+            ...typed,
+            renderTitle: (
+              _sortIcon: ReactNode,
+              sortContext: ITableColumnSortContext,
+            ) => renderRedesignHeaderTitle({ label, sortContext }),
+          };
+        }) as ITableColumn<IMarketPerpsToken>[],
+    [intl, gtXl, redesignEnabled],
   );
 }
 
-export function usePerpsColumns(): ITableColumn<IMarketPerpsToken>[] {
-  const desktopColumns = usePerpsColumnsDesktop();
+export function usePerpsColumns(
+  redesignEnabled?: boolean,
+): ITableColumn<IMarketPerpsToken>[] {
+  const desktopColumns = usePerpsColumnsDesktop(redesignEnabled);
   const mobileColumns = usePerpsColumnsMobile();
   const media = useMedia();
 

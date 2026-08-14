@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import type {
-  ETableSortType,
-  IKeyOfIcons,
   ITableColumn,
   ITableColumnSortContext,
 } from '@onekeyhq/components';
@@ -21,7 +19,6 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
@@ -30,6 +27,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
+  StockSourceLogo,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,6 +39,12 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import {
+  REDESIGN_NAME_ICON_GAP,
+  REDESIGN_STAR_COLUMN_WIDTH,
+  REDESIGN_STAR_ICON_SIZE,
+  renderRedesignHeaderTitle,
+} from '../../../marketListRedesignVisuals';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
 import {
@@ -86,86 +90,14 @@ const REDESIGN_HEADER_TOOLTIPS: Record<string, string> = {
   turnover: 'Trading volume in the selected time range.',
 };
 
-// Figma (24967-41343): the fixed left block pairs a 40px star cell (row px 8 +
-// button px 4 + 16px icon + px 4) with the name cell. 240px leaves 186px for
-// the text block after the 40px token and its 14px gap - enough for the
-// age/address subtitle, with long symbols truncated by ellipsis.
-const REDESIGN_STAR_COLUMN_WIDTH = 40;
+// Figma (24967-41343): 240px leaves 186px for the text block after the 40px
+// token and its 14px gap - enough for the age/address subtitle, with long
+// symbols truncated by ellipsis.
 const REDESIGN_NAME_COLUMN_WIDTH = 240;
-const REDESIGN_STAR_ICON_SIZE = '$4';
 
 // The `𝕏 #1` reason tag is mock (real data is P1-3 scope). Hidden for this
 // delivery; flip to true once P1-3 provides real reason data.
 const SHOW_REASON_TAG = false;
-
-// Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
-// than by Column) so the label and the icon form a single hit target.
-// Must be a size token — Icon ignores raw numbers and falls back to 24px.
-const REDESIGN_SORT_ICON_SIZE = '$3.5';
-
-function renderRedesignSortIcon(order: ETableSortType | undefined) {
-  let iconName: IKeyOfIcons = 'ChevronGrabberVerOutline';
-  if (order === 'desc') {
-    iconName = 'ChevronDownSmallOutline';
-  } else if (order === 'asc') {
-    iconName = 'ChevronTopSmallOutline';
-  }
-  return (
-    <Icon
-      name={iconName}
-      size={REDESIGN_SORT_ICON_SIZE}
-      color={order ? '$iconActive' : '$iconSubdued'}
-    />
-  );
-}
-
-function renderRedesignHeaderTitle({
-  label,
-  tooltip,
-  sortContext,
-}: {
-  label: string;
-  tooltip?: string;
-  sortContext: ITableColumnSortContext;
-}) {
-  const { order, onSortPress } = sortContext;
-  const titleRow = (
-    <XStack alignItems="center" gap={2} userSelect="none">
-      <SizableText
-        size="$bodySmMedium"
-        color="$textSubdued"
-        {...(tooltip
-          ? {
-              textDecorationLine: 'underline' as const,
-              style: {
-                textDecorationStyle: 'dotted',
-                textUnderlinePosition: 'from-font',
-              } as any,
-            }
-          : null)}
-      >
-        {label}
-      </SizableText>
-      {onSortPress ? renderRedesignSortIcon(order) : null}
-    </XStack>
-  );
-
-  if (!tooltip) {
-    return titleRow;
-  }
-
-  // Tooltip wraps the whole row: hovering anywhere on it explains the metric,
-  // and pressing anywhere on it sorts (the Tooltip trigger owns the press, so
-  // the handler must be forwarded here rather than left to the Column).
-  return (
-    <LazyTooltip
-      placement="top"
-      onPress={onSortPress}
-      renderTrigger={titleRow}
-      renderContent={tooltip}
-    />
-  );
-}
 
 function getDefaultMarketValue(text: number) {
   return text === 0 ? EMPTY_MARKET_VALUE : text;
@@ -262,13 +194,20 @@ function renderRedesignTokenIdentity(
   intl: IntlShape,
   showReasonTag: boolean,
   copyFrom: ECopyFrom,
+  showStockSubtitle: boolean,
 ) {
   const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
   const shortAddress = buildRedesignShortAddress(record);
+  // Stock rows carry a source logo and a localized name that the plain token
+  // cell renders too; the redesign keeps both rather than dropping them.
+  const stockSubtitle =
+    showStockSubtitle && record.stock?.subtitle
+      ? record.stock.subtitle
+      : undefined;
   return (
     <XStack
       alignItems="center"
-      gap={14}
+      gap={REDESIGN_NAME_ICON_GAP}
       userSelect="none"
       minWidth={0}
       overflow="hidden"
@@ -293,6 +232,7 @@ function renderRedesignTokenIdentity(
             {record.symbol}
           </SizableText>
           <XStack alignItems="center" gap={6} flexShrink={0}>
+            <StockSourceLogo stock={record.stock} />
             {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
             {SHOW_REASON_TAG && showReasonTag ? (
               // Mock reason tag placeholder (P1-3 scope wires real data later).
@@ -317,6 +257,14 @@ function renderRedesignTokenIdentity(
           {ageLabel ? (
             <SizableText size="$bodySmMedium" color="$text" flexShrink={0}>
               {ageLabel}
+            </SizableText>
+          ) : null}
+          {stockSubtitle ? (
+            <SubtitleText subtitle={stockSubtitle} maxWidth={66} />
+          ) : null}
+          {stockSubtitle && shortAddress ? (
+            <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+              |
             </SizableText>
           ) : null}
           {shortAddress ? (
@@ -439,6 +387,7 @@ export const useColumnsDesktop = (
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
   redesignEnabled?: boolean,
+  redesignColumnOrderEnabled?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
@@ -491,11 +440,17 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        // Redesign merges the standalone tokenAge column into this one;
-        // title is a mock hardcoded label per Figma (not localized yet).
-        title: redesignEnabled
-          ? 'Name/Token Age'
-          : intl.formatMessage({ id: ETranslations.global_name }),
+        // Redesign merges the standalone tokenAge column into this one; title
+        // is a mock hardcoded label per Figma (not localized yet). Only lists
+        // whose rows carry an age use it — stocks and the watchlist, which
+        // never render a token age, keep the plain Name header.
+        title:
+          redesignEnabled &&
+          !useStockMetadataColumns &&
+          !hideTokenAge &&
+          !isWatchlistMode
+            ? 'Name/Token Age'
+            : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
@@ -515,6 +470,7 @@ export const useColumnsDesktop = (
               intl,
               gtXl,
               copyFrom || ECopyFrom.Homepage,
+              showStockSubtitle ?? true,
             );
           }
 
@@ -809,29 +765,39 @@ export const useColumnsDesktop = (
         : undefined,
     ].filter(Boolean) as ITableColumn<IMarketToken>[];
 
-    // Redesign reorders/filters via a fixed key list rather than mutating
-    // the generation above, so the flag-off path stays byte-identical.
-    const orderedColumns = redesignEnabled
-      ? REDESIGN_COLUMN_ORDER.map((key) =>
-          columns.find((c) => String(c.dataIndex) === key),
-        )
-          .filter((c): c is NonNullable<typeof c> => Boolean(c))
-          .map((column) => {
-            const dataIndex = String(column.dataIndex);
-            if (dataIndex === 'star' || typeof column.title !== 'string') {
-              return column;
-            }
-            const label = column.title;
-            const tooltip = REDESIGN_HEADER_TOOLTIPS[dataIndex];
-            return {
-              ...column,
-              renderTitle: (
-                _sortIcon: ReactNode,
-                sortContext: ITableColumnSortContext,
-              ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
-            };
-          })
+    // The redesigned header chrome (sort glyph + dotted tooltip underline) is
+    // visual, so every list gets it. The fixed roster below is trending-only:
+    // it names nine columns and would drop the stock/watchlist ones.
+    const styledColumns = redesignEnabled
+      ? columns.map((column) => {
+          const dataIndex = String(column.dataIndex);
+          if (dataIndex === 'star' || typeof column.title !== 'string') {
+            return column;
+          }
+          const label = column.title;
+          // Stock columns repurpose the liquidity/turnover/marketCap slots for
+          // 24h volume and P/E, so the metric explainers keyed by dataIndex
+          // would describe the wrong number. Only spot columns get tooltips.
+          const tooltip = useStockMetadataColumns
+            ? undefined
+            : REDESIGN_HEADER_TOOLTIPS[dataIndex];
+          return {
+            ...column,
+            renderTitle: (
+              _sortIcon: ReactNode,
+              sortContext: ITableColumnSortContext,
+            ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
+          };
+        })
       : columns;
+
+    // Reorders/filters via a fixed key list rather than mutating the
+    // generation above, so the flag-off path stays byte-identical.
+    const orderedColumns = redesignColumnOrderEnabled
+      ? REDESIGN_COLUMN_ORDER.map((key) =>
+          styledColumns.find((c) => String(c.dataIndex) === key),
+        ).filter((c): c is NonNullable<typeof c> => Boolean(c))
+      : styledColumns;
 
     if (!hiddenDesktopColumns?.length) {
       return orderedColumns;
@@ -852,6 +818,7 @@ export const useColumnsDesktop = (
     intl,
     isWatchlistMode,
     networkId,
+    redesignColumnOrderEnabled,
     redesignEnabled,
     showStockSubtitle,
     useStockMetadataColumns,

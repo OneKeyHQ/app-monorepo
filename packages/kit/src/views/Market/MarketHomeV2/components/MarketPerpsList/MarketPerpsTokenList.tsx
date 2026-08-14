@@ -1,4 +1,4 @@
-import { memo, useContext, useMemo } from 'react';
+import { memo, useCallback, useContext, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,6 +20,7 @@ import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderCon
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
+import { usePerpsClientSort } from './hooks/usePerpsClientSort';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
 import { useSyncedMarketPerpsCategory } from './hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
@@ -52,9 +54,27 @@ function MarketPerpsTokenListImpl({
     selectedCategoryId,
   });
 
-  const perpsColumns = usePerpsColumns();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const redesignEnabled = Boolean(
+    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
+  );
+  const perpsColumns = usePerpsColumns(redesignEnabled);
+  const {
+    sortedTokens,
+    onHeaderRow: handleHeaderRow,
+    controlledSort,
+  } = usePerpsClientSort({ tokens, enabled: redesignEnabled });
 
   const handleTokenPress = navigateToPerps;
+
+  // Keeps the portalled header's useMemo from rebuilding on every sort change.
+  const handleHeaderRowRef = useRef(handleHeaderRow);
+  handleHeaderRowRef.current = handleHeaderRow;
+  const stableHandleHeaderRow = useCallback(
+    (...args: Parameters<typeof handleHeaderRow>) =>
+      handleHeaderRowRef.current(...args),
+    [],
+  );
 
   const CategorySelector = useMemo(
     () => (
@@ -111,7 +131,11 @@ function MarketPerpsTokenListImpl({
           <Stack width="100%" mb="$3">
             {CategorySelector}
           </Stack>
-          <Table.HeaderRow columns={perpsColumns} />
+          <Table.HeaderRow
+            columns={perpsColumns}
+            onHeaderRow={stableHandleHeaderRow}
+            controlledSort={controlledSort}
+          />
         </YStack>
       </StickyHeaderPortal>
     );
@@ -121,6 +145,8 @@ function MarketPerpsTokenListImpl({
     stickyPortalTarget,
     CategorySelector,
     perpsColumns,
+    stableHandleHeaderRow,
+    controlledSort,
   ]);
 
   let integratedContentPaddingBottom = tabBarHeight;
@@ -168,7 +194,9 @@ function MarketPerpsTokenListImpl({
               tabIntegrated={tabIntegrated}
               scrollEnabled={!webTabIntegrated}
               columns={perpsColumns}
-              dataSource={tokens}
+              dataSource={sortedTokens}
+              onHeaderRow={stableHandleHeaderRow}
+              controlledSort={controlledSort}
               keyExtractor={(item) => item.name}
               estimatedItemSize="$14"
               extraData={hasRealTimeData}
