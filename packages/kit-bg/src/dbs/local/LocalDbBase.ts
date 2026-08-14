@@ -4432,10 +4432,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     addedHdAccountIndex,
     isOverrideWallet,
+    withoutRefillWallet,
   }: {
     walletId: string;
     addedHdAccountIndex: number;
     isOverrideWallet?: boolean;
+    withoutRefillWallet?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
@@ -4444,6 +4446,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }> {
     const dbWallet = await this.getWallet({
       walletId,
+      withoutRefill: withoutRefillWallet,
     });
 
     let dbIndexedAccount: IDBIndexedAccount | undefined;
@@ -5056,9 +5059,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateDevice({
     features,
     preciseUpdateFields,
+    skipFeaturesUpdateEvent,
   }: {
     features: IOneKeyDeviceFeatures;
     preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
+    // Set when the caller emits its own refresh signal after this write,
+    // so listeners are not refreshed twice for one mutation.
+    skipFeaturesUpdateEvent?: boolean;
   }) {
     const device = await this.getDeviceByQuery({
       features,
@@ -5103,9 +5110,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     });
     if (isUpdated) {
-      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-        deviceId: device.id,
-      });
+      // Drop record caches that a concurrent read may have re-filled with
+      // pre-commit data before notifying listeners that re-read the DB.
+      this.clearStoreCachedDataIfMatch(ELocalDBStoreNames.Device);
+      if (!skipFeaturesUpdateEvent) {
+        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+          deviceId: device.id,
+        });
+      }
     }
   }
 
@@ -5267,6 +5279,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
+    // Record caches are invalidated when the write starts; a concurrent read
+    // can re-fill them with pre-commit data. Clear again after the commit so
+    // refreshes triggered by the events emitted for this update cannot be
+    // served the stale snapshot.
+    this.clearStoreCachedDataIfMatch(ELocalDBStoreNames.Device);
     if (updatedState) {
       const persistedState = updatedState;
       device.deviceState = stringUtils.stableStringify(persistedState);
@@ -6503,6 +6520,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: dbWalletId,
       addedHdAccountIndex,
       isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
+      withoutRefillWallet: true,
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }

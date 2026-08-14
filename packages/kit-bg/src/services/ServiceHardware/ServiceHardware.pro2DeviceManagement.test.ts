@@ -91,6 +91,9 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
       getRawData: jest.fn().mockResolvedValue({}),
       setRawData: jest.fn().mockResolvedValue({}),
     },
+    legacyWalletNames: {
+      setRawData: jest.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -885,6 +888,40 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     );
   });
 
+  it('refreshes wallet consumers after a firmware switch deprecates wallets', async () => {
+    const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
+            'hw-wallet-1': {
+              wallet: { id: 'hw-wallet-1' },
+              device: { connectId: 'CLASSIC_USB' },
+            },
+          }),
+          updateWalletsDeprecatedState,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on this binding.
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
+
+    await service.updateHwWalletsDeprecatedStatus({
+      connectId: 'CLASSIC_USB',
+    });
+
+    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
+      willUpdateDeprecateMap: {
+        'hw-wallet-1': true,
+      },
+    });
+    expect(emitMock).toHaveBeenCalledWith(
+      EAppEventBusNames.WalletUpdate,
+      undefined,
+    );
+  });
+
   it('applies async hardware UI events in SDK arrival order', async () => {
     const listeners = new Map<
       string,
@@ -1189,14 +1226,19 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.objectContaining({ state, revision: 2 }),
     );
-    expect(hardwareLogSpy).toHaveBeenCalledWith('device state update', {
-      changedKeys: ['identity.label'],
-      revision: 2,
-      source: 'apply-settings',
-    });
+    expect(hardwareLogSpy).toHaveBeenCalledWith(
+      'device state update',
+      expect.objectContaining({
+        changedKeys: ['identity.label'],
+        revision: 2,
+        source: 'apply-settings',
+      }),
+    );
+    // Device identifiers must never enter hardwareLog unmasked.
     expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain(
       'PRO2_SERIAL',
     );
+    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain('PRO2_USB');
     hardwareLogSpy.mockRestore();
   });
 
@@ -1485,7 +1527,8 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(emitMock).toHaveBeenCalledTimes(2);
   });
 
-  it('does not duplicate label persistence after the SDK state event', async () => {
+  it('waits for the wallet name to persist after changing the device label', async () => {
+    const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
@@ -1493,6 +1536,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
             associatedDevice: 'db-device-1',
             name: 'Wallet',
           }),
+          setWalletNameAndAvatar,
         },
       } as unknown as IBackgroundApi,
     });
@@ -1502,7 +1546,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(appEventBus.emit).mockClear();
     await service.setDeviceLabel({
-      walletId: 'wallet-1',
+      walletId: 'hw-wallet-1',
       label: 'Renamed Pro 2',
     });
 
@@ -1512,9 +1556,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       expect.anything(),
     );
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(appEventBus.emit).toHaveBeenCalledWith(
+    expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+      walletId: 'hw-wallet-1',
+      name: 'Renamed Pro 2',
+      shouldCheckDuplicate: false,
+    });
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.SyncDeviceLabelToWalletName,
-      expect.objectContaining({ label: 'Renamed Pro 2' }),
+      expect.anything(),
     );
   });
 });

@@ -173,6 +173,75 @@ describe('deviceStateUtils', () => {
     expect(merged.status.unlocked).toBe(false);
   });
 
+  it('uses the complete settings snapshot for a V1 initialize read', () => {
+    // BLE initialize can run before SDK event listeners attach, so a
+    // device-side change (e.g. language) may already sit in the SDK cache
+    // and never appear in changedKeys again. The V1 initialize event still
+    // carries the full GetFeatures snapshot and must sync the whole section.
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.settings.language = 'en';
+
+    const incomingState = createState({
+      revision: 2,
+      updatedAt: 2,
+      unlocked: true,
+    });
+    incomingState.protocol = 'V1';
+    incomingState.settings.language = 'zh_hk';
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'initialize',
+    });
+
+    expect(merged.settings.language).toBe('zh_hk');
+    expect(merged.status.unlocked).toBe(true);
+  });
+
+  it('syncs settings riding along a V1 settings write', () => {
+    // Legacy V1 SDKs patch the cache optimistically after ApplySettings
+    // ('settings-write') without a device read-back. The event still carries
+    // the cache's full settings (last GetFeatures truth), so a device-side
+    // language change known to the cache must reach the DB here as well.
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.settings.language = 'en';
+    currentState.settings.autoLockDelayMs = 60_000;
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.settings.language = 'ja';
+    incomingState.settings.autoLockDelayMs = 300_000;
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['settings.autoLockDelayMs'],
+      source: 'settings-write',
+    });
+
+    expect(merged.settings.autoLockDelayMs).toBe(300_000);
+    expect(merged.settings.language).toBe('ja');
+  });
+
+  it('keeps sparse patch semantics for a V2 initialize event', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.settings.language = 'en';
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.settings.language = 'zh_hk';
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'initialize',
+    });
+
+    expect(merged.settings.language).toBe('en');
+  });
+
   it('keeps sparse patch semantics for non-settings-read events', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
     currentState.settings.brightness = 30;
