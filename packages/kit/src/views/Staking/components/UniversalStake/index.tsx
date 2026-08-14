@@ -514,6 +514,8 @@ export function UniversalStake({
       }),
     [networkId],
   ).result;
+  const networkLogoURI =
+    protocolSwitchConfig?.currentProtocol?.network.logoURI ?? network?.logoURI;
 
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     undefined | IEarnEstimateFeeResp
@@ -970,6 +972,13 @@ export function UniversalStake({
   const checkAmount = useDebouncedCallback(
     async ({ amount, identity }: { amount: string; identity?: string }) => {
       if (isInvalidAmount(amount)) {
+        return;
+      }
+      // An empty form is represented as "0" by the initial effect. Treat it as
+      // not entered yet so the disabled CTA does not flash a loading spinner.
+      if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts([]);
         return;
       }
       setCheckAmountLoading(true);
@@ -1795,7 +1804,7 @@ export function UniversalStake({
     amountValue,
     showApyDetail,
     receiveInputConfig,
-    networkLogoURI: network?.logoURI,
+    networkLogoURI,
     isQuoteExpired,
     loading: quoteLoading,
   });
@@ -2218,7 +2227,7 @@ export function UniversalStake({
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
                 selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-                selectedNetworkImageUri: network?.logoURI,
+                selectedNetworkImageUri: networkLogoURI,
                 ...tokenSelectorTriggerProps,
               }}
               balanceProps={{
@@ -2505,6 +2514,7 @@ export function UniversalStake({
           </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown
           />
         </Page.Footer>
       ) : (

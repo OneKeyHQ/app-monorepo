@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { XStack, useIsKeyboardShown } from '@onekeyhq/components';
@@ -81,17 +83,34 @@ export const calcPercentBalance = ({
 };
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
+  reserveSpaceUntilKeyboardShown,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
+  /** Keep the footer height stable while an auto-focused input opens the keyboard. */
+  reserveSpaceUntilKeyboardShown?: boolean;
 }) {
   const isShow = useIsKeyboardShown();
-  return isShow ? (
+  const [hasKeyboardShown, setHasKeyboardShown] = useState(false);
+
+  useEffect(() => {
+    if (isShow) {
+      setHasKeyboardShown(true);
+    }
+  }, [isShow]);
+
+  const shouldRender =
+    isShow || (reserveSpaceUntilKeyboardShown && !hasKeyboardShown);
+
+  return shouldRender ? (
     <XStack
+      animation="quick"
       alignItems="center"
       gap="$1"
       justifyContent="space-around"
       bg="$bgSubdued"
       h="$10"
+      opacity={isShow ? 1 : 0}
+      pointerEvents={isShow ? 'auto' : 'none'}
     >
       <>
         {PercentageInputStageForNative.map((stage) => (
