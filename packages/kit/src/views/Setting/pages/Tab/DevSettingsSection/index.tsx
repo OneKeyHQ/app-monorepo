@@ -1095,7 +1095,13 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
 
