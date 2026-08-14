@@ -420,17 +420,21 @@ function FilterConditionChip({
 // The active sort, shown as a peer of the filter conditions: the sort is part
 // of "how you are seeing this table", so leaving it implicit would hide half
 // the applied state. Same state machine as the column header (P1-10). It opens
-// a direction dropdown for consistency with the filter chips, but the ascending
-// option is disabled — the quick-sort scenario is descending only.
+// a direction dropdown for consistency with the filter chips; ascending is
+// disabled only while a quick chip owns the sort, since those are
+// descending-only by definition. A sort the user drove from the column header
+// is theirs to reverse.
 function SortConditionChip({
   sortState,
   isOpen,
+  lockAscending,
   onOpenChange,
   onSelectDirection,
   onRemove,
 }: {
   sortState: IMarketListSortState;
   isOpen: boolean;
+  lockAscending: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectDirection: (direction: 'asc' | 'desc') => void;
   onRemove: () => void;
@@ -465,7 +469,11 @@ function SortConditionChip({
           title={columnLabel}
           options={[
             { id: 'desc', label: SORT_DIRECTION_LABELS.desc },
-            { id: 'asc', label: SORT_DIRECTION_LABELS.asc, disabled: true },
+            {
+              id: 'asc',
+              label: SORT_DIRECTION_LABELS.asc,
+              disabled: lockAscending,
+            },
           ]}
           selectedOptionId={sortType}
           onSelect={(id) => onSelectDirection(id as 'asc' | 'desc')}
@@ -613,6 +621,9 @@ export function MarketFilterChipsBar({
               <XStack gap="$0.5" alignItems="center">
                 <SortConditionChip
                   sortState={sortState}
+                  // Only a chip-owned sort is locked to descending; once the
+                  // state stops matching that chip the user drove it here.
+                  lockAscending={Boolean(activeChip?.sort)}
                   isOpen={openPopover === 'sort'}
                   onOpenChange={(open) =>
                     setOpenPopover(open ? 'sort' : undefined)
