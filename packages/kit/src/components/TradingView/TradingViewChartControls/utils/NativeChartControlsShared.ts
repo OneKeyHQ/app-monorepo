@@ -91,9 +91,6 @@ export function formatChartTypeOptionLabel(
 
 export function getChartTypeIconName(chartType?: ITradingViewChartTypeOption) {
   const normalizedLabel = chartType?.label.trim().toLowerCase() ?? '';
-  if (normalizedLabel.includes('hlc')) {
-    return 'TradingViewCandlesHlcOutline';
-  }
   if (normalizedLabel.includes('heikin')) {
     return 'TradingViewBarsOutline';
   }

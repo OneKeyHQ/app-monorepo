@@ -46,8 +46,8 @@ describe('NativeChartControlsShared', () => {
       'AREA_I18N',
     );
     expect(
-      formatChartTypeOptionLabel(intl, { label: 'Candles HLC', value: 21 }),
-    ).toBe('Candles HLC');
+      formatChartTypeOptionLabel(intl, { label: 'Baseline', value: 10 }),
+    ).toBe('Baseline');
   });
 
   it('uses distinct icons for supported chart type labels', () => {
@@ -58,9 +58,6 @@ describe('NativeChartControlsShared', () => {
       'TradingViewBarsOutline',
     );
     expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
-      'TradingViewCandlesHlcOutline',
-    );
-    expect(getChartTypeIconName({ label: 'Candles HLC', value: 21 })).toBe(
       'TradingViewCandlesHlcOutline',
     );
     expect(getChartTypeIconName({ label: 'Line', value: 2 })).toBe(

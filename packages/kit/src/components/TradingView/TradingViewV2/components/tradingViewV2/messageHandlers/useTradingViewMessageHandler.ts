@@ -13,7 +13,10 @@ import {
   shouldMockEmptyKLineData,
 } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
-import { normalizeTradingViewLayoutRestored } from './nativeChartControlsConfigUtils';
+import {
+  normalizeTradingViewChartTypes,
+  normalizeTradingViewLayoutRestored,
+} from './nativeChartControlsConfigUtils';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type {
@@ -376,33 +379,6 @@ function normalizeIndicators(
   });
 }
 
-function normalizeChartTypes(
-  chartTypes: unknown,
-): ITradingViewNativeChartControlsConfigData['chartTypes'] | null {
-  if (!Array.isArray(chartTypes)) {
-    return null;
-  }
-
-  const normalizedChartTypes: ITradingViewNativeChartControlsConfigData['chartTypes'] =
-    [];
-  for (const chartType of chartTypes) {
-    if (!isRecord(chartType)) {
-      return null;
-    }
-
-    const label =
-      typeof chartType.label === 'string' ? chartType.label.trim() : '';
-    const value = Number(chartType.value);
-    if (!label || !Number.isFinite(value)) {
-      return null;
-    }
-
-    normalizedChartTypes.push({ label, value });
-  }
-
-  return normalizedChartTypes;
-}
-
 function normalizeResetLayout(
   resetLayout: unknown,
 ): ITradingViewNativeChartControlsConfigData['resetLayout'] | undefined {
@@ -549,7 +525,7 @@ function normalizeNativeChartControlsConfig(
   }
 
   const indicators = normalizeIndicators(data.indicators);
-  const chartTypes = normalizeChartTypes(data.chartTypes);
+  const chartTypes = normalizeTradingViewChartTypes(data.chartTypes);
   const activeChartType = Number(data.activeChartType);
   if (!indicators || !chartTypes || !Number.isFinite(activeChartType)) {
     return null;
