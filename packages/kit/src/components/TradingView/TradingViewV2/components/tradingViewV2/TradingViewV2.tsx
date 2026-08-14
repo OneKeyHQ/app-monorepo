@@ -469,9 +469,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace =
-      storageNamespace?.trim() ||
-      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+    const finalStorageNamespace = storageNamespace?.trim() || 'market';
 
     return {
       decimal: decimal?.toString(),
