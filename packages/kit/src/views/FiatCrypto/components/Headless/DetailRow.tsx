@@ -25,6 +25,7 @@ export function DetailRow({
       {...(onPress
         ? {
             hoverStyle: { bg: '$bgHover' },
+            pressStyle: { bg: '$bgActive' },
             cursor: 'pointer' as const,
           }
         : {})}

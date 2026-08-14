@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import {
+  Icon,
   LottieView,
   NumberSizeableText,
   Page,
@@ -10,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -58,6 +60,15 @@ function HeadlessBuySuccessPage() {
     navigation.popStack();
   }, [navigation]);
 
+  // Full id to the clipboard (the row shows it shortened) — it is the only
+  // handle support/Onramper can look an order up by.
+  const { copyText } = useClipboard();
+  const handleCopyOrderId = useCallback(() => {
+    if (checkoutId) {
+      copyText(checkoutId);
+    }
+  }, [checkoutId, copyText]);
+
   return (
     <Page>
       <Page.Header title="Order submitted" headerLeft={() => null} />
@@ -73,16 +84,20 @@ function HeadlessBuySuccessPage() {
               loop={false}
             />
             <YStack ai="center" gap="$2">
+              {/* Deliberately NOT "Payment successful": the SDK's `completed`
+                  event only means the order was handed to the provider — the
+                  charge and delivery settle asynchronously on their side and
+                  can still fail (observed in production, 2026-08-13). */}
               <SizableText size="$headingXl" textAlign="center">
-                Payment successful
+                Order submitted
               </SizableText>
               <SizableText
                 size="$bodyLg"
                 color="$textSubdued"
                 textAlign="center"
               >
-                Order submitted — {tokenSymbol} will be sent to your address
-                shortly
+                {tokenSymbol} will be sent to your address once the payment is
+                processed
               </SizableText>
             </YStack>
             <YStack bg="$bgSubdued" borderRadius="$3" p="$4" w="100%" gap="$3">
@@ -128,10 +143,13 @@ function HeadlessBuySuccessPage() {
                 </DetailRow>
               ) : null}
               {checkoutId ? (
-                <DetailRow label="Order ID">
-                  <SizableText size="$bodyMdMedium">
-                    {accountUtils.shortenAddress({ address: checkoutId })}
-                  </SizableText>
+                <DetailRow label="Order ID" onPress={handleCopyOrderId}>
+                  <XStack ai="center" gap="$1.5">
+                    <SizableText size="$bodyMdMedium">
+                      {accountUtils.shortenAddress({ address: checkoutId })}
+                    </SizableText>
+                    <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+                  </XStack>
                 </DetailRow>
               ) : null}
             </YStack>
