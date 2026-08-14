@@ -288,7 +288,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         'hex',
       );
 
-      const isTaproot = dbAccount.path.includes("86'");
+      const isTaproot = isTaprootPath(dbAccount.path);
 
       for (const input of inputs) {
         const scriptPubKey = BitcoinJS.address.toOutputScript(
@@ -362,10 +362,61 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             value: BigInt(0),
           });
         } else {
-          psbt.addOutput({
+          const outputData: any = {
             address: output.address,
             value: BigInt(output.value),
-          });
+          };
+          // BIP-174 change detection: the change output carries the wallet's
+          // own derivation so the device nets it out of the confirmed amount.
+          // Recipient outputs must never carry it. A claim must be provable
+          // against this account — the path has to extend the account path by
+          // exactly <change>/<index>; anything else (and any derivation
+          // failure) degrades to a plain output the device displays, never a
+          // wrong claim and never a failed signature.
+          const changePath = output.payload?.isChange
+            ? output.payload?.bip44Path
+            : undefined;
+          if (changePath) {
+            try {
+              const relPath = changePath.startsWith(`${dbAccount.path}/`)
+                ? changePath.slice(dbAccount.path.length + 1)
+                : '';
+              if (/^[01]\/\d+$/.test(relPath)) {
+                if (isTaproot) {
+                  const changeScript = BitcoinJS.address.toOutputScript(
+                    output.address,
+                    network,
+                  );
+                  const xOnlyKey = changeScript.slice(2, 34);
+                  outputData.tapInternalKey = xOnlyKey;
+                  outputData.tapBip32Derivation = [
+                    {
+                      masterFingerprint,
+                      pubkey: xOnlyKey,
+                      path: changePath,
+                      leafHashes: [],
+                    },
+                  ];
+                } else if (xpub) {
+                  const pubkeyHex = getPublicKeyFromXpub({
+                    xpub,
+                    network,
+                    relPath,
+                  });
+                  outputData.bip32Derivation = [
+                    {
+                      masterFingerprint,
+                      pubkey: Buffer.from(pubkeyHex, 'hex'),
+                      path: changePath,
+                    },
+                  ];
+                }
+              }
+            } catch {
+              // best-effort: fall through to a plain output
+            }
+          }
+          psbt.addOutput(outputData);
         }
       }
 
