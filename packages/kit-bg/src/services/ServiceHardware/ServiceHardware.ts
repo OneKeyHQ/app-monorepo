@@ -861,16 +861,42 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
-  private trackConnectedDevice(device: KnownDevice | undefined) {
+  private trackConnectedDevice(device: KnownDevice | undefined): {
+    identityKeys: string[];
+    identityKeysChanged: boolean;
+  } {
     const identityKeys = this.getConnectedDeviceIdentityKeys(device);
     const connectionKey = device?.connectId || identityKeys[0];
-    if (connectionKey && identityKeys.length > 0) {
+    if (!connectionKey || identityKeys.length === 0) {
+      return { identityKeys, identityKeysChanged: false };
+    }
+    const existingIdentityKeys =
+      this.connectedDeviceIdentityKeysByConnection.get(connectionKey);
+    const identityKeysChanged =
+      !existingIdentityKeys ||
+      existingIdentityKeys.size !== identityKeys.length ||
+      identityKeys.some((key) => !existingIdentityKeys.has(key));
+    if (identityKeysChanged) {
       this.connectedDeviceIdentityKeysByConnection.set(
         connectionKey,
         new Set(identityKeys),
       );
     }
-    return identityKeys;
+    return { identityKeys, identityKeysChanged };
+  }
+
+  private clearTrackedConnectedDevices() {
+    if (this.connectedDeviceIdentityKeysByConnection.size === 0) {
+      return;
+    }
+    // The identity map is a bg-runtime JS copy; UI runtimes cache their own
+    // snapshot, so every clear must broadcast or the green indicator goes
+    // stale after an SDK reset or transport switch.
+    this.connectedDeviceIdentityKeysByConnection.clear();
+    appEventBus.emit(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   }
 
   private untrackConnectedDevice(device: KnownDevice | undefined) {
@@ -1007,6 +1033,7 @@ class ServiceHardware extends ServiceBase {
       refreshedFirmwareManifestKey !== this.loadedFirmwareManifestKey
     ) {
       await resetHardwareSDKInstance();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
     }
 
@@ -1073,6 +1100,7 @@ class ServiceHardware extends ServiceBase {
       );
       this.resetHardwareUiEventQueue();
       await resetHardwareSDKInstance();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
       this.activeHardwareSDKInstance = undefined;
       console.log('✅ TRANSPORT SWITCH: SDK reset completed');
@@ -1283,7 +1311,7 @@ class ServiceHardware extends ServiceBase {
   ) {
     if (this.registeredSdkEventsInstance !== instance) {
       this.resetHardwareUiEventQueue();
-      this.connectedDeviceIdentityKeysByConnection.clear();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
     }
 
@@ -1585,6 +1613,19 @@ class ServiceHardware extends ServiceBase {
             return;
           }
 
+          // DEVICE.CONNECT can fire before features are complete, so the
+          // tracked identity may miss the raw deviceId; re-track once features
+          // arrive so deviceId-based consumers see the device as connected.
+          const { identityKeysChanged } = this.trackConnectedDevice(
+            (message.device ?? undefined),
+          );
+          if (identityKeysChanged) {
+            appEventBus.emit(
+              EAppEventBusNames.HardwareConnectionStateUpdate,
+              undefined,
+            );
+          }
+
           // TODO: save features to dbDevice
           // Full features dumps are dev-only; production logs keep the event
           // name without the device blob.
@@ -1601,7 +1642,8 @@ class ServiceHardware extends ServiceBase {
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
         this.recordLiveConnectIdEvidence(message.device?.connectId);
-        const connectedIdentityKeys = this.trackConnectedDevice(message.device);
+        const { identityKeys: connectedIdentityKeys } =
+          this.trackConnectedDevice(message.device);
         if (connectedIdentityKeys.length > 0) {
           appEventBus.emit(
             EAppEventBusNames.HardwareConnectionStateUpdate,
@@ -1775,6 +1817,7 @@ class ServiceHardware extends ServiceBase {
     await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(() =>
       this.sdkInstanceMutex.runExclusive(async () => {
         this.resetHardwareUiEventQueue();
+        this.clearTrackedConnectedDevices();
         this.registeredEvents = false;
         await resetHardwareSDKInstance();
         this.activeHardwareSDKInstance = undefined;

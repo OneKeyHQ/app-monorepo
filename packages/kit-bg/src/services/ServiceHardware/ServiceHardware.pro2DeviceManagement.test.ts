@@ -81,6 +81,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDeviceSafe: jest.fn(),
     getDeviceByQuery: jest.fn(),
+    updateDevice: jest.fn(),
     updateDeviceState: jest.fn(),
   },
 }));
@@ -840,6 +841,124 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(notifyHardwareDeviceDisconnected).toHaveBeenCalledWith({
       identityKeys: ['PRO2_USB', 'PRO2_UUID', 'PRO2_SERIAL'],
     });
+  });
+
+  it('features 到达后补录设备身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+
+    // DEVICE.CONNECT arrives before features are complete
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    listeners.get(DEVICE.SUPPORT_FEATURES)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_UUID',
+        deviceId: 'PRO2_DEVICE_ID',
+        features: { device_id: 'PRO2_DEVICE_ID' },
+      },
+    });
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(
+      expect.arrayContaining(['PRO2_USB', 'PRO2_UUID', 'PRO2_DEVICE_ID']),
+    );
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+
+    // An identical features event must not re-broadcast
+    jest.mocked(appEventBus.emit).mockClear();
+    listeners.get(DEVICE.SUPPORT_FEATURES)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_UUID',
+        deviceId: 'PRO2_DEVICE_ID',
+        features: { device_id: 'PRO2_DEVICE_ID' },
+      },
+    });
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+  });
+
+  it('SDK 实例替换时清空连接身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    // A replaced SDK instance no longer tracks the previous connections
+    await service.registerSdkEvents({ on: jest.fn() } as never);
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual([]);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+  });
+
+  it('resetHardwareSDK 时清空连接身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: (fn: () => Promise<void>) => fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    await service.resetHardwareSDK();
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual([]);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   });
 
   it('普通断连后保留已确认协议，供重连继续固定使用', async () => {

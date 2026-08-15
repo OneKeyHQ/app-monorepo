@@ -33,10 +33,10 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
   const [webUsbDevices, backgroundIdentityKeys] = await Promise.all([
     usb && typeof usb.getDevices === 'function'
       ? usb.getDevices()
-      : Promise.resolve([]),
+      : Promise.resolve<USBDevice[]>([]),
     backgroundApiProxy.serviceHardware
       .getConnectedHardwareDeviceIdentityKeys()
-      .catch(() => []),
+      .catch((): string[] => []),
   ]);
   const deviceIds = buildHardwareConnectedDeviceKeys({
     backgroundIdentityKeys,
