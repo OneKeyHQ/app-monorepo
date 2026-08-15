@@ -1,4 +1,9 @@
 export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
+
+// Every mobile list row is this tall. Pinned rather than left to fall out of
+// the text metrics, so a copy or font-size change cannot silently make one
+// list's rows a few pixels shorter than another's.
+export const MARKET_MOBILE_ROW_HEIGHT = 68;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 

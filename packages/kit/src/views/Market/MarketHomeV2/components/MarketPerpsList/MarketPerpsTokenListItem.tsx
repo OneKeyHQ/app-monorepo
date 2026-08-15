@@ -15,6 +15,7 @@ import {
   PerpDexBadge,
   SubtitleText,
 } from '../../../components/PerpsBadges';
+import { MARKET_MOBILE_ROW_HEIGHT } from '../../layouts/mobileLayoutUtils';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
@@ -34,8 +35,10 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
-      px="$4"
+      // Geometry matches the spot mobile row (TokenListItem).
+      px="$5"
       py="$3"
+      minHeight={MARKET_MOBILE_ROW_HEIGHT}
       alignItems="center"
       gap="$3"
     >
@@ -44,7 +47,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
         flexGrow={1}
         flexBasis={0}
         alignItems="center"
-        gap="$2"
+        gap="$3"
         minWidth={0}
         overflow="hidden"
       >

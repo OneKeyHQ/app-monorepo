@@ -11,6 +11,7 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_MOBILE_ROW_HEIGHT } from '../../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
@@ -106,6 +107,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onLayout={onLayout}
       px="$5"
       py="$3"
+      minHeight={MARKET_MOBILE_ROW_HEIGHT}
       alignItems="center"
       borderRadius="$3"
       bg={isHighlighted ? '$bgActive' : '$bgApp'}
