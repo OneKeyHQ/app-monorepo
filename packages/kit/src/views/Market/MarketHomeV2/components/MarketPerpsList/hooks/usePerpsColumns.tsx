@@ -194,9 +194,9 @@ export function usePerpsColumnsDesktop(
 
         // Column 5: 24h Volume
         {
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
-          }),
+          title: `24h ${intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
+          })}`,
           dataIndex: 'volume24h',
           columnProps: { flex: 1 },
           render: (_: unknown, record: IMarketPerpsToken) => (

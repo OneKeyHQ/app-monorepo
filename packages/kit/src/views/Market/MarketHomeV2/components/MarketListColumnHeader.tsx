@@ -5,10 +5,15 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IMarketTimeRangeValue } from '../types';
+
 type IMarketListColumnHeaderProps = {
   changeSortType?: 'asc' | 'desc';
   changeSortTestID?: string;
   change24hColumnTitle?: string;
+  // Window the second line's number covers. Spot crypto follows the toolbar's
+  // time range; stocks and perps always report 24h, so they leave it unset.
+  volumeTimeRange?: IMarketTimeRangeValue;
   onChangeSortPress?: () => void;
 };
 
@@ -16,6 +21,7 @@ function MarketListColumnHeaderBase({
   changeSortType,
   changeSortTestID,
   change24hColumnTitle,
+  volumeTimeRange,
   onChangeSortPress,
 }: IMarketListColumnHeaderProps) {
   const intl = useIntl();
@@ -35,8 +41,8 @@ function MarketListColumnHeaderBase({
         <SizableText color="$textSubdued" size="$bodySmMedium" py="$2">
           {`${intl.formatMessage({
             id: ETranslations.global_name,
-          })} / ${intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
+          })} / ${volumeTimeRange ?? '24h'} ${intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
           })}`}
         </SizableText>
       </XStack>

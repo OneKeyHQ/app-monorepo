@@ -65,6 +65,7 @@ import {
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
+import type { IMarketTimeRangeValue } from '../../types';
 
 const SPINNER_HEIGHT = 52;
 const MARKET_HOME_WS_ROW_HEIGHT_PX = 60;
@@ -283,6 +284,8 @@ type IMarketTokenListBaseProps = {
   // Trending-only column roster. Other lists opt into the visuals above
   // without losing their own columns.
   redesignColumnOrderEnabled?: boolean;
+  // Window the volume column reports. Omit for lists that resolve 24h.
+  volumeTimeRange?: IMarketTimeRangeValue;
 };
 
 function MarketTokenListBase({
@@ -317,6 +320,7 @@ function MarketTokenListBase({
   testID,
   redesignEnabled,
   redesignColumnOrderEnabled,
+  volumeTimeRange,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -528,7 +532,7 @@ function MarketTokenListBase({
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
-    { redesignEnabled, redesignColumnOrderEnabled },
+    { redesignEnabled, redesignColumnOrderEnabled, volumeTimeRange },
   );
 
   const data = useMemo(() => {

@@ -206,7 +206,13 @@ function MarketHomeTabBar({
             }}
           />
         ) : null}
-        <MarketListColumnHeader />
+        <MarketListColumnHeader
+          volumeTimeRange={
+            currentSpotCategoryHasStockData
+              ? undefined
+              : ctx.filterBarProps.timeRange
+          }
+        />
       </>
     ),
     [
@@ -215,6 +221,7 @@ function MarketHomeTabBar({
       ctx.onSelectStockCategory,
       ctx.selectedStockCategoryId,
       ctx.stockCategories,
+      currentSpotCategoryHasStockData,
       showSpotFilterBar,
       showStockCategorySelector,
     ],

@@ -97,7 +97,7 @@ export const MARKET_FILTER_DIMENSIONS: IMarketFilterDimensionConfig[] = [
   },
   {
     id: EMarketFilterDimension.Turnover,
-    labelKey: ETranslations.dexmarket_turnover,
+    labelKey: ETranslations.perp_token_selector_volume,
     group: EMarketFilterGroup.Metrics,
     unit: '$',
     minParam: 'volumeMin',

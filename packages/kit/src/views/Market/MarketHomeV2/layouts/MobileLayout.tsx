@@ -216,7 +216,13 @@ function MarketHomeTabBar({
               }}
             />
           ) : null}
-          <MarketListColumnHeader />
+          <MarketListColumnHeader
+            volumeTimeRange={
+              currentSpotCategoryHasStockData
+                ? undefined
+                : ctx.filterBarProps.timeRange
+            }
+          />
         </YStack>
         <YStack
           display={currentFocusedTabName === perpsTabName ? 'flex' : 'none'}

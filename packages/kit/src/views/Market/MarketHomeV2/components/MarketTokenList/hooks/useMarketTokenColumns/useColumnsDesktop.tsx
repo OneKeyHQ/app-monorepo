@@ -30,6 +30,7 @@ import {
   StockSourceLogo,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -387,6 +388,9 @@ export const useColumnsDesktop = (
   deferRichRowAfterIndex?: number,
   redesignEnabled?: boolean,
   redesignColumnOrderEnabled?: boolean,
+  // Window the volume column covers. Trending follows the toolbar; every other
+  // list resolves the 24h window in transformApiItemToToken.
+  volumeTimeRange?: IMarketTimeRangeValue,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
@@ -660,7 +664,9 @@ export const useColumnsDesktop = (
       {
         title: useStockMetadataColumns
           ? intl.formatMessage({ id: ETranslations.dexmarket_stock_pe_ttm })
-          : intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+          : `${volumeTimeRange ?? '24h'} ${intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}`,
         dataIndex: 'turnover',
         columnProps: { flex: 1.1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -775,12 +781,17 @@ export const useColumnsDesktop = (
             return column;
           }
           const label = column.title;
-          // Stock columns repurpose the liquidity/turnover/marketCap slots for
-          // 24h volume and P/E, so the metric explainers keyed by dataIndex
-          // would describe the wrong number. Only spot columns get tooltips.
-          const tooltipKey = useStockMetadataColumns
-            ? undefined
-            : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
+          // Two of these explainers say "in the selected time range", which
+          // only holds where the user can actually select one — trending. The
+          // watchlist and banner detail are fixed at 24h, so they get no
+          // tooltip rather than a promise the screen cannot keep. Stock columns
+          // are excluded too: they repurpose the liquidity/turnover/marketCap
+          // slots for 24h volume and P/E, so the dataIndex-keyed explainer
+          // would describe the wrong number.
+          const tooltipKey =
+            useStockMetadataColumns || !redesignColumnOrderEnabled
+              ? undefined
+              : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
           const tooltip = tooltipKey
             ? intl.formatMessage({ id: tooltipKey })
             : undefined;
@@ -823,6 +834,7 @@ export const useColumnsDesktop = (
     networkId,
     redesignColumnOrderEnabled,
     redesignEnabled,
+    volumeTimeRange,
     showStockSubtitle,
     useStockMetadataColumns,
     watchlistFrom,

@@ -187,6 +187,7 @@ function MarketNormalTokenList({
       }
       redesignEnabled={redesignVisualsActive}
       redesignColumnOrderEnabled={redesignActive}
+      volumeTimeRange={timeRange}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}

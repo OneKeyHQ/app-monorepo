@@ -61,7 +61,7 @@ const SORT_COLUMN_LABEL_KEYS: Record<string, ETranslations> = {
   liquidity: ETranslations.dexmarket_liquidity,
   transactions: ETranslations.dexmarket_txns,
   holders: ETranslations.dexmarket_holders,
-  turnover: ETranslations.dexmarket_turnover,
+  turnover: ETranslations.perp_token_selector_volume,
 };
 
 const SORT_DIRECTION_LABEL_KEYS: Record<'asc' | 'desc', ETranslations> = {
