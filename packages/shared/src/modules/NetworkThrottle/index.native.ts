@@ -2,20 +2,14 @@ import { NativeModules } from 'react-native';
 
 import { OneKeyLocalError } from '../../errors';
 
-import { getNetworkThrottleDevServerOrigin } from './devServerPolicy';
 import {
   normalizeNetworkThrottleConfig,
   setNetworkThrottleRuntimeConfig,
 } from './runtimeState';
+import { NETWORK_THROTTLE_ONEKEY_HOSTS } from './throttledHosts';
 
 import type { INativeNetworkThrottleConfig } from './types';
 import type { NetworkThrottleConfig as INetworkThrottleModuleConfig } from '@onekeyfe/react-native-network-throttle';
-
-type INativeSourceCodeModule = {
-  getConstants?: () => {
-    scriptURL?: unknown;
-  };
-};
 
 export type {
   INativeNetworkThrottleConfig,
@@ -27,14 +21,14 @@ export {
   setNetworkThrottleRuntimeConfig,
 } from './runtimeState';
 
-// Older native binaries (< 3.0.82) omit bypassUrlOrigins, and JS bundle
-// updates can run against them, so the raw module response must not claim
-// the field is always present.
+// Older native binaries (< 3.0.84) do not report throttleUrlHosts, and JS
+// bundle updates can run against them, so the raw module response must not
+// claim the field is always present.
 type INativeModuleNetworkThrottleResponse = Omit<
   INetworkThrottleModuleConfig,
-  'bypassUrlOrigins'
+  'throttleUrlHosts'
 > & {
-  bypassUrlOrigins?: string[];
+  throttleUrlHosts?: string[];
 };
 
 type IOneKeyNetworkThrottleNativeModule = {
@@ -43,15 +37,6 @@ type IOneKeyNetworkThrottleNativeModule = {
     config: Partial<INetworkThrottleModuleConfig>,
   ) => Promise<INativeModuleNetworkThrottleResponse>;
 };
-
-function getDevServerBypassOrigins(): string[] | undefined {
-  const sourceCodeModule = NativeModules.SourceCode as
-    | INativeSourceCodeModule
-    | undefined;
-  const scriptURL = sourceCodeModule?.getConstants?.()?.scriptURL;
-  const origin = getNetworkThrottleDevServerOrigin(scriptURL);
-  return origin ? [origin] : undefined;
-}
 
 function getNativeModule(): IOneKeyNetworkThrottleNativeModule {
   const nativeModule = NativeModules.OneKeyNetworkThrottle as
@@ -75,10 +60,11 @@ const nativeNetworkThrottle = {
     config: Partial<INativeNetworkThrottleConfig>,
   ): Promise<INativeNetworkThrottleConfig> {
     const nextConfig = normalizeNetworkThrottleConfig(config);
-    const bypassUrlOrigins = getDevServerBypassOrigins();
     const nativeConfig = await getNativeModule().setConfig({
       ...nextConfig,
-      ...(bypassUrlOrigins ? { bypassUrlOrigins } : undefined),
+      // Only OneKey's own traffic is throttled; the local dev server is simply
+      // not on the allowlist, so Metro bundles and assets stay at full speed.
+      throttleUrlHosts: [...NETWORK_THROTTLE_ONEKEY_HOSTS],
     });
     return setNetworkThrottleRuntimeConfig(nativeConfig);
   },
