@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -89,6 +90,17 @@ export const SellOrBuyContent = memo(
             tokenSymbol: token.symbol,
             networkID: token.networkId,
           });
+        }
+        if (
+          type === 'buy' &&
+          (await tryOpenHeadlessBuy({
+            networkId: token.networkId,
+            tokenAddress: token.address,
+            accountId: realAccountId,
+            token,
+          }))
+        ) {
+          return;
         }
         const { url } =
           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({

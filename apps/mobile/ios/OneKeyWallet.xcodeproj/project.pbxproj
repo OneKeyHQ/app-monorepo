@@ -272,6 +272,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "OneKeyWallet" */;
 			buildPhases = (
+				0288C121D3EE8444D1801CDC /* [OneKey] Assert App Attest environment */,
 				860344BEAD92EB4C2606DBCA /* [CP] Check Pods Manifest.lock */,
 				D8981D2998B0CB74725DB299 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
@@ -398,6 +399,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0288C121D3EE8444D1801CDC /* [OneKey] Assert App Attest environment */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[OneKey] Assert App Attest environment";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Onramper production credentials ship only in Release JS bundles\n# (platformEnv.isDev picks the staging pair in Debug), and the SDK's App\n# Attest assertion only passes when the entitlement environment matches the\n# key's environment. Fail the build instead of shipping a Release app whose\n# attestation can never succeed (OK-59538).\nif [ \"${CONFIGURATION}\" = \"Release\" ] && [ \"${ONEKEY_APPATTEST_ENVIRONMENT}\" != \"production\" ]; then\n  echo \"error: Release builds require ONEKEY_APPATTEST_ENVIRONMENT=production (got '${ONEKEY_APPATTEST_ENVIRONMENT}'). App Attest must match the Onramper production credentials (OK-59538).\"\n  exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
 		2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -419,12 +440,14 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OnramperReactNative/OnramperSDK.framework/OnramperSDK",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeLiteCard/GPChannelSDKCore.framework/GPChannelSDKCore",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OnramperSDK.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GPChannelSDKCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
@@ -690,12 +713,13 @@
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ONEKEY_APPATTEST_ENVIRONMENT = development;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -729,12 +753,13 @@
 				ENABLE_NATIVE_BACKGROUND_THREAD = true;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ONEKEY_APPATTEST_ENVIRONMENT = production;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -939,7 +964,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD = clang;
 				LDPLUSPLUS = "clang++";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -984,7 +1009,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD = clang;
 				LDPLUSPLUS = "clang++";
 				LD_RUNPATH_SEARCH_PATHS = (

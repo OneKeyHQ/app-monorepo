@@ -18,6 +18,8 @@
 		<string>applinks:perps.onekeytest.com</string>
 		<string>applinks:swap.onekey.so</string>
 	</array>
+	<key>com.apple.developer.devicecheck.appattest-environment</key>
+	<string>$(ONEKEY_APPATTEST_ENVIRONMENT)</string>
 	<key>com.apple.developer.icloud-container-environment</key>
 	<string>Production</string>
 	<key>com.apple.developer.icloud-container-identifiers</key>
