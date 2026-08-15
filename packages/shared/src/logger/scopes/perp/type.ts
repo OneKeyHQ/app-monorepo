@@ -16,10 +16,6 @@ export enum EPerpPageEnterSource {
   Shortcut = 'shortcut',
   // Handoff from the Trade tab (e.g. the stock market-closed alert → Perps).
   Trade = 'trade',
-  // Handoff from the Market token-detail stock market-closed alert → Perps.
-  MarketStockClosed = 'marketStockClosed',
-  // Handoff from the Swap Pro-mode stock market-closed alert → Perps.
-  SwapProStockClosed = 'swapProStockClosed',
   DirectUrl = 'directUrl',
 }
 
