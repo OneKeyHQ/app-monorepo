@@ -147,6 +147,33 @@ describe('desktop network throttle', () => {
     );
   });
 
+  it('falls back to session-wide throttling when remote-only rules fail', async () => {
+    const targetSession = createSession();
+    const { contents, targetDebugger } = createWebContents(targetSession);
+    targetDebugger.sendCommand.mockImplementation((method) => {
+      if (method === 'Network.emulateNetworkConditionsByRule') {
+        return Promise.reject(new Error('Unsupported method'));
+      }
+      return Promise.resolve({});
+    });
+
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+      {
+        remoteOnly: true,
+      },
+    );
+    await waitForDebuggerCommands();
+
+    expect(targetSession.disableNetworkEmulation).toHaveBeenCalledTimes(1);
+    expect(targetSession.enableNetworkEmulation).toHaveBeenCalledWith({
+      offline: false,
+      latency: 562.5,
+      downloadThroughput: 180_000,
+      uploadThroughput: 84_375,
+    });
+  });
+
   it('keeps standard throttling when URL rule cleanup is unsupported', async () => {
     const targetSession = createSession();
     const { contents, targetDebugger } = createWebContents(targetSession);

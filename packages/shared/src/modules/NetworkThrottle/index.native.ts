@@ -27,11 +27,21 @@ export {
   setNetworkThrottleRuntimeConfig,
 } from './runtimeState';
 
+// Older native binaries (< 3.0.82) omit bypassUrlOrigins, and JS bundle
+// updates can run against them, so the raw module response must not claim
+// the field is always present.
+type INativeModuleNetworkThrottleResponse = Omit<
+  INetworkThrottleModuleConfig,
+  'bypassUrlOrigins'
+> & {
+  bypassUrlOrigins?: string[];
+};
+
 type IOneKeyNetworkThrottleNativeModule = {
-  getConfig: () => Promise<INetworkThrottleModuleConfig>;
+  getConfig: () => Promise<INativeModuleNetworkThrottleResponse>;
   setConfig: (
     config: Partial<INetworkThrottleModuleConfig>,
-  ) => Promise<INetworkThrottleModuleConfig>;
+  ) => Promise<INativeModuleNetworkThrottleResponse>;
 };
 
 function getDevServerBypassOrigins(): string[] | undefined {

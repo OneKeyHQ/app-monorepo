@@ -494,6 +494,19 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       }
     }
   } catch (error) {
+    if (config.enabled && remoteOnly) {
+      // Remote-only throttling depends on the experimental CDP rule command.
+      // If any debugger step fails, fall back to session-wide throttling so
+      // the weak-network setting still takes effect; throttling localhost is
+      // better than silently not throttling at all. Later debugger retries
+      // see the session as non-remote-only and apply the standard commands.
+      remoteOnlyNetworkThrottleSessions.delete(contents.session);
+      applyDesktopNetworkThrottleToSession(
+        contents.session,
+        `${targetLabel}:remote-only-fallback`,
+        config,
+      );
+    }
     if (!suppressFailureLog) {
       logger.warn(
         `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
