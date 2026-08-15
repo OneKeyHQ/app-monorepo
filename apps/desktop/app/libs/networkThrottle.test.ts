@@ -147,7 +147,7 @@ describe('desktop network throttle', () => {
     );
   });
 
-  it('falls back to session-wide throttling when remote-only rules fail', async () => {
+  it('falls back to full debugger throttling when remote-only rules fail', async () => {
     const targetSession = createSession();
     const { contents, targetDebugger } = createWebContents(targetSession);
     targetDebugger.sendCommand.mockImplementation((method) => {
@@ -165,13 +165,27 @@ describe('desktop network throttle', () => {
     );
     await waitForDebuggerCommands();
 
-    expect(targetSession.disableNetworkEmulation).toHaveBeenCalledTimes(1);
-    expect(targetSession.enableNetworkEmulation).toHaveBeenCalledWith({
+    // The rule path resets emulation to the disabled profile first, so the
+    // fallback must re-send the real profile through the standard command.
+    const emulateCalls = targetDebugger.sendCommand.mock.calls.filter(
+      ([method]) => method === 'Network.emulateNetworkConditions',
+    );
+    expect(emulateCalls.at(-1)?.[1]).toEqual({
       offline: false,
       latency: 562.5,
       downloadThroughput: 180_000,
       uploadThroughput: 84_375,
     });
+
+    // A second apply must not repeat the failing rule command.
+    const callsAfterFallback = targetDebugger.sendCommand.mock.calls.length;
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+    );
+    await waitForDebuggerCommands();
+    expect(targetDebugger.sendCommand).toHaveBeenCalledTimes(
+      callsAfterFallback,
+    );
   });
 
   it('keeps standard throttling when URL rule cleanup is unsupported', async () => {

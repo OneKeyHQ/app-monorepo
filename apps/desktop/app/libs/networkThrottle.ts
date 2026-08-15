@@ -389,6 +389,51 @@ function applyDesktopNetworkThrottleToSession(
   }
 }
 
+// The remote-only path first resets the standard emulation to its disabled
+// profile and then installs the experimental per-URL rules. When the rule
+// command is unavailable or fails, that leaves the debugger explicitly
+// un-throttled, so restore the profile through the standard command instead.
+// Session-level emulation is not a usable fallback here: Chromium applies it
+// through the same throttling controller only for requests the network
+// service owns, and the renderer traffic this feature targets is governed by
+// the per-webContents debugger.
+async function applyDesktopNetworkThrottleRemoteOnlyFallback({
+  contents,
+  config,
+  targetLabel,
+}: {
+  contents: WebContents;
+  config: IDesktopStoreNetworkThrottle;
+  targetLabel: string;
+}): Promise<boolean> {
+  if (contents.isDestroyed()) {
+    return false;
+  }
+  // Drop the remote-only marking so later applies take the standard path
+  // instead of retrying a command that already failed for this session.
+  remoteOnlyNetworkThrottleSessions.delete(contents.session);
+  try {
+    await contents.debugger.sendCommand(
+      'Network.emulateNetworkConditions',
+      getDebuggerNetworkConditions(config),
+    );
+  } catch (fallbackError) {
+    logger.warn(
+      `[desktop-network-throttle] failed remote-only fallback webContents=${targetLabel}`,
+      fallbackError,
+    );
+    return false;
+  }
+  clearDesktopNetworkThrottleDebuggerReapply(contents);
+  appliedStateByWebContentsDebugger.set(contents, getSessionStateKey(config));
+  logger.info(
+    `[desktop-network-throttle] debugger applied state=${config.profile} ` +
+      `scope=all-fallback webContents=${targetLabel} ` +
+      `latencyMs=${DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile].latency}`,
+  );
+  return true;
+}
+
 async function applyDesktopNetworkThrottleToWebContentsDebugger({
   contents,
   label,
@@ -494,26 +539,21 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       }
     }
   } catch (error) {
-    if (config.enabled && remoteOnly) {
-      // Remote-only throttling depends on the experimental CDP rule command.
-      // If any debugger step fails, fall back to session-wide throttling so
-      // the weak-network setting still takes effect; throttling localhost is
-      // better than silently not throttling at all. Later debugger retries
-      // see the session as non-remote-only and apply the standard commands.
-      remoteOnlyNetworkThrottleSessions.delete(contents.session);
-      applyDesktopNetworkThrottleToSession(
-        contents.session,
-        `${targetLabel}:remote-only-fallback`,
-        config,
-      );
-    }
-    if (!suppressFailureLog) {
+    const fallbackApplied =
+      config.enabled && remoteOnly
+        ? await applyDesktopNetworkThrottleRemoteOnlyFallback({
+            contents,
+            config,
+            targetLabel,
+          })
+        : false;
+    if (!suppressFailureLog && !fallbackApplied) {
       logger.warn(
         `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
         error,
       );
     }
-    if (throwOnFailure) {
+    if (throwOnFailure && !fallbackApplied) {
       throw error;
     }
   }
