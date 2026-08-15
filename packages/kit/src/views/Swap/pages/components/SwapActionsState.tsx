@@ -42,7 +42,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
-  isSwapQuoteFromCurrentEvent,
+  isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
@@ -252,19 +252,17 @@ const SwapActionsState = ({
     // Raw selection atom: the hook itself rejects a retained quote whose
     // token pair no longer matches the current selection.
     quoteResult: currentQuoteRes,
-    // Active-event proof: the selection layer retains previous-event quotes
-    // while a new round is requesting, and during a same-pair account switch
-    // even the "current event" is still the previous account's until the new
-    // request is written. The event-id check rejects the former; the request
-    // lock matching the current inputs rejects the latter.
-    quoteProvenForCurrentInput: Boolean(
-      isSwapQuoteFromCurrentEvent({
-        quote: currentQuoteRes,
-        quoteEventTotalCount,
-        quoteLoading,
-        quoteEventFetching,
-      }) && quoteRequestMatchesCurrentInput,
-    ),
+    // Active-request proof: see isSwapQuoteProvenForCurrentRequest for why
+    // event membership, the lock match, and the request-starting interval all
+    // have to be checked together.
+    quoteProvenForCurrentInput: isSwapQuoteProvenForCurrentRequest({
+      quote: currentQuoteRes,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+      quoteActionLocked: Boolean(quoteActionLock.actionLock),
+      requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
+    }),
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
