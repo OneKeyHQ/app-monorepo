@@ -1659,45 +1659,90 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(emitMock).toHaveBeenCalledTimes(2);
   });
 
-  it('waits for the wallet name to persist after changing the device label', async () => {
-    const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
-    const service = new ServiceHardware({
-      backgroundApi: {
-        serviceAccount: {
-          getWalletSafe: jest.fn().mockResolvedValue({
-            associatedDevice: 'db-device-1',
-            name: 'Wallet',
-          }),
-          setWalletNameAndAvatar,
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'writes the %s label back to app state after changing the device label',
+    async (deviceType) => {
+      const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+      const currentState = {
+        protocol: 'V2',
+        revision: 4,
+        updatedAt: 100,
+        identity: {
+          deviceId: 'DEVICE_ID',
+          serialNo: 'DEVICE_SERIAL',
+          deviceType,
+          label: 'Old label',
         },
-      } as unknown as IBackgroundApi,
-    });
-    service.deviceSettingsManager.setDeviceLabel = jest
-      .fn()
-      .mockResolvedValue({ message: 'Success' });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    jest.mocked(appEventBus.emit).mockClear();
-    await service.setDeviceLabel({
-      walletId: 'hw-wallet-1',
-      label: 'Renamed Pro 2',
-    });
+        status: {},
+        settings: {},
+        versions: {},
+      };
+      jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'DEVICE_CONNECT_ID',
+        deviceStateInfo: currentState,
+      } as never);
+      jest.mocked(localDb.updateDeviceState).mockResolvedValue({
+        kind: 'updated',
+        deviceDbId: 'db-device-1',
+        state: currentState,
+      } as never);
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceAccount: {
+            getWalletSafe: jest.fn().mockResolvedValue({
+              associatedDevice: 'db-device-1',
+              name: 'Wallet',
+            }),
+            setWalletNameAndAvatar,
+          },
+        } as unknown as IBackgroundApi,
+      });
+      service.deviceSettingsManager.setDeviceLabel = jest
+        .fn()
+        .mockResolvedValue({ message: 'Success' });
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(appEventBus.emit).mockClear();
+      await service.setDeviceLabel({
+        walletId: 'hw-wallet-1',
+        label: 'Renamed Pro 2',
+      });
 
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(appEventBus.emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.HardwareDeviceStateUpdate,
-      expect.anything(),
-    );
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
-      walletId: 'hw-wallet-1',
-      name: 'Renamed Pro 2',
-      shouldCheckDuplicate: false,
-    });
-    expect(appEventBus.emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.SyncDeviceLabelToWalletName,
-      expect.anything(),
-    );
-  });
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(localDb.updateDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changedKeys: ['identity.label'],
+          connectId: 'DEVICE_CONNECT_ID',
+          revision: 5,
+          source: 'settings-write',
+          state: expect.objectContaining({
+            revision: 5,
+            identity: expect.objectContaining({
+              deviceType,
+              label: 'Renamed Pro 2',
+            }),
+          }),
+        }),
+      );
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        expect.objectContaining({
+          changedKeys: ['identity.label'],
+          revision: 5,
+        }),
+      );
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+        walletId: 'hw-wallet-1',
+        name: 'Renamed Pro 2',
+        shouldCheckDuplicate: false,
+      });
+      expect(appEventBus.emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.SyncDeviceLabelToWalletName,
+        expect.anything(),
+      );
+    },
+  );
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {

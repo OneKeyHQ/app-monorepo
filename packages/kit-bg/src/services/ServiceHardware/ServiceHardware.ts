@@ -777,6 +777,56 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
+  private async writeBackProtocolV2DeviceLabel({
+    dbDeviceId,
+    label,
+  }: {
+    dbDeviceId: string;
+    label: string;
+  }) {
+    try {
+      const device = await localDb.getDeviceSafe(dbDeviceId);
+      const currentState = device?.deviceStateInfo;
+      if (
+        !device ||
+        currentState?.protocol !== 'V2' ||
+        currentState.identity.label === label
+      ) {
+        return;
+      }
+      const revision = currentState.revision + 1;
+      const updatedAt = Math.max(Date.now(), currentState.updatedAt + 1);
+      const event: DeviceStateEvent = {
+        connectId:
+          device.connectId ||
+          device.usbConnectId ||
+          device.bleConnectId ||
+          null,
+        changedKeys: ['identity.label'],
+        revision,
+        source: 'settings-write',
+        state: {
+          ...currentState,
+          identity: {
+            ...currentState.identity,
+            label,
+          },
+          revision,
+          updatedAt,
+        },
+      };
+      const persistResult = await localDb.updateDeviceState(event);
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'device label app write-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
+    }
+  }
+
   handleHardwareAvatarChanged = cacheUtils.memoizee(
     async ({
       walletId,
@@ -3239,6 +3289,10 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
+        await this.writeBackProtocolV2DeviceLabel({
+          dbDeviceId,
+          label: p.label,
+        });
         await this.handleHardwareLabelChanged({
           walletId: p.walletId,
           dbDeviceId,
