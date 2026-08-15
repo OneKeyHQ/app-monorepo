@@ -957,6 +957,7 @@ export interface ILMTronObject {
 
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
+  supportRebuildTx?: boolean;
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;

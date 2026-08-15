@@ -192,9 +192,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onPopStack: onPopSwapModal,
     onBroadcast: swapInitParams?.onSwapBroadcast,
   });
-  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx({
+  const {
+    preSwapStepsStart,
+    preSwapBeforeStepActions,
+    rebuildSwapWithSlippage,
+  } = useSwapBuildTx({
     onSwapBroadcast,
   });
+  const rebuildReviewWithSlippage = useCallback(
+    (slippagePercentage: number) =>
+      rebuildSwapWithSlippage({ slippagePercentage }),
+    [rebuildSwapWithSlippage],
+  );
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -1124,6 +1133,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               <PreSwapDialogContent
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
+                rebuildReviewWithSlippage={rebuildReviewWithSlippage}
                 defaultNetworkFeeLevel={swapProReviewDefaultNetworkFeeLevel}
                 defaultCustomPriorityFee={swapProReviewDefaultCustomPriorityFee}
                 showCustomNetworkFeeOption={
@@ -1154,6 +1164,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     preSwapBeforeStepActions,
     preSwapStepsStart,
+    rebuildReviewWithSlippage,
     swapProReviewDefaultCustomPriorityFee,
     swapProReviewDefaultNetworkFeeLevel,
     showSwapProReviewCustomNetworkFeeOption,

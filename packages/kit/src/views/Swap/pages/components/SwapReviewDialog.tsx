@@ -54,11 +54,15 @@ function SwapReviewDialogContent({
   showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
 }) {
-  const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
-    useSwapReviewActions({
-      adapter,
-      approveTransactionSource,
-    });
+  const {
+    onConfirm,
+    preSwapBeforeStepActions,
+    preSwapStepsStart,
+    rebuildReviewWithSlippage,
+  } = useSwapReviewActions({
+    adapter,
+    approveTransactionSource,
+  });
 
   return (
     <PreSwapDialogContent
@@ -67,6 +71,7 @@ function SwapReviewDialogContent({
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
+      rebuildReviewWithSlippage={rebuildReviewWithSlippage}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}

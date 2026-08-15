@@ -283,6 +283,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
+    rebuildMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,
     sendMarketWrappedTx,
@@ -481,6 +482,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
       prepareReview: prepareMarketSwapReview,
+      rebuildReview: rebuildMarketSwapReview,
       sendApproveTx: sendMarketApproveTx,
       sendSwapTx: sendMarketSwapTx,
       sendWrappedTx: sendMarketWrappedTx,
@@ -490,6 +492,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     [
       buildMarketApproveInfos,
       prepareMarketSwapReview,
+      rebuildMarketSwapReview,
       sendMarketApproveTx,
       sendMarketSwapTx,
       sendMarketWrappedTx,
