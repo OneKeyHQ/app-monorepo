@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  useDevSettingsPersistAtom,
   useFirmwareUpdateResultVerifyAtom,
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
@@ -286,6 +287,7 @@ export function FirmwareUpdateProgressBarV2({
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
@@ -477,6 +479,12 @@ export function FirmwareUpdateProgressBarV2({
   }, [isDone]);
 
   useEffect(() => {
+    if (stepInfo.step === EFirmwareUpdateSteps.installing) {
+      if (!lastFirmwareTipMessage && !isNumber(firmwareProgress)) {
+        updateProgressRef.current(EFirmwareUpdateTipMessages.StartTransferData);
+      }
+      return;
+    }
     if (stepInfo.step !== EFirmwareUpdateSteps.updateStart) {
       return;
     }
@@ -488,7 +496,7 @@ export function FirmwareUpdateProgressBarV2({
     }
     updateProgressRef.current('checking');
     setDesc(defaultDesc());
-  }, [defaultDesc, stepInfo]);
+  }, [defaultDesc, firmwareProgress, lastFirmwareTipMessage, stepInfo]);
 
   const installProgressList = useRef<string[]>([]);
   useEffect(() => {
@@ -499,13 +507,20 @@ export function FirmwareUpdateProgressBarV2({
 
   useEffect(() => {
     if (isNumber(firmwareProgress)) {
+      if (
+        firmwareProgress === 0 &&
+        firmwareProgressType === 'installingFirmware' &&
+        lastFirmwareTipMessage === EFirmwareUpdateTipMessages.ConfirmOnDevice
+      ) {
+        return;
+      }
       updateProgressRef.current(
         firmwareProgressType === 'installingFirmware'
           ? 'installing'
           : EFirmwareUpdateTipMessages.StartTransferData,
       );
     }
-  }, [firmwareProgress, firmwareProgressType]);
+  }, [firmwareProgress, firmwareProgressType, lastFirmwareTipMessage]);
 
   const shouldEstimatePro2Progress =
     isProtocolV2ProductType(result?.deviceType) &&
@@ -556,8 +571,10 @@ export function FirmwareUpdateProgressBarV2({
   const upgradeVersions = useMemo(() => {
     if (!result?.updateInfos) return [];
 
-    const protocolV2VersionItems =
-      getProtocolV2FirmwareVersionDisplayItems(result);
+    const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
+      result,
+      { includeComponents: devSettings.enabled },
+    );
     if (protocolV2VersionItems.length > 0) {
       return protocolV2VersionItems.map((item) => {
         let verifyVersion: string | undefined;
@@ -635,7 +652,7 @@ export function FirmwareUpdateProgressBarV2({
     }
 
     return versions;
-  }, [result, intl, resultVerifyVersions]);
+  }, [devSettings.enabled, result, intl, resultVerifyVersions]);
 
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {

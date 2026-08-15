@@ -87,6 +87,7 @@ export function getProtocolV2FirmwareVersionTitle({
 
 export function getProtocolV2FirmwareVersionDisplayItems(
   result: ICheckAllFirmwareReleaseResult | undefined,
+  { includeComponents = false }: { includeComponents?: boolean } = {},
 ): IProtocolV2FirmwareVersionDisplayItem[] {
   if (!result || !isProtocolV2ProductType(result.deviceType)) {
     return [];
@@ -100,6 +101,10 @@ export function getProtocolV2FirmwareVersionDisplayItems(
       targetVersion: versionInfo?.safeOS.targetVersion ?? null,
     },
   ];
+
+  if (!includeComponents) {
+    return items;
+  }
 
   for (const target of result.pro2TargetsToUpdate ?? []) {
     if (target === 'resource') {

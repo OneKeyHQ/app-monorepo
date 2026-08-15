@@ -91,7 +91,7 @@ describe('ServiceNFT Pro2 upload routing', () => {
     expect(uploadPro2Nft).not.toHaveBeenCalled();
   });
 
-  it('treats an existing Pro2 NFT as an idempotent success', async () => {
+  it('surfaces an existing Pro2 NFT as a duplicate-file failure', async () => {
     const { service, uploadPro2Nft } = buildService(EDeviceType.Pro2);
     const error = Object.assign(
       new Error('Failure_DataError,NFT already exists : 800'),
@@ -116,10 +116,7 @@ describe('ServiceNFT Pro2 upload routing', () => {
           subtitle: 'Collection',
         },
       }),
-    ).resolves.toEqual({
-      nftUpdated: true,
-      message: 'NFT already exists',
-    });
+    ).rejects.toBe(error);
   });
 
   it('keeps other Pro2 data errors as failures', async () => {
