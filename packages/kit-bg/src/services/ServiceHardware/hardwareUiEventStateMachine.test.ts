@@ -272,6 +272,25 @@ describe('hardware UI event state machine', () => {
     expect(result.state.phase).toBe('button');
   });
 
+  it('accepts firmware status from a reconnected device', () => {
+    const state = reduceHardwareUiEventState(createHardwareUiEventState(), {
+      type: EHardwareUiStateAction.REQUEST_BUTTON,
+      renderAction: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: 'PRO2_USB_BEFORE_REBOOT',
+    }).state;
+
+    const result = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      renderAction: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: 'PRO2_USB_AFTER_REBOOT',
+      payload: { progress: 25, progressType: 'installingFirmware' },
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.connectId).toBe('PRO2_USB_AFTER_REBOOT');
+    expect(result.state.connectId).toBe('PRO2_USB_AFTER_REBOOT');
+  });
+
   it('lets a new device request replace a stale open interaction', () => {
     const state = reduceHardwareUiEventState(createHardwareUiEventState(), {
       type: EHardwareUiStateAction.REQUEST_BUTTON,

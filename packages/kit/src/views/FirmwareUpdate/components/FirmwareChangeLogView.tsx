@@ -24,6 +24,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
+  useDevSettingsPersistAtom,
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -275,33 +276,31 @@ export function FirmwareChangeLogContentView({
   result: ICheckAllFirmwareReleaseResult | undefined;
 } & IStackProps) {
   const intl = useIntl();
-  const protocolV2VersionItems =
-    getProtocolV2FirmwareVersionDisplayItems(result);
+  const [devSettings] = useDevSettingsPersistAtom();
+  const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
+    result,
+    { includeComponents: devSettings.enabled },
+  );
   const [safeOSItem, ...componentItems] = protocolV2VersionItems;
   if (safeOSItem) {
-    const safeOSHasUpdate = Boolean(safeOSItem.targetVersion);
     return (
       <Stack {...rest}>
-        {safeOSHasUpdate ? (
-          <Accordion
-            overflow="hidden"
-            width="100%"
-            type="single"
-            defaultValue="safeos"
-            collapsible
-          >
-            <ChangeLogSection
-              title="SafeOS"
-              updateInfo={result?.updateInfos?.firmware}
-              accordionValue="safeos"
-              versionOnly
-              fromVersion={safeOSItem.currentVersion}
-              toVersion={safeOSItem.targetVersion}
-            />
-          </Accordion>
-        ) : (
-          <ProtocolV2VersionSection item={safeOSItem} />
-        )}
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="single"
+          defaultValue="safeos"
+          collapsible
+        >
+          <ChangeLogSection
+            title="SafeOS"
+            updateInfo={result?.updateInfos?.firmware}
+            accordionValue="safeos"
+            versionOnly
+            fromVersion={safeOSItem.currentVersion}
+            toVersion={safeOSItem.targetVersion}
+          />
+        </Accordion>
         {componentItems.map((item) => (
           <ProtocolV2VersionSection key={item.target} item={item} />
         ))}

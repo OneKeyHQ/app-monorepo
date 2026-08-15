@@ -122,7 +122,11 @@ describe('Protocol V2 update target display', () => {
       },
     } as ICheckAllFirmwareReleaseResult;
 
-    expect(getProtocolV2FirmwareVersionDisplayItems(result)).toEqual([
+    expect(
+      getProtocolV2FirmwareVersionDisplayItems(result, {
+        includeComponents: true,
+      }),
+    ).toEqual([
       {
         target: 'safeos',
         currentVersion: '1.0.0',
@@ -185,10 +189,29 @@ describe('Protocol V2 update target display', () => {
     } as ICheckAllFirmwareReleaseResult;
 
     expect(
+      getProtocolV2FirmwareVersionDisplayItems(result, {
+        includeComponents: true,
+      }).map((item) => item.target),
+    ).toEqual(['safeos', 'app_v2']);
+  });
+
+  it('hides component versions unless explicitly requested', () => {
+    const result = {
+      ...buildResult({ targets: ['app_v1', 'coprocessor', 'resource'] }),
+      protocolV2FirmwareVersionInfo: {
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: '1.1.0',
+        },
+        components: [],
+      },
+    } as ICheckAllFirmwareReleaseResult;
+
+    expect(
       getProtocolV2FirmwareVersionDisplayItems(result).map(
         (item) => item.target,
       ),
-    ).toEqual(['safeos', 'app_v2']);
+    ).toEqual(['safeos']);
   });
 
   it('detects an independently selected coprocessor target', () => {

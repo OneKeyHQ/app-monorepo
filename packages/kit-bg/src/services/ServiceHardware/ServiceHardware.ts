@@ -781,6 +781,56 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
+  private async writeBackProtocolV2DeviceLabel({
+    dbDeviceId,
+    label,
+  }: {
+    dbDeviceId: string;
+    label: string;
+  }) {
+    try {
+      const device = await localDb.getDeviceSafe(dbDeviceId);
+      const currentState = device?.deviceStateInfo;
+      if (
+        !device ||
+        currentState?.protocol !== 'V2' ||
+        currentState.identity.label === label
+      ) {
+        return;
+      }
+      const revision = currentState.revision + 1;
+      const updatedAt = Math.max(Date.now(), currentState.updatedAt + 1);
+      const event: DeviceStateEvent = {
+        connectId:
+          device.connectId ||
+          device.usbConnectId ||
+          device.bleConnectId ||
+          null,
+        changedKeys: ['identity.label'],
+        revision,
+        source: 'settings-write',
+        state: {
+          ...currentState,
+          identity: {
+            ...currentState.identity,
+            label,
+          },
+          revision,
+          updatedAt,
+        },
+      };
+      const persistResult = await localDb.updateDeviceState(event);
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'device label app write-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
+    }
+  }
+
   handleHardwareAvatarChanged = cacheUtils.memoizee(
     async ({
       walletId,
@@ -828,6 +878,8 @@ class ServiceHardware extends ServiceBase {
   private hardwareUiEventQueue = new HardwareUiEventQueue<UiEvent>();
 
   private hardwareUiEventState = createHardwareUiEventState();
+
+  private firmwareProgressConnectIdsSinceDisconnect = new Set<string>();
 
   private connectedDeviceTracked = new Set<string>();
 
@@ -927,6 +979,7 @@ class ServiceHardware extends ServiceBase {
   private resetHardwareUiEventQueue() {
     this.hardwareUiEventQueue.reset();
     this.hardwareUiEventState = createHardwareUiEventState();
+    this.firmwareProgressConnectIdsSinceDisconnect.clear();
   }
 
   private firmwareManifestRefreshMutex = new Semaphore(1);
@@ -1335,8 +1388,14 @@ class ServiceHardware extends ServiceBase {
         FIRMWARE_EVENT,
         // UI_REQUEST,
       } = await CoreSDKLoader();
-      instance.on(UI_EVENT, (e) =>
-        this.hardwareUiEventQueue
+      instance.on(UI_EVENT, (e) => {
+        if (e.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+          const connectId = e.payload?.device?.connectId;
+          if (connectId) {
+            this.firmwareProgressConnectIdsSinceDisconnect.add(connectId);
+          }
+        }
+        return this.hardwareUiEventQueue
           .enqueue(e as UiEvent, async (queuedEvent, { isCurrent }) => {
             const originEvent = queuedEvent;
             const { type: uiRequestType, payload } = queuedEvent;
@@ -1470,11 +1529,39 @@ class ServiceHardware extends ServiceBase {
               } else {
                 // show hardware ui dialog
                 await hardwareUiStateAtom.set(
-                  (): IHardwareUiState => ({
-                    action: appliedUiRequestType,
-                    connectId: appliedConnectId,
-                    payload: appliedPayload,
-                  }),
+                  (previousState): IHardwareUiState => {
+                    const isSameFirmwareDevice =
+                      previousState?.connectId === appliedConnectId;
+                    let firmwarePayload = appliedPayload;
+                    if (
+                      isSameFirmwareDevice &&
+                      appliedUiRequestType ===
+                        EHardwareUiStateAction.FIRMWARE_PROGRESS &&
+                      previousState?.payload?.firmwareTipData
+                    ) {
+                      firmwarePayload = {
+                        ...appliedPayload,
+                        firmwareTipData: previousState.payload.firmwareTipData,
+                      };
+                    } else if (
+                      isSameFirmwareDevice &&
+                      appliedUiRequestType ===
+                        EHardwareUiStateAction.FIRMWARE_TIP
+                    ) {
+                      firmwarePayload = {
+                        ...appliedPayload,
+                        firmwareProgress:
+                          previousState?.payload?.firmwareProgress,
+                        firmwareProgressType:
+                          previousState?.payload?.firmwareProgressType,
+                      };
+                    }
+                    return {
+                      action: appliedUiRequestType,
+                      connectId: appliedConnectId,
+                      payload: firmwarePayload,
+                    };
+                  },
                 );
                 if (!isCurrent()) {
                   return;
@@ -1495,8 +1582,8 @@ class ServiceHardware extends ServiceBase {
               'hardware-ui-event-queue',
               error instanceof Error ? error.message : 'Unknown event error',
             );
-          }),
-      );
+          });
+      });
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
         this.recordLiveConnectIdEvidence(event.connectId);
@@ -1739,7 +1826,13 @@ class ServiceHardware extends ServiceBase {
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           if (this.hardwareUiEventState.connectId === activeConnectId) {
-            this.resetHardwareUiEventQueue();
+            if (
+              !this.firmwareProgressConnectIdsSinceDisconnect.delete(
+                activeConnectId,
+              )
+            ) {
+              this.resetHardwareUiEventQueue();
+            }
           }
         }
       });
@@ -3243,6 +3336,10 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
+        await this.writeBackProtocolV2DeviceLabel({
+          dbDeviceId,
+          label: p.label,
+        });
         await this.handleHardwareLabelChanged({
           walletId: p.walletId,
           dbDeviceId,
@@ -3315,29 +3412,17 @@ class ServiceHardware extends ServiceBase {
     if (isT1Model) {
       names = T1_HOME_SCREEN_DEFAULT_IMAGES;
     }
-    let size = getHomeScreenSize({
-      deviceType: device.deviceType,
-      homeScreenType,
-      thumbnail: false,
-    });
-    let thumbnailSize = getHomeScreenSize({
+    const size =
+      getHomeScreenSize({
+        deviceType: device.deviceType,
+        homeScreenType,
+        thumbnail: false,
+      }) ?? (isT1Model ? DEFAULT_T1_HOME_SCREEN_INFORMATION : undefined);
+    const thumbnailSize = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,
       thumbnail: true,
     });
-    size =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ?? size;
-    thumbnailSize =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ?? thumbnailSize;
-    if (!size && isT1Model) {
-      size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
-    }
     return { names, size, thumbnailSize };
   }
 
@@ -3349,24 +3434,14 @@ class ServiceHardware extends ServiceBase {
   }): Promise<IDeviceHomeScreenConfig> {
     const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      });
-    const thumbnailSize =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      });
+    const size = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: false,
+    });
+    const thumbnailSize = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: true,
+    });
 
     return { names: [], size, thumbnailSize };
   }

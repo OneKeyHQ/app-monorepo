@@ -33,7 +33,21 @@ const createOffscreenApiModule = memoizee(
             };
             // chrome.runtime.sendMessage(message);
             // TODO backgroundApiProxyInOffscreen
-            void appGlobals.extJsBridgeOffscreenToBg.request({ data: message });
+            const bridge = appGlobals.extJsBridgeOffscreenToBg;
+            if (!bridge) {
+              console.error(
+                '[hardwareSDKLowLevel] background bridge is unavailable',
+              );
+              return;
+            }
+            void Promise.resolve(bridge.request({ data: message })).catch(
+              (error: unknown) => {
+                console.error(
+                  '[hardwareSDKLowLevel] failed to forward event to background',
+                  error,
+                );
+              },
+            );
           });
         }
         return HardwareLowLevelSDK;
