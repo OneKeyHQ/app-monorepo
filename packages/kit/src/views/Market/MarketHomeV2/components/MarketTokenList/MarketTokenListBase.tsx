@@ -45,6 +45,7 @@ import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { REDESIGN_ROW_HEIGHT } from '../marketListRedesignVisuals';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -75,7 +76,6 @@ const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
-const REDESIGN_ROW_HEIGHT = 68;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: '60px',

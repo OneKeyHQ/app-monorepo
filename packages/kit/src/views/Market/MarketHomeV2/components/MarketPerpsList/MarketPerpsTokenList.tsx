@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { REDESIGN_ROW_HEIGHT } from '../marketListRedesignVisuals';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
@@ -127,7 +128,9 @@ function MarketPerpsTokenListImpl({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        {/* Same bottom padding as the spot lists, so the first row clears the
+            pinned header by the same amount on every tab. */}
+        <YStack bg="$bgApp" px="$4" pb="$2">
           <Stack width="100%" mb="$3">
             {CategorySelector}
           </Stack>
@@ -159,7 +162,9 @@ function MarketPerpsTokenListImpl({
 
   const tableContentContainerStyle = tabIntegrated
     ? {
-        paddingTop: 8 + (platformEnv.isNative ? 150 : 0),
+        // 4px like the spot lists (MarketTokenListBase); together with the
+        // header's pb this keeps the first row at the same y on every tab.
+        paddingTop: 4 + (platformEnv.isNative ? 150 : 0),
         paddingBottom: integratedContentPaddingBottom,
       }
     : {
@@ -184,7 +189,9 @@ function MarketPerpsTokenListImpl({
             <Table.Skeleton
               columns={perpsColumns}
               count={20}
-              rowProps={{ minHeight: '$14' }}
+              rowProps={{
+                minHeight: redesignEnabled ? REDESIGN_ROW_HEIGHT : '$14',
+              }}
             />
           ) : (
             <Table<IMarketPerpsToken>
@@ -198,7 +205,14 @@ function MarketPerpsTokenListImpl({
               onHeaderRow={stableHandleHeaderRow}
               controlledSort={controlledSort}
               keyExtractor={(item) => item.name}
-              estimatedItemSize="$14"
+              // Same row box as the spot tables, so switching tabs does not
+              // shift every row below the first.
+              rowProps={
+                redesignEnabled
+                  ? { minHeight: REDESIGN_ROW_HEIGHT }
+                  : undefined
+              }
+              estimatedItemSize={redesignEnabled ? REDESIGN_ROW_HEIGHT : '$14'}
               extraData={hasRealTimeData}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}

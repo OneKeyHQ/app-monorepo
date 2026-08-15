@@ -18,6 +18,10 @@ export const REDESIGN_STAR_ICON_SIZE = '$4';
 // 40px token followed by a 14px gap before the text block.
 export const REDESIGN_NAME_ICON_GAP = 14;
 
+// Figma: 12px vertical padding around a 44px identity block = 68px rows.
+// Shared so the spot and perps tables cannot drift apart.
+export const REDESIGN_ROW_HEIGHT = 68;
+
 // Figma: 14px sort glyph sitting 2px after the label. Rendered here (rather
 // than by Column) so the label and the icon form a single hit target.
 // Must be a size token — Icon ignores raw numbers and falls back to 24px.
