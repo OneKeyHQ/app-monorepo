@@ -24,7 +24,7 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -43,11 +43,13 @@ import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   onBalanceMax: () => void;
+  storeName: EJotaiContextStoreNames;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
+  storeName,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -65,10 +67,10 @@ const SwapProTradeInfoGroup = ({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProviderSelect,
       params: {
-        storeName: EJotaiContextStoreNames.swap,
+        storeName,
       },
     });
-  }, [navigation]);
+  }, [navigation, storeName]);
 
   const handleDepositPress = useCallback(() => {
     if (!inputToken || !activeAccount) {

@@ -125,7 +125,7 @@ function DashboardContent({
           banner={
             hasActiveBanners ? (
               <View
-                style={{ width: '100%' }}
+                style={{ width: '100%', alignItems: 'center' }}
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
                 onTouchEnd={(e) => e.stopPropagation()}

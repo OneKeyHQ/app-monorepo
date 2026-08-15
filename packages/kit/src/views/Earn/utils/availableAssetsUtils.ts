@@ -1,3 +1,5 @@
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+
 const liquidityUnitMultiplierMap: Record<string, number> = {
   k: 10 ** 3,
   m: 10 ** 6,
@@ -40,4 +42,22 @@ export function parseAprPercentValue(value?: string): number {
     return 0;
   }
   return Math.max(...matches.map(Number).filter(Number.isFinite), 0);
+}
+
+// OK-59854: the server splits protocols into disjoint categories, so
+// `simpleEarn` on its own drops every native-staking asset (SOL/BTC/ETH/APT/
+// POL/ATOM live under `staking`). Both surfaces that present "tokens you can
+// earn on" need the union; a symbol offered by both categories keeps its
+// simple-earn entry, which carries the richer protocol list.
+export function mergeSimpleEarnWithStakingAssets(
+  simpleEarnAssets: IEarnAvailableAsset[],
+  stakingAssets: IEarnAvailableAsset[],
+): IEarnAvailableAsset[] {
+  const simpleEarnSymbols = new Set(
+    simpleEarnAssets.map((asset) => asset.symbol),
+  );
+  return [
+    ...simpleEarnAssets,
+    ...stakingAssets.filter((asset) => !simpleEarnSymbols.has(asset.symbol)),
+  ];
 }

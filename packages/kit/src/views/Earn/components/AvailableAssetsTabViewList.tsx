@@ -408,7 +408,10 @@ export function AvailableAssetsTabViewList({
               ) : undefined
             }
           />
-          <XStack flex={1} ai="center" jc="flex-end">
+          {/* No flex here (OK-59904): ListItem.Text above already claims
+              flex={1}, so a second flex={1} splits the row in half and wraps
+              long APR ranges such as "14.33% - 17.38% APR". */}
+          <XStack ai="center" jc="flex-end">
             <AprText asset={asset} />
           </XStack>
         </ListItem>

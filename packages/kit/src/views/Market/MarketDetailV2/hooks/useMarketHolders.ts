@@ -31,6 +31,7 @@ export function useMarketHolders({
     if (
       tokenDetail?.fdv &&
       tokenDetail.price &&
+      tokenDetail.networkId === networkId &&
       tokenDetail.address.toLowerCase() === tokenAddress.toLowerCase()
     ) {
       setCachedTokenDetail({
@@ -43,7 +44,7 @@ export function useMarketHolders({
     setCachedTokenDetail((previous) =>
       previous?.tokenKey === tokenKey ? previous : undefined,
     );
-  }, [tokenAddress, tokenDetail, tokenKey]);
+  }, [networkId, tokenAddress, tokenDetail, tokenKey]);
 
   const {
     result: holdersData,

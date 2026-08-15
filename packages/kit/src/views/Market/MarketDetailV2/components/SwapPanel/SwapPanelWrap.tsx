@@ -24,6 +24,11 @@ import {
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { SwapProviderMirror } from '@onekeyhq/kit/src/views/Swap/pages/SwapProviderMirror';
+import {
+  createGasAccountReviewSession,
+  logGasAccountReviewExit,
+  markGasAccountReviewSubmitted,
+} from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -34,6 +39,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageSegmentKey,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -284,6 +290,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     rebuildMarketSwapReview,
+    logMarketReviewGasAccountDecision,
     sendMarketApproveTx,
     sendMarketSwapTx,
     sendMarketWrappedTx,
@@ -479,10 +486,32 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     setSlippage(speedConfig.slippage);
   }, [marketPresetSettings.enabled, speedConfig?.slippage, setSlippage]);
 
+  const saveMarketSlippageForFutureOrders = useCallback(
+    async (slippagePercentage: number) => {
+      setSlippage(slippagePercentage);
+      if (!marketPresetSettings.enabled) {
+        return;
+      }
+      await marketPresetSettings.onSavePresetDirectionSettings({
+        presetKey: marketPresetSettings.selectedPresetKey,
+        tradeSide: marketPresetSettings.tradeSide,
+        settings: {
+          ...marketPresetSettings.selectedDirectionSettings,
+          slippage: {
+            key: ESwapSlippageSegmentKey.CUSTOM,
+            value: slippagePercentage,
+          },
+        },
+      });
+    },
+    [marketPresetSettings, setSlippage],
+  );
+
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
       prepareReview: prepareMarketSwapReview,
       rebuildReview: rebuildMarketSwapReview,
+      saveSlippageForFutureOrders: saveMarketSlippageForFutureOrders,
       sendApproveTx: sendMarketApproveTx,
       sendSwapTx: sendMarketSwapTx,
       sendWrappedTx: sendMarketWrappedTx,
@@ -493,6 +522,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       buildMarketApproveInfos,
       prepareMarketSwapReview,
       rebuildMarketSwapReview,
+      saveMarketSlippageForFutureOrders,
       sendMarketApproveTx,
       sendMarketSwapTx,
       sendMarketWrappedTx,
@@ -573,6 +603,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
           void previousDialog.close();
         }
         setIsReviewDialogOpen(true);
+        const gasAccountReviewSession = createGasAccountReviewSession();
         let dialog: IDialogInstance | null = null;
         dialog = inPageDialog.show({
           title: intl.formatMessage({
@@ -585,6 +616,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
             if (reviewDialogRef.current !== dialog) {
               return;
             }
+            logGasAccountReviewExit(gasAccountReviewSession);
             reviewDialogRef.current = null;
             setIsReviewDialogOpen(false);
           },
@@ -595,6 +627,9 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
               showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}
               reviewState={nextReviewState}
+              onConfirmStart={() =>
+                markGasAccountReviewSubmitted(gasAccountReviewSession)
+              }
               onDone={() => void dialog?.close()}
             />
           ),
@@ -605,6 +640,8 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
           return;
         }
         reviewDialogRef.current = dialog;
+        gasAccountReviewSession.analyticsContext =
+          logMarketReviewGasAccountDecision();
       } catch (error) {
         if (reviewDialogRequestIdRef.current !== requestId) {
           return;
@@ -631,6 +668,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       effectiveCustomPriorityFee,
       effectiveNetworkFeeLevel,
       marketPresetSettings,
+      logMarketReviewGasAccountDecision,
       prepareMarketSwapReview,
       quoteNeedsRefresh,
       quoteReadyForReview,

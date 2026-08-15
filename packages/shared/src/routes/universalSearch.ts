@@ -1,4 +1,7 @@
-import type { EUniversalSearchType } from '../../types/search';
+import type {
+  EUniversalSearchSource,
+  EUniversalSearchType,
+} from '../../types/search';
 
 export enum EUniversalSearchPages {
   UniversalSearch = 'UniversalSearch',
@@ -7,6 +10,7 @@ export enum EUniversalSearchPages {
 
 export type IUniversalSearchParamList = {
   [EUniversalSearchPages.UniversalSearch]: {
+    source: EUniversalSearchSource;
     filterTypes?: EUniversalSearchType[];
     initialTab?: 'market' | 'dapp';
   };

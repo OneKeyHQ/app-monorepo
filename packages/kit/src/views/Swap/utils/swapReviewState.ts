@@ -136,6 +136,9 @@ export type ISwapReviewAdapter = {
     networkFeeLevel?: ESwapNetworkFeeLevel;
     customPriorityFee?: ISwapReviewCustomPriorityFee;
   }) => Promise<ISwapReviewState>;
+  saveSlippageForFutureOrders?: (
+    slippagePercentage: number,
+  ) => Promise<void> | void;
   sendApproveTx: (params: {
     amount: string;
     gasInfos?: ISwapReviewGasInfoEntry[];

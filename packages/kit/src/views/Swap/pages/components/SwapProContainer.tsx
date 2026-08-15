@@ -25,7 +25,10 @@ import {
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,6 +72,7 @@ import type {
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
 interface ISwapProContainerProps {
+  storeName: EJotaiContextStoreNames;
   pageType?: EPageType;
   isFocused: boolean;
   onProSelectToken: (autoSearch?: boolean) => void;
@@ -95,6 +99,7 @@ interface ISwapProContainerProps {
 }
 
 const SwapProContainer = ({
+  storeName,
   pageType,
   isFocused,
   onProSelectToken,
@@ -348,6 +353,7 @@ const SwapProContainer = ({
         </YStack>
         <YStack flexBasis="60%" flexShrink={1} alignSelf="stretch">
           <SwapProTradingPanel
+            storeName={storeName}
             supportSpeedSwap={!!supportSpeedSwap}
             swapProConfig={speedConfig}
             configLoading={isLoading}

@@ -596,6 +596,7 @@ export interface ISwapGasInfo {
   payer?: IGasPayer;
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
+  gasAccountScenarioReason?: string;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;

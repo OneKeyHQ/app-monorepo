@@ -814,12 +814,15 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
+    // Spot settles on its own level count, and the perps account flags read
+    // true until the account address resolves, so checking them first made every
+    // spot cold start render 7 levels and then collapse the first-screen grid.
+    if (activeTradeInstrument.mode === 'spot')
+      return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
     if (shouldCompactOrderBookForFirstDeposit) return 5;
     if (shouldShowEnableTradingButton) {
       return shouldCompactOrderBookForConnectWallet ? 6 : 7;
     }
-    if (activeTradeInstrument.mode === 'spot')
-      return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
     if (formData.hasTpsl) return 9;
     return 7;
   }, [

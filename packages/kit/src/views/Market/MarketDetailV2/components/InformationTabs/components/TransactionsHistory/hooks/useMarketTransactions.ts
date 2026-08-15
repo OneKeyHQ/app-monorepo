@@ -190,7 +190,7 @@ export function useMarketTransactions({
     // realtime transport is active. This avoids a second identical request
     // when responsive/websocket state settles after the first render.
     setStopPolling(!normalMode);
-  }, [normalMode, setStopPolling]);
+  }, [networkId, normalMode, setStopPolling, tokenAddress]);
 
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {

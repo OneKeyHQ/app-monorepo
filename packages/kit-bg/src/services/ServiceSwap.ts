@@ -135,6 +135,7 @@ import ServiceBase from './ServiceBase';
 import {
   buildPerpDepositOrderStatusRequestParams,
   buildSwapReferralBuildTxParams,
+  mergeSwapTokenLists,
   normalizeSwapTokenListCurrency,
   shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
@@ -509,11 +510,15 @@ export default class ServiceSwap extends ServiceBase {
 
   private _perpDepositQuoteController?: AbortController;
 
-  private _quoteEventSource?: EventSource;
+  private _quoteEventSources = new Map<
+    string,
+    {
+      eventSource?: EventSource;
+      eventSourcePolyfill?: EventSourcePolyfill;
+    }
+  >();
 
-  private _quoteEventSourcePolyfill?: EventSourcePolyfill;
-
-  private _activeQuoteEventRequestId?: string;
+  private _activeQuoteEventRequestIds = new Set<string>();
 
   private _quoteEventRequestSequence = 0;
 
@@ -634,30 +639,35 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async removeQuoteEventSourceListeners() {
-    if (this._quoteEventSource) {
-      this._quoteEventSource.removeAllEventListeners();
+  private removeQuoteEventSourceListeners(quoteRequestId: string) {
+    const sources = this._quoteEventSources.get(quoteRequestId);
+    if (sources?.eventSource) {
+      sources.eventSource.removeAllEventListeners();
     }
-    if (this._quoteEventSourcePolyfill) {
-      this._quoteEventSourcePolyfill.onmessage = null;
-      this._quoteEventSourcePolyfill.onerror = null;
-      this._quoteEventSourcePolyfill.onopen = null;
+    if (sources?.eventSourcePolyfill) {
+      sources.eventSourcePolyfill.onmessage = null;
+      sources.eventSourcePolyfill.onerror = null;
+      sources.eventSourcePolyfill.onopen = null;
     }
   }
 
   @backgroundMethod()
   async cancelFetchQuoteEvents(quoteRequestId?: string) {
-    if (quoteRequestId && quoteRequestId !== this._activeQuoteEventRequestId) {
-      return;
-    }
-    this._activeQuoteEventRequestId = undefined;
-    if (this._quoteEventSource) {
-      this._quoteEventSource.close();
-      this._quoteEventSource = undefined;
-    }
-    if (this._quoteEventSourcePolyfill) {
-      this._quoteEventSourcePolyfill.close();
-      this._quoteEventSourcePolyfill = undefined;
+    const requestIds = quoteRequestId
+      ? [quoteRequestId]
+      : Array.from(
+          new Set([
+            ...this._activeQuoteEventRequestIds,
+            ...this._quoteEventSources.keys(),
+          ]),
+        );
+    for (const requestId of requestIds) {
+      this._activeQuoteEventRequestIds.delete(requestId);
+      const sources = this._quoteEventSources.get(requestId);
+      this.removeQuoteEventSourceListeners(requestId);
+      sources?.eventSource?.close();
+      sources?.eventSourcePolyfill?.close();
+      this._quoteEventSources.delete(requestId);
     }
   }
 
@@ -819,25 +829,34 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     try {
-      const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
-        '/swap/v1/tokens',
-        {
-          params,
-          signal: !isAllNetworkFetchAccountTokens
-            ? this._tokenListAbortController?.signal
-            : undefined,
-          headers: {
-            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            )),
-            'x-onekey-request-currency': requestCurrency,
-          },
+      const requestConfig = {
+        params,
+        signal: !isAllNetworkFetchAccountTokens
+          ? this._tokenListAbortController?.signal
+          : undefined,
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            {
+              accountId,
+            },
+          )),
+          'x-onekey-request-currency': requestCurrency,
         },
+      };
+      const endpoints =
+        keywords && onlySwapTokens
+          ? ['/swap/v1/tokens', '/swap/v1/swap-tokens']
+          : ['/swap/v1/tokens'];
+      const responses = await Promise.all(
+        endpoints.map((endpoint) =>
+          client.get<IFetchResponse<ISwapToken[]>>(endpoint, requestConfig),
+        ),
+      );
+      const tokens = mergeSwapTokenLists(
+        responses.map(({ data }) => data?.data ?? []),
       );
       return normalizeSwapTokenListCurrency({
-        tokens: data?.data ?? [],
+        tokens,
         currency: requestCurrency,
       });
     } catch (e) {
@@ -1127,8 +1146,8 @@ export default class ServiceSwap extends ServiceBase {
     const quoteRequestId =
       inputQuoteRequestId ??
       `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
-    this._activeQuoteEventRequestId = quoteRequestId;
-    await this.removeQuoteEventSourceListeners();
+    await this.cancelFetchQuoteEvents(quoteRequestId);
+    this._activeQuoteEventRequestIds.add(quoteRequestId);
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,
@@ -1186,18 +1205,16 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
-    if (this._activeQuoteEventRequestId !== quoteRequestId) {
+    if (!this._activeQuoteEventRequestIds.has(quoteRequestId)) {
       return;
     }
     if (platformEnv.isExtension) {
-      if (this._quoteEventSourcePolyfill) {
-        this._quoteEventSourcePolyfill.close();
-        this._quoteEventSourcePolyfill = undefined;
-      }
       const quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
-      this._quoteEventSourcePolyfill = quoteEventSourcePolyfill;
+      this._quoteEventSources.set(quoteRequestId, {
+        eventSourcePolyfill: quoteEventSourcePolyfill,
+      });
       quoteEventSourcePolyfill.onmessage = (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
@@ -1256,17 +1273,16 @@ export default class ServiceSwap extends ServiceBase {
         });
       };
     } else {
-      if (this._quoteEventSource) {
-        this._quoteEventSource.close();
-        this._quoteEventSource = undefined;
-      }
-      this._quoteEventSource = new EventSource(swapEventUrl, {
+      const quoteEventSource = new EventSource(swapEventUrl, {
         headers,
         pollingInterval: 0,
         timeoutBeforeConnection: 0,
         timeout: swapQuoteEventTimeout,
       });
-      this._quoteEventSource.addEventListener('open', (event) => {
+      this._quoteEventSources.set(quoteRequestId, {
+        eventSource: quoteEventSource,
+      });
+      quoteEventSource.addEventListener('open', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'open',
           event,
@@ -1276,7 +1292,7 @@ export default class ServiceSwap extends ServiceBase {
           quoteRequestId,
         });
       });
-      this._quoteEventSource.addEventListener('message', (event) => {
+      quoteEventSource.addEventListener('message', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event,
@@ -1286,7 +1302,7 @@ export default class ServiceSwap extends ServiceBase {
           quoteRequestId,
         });
       });
-      this._quoteEventSource.addEventListener('done', (event) => {
+      quoteEventSource.addEventListener('done', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'done',
           event,
@@ -1296,7 +1312,7 @@ export default class ServiceSwap extends ServiceBase {
           quoteRequestId,
         });
       });
-      this._quoteEventSource.addEventListener('close', (event) => {
+      quoteEventSource.addEventListener('close', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'close',
           event,
@@ -1306,7 +1322,7 @@ export default class ServiceSwap extends ServiceBase {
           quoteRequestId,
         });
       });
-      this._quoteEventSource.addEventListener('error', (event) => {
+      quoteEventSource.addEventListener('error', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
           event,

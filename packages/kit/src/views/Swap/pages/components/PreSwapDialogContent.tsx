@@ -37,6 +37,7 @@ import {
   useInAppNotificationAtom,
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -96,6 +97,9 @@ interface IPreSwapDialogContentProps {
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
+  saveSlippageForFutureOrders?: (
+    slippagePercentage: number,
+  ) => Promise<void> | void;
 }
 
 const PreSwapDialogContent = ({
@@ -108,6 +112,7 @@ const PreSwapDialogContent = ({
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
   rebuildReviewWithSlippage,
+  saveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
@@ -349,22 +354,32 @@ const PreSwapDialogContent = ({
           return;
         }
         if (scope === 'future') {
-          setSettings((prev) => ({
-            ...prev,
-            swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
-            swapSlippagePercentageCustomValue: slippagePercentage,
-          }));
+          if (saveSlippageForFutureOrders) {
+            await saveSlippageForFutureOrders(slippagePercentage);
+          } else {
+            setSettings((prev) => ({
+              ...prev,
+              swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+              swapSlippagePercentageCustomValue: slippagePercentage,
+            }));
+          }
         }
         setSlippageEditorOpen(false);
-      } catch {
-        // Background swap methods surface the actionable error toast.
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
       } finally {
         if (isMountedRef.current) {
           setSlippageSavingScope(undefined);
         }
       }
     },
-    [rebuildReviewWithSlippage, setSettings, slippageSavingScope],
+    [
+      rebuildReviewWithSlippage,
+      saveSlippageForFutureOrders,
+      setSettings,
+      slippageSavingScope,
+    ],
   );
 
   const handleConfirmPress = useCallback(() => {

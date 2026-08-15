@@ -42,6 +42,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
@@ -83,6 +84,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
+import type { IGasAccountAnalyticsContext } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
@@ -179,6 +181,8 @@ type IMarketReviewExecutionSnapshot = {
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
+  gasAccountAnalyticsContext?: IGasAccountAnalyticsContext;
+  gasAccountAnalyticsNativeBalance?: string;
   // customPriorityFee is owned by the swapStepNetFeeLevel atom; never snapshot
   // it here, or a cleared preset fee would resurrect via `?? snapshot.value`.
 };
@@ -459,7 +463,9 @@ export function useSpeedSwapActions(props: {
   } = useSwapActions().current;
   const quoteRequestIdRef = useRef(quoteActionLock.quoteRequestId);
   quoteRequestIdRef.current = quoteActionLock.quoteRequestId;
-
+  const gasAccountDecisionSnapshotsRef = useRef(
+    new WeakSet<IMarketReviewExecutionSnapshot>(),
+  );
   const effectiveSpenderAddress =
     selectedQuoteResult?.allowanceResult?.allowanceTarget ?? '';
 
@@ -1077,9 +1083,23 @@ export function useSpeedSwapActions(props: {
         );
       }
 
-      if (!quoteExecutionStateRef.current.actionState.canReview) {
+      const {
+        actionState: capturedQuoteActionState,
+        selectedQuoteResult: selectedQuote,
+      } = quoteExecutionStateRef.current;
+      if (!capturedQuoteActionState.canReview) {
         throw new OneKeyLocalError(
           'Market swap review requires a current quote.',
+        );
+      }
+      if (
+        !selectedQuote?.info.provider ||
+        !selectedQuote.toAmount ||
+        selectedQuote.errorMessage
+      ) {
+        throw new OneKeyLocalError(
+          selectedQuote?.errorMessage ??
+            'Market swap review requires an available quote.',
         );
       }
 
@@ -1090,28 +1110,17 @@ export function useSpeedSwapActions(props: {
         accountId: netAccountRes.result.id,
       });
 
+      if (
+        !quoteExecutionStateRef.current.actionState.canReview ||
+        quoteExecutionStateRef.current.selectedQuoteResult !== selectedQuote
+      ) {
+        throw new OneKeyLocalError(
+          'Market swap quote changed while preparing review.',
+        );
+      }
+
       setSpeedSwapBuildTxLoading(true);
       try {
-        const {
-          actionState: currentQuoteActionState,
-          selectedQuoteResult: selectedQuote,
-        } = quoteExecutionStateRef.current;
-        if (!currentQuoteActionState.canReview) {
-          throw new OneKeyLocalError(
-            'Market swap review requires a current quote.',
-          );
-        }
-        if (
-          !selectedQuote?.info.provider ||
-          !selectedQuote.toAmount ||
-          selectedQuote.errorMessage
-        ) {
-          throw new OneKeyLocalError(
-            selectedQuote?.errorMessage ??
-              'Market swap review requires an available quote.',
-          );
-        }
-
         const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
           fromToken: fromTokenFinal,
           toToken: toTokenFinal,
@@ -1408,6 +1417,13 @@ export function useSpeedSwapActions(props: {
             approveUnsignedTxArr,
             networkFeeLevel,
             customPriorityFee,
+            gasAccountAnalytics:
+              snapshot.kind === 'swap'
+                ? {
+                    fiatCurrency: settingsAtom.currencyInfo.id,
+                    useGasAccountByDefault: settingsAtom.useGasAccountByDefault,
+                  }
+                : undefined,
           });
 
           if (
@@ -1418,6 +1434,16 @@ export function useSpeedSwapActions(props: {
               ...snapshot.buildUnsignedParams,
               encodedTx: feeState.preparedUnsignedTx.encodedTx,
             };
+          }
+
+          if (
+            feeState.gasAccountAnalyticsContext &&
+            reviewExecutionSnapshotRef.current === snapshot
+          ) {
+            snapshot.gasAccountAnalyticsContext =
+              feeState.gasAccountAnalyticsContext;
+            snapshot.gasAccountAnalyticsNativeBalance =
+              feeState.gasAccountAnalyticsNativeBalance;
           }
 
           netWorkFee = {
@@ -1459,6 +1485,7 @@ export function useSpeedSwapActions(props: {
       buildReviewStepTexts,
       currencyMap,
       settingsAtom.currencyInfo.id,
+      settingsAtom.useGasAccountByDefault,
       slippage,
     ],
   );
@@ -1858,6 +1885,19 @@ export function useSpeedSwapActions(props: {
     },
     [],
   );
+
+  const logMarketReviewGasAccountDecision = useCallback(() => {
+    const snapshot = reviewExecutionSnapshotRef.current;
+    if (snapshot?.kind !== 'swap' || !snapshot.gasAccountAnalyticsContext) {
+      return;
+    }
+
+    if (!gasAccountDecisionSnapshotsRef.current.has(snapshot)) {
+      gasAccountDecisionSnapshotsRef.current.add(snapshot);
+      logDirectSwapGasAccountDecision(snapshot.gasAccountAnalyticsContext);
+    }
+    return snapshot.gasAccountAnalyticsContext;
+  }, []);
 
   const openMarketFallbackTxConfirm = useCallback(
     async ({
@@ -2420,6 +2460,11 @@ export function useSpeedSwapActions(props: {
           gasInfos,
           networkFeeLevel,
           customPriorityFee,
+          gasAccountAnalytics: {
+            fiatCurrency: settingsAtom.currencyInfo.id,
+            nativeBalance: snapshot.gasAccountAnalyticsNativeBalance,
+            useGasAccountByDefault: settingsAtom.useGasAccountByDefault,
+          },
         });
         const result = await handleMarketSwapBuildTxSuccess(data);
         if (result) {
@@ -2475,6 +2520,8 @@ export function useSpeedSwapActions(props: {
       logMarketCreateOrder,
       openMarketFallbackTxConfirm,
       requireReviewExecutionSnapshot,
+      settingsAtom.currencyInfo.id,
+      settingsAtom.useGasAccountByDefault,
     ],
   );
 
@@ -3153,8 +3200,18 @@ export function useSpeedSwapActions(props: {
     return () => {
       appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       cleanQuoteInterval();
+      const quoteRequestId = quoteRequestIdRef.current;
+      if (quoteRequestId) {
+        closeQuoteEvent(quoteRequestId);
+      }
+      void resetQuoteAction();
     };
-  }, [cleanQuoteInterval, quoteEventHandler]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteEventHandler,
+    resetQuoteAction,
+  ]);
 
   useEffect(() => {
     setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
@@ -3289,6 +3346,7 @@ export function useSpeedSwapActions(props: {
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     rebuildMarketSwapReview,
+    logMarketReviewGasAccountDecision,
     sendMarketApproveTx,
     sendMarketSwapTx,
     sendMarketWrappedTx,

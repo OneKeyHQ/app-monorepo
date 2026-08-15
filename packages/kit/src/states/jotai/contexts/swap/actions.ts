@@ -1607,6 +1607,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const fromTokenAmount = get(swapFromTokenAmountAtom());
     const toTokenAmount = get(swapToTokenAmountAtom());
     const swapTypeSwitch = get(swapTypeSwitchAtom());
+    this.closeQuoteEvent(get(swapQuoteActionLockAtom()).quoteRequestId);
     set(swapQuoteFetchingAtom(), false);
     set(swapQuoteEventErrorAtom(), undefined);
     set(swapQuoteCurrentEventProviderKeysAtom(), []);
@@ -1843,7 +1844,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   closeQuoteEvent = (quoteRequestId?: string) => {
-    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(quoteRequestId);
+    if (quoteRequestId) {
+      void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(
+        quoteRequestId,
+      );
+    }
   };
 
   cleanLimitOrderMarketPriceInterval = () => {
