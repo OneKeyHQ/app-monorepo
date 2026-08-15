@@ -38,7 +38,7 @@ export default function ActionCenter() {
   // tall empty band under the bar. The pt: top branch is kept for iOS
   // <26 / Android / web where there's no native bar to reserve space.
   return (
-    <Page safeAreaEnabled={false}>
+    <Page>
       <Page.Body
         pt={platformEnv.isNativeIOS26Plus ? 0 : top}
         bg="$bgSubdued"

@@ -905,7 +905,7 @@ function BaseMoreActionGrid({
 }) {
   const { isPrimeAvailable } = usePrimeAvailable();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
-  const { rows } = useMemo(
+  const rows = useMemo(
     () => buildMoreActionGridLayout(items, isPrimeAvailable),
     [isPrimeAvailable, items],
   );
