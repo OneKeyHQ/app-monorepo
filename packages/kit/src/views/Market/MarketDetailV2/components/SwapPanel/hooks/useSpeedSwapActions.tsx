@@ -373,6 +373,12 @@ export function useSpeedSwapActions(props: {
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
   onCloseDialog?: () => void;
+  /**
+   * Live per-stock open state from the token detail. Flips re-run the speed
+   * check so a stale closed-market error clears on reopen (OK-58986) —
+   * market status itself never gates the check.
+   */
+  stockIsOpen?: boolean;
 }) {
   const {
     marketToken,
@@ -386,6 +392,7 @@ export function useSpeedSwapActions(props: {
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     // onCloseDialog,
+    stockIsOpen,
   } = props;
 
   const intl = useIntl();
@@ -3097,6 +3104,10 @@ export function useSpeedSwapActions(props: {
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced || 0,
     );
+    // Read only as a re-run trigger: a stock open-state flip (e.g. the
+    // market reopening) must refresh the check so a stale closed-market
+    // speedCheckError clears without waiting for an input edit (OK-58986).
+    void stockIsOpen;
     if (
       (!fromTokenAmountDebouncedBN.isNaN() &&
         fromTokenAmountDebouncedBN.gt(0) &&
@@ -3127,6 +3138,7 @@ export function useSpeedSwapActions(props: {
     fromTokenAmountDebounced,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
     netAccountRes?.result?.addressDetail.address,
+    stockIsOpen,
   ]);
 
   useEffect(() => {

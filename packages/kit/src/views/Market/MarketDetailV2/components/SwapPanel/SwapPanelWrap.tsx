@@ -224,6 +224,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
     spenderAddress: speedConfig.spenderAddress,
+    // Live open-state flips re-run the speed check so a stale closed-market
+    // error clears once the market reopens (OK-58986).
+    stockIsOpen: tokenDetail?.stock?.isOpen,
     marketToken: {
       networkId: networkId || '',
       contractAddress: tokenDetail?.address || '',
