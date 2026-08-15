@@ -1617,7 +1617,7 @@ class ServiceHardware extends ServiceBase {
           // tracked identity may miss the raw deviceId; re-track once features
           // arrive so deviceId-based consumers see the device as connected.
           const { identityKeysChanged } = this.trackConnectedDevice(
-            (message.device ?? undefined),
+            message.device ?? undefined,
           );
           if (identityKeysChanged) {
             appEventBus.emit(
