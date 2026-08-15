@@ -3311,29 +3311,17 @@ class ServiceHardware extends ServiceBase {
     if (isT1Model) {
       names = T1_HOME_SCREEN_DEFAULT_IMAGES;
     }
-    let size = getHomeScreenSize({
-      deviceType: device.deviceType,
-      homeScreenType,
-      thumbnail: false,
-    });
-    let thumbnailSize = getHomeScreenSize({
+    const size =
+      getHomeScreenSize({
+        deviceType: device.deviceType,
+        homeScreenType,
+        thumbnail: false,
+      }) ?? (isT1Model ? DEFAULT_T1_HOME_SCREEN_INFORMATION : undefined);
+    const thumbnailSize = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,
       thumbnail: true,
     });
-    size =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ?? size;
-    thumbnailSize =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ?? thumbnailSize;
-    if (!size && isT1Model) {
-      size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
-    }
     return { names, size, thumbnailSize };
   }
 
@@ -3345,24 +3333,14 @@ class ServiceHardware extends ServiceBase {
   }): Promise<IDeviceHomeScreenConfig> {
     const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      });
-    const thumbnailSize =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      });
+    const size = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: false,
+    });
+    const thumbnailSize = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: true,
+    });
 
     return { names: [], size, thumbnailSize };
   }
