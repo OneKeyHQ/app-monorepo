@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -166,17 +167,27 @@ const ProtocolHeader = ({
   return (
     <YStack gap="$2.5">
       <XStack jc="space-between" ai="center">
+        {/* Vault symbols can be as long as
+            "Morpho-cbBTC-USDC-wrapper". The name group used to be
+            flexShrink={0} with no truncation on its text, so it pushed the
+            divider and the maturity date off the right edge. The date is
+            short and load-bearing, so it and the divider hold their size and
+            the name truncates into whatever is left. */}
         <XStack gap="$3" ai="center" minWidth={0} flex={1}>
-          <XStack gap="$2" ai="center" flexShrink={0}>
+          <XStack gap="$2" ai="center" flexShrink={1} minWidth={0}>
             <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-            <SizableText size="$bodyLgMedium">
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
               {tokenInfo?.token.symbol || symbol}
             </SizableText>
           </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$6" />
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              <Divider vertical h="$6" flexShrink={0} />
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={0}
+              >
                 {formattedMaturityDate}
               </SizableText>
             </>
@@ -840,17 +851,29 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // without the logo the entry list handed over the header would render the
   // placeholder icon on every entry and swap to the real logo on response.
   const headerTokenLogoURI = tokenInfo?.token?.logoURI ?? logoURI;
+  // OK-59961: entries that carry no logoURI route param (a banner deep link)
+  // have nothing to draw until getProtocolDetailsV2 resolves, so the header
+  // rendered Token's placeholder coin and swapped in the real logo a beat
+  // later. Skeleton it instead while the request is still in flight — gated on
+  // isLoading rather than on the URI alone, so a token that genuinely has no
+  // logo still falls back to the placeholder instead of pulsing forever.
+  const isHeaderTokenLogoPending = !headerTokenLogoURI && isLoading;
 
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" tokenImageUri={headerTokenLogoURI} />
+        {isHeaderTokenLogoPending ? (
+          // Matches Token size="md" (tokenImageSize $8) so nothing shifts
+          <Skeleton w="$8" h="$8" radius="round" />
+        ) : (
+          <Token size="md" tokenImageUri={headerTokenLogoURI} />
+        )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, headerTokenLogoURI],
+    [symbol, headerTokenLogoURI, isHeaderTokenLogoPending],
   );
 
   const handleOpenManageModal = useCallback(

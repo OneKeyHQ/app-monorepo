@@ -16,6 +16,7 @@ import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 import { AvailableAssetsFlatList } from './AvailableAssetsFlatList';
 import { EarnHomeBanner } from './EarnHomeBanner';
 import { EarnHomeShortcuts } from './EarnHomeShortcuts';
+import { EARN_SECTION_GAP } from './earnListRhythm';
 import { FAQContent } from './FAQContent';
 import { Overview } from './Overview';
 import { Recommended } from './Recommended';
@@ -75,9 +76,22 @@ function EarnMobileHomeContentComponent({
         <RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} />
       }
     >
-      <HeaderScrollGestureWrapper onHorizontalSwipe={onHeaderHorizontalSwipe}>
-        <YStack pt={24} bg="$bgApp" pointerEvents="box-none">
-          <YStack px="$pagePadding" pb={26}>
+      {/* disableVerticalScroll is required here (OK-59963): this wrapper drives
+          scrolling through CollapsibleTabContext, but the Earn home is a plain
+          ScrollView with no Tabs.Container above it, so the context is
+          undefined and the vertical pan swallows the drag (cancelsTouchesInView)
+          without scrolling anything — the whole header block, banner included,
+          became unscrollable. Only the horizontal tab-switch swipe is wanted
+          here; its failOffsetY lets vertical drags fall through to the
+          ScrollView. */}
+      <HeaderScrollGestureWrapper
+        onHorizontalSwipe={onHeaderHorizontalSwipe}
+        disableVerticalScroll
+      >
+        {/* Token spacing, not raw numbers: narrow Android screens scale the
+            token scale by 0.9 and a literal would not follow (OK-59904) */}
+        <YStack pt="$6" bg="$bgApp" pointerEvents="box-none">
+          <YStack px="$pagePadding" pb="$6">
             <Overview
               onRefresh={onRefresh}
               isLoading={isRefreshing}
@@ -95,7 +109,10 @@ function EarnMobileHomeContentComponent({
         </YStack>
       </HeaderScrollGestureWrapper>
 
-      <YStack gap="$8">
+      {/* AvailableAssetsFlatList contributes two more sections of its own and
+          must keep the same gap, otherwise trending/fixed-rate sit tighter
+          than their siblings (OK-59904) */}
+      <YStack gap={EARN_SECTION_GAP}>
         <Recommended isActive={isActive} />
         <AvailableAssetsFlatList />
         <YStack px="$pagePadding" gap="$2">

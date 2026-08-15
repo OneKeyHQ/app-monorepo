@@ -32,6 +32,8 @@ import {
 } from '../../Staking/components/ProtocolDisplayShared';
 
 import { AprText } from './AprText';
+import { EarnAprSuffixText } from './EarnAprSuffixText';
+import { getProtocolAprColor } from './showProtocolListDialog.utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -159,6 +161,19 @@ const groupProtocolsByGroup = (
   });
 
   return sections;
+};
+
+// Keep the APY/APR suffix; EarnAprSuffixText splits it into "value + smaller
+// unit" rendering (OK-58854)
+const getProtocolAprText = (item: IStakeProtocolListItem) => {
+  return (
+    item.aprInfo?.highlight?.text ||
+    item.aprInfo?.normal?.text ||
+    item.aprInfo?.deprecated?.text ||
+    `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}% ${
+      item.provider.rewardUnit || 'APR'
+    }`
+  );
 };
 
 // Quick-switcher provider grouping (OK-58854): native is hidden; bitway is
@@ -397,6 +412,7 @@ export function ProtocolListContent({
         selectedProtocolKey !== undefined &&
         protocolKey === selectedProtocolKey;
       const tvlText = formatTvl(item.provider.tvl);
+      const aprColor = getProtocolAprColor(item.aprInfo);
       // TVL moved to the bottom-right; bottom-left keeps only vaultName (OK-58854)
       const secondaryText = item.provider.vaultName || '';
 
@@ -454,7 +470,10 @@ export function ProtocolListContent({
             ) : null}
           </YStack>
           <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
-            <AprText asset={createAssetFromProtocol(item)} />
+            <EarnAprSuffixText
+              text={getProtocolAprText(item)}
+              color={aprColor}
+            />
             {tvlText ? (
               <SizableText size="$bodySm" color="$textSubdued">
                 {`TVL ${tvlText}`}

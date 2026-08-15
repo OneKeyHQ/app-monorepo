@@ -4,12 +4,86 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import {
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
+  getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
   resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+function buildAccountInfo({
+  accountId,
+  ready = true,
+}: {
+  accountId?: string;
+  ready?: boolean;
+} = {}): IAccountSelectorActiveAccountInfo {
+  return {
+    ready,
+    account: accountId
+      ? ({ id: accountId } as IAccountSelectorActiveAccountInfo['account'])
+      : undefined,
+    indexedAccount: undefined,
+    dbAccount: undefined,
+    accountName: '',
+    wallet: undefined,
+    device: undefined,
+    network: undefined,
+    vaultSettings: undefined,
+    deriveType: undefined,
+    deriveInfoItems: [],
+  };
+}
+
+describe('getSwapRecipientEditorAccountInfo', () => {
+  it('prefers ready recipient ownership information', () => {
+    const recipientAccountInfo = buildAccountInfo({
+      accountId: 'recipient-account',
+    });
+    const activeAccount = buildAccountInfo({ accountId: 'active-account' });
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo,
+        activeAccount,
+      }),
+    ).toBe(recipientAccountInfo);
+  });
+
+  it('falls back to a ready active account for an external recipient', () => {
+    const activeAccount = buildAccountInfo({ accountId: 'active-account' });
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('allows a ready editor context before its network account is created', () => {
+    const activeAccount = buildAccountInfo();
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('waits until an account context is ready', () => {
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: buildAccountInfo({ ready: false }),
+        activeAccount: buildAccountInfo({ ready: false }),
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('resolveSwapTargetNetworkAccount', () => {
   beforeEach(() => {
