@@ -13,7 +13,7 @@ import type {
   IDesktopStoreNetworkThrottleProfile,
 } from '@onekeyhq/shared/types/desktop';
 
-import { buildDesktopRemoteOnlyNetworkConditionRules } from './desktopNetworkThrottlePolicy';
+import { buildDesktopOneKeyOriginNetworkConditionRules } from './desktopNetworkThrottlePolicy';
 import * as store from './store';
 
 const DESKTOP_WEBVIEW_PARTITION = 'persist:onekey';
@@ -56,10 +56,6 @@ type IApplyDesktopNetworkThrottleOptions = {
   throwOnFailure?: boolean;
 };
 
-type IApplyDesktopNetworkThrottleToWebContentsOptions = {
-  remoteOnly?: boolean;
-};
-
 const DESKTOP_NETWORK_THROTTLE_PROFILES: Record<
   IDesktopStoreNetworkThrottleProfile,
   IDesktopNetworkThrottleProfileConfig
@@ -79,7 +75,6 @@ const DEFAULT_NETWORK_THROTTLE_CONFIG: IDesktopStoreNetworkThrottle = {
 
 const appliedStateBySession = new WeakMap<Session, string>();
 const appliedStateByWebContentsDebugger = new WeakMap<WebContents, string>();
-const remoteOnlyNetworkThrottleSessions = new WeakSet<Session>();
 const webContentsDebuggersAttachedByNetworkThrottle =
   new WeakSet<WebContents>();
 const webContentsDebuggersDetachingByNetworkThrottle =
@@ -172,14 +167,6 @@ function getSessionStateKey(config: IDesktopStoreNetworkThrottle): string {
   return config.enabled ? config.profile : 'disabled';
 }
 
-function getWebContentsStateKey(
-  config: IDesktopStoreNetworkThrottle,
-  remoteOnly: boolean,
-): string {
-  const stateKey = getSessionStateKey(config);
-  return config.enabled && remoteOnly ? `${stateKey}:remote-only` : stateKey;
-}
-
 function getSessionAppliedLogMessage(
   config: IDesktopStoreNetworkThrottle,
   label: string,
@@ -200,7 +187,6 @@ function getSessionAppliedLogMessage(
 function getWebContentsAppliedLogMessage(
   config: IDesktopStoreNetworkThrottle,
   label: string,
-  remoteOnly: boolean,
 ): string {
   if (!config.enabled) {
     return `[desktop-network-throttle] debugger applied state=disabled webContents=${label}`;
@@ -209,7 +195,7 @@ function getWebContentsAppliedLogMessage(
   const profile = DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
   return (
     `[desktop-network-throttle] debugger applied state=${config.profile} ` +
-    `scope=${remoteOnly ? 'remote-only' : 'all'} ` +
+    `scope=onekey-origins ` +
     `webContents=${label} latencyMs=${profile.latency} ` +
     `downloadBps=${profile.downloadThroughput} ` +
     `uploadBps=${profile.uploadThroughput}`
@@ -229,15 +215,6 @@ function getDebuggerNetworkConditions(config: IDesktopStoreNetworkThrottle) {
   return DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
 }
 
-function getSessionNetworkThrottleConfig(
-  targetSession: Session,
-  config: IDesktopStoreNetworkThrottle,
-): IDesktopStoreNetworkThrottle {
-  return remoteOnlyNetworkThrottleSessions.has(targetSession)
-    ? DEFAULT_NETWORK_THROTTLE_CONFIG
-    : config;
-}
-
 function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
   if (contents.isDestroyed()) {
     return false;
@@ -248,7 +225,9 @@ function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
     return false;
   }
 
-  return true;
+  // Only the app's own renderer is throttled. DApp browser tabs and the
+  // overlay run in their own partitions and must keep full speed.
+  return contents.session === session.defaultSession;
 }
 
 function clearDesktopNetworkThrottleDebuggerReapply(
@@ -389,55 +368,6 @@ function applyDesktopNetworkThrottleToSession(
   }
 }
 
-// The remote-only path first resets the standard emulation to its disabled
-// profile and then installs the experimental per-URL rules. When the rule
-// command is unavailable or fails, that leaves the debugger explicitly
-// un-throttled, so restore the profile through the standard command instead.
-// Session-level emulation is not a usable fallback here: Chromium applies it
-// through the same throttling controller only for requests the network
-// service owns, and the renderer traffic this feature targets is governed by
-// the per-webContents debugger.
-async function applyDesktopNetworkThrottleRemoteOnlyFallback({
-  contents,
-  config,
-  targetLabel,
-}: {
-  contents: WebContents;
-  config: IDesktopStoreNetworkThrottle;
-  targetLabel: string;
-}): Promise<boolean> {
-  if (contents.isDestroyed()) {
-    return false;
-  }
-  try {
-    await contents.debugger.sendCommand(
-      'Network.emulateNetworkConditions',
-      getDebuggerNetworkConditions(config),
-    );
-  } catch (fallbackError) {
-    // Keep the session marked remote-only: the failure is scoped to this
-    // webContents, and clearing the mark would drop the dev-server bypass for
-    // every other webContents on the same session.
-    logger.warn(
-      `[desktop-network-throttle] failed remote-only fallback webContents=${targetLabel}`,
-      fallbackError,
-    );
-    return false;
-  }
-  // Only once full throttling is confirmed applied, drop the remote-only
-  // marking so later applies take the standard path instead of retrying a
-  // command that already failed for this session.
-  remoteOnlyNetworkThrottleSessions.delete(contents.session);
-  clearDesktopNetworkThrottleDebuggerReapply(contents);
-  appliedStateByWebContentsDebugger.set(contents, getSessionStateKey(config));
-  logger.info(
-    `[desktop-network-throttle] debugger applied state=${config.profile} ` +
-      `scope=all-fallback webContents=${targetLabel} ` +
-      `latencyMs=${DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile].latency}`,
-  );
-  return true;
-}
-
 async function applyDesktopNetworkThrottleToWebContentsDebugger({
   contents,
   label,
@@ -449,8 +379,7 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     return;
   }
 
-  const remoteOnly = remoteOnlyNetworkThrottleSessions.has(contents.session);
-  const stateKey = getWebContentsStateKey(config, remoteOnly);
+  const stateKey = getSessionStateKey(config);
   const previousStateKey = appliedStateByWebContentsDebugger.get(contents);
   if (!config.enabled && !previousStateKey) {
     return;
@@ -487,51 +416,25 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     }
 
     await targetDebugger.sendCommand('Network.enable');
-    if (config.enabled && remoteOnly) {
-      await targetDebugger.sendCommand(
-        'Network.emulateNetworkConditions',
-        getDebuggerNetworkConditions(DEFAULT_NETWORK_THROTTLE_CONFIG),
-      );
-      await targetDebugger.sendCommand(
-        'Network.emulateNetworkConditionsByRule',
-        {
-          offline: false,
-          matchedNetworkConditions: buildDesktopRemoteOnlyNetworkConditionRules(
+    // Keep the global emulation off and express the whole policy as per-URL
+    // rules, so only OneKey origins are affected. An empty rule list is also
+    // how the rules are removed when the setting is turned off.
+    await targetDebugger.sendCommand(
+      'Network.emulateNetworkConditions',
+      getDebuggerNetworkConditions(DEFAULT_NETWORK_THROTTLE_CONFIG),
+    );
+    await targetDebugger.sendCommand('Network.emulateNetworkConditionsByRule', {
+      offline: false,
+      matchedNetworkConditions: config.enabled
+        ? buildDesktopOneKeyOriginNetworkConditionRules(
             DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile],
-          ),
-        },
-      );
-    } else {
-      // Clear per-rule conditions first: an empty rule list resets the whole
-      // throttling controller, so sending it after the profile would wipe the
-      // profile instead of just dropping stale rules. Best-effort, because
-      // Chromium builds without the experimental command must still get the
-      // standard emulation below.
-      try {
-        await targetDebugger.sendCommand(
-          'Network.emulateNetworkConditionsByRule',
-          {
-            offline: false,
-            matchedNetworkConditions: [],
-          },
-        );
-      } catch (ruleError) {
-        logger.warn(
-          '[desktop-network-throttle] failed to clear per-rule network conditions',
-          ruleError,
-        );
-      }
-      await targetDebugger.sendCommand(
-        'Network.emulateNetworkConditions',
-        getDebuggerNetworkConditions(config),
-      );
-    }
+          )
+        : [],
+    });
     clearDesktopNetworkThrottleDebuggerReapply(contents);
     appliedStateByWebContentsDebugger.set(contents, stateKey);
     if (config.enabled || previousStateKey) {
-      logger.info(
-        getWebContentsAppliedLogMessage(config, targetLabel, remoteOnly),
-      );
+      logger.info(getWebContentsAppliedLogMessage(config, targetLabel));
     }
 
     if (
@@ -548,21 +451,16 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       }
     }
   } catch (error) {
-    const fallbackApplied =
-      config.enabled && remoteOnly
-        ? await applyDesktopNetworkThrottleRemoteOnlyFallback({
-            contents,
-            config,
-            targetLabel,
-          })
-        : false;
-    if (!suppressFailureLog && !fallbackApplied) {
+    // There is no fallback: the standard emulation command can only throttle
+    // the whole session, which would also slow DApp traffic. A failure here
+    // means no throttling, and the warning is the signal for that.
+    if (!suppressFailureLog) {
       logger.warn(
         `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
         error,
       );
     }
-    if (throwOnFailure && !fallbackApplied) {
+    if (throwOnFailure) {
       throw error;
     }
   }
@@ -630,10 +528,12 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
 
   const closeConnectionTasks: Array<Promise<void>> = [];
   for (const entry of entries) {
+    // Sessions are never throttled as a whole; this only clears emulation left
+    // behind by an earlier build so no session keeps a stale global profile.
     const appliedSession = applyDesktopNetworkThrottleToSession(
       entry.targetSession,
       entry.label,
-      getSessionNetworkThrottleConfig(entry.targetSession, config),
+      DEFAULT_NETWORK_THROTTLE_CONFIG,
       options?.throwOnFailure,
     );
     if (options?.closeConnections && appliedSession) {
@@ -657,24 +557,21 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
 
 export function applyDesktopNetworkThrottleToWebContents(
   contents: WebContents,
-  options?: IApplyDesktopNetworkThrottleToWebContentsOptions,
 ): void {
   if (contents.isDestroyed()) {
     return;
   }
-  if (options?.remoteOnly) {
-    remoteOnlyNetworkThrottleSessions.add(contents.session);
-  }
-  const config = getRuntimeNetworkThrottleConfig();
+  // Session-level emulation would slow every request in the session, so it is
+  // always cleared; the per-URL rules below carry the whole policy.
   applyDesktopNetworkThrottleToSession(
     contents.session,
     `webContents:${contents.id}:${contents.getType()}`,
-    getSessionNetworkThrottleConfig(contents.session, config),
+    DEFAULT_NETWORK_THROTTLE_CONFIG,
   );
   void applyDesktopNetworkThrottleToWebContentsDebugger({
     label: 'webContents',
     contents,
-    config,
+    config: getRuntimeNetworkThrottleConfig(),
   });
 }
 

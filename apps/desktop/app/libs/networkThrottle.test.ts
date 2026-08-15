@@ -46,19 +46,19 @@ jest.mock('./store', () => ({
   setNetworkThrottle: jest.fn(),
 }));
 
+import { session } from 'electron';
+
 import { applyDesktopNetworkThrottleToWebContents } from './networkThrottle';
 
 import type { WebContents } from 'electron';
 
-function createSession() {
-  return {
-    enableNetworkEmulation: jest.fn(),
-    disableNetworkEmulation: jest.fn(),
-    closeAllConnections: jest.fn(),
-  };
-}
+const mockDefaultSession = session.defaultSession as unknown as {
+  enableNetworkEmulation: jest.Mock;
+  disableNetworkEmulation: jest.Mock;
+  closeAllConnections: jest.Mock;
+};
 
-function createWebContents(targetSession: ReturnType<typeof createSession>) {
+function createWebContents(targetSession: unknown) {
   const targetDebugger = {
     attach: jest.fn(),
     detach: jest.fn(),
@@ -91,178 +91,68 @@ async function waitForDebuggerCommands() {
 }
 
 describe('desktop network throttle', () => {
-  it('uses URL rules and disables session-wide throttling for dev server contents', async () => {
-    const targetSession = createSession();
-    const { contents, targetDebugger } = createWebContents(targetSession);
+  beforeEach(() => {
+    mockDefaultSession.enableNetworkEmulation.mockClear();
+    mockDefaultSession.disableNetworkEmulation.mockClear();
+  });
+
+  it('throttles OneKey origins through URL rules only', async () => {
+    const { contents, targetDebugger } = createWebContents(mockDefaultSession);
 
     applyDesktopNetworkThrottleToWebContents(
       contents as unknown as WebContents,
-      {
-        remoteOnly: true,
-      },
     );
     await waitForDebuggerCommands();
 
-    expect(targetSession.disableNetworkEmulation).toHaveBeenCalledTimes(1);
-    expect(targetSession.enableNetworkEmulation).not.toHaveBeenCalled();
-    expect(targetDebugger.sendCommand).toHaveBeenCalledWith(
-      'Network.emulateNetworkConditionsByRule',
+    // Session-wide emulation would slow everything, including DApp traffic.
+    expect(mockDefaultSession.enableNetworkEmulation).not.toHaveBeenCalled();
+    expect(mockDefaultSession.disableNetworkEmulation).toHaveBeenCalledTimes(1);
+
+    const ruleCall = targetDebugger.sendCommand.mock.calls.find(
+      ([method]) => method === 'Network.emulateNetworkConditionsByRule',
+    );
+    const rules = (
+      ruleCall?.[1] as {
+        matchedNetworkConditions: { urlPattern: string; latency: number }[];
+      }
+    ).matchedNetworkConditions;
+
+    expect(rules).toContainEqual(
       expect.objectContaining({
-        offline: false,
-        matchedNetworkConditions: expect.arrayContaining([
-          expect.objectContaining({
-            urlPattern: '*://localhost:*/*',
-            latency: 0,
-          }),
-          expect.objectContaining({
-            urlPattern: '',
-            latency: 562.5,
-          }),
-        ]),
+        urlPattern: '*://*.onekeycn.com/*',
+        latency: 562.5,
       }),
     );
-  });
-
-  it('keeps session-wide throttling for non-dev web contents', async () => {
-    const targetSession = createSession();
-    const { contents, targetDebugger } = createWebContents(targetSession);
-
-    applyDesktopNetworkThrottleToWebContents(
-      contents as unknown as WebContents,
-    );
-    await waitForDebuggerCommands();
-
-    expect(targetSession.enableNetworkEmulation).toHaveBeenCalledWith({
-      offline: false,
-      latency: 562.5,
-      downloadThroughput: 180_000,
-      uploadThroughput: 84_375,
-    });
-    expect(targetDebugger.sendCommand).toHaveBeenCalledWith(
-      'Network.emulateNetworkConditionsByRule',
-      {
-        offline: false,
-        matchedNetworkConditions: [],
-      },
-    );
-
-    // An empty rule list resets the throttling controller, so it must be sent
-    // BEFORE the profile; the reverse order measurably drops all throttling
-    // while the applied state claims slow4g.
-    const methods = targetDebugger.sendCommand.mock.calls.map(
-      ([method]) => method,
-    );
-    expect(
-      methods.indexOf('Network.emulateNetworkConditionsByRule'),
-    ).toBeLessThan(methods.lastIndexOf('Network.emulateNetworkConditions'));
-  });
-
-  it('falls back to full debugger throttling when remote-only rules fail', async () => {
-    const targetSession = createSession();
-    const { contents, targetDebugger } = createWebContents(targetSession);
-    targetDebugger.sendCommand.mockImplementation((method) => {
-      if (method === 'Network.emulateNetworkConditionsByRule') {
-        return Promise.reject(new Error('Unsupported method'));
-      }
-      return Promise.resolve({});
-    });
-
-    applyDesktopNetworkThrottleToWebContents(
-      contents as unknown as WebContents,
-      {
-        remoteOnly: true,
-      },
-    );
-    await waitForDebuggerCommands();
-
-    // The rule path resets emulation to the disabled profile first, so the
-    // fallback must re-send the real profile through the standard command.
-    const emulateCalls = targetDebugger.sendCommand.mock.calls.filter(
+    // No catch-all: everything outside the OneKey origins stays at full speed.
+    expect(rules.some((rule) => rule.urlPattern === '')).toBe(false);
+    // The global profile must stay disabled for the same reason.
+    const emulateCall = targetDebugger.sendCommand.mock.calls.find(
       ([method]) => method === 'Network.emulateNetworkConditions',
     );
-    expect(emulateCalls.at(-1)?.[1]).toEqual({
+    expect(emulateCall?.[1]).toEqual({
       offline: false,
-      latency: 562.5,
-      downloadThroughput: 180_000,
-      uploadThroughput: 84_375,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
     });
-
-    // A second apply must not repeat the failing rule command.
-    const callsAfterFallback = targetDebugger.sendCommand.mock.calls.length;
-    applyDesktopNetworkThrottleToWebContents(
-      contents as unknown as WebContents,
-    );
-    await waitForDebuggerCommands();
-    expect(targetDebugger.sendCommand).toHaveBeenCalledTimes(
-      callsAfterFallback,
-    );
   });
 
-  it('keeps the dev server bypass when the fallback itself fails', async () => {
-    const targetSession = createSession();
-    const { contents, targetDebugger } = createWebContents(targetSession);
-    targetDebugger.sendCommand.mockImplementation((method) =>
-      method === 'Network.enable'
-        ? Promise.resolve({})
-        : Promise.reject(new Error('Unsupported method')),
-    );
-
-    applyDesktopNetworkThrottleToWebContents(
-      contents as unknown as WebContents,
-      {
-        remoteOnly: true,
-      },
-    );
-    await waitForDebuggerCommands();
-
-    // The failure is scoped to this webContents; other web contents on the
-    // same session must keep the loopback bypass, so a later apply still
-    // takes the remote-only path.
-    const { contents: sibling, targetDebugger: siblingDebugger } =
-      createWebContents(targetSession);
-    applyDesktopNetworkThrottleToWebContents(sibling as unknown as WebContents);
-    await waitForDebuggerCommands();
-
-    expect(siblingDebugger.sendCommand).toHaveBeenCalledWith(
-      'Network.emulateNetworkConditionsByRule',
-      expect.objectContaining({
-        matchedNetworkConditions: expect.arrayContaining([
-          expect.objectContaining({ urlPattern: '*://localhost:*/*' }),
-        ]),
-      }),
-    );
-  });
-
-  it('keeps standard throttling when URL rule cleanup is unsupported', async () => {
-    const targetSession = createSession();
-    const { contents, targetDebugger } = createWebContents(targetSession);
-    targetDebugger.sendCommand.mockImplementation((method) => {
-      if (method === 'Network.emulateNetworkConditionsByRule') {
-        return Promise.reject(new Error('Unsupported method'));
-      }
-      return Promise.resolve({});
-    });
+  it('leaves DApp webview sessions untouched', async () => {
+    const webviewSession = {
+      enableNetworkEmulation: jest.fn(),
+      disableNetworkEmulation: jest.fn(),
+      closeAllConnections: jest.fn(),
+    };
+    const { contents, targetDebugger } = createWebContents(webviewSession);
+    contents.getType = jest.fn(() => 'webview');
 
     applyDesktopNetworkThrottleToWebContents(
       contents as unknown as WebContents,
     );
     await waitForDebuggerCommands();
 
-    expect(targetDebugger.sendCommand).toHaveBeenCalledWith(
-      'Network.emulateNetworkConditions',
-      {
-        offline: false,
-        latency: 562.5,
-        downloadThroughput: 180_000,
-        uploadThroughput: 84_375,
-      },
-    );
-
-    applyDesktopNetworkThrottleToWebContents(
-      contents as unknown as WebContents,
-    );
-    await waitForDebuggerCommands();
-
-    expect(targetDebugger.sendCommand).toHaveBeenCalledTimes(3);
+    expect(targetDebugger.attach).not.toHaveBeenCalled();
+    expect(targetDebugger.sendCommand).not.toHaveBeenCalled();
+    expect(webviewSession.enableNetworkEmulation).not.toHaveBeenCalled();
   });
 });

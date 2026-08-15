@@ -783,9 +783,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
-  applyDesktopNetworkThrottleToWebContents(browserWindow.webContents, {
-    remoteOnly: isDevServer,
-  });
+  applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
@@ -1278,9 +1276,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // Prevents clicking on links to open new Windows
   app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
-    applyDesktopNetworkThrottleToWebContents(contents, {
-      remoteOnly: isDevServer && contents.session === session.defaultSession,
-    });
+    applyDesktopNetworkThrottleToWebContents(contents);
     if (contents.getType() === 'webview') {
       const isOverlayWebview = contents.session === overlaySession;
       if (isOverlayWebview) {
