@@ -14,6 +14,7 @@ export type IClearCacheOnAppState = {
   serverNetworks: boolean;
   connectSites: boolean;
   signatureRecord: boolean;
+  perpsData?: boolean;
 };
 
 export enum EReasonForNeedPassword {

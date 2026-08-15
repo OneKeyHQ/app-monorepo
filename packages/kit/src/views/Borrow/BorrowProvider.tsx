@@ -105,6 +105,14 @@ export const BorrowProvider = ({
   const [reserves, setReserves] = useState<
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
+  // OK-60105: BorrowDataGate publishes the real status from an effect, so this
+  // initial value is what every consumer sees on the first commit. Idle is not
+  // in any card's loading set, so it made them paint their real empty-state
+  // copy for a frame before loading had even been acknowledged — inside Card's
+  // Accordion (height driven by a lagging onLayout, overflow hidden) that frame
+  // shows up as clipped copy. Nothing has been loaded yet at this point, so
+  // LoadingMarkets is the honest starting status; the gate overwrites it on the
+  // next commit either way.
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
     EBorrowDataStatus.Initializing,
   );

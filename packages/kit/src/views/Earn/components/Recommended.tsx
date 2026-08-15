@@ -48,6 +48,7 @@ function useRecommendedTokens({
   accountId,
   indexedAccountId,
   enableFetch,
+  refreshTrigger,
   cachedRecommendedTokens,
   onBaseRecommendedTokensLoaded,
 }: {
@@ -55,6 +56,13 @@ function useRecommendedTokens({
   accountId?: string;
   indexedAccountId?: string;
   enableFetch: boolean;
+  /**
+   * Bumped by explicit Earn refreshes (pull-to-refresh, pending-tx settlement).
+   * Part of the fetch key so those refreshes bypass the focus-revalidation
+   * window below — the rows carry account balances, which move exactly when
+   * those refreshes fire (PR 12791 review P2).
+   */
+  refreshTrigger: number;
   cachedRecommendedTokens: IRecommendAsset[];
   onBaseRecommendedTokensLoaded: (tokens: IRecommendAsset[]) => void;
 }) {
@@ -68,8 +76,12 @@ function useRecommendedTokens({
     }
 
     // OK-59247: reuse the last result for focus-driven revalidation within
-    // the window; account/network changes use a different key and bypass it
-    const fetchKey = `${networkId}|${accountId ?? ''}|${indexedAccountId ?? ''}`;
+    // the window; account/network changes use a different key and bypass it.
+    // refreshTrigger is in the key too so an explicit Earn refresh always
+    // re-fetches the balances (PR 12791 review P2).
+    const fetchKey = `${networkId}|${accountId ?? ''}|${
+      indexedAccountId ?? ''
+    }|${refreshTrigger}`;
     const last = lastFetchRef.current;
     if (
       last &&
@@ -95,7 +107,7 @@ function useRecommendedTokens({
       tokens,
       networkId,
     };
-  }, [enableFetch, networkId, accountId, indexedAccountId]);
+  }, [enableFetch, networkId, accountId, indexedAccountId, refreshTrigger]);
 
   const {
     result: baseRecommendedResult = { tokens: [], networkId: '' },
@@ -166,7 +178,9 @@ export function Recommended(
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const { activeAccount } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [{ recommendedTokens: cachedRecommendedTokens = [] }] = useEarnAtom();
+  const [
+    { recommendedTokens: cachedRecommendedTokens = [], refreshTrigger = 0 },
+  ] = useEarnAtom();
 
   const handleBaseRecommendedTokensLoaded = useCallback(
     (tokens: IRecommendAsset[]) => {
@@ -188,11 +202,22 @@ export function Recommended(
       accountId: activeAccount?.account?.id,
       indexedAccountId: activeAccount?.indexedAccount?.id,
       enableFetch: shouldFetch,
+      refreshTrigger,
       cachedRecommendedTokens,
       onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
     });
 
-  const recommendedLoadScopeKey = allNetworkId;
+  // The request is already scoped by account (see useRecommendedTokens'
+  // fetchKey), but this gate was not: keyed on the network alone, switching
+  // accounts left `hasCompletedInitialRecommendedLoadRef` matching, so no
+  // skeleton was shown while usePromiseResult kept serving the previous
+  // account's result — account B briefly read account A's balances. Scope the
+  // gate the same way the request is scoped.
+  const recommendedLoadScopeKey = [
+    allNetworkId,
+    activeAccount?.account?.id ?? '',
+    activeAccount?.indexedAccount?.id ?? '',
+  ].join('|');
   const hasCompletedInitialRecommendedLoadRef = useRef<string | undefined>(
     undefined,
   );

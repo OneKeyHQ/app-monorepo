@@ -15,6 +15,21 @@ const mockBuildDecodedTx = jest.fn();
 const mockSaveSendConfirmHistoryTxs = jest.fn();
 const mockPreActionsBeforeSending = jest.fn();
 const mockAfterSendTxAction = jest.fn();
+const mockFetchSwapTokenDetails = jest.fn();
+const mockGetNativeTokenAddress = jest.fn();
+const mockGasAccountDecision = jest.fn();
+const mockGasAccountAction = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    transaction: {
+      send: {
+        gasAccountDecision: mockGasAccountDecision,
+        gasAccountAction: mockGasAccountAction,
+      },
+    },
+  },
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -44,6 +59,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceSignatureConfirm: {
       preActionsBeforeSending: mockPreActionsBeforeSending,
       afterSendTxAction: mockAfterSendTxAction,
+    },
+    serviceSwap: {
+      fetchSwapTokenDetails: mockFetchSwapTokenDetails,
+    },
+    serviceToken: {
+      getNativeTokenAddress: mockGetNativeTokenAddress,
     },
   },
 }));
@@ -94,6 +115,53 @@ function createEstimateFeeResult() {
   };
 }
 
+function createSponsoredUnsignedTx() {
+  return createUnsignedTx({
+    swapInfo: {
+      sender: {
+        amount: '10',
+        token: {
+          networkId: 'evm--1',
+          contractAddress: '0xtoken',
+          symbol: 'USDC',
+          decimals: 6,
+          isNative: false,
+        },
+      },
+      receiver: {
+        amount: '0.003',
+        token: {
+          networkId: 'evm--1',
+          contractAddress: '',
+          symbol: 'ETH',
+          decimals: 18,
+          isNative: true,
+        },
+      },
+      receivingAddress: '0xuser',
+      swapBuildResData: {
+        orderId: 'order-id',
+        result: {
+          gasAccountEnabled: true,
+        },
+      },
+    } as never,
+  });
+}
+
+function createSponsoredEstimateFeeResult(quoteId: string) {
+  return {
+    ...createEstimateFeeResult(),
+    payer: 'gasAccount',
+    gasAccountEligible: true,
+    gasAccountQuote: {
+      quoteId,
+      maxFee: '0.01',
+      expiresAt: '2026-08-10T12:00:00.000Z',
+    },
+  };
+}
+
 function createMarketPresetToken(overrides = {}) {
   return {
     contractAddress: '',
@@ -121,6 +189,10 @@ describe('marketDirectSendTx', () => {
     mockSaveSendConfirmHistoryTxs.mockReset();
     mockPreActionsBeforeSending.mockReset();
     mockAfterSendTxAction.mockReset();
+    mockFetchSwapTokenDetails.mockReset();
+    mockGetNativeTokenAddress.mockReset();
+    mockGasAccountDecision.mockReset();
+    mockGasAccountAction.mockReset();
 
     mockGetVaultSettings.mockResolvedValue({});
     mockBuildUnsignedTx.mockResolvedValue(createUnsignedTx());
@@ -146,6 +218,8 @@ describe('marketDirectSendTx', () => {
     mockSaveSendConfirmHistoryTxs.mockResolvedValue(undefined);
     mockPreActionsBeforeSending.mockResolvedValue(undefined);
     mockAfterSendTxAction.mockResolvedValue(undefined);
+    mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '0.005' }]);
+    mockGetNativeTokenAddress.mockResolvedValue('');
   });
 
   it('builds market preset fake transfer info as an isolated self-transfer', () => {
@@ -276,6 +350,80 @@ describe('marketDirectSendTx', () => {
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+  });
+
+  it('tracks Gas Account submission success without repeating the review decision', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+    mockEstimateFee.mockResolvedValue(
+      createSponsoredEstimateFeeResult('quote-id'),
+    );
+
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      gasAccountAnalytics: {
+        fiatCurrency: 'usd',
+        nativeBalance: '0.005',
+        useGasAccountByDefault: true,
+      },
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+    expect(mockGasAccountDecision).not.toHaveBeenCalled();
+    expect(mockGasAccountAction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        action: 'submitSucceeded',
+        orderId: 'order-id',
+      }),
+    );
+  });
+
+  it('returns the Gas Account decision context with the direct market review estimate', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+    mockEstimateFee.mockResolvedValue(
+      createSponsoredEstimateFeeResult('preview-quote-id'),
+    );
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      gasAccountAnalytics: {
+        fiatCurrency: 'usd',
+        useGasAccountByDefault: true,
+      },
+    });
+
+    expect(result.gasAccountAnalyticsContext).toEqual(
+      expect.objectContaining({
+        entryPoint: 'marketSwapDirect',
+        scenario: 'swap',
+        selectedPayer: 'gasAccount',
+        quoteId: 'preview-quote-id',
+        orderId: 'order-id',
+      }),
+    );
+    expect(result.gasAccountAnalyticsNativeBalance).toBe('0.005');
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
+    expect(mockGasAccountDecision).not.toHaveBeenCalled();
   });
 
   it('sends batch approve plus swap with batch fee estimation when supported', async () => {

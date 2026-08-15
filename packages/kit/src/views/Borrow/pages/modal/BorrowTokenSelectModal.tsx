@@ -40,6 +40,28 @@ const emptyBalance: IBorrowBalance = {
   description: emptyText,
 };
 
+const EMPTY_ASSETS_LIST: IBorrowAssetsList = { assets: [] };
+
+// OK-60106: usePromiseResult restarts from initResult on every mount, so
+// re-entering the selector rendered an "empty + loading" frame before the
+// already-warm request came back — the empty state QA saw flash past.
+// Remembering the last result per request identity lets a re-entry render the
+// list on its first frame instead. The key carries accountId, so one account's
+// balances can never seed another's, and the entry is refreshed by the request
+// that runs right behind it.
+const borrowAssetsListCache = new Map<string, IBorrowAssetsList>();
+
+function buildBorrowAssetsCacheKey(params: {
+  accountId?: string;
+  networkId?: string;
+  provider?: string;
+  marketAddress?: string;
+  action?: string;
+}) {
+  const { accountId, networkId, provider, marketAddress, action } = params;
+  return [accountId, networkId, provider, marketAddress, action].join('|');
+}
+
 export default function BorrowTokenSelectModal() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalStakingParamList>>();
@@ -64,22 +86,38 @@ export default function BorrowTokenSelectModal() {
   } = route.params;
   const [searchKeyword, setSearchKeyword] = useState('');
 
+  const cacheKey = buildBorrowAssetsCacheKey({
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    action,
+  });
+  // Read once per mount: the first render is the only one that matters here,
+  // and a later key change is picked up by the request that re-runs anyway.
+  const [initialAssetsList] = useState<IBorrowAssetsList>(
+    () => borrowAssetsListCache.get(cacheKey) ?? EMPTY_ASSETS_LIST,
+  );
+
   const { result: assetsList, isLoading } = usePromiseResult<IBorrowAssetsList>(
     async () => {
       if (!accountId || !networkId || !provider || !marketAddress) {
-        return { assets: [] };
+        return EMPTY_ASSETS_LIST;
       }
-      return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
-        accountId,
-        networkId,
-        provider,
-        marketAddress,
-        action: action as EBorrowActionsEnum,
-      });
+      const result =
+        await backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+          accountId,
+          networkId,
+          provider,
+          marketAddress,
+          action: action as EBorrowActionsEnum,
+        });
+      borrowAssetsListCache.set(cacheKey, result);
+      return result;
     },
-    [accountId, networkId, provider, marketAddress, action],
+    [accountId, networkId, provider, marketAddress, action, cacheKey],
     {
-      initResult: { assets: [] },
+      initResult: initialAssetsList,
       watchLoading: true,
     },
   );
