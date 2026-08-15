@@ -397,10 +397,12 @@ async function sign(
   encryptedPrivateKey: Buffer,
   digest: Buffer,
   password: string,
+  kdfParams?: ISecretKdfParams,
 ): Promise<Buffer> {
   const decryptedPrivateKey = await decryptAsync({
     password,
     data: encryptedPrivateKey,
+    ...kdfParams,
   });
   return getCurveByName(curveName).sign(decryptedPrivateKey, digest);
 }
@@ -1477,6 +1479,7 @@ async function N(
   curveName: ICurveName,
   encryptedExtPriv: IBip32ExtendedKey,
   password: string,
+  kdfParams?: ISecretKdfParams,
 ): Promise<IBip32ExtendedKey> {
   if (!platformEnv.isJest) {
     ensureSensitiveTextEncoded(password);
@@ -1486,6 +1489,7 @@ async function N(
     key: await decryptAsync({
       password,
       data: encryptedExtPriv.key,
+      ...kdfParams,
     }),
     chainCode: encryptedExtPriv.chainCode,
   };

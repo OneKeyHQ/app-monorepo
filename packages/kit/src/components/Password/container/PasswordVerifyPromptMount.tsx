@@ -7,6 +7,7 @@ import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,10 +66,12 @@ const PasswordVerifyPromptMount = () => {
       id,
       dialogProps,
       skipPostVerifyBackgroundTasks,
+      kdfParams,
     }: {
       id: number;
       dialogProps?: IDialogShowProps;
       skipPostVerifyBackgroundTasks?: boolean;
+      kdfParams?: IPbkdf2KdfParams;
     }) => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
@@ -89,6 +92,7 @@ const PasswordVerifyPromptMount = () => {
         renderContent: (
           <PasswordVerifyContainer
             skipPostVerifyBackgroundTasks={skipPostVerifyBackgroundTasks}
+            kdfParams={kdfParams}
             onVerifyRes={async (data) => {
               await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
                 id,
@@ -127,6 +131,7 @@ const PasswordVerifyPromptMount = () => {
           dialogProps: passwordPromptPromiseTriggerData.dialogProps,
           skipPostVerifyBackgroundTasks:
             passwordPromptPromiseTriggerData.skipPostVerifyBackgroundTasks,
+          kdfParams: passwordPromptPromiseTriggerData.kdfParams,
         });
       } else {
         showPasswordSetupPromptRef.current?.(
