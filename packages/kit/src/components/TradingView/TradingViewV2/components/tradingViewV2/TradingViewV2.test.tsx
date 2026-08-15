@@ -6,6 +6,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { TradingViewV2 } from './TradingViewV2';
 
+import type {
+  ITradingViewIntervalConfigData,
+  ITradingViewNativeChartControlsConfigData,
+} from '../../types';
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -449,6 +454,102 @@ describe('TradingViewV2 native source discovery', () => {
 
     expect(mockUseTradingViewV2WebSocket).toHaveBeenLastCalledWith(
       expect.objectContaining({ chartType: '5m' }),
+    );
+  });
+
+  it('keeps the latest native interval selected while stale chart messages arrive', () => {
+    const intervals = [
+      { label: '1m', value: '1' },
+      { label: '1H', value: '60' },
+      { label: '4H', value: '240' },
+    ];
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        enableNativeChartControls
+      />,
+    );
+
+    const getMessageHandlerParams = () =>
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onCurrentKLineResolutionChange?: (resolution: string) => void;
+            onIntervalConfigChange?: (
+              data: ITradingViewIntervalConfigData,
+            ) => void;
+            onNativeChartControlsConfigChange?: (
+              data: ITradingViewNativeChartControlsConfigData,
+            ) => void;
+          }
+        | undefined;
+
+    act(() => {
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '1',
+      });
+    });
+    expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
+      expect.objectContaining({ activeInterval: '1' }),
+    );
+
+    act(() => {
+      (
+        mockNativeChartControlsProps?.onIntervalChange as
+          | ((interval: string) => void)
+          | undefined
+      )?.('60');
+      (
+        mockNativeChartControlsProps?.onIntervalChange as
+          | ((interval: string) => void)
+          | undefined
+      )?.('240');
+    });
+
+    act(() => {
+      getMessageHandlerParams()?.onCurrentKLineResolutionChange?.('1m');
+      getMessageHandlerParams()?.onNativeChartControlsConfigChange?.({
+        intervals,
+        activeInterval: '1',
+        indicators: [],
+        chartTypes: [],
+        activeChartType: 1,
+      });
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '60',
+        persist: true,
+      });
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '1',
+        persist: false,
+      });
+    });
+
+    expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
+      expect.objectContaining({ activeInterval: '240' }),
+    );
+    expect(mockNativeChartControlsProps?.nativeChartControlsConfig).toEqual(
+      expect.objectContaining({ activeInterval: '1' }),
+    );
+    expect(mockUseTradingViewV2WebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ chartType: '240' }),
+    );
+
+    act(() => {
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '240',
+        persist: true,
+      });
+    });
+
+    expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
+      expect.objectContaining({ activeInterval: '240' }),
     );
   });
 

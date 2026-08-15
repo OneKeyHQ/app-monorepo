@@ -264,6 +264,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const currentKLineResolution = useRef(bootstrapKLineResolution);
   const hasUserSelectedKLineResolutionRef = useRef(false);
+  const pendingNativeKLineResolutionRef = useRef<string | undefined>(undefined);
   const [activeKLineResolution, setActiveKLineResolution] = useState(
     bootstrapKLineResolution,
   );
@@ -454,19 +455,54 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeSubIndicatorCountChange,
   ]);
 
+  const updateCurrentKLineResolution = useCallback((resolution: string) => {
+    const normalizedResolution = normalizeTradingViewKLineInterval(resolution);
+    currentKLineResolution.current = normalizedResolution;
+    setActiveKLineResolution((prev) =>
+      prev === normalizedResolution ? prev : normalizedResolution,
+    );
+  }, []);
   const handleCurrentKLineResolutionChange = useCallback(
     (resolution: string) => {
       const normalizedResolution =
         normalizeTradingViewKLineInterval(resolution);
-      currentKLineResolution.current = normalizedResolution;
-      setActiveKLineResolution((prev) =>
-        prev === normalizedResolution ? prev : normalizedResolution,
-      );
+      if (
+        pendingNativeKLineResolutionRef.current &&
+        normalizedResolution !== pendingNativeKLineResolutionRef.current
+      ) {
+        return;
+      }
+      updateCurrentKLineResolution(resolution);
+    },
+    [updateCurrentKLineResolution],
+  );
+  const preservePendingNativeInterval = useCallback(
+    (data: ITradingViewIntervalConfigData) => {
+      const pendingResolution = pendingNativeKLineResolutionRef.current;
+      if (!pendingResolution) {
+        return data;
+      }
+      const selectedInterval = data.intervals.find(
+        (option) =>
+          normalizeTradingViewKLineInterval(option.value) === pendingResolution,
+      )?.value;
+      if (
+        !selectedInterval ||
+        normalizeTradingViewKLineInterval(data.activeInterval) ===
+          pendingResolution
+      ) {
+        return data;
+      }
+      return {
+        ...data,
+        activeInterval: selectedInterval,
+      };
     },
     [],
   );
   useEffect(() => {
     hasUserSelectedKLineResolutionRef.current = false;
+    pendingNativeKLineResolutionRef.current = undefined;
   }, [displaySymbol, kLineSourceNetworkId, kLineSourceTokenAddress]);
   useEffect(() => {
     if (isKLineSourceLoading || hasUserSelectedKLineResolutionRef.current) {
@@ -482,14 +518,24 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   ]);
   const handleIntervalConfigChange = useCallback(
     (data: ITradingViewIntervalConfigData) => {
-      setIntervalConfig(data);
-      handleCurrentKLineResolutionChange(data.activeInterval);
+      const incomingResolution = normalizeTradingViewKLineInterval(
+        data.activeInterval,
+      );
+      const nextData = preservePendingNativeInterval(data);
+      setIntervalConfig(nextData);
+      handleCurrentKLineResolutionChange(nextData.activeInterval);
+      if (pendingNativeKLineResolutionRef.current === incomingResolution) {
+        pendingNativeKLineResolutionRef.current = undefined;
+      }
+      return nextData;
     },
-    [handleCurrentKLineResolutionChange],
+    [handleCurrentKLineResolutionChange, preservePendingNativeInterval],
   );
   const handleNativeIntervalChange = useCallback(
     (interval: string) => {
       hasUserSelectedKLineResolutionRef.current = true;
+      pendingNativeKLineResolutionRef.current =
+        normalizeTradingViewKLineInterval(interval);
       cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
       initialHistoryBootstrapSentIdentityRef.current = undefined;
@@ -501,7 +547,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             }
           : prev,
       );
-      handleCurrentKLineResolutionChange(interval);
+      updateCurrentKLineResolution(interval);
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
         payload: {
@@ -510,21 +556,26 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         },
       });
     },
-    [handleCurrentKLineResolutionChange],
+    [updateCurrentKLineResolution],
   );
   const handleNativeChartControlsConfigChange = useCallback(
     (data: ITradingViewNativeChartControlsConfigData) => {
       setNativeChartControlsConfig(data);
-      if (data.intervals?.length && data.activeInterval) {
-        setIntervalConfig({
+      if (!intervalConfig && data.intervals?.length && data.activeInterval) {
+        const nextIntervalConfig = preservePendingNativeInterval({
           intervals: data.intervals,
           activeInterval: data.activeInterval,
           timestamp: data.timestamp,
         });
-        handleCurrentKLineResolutionChange(data.activeInterval);
+        setIntervalConfig(nextIntervalConfig);
+        handleCurrentKLineResolutionChange(nextIntervalConfig.activeInterval);
       }
     },
-    [handleCurrentKLineResolutionChange],
+    [
+      handleCurrentKLineResolutionChange,
+      intervalConfig,
+      preservePendingNativeInterval,
+    ],
   );
   const handleNativeIndicatorSelect = useCallback(
     (indicatorName: string, desiredActive: boolean) => {
@@ -947,16 +998,36 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [finalStorageNamespace, onKLinePeriodChange],
   );
+  const handleChartKLinePeriodChange = useCallback(
+    (data: ITradingViewKLinePeriodChangeData) => {
+      if (
+        pendingNativeKLineResolutionRef.current &&
+        normalizeTradingViewKLineInterval(data.toPeriod) !==
+          pendingNativeKLineResolutionRef.current
+      ) {
+        return;
+      }
+      handleKLinePeriodChange(data);
+    },
+    [handleKLinePeriodChange],
+  );
   const handleIntervalConfigMessage = useCallback(
     (data: ITradingViewIntervalConfigData) => {
       const previousPeriod = normalizeTradingViewKLineInterval(
         currentKLineResolution.current,
       );
-      handleIntervalConfigChange(data);
-      if (isIntervalAckSupported === true && data.persist === true) {
+      const nextData = handleIntervalConfigChange(data);
+      const didAcceptActiveInterval =
+        normalizeTradingViewKLineInterval(nextData.activeInterval) ===
+        normalizeTradingViewKLineInterval(data.activeInterval);
+      if (
+        isIntervalAckSupported === true &&
+        data.persist === true &&
+        didAcceptActiveInterval
+      ) {
         handleKLinePeriodChange({
           fromPeriod: previousPeriod,
-          toPeriod: normalizeTradingViewKLineInterval(data.activeInterval),
+          toPeriod: normalizeTradingViewKLineInterval(nextData.activeInterval),
         });
       }
     },
@@ -999,7 +1070,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineLoadError: handleKLineLoadError,
     onKLinePeriodChange:
       onKLinePeriodChange && isIntervalAckSupported === false
-        ? handleKLinePeriodChange
+        ? handleChartKLinePeriodChange
         : undefined,
     onMarketSymbolSyncSupportChange: setIsMarketSymbolSyncSupported,
     onMarketSymbolSyncStudiesSupportChange:
