@@ -1190,6 +1190,124 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     });
   });
 
+  it('preserves the firmware tip when the next progress event arrives', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+
+    await listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_TIP,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        data: { message: 'ConfirmOnDevice' },
+      },
+    });
+    const tipUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const tipState =
+      typeof tipUpdater === 'function' ? tipUpdater(undefined) : tipUpdater;
+
+    await listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        progress: 0,
+        progressType: 'installingFirmware',
+      },
+    });
+    const progressUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const progressState =
+      typeof progressUpdater === 'function'
+        ? progressUpdater(tipState)
+        : progressUpdater;
+
+    expect(progressState).toMatchObject({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: 'PRO2_USB',
+      payload: {
+        firmwareProgress: 0,
+        firmwareProgressType: 'installingFirmware',
+        firmwareTipData: { message: 'ConfirmOnDevice' },
+      },
+    });
+  });
+
+  it('preserves queued firmware progress across the expected install disconnect', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+    const uiListener = listeners.get(UI_EVENT);
+
+    const createProgressEvent = (progress: number) => ({
+      type: UI_REQUEST.FIRMWARE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        progress,
+        progressType: 'transferData',
+      },
+    });
+
+    await uiListener?.(createProgressEvent(1));
+    const progress25 = uiListener?.(createProgressEvent(25));
+    const progress50 = uiListener?.(createProgressEvent(50));
+    await listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await Promise.all([progress25, progress50]);
+
+    const firmwareProgressValues = setHardwareUiStateMock.mock.calls
+      .map(([updater]) =>
+        typeof updater === 'function' ? updater(undefined) : updater,
+      )
+      .filter(
+        (state) => state?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      )
+      .map((state) => state?.payload?.firmwareProgress);
+    expect(firmwareProgressValues).toEqual([1, 25, 50]);
+  });
+
   it('forwards device transfer progress to the hardware UI state', async () => {
     const listeners = new Map<
       string,
