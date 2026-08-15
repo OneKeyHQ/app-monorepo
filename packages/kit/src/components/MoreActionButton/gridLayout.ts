@@ -2,10 +2,7 @@ const MAX_COLUMN_COUNT = 4;
 
 export function buildMoreActionGridLayout<
   T extends { isPrimeFeature?: boolean },
->(
-  items: readonly T[],
-  isPrimeAvailable: boolean,
-): Array<Array<T | null>> {
+>(items: readonly T[], isPrimeAvailable: boolean): Array<Array<T | null>> {
   const visibleItems = items.filter(
     (item) => !item.isPrimeFeature || isPrimeAvailable,
   );
