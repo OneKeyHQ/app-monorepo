@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Alertas de Perps",
   "perps_back_to_default_layout__action": "Restablecer el diseño predeterminado",
   "perps_chart_do_not_show__action": "No mostrar",
+  "perps_desktop_resize_panels__desc": "Arrastra el separador para cambiar el tamaño de los paneles del gráfico y de posiciones.",
   "perps_footer.help_us_better": "Comunidad de Perps",
   "perps_hide_other_pairs": "Ocultar otros pares",
   "perps_layout_reset__msg": "El diseño se ha restablecido",

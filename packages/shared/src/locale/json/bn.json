@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "পার্পস সতর্কতা",
   "perps_back_to_default_layout__action": "ডিফল্ট লেআউটে রিসেট করুন",
   "perps_chart_do_not_show__action": "দেখাবেন না",
+  "perps_desktop_resize_panels__desc": "চার্ট ও পজিশন প্যানেলের আকার পরিবর্তন করতে বিভাজকটি টেনে আনুন।",
   "perps_footer.help_us_better": "Perps কমিউনিটি",
   "perps_hide_other_pairs": "অন্যান্য পেয়ার লুকান",
   "perps_layout_reset__msg": "লেআউট রিসেট করা হয়েছে",

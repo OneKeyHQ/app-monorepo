@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Оповещения о Perps",
   "perps_back_to_default_layout__action": "Сбросить макет по умолчанию",
   "perps_chart_do_not_show__action": "Не показывать",
+  "perps_desktop_resize_panels__desc": "Перетащите разделитель, чтобы изменить размер панелей графика и позиций.",
   "perps_footer.help_us_better": "Сообщество Perps",
   "perps_hide_other_pairs": "Скрыть другие пары",
   "perps_layout_reset__msg": "Макет сброшен",

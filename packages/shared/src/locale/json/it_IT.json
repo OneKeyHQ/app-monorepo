@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Avvisi Perps",
   "perps_back_to_default_layout__action": "Ripristina il layout predefinito",
   "perps_chart_do_not_show__action": "Non mostrare",
+  "perps_desktop_resize_panels__desc": "Trascina il divisore per ridimensionare i pannelli del grafico e delle posizioni.",
   "perps_footer.help_us_better": "Community Perps",
   "perps_hide_other_pairs": "Nascondi altre coppie",
   "perps_layout_reset__msg": "Il layout è stato ripristinato",

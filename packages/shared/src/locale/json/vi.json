@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Cảnh báo Perps",
   "perps_back_to_default_layout__action": "Đặt lại về bố cục mặc định",
   "perps_chart_do_not_show__action": "Không hiển thị",
+  "perps_desktop_resize_panels__desc": "Kéo đường phân cách để thay đổi kích thước bảng biểu đồ và vị thế.",
   "perps_footer.help_us_better": "Cộng đồng Perps",
   "perps_hide_other_pairs": "Ẩn các cặp khác",
   "perps_layout_reset__msg": "Đã đặt lại bố cục",

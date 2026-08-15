@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Peringatan Perps",
   "perps_back_to_default_layout__action": "Atur ulang ke tata letak default",
   "perps_chart_do_not_show__action": "Jangan tampilkan",
+  "perps_desktop_resize_panels__desc": "Seret pemisah untuk mengubah ukuran panel grafik dan posisi.",
   "perps_footer.help_us_better": "Komunitas Perps",
   "perps_hide_other_pairs": "Sembunyikan pasangan lain",
   "perps_layout_reset__msg": "Tata letak telah diatur ulang",

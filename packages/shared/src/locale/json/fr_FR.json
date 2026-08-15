@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Alertes Perps",
   "perps_back_to_default_layout__action": "Réinitialiser la disposition par défaut",
   "perps_chart_do_not_show__action": "Ne pas afficher",
+  "perps_desktop_resize_panels__desc": "Faites glisser le séparateur pour redimensionner les panneaux du graphique et des positions.",
   "perps_footer.help_us_better": "Communauté Perps",
   "perps_hide_other_pairs": "Masquer les autres paires",
   "perps_layout_reset__msg": "La disposition a été réinitialisée",

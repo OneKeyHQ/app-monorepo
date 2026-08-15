@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Perps 알림",
   "perps_back_to_default_layout__action": "기본 레이아웃으로 재설정",
   "perps_chart_do_not_show__action": "표시 안 함",
+  "perps_desktop_resize_panels__desc": "구분선을 드래그하여 차트 및 포지션 패널의 크기를 조정하세요.",
   "perps_footer.help_us_better": "Perps 커뮤니티",
   "perps_hide_other_pairs": "다른 페어 숨기기",
   "perps_layout_reset__msg": "레이아웃이 재설정되었습니다",

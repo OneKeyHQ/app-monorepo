@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Perpsアラート",
   "perps_back_to_default_layout__action": "デフォルトのレイアウトにリセット",
   "perps_chart_do_not_show__action": "表示しない",
+  "perps_desktop_resize_panels__desc": "区切り線をドラッグして、チャートとポジションのパネルサイズを変更できます。",
   "perps_footer.help_us_better": "Perpsコミュニティ",
   "perps_hide_other_pairs": "他のペアを非表示",
   "perps_layout_reset__msg": "レイアウトをリセットしました",

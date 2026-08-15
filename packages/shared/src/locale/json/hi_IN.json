@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Perps अलर्ट",
   "perps_back_to_default_layout__action": "डिफ़ॉल्ट लेआउट पर रीसेट करें",
   "perps_chart_do_not_show__action": "न दिखाएं",
+  "perps_desktop_resize_panels__desc": "चार्ट और पोज़िशन पैनल का आकार बदलने के लिए विभाजक को खींचें।",
   "perps_footer.help_us_better": "Perps समुदाय",
   "perps_hide_other_pairs": "अन्य पेयर छिपाएँ",
   "perps_layout_reset__msg": "लेआउट रीसेट कर दिया गया है",

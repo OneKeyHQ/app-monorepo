@@ -206,7 +206,9 @@ export function formatMarketFilterOptionLabel(
   if (!option.age) {
     return option[variant];
   }
-  return `≤ ${intl.formatMessage(
+  // No space after the operator: the tier pill is only wide enough for three
+  // per row, and CJK units ("48小時") need every pixel.
+  return `≤${intl.formatMessage(
     { id: TOKEN_AGE_UNIT_KEYS[option.age.unit] },
     { amount: option.age.amount },
   )}`;

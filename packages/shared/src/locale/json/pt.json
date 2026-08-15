@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "Alertas de Perps",
   "perps_back_to_default_layout__action": "Repor o layout predefinido",
   "perps_chart_do_not_show__action": "Não mostrar",
+  "perps_desktop_resize_panels__desc": "Arraste o separador para redimensionar os painéis do gráfico e das posições.",
   "perps_footer.help_us_better": "Comunidade Perps",
   "perps_hide_other_pairs": "Ocultar outros pares",
   "perps_layout_reset__msg": "O layout foi reposto",

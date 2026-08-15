@@ -3349,6 +3349,7 @@
   "perps_alerts__title": "การแจ้งเตือน Perps",
   "perps_back_to_default_layout__action": "รีเซ็ตเป็นเลย์เอาต์เริ่มต้น",
   "perps_chart_do_not_show__action": "ไม่แสดง",
+  "perps_desktop_resize_panels__desc": "ลากเส้นแบ่งเพื่อปรับขนาดแผงกราฟและโพซิชัน",
   "perps_footer.help_us_better": "ชุมชน Perps",
   "perps_hide_other_pairs": "ซ่อนคู่เทรดอื่น",
   "perps_layout_reset__msg": "รีเซ็ตเลย์เอาต์แล้ว",
