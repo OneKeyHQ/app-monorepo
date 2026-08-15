@@ -10,20 +10,32 @@ const SOL = { networkId: 'sol--101', contractAddress: '' };
 
 type IProps = Parameters<typeof useSettledSwapRecipientRequired>[0];
 
-const quotingRound: IProps = {
+function buildQuote({
+  fromTokenInfo = ETH,
+  toTokenInfo = SOL,
+  toAmount = '1',
+}: Partial<NonNullable<IProps['quoteResult']>> = {}) {
+  return { fromTokenInfo, toTokenInfo, toAmount };
+}
+
+// A quote round that settled for ETH -> SOL and needs a manual recipient
+// (single-network private-key wallet: no target-chain address).
+const settledRoundRequiringRecipient: IProps = {
   swapType: ESwapTabSwitchType.SWAP,
   fromToken: ETH,
   toToken: SOL,
   sourceAccountId: 'account-1',
-  quoteSettled: false,
+  quoteResult: buildQuote(),
+  quoteSettledWithoutResult: false,
   isAddressInfoReady: true,
-  recipientRequiredNow: false,
+  hasTargetAddress: false,
+  noConnectWallet: false,
 };
 
-const settledRoundRequiringRecipient: IProps = {
-  ...quotingRound,
-  quoteSettled: true,
-  recipientRequiredNow: true,
+// The refresh window of the same round: no quote is selected while requesting.
+const quotingRound: IProps = {
+  ...settledRoundRequiringRecipient,
+  quoteResult: undefined,
 };
 
 function renderSettled(initialProps: IProps) {
@@ -37,12 +49,12 @@ describe('useSettledSwapRecipientRequired', () => {
     const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
     expect(result.current).toBe(true);
 
-    // Quote expires and a refresh starts: the raw verdict drops to false while
-    // no quote is selected. The entry must not collapse here.
-    rerender({ ...quotingRound, quoteSettled: false });
+    // Quote expires and a refresh starts: no quote is selected while the new
+    // round is requesting. The entry must not collapse here.
+    rerender(quotingRound);
     expect(result.current).toBe(true);
 
-    // New quote for the same pair settles and still needs a recipient.
+    // The new quote for the same pair settles and still needs a recipient.
     rerender(settledRoundRequiringRecipient);
     expect(result.current).toBe(true);
   });
@@ -51,38 +63,47 @@ describe('useSettledSwapRecipientRequired', () => {
     const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
     expect(result.current).toBe(true);
 
+    rerender({ ...settledRoundRequiringRecipient, hasTargetAddress: true });
+    expect(result.current).toBe(false);
+  });
+
+  it('ignores a retained previous-pair quote right after a pair switch', () => {
+    // The selection layer intentionally keeps the previous actionable quote
+    // visible while the next round is requesting. On the render where the
+    // pair has changed but the old ETH->SOL quote is still selected, that
+    // quote must not decide the ETH->USDC scope.
+    const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
+    expect(result.current).toBe(true);
+
     rerender({
       ...settledRoundRequiringRecipient,
-      recipientRequiredNow: false,
+      toToken: USDC,
+      // Old pair's quote still selected during the transition render.
+      quoteResult: buildQuote({ toTokenInfo: SOL }),
+      // Same-network target: an address exists, no recipient needed.
+      hasTargetAddress: true,
+    });
+    expect(result.current).toBe(false);
+
+    // And the stale quote alone cannot resurrect the verdict later either.
+    rerender({
+      ...settledRoundRequiringRecipient,
+      toToken: USDC,
+      quoteResult: buildQuote({ toTokenInfo: SOL }),
+      hasTargetAddress: false,
     });
     expect(result.current).toBe(false);
   });
 
   it('drops a Swap verdict when switching to Limit before any quote settles', () => {
-    // Reproduces the reported lifecycle: swapTypeSwitchAction clears the quote
-    // list and resets quoteEventCompleted, so the next render has no settled
-    // quote at all while both tokens are still selected.
+    // swapTypeSwitchAction clears the quote list and quoteEventCompleted, so
+    // the next render has no settled quote while both tokens stay selected.
     const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
     expect(result.current).toBe(true);
 
     rerender({
-      ...settledRoundRequiringRecipient,
+      ...quotingRound,
       swapType: ESwapTabSwitchType.LIMIT,
-      quoteSettled: false,
-      recipientRequiredNow: false,
-    });
-    expect(result.current).toBe(false);
-  });
-
-  it('drops the verdict when the token pair changes mid-flight', () => {
-    const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
-    expect(result.current).toBe(true);
-
-    rerender({
-      ...settledRoundRequiringRecipient,
-      fromToken: USDC,
-      quoteSettled: false,
-      recipientRequiredNow: false,
     });
     expect(result.current).toBe(false);
   });
@@ -92,10 +113,8 @@ describe('useSettledSwapRecipientRequired', () => {
     expect(result.current).toBe(true);
 
     rerender({
-      ...settledRoundRequiringRecipient,
+      ...quotingRound,
       sourceAccountId: 'account-2',
-      quoteSettled: false,
-      recipientRequiredNow: false,
     });
     expect(result.current).toBe(false);
   });
@@ -103,66 +122,59 @@ describe('useSettledSwapRecipientRequired', () => {
   it('re-establishes the verdict once the new scope settles its own quote', () => {
     const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
 
-    const limitScope: IProps = {
-      ...settledRoundRequiringRecipient,
+    const limitScopeQuoting: IProps = {
+      ...quotingRound,
       swapType: ESwapTabSwitchType.LIMIT,
-      quoteSettled: false,
-      recipientRequiredNow: false,
     };
-    rerender(limitScope);
+    rerender(limitScopeQuoting);
     expect(result.current).toBe(false);
 
-    rerender({ ...limitScope, quoteSettled: true, recipientRequiredNow: true });
+    rerender({
+      ...limitScopeQuoting,
+      quoteResult: buildQuote(),
+    });
     expect(result.current).toBe(true);
   });
 
   it('shows the entry when the account resolves while a quote already needs one', () => {
     // The source account id starts undefined and resolves on a later render.
     // That render changes the scope key and carries settled inputs at once;
-    // since the verdict lives in a ref, dropping it here would leave the entry
+    // since the verdict lives in a ref, dropping it would leave the entry
     // hidden with no follow-up render to recover it.
     const { result, rerender } = renderSettled({
       ...quotingRound,
       sourceAccountId: undefined,
-      quoteSettled: false,
-      recipientRequiredNow: false,
     });
     expect(result.current).toBe(false);
 
-    rerender({
-      ...quotingRound,
-      sourceAccountId: 'account-1',
-      quoteSettled: true,
-      recipientRequiredNow: true,
-    });
+    rerender(settledRoundRequiringRecipient);
     expect(result.current).toBe(true);
 
     // And it stays put through the following quote refresh window.
-    rerender({
-      ...quotingRound,
-      sourceAccountId: 'account-1',
-      quoteSettled: false,
-      recipientRequiredNow: false,
-    });
+    rerender(quotingRound);
     expect(result.current).toBe(true);
   });
 
   it('waits for target address resolution before adopting a verdict', () => {
     const { result, rerender } = renderSettled({
-      ...quotingRound,
-      quoteSettled: true,
+      ...settledRoundRequiringRecipient,
       isAddressInfoReady: false,
-      recipientRequiredNow: true,
     });
     // Address resolution still pending: nothing to adopt yet.
     expect(result.current).toBe(false);
 
+    rerender(settledRoundRequiringRecipient);
+    expect(result.current).toBe(true);
+  });
+
+  it('treats a no-result settlement as a definitive not-required verdict', () => {
+    const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
+    expect(result.current).toBe(true);
+
     rerender({
       ...quotingRound,
-      quoteSettled: true,
-      isAddressInfoReady: true,
-      recipientRequiredNow: true,
+      quoteSettledWithoutResult: true,
     });
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
   });
 });

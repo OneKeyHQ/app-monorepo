@@ -46,6 +46,27 @@ export function shortenSwapOrderId(orderId?: string) {
   });
 }
 
+// swapInfo.orderSupportUrl has carried two contracts over time: today's
+// backend sends a base to append the provider order id to (verified live:
+// CoW sends "https://explorer.cow.fi/<chain>/search/"), while the original
+// #6504 shape was a ready-to-open URL. Append only when the id is not
+// already part of the URL so both shapes produce a working link.
+export function buildSwapHistoryOrderExplorerUrl({
+  orderSupportUrl,
+  orderId,
+}: {
+  orderSupportUrl?: string;
+  orderId?: string;
+}) {
+  if (!orderSupportUrl) {
+    return undefined;
+  }
+  if (!orderId || orderSupportUrl.includes(orderId)) {
+    return orderSupportUrl;
+  }
+  return `${orderSupportUrl}${orderId}`;
+}
+
 export function buildSwapHistoryIdentity({
   buildRes,
   protocol,

@@ -244,13 +244,13 @@ const SwapActionsState = ({
     fromToken,
     toToken,
     sourceAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
-    quoteSettled: Boolean(currentQuoteRes || isQuoteSettledWithoutResult),
+    // Raw selection atom: the hook itself rejects a retained quote whose
+    // token pair no longer matches the current selection.
+    quoteResult: currentQuoteRes,
+    quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
-    recipientRequiredNow: Boolean(
-      currentQuoteRes?.toAmount &&
-      !swapToAddressInfo.address &&
-      !swapActionState.noConnectWallet,
-    ),
+    hasTargetAddress: Boolean(swapToAddressInfo.address),
+    noConnectWallet: Boolean(swapActionState.noConnectWallet),
   });
 
   const shouldShowRecipient = useMemo(

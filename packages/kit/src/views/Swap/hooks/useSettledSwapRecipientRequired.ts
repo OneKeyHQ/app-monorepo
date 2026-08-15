@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -7,15 +8,33 @@ import {
   resolveSettledSwapRecipientRequired,
 } from './useSwapAccount.utils';
 
+type ISwapRecipientScopeToken = {
+  networkId?: string;
+  contractAddress?: string;
+};
+
 type IUseSettledSwapRecipientRequiredParams = {
   swapType: ESwapTabSwitchType;
-  fromToken?: { networkId?: string; contractAddress?: string };
-  toToken?: { networkId?: string; contractAddress?: string };
+  fromToken?: ISwapRecipientScopeToken;
+  toToken?: ISwapRecipientScopeToken;
   sourceAccountId?: string;
-  /** A quote for the current input settled, with or without a result. */
-  quoteSettled: boolean;
+  /**
+   * The currently selected quote, straight from the selection atom. The
+   * selection layer intentionally keeps a previous actionable quote visible
+   * while a new round is requesting, so this hook never trusts its presence
+   * alone — it only counts as settled for the scope when its token pair
+   * matches the current selection.
+   */
+  quoteResult?: {
+    toAmount?: string;
+    fromTokenInfo?: ISwapRecipientScopeToken;
+    toTokenInfo?: ISwapRecipientScopeToken;
+  };
+  /** The current input's quote round completed with no result at all. */
+  quoteSettledWithoutResult: boolean;
   isAddressInfoReady: boolean;
-  recipientRequiredNow: boolean;
+  hasTargetAddress: boolean;
+  noConnectWallet: boolean;
 };
 
 /**
@@ -23,18 +42,22 @@ type IUseSettledSwapRecipientRequiredParams = {
  *
  * The raw verdict flips false during every quote refresh window, which would
  * collapse and re-expand the entry on each round; holding it keeps the row
- * still. The hold is scoped to one quote round because switching tab clears
- * the quote list and resets quoteEventCompleted without ever settling a quote,
- * so an unscoped verdict would leak into the next tab. (OK-58326)
+ * still. The hold is scoped to one quote round (tab, pair, source account),
+ * and a verdict is only adopted from a quote that belongs to that scope: the
+ * selection layer can retain the previous pair's actionable quote during the
+ * transition renders right after a switch, and that quote must not decide the
+ * new scope. (OK-58326)
  */
 export function useSettledSwapRecipientRequired({
   swapType,
   fromToken,
   toToken,
   sourceAccountId,
-  quoteSettled,
+  quoteResult,
+  quoteSettledWithoutResult,
   isAddressInfoReady,
-  recipientRequiredNow,
+  hasTargetAddress,
+  noConnectWallet,
 }: IUseSettledSwapRecipientRequiredParams) {
   const scopeKey = buildSwapRecipientRequiredScopeKey({
     swapType,
@@ -42,9 +65,26 @@ export function useSettledSwapRecipientRequired({
     toToken,
     sourceAccountId,
   });
-  // Start neutral so the very first render still has to clear the settled +
-  // address-ready gate below, instead of adopting a verdict built on a target
-  // address that has not resolved yet.
+  const quoteMatchesSelectedPair = Boolean(
+    quoteResult &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.fromTokenInfo,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.toTokenInfo,
+      token2: toToken,
+    }),
+  );
+  const quoteSettled = quoteMatchesSelectedPair || quoteSettledWithoutResult;
+  const recipientRequiredNow = Boolean(
+    quoteMatchesSelectedPair &&
+    quoteResult?.toAmount &&
+    !hasTargetAddress &&
+    !noConnectWallet,
+  );
+  // Start neutral: every adoption, including the mount render, must pass the
+  // resolver's settled + address-ready gates.
   const settledRef = useRef({ scopeKey, value: false });
   settledRef.current = resolveSettledSwapRecipientRequired({
     previous: settledRef.current,

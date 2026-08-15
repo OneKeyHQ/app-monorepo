@@ -6,6 +6,7 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapHistoryIdentity,
+  buildSwapHistoryOrderExplorerUrl,
   getSwapHistoryProviderOrderId,
   shortenSwapOrderId,
 } from './swapHistoryIdentity';
@@ -156,5 +157,41 @@ describe('shortenSwapOrderId', () => {
 
   it('returns an empty string for a missing order id', () => {
     expect(shortenSwapOrderId(undefined)).toBe('');
+  });
+});
+
+describe('buildSwapHistoryOrderExplorerUrl', () => {
+  it('appends the order id to a base url (current CoW contract)', () => {
+    expect(
+      buildSwapHistoryOrderExplorerUrl({
+        orderSupportUrl: 'https://explorer.cow.fi/bnb/search/',
+        orderId: '0xcow-uid',
+      }),
+    ).toBe('https://explorer.cow.fi/bnb/search/0xcow-uid');
+  });
+
+  it('opens a ready-to-open url unchanged when it already carries the id', () => {
+    // The field's original #6504 shape was a full order URL; appending again
+    // would double the id and break the link.
+    expect(
+      buildSwapHistoryOrderExplorerUrl({
+        orderSupportUrl: 'https://explorer.cow.fi/bnb/orders/0xcow-uid',
+        orderId: '0xcow-uid',
+      }),
+    ).toBe('https://explorer.cow.fi/bnb/orders/0xcow-uid');
+  });
+
+  it('falls back to the bare url without an order id', () => {
+    expect(
+      buildSwapHistoryOrderExplorerUrl({
+        orderSupportUrl: 'https://explorer.cow.fi/bnb/search/',
+      }),
+    ).toBe('https://explorer.cow.fi/bnb/search/');
+  });
+
+  it('yields nothing without a support url', () => {
+    expect(
+      buildSwapHistoryOrderExplorerUrl({ orderId: '0xcow-uid' }),
+    ).toBeUndefined();
   });
 });

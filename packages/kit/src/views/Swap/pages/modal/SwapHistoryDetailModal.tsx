@@ -77,6 +77,7 @@ import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFe
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
+  buildSwapHistoryOrderExplorerUrl,
   getSwapHistoryProviderOrderId,
   shortenSwapOrderId,
 } from '../../utils/swapHistoryIdentity';
@@ -1673,9 +1674,10 @@ const SwapHistoryDetailModal = () => {
                 showCopy
                 openWithUrl={() =>
                   onViewInBrowser(
-                    `${txHistory.swapInfo.orderSupportUrl ?? ''}${
-                      providerOrderId ?? ''
-                    }`,
+                    buildSwapHistoryOrderExplorerUrl({
+                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
+                      orderId: providerOrderId,
+                    }) ?? '',
                   )
                 }
               />
