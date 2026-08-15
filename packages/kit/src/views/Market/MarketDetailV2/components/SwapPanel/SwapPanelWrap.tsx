@@ -30,7 +30,10 @@ import {
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -47,6 +50,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
   EMarketPresetTradeSide,
+  getMarketNonPresetSlippageValue,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
@@ -123,6 +127,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     speedConfig,
     speedConfigReady,
   });
+  const [
+    { swapSlippagePercentageCustomValue, swapSlippagePercentageMode },
+    setSettings,
+  ] = useSettingsAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -479,17 +487,35 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (marketPresetSettings.enabled || !speedConfig?.slippage) {
+    if (marketPresetSettings.enabled) {
       return;
     }
 
-    setSlippage(speedConfig.slippage);
-  }, [marketPresetSettings.enabled, speedConfig?.slippage, setSlippage]);
+    const savedSlippage = getMarketNonPresetSlippageValue({
+      mode: swapSlippagePercentageMode,
+      customValue: swapSlippagePercentageCustomValue,
+      defaultSlippage: speedConfig?.slippage,
+    });
+    if (savedSlippage !== undefined) {
+      setSlippage(savedSlippage);
+    }
+  }, [
+    marketPresetSettings.enabled,
+    setSlippage,
+    speedConfig?.slippage,
+    swapSlippagePercentageCustomValue,
+    swapSlippagePercentageMode,
+  ]);
 
   const saveMarketSlippageForFutureOrders = useCallback(
     async (slippagePercentage: number) => {
       setSlippage(slippagePercentage);
       if (!marketPresetSettings.enabled) {
+        setSettings((prev) => ({
+          ...prev,
+          swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+          swapSlippagePercentageCustomValue: slippagePercentage,
+        }));
         return;
       }
       await marketPresetSettings.onSavePresetDirectionSettings({
@@ -504,7 +530,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
         },
       });
     },
-    [marketPresetSettings, setSlippage],
+    [marketPresetSettings, setSettings, setSlippage],
   );
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(

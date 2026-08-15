@@ -257,6 +257,9 @@ export function ActionButton({
     isInsufficientBalance,
     isWrapped,
   });
+  const quoteRefreshAvailable = Boolean(
+    isRefreshQuote && hasAmount && !shouldDisable,
+  );
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -282,7 +285,7 @@ export function ActionButton({
     });
   }
 
-  if (isRefreshQuote && hasAmount) {
+  if (quoteRefreshAvailable) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_refresh_quotes,
     });
@@ -300,7 +303,6 @@ export function ActionButton({
     });
   }
   // Use colored style only for normal trading states (has amount, not disabled, has account)
-  const quoteRefreshAvailable = Boolean(isRefreshQuote && hasAmount);
   let shouldUseColoredStyle =
     hasAmount &&
     (quoteRefreshAvailable || !shouldDisable) &&

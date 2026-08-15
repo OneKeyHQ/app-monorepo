@@ -847,13 +847,29 @@ export default class ServiceSwap extends ServiceBase {
         keywords && onlySwapTokens
           ? ['/swap/v1/tokens', '/swap/v1/swap-tokens']
           : ['/swap/v1/tokens'];
-      const responses = await Promise.all(
+      const responses = await Promise.allSettled(
         endpoints.map((endpoint) =>
           client.get<IFetchResponse<ISwapToken[]>>(endpoint, requestConfig),
         ),
       );
+      const canceledResponse = responses.find(
+        (response) =>
+          response.status === 'rejected' && axios.isCancel(response.reason),
+      );
+      if (canceledResponse?.status === 'rejected') {
+        throw canceledResponse.reason;
+      }
+      const successfulResponses = responses.flatMap((response) =>
+        response.status === 'fulfilled' ? [response.value] : [],
+      );
+      if (successfulResponses.length === 0) {
+        const failedResponse = responses.find(
+          (response) => response.status === 'rejected',
+        ) as PromiseRejectedResult;
+        throw failedResponse.reason;
+      }
       const tokens = mergeSwapTokenLists(
-        responses.map(({ data }) => data?.data ?? []),
+        successfulResponses.map(({ data }) => data?.data ?? []),
       );
       return normalizeSwapTokenListCurrency({
         tokens,
