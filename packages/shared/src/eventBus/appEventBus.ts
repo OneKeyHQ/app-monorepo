@@ -540,6 +540,7 @@ export interface IAppEventBusPayload {
     deviceId: string;
   };
   [EAppEventBusNames.HardwareDeviceStateUpdate]: DeviceStateEvent;
+  [EAppEventBusNames.HardwareConnectionStateUpdate]: undefined;
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;

@@ -135,6 +135,7 @@ export enum EAppEventBusNames {
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
   HardwareDeviceStateUpdate = 'HardwareDeviceStateUpdate',
+  HardwareConnectionStateUpdate = 'HardwareConnectionStateUpdate',
   UnlockApp = 'UnlockApp',
   LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
