@@ -30,6 +30,14 @@ type IUseSettledSwapRecipientRequiredParams = {
     fromTokenInfo?: ISwapRecipientScopeToken;
     toTokenInfo?: ISwapRecipientScopeToken;
   };
+  /**
+   * Proof that quoteResult belongs to the active quote round for the current
+   * inputs (event id membership plus the request lock matching the current
+   * account/pair/amount). Token-pair equality alone cannot provide this: a
+   * same-pair account switch keeps the previous account's quote AND its event
+   * as "current" until the new request is written.
+   */
+  quoteProvenForCurrentInput: boolean;
   /** The current input's quote round completed with no result at all. */
   quoteSettledWithoutResult: boolean;
   isAddressInfoReady: boolean;
@@ -54,6 +62,7 @@ export function useSettledSwapRecipientRequired({
   toToken,
   sourceAccountId,
   quoteResult,
+  quoteProvenForCurrentInput,
   quoteSettledWithoutResult,
   isAddressInfoReady,
   hasTargetAddress,
@@ -76,9 +85,11 @@ export function useSettledSwapRecipientRequired({
       token2: toToken,
     }),
   );
-  const quoteSettled = quoteMatchesSelectedPair || quoteSettledWithoutResult;
+  const quoteUsableForScope =
+    quoteMatchesSelectedPair && quoteProvenForCurrentInput;
+  const quoteSettled = quoteUsableForScope || quoteSettledWithoutResult;
   const recipientRequiredNow = Boolean(
-    quoteMatchesSelectedPair &&
+    quoteUsableForScope &&
     quoteResult?.toAmount &&
     !hasTargetAddress &&
     !noConnectWallet,

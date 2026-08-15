@@ -26,6 +26,7 @@ const settledRoundRequiringRecipient: IProps = {
   toToken: SOL,
   sourceAccountId: 'account-1',
   quoteResult: buildQuote(),
+  quoteProvenForCurrentInput: true,
   quoteSettledWithoutResult: false,
   isAddressInfoReady: true,
   hasTargetAddress: false,
@@ -36,6 +37,7 @@ const settledRoundRequiringRecipient: IProps = {
 const quotingRound: IProps = {
   ...settledRoundRequiringRecipient,
   quoteResult: undefined,
+  quoteProvenForCurrentInput: false,
 };
 
 function renderSettled(initialProps: IProps) {
@@ -119,6 +121,29 @@ describe('useSettledSwapRecipientRequired', () => {
     expect(result.current).toBe(false);
   });
 
+  it('ignores a same-pair quote retained across an account switch', () => {
+    // A same-pair account switch keeps the previous account's quote selected
+    // AND its event registered as "current" until the new request is written,
+    // so pair equality passes while the active-request proof must fail. The
+    // previous account's verdict must not decide the new account's scope.
+    const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
+    expect(result.current).toBe(true);
+
+    rerender({
+      ...settledRoundRequiringRecipient,
+      sourceAccountId: 'account-2',
+      quoteProvenForCurrentInput: false,
+    });
+    expect(result.current).toBe(false);
+
+    // The new account's own round settles: verdict re-establishes normally.
+    rerender({
+      ...settledRoundRequiringRecipient,
+      sourceAccountId: 'account-2',
+    });
+    expect(result.current).toBe(true);
+  });
+
   it('re-establishes the verdict once the new scope settles its own quote', () => {
     const { result, rerender } = renderSettled(settledRoundRequiringRecipient);
 
@@ -132,6 +157,7 @@ describe('useSettledSwapRecipientRequired', () => {
     rerender({
       ...limitScopeQuoting,
       quoteResult: buildQuote(),
+      quoteProvenForCurrentInput: true,
     });
     expect(result.current).toBe(true);
   });

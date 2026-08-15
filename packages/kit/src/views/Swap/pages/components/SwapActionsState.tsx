@@ -41,7 +41,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { isSwapQuoteRequestForCurrentInput } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
+  isSwapQuoteFromCurrentEvent,
+  isSwapQuoteRequestForCurrentInput,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -114,7 +117,8 @@ const SwapActionsState = ({
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
-  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventTotalCount, setSwapQuoteEventTotalCount] =
+    useSwapQuoteEventTotalCountAtom();
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -207,24 +211,25 @@ const SwapActionsState = ({
   // `actionLock`/`quoteEventCompleted` keep the request-starting interval
   // (lock written, fetching flag not yet set while `closeApproving` awaits)
   // counted as pending.
+  const quoteRequestMatchesCurrentInput = isSwapQuoteRequestForCurrentInput({
+    currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
+    currentAddress: swapFromAddressInfo?.address,
+    currentReceivingAddress: swapToAddressInfo?.address,
+    currentSwapType: swapTypeSwitch,
+    fromAmount: fromTokenAmount.value,
+    toAmount: toTokenAmount.value,
+    fromToken,
+    toToken,
+    quoteKind: quoteActionLock?.kind ?? ESwapQuoteKind.SELL,
+    quoteRequest: quoteActionLock,
+  });
   const isQuoteSettledWithoutResult =
     !currentQuoteRes &&
     !quoteLoading &&
     !quoteEventFetching &&
     !quoteActionLock.actionLock &&
     quoteEventCompleted &&
-    isSwapQuoteRequestForCurrentInput({
-      currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
-      currentAddress: swapFromAddressInfo?.address,
-      currentReceivingAddress: swapToAddressInfo?.address,
-      currentSwapType: swapTypeSwitch,
-      fromAmount: fromTokenAmount.value,
-      toAmount: toTokenAmount.value,
-      fromToken,
-      toToken,
-      quoteKind: quoteActionLock?.kind ?? ESwapQuoteKind.SELL,
-      quoteRequest: quoteActionLock,
-    });
+    quoteRequestMatchesCurrentInput;
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
   if (currentQuoteRes || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
@@ -247,6 +252,19 @@ const SwapActionsState = ({
     // Raw selection atom: the hook itself rejects a retained quote whose
     // token pair no longer matches the current selection.
     quoteResult: currentQuoteRes,
+    // Active-event proof: the selection layer retains previous-event quotes
+    // while a new round is requesting, and during a same-pair account switch
+    // even the "current event" is still the previous account's until the new
+    // request is written. The event-id check rejects the former; the request
+    // lock matching the current inputs rejects the latter.
+    quoteProvenForCurrentInput: Boolean(
+      isSwapQuoteFromCurrentEvent({
+        quote: currentQuoteRes,
+        quoteEventTotalCount,
+        quoteLoading,
+        quoteEventFetching,
+      }) && quoteRequestMatchesCurrentInput,
+    ),
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
