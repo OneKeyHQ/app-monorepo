@@ -8,6 +8,11 @@ import { CacheFirst } from 'workbox-strategies';
 import { resolveTradingViewEmbedProxySourceUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
 
 import {
+  TRADINGVIEW_EMBED_ASSET_MAX_BYTES,
+  TradingViewEmbedAssetIntegrityError,
+  verifyTradingViewEmbedAssetResponse,
+} from './tradingViewEmbedAssetIntegrity';
+import {
   cacheTradingViewCompletionMarker,
   putTradingViewResponseInCache,
 } from './tradingViewEmbedCache';
@@ -79,7 +84,10 @@ class ServiceWorkerVersionError extends Error {
 }
 
 function getVersionErrorCode(error) {
-  if (error instanceof ServiceWorkerVersionError) {
+  if (
+    error instanceof ServiceWorkerVersionError ||
+    error instanceof TradingViewEmbedAssetIntegrityError
+  ) {
     return error.code;
   }
   return 'update_failed';
@@ -337,7 +345,8 @@ function isValidTradingViewManifest(manifest) {
         typeof asset.integrity === 'string' &&
         /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(asset.integrity) &&
         Number.isSafeInteger(asset.size) &&
-        asset.size >= 0,
+        asset.size >= 0 &&
+        asset.size <= TRADINGVIEW_EMBED_ASSET_MAX_BYTES,
     )
   ) {
     const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
@@ -716,7 +725,7 @@ async function fetchTradingViewAsset(asset, baseUrl, priority = 'low') {
   }
   return {
     request: new Request(assetUrl),
-    response: await verifyIntegrity(response, asset.integrity),
+    response: await verifyTradingViewEmbedAssetResponse(response, asset),
   };
 }
 
