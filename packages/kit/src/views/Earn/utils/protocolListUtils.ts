@@ -1,12 +1,28 @@
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { parseFormattedLiquidityValue } from './availableAssetsUtils';
+import {
+  parseAprPercentValue,
+  parseFormattedLiquidityValue,
+} from './availableAssetsUtils';
 
 export type IEarnProtocolSortKey = 'tvl' | 'yield';
 export type IEarnProtocolSortDirection = 'asc' | 'desc';
 
+/**
+ * Server metric copy (TVL, liquidity, APR) is rendered verbatim — the client
+ * does no arithmetic on it — so a value the server failed to compute reaches
+ * the screen as-is — QA saw "NaN TVL" on Pendle rows for exactly that reason.
+ * A metric string with no digit in it is not something a user should ever be
+ * shown, whatever the server sent.
+ */
+export function isDisplayableMetricText(
+  value?: string | null,
+): value is string {
+  return typeof value === 'string' && /\d/.test(value);
+}
+
 function parseProtocolMetric(value?: string | null) {
-  if (!value || !/\d/.test(value)) {
+  if (!isDisplayableMetricText(value)) {
     return undefined;
   }
   const parsed = parseFormattedLiquidityValue(value);
@@ -22,7 +38,11 @@ function getProtocolMetric(
       item.provider.totalFiatValue || item.provider.tvl || item.tvl?.text,
     );
   }
-  return parseProtocolMetric(item.provider.aprWithoutFee);
+  // Yields come as ranges too ("2.00% - 10.00% APR"). parseProtocolMetric
+  // reads the first number, so a range sorted by its lower bound and landed
+  // below a single 5.00% — while EarnTokens and EarnProtocolTokens sort the
+  // same data by its upper bound. Share one parser so the three pages agree.
+  return parseAprPercentValue(item.provider.aprWithoutFee) || undefined;
 }
 
 export function getProtocolNetworkData(items: IStakeProtocolListItem[]) {

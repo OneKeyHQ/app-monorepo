@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   ListView,
   SizableText,
   Skeleton,
@@ -16,7 +17,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,8 +28,15 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
+import {
+  EARN_LIST_ESTIMATED_ITEM_SIZE,
+  EARN_LIST_ROW_GAP,
+  EarnListRowSeparator,
+} from '../../components/earnListRhythm';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -39,6 +46,7 @@ import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
 import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import { isDisplayableMetricText } from '../../utils/protocolListUtils';
 
 import type {
   IEarnSortDirection,
@@ -68,9 +76,11 @@ function getRowKey(row: IEarnProtocolTokenRow): string {
 
 function EarnProtocolTokensSkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$4" pt="$4">
+    // Same box metrics and row gap as the real ListItem rows so the
+    // skeleton-to-content swap does not shift the list (OK-59904)
+    <YStack px="$pagePadding" gap={EARN_LIST_ROW_GAP}>
       {Array.from({ length: 8 }).map((_, index) => (
-        <XStack key={index} ai="center" gap="$3">
+        <XStack key={index} minHeight="$11" py="$2" ai="center" gap="$3">
           <Skeleton w="$10" h="$10" borderRadius="$full" />
           <YStack gap="$1.5" flex={1}>
             <Skeleton h="$4" w="$24" />
@@ -209,7 +219,6 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
       // Note this is the token logo, not the page's `logoURI` route param,
       // which is the protocol's.
       const tokenLogoURI = assetLogoMap.get(row.symbol.toLowerCase());
-      prewarmTokenImages({ tokenImageUri: tokenLogoURI });
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: row.item.network.networkId,
         symbol: row.symbol,
@@ -245,16 +254,43 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         <ListItem.Text
           flex={1}
           primary={
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {row.symbol}
-            </SizableText>
+            <XStack ai="center" gap="$1.5" minWidth={0}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {row.symbol}
+              </SizableText>
+              {/* Sunset protocols (lido/babylon) come back as WithdrawOnly and
+                  are deliberately kept in the aggregation (OK-59305), but this
+                  page never surfaced that state, so their rows looked as if
+                  they still accepted deposits (OK-59959). The protocol list and
+                  the switcher already label the same group with this copy. */}
+              {row.item.provider.group ===
+              EStakeProtocolGroupEnum.WithdrawOnly ? (
+                <Badge badgeType="default" badgeSize="sm" flexShrink={0}>
+                  <Badge.Text>
+                    {intl.formatMessage({
+                      id: ETranslations.earn_withdrawal_only,
+                    })}
+                  </Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
           }
         />
         <YStack ai="flex-end" jc="center" gap="$0.5">
           <EarnAprSuffixText
+            // aprInfo is optional. When a row only carries
+            // provider.aprWithoutFee the text was empty and fallbackUnit does
+            // not render on its own, so the whole yield column went blank —
+            // while this page's own sorting already reads that field, and
+            // EarnProtocols falls back to it through AprText.
             text={
               row.item.aprInfo?.highlight?.text ??
               row.item.aprInfo?.normal?.text ??
+              row.item.provider.aprWithoutFee ??
               ''
             }
             // Append rewardUnit when the server copy has no suffix so
@@ -266,7 +302,10 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                 : (row.item.aprInfo?.normal?.color ?? '$text')
             }
           />
-          {row.item.tvl?.text ? (
+          {/* Guard, not a fix: the server owns this string and has shipped
+              "NaN" for some Pendle vaults. Rendering it verbatim put NaN in
+              front of users, so drop any metric copy that carries no digit. */}
+          {isDisplayableMetricText(row.item.tvl?.text) ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {`${row.item.tvl.text} ${intl.formatMessage({
                 id: ETranslations.earn_tvl,
@@ -332,12 +371,17 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         flex={1}
         {...earnListScrollBehaviorProps}
         data={showSkeleton ? [] : sortedTokens}
-        estimatedItemSize={60}
+        estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={getRowKey}
         renderItem={renderItem}
+        ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          showSkeleton ? <EarnProtocolTokensSkeleton /> : null
+          showSkeleton ? (
+            <EarnProtocolTokensSkeleton />
+          ) : (
+            <EarnListEmptyState isFiltered={selectedNetworkIds.length > 0} />
+          )
         }
         contentContainerStyle={{ pb: tabBarHeight }}
       />

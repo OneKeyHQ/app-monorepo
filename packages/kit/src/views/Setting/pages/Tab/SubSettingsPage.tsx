@@ -92,8 +92,10 @@ export function SubSettingsPage({
   const isMobileAboutPage =
     isMobileLayout && config?.name === ESettingsTabNames.About;
 
+  // Page must not scroll: the inner ScrollView owns scrolling so iPad's
+  // contentInsetAdjustmentBehavior applies to the right scroller (#12813).
   return (
-    <Page scrollEnabled backgroundColor={pageBackgroundColor}>
+    <Page backgroundColor={pageBackgroundColor}>
       <Page.Header
         {...(headerBackgroundColor
           ? { headerContainerBackgroundColor: headerBackgroundColor }
@@ -114,6 +116,7 @@ export function SubSettingsPage({
       />
       <Page.Body>
         <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
