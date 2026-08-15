@@ -409,21 +409,25 @@ async function applyDesktopNetworkThrottleRemoteOnlyFallback({
   if (contents.isDestroyed()) {
     return false;
   }
-  // Drop the remote-only marking so later applies take the standard path
-  // instead of retrying a command that already failed for this session.
-  remoteOnlyNetworkThrottleSessions.delete(contents.session);
   try {
     await contents.debugger.sendCommand(
       'Network.emulateNetworkConditions',
       getDebuggerNetworkConditions(config),
     );
   } catch (fallbackError) {
+    // Keep the session marked remote-only: the failure is scoped to this
+    // webContents, and clearing the mark would drop the dev-server bypass for
+    // every other webContents on the same session.
     logger.warn(
       `[desktop-network-throttle] failed remote-only fallback webContents=${targetLabel}`,
       fallbackError,
     );
     return false;
   }
+  // Only once full throttling is confirmed applied, drop the remote-only
+  // marking so later applies take the standard path instead of retrying a
+  // command that already failed for this session.
+  remoteOnlyNetworkThrottleSessions.delete(contents.session);
   clearDesktopNetworkThrottleDebuggerReapply(contents);
   appliedStateByWebContentsDebugger.set(contents, getSessionStateKey(config));
   logger.info(
@@ -498,10 +502,11 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
         },
       );
     } else {
-      await targetDebugger.sendCommand(
-        'Network.emulateNetworkConditions',
-        getDebuggerNetworkConditions(config),
-      );
+      // Clear per-rule conditions first: an empty rule list resets the whole
+      // throttling controller, so sending it after the profile would wipe the
+      // profile instead of just dropping stale rules. Best-effort, because
+      // Chromium builds without the experimental command must still get the
+      // standard emulation below.
       try {
         await targetDebugger.sendCommand(
           'Network.emulateNetworkConditionsByRule',
@@ -516,6 +521,10 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
           ruleError,
         );
       }
+      await targetDebugger.sendCommand(
+        'Network.emulateNetworkConditions',
+        getDebuggerNetworkConditions(config),
+      );
     }
     clearDesktopNetworkThrottleDebuggerReapply(contents);
     appliedStateByWebContentsDebugger.set(contents, stateKey);

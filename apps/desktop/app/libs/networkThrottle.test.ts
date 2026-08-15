@@ -145,6 +145,16 @@ describe('desktop network throttle', () => {
         matchedNetworkConditions: [],
       },
     );
+
+    // An empty rule list resets the throttling controller, so it must be sent
+    // BEFORE the profile; the reverse order measurably drops all throttling
+    // while the applied state claims slow4g.
+    const methods = targetDebugger.sendCommand.mock.calls.map(
+      ([method]) => method,
+    );
+    expect(
+      methods.indexOf('Network.emulateNetworkConditionsByRule'),
+    ).toBeLessThan(methods.lastIndexOf('Network.emulateNetworkConditions'));
   });
 
   it('falls back to full debugger throttling when remote-only rules fail', async () => {
@@ -185,6 +195,41 @@ describe('desktop network throttle', () => {
     await waitForDebuggerCommands();
     expect(targetDebugger.sendCommand).toHaveBeenCalledTimes(
       callsAfterFallback,
+    );
+  });
+
+  it('keeps the dev server bypass when the fallback itself fails', async () => {
+    const targetSession = createSession();
+    const { contents, targetDebugger } = createWebContents(targetSession);
+    targetDebugger.sendCommand.mockImplementation((method) =>
+      method === 'Network.enable'
+        ? Promise.resolve({})
+        : Promise.reject(new Error('Unsupported method')),
+    );
+
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+      {
+        remoteOnly: true,
+      },
+    );
+    await waitForDebuggerCommands();
+
+    // The failure is scoped to this webContents; other web contents on the
+    // same session must keep the loopback bypass, so a later apply still
+    // takes the remote-only path.
+    const { contents: sibling, targetDebugger: siblingDebugger } =
+      createWebContents(targetSession);
+    applyDesktopNetworkThrottleToWebContents(sibling as unknown as WebContents);
+    await waitForDebuggerCommands();
+
+    expect(siblingDebugger.sendCommand).toHaveBeenCalledWith(
+      'Network.emulateNetworkConditionsByRule',
+      expect.objectContaining({
+        matchedNetworkConditions: expect.arrayContaining([
+          expect.objectContaining({ urlPattern: '*://localhost:*/*' }),
+        ]),
+      }),
     );
   });
 

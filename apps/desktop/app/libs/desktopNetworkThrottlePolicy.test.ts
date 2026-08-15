@@ -27,23 +27,30 @@ describe('desktopNetworkThrottlePolicy', () => {
     });
   });
 
+  // URLPattern is only a global from Node 23.8; package.json still allows
+  // Node >=22.12.0, so skip rather than fail on an older local runtime.
+  const urlPatternDescribe =
+    typeof URLPattern === 'undefined' ? describe.skip : describe;
+
   // CDP drops unparsable patterns without reporting an error, so an invalid
   // entry would silently throttle the dev server instead of bypassing it.
-  it('keeps every bypass pattern constructible and loopback-scoped', () => {
-    for (const urlPattern of DESKTOP_DEV_SERVER_LOCAL_BYPASS_PATTERNS) {
-      const pattern = new URLPattern(urlPattern);
-      expect(pattern.test('https://wallet.onekeycn.com/v1/ping')).toBe(false);
-    }
-  });
+  urlPatternDescribe('bypass patterns', () => {
+    it('keeps every pattern constructible and loopback-scoped', () => {
+      for (const urlPattern of DESKTOP_DEV_SERVER_LOCAL_BYPASS_PATTERNS) {
+        const pattern = new URLPattern(urlPattern);
+        expect(pattern.test('https://wallet.onekeycn.com/v1/ping')).toBe(false);
+      }
+    });
 
-  it.each([
-    ['http://localhost:8081/index.bundle', 0],
-    ['http://127.0.0.1:3001/main.js', 1],
-    ['http://[::1]:8081/index.bundle', 2],
-  ])('bypasses dev server URL %s', (url, patternIndex) => {
-    const pattern = new URLPattern(
-      DESKTOP_DEV_SERVER_LOCAL_BYPASS_PATTERNS[patternIndex],
-    );
-    expect(pattern.test(url)).toBe(true);
+    it.each([
+      ['http://localhost:8081/index.bundle', 0],
+      ['http://127.0.0.1:3001/main.js', 1],
+      ['http://[::1]:8081/index.bundle', 2],
+    ])('bypasses dev server URL %s', (url, patternIndex) => {
+      const pattern = new URLPattern(
+        DESKTOP_DEV_SERVER_LOCAL_BYPASS_PATTERNS[patternIndex],
+      );
+      expect(pattern.test(url)).toBe(true);
+    });
   });
 });
