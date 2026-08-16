@@ -67,8 +67,8 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 
 const EMPTY_MARKET_VALUE = '--';
 
-// Redesign (flag-on) desktop column order: merges Name/Token Age into one
-// column and drops the standalone uniqueTraders/tokenAge columns.
+// Trending's desktop column order: merges Name/Token Age into one column and
+// drops the standalone uniqueTraders/tokenAge columns.
 const REDESIGN_COLUMN_ORDER = [
   'star',
   'name',
@@ -103,7 +103,7 @@ function getDefaultMarketValue(text: number) {
   return text === 0 ? EMPTY_MARKET_VALUE : text;
 }
 
-// Shared by the flag-off tokenAge column and the flag-on Name cell subtitle.
+// Shared by the standalone tokenAge column and the Name cell subtitle.
 function formatTokenAgeLabel(
   intl: IntlShape,
   firstTradeTime: number | undefined,
@@ -380,13 +380,11 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
-  hasStock?: boolean,
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
-  redesignEnabled?: boolean,
   redesignColumnOrderEnabled?: boolean,
   // Window the volume column covers. Trending follows the toolbar; every other
   // list resolves the 24h window in transformApiItemToToken.
@@ -408,18 +406,18 @@ export const useColumnsDesktop = (
           </SizableText>
         ) as any,
         dataIndex: 'star',
-        columnWidth: redesignEnabled ? REDESIGN_STAR_COLUMN_WIDTH : 50,
+        columnWidth: REDESIGN_STAR_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
             return (
-              <Stack pl={redesignEnabled ? '$3' : '$2'}>
+              <Stack pl="$3">
                 <Stack width={24} height={24} />
               </Stack>
             );
           }
 
           return (
-            <Stack pl={redesignEnabled ? '$3' : '$2'}>
+            <Stack pl="$3">
               {record.perpsCoin ? (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
@@ -429,9 +427,7 @@ export const useColumnsDesktop = (
                   from={watchlistFrom || EWatchlistFrom.Homepage}
                   tokenSymbol={record.symbol}
                   size="small"
-                  customIconSize={
-                    redesignEnabled ? REDESIGN_STAR_ICON_SIZE : undefined
-                  }
+                  customIconSize={REDESIGN_STAR_ICON_SIZE}
                   isNative={record.isNative}
                 />
               )}
@@ -443,11 +439,10 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        // Redesign merges the standalone tokenAge column into this one, so the
-        // header names both — but only where rows actually carry an age.
-        // Stocks and the watchlist never render one and keep the plain Name.
+        // The standalone tokenAge column is merged into this one, so the header
+        // names both — but only where rows actually carry an age. Stocks and
+        // the watchlist never render one and keep the plain Name.
         title:
-          redesignEnabled &&
           !useStockMetadataColumns &&
           !hideTokenAge &&
           !isWatchlistMode
@@ -458,9 +453,7 @@ export const useColumnsDesktop = (
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
-          if (redesignEnabled) return REDESIGN_NAME_COLUMN_WIDTH;
-          if (hasStock && showStockSubtitle) return 240;
-          return 200;
+          return REDESIGN_NAME_COLUMN_WIDTH;
         })(),
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
@@ -468,7 +461,7 @@ export const useColumnsDesktop = (
             return renderLightweightTokenIdentity(record);
           }
 
-          if (redesignEnabled && !record.perpsCoin) {
+          if (!record.perpsCoin) {
             return renderRedesignTokenIdentity(
               record,
               intl,
@@ -771,42 +764,39 @@ export const useColumnsDesktop = (
         : undefined,
     ].filter(Boolean) as ITableColumn<IMarketToken>[];
 
-    // The redesigned header chrome (sort glyph + dotted tooltip underline) is
-    // visual, so every list gets it. The fixed roster below is trending-only:
-    // it names nine columns and would drop the stock/watchlist ones.
-    const styledColumns = redesignEnabled
-      ? columns.map((column) => {
-          const dataIndex = String(column.dataIndex);
-          if (dataIndex === 'star' || typeof column.title !== 'string') {
-            return column;
-          }
-          const label = column.title;
-          // Two of these explainers say "in the selected time range", which
-          // only holds where the user can actually select one — trending. The
-          // watchlist and banner detail are fixed at 24h, so they get no
-          // tooltip rather than a promise the screen cannot keep. Stock columns
-          // are excluded too: they repurpose the liquidity/turnover/marketCap
-          // slots for 24h volume and P/E, so the dataIndex-keyed explainer
-          // would describe the wrong number.
-          const tooltipKey =
-            useStockMetadataColumns || !redesignColumnOrderEnabled
-              ? undefined
-              : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
-          const tooltip = tooltipKey
-            ? intl.formatMessage({ id: tooltipKey })
-            : undefined;
-          return {
-            ...column,
-            renderTitle: (
-              _sortIcon: ReactNode,
-              sortContext: ITableColumnSortContext,
-            ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
-          };
-        })
-      : columns;
+    // The header chrome (sort glyph + dotted tooltip underline) is visual, so
+    // every list gets it. The fixed roster below is trending-only: it names
+    // nine columns and would drop the stock/watchlist ones.
+    const styledColumns = columns.map((column) => {
+      const dataIndex = String(column.dataIndex);
+      if (dataIndex === 'star' || typeof column.title !== 'string') {
+        return column;
+      }
+      const label = column.title;
+      // Two of these explainers say "in the selected time range", which only
+      // holds where the user can actually select one — trending. The watchlist
+      // and banner detail are fixed at 24h, so they get no tooltip rather than
+      // a promise the screen cannot keep. Stock columns are excluded too: they
+      // repurpose the liquidity/turnover/marketCap slots for 24h volume and
+      // P/E, so the dataIndex-keyed explainer would describe the wrong number.
+      const tooltipKey =
+        useStockMetadataColumns || !redesignColumnOrderEnabled
+          ? undefined
+          : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
+      const tooltip = tooltipKey
+        ? intl.formatMessage({ id: tooltipKey })
+        : undefined;
+      return {
+        ...column,
+        renderTitle: (
+          _sortIcon: ReactNode,
+          sortContext: ITableColumnSortContext,
+        ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
+      };
+    });
 
     // Reorders/filters via a fixed key list rather than mutating the
-    // generation above, so the flag-off path stays byte-identical.
+    // generation above, so non-trending lists keep their own roster.
     const orderedColumns = redesignColumnOrderEnabled
       ? REDESIGN_COLUMN_ORDER.map((key) =>
           styledColumns.find((c) => String(c.dataIndex) === key),
@@ -826,14 +816,12 @@ export const useColumnsDesktop = (
     deferRichRowAfterIndex,
     gtLg,
     gtXl,
-    hasStock,
     hiddenDesktopColumns,
     hideTokenAge,
     intl,
     isWatchlistMode,
     networkId,
     redesignColumnOrderEnabled,
-    redesignEnabled,
     volumeTimeRange,
     showStockSubtitle,
     useStockMetadataColumns,

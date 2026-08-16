@@ -15,8 +15,6 @@ export interface IMarketFilterBarSmallProps {
   timeRange?: ITimeRangeSelectorValue;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
-  // The filters entry is part of the redesign demo, so it stays behind the flag.
-  marketListRedesignEnabled?: boolean;
 }
 
 function MarketFilterBarSmall({
@@ -24,7 +22,6 @@ function MarketFilterBarSmall({
   timeRange = '1h',
   onNetworkIdChange,
   onTimeRangeChange,
-  marketListRedesignEnabled,
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
@@ -51,7 +48,7 @@ function MarketFilterBarSmall({
               compact
             />
           ) : null}
-          {marketListRedesignEnabled && onTimeRangeChange ? (
+          {onTimeRangeChange ? (
             <MarketFiltersIconTrigger
               timeRange={timeRange}
               onTimeRangeChange={onTimeRangeChange}

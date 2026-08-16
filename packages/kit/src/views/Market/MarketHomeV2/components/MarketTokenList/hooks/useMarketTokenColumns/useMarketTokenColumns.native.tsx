@@ -20,7 +20,7 @@ export const useMarketTokenColumns = (
   _change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   _deferRichRowAfterIndex?: number,
-  _options?: { redesignEnabled?: boolean },
+  _options?: { redesignColumnOrderEnabled?: boolean },
 ): ITableColumn<IMarketToken>[] => {
   // Native only renders the mobile table; keep desktop column imports out of Metro.
   return useColumnsMobile(showStockSubtitle, useStockMetadataColumns);

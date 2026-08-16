@@ -15,7 +15,6 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
@@ -78,7 +77,6 @@ interface ITabBarDynamicContext {
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
   activeTabName: string;
-  marketListRedesignEnabled: boolean;
 }
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
@@ -201,7 +199,6 @@ function MarketHomeTabBar({
               timeRange={ctx.filterBarProps.timeRange}
               onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
               onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
-              marketListRedesignEnabled={ctx.marketListRedesignEnabled}
             />
           ) : null}
           {showStockCategorySelector ? (
@@ -266,10 +263,6 @@ function MobileLayoutComponent({
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
-  const [devSettings] = useDevSettingsPersistAtom();
-  const marketListRedesignEnabled = Boolean(
-    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
-  );
   const {
     watchlistTabName,
     spotTabItems,
@@ -426,7 +419,6 @@ function MobileLayoutComponent({
       selectedCategoryId,
       onSelectCategory: handleSelectCategory,
       activeTabName,
-      marketListRedesignEnabled,
     }),
     [
       filterBarProps,
@@ -442,7 +434,6 @@ function MobileLayoutComponent({
       selectedCategoryId,
       handleSelectCategory,
       activeTabName,
-      marketListRedesignEnabled,
     ],
   );
 

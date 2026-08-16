@@ -36,9 +36,7 @@ import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
 
 import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
 
-export function usePerpsColumnsDesktop(
-  redesignEnabled?: boolean,
-): ITableColumn<IMarketPerpsToken>[] {
+export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
   const { gtXl } = useMedia();
 
@@ -53,15 +51,13 @@ export function usePerpsColumnsDesktop(
             </SizableText>
           ) as any,
           dataIndex: 'star',
-          columnWidth: redesignEnabled ? REDESIGN_STAR_COLUMN_WIDTH : 50,
+          columnWidth: REDESIGN_STAR_COLUMN_WIDTH,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <Stack pl={redesignEnabled ? '$3' : '$2'}>
+            <Stack pl="$3">
               <MarketPerpsStarV2
                 perpsCoin={record.name}
-                size={redesignEnabled ? 'small' : undefined}
-                customIconSize={
-                  redesignEnabled ? REDESIGN_STAR_ICON_SIZE : undefined
-                }
+                size="small"
+                customIconSize={REDESIGN_STAR_ICON_SIZE}
               />
             </Stack>
           ),
@@ -78,12 +74,12 @@ export function usePerpsColumnsDesktop(
           render: (_: unknown, record: IMarketPerpsToken) => (
             <XStack
               alignItems="center"
-              gap={redesignEnabled ? REDESIGN_NAME_ICON_GAP : '$3'}
+              gap={REDESIGN_NAME_ICON_GAP}
               minWidth={0}
               overflow="hidden"
             >
               <Token
-                size={redesignEnabled ? 'lg' : 'md'}
+                size="lg"
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUrl}
                 fallbackIcon="CryptoCoinOutline"
@@ -266,7 +262,6 @@ export function usePerpsColumnsDesktop(
           // Same header chrome as the spot lists. Perps has no sorting, so
           // sortContext carries no onSortPress and no glyph is drawn.
           if (
-            !redesignEnabled ||
             String(typed.dataIndex) === 'star' ||
             typeof typed.title !== 'string'
           ) {
@@ -281,14 +276,12 @@ export function usePerpsColumnsDesktop(
             ) => renderRedesignHeaderTitle({ label, sortContext }),
           };
         }) as ITableColumn<IMarketPerpsToken>[],
-    [intl, gtXl, redesignEnabled],
+    [intl, gtXl],
   );
 }
 
-export function usePerpsColumns(
-  redesignEnabled?: boolean,
-): ITableColumn<IMarketPerpsToken>[] {
-  const desktopColumns = usePerpsColumnsDesktop(redesignEnabled);
+export function usePerpsColumns(): ITableColumn<IMarketPerpsToken>[] {
+  const desktopColumns = usePerpsColumnsDesktop();
   const mobileColumns = usePerpsColumnsMobile();
   const media = useMedia();
 

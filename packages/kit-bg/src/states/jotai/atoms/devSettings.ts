@@ -93,8 +93,6 @@ export interface IDevSettings {
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
   // Show Market Home websocket subscription debug overlay and row highlight.
   showMarketHomeWsDebug?: boolean;
-  // Show Market list redesign demo (sort/filter chips + new columns).
-  showMarketListRedesign?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -184,7 +182,6 @@ export const {
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
-      showMarketListRedesign: false,
       networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop uses WebUSB; host udev rules are requested when needed.

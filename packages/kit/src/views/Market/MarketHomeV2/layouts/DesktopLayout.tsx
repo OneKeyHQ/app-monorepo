@@ -11,7 +11,6 @@ import type { ReactNode } from 'react';
 
 import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { markMarketPerf } from '../../utils/marketPerf';
@@ -87,10 +86,6 @@ export function DesktopLayout({
   useMarketRenderCommitProbe('MarketHome.DesktopLayout', {
     selectedNetworkId,
   });
-  const [devSettings] = useDevSettingsPersistAtom();
-  const marketListRedesignEnabled = Boolean(
-    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
-  );
   const {
     watchlistTabName,
     spotTabItems,
@@ -201,12 +196,6 @@ export function DesktopLayout({
   const stockDataCategoryMapRef = useRef(stockDataCategoryMap);
   stockDataCategoryMapRef.current = stockDataCategoryMap;
 
-  // renderTabBar's useCallback deps are intentionally minimal (stable
-  // identity matters for collapsible-tab memoisation), so flag state is
-  // threaded in via ref like the other renderTabBar inputs above.
-  const marketListRedesignEnabledRef = useRef(marketListRedesignEnabled);
-  marketListRedesignEnabledRef.current = marketListRedesignEnabled;
-
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -231,12 +220,9 @@ export function DesktopLayout({
       const showSpotControls = Boolean(
         currentSpotCategoryId && !currentSpotCategoryHasStockData,
       );
-      // Redesign moves the time-range control into the trending tab's chips
-      // bar; keep it in the top-right for every other spot category.
-      const isTrendingTab = currentSpotCategoryId === 'trending';
-      const showTimeRangeDropdown = !(
-        marketListRedesignEnabledRef.current && isTrendingTab
-      );
+      // Trending owns the time-range control inside its chips bar; keep it in
+      // the top-right for every other spot category.
+      const showTimeRangeDropdown = currentSpotCategoryId !== 'trending';
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -350,7 +336,7 @@ export function DesktopLayout({
       // Trending's chips-bar toolbar and the stock category selector
       // toolbar are mutually exclusive (see Task 9 brief).
       let toolbarNode: ReactNode;
-      if (marketListRedesignEnabled && item.categoryId === 'trending') {
+      if (item.categoryId === 'trending') {
         toolbarNode = (
           <MarketFilterChipsBar
             timeRange={filterBarProps.timeRange}
@@ -385,7 +371,6 @@ export function DesktopLayout({
                 }
                 timeRange={filterBarProps.timeRange}
                 toolbar={toolbarNode}
-                marketListRedesignEnabled={marketListRedesignEnabled}
                 tabIntegrated
                 tabName={item.tabName}
                 listContainerProps={listContainerProps}

@@ -69,7 +69,6 @@ import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenLis
 import type { IMarketTimeRangeValue } from '../../types';
 
 const SPINNER_HEIGHT = 52;
-const MARKET_HOME_WS_ROW_HEIGHT_PX = 60;
 const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
@@ -77,10 +76,6 @@ const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
-  contentVisibility: 'auto',
-  containIntrinsicSize: '60px',
-} satisfies CSSProperties;
-const MARKET_HOME_WEB_REDESIGN_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: `${REDESIGN_ROW_HEIGHT}px`,
 } satisfies CSSProperties;
@@ -280,9 +275,8 @@ type IMarketTokenListBaseProps = {
   enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
-  redesignEnabled?: boolean;
-  // Trending-only column roster. Other lists opt into the visuals above
-  // without losing their own columns.
+  // Trending-only column roster. Other lists keep their own columns while
+  // still using the shared row/header visuals.
   redesignColumnOrderEnabled?: boolean;
   // Window the volume column reports. Omit for lists that resolve 24h.
   volumeTimeRange?: IMarketTimeRangeValue;
@@ -318,7 +312,6 @@ function MarketTokenListBase({
   enableWebSocket,
   rowBg,
   testID,
-  redesignEnabled,
   redesignColumnOrderEnabled,
   volumeTimeRange,
 }: IMarketTokenListBaseProps) {
@@ -410,16 +403,14 @@ function MarketTokenListBase({
       ? getMarketHomeVisibleSubscriptionRange({
           rootElement: listRootRef.current,
           tokenCount: orderedData.length,
-          rowHeight: redesignEnabled
-            ? REDESIGN_ROW_HEIGHT
-            : MARKET_HOME_WS_ROW_HEIGHT_PX,
+          rowHeight: REDESIGN_ROW_HEIGHT,
         })
       : { start: 0, end: 0 };
 
     setSubscriptionRange((prev) =>
       isSameSubscriptionRange(prev, nextRange) ? prev : nextRange,
     );
-  }, [orderedData.length, redesignEnabled, webSocketEnabled]);
+  }, [orderedData.length, webSocketEnabled]);
 
   useEffect(() => {
     updateSubscriptionRange();
@@ -532,7 +523,7 @@ function MarketTokenListBase({
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
-    { redesignEnabled, redesignColumnOrderEnabled, volumeTimeRange },
+    { redesignColumnOrderEnabled, volumeTimeRange },
   );
 
   const data = useMemo(() => {
@@ -899,24 +890,17 @@ function MarketTokenListBase({
     }),
     [],
   );
-  const tableRowProps = useMemo<IXStackProps | undefined>(() => {
+  const tableRowProps = useMemo<IXStackProps>(() => {
     const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
-    if (!rowBg && !hasWebRowStyle && !redesignEnabled) {
-      return undefined;
-    }
     return {
       ...(rowBg ? { bg: rowBg } : undefined),
       // Figma: 12px vertical padding around a 44px identity block = 68px rows.
-      ...(redesignEnabled ? { minHeight: REDESIGN_ROW_HEIGHT } : undefined),
+      minHeight: REDESIGN_ROW_HEIGHT,
       ...(hasWebRowStyle
-        ? {
-            style: redesignEnabled
-              ? MARKET_HOME_WEB_REDESIGN_ROW_CONTENT_VISIBILITY_STYLE
-              : MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE,
-          }
+        ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
         : undefined),
     };
-  }, [redesignEnabled, rowBg, webTabIntegrated]);
+  }, [rowBg, webTabIntegrated]);
 
   return (
     <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
@@ -973,7 +957,7 @@ function MarketTokenListBase({
               controlledSort={controlledSort}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={redesignEnabled ? REDESIGN_ROW_HEIGHT : 60}
+              estimatedItemSize={REDESIGN_ROW_HEIGHT}
               onRow={stableOnRow}
               rowProps={tableRowProps}
             />

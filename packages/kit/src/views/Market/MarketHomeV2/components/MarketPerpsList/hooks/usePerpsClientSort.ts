@@ -45,10 +45,8 @@ function sortPerpsTokens(
 
 export function usePerpsClientSort({
   tokens,
-  enabled,
 }: {
   tokens: IMarketPerpsToken[];
-  enabled: boolean;
 }) {
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -56,7 +54,7 @@ export function usePerpsClientSort({
   );
 
   const sortedTokens = useMemo(() => {
-    if (!enabled || !sortBy || !sortType) {
+    if (!sortBy || !sortType) {
       return tokens;
     }
     const field = PERPS_CLIENT_SORT_FIELD_MAP[sortBy];
@@ -64,13 +62,10 @@ export function usePerpsClientSort({
       return tokens;
     }
     return sortPerpsTokens(tokens, field, sortType);
-  }, [enabled, sortBy, sortType, tokens]);
+  }, [sortBy, sortType, tokens]);
 
   const onHeaderRow = useCallback(
     (column: ITableColumn<IMarketPerpsToken>) => {
-      if (!enabled) {
-        return undefined;
-      }
       const columnKey = String(column.dataIndex);
       if (!PERPS_CLIENT_SORT_FIELD_MAP[columnKey]) {
         return undefined;
@@ -84,15 +79,12 @@ export function usePerpsClientSort({
           sortBy === columnKey ? (sortType as ETableSortType) : undefined,
       };
     },
-    [enabled, sortBy, sortType],
+    [sortBy, sortType],
   );
 
   // The desktop layout renders a portalled header alongside the table's own,
   // so the order has to come from here rather than each header's local state.
   const controlledSort = useMemo<ITableControlledSort | undefined>(() => {
-    if (!enabled) {
-      return undefined;
-    }
     if (!sortBy || !sortType) {
       return null;
     }
@@ -100,7 +92,7 @@ export function usePerpsClientSort({
       dataIndex: sortBy,
       order: sortType === 'asc' ? ETableSortType.ASC : ETableSortType.DESC,
     };
-  }, [enabled, sortBy, sortType]);
+  }, [sortBy, sortType]);
 
   return { sortedTokens, onHeaderRow, controlledSort };
 }

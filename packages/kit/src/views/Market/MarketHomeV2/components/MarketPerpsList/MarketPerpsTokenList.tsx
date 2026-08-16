@@ -11,7 +11,6 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -55,16 +54,12 @@ function MarketPerpsTokenListImpl({
     selectedCategoryId,
   });
 
-  const [devSettings] = useDevSettingsPersistAtom();
-  const redesignEnabled = Boolean(
-    devSettings.enabled && devSettings.settings?.showMarketListRedesign,
-  );
-  const perpsColumns = usePerpsColumns(redesignEnabled);
+  const perpsColumns = usePerpsColumns();
   const {
     sortedTokens,
     onHeaderRow: handleHeaderRow,
     controlledSort,
-  } = usePerpsClientSort({ tokens, enabled: redesignEnabled });
+  } = usePerpsClientSort({ tokens });
 
   const handleTokenPress = navigateToPerps;
 
@@ -189,9 +184,7 @@ function MarketPerpsTokenListImpl({
             <Table.Skeleton
               columns={perpsColumns}
               count={20}
-              rowProps={{
-                minHeight: redesignEnabled ? REDESIGN_ROW_HEIGHT : '$14',
-              }}
+              rowProps={{ minHeight: REDESIGN_ROW_HEIGHT }}
             />
           ) : (
             <Table<IMarketPerpsToken>
@@ -207,12 +200,8 @@ function MarketPerpsTokenListImpl({
               keyExtractor={(item) => item.name}
               // Same row box as the spot tables, so switching tabs does not
               // shift every row below the first.
-              rowProps={
-                redesignEnabled
-                  ? { minHeight: REDESIGN_ROW_HEIGHT }
-                  : undefined
-              }
-              estimatedItemSize={redesignEnabled ? REDESIGN_ROW_HEIGHT : '$14'}
+              rowProps={{ minHeight: REDESIGN_ROW_HEIGHT }}
+              estimatedItemSize={REDESIGN_ROW_HEIGHT}
               extraData={hasRealTimeData}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}

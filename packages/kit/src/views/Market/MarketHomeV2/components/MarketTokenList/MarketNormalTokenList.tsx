@@ -44,7 +44,6 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
-  marketListRedesignEnabled?: boolean;
 };
 
 function MarketNormalTokenList({
@@ -66,7 +65,6 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
-  marketListRedesignEnabled,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -76,25 +74,18 @@ function MarketNormalTokenList({
   });
   const { filterState, sortState, setSortState } = useMarketListFilter();
 
-  // The redesigned row/header visuals are shared across every list, so stocks
-  // opt in too and stay consistent with trending.
-  const redesignVisualsActive = marketListRedesignEnabled;
-
   // Filters, the chip-driven sort and the fixed column roster are trending
   // features; stocks keep their own columns and server-driven behavior.
-  const redesignActive =
-    marketListRedesignEnabled &&
-    selectedCategory === 'trending' &&
-    !stockCategory;
+  const isTrendingList = selectedCategory === 'trending' && !stockCategory;
 
   // Server-side passthrough for every dimension the API supports; the local
   // pass below only handles what it cannot (token age).
   const filterParams = useMemo(
     () =>
-      redesignActive
+      isTrendingList
         ? buildHotTokenFilterParams(filterState.conditions)
         : undefined,
-    [redesignActive, filterState.conditions],
+    [isTrendingList, filterState.conditions],
   );
 
   const normalResult = useMarketTokenList({
@@ -115,7 +106,7 @@ function MarketNormalTokenList({
   );
 
   const filteredData = useMemo(() => {
-    if (!redesignActive) {
+    if (!isTrendingList) {
       return normalResult.data;
     }
     // Only the conditions the server cannot express — the rest already
@@ -124,19 +115,14 @@ function MarketNormalTokenList({
       normalResult.data,
       pickLocalOnlyConditions(filterState.conditions),
     );
-  }, [redesignActive, normalResult.data, filterState.conditions]);
+  }, [isTrendingList, normalResult.data, filterState.conditions]);
 
-  // Header sorting is a view concern, so stocks sort in-table too. It covers
-  // the rows already fetched, not the server-side pool.
-  const clientSortEnabled = marketListRedesignEnabled
-    ? true
-    : selectedCategory === 'trending' && !stockCategory;
-  // Only the redesigned trending view has a chip row to stay in sync with;
-  // everywhere else the hook keeps its own private sort state.
+  // Only the trending view has a chip row to stay in sync with; everywhere
+  // else the hook keeps its own private sort state.
   const externalSort = useMemo(
     () =>
-      redesignActive ? { ...sortState, onChange: setSortState } : undefined,
-    [redesignActive, sortState, setSortState],
+      isTrendingList ? { ...sortState, onChange: setSortState } : undefined,
+    [isTrendingList, sortState, setSortState],
   );
   const clientSortResult = useClientSortResult(
     useMemo(
@@ -145,7 +131,7 @@ function MarketNormalTokenList({
     ),
     { externalSort },
   );
-  const listResult = clientSortEnabled ? clientSortResult : normalResult;
+  const listResult = clientSortResult;
 
   useEffect(() => {
     if (selectedCategory) {
@@ -181,12 +167,11 @@ function MarketNormalTokenList({
       toolbar={toolbar}
       result={listResult}
       isWatchlistMode={false}
-      clientSort={clientSortEnabled}
+      clientSort
       clientSortFieldMapOverride={
-        redesignActive ? { name: 'firstTradeTime' } : undefined
+        isTrendingList ? { name: 'firstTradeTime' } : undefined
       }
-      redesignEnabled={redesignVisualsActive}
-      redesignColumnOrderEnabled={redesignActive}
+      redesignColumnOrderEnabled={isTrendingList}
       volumeTimeRange={timeRange}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}

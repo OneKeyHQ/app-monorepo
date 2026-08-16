@@ -26,9 +26,8 @@ export const useMarketTokenColumns = (
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
   options?: {
-    redesignEnabled?: boolean;
     // Trending-only: reorders to the fixed nine-column roster. Every other
-    // list keeps its own columns and takes the visual changes alone.
+    // list keeps its own columns and takes the shared visuals alone.
     redesignColumnOrderEnabled?: boolean;
     volumeTimeRange?: IMarketTimeRangeValue;
   },
@@ -39,13 +38,11 @@ export const useMarketTokenColumns = (
     hideTokenAge,
     watchlistFrom,
     copyFrom,
-    hasStock,
     showStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
-    options?.redesignEnabled,
     options?.redesignColumnOrderEnabled,
     options?.volumeTimeRange,
   );
