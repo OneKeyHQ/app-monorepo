@@ -1818,6 +1818,27 @@ export function useSwapProActionsQuote() {
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  // Live per-stock open state from the 10s-polled Pro token detail, used
+  // ONLY as a quote re-run trigger below: a market reopen must re-request
+  // the quote so a latched closed-market error clears without an input edit
+  // (OK-58986). Guarded to the selected token — the detail atom is not
+  // cleared on token switch and may briefly describe the previous token.
+  const selectedStockIsOpen = useMemo(() => {
+    if (!proTokenDetail || !swapProSelectToken) {
+      return undefined;
+    }
+    const detailMatchesSelectedToken = equalTokenNoCaseSensitive({
+      token1: {
+        networkId: proTokenDetail.networkId,
+        contractAddress: proTokenDetail.address,
+      },
+      token2: swapProSelectToken,
+    });
+    return detailMatchesSelectedToken
+      ? proTokenDetail.stock?.isOpen
+      : undefined;
+  }, [proTokenDetail, swapProSelectToken]);
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
@@ -1836,6 +1857,9 @@ export function useSwapProActionsQuote() {
   );
 
   useEffect(() => {
+    // Read only as a re-run trigger: an open-state flip re-requests the
+    // quote so stale closed-market state refreshes (OK-58986).
+    void selectedStockIsOpen;
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
       enableSwapProMarketQuote &&
@@ -1865,6 +1889,7 @@ export function useSwapProActionsQuote() {
     swapProAccount.result?.id,
     slippageItem.key,
     swapProMarketQuoteCustomSlippage,
+    selectedStockIsOpen,
   ]);
 
   useEffect(() => {
