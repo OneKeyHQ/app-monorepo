@@ -66,6 +66,7 @@ import {
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
+import type { IMarketClientSortValueGetter } from './utils/marketListClientSort';
 import type { IMarketTimeRangeValue } from '../../types';
 
 const SPINNER_HEIGHT = 52;
@@ -242,7 +243,10 @@ type IMarketTokenListBaseProps = {
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
   clientSort?: boolean;
-  clientSortFieldMapOverride?: Record<string, keyof IMarketToken>;
+  clientSortFieldMapOverride?: Record<
+    string,
+    keyof IMarketToken | IMarketClientSortValueGetter
+  >;
   // Restricts which dataIndexes are sortable in clientSort mode (intersected
   // with clientSortFieldMap). Omit to keep all mapped columns sortable
   // (trending behavior). Banner detail passes ['change24h'] only, since its

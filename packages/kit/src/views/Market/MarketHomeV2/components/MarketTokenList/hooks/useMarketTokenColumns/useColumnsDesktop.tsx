@@ -195,8 +195,14 @@ function renderRedesignTokenIdentity(
   showReasonTag: boolean,
   copyFrom: ECopyFrom,
   showStockSubtitle: boolean,
+  showTokenAge: boolean,
 ) {
-  const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
+  // Callers that opt out of the age (banner detail's hideTokenAge, the
+  // watchlist) also lose it here, not just in the header — otherwise the
+  // column reads "Name" while the cell still prints an age underneath.
+  const ageLabel = showTokenAge
+    ? formatTokenAgeLabel(intl, record.firstTradeTime)
+    : undefined;
   const shortAddress = buildRedesignShortAddress(record);
   // Stock rows carry a source logo and a localized name that the plain token
   // cell renders too; the redesign keeps both rather than dropping them.
@@ -397,6 +403,11 @@ export const useColumnsDesktop = (
     const watchlistNameWidth = gtLg ? 340 : 260;
     const shouldRenderRichCell = (index?: number) =>
       !shouldUseLightweightCell(index, deferRichRowAfterIndex);
+    // One gate for the merged column: the header only names Token Age where
+    // the cell actually prints one. Stocks and the watchlist never carry an
+    // age, and banner detail opts out via hideTokenAge.
+    const showTokenAge =
+      !useStockMetadataColumns && !hideTokenAge && !isWatchlistMode;
 
     const columns = [
       {
@@ -440,16 +451,12 @@ export const useColumnsDesktop = (
       },
       {
         // The standalone tokenAge column is merged into this one, so the header
-        // names both — but only where rows actually carry an age. Stocks and
-        // the watchlist never render one and keep the plain Name.
-        title:
-          !useStockMetadataColumns &&
-          !hideTokenAge &&
-          !isWatchlistMode
-            ? intl.formatMessage({
-                id: ETranslations.market_column_name_token_age,
-              })
-            : intl.formatMessage({ id: ETranslations.global_name }),
+        // names both — but only where the cell below actually prints an age.
+        title: showTokenAge
+          ? intl.formatMessage({
+              id: ETranslations.market_column_name_token_age,
+            })
+          : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
@@ -468,6 +475,7 @@ export const useColumnsDesktop = (
               gtXl,
               copyFrom || ECopyFrom.Homepage,
               showStockSubtitle ?? true,
+              showTokenAge,
             );
           }
 

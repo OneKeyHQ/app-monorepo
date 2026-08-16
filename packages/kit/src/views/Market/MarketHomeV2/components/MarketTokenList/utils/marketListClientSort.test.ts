@@ -1,5 +1,6 @@
 import {
   MARKET_CLIENT_SORT_FIELD_MAP,
+  getTokenAgeSortValue,
   sortMarketTokensClient,
 } from './marketListClientSort';
 
@@ -78,7 +79,53 @@ describe('MARKET_CLIENT_SORT_FIELD_MAP', () => {
       transactions: 'transactions',
       uniqueTraders: 'uniqueTraders',
       holders: 'holders',
-      tokenAge: 'firstTradeTime',
+      tokenAge: getTokenAgeSortValue,
     });
+  });
+});
+
+describe('getTokenAgeSortValue', () => {
+  const HOUR = 60 * 60 * 1000;
+  // The column renders an age, so ordering must follow the age, not the
+  // timestamp behind it: the two run in opposite directions.
+  const now = Date.now();
+  const oldest = makeToken({ id: 'oldest', firstTradeTime: now - 500 * HOUR });
+  const middle = makeToken({ id: 'middle', firstTradeTime: now - 50 * HOUR });
+  const youngest = makeToken({ id: 'youngest', firstTradeTime: now - 5 * HOUR });
+
+  it('puts the youngest token first ascending', () => {
+    const sorted = sortMarketTokensClient(
+      [oldest, youngest, middle],
+      getTokenAgeSortValue,
+      'asc',
+    );
+    expect(sorted.map((t) => t.id)).toEqual(['youngest', 'middle', 'oldest']);
+  });
+
+  it('puts the oldest token first descending', () => {
+    const sorted = sortMarketTokensClient(
+      [middle, youngest, oldest],
+      getTokenAgeSortValue,
+      'desc',
+    );
+    expect(sorted.map((t) => t.id)).toEqual(['oldest', 'middle', 'youngest']);
+  });
+
+  it('sinks rows that render no age, in both directions', () => {
+    const noAge = makeToken({ id: 'noAge', firstTradeTime: undefined });
+    expect(
+      sortMarketTokensClient(
+        [noAge, youngest, oldest],
+        getTokenAgeSortValue,
+        'asc',
+      ).map((t) => t.id),
+    ).toEqual(['youngest', 'oldest', 'noAge']);
+    expect(
+      sortMarketTokensClient(
+        [noAge, youngest, oldest],
+        getTokenAgeSortValue,
+        'desc',
+      ).map((t) => t.id),
+    ).toEqual(['oldest', 'youngest', 'noAge']);
   });
 });

@@ -316,7 +316,13 @@ function MarketFiltersModalContent({
         <Button
           flex={1}
           size="medium"
-          onPress={() => setDraft({})}
+          onPress={() => {
+            setDraft({});
+            // The time frame is one of the modal's own rows, so Reset has to
+            // clear it too — otherwise Confirm still applies the drafted
+            // window and the row stays visibly selected.
+            setDraftTimeRange(initialTimeRange);
+          }}
           testID="market-filters-modal-reset"
         >
           {intl.formatMessage({ id: ETranslations.global_reset })}

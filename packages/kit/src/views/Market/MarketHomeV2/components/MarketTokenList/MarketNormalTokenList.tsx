@@ -18,6 +18,7 @@ import { useClientSortResult } from './hooks/useClientSortResult';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
+import { getTokenAgeSortValue } from './utils/marketListClientSort';
 import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
@@ -169,7 +170,9 @@ function MarketNormalTokenList({
       isWatchlistMode={false}
       clientSort
       clientSortFieldMapOverride={
-        isTrendingList ? { name: 'firstTradeTime' } : undefined
+        // Trending merges Token Age into the Name column, so pressing that
+        // header sorts by age — the same reader the standalone column uses.
+        isTrendingList ? { name: getTokenAgeSortValue } : undefined
       }
       redesignColumnOrderEnabled={isTrendingList}
       volumeTimeRange={timeRange}

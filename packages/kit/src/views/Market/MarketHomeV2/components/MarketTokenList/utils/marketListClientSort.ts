@@ -6,25 +6,36 @@ import {
 
 import type { IMarketToken } from '../MarketTokenData';
 
-// dataIndex (table column) -> IMarketToken field for client-side sorting.
-// Trending list data arrives as one full pool (backend ignores page/limit),
-// so sorting locally over rawData equals sorting the whole trending pool.
-export const MARKET_CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> =
-  {
-    price: 'price',
-    change24h: 'change24h',
-    marketCap: 'marketCap',
-    liquidity: 'liquidity',
-    turnover: 'turnover',
-    transactions: 'transactions',
-    uniqueTraders: 'uniqueTraders',
-    holders: 'holders',
-    tokenAge: 'firstTradeTime',
-  };
-
 export type IMarketClientSortValueGetter = (
   token: IMarketToken,
 ) => string | number | undefined;
+
+// The cell shows an age (now - firstTradeTime), which runs opposite to the raw
+// timestamp: a newer token has the larger timestamp but the smaller age.
+// Sorting the timestamp directly therefore inverts the arrow. Negating is
+// order-isomorphic to the age and keeps the comparator stable, where reading
+// the clock per comparison would not. Falsy timestamps yield undefined so they
+// sink like the rows that render no age at all.
+export const getTokenAgeSortValue: IMarketClientSortValueGetter = (token) =>
+  token.firstTradeTime ? -token.firstTradeTime : undefined;
+
+// dataIndex (table column) -> the IMarketToken field (or reader) that backs it.
+// Sorting covers the rows currently in hand, not the server-side pool: only
+// lists whose first page already returned everything hold the complete set.
+export const MARKET_CLIENT_SORT_FIELD_MAP: Record<
+  string,
+  keyof IMarketToken | IMarketClientSortValueGetter
+> = {
+  price: 'price',
+  change24h: 'change24h',
+  marketCap: 'marketCap',
+  liquidity: 'liquidity',
+  turnover: 'turnover',
+  transactions: 'transactions',
+  uniqueTraders: 'uniqueTraders',
+  holders: 'holders',
+  tokenAge: getTokenAgeSortValue,
+};
 
 // Stock rows render metadata off `record.stock`, not the token's own numeric
 // fields, and they reuse the marketCap/liquidity/turnover column slots. Sorting

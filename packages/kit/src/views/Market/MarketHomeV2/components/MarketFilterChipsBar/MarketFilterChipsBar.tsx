@@ -554,11 +554,25 @@ export function MarketFilterChipsBar({
   );
 
   const handleQuickChipPress = (chip: IMarketFilterChip) => {
-    defaultLogger.dex.list.dexFilterChip({
-      action: 'presetClick',
-      presetId: chip.id,
-      conditionCount: Object.keys(chip.conditions).length,
-    });
+    // A chip carrying `sort` reorders the list instead of narrowing it, and it
+    // writes the shared sort state directly rather than going through the
+    // header's dexSort path. Tracked as its own action, with the dimension and
+    // direction kept, so sort shortcuts stay separable from filter presets.
+    defaultLogger.dex.list.dexFilterChip(
+      chip.sort
+        ? {
+            action: 'sortChipClick',
+            presetId: chip.id,
+            field: chip.sort.sortBy,
+            value: chip.sort.sortType,
+            conditionCount: Object.keys(chip.conditions).length,
+          }
+        : {
+            action: 'presetClick',
+            presetId: chip.id,
+            conditionCount: Object.keys(chip.conditions).length,
+          },
+    );
     if (chip.timeRange && chip.timeRange !== timeRange) {
       onTimeRangeChange(chip.timeRange);
     }
