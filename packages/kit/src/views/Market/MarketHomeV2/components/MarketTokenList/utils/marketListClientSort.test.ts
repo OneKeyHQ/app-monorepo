@@ -91,7 +91,10 @@ describe('getTokenAgeSortValue', () => {
   const now = Date.now();
   const oldest = makeToken({ id: 'oldest', firstTradeTime: now - 500 * HOUR });
   const middle = makeToken({ id: 'middle', firstTradeTime: now - 50 * HOUR });
-  const youngest = makeToken({ id: 'youngest', firstTradeTime: now - 5 * HOUR });
+  const youngest = makeToken({
+    id: 'youngest',
+    firstTradeTime: now - 5 * HOUR,
+  });
 
   it('puts the youngest token first ascending', () => {
     const sorted = sortMarketTokensClient(

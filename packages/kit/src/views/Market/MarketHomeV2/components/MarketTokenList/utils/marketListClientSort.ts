@@ -20,8 +20,11 @@ export const getTokenAgeSortValue: IMarketClientSortValueGetter = (token) =>
   token.firstTradeTime ? -token.firstTradeTime : undefined;
 
 // dataIndex (table column) -> the IMarketToken field (or reader) that backs it.
-// Sorting covers the rows currently in hand, not the server-side pool: only
-// lists whose first page already returned everything hold the complete set.
+// Sorting is local, over whatever rows the list holds. Measured 2026-08-16, the
+// backend ignores page/limit and answers the first request with the whole pool
+// (trending 101/101, stocks 106/106), so that is the complete set and
+// canLoadMore never opens. This is observed, not a documented contract:
+// if the backend starts honouring limit, sorting would cover one page only.
 export const MARKET_CLIENT_SORT_FIELD_MAP: Record<
   string,
   keyof IMarketToken | IMarketClientSortValueGetter
