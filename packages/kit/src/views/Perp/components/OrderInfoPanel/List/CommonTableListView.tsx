@@ -434,7 +434,7 @@ export function CommonTableListView<T>({
   listLoading,
   setCurrentListPage,
   paginationToBottom,
-  enableDesktopVerticalScroll,
+  enableDesktopVerticalScroll = true,
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
@@ -989,6 +989,7 @@ export function CommonTableListView<T>({
             }}
             nestedScrollEnabled
             showsVerticalScrollIndicator
+            contentContainerStyle={{ flexGrow: 1 }}
           >
             {desktopTable}
           </ScrollView>

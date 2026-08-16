@@ -255,6 +255,7 @@ function PerpOrderInfoPanel() {
       headerHeight={80}
       initialTabName={initialTabName}
       disableScroll={!platformEnv.isNative}
+      fillContentHeight={!platformEnv.isNative}
       onTabChange={async (tab) => {
         setActiveTab(tab.tabName);
         actions.current.setTradeRouteViewState({ infoPanelTab: tab.tabName });

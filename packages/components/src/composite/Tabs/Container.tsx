@@ -37,6 +37,13 @@ const childDivStyle = {
   flexShrink: 0,
   scrollSnapAlign: 'center',
 } as const;
+// Column flex so a flex:1 tab child can consume the bounded pane height.
+const childDivFillStyle = {
+  ...childDivStyle,
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+} as const;
 
 export function ContainerChild({
   children,
@@ -45,6 +52,7 @@ export function ContainerChild({
   focusedTab,
   tabNames,
   disableWebTabContentVisibility,
+  fillContentHeight = false,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
@@ -52,6 +60,7 @@ export function ContainerChild({
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
   disableWebTabContentVisibility: boolean;
+  fillContentHeight?: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -117,6 +126,8 @@ export function ContainerChild({
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
+        flex={fillContentHeight ? 1 : undefined}
+        minHeight={fillContentHeight ? 0 : undefined}
         overflow="hidden"
         style={scrollSnapStyle}
       >
@@ -129,7 +140,10 @@ export function ContainerChild({
               ? (child.props as { name: string }).name
               : index;
           return (
-            <div style={childDivStyle} key={key}>
+            <div
+              style={fillContentHeight ? childDivFillStyle : childDivStyle}
+              key={key}
+            >
               {child}
             </div>
           );
@@ -173,6 +187,12 @@ export interface ITabContainerProps {
   allowHeaderOverscroll?: boolean;
   disableScroll?: boolean;
   /**
+   * Web only. Makes the tab content area fill the container's remaining height
+   * so tab children can use flex sizing and scroll internally. Use together
+   * with disableScroll inside height-bounded panes.
+   */
+  fillContentHeight?: boolean;
+  /**
    * Disables content-visibility on web tab wrappers. Use this for shared scroll
    * containers with dynamic content or header heights.
    */
@@ -196,12 +216,14 @@ export function Container({
   ref: containerRef,
   initialTabName,
   disableScroll,
+  fillContentHeight = false,
   disableWebTabContentVisibility = false,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
     | 'disableScroll'
+    | 'fillContentHeight'
     | 'disableWebTabContentVisibility'
     | 'useNativeHeaderAnimation'
     | 'renderSubHeader'
@@ -727,6 +749,7 @@ export function Container({
                   disableWebTabContentVisibility={
                     disableWebTabContentVisibility
                   }
+                  fillContentHeight={fillContentHeight}
                 >
                   {children}
                 </ContainerChild>
