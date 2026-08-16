@@ -33,7 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { isMarketStockCategoryById } from '../utils';
+import { isMarketStockCategoryById, isMarketTrendingList } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 import {
@@ -111,6 +111,12 @@ function MarketHomeTabBar({
   const showSpotFilterBar = Boolean(
     currentSpotCategoryId && !currentSpotCategoryHasStockData,
   );
+  // The bar itself (network + time range) serves every non-stock category, but
+  // the Filters entry only belongs where filterState is actually read.
+  const showSpotFiltersTrigger = isMarketTrendingList({
+    categoryId: currentSpotCategoryId,
+    isStockCategory: currentSpotCategoryHasStockData,
+  });
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
     isMarketStockCategoryById(
@@ -199,6 +205,7 @@ function MarketHomeTabBar({
               timeRange={ctx.filterBarProps.timeRange}
               onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
               onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+              showFiltersTrigger={showSpotFiltersTrigger}
             />
           ) : null}
           {showStockCategorySelector ? (

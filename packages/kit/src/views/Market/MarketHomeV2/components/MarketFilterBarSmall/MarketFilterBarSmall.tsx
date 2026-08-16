@@ -15,6 +15,10 @@ export interface IMarketFilterBarSmallProps {
   timeRange?: ITimeRangeSelectorValue;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
+  // Only the caller knows whether its list consumes filterState, so the entry
+  // point is opt-in: a trigger on a tab that ignores filters would light up its
+  // badge and change nothing. See isMarketTrendingList.
+  showFiltersTrigger?: boolean;
 }
 
 function MarketFilterBarSmall({
@@ -22,6 +26,7 @@ function MarketFilterBarSmall({
   timeRange = '1h',
   onNetworkIdChange,
   onTimeRangeChange,
+  showFiltersTrigger = false,
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
@@ -48,7 +53,7 @@ function MarketFilterBarSmall({
               compact
             />
           ) : null}
-          {onTimeRangeChange ? (
+          {showFiltersTrigger && onTimeRangeChange ? (
             <MarketFiltersIconTrigger
               timeRange={timeRange}
               onTimeRangeChange={onTimeRangeChange}

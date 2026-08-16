@@ -7,6 +7,7 @@ import {
   markMarketReactPerf,
   useMarketRenderCommitProbe,
 } from '../../../utils/marketReactPerf';
+import { isMarketTrendingList } from '../../utils';
 import { applyMarketListLocalFilter } from '../MarketFilterChipsBar/applyMarketListLocalFilter';
 import {
   buildHotTokenFilterParams,
@@ -77,7 +78,10 @@ function MarketNormalTokenList({
 
   // Filters, the chip-driven sort and the fixed column roster are trending
   // features; stocks keep their own columns and server-driven behavior.
-  const isTrendingList = selectedCategory === 'trending' && !stockCategory;
+  const isTrendingList = isMarketTrendingList({
+    categoryId: selectedCategory,
+    isStockCategory: Boolean(stockCategory),
+  });
 
   // Server-side passthrough for every dimension the API supports; the local
   // pass below only handles what it cannot (token age).

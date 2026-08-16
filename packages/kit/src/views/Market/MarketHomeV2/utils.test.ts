@@ -3,6 +3,7 @@ import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategory,
   isMarketStockCategoryById,
+  isMarketTrendingList,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -412,5 +413,27 @@ describe('Market Stock Category Detection Tests', () => {
 describe('Market Home API Defaults', () => {
   test('maps the default one-hour range to the seed-compatible API timeframe', () => {
     expect(TIME_RANGE_TO_API_MAP['1h']).toBe('2');
+  });
+});
+
+describe('isMarketTrendingList', () => {
+  it('accepts trending only', () => {
+    expect(isMarketTrendingList({ categoryId: 'trending' })).toBe(true);
+    expect(isMarketTrendingList({ categoryId: 'x_mentioned' })).toBe(false);
+    expect(isMarketTrendingList({ categoryId: undefined })).toBe(false);
+  });
+
+  it('rejects trending rendered as a stock category', () => {
+    expect(
+      isMarketTrendingList({ categoryId: 'trending', isStockCategory: true }),
+    ).toBe(false);
+  });
+
+  // Guards the drift the review caught: the toolbar showed the Filters entry
+  // for any non-stock category while only trending consumed filterState.
+  it('is false for a non-stock category that is not trending', () => {
+    expect(
+      isMarketTrendingList({ categoryId: 'meme', isStockCategory: false }),
+    ).toBe(false);
   });
 });

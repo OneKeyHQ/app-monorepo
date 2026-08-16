@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { isMarketTrendingList } from '../../utils';
 import {
   applyMarketListLocalFilter,
   buildHotTokenFilterParams,
@@ -61,7 +62,12 @@ function MobileMarketTokenFlatListBase({
 
   const { filterState } = useMarketListFilter();
   // Filters apply to trending only; stock categories keep server-driven data.
-  const filtersActive = selectedCategory === 'trending' && !stockCategory;
+  // Shared with the toolbar that renders the Filters entry, so the control and
+  // the list it drives cannot disagree.
+  const filtersActive = isMarketTrendingList({
+    categoryId: selectedCategory,
+    isStockCategory: Boolean(stockCategory),
+  });
   // Server-side passthrough for everything the API supports; the local pass
   // below only handles what it cannot (token age).
   const filterParams = useMemo(
