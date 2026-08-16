@@ -1,0 +1,262 @@
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
+
+import ServiceAccount from './ServiceAccount';
+
+import type { IDBDevice } from '../../dbs/local/types';
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
+  backgroundClass: () => (target: unknown) => target,
+  backgroundMethod:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+  backgroundMethodForDev:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+  toastIfError:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: {
+    AccountUpdate: 'AccountUpdate',
+    WalletUpdate: 'WalletUpdate',
+  },
+  appEventBus: {
+    on: jest.fn(),
+    off: jest.fn(),
+    emit: jest.fn(),
+  },
+}));
+
+jest.mock('../../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: {
+    createHwWallet: jest.fn(),
+  },
+}));
+
+const SEEDED_STATE = {
+  protocol: 'V1',
+  identity: { deviceId: 'DEVICE_ID_1', serialNo: 'SERIAL_1' },
+  status: { mode: 'normal' },
+} as unknown as IOneKeyDeviceState;
+
+function buildDbDevice(overrides: Partial<IDBDevice> = {}): IDBDevice {
+  return {
+    id: 'device-db-id',
+    connectId: 'CONNECT_ID_1',
+    deviceId: 'DEVICE_ID_1',
+    vendor: EHardwareVendor.onekey,
+    ...overrides,
+  } as unknown as IDBDevice;
+}
+
+function buildService({
+  dbDevice,
+  callOrder,
+  seededState = SEEDED_STATE,
+  latestDbDevice,
+}: {
+  dbDevice: IDBDevice;
+  callOrder: string[];
+  seededState?: IOneKeyDeviceState;
+  latestDbDevice?: Partial<IDBDevice>;
+}) {
+  const getDeviceStateMock = jest.fn().mockImplementation(() => {
+    callOrder.push('getDeviceState');
+    return Promise.resolve(seededState);
+  });
+  const getPassphraseStateMock = jest.fn().mockImplementation(() => {
+    callOrder.push('getPassphraseState');
+    return Promise.resolve('passphrase-state-1');
+  });
+  const service = new ServiceAccount({
+    backgroundApi: {
+      serviceHardware: {
+        getCompatibleConnectId: jest.fn().mockResolvedValue('CONNECT_ID_1'),
+        getDeviceState: getDeviceStateMock,
+        getPassphraseState: getPassphraseStateMock,
+        getDeviceByConnectId: jest.fn().mockResolvedValue(latestDbDevice),
+      },
+      serviceThirdPartyHardware: {},
+      serviceHardwareUI: {
+        withHardwareProcessing: (fn: () => Promise<unknown>) => fn(),
+      },
+      serviceSetting: {
+        getHiddenWalletImmediately: jest.fn().mockResolvedValue(true),
+      },
+      serviceAccountProfile: {
+        isSoftwareWalletOnlyUser: jest.fn().mockResolvedValue(false),
+      },
+    },
+  } as never) as unknown as {
+    createHWHiddenWallet(params: { walletId: string }): Promise<unknown>;
+    getWallet: jest.Mock;
+    getWalletDevice: jest.Mock;
+    getFeaturesForHwWalletCreate: jest.Mock;
+    createHWWalletBase: jest.Mock;
+    setWalletTempStatus: jest.Mock;
+  };
+  service.getWallet = jest
+    .fn()
+    .mockResolvedValue({ id: 'hw-wallet-1', deprecated: false });
+  service.getWalletDevice = jest.fn().mockResolvedValue(dbDevice);
+  service.getFeaturesForHwWalletCreate = jest.fn().mockImplementation(() => {
+    callOrder.push('getFeaturesForHwWalletCreate');
+    return Promise.resolve({ deviceId: 'DEVICE_ID_1' });
+  });
+  service.createHWWalletBase = jest
+    .fn()
+    .mockResolvedValue({ wallet: { id: 'hw-wallet-hidden-1' } });
+  service.setWalletTempStatus = jest.fn().mockResolvedValue(undefined);
+  return { service, getDeviceStateMock, getPassphraseStateMock };
+}
+
+describe('createHWHiddenWallet canonical device state seeding', () => {
+  it('seeds device state before the passphrase session when no snapshot is persisted', async () => {
+    const callOrder: string[] = [];
+    const dbDevice = buildDbDevice({ connectProtocol: 'V1' });
+    const { service, getDeviceStateMock } = buildService({
+      dbDevice,
+      callOrder,
+    });
+
+    await service.createHWHiddenWallet({ walletId: 'hw-wallet-1' });
+
+    expect(getDeviceStateMock).toHaveBeenCalledTimes(1);
+    expect(getDeviceStateMock).toHaveBeenCalledWith({
+      connectId: 'CONNECT_ID_1',
+      params: { scope: 'runtime', connectProtocol: 'V1' },
+    });
+    // The live read must happen before the hidden-wallet session is opened,
+    // otherwise it restores the standard Protocol V1 session.
+    expect(callOrder).toEqual([
+      'getDeviceState',
+      'getPassphraseState',
+      'getFeaturesForHwWalletCreate',
+    ]);
+    expect(service.getFeaturesForHwWalletCreate).toHaveBeenCalledWith({
+      dbDevice: expect.objectContaining({ deviceStateInfo: SEEDED_STATE }),
+      compatibleConnectId: 'CONNECT_ID_1',
+    });
+    expect(service.createHWWalletBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectProtocol: 'V1',
+        deviceState: SEEDED_STATE,
+        passphraseState: 'passphrase-state-1',
+      }),
+    );
+  });
+
+  it('skips the live read when a snapshot is already persisted', async () => {
+    const callOrder: string[] = [];
+    const persistedState = {
+      ...SEEDED_STATE,
+      identity: { deviceId: 'DEVICE_ID_1', serialNo: 'SERIAL_PERSISTED' },
+    } as unknown as IOneKeyDeviceState;
+    const dbDevice = buildDbDevice({
+      connectProtocol: 'V1',
+      deviceStateInfo: persistedState,
+    });
+    const { service, getDeviceStateMock } = buildService({
+      dbDevice,
+      callOrder,
+    });
+
+    await service.createHWHiddenWallet({ walletId: 'hw-wallet-1' });
+
+    expect(getDeviceStateMock).not.toHaveBeenCalled();
+    expect(service.createHWWalletBase).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceState: persistedState }),
+    );
+  });
+
+  it('skips seeding for known Protocol V2 devices', async () => {
+    const callOrder: string[] = [];
+    const dbDevice = buildDbDevice({ connectProtocol: 'V2' });
+    const { service, getDeviceStateMock } = buildService({
+      dbDevice,
+      callOrder,
+    });
+
+    await service.createHWHiddenWallet({ walletId: 'hw-wallet-1' });
+
+    expect(getDeviceStateMock).not.toHaveBeenCalled();
+    expect(service.createHWWalletBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectProtocol: 'V2',
+        deviceState: undefined,
+      }),
+    );
+  });
+
+  it('backfills the connect protocol from the seeded state when unknown', async () => {
+    const callOrder: string[] = [];
+    const dbDevice = buildDbDevice();
+    const { service, getDeviceStateMock } = buildService({
+      dbDevice,
+      callOrder,
+    });
+
+    await service.createHWHiddenWallet({ walletId: 'hw-wallet-1' });
+
+    expect(getDeviceStateMock).toHaveBeenCalledWith({
+      connectId: 'CONNECT_ID_1',
+      params: { scope: 'runtime' },
+    });
+    expect(service.createHWWalletBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectProtocol: 'V1',
+        deviceState: SEEDED_STATE,
+      }),
+    );
+  });
+
+  it('rejects a seeded normal-mode state without a live device identity', async () => {
+    const callOrder: string[] = [];
+    const dbDevice = buildDbDevice({ connectProtocol: 'V1' });
+    const anonymousState = {
+      protocol: 'V1',
+      identity: { deviceId: null, serialNo: 'SERIAL_1' },
+      status: { mode: 'normal' },
+    } as unknown as IOneKeyDeviceState;
+    const { service, getPassphraseStateMock } = buildService({
+      dbDevice,
+      callOrder,
+      seededState: anonymousState,
+    });
+
+    await expect(
+      service.createHWHiddenWallet({ walletId: 'hw-wallet-1' }),
+    ).rejects.toThrow('Unable to resolve live hardware device identity');
+
+    // Fail fast: the guard fires before the passphrase prompt or any creation.
+    expect(getPassphraseStateMock).not.toHaveBeenCalled();
+    expect(service.createHWWalletBase).not.toHaveBeenCalled();
+  });
+
+  it('reports isAttachPinMode from the freshest persisted post-unlock state', async () => {
+    const callOrder: string[] = [];
+    const dbDevice = buildDbDevice({ connectProtocol: 'V1' });
+    const { service } = buildService({
+      dbDevice,
+      callOrder,
+      // The seeded pre-unlock snapshot says no attach-PIN unlock, but the
+      // state persisted during the passphrase/derivation calls says yes.
+      latestDbDevice: {
+        deviceStateInfo: {
+          ...SEEDED_STATE,
+          status: { mode: 'normal', unlockedAttachPin: true },
+        } as unknown as IOneKeyDeviceState,
+      },
+    });
+
+    const result = (await service.createHWHiddenWallet({
+      walletId: 'hw-wallet-1',
+    })) as { isAttachPinMode?: boolean };
+
+    expect(result.isAttachPinMode).toBe(true);
+  });
+});
