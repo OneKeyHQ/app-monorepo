@@ -147,17 +147,11 @@ describe('SwapStockDesktopContainer utils', () => {
     });
   });
 
-  it('keeps market-status loading and closed actions neutral', () => {
+  it('keeps market-status loading actions neutral', () => {
     expect(
       getStockDisabledActionButtonProps(
         ESwapStockTradeSide.Buy,
         ESwapStockChannelStage.CheckingMarketStatus,
-      ),
-    ).toBeUndefined();
-    expect(
-      getStockDisabledActionButtonProps(
-        ESwapStockTradeSide.Sell,
-        ESwapStockChannelStage.MarketClosed,
       ),
     ).toBeUndefined();
   });

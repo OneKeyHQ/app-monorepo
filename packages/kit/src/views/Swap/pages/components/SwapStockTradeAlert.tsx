@@ -139,14 +139,15 @@ function BasicSwapStockTradeAlert({
     ],
   );
 
-  const isStockMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
-    isCurrentStockMarketClosedQuoteEventError({
-      fromToken: stockChannel.fromToken,
-      fromTokenAmount: fromTokenAmount.value,
-      quoteEventError,
-      toToken: stockChannel.toToken,
-    });
+  // Market closed is no longer predicted from the market-status feed
+  // (OK-58986): the alert appears only when the quote path itself reports
+  // that no provider can fill while the market is closed.
+  const isStockMarketClosed = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: fromTokenAmount.value,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
