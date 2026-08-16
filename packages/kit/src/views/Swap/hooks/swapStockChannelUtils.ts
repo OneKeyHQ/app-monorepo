@@ -25,7 +25,6 @@ export enum ESwapStockChannelStage {
   InitializingStock = 'initializingStock',
   MissingStock = 'missingStock',
   CheckingMarketStatus = 'checkingMarketStatus',
-  MarketClosed = 'marketClosed',
   MarketUnavailable = 'marketUnavailable',
   InitializingPayToken = 'initializingPayToken',
   MissingPayToken = 'missingPayToken',
@@ -111,16 +110,19 @@ export function resolveStockExecutionTokensToSync({
     : { fromToken, toToken };
 }
 
+/**
+ * A closed/paused market no longer blocks quoting (OK-58986): providers keep
+ * serving on-chain liquidity outside US sessions, so the quote response — not
+ * a prediction here — decides whether the token can trade.
+ */
 export function isStockTradeReadyForQuote({
   currentStockToken,
-  marketOpen,
   marketStatusStatus,
   payToken,
   payTokenStatus,
   stockTokenStatus,
 }: {
   currentStockToken?: ISwapToken;
-  marketOpen?: boolean;
   marketStatusStatus: ESwapStockChannelAsyncStatus;
   payToken?: ISwapToken;
   payTokenStatus: ESwapStockChannelAsyncStatus;
@@ -131,8 +133,7 @@ export function isStockTradeReadyForQuote({
     payToken &&
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
-    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketOpen !== false,
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready,
   );
 }
 
