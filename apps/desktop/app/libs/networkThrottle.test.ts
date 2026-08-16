@@ -125,16 +125,35 @@ describe('desktop network throttle', () => {
     );
     // No catch-all: everything outside the OneKey origins stays at full speed.
     expect(rules.some((rule) => rule.urlPattern === '')).toBe(false);
-    // The global profile must stay disabled for the same reason.
-    const emulateCall = targetDebugger.sendCommand.mock.calls.find(
-      ([method]) => method === 'Network.emulateNetworkConditions',
+    // A later emulateNetworkConditions would reset the controller and drop the
+    // rules, so the policy must be expressed by the rule command alone.
+    expect(targetDebugger.sendCommand).not.toHaveBeenCalledWith(
+      'Network.emulateNetworkConditions',
+      expect.anything(),
     );
-    expect(emulateCall?.[1]).toEqual({
-      offline: false,
-      latency: 0,
-      downloadThroughput: -1,
-      uploadThroughput: -1,
-    });
+  });
+
+  it('does not re-send commands when applies overlap at startup', async () => {
+    const { contents, targetDebugger } = createWebContents(mockDefaultSession);
+
+    // app.ts applies from several entry points at once on launch.
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+    );
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+    );
+    applyDesktopNetworkThrottleToWebContents(
+      contents as unknown as WebContents,
+    );
+    await waitForDebuggerCommands();
+    await waitForDebuggerCommands();
+    await waitForDebuggerCommands();
+
+    const ruleCalls = targetDebugger.sendCommand.mock.calls.filter(
+      ([method]) => method === 'Network.emulateNetworkConditionsByRule',
+    );
+    expect(ruleCalls).toHaveLength(1);
   });
 
   it('leaves DApp webview sessions untouched', async () => {

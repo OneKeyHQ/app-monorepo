@@ -202,19 +202,6 @@ function getWebContentsAppliedLogMessage(
   );
 }
 
-function getDebuggerNetworkConditions(config: IDesktopStoreNetworkThrottle) {
-  if (!config.enabled) {
-    return {
-      offline: false,
-      latency: 0,
-      downloadThroughput: -1,
-      uploadThroughput: -1,
-    };
-  }
-
-  return DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
-}
-
 function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
   if (contents.isDestroyed()) {
     return false;
@@ -368,7 +355,27 @@ function applyDesktopNetworkThrottleToSession(
   }
 }
 
-async function applyDesktopNetworkThrottleToWebContentsDebugger({
+// Startup applies the throttle from several entry points at once. Serializing
+// per webContents lets the applied-state guard below actually dedupe them,
+// instead of every call passing the guard and re-sending the same commands.
+const webContentsDebuggerApplyChain = new WeakMap<WebContents, Promise<void>>();
+
+async function applyDesktopNetworkThrottleToWebContentsDebugger(
+  entry: IDesktopNetworkThrottleWebContentsEntry,
+): Promise<void> {
+  const previous =
+    webContentsDebuggerApplyChain.get(entry.contents) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => runDesktopNetworkThrottleDebuggerApply(entry));
+  webContentsDebuggerApplyChain.set(
+    entry.contents,
+    next.catch(() => undefined),
+  );
+  return next;
+}
+
+async function runDesktopNetworkThrottleDebuggerApply({
   contents,
   label,
   config,
@@ -416,13 +423,10 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     }
 
     await targetDebugger.sendCommand('Network.enable');
-    // Keep the global emulation off and express the whole policy as per-URL
-    // rules, so only OneKey origins are affected. An empty rule list is also
-    // how the rules are removed when the setting is turned off.
-    await targetDebugger.sendCommand(
-      'Network.emulateNetworkConditions',
-      getDebuggerNetworkConditions(DEFAULT_NETWORK_THROTTLE_CONFIG),
-    );
+    // The whole policy is one command, so only OneKey origins are affected and
+    // concurrent applies cannot interleave into a state that throttles nothing.
+    // Sending it also resets any global profile a previous build left behind,
+    // and an empty rule list is how throttling is removed.
     await targetDebugger.sendCommand('Network.emulateNetworkConditionsByRule', {
       offline: false,
       matchedNetworkConditions: config.enabled
