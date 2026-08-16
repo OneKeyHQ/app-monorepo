@@ -13,6 +13,7 @@ import { buildBorrowTag } from '../../Staking/utils/utils';
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
+import { useLoadedOnce } from '../hooks/useLoadedOnce';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
@@ -39,6 +40,7 @@ export function BorrowRewardsMetric({
   widthMode?: IOverviewMetricProps['widthMode'];
 }) {
   const intl = useIntl();
+  const hasLoadedRewardsOnce = useLoadedOnce(Boolean(borrowRewards));
   const placeholderAmountText = useBorrowPlaceholderAmountText();
   const { market, earnAccount, pendingTxs } = useBorrowContext();
 
@@ -156,7 +158,7 @@ export function BorrowRewardsMetric({
         }
       }
       text={borrowRewards?.description ?? placeholderAmountText}
-      isLoading={Boolean(isLoading && !borrowRewards)}
+      isLoading={Boolean(isLoading && !hasLoadedRewardsOnce)}
       widthMode={widthMode}
       action={
         borrowRewards && !borrowRewards.button.disabled ? (

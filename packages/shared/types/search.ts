@@ -24,6 +24,19 @@ export enum EUniversalSearchType {
   Settings = 'Settings',
 }
 
+export enum EUniversalSearchSource {
+  Wallet = 'wallet',
+  Market = 'market',
+  Swap = 'swap',
+  Perps = 'perps',
+  Earn = 'earn',
+  Browser = 'browser',
+  DeviceManagement = 'deviceManagement',
+  ReferFriends = 'referFriends',
+  Developer = 'developer',
+  Unknown = 'unknown',
+}
+
 export enum ESearchStatus {
   init = 'init',
   loading = 'loading',

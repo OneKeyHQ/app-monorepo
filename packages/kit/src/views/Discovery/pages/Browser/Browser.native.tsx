@@ -81,6 +81,10 @@ import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import {
+  getExploreTabName,
+  getExploreUniversalSearchTabRoute,
+} from './exploreTabUtils';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
@@ -88,18 +92,7 @@ import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorro
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
 
-type IExploreTabName = 'market' | 'earn' | 'browser';
 type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
-
-function getExploreTabName(tab: ETranslations): IExploreTabName {
-  if (tab === ETranslations.global_market) {
-    return 'market';
-  }
-  if (tab === ETranslations.global_earn) {
-    return 'earn';
-  }
-  return 'browser';
-}
 
 const styles = StyleSheet.create({
   // iOS WKWebViews must stay in the native layout tree. In nested layouts,
@@ -252,6 +245,8 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
+  const universalSearchTabRoute =
+    getExploreUniversalSearchTabRoute(selectedHeaderTab);
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -760,6 +755,7 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
+              tabRoute={universalSearchTabRoute}
             />
           </Stack>
           <TabPageHeader

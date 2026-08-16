@@ -244,11 +244,17 @@ async function decodePasswordAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   key?: string;
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<string> {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
@@ -264,6 +270,9 @@ async function decodePasswordAsync({
       encodedText: password,
       key,
       ignoreLogger,
+      debugCryptoProbeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
   }
   if (
@@ -430,6 +439,9 @@ async function encryptAsync({
     password,
     allowRawPassword,
     key: customDecodePasswordKey,
+    debugCryptoProbeId,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
 
   if (!passwordDecoded) {
@@ -711,6 +723,9 @@ async function decryptAsyncWithMetadata({
     password,
     allowRawPassword,
     ignoreLogger: true,
+    debugCryptoProbeId,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   if (!passwordDecoded) {
     throw new IncorrectPassword();
@@ -1012,12 +1027,18 @@ async function decodeSensitiveTextAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   encodedText: string;
   key?: string;
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<string> {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -1032,6 +1053,9 @@ async function decodeSensitiveTextAsync({
         ),
         ignoreLogger,
         allowRawPassword,
+        debugCryptoProbeId,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
       return decrypted.toString('utf-8');
     }
@@ -1115,12 +1139,18 @@ async function encodeSensitiveTextAsync({
   customIv,
   customSalt,
   format,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   text: string;
   key?: string;
   customSalt?: Buffer;
   customIv?: Buffer;
   format?: ESecretEncryptPayloadFormat;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -1151,6 +1181,9 @@ async function encodeSensitiveTextAsync({
         customSalt,
         customIv,
         format,
+        debugCryptoProbeId,
+        kdfBackend,
+        enablePbkdf2Cache,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;

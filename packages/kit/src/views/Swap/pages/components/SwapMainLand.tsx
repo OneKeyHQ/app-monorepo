@@ -193,9 +193,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onPopStack: onPopSwapModal,
     onBroadcast: swapInitParams?.onSwapBroadcast,
   });
-  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx({
-    onSwapBroadcast,
-  });
+  const {
+    preSwapStepsStart,
+    preSwapBeforeStepActions,
+    beginGasAccountReviewSession,
+    endGasAccountReviewSession,
+    markCurrentGasAccountReviewSubmitted,
+  } = useSwapBuildTx({ onSwapBroadcast });
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -248,13 +252,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   hasInFlightStepsRef.current = hasInFlightSteps;
 
   const resetPendingReview = useCallback(() => {
+    endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
     setSwapSteps({
       steps: [],
       preSwapData: {},
     });
-  }, [setSwapBuildTxFetching, setSwapSteps]);
+  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
   const dialogClose = useCallback(() => {
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);
@@ -1059,10 +1064,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   const handleConfirm = useCallback(async () => {
+    markCurrentGasAccountReviewSubmitted();
     onActionHandlerBefore();
-  }, [onActionHandlerBefore]);
+  }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
   const onPreSwapClose = useCallback(() => {
+    endGasAccountReviewSession();
     dialogClose();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
@@ -1072,7 +1079,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         preSwapData: {},
       });
     }, 100);
-  }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
+  }, [
+    setSwapBuildTxFetching,
+    endGasAccountReviewSession,
+    dialogClose,
+    setSwapSteps,
+  ]);
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1105,6 +1117,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
+    beginGasAccountReviewSession();
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     reviewDialogTimerRef.current = setTimeout(() => {
@@ -1151,6 +1164,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    beginGasAccountReviewSession,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,
     handleSelectAccountClick,

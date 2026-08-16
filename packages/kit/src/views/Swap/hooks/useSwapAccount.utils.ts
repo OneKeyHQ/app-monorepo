@@ -4,6 +4,8 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
 const SWAP_TARGET_DERIVE_TYPE_RETRY_DELAY_MS = 500;
 
 type IShouldUseSwapCustomRecipientAddressParams = {
@@ -44,6 +46,11 @@ type IGetSwapRecipientValidationAccountIdParams = {
   accountId?: string;
   accountAddress?: string;
   recipientAddress?: string;
+};
+
+type IGetSwapRecipientEditorAccountInfoParams = {
+  recipientAccountInfo?: IAccountSelectorActiveAccountInfo;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
 };
 
 type IGetSwapAddressAccountSelectorNumParams = {
@@ -116,6 +123,21 @@ export function getSwapRecipientActionState({
     shouldEnterRecipient,
     shouldDisableAction: !shouldEnterRecipient,
   };
+}
+
+export function getSwapRecipientEditorAccountInfo({
+  recipientAccountInfo,
+  activeAccount,
+}: IGetSwapRecipientEditorAccountInfoParams) {
+  if (recipientAccountInfo?.ready) {
+    return recipientAccountInfo;
+  }
+
+  if (activeAccount?.ready) {
+    return activeAccount;
+  }
+
+  return undefined;
 }
 
 export function getSwapRecipientValidationAccountId({

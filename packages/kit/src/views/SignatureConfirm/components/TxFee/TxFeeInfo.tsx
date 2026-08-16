@@ -607,7 +607,12 @@ function TxFeeInfo(props: IProps) {
           gasAccountDisabledByScenario
         ) {
           resetGasAccountUiState();
-          if (
+          if (isCustomRpcEnabled) {
+            updateGasAccountUiState({
+              payer: 'user',
+              sponsorDisabledByCustomRpc: true,
+            });
+          } else if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
             sponsorDisabledForPrivateSend ||
@@ -637,6 +642,7 @@ function TxFeeInfo(props: IProps) {
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
             gasAccountScenarioReason: r.gasAccountScenarioReason,
+            sponsorDisabledByCustomRpc: false,
           });
         } else {
           resetGasAccountUiState();
