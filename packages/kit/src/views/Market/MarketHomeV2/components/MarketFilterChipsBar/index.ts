@@ -15,6 +15,7 @@ export {
   findActiveMarketFilterChip,
   getMarketFilterOption,
   pickLocalOnlyConditions,
+  sameConditions,
 } from './marketListFilterConfig';
 export { EMarketFilterDimension } from './marketListFilterTypes';
 export type {

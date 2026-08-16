@@ -9,7 +9,6 @@ import {
   transformApiItemToToken,
 } from './tokenListHelpers';
 
-
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {
     expect(normalizeStockMetadataValue(' 123.45 ')).toBe('123.45');

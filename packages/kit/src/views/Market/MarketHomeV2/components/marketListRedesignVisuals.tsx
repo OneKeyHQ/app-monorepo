@@ -78,13 +78,13 @@ export function renderRedesignHeaderTitle({
     return titleRow;
   }
 
-  // Tooltip wraps the whole row: hovering anywhere on it explains the metric,
-  // and pressing anywhere on it sorts (the Tooltip trigger owns the press, so
-  // the handler must be forwarded here rather than left to the Column).
+  // Tooltip only adds the hover explainer. It must NOT take onSortPress: the
+  // trigger renders inside HeaderColumn's Column, which already binds the same
+  // handler, and neither stops propagation — forwarding it here made one click
+  // sort twice and double-count dexSort. The press stays with the Column.
   return (
     <LazyTooltip
       placement="top"
-      onPress={onSortPress}
       renderTrigger={titleRow}
       renderContent={tooltip}
     />

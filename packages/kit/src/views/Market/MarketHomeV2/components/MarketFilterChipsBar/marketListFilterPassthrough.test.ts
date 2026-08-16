@@ -2,6 +2,7 @@ import {
   MARKET_FILTER_DIMENSIONS,
   buildHotTokenFilterParams,
   pickLocalOnlyConditions,
+  sameConditions,
 } from './marketListFilterConfig';
 import { EMarketFilterDimension } from './marketListFilterTypes';
 
@@ -65,5 +66,39 @@ describe('market filter server passthrough split', () => {
       pickLocalOnlyConditions(allConditions),
     ).length;
     expect(serverParamCount + localCount).toBe(MARKET_FILTER_DIMENSIONS.length);
+  });
+});
+
+// The Filters modal calls onApply only when this reports a change, because
+// applying conditions resets the sort. A false negative here silently drops
+// the user's sort on an unchanged Confirm.
+describe('sameConditions', () => {
+  const base: IMarketListFilterConditions = {
+    [EMarketFilterDimension.Holders]: 'min-1000',
+  };
+
+  it('treats an untouched draft as unchanged', () => {
+    expect(sameConditions({ ...base }, base)).toBe(true);
+    expect(sameConditions({}, {})).toBe(true);
+  });
+
+  it('detects an added, removed or retargeted dimension', () => {
+    expect(sameConditions({}, base)).toBe(false);
+    expect(sameConditions(base, {})).toBe(false);
+    expect(
+      sameConditions({ [EMarketFilterDimension.Holders]: 'min-10000' }, base),
+    ).toBe(false);
+  });
+
+  it('ignores key order', () => {
+    const a: IMarketListFilterConditions = {
+      [EMarketFilterDimension.Holders]: 'min-1000',
+      [EMarketFilterDimension.MarketCap]: 'min-500k',
+    };
+    const b: IMarketListFilterConditions = {
+      [EMarketFilterDimension.MarketCap]: 'min-500k',
+      [EMarketFilterDimension.Holders]: 'min-1000',
+    };
+    expect(sameConditions(a, b)).toBe(true);
   });
 });

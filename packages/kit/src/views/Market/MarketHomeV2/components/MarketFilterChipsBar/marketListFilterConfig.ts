@@ -334,7 +334,9 @@ export const MARKET_FILTER_CHIPS: IMarketFilterChip[] = [
   },
 ];
 
-function sameConditions(
+// Also the "did the user actually change anything" test for the Filters modal:
+// applying conditions resets the sort, so an unchanged Confirm must not apply.
+export function sameConditions(
   a: IMarketListFilterConditions,
   b: IMarketListFilterConditions,
 ) {

@@ -23,6 +23,7 @@ import {
   MARKET_FILTER_GROUP_LABELS,
   MARKET_FILTER_GROUP_ORDER,
   formatMarketFilterOptionLabel,
+  sameConditions,
 } from './marketListFilterConfig';
 import { useMarketListFilter } from './MarketListFilterContext';
 import { EMarketFilterGroup } from './marketListFilterTypes';
@@ -339,7 +340,13 @@ function MarketFiltersModalContent({
             if (draftTimeRange !== initialTimeRange) {
               onApplyTimeRange(draftTimeRange);
             }
-            onApply(draft);
+            // Applying conditions resets the sort, because a new slice
+            // invalidates the ordering computed over the old one. An unchanged
+            // Confirm changes no slice, so it must not silently drop the sort
+            // the user set from a chip or a column header.
+            if (!sameConditions(draft, initialConditions)) {
+              onApply(draft);
+            }
             onClose();
           }}
           testID="market-filters-modal-apply"
