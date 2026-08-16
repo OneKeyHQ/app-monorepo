@@ -270,6 +270,10 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       // Get xpub and master fingerprint for BIP32 derivation
       const utxoAccount = dbAccount as IDBUtxoAccount;
       const xpub = utxoAccount.xpubSegwit || utxoAccount.xpub;
+      // For P2TR, xpubSegwit is a `tr([fp/path]xpub/<0;1>/*)` descriptor
+      // (see prepareAccounts), not a base58 xpub — getPublicKeyFromXpub
+      // needs the plain one.
+      const taprootXpub = utxoAccount.xpub;
       const fpResult = await callLedgerWithFingerprint(
         this.backgroundApi,
         dbDevice,
@@ -321,9 +325,14 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         }
 
         // Add BIP32 derivation info (required by Ledger BTC App)
-        if (isTaproot) {
-          // Taproot: x-only key from P2TR script
-          const xOnlyKey = scriptPubKey.slice(2, 34);
+        if (isTaproot && taprootXpub && relPath) {
+          // tapInternalKey must be the pre-tweak pubkey, derived from xpub.
+          const pubkeyHex = getPublicKeyFromXpub({
+            xpub: taprootXpub,
+            network,
+            relPath,
+          });
+          const xOnlyKey = Buffer.from(pubkeyHex, 'hex').subarray(1, 33);
           inputData.tapInternalKey = xOnlyKey;
           inputData.tapBip32Derivation = [
             {
@@ -382,12 +391,17 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
                 ? changePath.slice(dbAccount.path.length + 1)
                 : '';
               if (/^[01]\/\d+$/.test(relPath)) {
-                if (isTaproot) {
-                  const changeScript = BitcoinJS.address.toOutputScript(
-                    output.address,
+                if (isTaproot && taprootXpub) {
+                  // Same as the input branch: derive the pre-tweak pubkey.
+                  const pubkeyHex = getPublicKeyFromXpub({
+                    xpub: taprootXpub,
                     network,
+                    relPath,
+                  });
+                  const xOnlyKey = Buffer.from(pubkeyHex, 'hex').subarray(
+                    1,
+                    33,
                   );
-                  const xOnlyKey = changeScript.slice(2, 34);
                   outputData.tapInternalKey = xOnlyKey;
                   outputData.tapBip32Derivation = [
                     {
