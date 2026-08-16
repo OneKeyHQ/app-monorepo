@@ -75,6 +75,7 @@ export type IWithHardwareProcessingOptions = {
 
 export type ICloseHardwareUiStateDialogParams = {
   skipDeviceCancel?: boolean;
+  immediateDeviceCancel?: boolean;
   delay?: number;
   connectId: string | undefined;
   walletId?: string;
@@ -457,6 +458,7 @@ class ServiceHardwareUI extends ServiceBase {
     /* eslint-disable prefer-const */
     let {
       skipDeviceCancel = true,
+      immediateDeviceCancel = false,
       delay,
       connectId,
       walletId,
@@ -489,6 +491,7 @@ class ServiceHardwareUI extends ServiceBase {
         void this.backgroundApi.serviceHardware.cancel({
           connectId,
           forceDeviceResetToHome: deviceResetToHome,
+          immediate: immediateDeviceCancel,
         });
       }
     } catch (_error) {
