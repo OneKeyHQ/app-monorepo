@@ -52,6 +52,7 @@ export type ISpotlightViewProps = PropsWithChildren<{
   childrenPaddingHorizontal?: number;
   showHighlightBackground?: boolean;
   highlightBackgroundOpacity?: number;
+  confirmButtonTextId?: ETranslations;
   floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
@@ -83,6 +84,7 @@ export type ISpotlightProps = PropsWithChildren<{
   childrenPaddingHorizontal?: number;
   showHighlightBackground?: boolean;
   highlightBackgroundOpacity?: number;
+  confirmButtonTextId?: ETranslations;
   replaceChildren?: ReactElement;
 }>;
 
@@ -160,6 +162,7 @@ function SpotlightContent({
     childrenPaddingVertical = 8,
     showHighlightBackground = true,
     highlightBackgroundOpacity = 1,
+    confirmButtonTextId = ETranslations.global_done,
   } = props;
 
   const isRendered = floatingPosition.width > 0;
@@ -257,7 +260,7 @@ function SpotlightContent({
               size="small"
               onPress={onConfirm}
             >
-              {intl.formatMessage({ id: ETranslations.global_ok })}
+              {intl.formatMessage({ id: confirmButtonTextId })}
             </Button>
           </XStack>
         </YStack>
@@ -276,6 +279,7 @@ export function SpotlightView({
   childrenPaddingHorizontal,
   showHighlightBackground,
   highlightBackgroundOpacity,
+  confirmButtonTextId,
   floatingOffset = 12,
   visible = false,
   onConfirm,
@@ -303,6 +307,7 @@ export function SpotlightView({
         childrenPaddingHorizontal,
         showHighlightBackground,
         highlightBackgroundOpacity,
+        confirmButtonTextId,
       });
     });
   }, [
@@ -317,6 +322,7 @@ export function SpotlightView({
     childrenPaddingHorizontal,
     showHighlightBackground,
     highlightBackgroundOpacity,
+    confirmButtonTextId,
   ]);
 
   return (
@@ -341,6 +347,7 @@ export function SpotlightView({
               childrenPaddingHorizontal,
               showHighlightBackground,
               highlightBackgroundOpacity,
+              confirmButtonTextId,
               triggerRef: triggerRef as any,
             }}
           />
@@ -385,6 +392,7 @@ export function Spotlight(props: ISpotlightProps) {
     childrenPaddingHorizontal,
     showHighlightBackground,
     highlightBackgroundOpacity,
+    confirmButtonTextId,
     replaceChildren,
   } = props;
   const [isLocked] = useAppIsLockedAtom();
@@ -412,6 +420,7 @@ export function Spotlight(props: ISpotlightProps) {
       childrenPaddingHorizontal={childrenPaddingHorizontal}
       showHighlightBackground={showHighlightBackground}
       highlightBackgroundOpacity={highlightBackgroundOpacity}
+      confirmButtonTextId={confirmButtonTextId}
       replaceChildren={replaceChildren}
     >
       {children}
