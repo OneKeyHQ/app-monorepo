@@ -292,7 +292,6 @@ function PerpDesktopLayout() {
         childrenPaddingVertical={6}
         showHighlightBackground
         highlightBackgroundOpacity={0.6}
-        confirmButtonTextId={ETranslations.global_ok}
         replaceChildren={
           <Stack w={160} h={4} bg="$borderActive" borderRadius="$full" />
         }
