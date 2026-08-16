@@ -4,46 +4,6 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
-// Temporarily hide the backend-injected native BTC row in the trending list.
-// Plan of record (PRD P0-1/P1-1): BTC moves to the curated Majors tab once it
-// ships. Flip to false at dev handoff to show the injected row again.
-export const HIDE_INJECTED_BTC_ROW = true;
-
-export function filterInjectedBtcRow(tokens: IMarketToken[]): IMarketToken[] {
-  return tokens.filter(
-    (token) => !(token.isNative && token.networkId === 'btc--0'),
-  );
-}
-
-// Single gate for "is the injected BTC row hidden for this list" so the
-// first-page transform and the loadMore append path can never disagree.
-export function shouldHideInjectedBtcRowForType(
-  type: string | undefined,
-): boolean {
-  return type === 'trending' && HIDE_INJECTED_BTC_ROW;
-}
-
-// When the injected BTC row is filtered out, the visible row count can fall
-// permanently behind the API's raw `total`. If the API already returned the
-// full pool on page 1 (some backends ignore page/limit once the pool is
-// small), there is no next page to fetch — pagination must be locked here,
-// otherwise `canLoadMore` re-opens forever and `loadMore` keeps re-appending
-// the same (unfiltered) pool, duplicating rows and un-hiding BTC.
-export function hasReachedEndAfterFirstPage({
-  type,
-  rawListLength,
-  total,
-}: {
-  type: string | undefined;
-  rawListLength: number;
-  total: number;
-}): boolean {
-  if (!shouldHideInjectedBtcRowForType(type)) {
-    return false;
-  }
-  return total > 0 && rawListLength >= total;
-}
-
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
 // This ensures online data with isNative field won't use fallback logic

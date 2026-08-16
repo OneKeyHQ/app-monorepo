@@ -18,10 +18,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
-  filterInjectedBtcRow,
   getNetworkLogoUri,
-  hasReachedEndAfterFirstPage,
-  shouldHideInjectedBtcRowForType,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
@@ -186,13 +183,11 @@ function transformMarketTokenListResponse({
   networkId,
   networkLogoUri,
   timeRange,
-  type,
 }: {
   response: IMarketTokenListResponseWithSource | undefined;
   networkId: string;
   networkLogoUri: string;
   timeRange: IMarketTimeRangeValue | undefined;
-  type: string | undefined;
 }) {
   const transformed = (response?.list ?? []).map((item) =>
     transformApiItemToToken(item, {
@@ -201,12 +196,7 @@ function transformMarketTokenListResponse({
       timeRange,
     }),
   );
-  // Hiding the injected BTC row belongs here rather than at the call sites:
-  // the seed/SWR initializer transforms the same response, so filtering in
-  // only one place would let the row flash in from cache.
-  return shouldHideInjectedBtcRowForType(type)
-    ? filterInjectedBtcRow(transformed)
-    : transformed;
+  return transformed;
 }
 
 export function useMarketTokenList({
@@ -530,7 +520,6 @@ export function useMarketTokenList({
       networkId,
       networkLogoUri,
       timeRange: timeRangeRef.current,
-      type,
     }),
   );
 
@@ -628,7 +617,6 @@ export function useMarketTokenList({
       networkId,
       networkLogoUri,
       timeRange: timeRangeRef.current,
-      type,
     });
     const transformDuration =
       transformStart > 0 ? performance.now() - transformStart : undefined;
@@ -652,16 +640,6 @@ export function useMarketTokenList({
       reuseStableMarketTokenRows({ prev, next: visibleTokens }),
     );
     setCurrentPage(1);
-    // If the API already returned the full pool on page 1, there is no next
-    // page — lock pagination now so a hidden-row-shrunk transformedData.length
-    // can never make canLoadMore re-open and re-fetch/re-append the same pool.
-    setHasReachedEnd(
-      hasReachedEndAfterFirstPage({
-        type,
-        rawListLength: apiResult.list.length,
-        total: apiResult.total ?? 0,
-      }),
-    );
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
@@ -767,11 +745,7 @@ export function useMarketTokenList({
             timeRange: timeRangeRef.current,
           }),
         );
-        // Keep the same BTC-hide gate as the first-page transform, otherwise
-        // a loadMore page can re-introduce the row the first page hid.
-        const visibleNewTokens = shouldHideInjectedBtcRowForType(type)
-          ? filterInjectedBtcRow(newTransformed)
-          : newTransformed;
+        const visibleNewTokens = newTransformed;
 
         if (currentQueryKeyRef.current !== requestQueryKey) {
           return;

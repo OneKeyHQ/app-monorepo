@@ -1,18 +1,14 @@
 import {
   calculateMarketTokenLivePriceChange,
-  filterInjectedBtcRow,
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
-  hasReachedEndAfterFirstPage,
   normalizeStockMetadataValue,
-  shouldHideInjectedBtcRowForType,
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
   transformApiItemToToken,
 } from './tokenListHelpers';
 
-import type { IMarketToken } from '../MarketTokenData';
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {
@@ -396,85 +392,6 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
         [{ stock: { subtitle: 'Apple', sourceLogoUri: '' } }],
         { enableAutoDetection: false },
       ),
-    ).toBe(false);
-  });
-});
-
-describe('filterInjectedBtcRow', () => {
-  it('removes the backend-injected native BTC row only', () => {
-    const tokens = [
-      { id: 'btc', networkId: 'btc--0', isNative: true, symbol: 'BTC' },
-      { id: 'wbtc', networkId: 'evm--1', isNative: false, symbol: 'WBTC' },
-      { id: 'sol', networkId: 'sol--101', isNative: true, symbol: 'SOL' },
-    ] as IMarketToken[];
-    expect(filterInjectedBtcRow(tokens).map((t) => t.id)).toEqual([
-      'wbtc',
-      'sol',
-    ]);
-  });
-});
-
-describe('shouldHideInjectedBtcRowForType', () => {
-  it('hides the BTC row only for the trending list', () => {
-    expect(shouldHideInjectedBtcRowForType('trending')).toBe(true);
-  });
-
-  it('leaves other list types untouched', () => {
-    expect(shouldHideInjectedBtcRowForType('stocks')).toBe(false);
-    expect(shouldHideInjectedBtcRowForType(undefined)).toBe(false);
-  });
-});
-
-describe('hasReachedEndAfterFirstPage', () => {
-  it('locks pagination when the trending backend already returned the full pool on page 1', () => {
-    // Regression for the BTC-hide pagination-guard bug: filtering the
-    // injected BTC row shrinks transformedData.length below `total`
-    // (e.g. 81 % 20 === 1), which would otherwise make canLoadMore true
-    // and re-trigger loadMore against a backend that ignores page/limit
-    // and just re-returns (and re-appends) the whole unfiltered pool.
-    expect(
-      hasReachedEndAfterFirstPage({
-        type: 'trending',
-        rawListLength: 81,
-        total: 81,
-      }),
-    ).toBe(true);
-  });
-
-  it('does not lock pagination when the trending pool is genuinely paginated', () => {
-    expect(
-      hasReachedEndAfterFirstPage({
-        type: 'trending',
-        rawListLength: 20,
-        total: 81,
-      }),
-    ).toBe(false);
-  });
-
-  it('never locks pagination for list types that do not hide the BTC row', () => {
-    expect(
-      hasReachedEndAfterFirstPage({
-        type: 'stocks',
-        rawListLength: 81,
-        total: 81,
-      }),
-    ).toBe(false);
-    expect(
-      hasReachedEndAfterFirstPage({
-        type: undefined,
-        rawListLength: 81,
-        total: 81,
-      }),
-    ).toBe(false);
-  });
-
-  it('ignores an unknown/zero total instead of locking prematurely', () => {
-    expect(
-      hasReachedEndAfterFirstPage({
-        type: 'trending',
-        rawListLength: 0,
-        total: 0,
-      }),
     ).toBe(false);
   });
 });
