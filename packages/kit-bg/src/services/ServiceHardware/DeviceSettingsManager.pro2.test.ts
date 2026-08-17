@@ -278,61 +278,84 @@ describe('DeviceSettingsManager device adapters', () => {
     });
   });
 
-  test('waits for the Pro2 DeviceState event to finish syncing before returning', async () => {
-    const device = buildDevice(EDeviceType.Pro2);
-    jest.spyOn(localDb, 'getDeviceByQuery').mockResolvedValue(device);
-    let releaseStateSync: (() => void) | undefined;
-    let notifyStateSyncStarted: (() => void) | undefined;
-    const stateSyncStarted = new Promise<void>((resolve) => {
-      notifyStateSyncStarted = resolve;
-    });
-    const waitForDeviceStateSync = jest.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseStateSync = resolve;
-          notifyStateSyncStarted?.();
-        }),
-    );
-    const deviceSettings = jest.fn(async () => ({
-      success: true as const,
-      payload: { message: 'Success' },
-    }));
-    const manager = new DeviceSettingsManager({
-      backgroundApi: {
-        serviceHardware: {
-          getCompatibleConnectId: jest.fn(async () => device.connectId),
-          waitForDeviceStateSync,
-        },
-        serviceHardwareUI: {
-          withHardwareProcessing: jest.fn(
-            async (action: () => Promise<unknown>) => action(),
-          ),
-        },
-      } as unknown as IBackgroundApi,
-    });
-    jest.spyOn(manager, 'getSDKInstance').mockResolvedValue({
-      deviceSettings,
-    } as unknown as CoreApi);
-
-    let completed = false;
-    const settingTask = manager
-      .setPassphraseEnabled({
-        connectId: device.connectId,
-        passphraseEnabled: true,
-      })
-      .then(() => {
-        completed = true;
+  test.each([
+    ['passphrase', 'setPassphraseEnabled', { passphraseEnabled: true }],
+    ['auto lock', 'setAutoLockDelayMs', { autoLockDelayMs: 120_000 }],
+    [
+      'auto shutdown',
+      'setAutoShutDownDelayMs',
+      { autoShutdownDelayMs: 300_000 },
+    ],
+    ['language', 'setLanguage', { language: 'en-US' }],
+    ['brightness', 'setBrightness', { brightness: 80 }],
+    ['haptic feedback', 'setHapticFeedback', { hapticFeedback: true }],
+    [
+      'label',
+      'setDeviceLabel',
+      { walletId: 'wallet-1', label: 'Current Label' },
+    ],
+  ] as const)(
+    'waits for the Pro2 DeviceState event after changing %s',
+    async (_settingName, methodName, params) => {
+      const device = buildDevice(EDeviceType.Pro2);
+      jest.spyOn(localDb, 'getDeviceByQuery').mockResolvedValue(device);
+      jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
+      let releaseStateSync: (() => void) | undefined;
+      let notifyStateSyncStarted: (() => void) | undefined;
+      const stateSyncStarted = new Promise<void>((resolve) => {
+        notifyStateSyncStarted = resolve;
       });
+      const waitForDeviceStateSync = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseStateSync = resolve;
+            notifyStateSyncStarted?.();
+          }),
+      );
+      const deviceSettings = jest.fn(async () => ({
+        success: true as const,
+        payload: { message: 'Success' },
+      }));
+      const manager = new DeviceSettingsManager({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId: jest.fn(async () => device.connectId),
+            waitForDeviceStateSync,
+          },
+          serviceHardwareUI: {
+            withHardwareProcessing: jest.fn(
+              async (action: () => Promise<unknown>) => action(),
+            ),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      jest.spyOn(manager, 'getSDKInstance').mockResolvedValue({
+        deviceSettings,
+      } as unknown as CoreApi);
 
-    await stateSyncStarted;
-    expect(completed).toBe(false);
-    expect(waitForDeviceStateSync).toHaveBeenCalledWith({
-      connectIds: expect.arrayContaining(['PRO2_CONNECT_ID', 'PRO2_DEVICE_ID']),
-    });
-    releaseStateSync?.();
-    await settingTask;
-    expect(completed).toBe(true);
-  });
+      const method = manager[methodName] as (
+        input: typeof params & { connectId: string },
+      ) => Promise<unknown>;
+      let completed = false;
+      const settingTask = method
+        .call(manager, { connectId: device.connectId, ...params })
+        .then(() => {
+          completed = true;
+        });
+
+      await stateSyncStarted;
+      expect(completed).toBe(false);
+      expect(waitForDeviceStateSync).toHaveBeenCalledWith({
+        connectIds: expect.arrayContaining([
+          'PRO2_CONNECT_ID',
+          'PRO2_DEVICE_ID',
+        ]),
+      });
+      releaseStateSync?.();
+      await settingTask;
+      expect(completed).toBe(true);
+    },
+  );
 
   test.each([
     [
@@ -432,6 +455,7 @@ describe('DeviceSettingsManager device adapters', () => {
   test('passes the compressed Pro2 wallpaper Base64 to the SDK', async () => {
     const device = buildDevice(EDeviceType.Pro2);
     jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
+    const waitForDeviceStateSync = jest.fn(async () => undefined);
     const deviceUploadWallpaper = jest.fn(async () => ({
       success: true as const,
       payload: { message: 'Success', path: 'vol1:/wallpapers/custom.bin' },
@@ -440,6 +464,7 @@ describe('DeviceSettingsManager device adapters', () => {
       backgroundApi: {
         serviceHardware: {
           getCompatibleConnectId: jest.fn(async () => device.connectId),
+          waitForDeviceStateSync,
         },
         serviceHardwareUI: {
           withHardwareProcessing: jest.fn(
@@ -465,6 +490,9 @@ describe('DeviceSettingsManager device adapters', () => {
     expect(deviceUploadWallpaper).toHaveBeenCalledWith(device.connectId, {
       jpegBase64: '/9j/',
       fileName: 'custom-wallpaper',
+    });
+    expect(waitForDeviceStateSync).toHaveBeenCalledWith({
+      connectIds: expect.arrayContaining(['PRO2_CONNECT_ID', 'PRO2_DEVICE_ID']),
     });
     expect(result).toMatchObject({ message: 'Success', applyScreen: true });
   });

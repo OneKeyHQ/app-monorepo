@@ -302,6 +302,27 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     return isProtocolV2ProductType(device?.deviceType);
   }
 
+  private async _waitForProtocolV2SettingsSync({
+    device,
+    compatibleConnectId,
+  }: {
+    device: IDBDevice;
+    compatibleConnectId: string;
+  }) {
+    await this.serviceHardware.waitForDeviceStateSync({
+      connectIds: [
+        compatibleConnectId,
+        device.connectId,
+        device.usbConnectId,
+        device.bleConnectId,
+        device.uuid,
+        device.deviceId,
+        device.deviceStateInfo?.identity.serialNo,
+        device.deviceStateInfo?.identity.deviceId,
+      ],
+    });
+  }
+
   private async _withTrezorDeviceProcessing({
     walletId,
     connectId,
@@ -440,17 +461,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           action(hardwareSDK, compatibleConnectId, device),
         );
         if (this._isProtocolV2Product(device)) {
-          await this.serviceHardware.waitForDeviceStateSync({
-            connectIds: [
-              compatibleConnectId,
-              device.connectId,
-              device.usbConnectId,
-              device.bleConnectId,
-              device.uuid,
-              device.deviceId,
-              device.deviceStateInfo?.identity.serialNo,
-              device.deviceStateInfo?.identity.deviceId,
-            ],
+          await this._waitForProtocolV2SettingsSync({
+            device,
+            compatibleConnectId,
           });
         } else {
           const shouldNotifySettingsSynced = !skipV1SettingsSyncNotify;
@@ -726,6 +739,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
                   fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
                 }),
               );
+              await this._waitForProtocolV2SettingsSync({
+                device,
+                compatibleConnectId,
+              });
               return {
                 ...response,
                 message: response.message ?? 'Success',

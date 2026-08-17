@@ -2682,10 +2682,12 @@ class ServiceHardware extends ServiceBase {
   async cancel({
     connectId,
     walletId,
+    immediate,
   }: {
     connectId?: string;
     walletId?: string;
     forceDeviceResetToHome?: boolean;
+    immediate?: boolean;
   }) {
     // TODO skip cancel if device is canceling, save last cancel time
 
@@ -2733,6 +2735,10 @@ class ServiceHardware extends ServiceBase {
     };
 
     clearTimeout(this.cancelTimer);
+    if (immediate) {
+      await fn();
+      return;
+    }
     this.cancelTimer = setTimeout(fn, 100);
   }
 

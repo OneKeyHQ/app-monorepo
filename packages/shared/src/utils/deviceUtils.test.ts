@@ -223,8 +223,9 @@ describe('deviceUtils', () => {
   test.each([
     ['OneKey Pro2', EDeviceType.Pro2],
     ['OneKey Pro2:SERIAL:universal', EDeviceType.Pro2],
+    ['OneKey Pro 2', EDeviceType.Pro2],
+    ['OneKey Pro 2:SERIAL', EDeviceType.Pro2],
     ['OneKey Pro', EDeviceType.Pro],
-    ['OneKey Pro 2', EDeviceType.Pro],
     ['QR Wallet', EDeviceType.Pro],
     [undefined, EDeviceType.Pro],
   ])('resolves QR wallet device name %s to %s', (deviceName, expected) => {

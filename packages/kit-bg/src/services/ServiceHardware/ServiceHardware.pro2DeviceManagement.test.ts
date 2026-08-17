@@ -1910,3 +1910,43 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
     });
   });
 });
+
+describe('ServiceHardware.cancel Pro2 operation', () => {
+  const createCancelService = () => {
+    const sdkCancel = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      cancel: sdkCancel,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = jest
+      .fn()
+      .mockResolvedValue('PRO2_BLE_CONNECT_ID');
+    return { sdkCancel, service };
+  };
+
+  it('sends an explicit user Cancel immediately', async () => {
+    const { sdkCancel, service } = createCancelService();
+
+    const cancelPromise = service.cancel({
+      connectId: 'PRO2_SERIAL',
+      immediate: true,
+    });
+
+    clearTimeout(service.cancelTimer);
+    await cancelPromise;
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+    expect(sdkCancel).toHaveBeenCalledWith('PRO2_BLE_CONNECT_ID');
+  });
+
+  it('keeps automatic cleanup cancellation debounced', async () => {
+    const { sdkCancel, service } = createCancelService();
+
+    await service.cancel({ connectId: 'PRO2_SERIAL' });
+    clearTimeout(service.cancelTimer);
+
+    expect(sdkCancel).not.toHaveBeenCalled();
+  });
+});

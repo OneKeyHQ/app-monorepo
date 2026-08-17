@@ -39,6 +39,7 @@ const MAX_ARTIFACT_BYTES = 512 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 4096;
 const MAX_ARCHIVE_ENTRY_BYTES = 128 * 1024 * 1024;
 const UNIX_FILE_TYPE_MASK = 61_440;
+const UNIX_DIRECTORY_FILE_TYPE = 16_384;
 const UNIX_REGULAR_FILE_TYPE = 32_768;
 const ARTIFACT_REF_PATTERN = /^fw:[a-f0-9]{64}$/u;
 const SHA256_PATTERN = /^[a-fA-F0-9]{64}$/u;
@@ -874,11 +875,34 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
           const hostSystem = entry.versionMadeBy >> 8;
           const fileType =
             (entry.externalFileAttributes >>> 16) & UNIX_FILE_TYPE_MASK;
-          const isRegular =
-            hostSystem === 3 || hostSystem === 19
-              ? fileType === 0 || fileType === UNIX_REGULAR_FILE_TYPE
-              : (entry.externalFileAttributes & 0x10) === 0;
-          validatePortableEntryName(entryName, canonicalNames);
+          const usesUnixAttributes = hostSystem === 3 || hostSystem === 19;
+          const isDirectoryEntry = entryName.endsWith('/');
+          const isRegular = usesUnixAttributes
+            ? fileType === 0 || fileType === UNIX_REGULAR_FILE_TYPE
+            : (entry.externalFileAttributes & 0x10) === 0;
+          const hasDirectoryAttributes = usesUnixAttributes
+            ? fileType === UNIX_DIRECTORY_FILE_TYPE
+            : !isRegular;
+          const isEncrypted = (entry.generalPurposeBitFlag & 1) !== 0;
+          validatePortableEntryName(
+            isDirectoryEntry ? entryName.slice(0, -1) : entryName,
+            canonicalNames,
+          );
+          if (isDirectoryEntry) {
+            if (
+              !hasDirectoryAttributes ||
+              entry.uncompressedSize !== 0 ||
+              entry.compressedSize !== 0 ||
+              isEncrypted ||
+              entry.compressionMethod !== 0
+            ) {
+              throw new FirmwareArtifactDesktopError(
+                'ARTIFACT_ARCHIVE_INVALID',
+                'Firmware archive directory metadata is invalid',
+              );
+            }
+            return;
+          }
           totalSize += entry.uncompressedSize;
           if (
             (expectedRequirements && !expectedRequirement) ||
@@ -890,7 +914,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
             totalSize > MAX_ARTIFACT_BYTES ||
             entry.compressedSize < 0 ||
             entry.uncompressedSize > Math.max(entry.compressedSize, 1) * 1000 ||
-            (entry.generalPurposeBitFlag & 1) !== 0 ||
+            isEncrypted ||
             (entry.compressionMethod !== 0 && entry.compressionMethod !== 8) ||
             !isRegular
           ) {
@@ -972,7 +996,12 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
       });
       zipFile.on('entry', (entry) => {
         void (async () => {
-          const requirement = requirements.get(entry.fileName);
+          const entryName = String(entry.fileName);
+          if (entryName.endsWith('/')) {
+            zipFile.readEntry();
+            return;
+          }
+          const requirement = requirements.get(entryName);
           if (!requirement) {
             throw new FirmwareArtifactDesktopError(
               'ARTIFACT_ARCHIVE_INVALID',
@@ -1015,7 +1044,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
             );
           }
           staged.push({
-            entryName: entry.fileName,
+            entryName,
             size,
             sha256,
             filePath,

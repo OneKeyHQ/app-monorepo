@@ -739,6 +739,7 @@ function HardwareUiStateContainerCmpControlled() {
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
             skipDeviceCancel: shouldSkipCancelRef.current,
+            immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
           });
         }
@@ -779,6 +780,7 @@ function HardwareUiStateContainerCmpControlled() {
             connectId: state?.connectId,
             reason: 'HardwareUiStateContainer onClose',
             skipDeviceCancel: shouldSkipCancelRef.current,
+            immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
           });
         }

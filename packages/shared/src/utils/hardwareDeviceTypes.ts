@@ -27,7 +27,10 @@ export function resolveQrWalletDeviceType({
     return deviceType;
   }
 
-  if (deviceName?.startsWith('OneKey Pro2')) {
+  if (
+    deviceName?.startsWith('OneKey Pro2') ||
+    deviceName?.startsWith('OneKey Pro 2')
+  ) {
     return EDeviceType.Pro2;
   }
 
