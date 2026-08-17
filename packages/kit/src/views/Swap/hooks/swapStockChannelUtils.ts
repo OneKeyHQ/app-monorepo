@@ -261,6 +261,7 @@ export function buildStockSwapTokenFromMarketToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
   };
 }
 
@@ -282,10 +283,12 @@ export function resolveStockExecutionTokenMetadata({
     return undefined;
   }
   const isNative = tokenDetail.isNative ?? token.isNative;
+  const stock = tokenDetail.stock ?? token.stock;
   if (
     token.decimals === tokenDetail.decimals &&
     token.isNative === isNative &&
-    token.isStock === true
+    token.isStock === true &&
+    token.stock === stock
   ) {
     return token;
   }
@@ -294,6 +297,7 @@ export function resolveStockExecutionTokenMetadata({
     decimals: tokenDetail.decimals,
     isNative,
     isStock: true,
+    stock,
   };
 }
 
@@ -314,6 +318,7 @@ export function buildStockSwapTokenFromMarketListToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
   };
 }
 

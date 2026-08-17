@@ -333,6 +333,23 @@ export function useSwapStockChannel() {
   );
 
   useEffect(() => {
+    if (
+      !currentStockToken ||
+      currentStockToken.stock?.subtitle?.trim() ||
+      !stockTokenDetail?.stock?.subtitle?.trim()
+    ) {
+      return;
+    }
+    syncStockTokenDetail({
+      ...currentStockToken,
+      decimals: stockTokenDetail.decimals,
+      isNative: stockTokenDetail.isNative ?? currentStockToken.isNative,
+      isStock: true,
+      stock: stockTokenDetail.stock,
+    });
+  }, [currentStockToken, stockTokenDetail, syncStockTokenDetail]);
+
+  useEffect(() => {
     const handleSwapStockTokenSelected = (token: ISwapToken) => {
       if (!token?.networkId) {
         return;

@@ -198,8 +198,6 @@ describe('SwapStockDesktopContainer utils', () => {
     expect(
       getStockMarketTokenSubtitle({
         currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
       }),
     ).toBe('英特尔');
   });
@@ -208,26 +206,13 @@ describe('SwapStockDesktopContainer utils', () => {
     expect(
       getStockMarketTokenSubtitle({
         currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
         tokenDetailStockSubtitle: '英特尔公司',
       }),
     ).toBe('英特尔公司');
   });
 
-  it('falls back to the raw token name only before Stock metadata loads', () => {
-    expect(
-      getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
-      }),
-    ).toBe('Intel (Ondo Tokenized)');
-    expect(
-      getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
-      }),
-    ).toBeUndefined();
+  it('does not expose the raw token name while Stock metadata loads', () => {
+    expect(getStockMarketTokenSubtitle({})).toBeUndefined();
   });
 
   it('shows Stock action loading until the current quote event settles', () => {

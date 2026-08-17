@@ -7,6 +7,7 @@ import {
   backfillSwapProTokenStockIdentity,
   buildStockPayTokenDisplaySeed,
   buildStockSwapTokenFromMarketListToken,
+  buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
   isStockBalanceActionReady,
@@ -511,6 +512,33 @@ describe('swapStockChannelUtils', () => {
     ).toBeUndefined();
   });
 
+  it('backfills incomplete Stock metadata from an identity-matched token detail', () => {
+    const stock = {
+      subtitle: '苹果',
+      sourceLogoUri: '',
+      underlyingAssetTicker: 'AAPL',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: {
+          ...appleStockToken,
+          stock: {
+            ...stock,
+            subtitle: '',
+          },
+        },
+        tokenDetail: {
+          ...appleStockToken,
+          stock,
+        },
+      }),
+    ).toEqual({
+      ...appleStockToken,
+      stock,
+    });
+  });
+
   it('resyncs Stock execution tokens when only authoritative metadata changes', () => {
     const cachedStockToken = {
       ...appleStockToken,
@@ -903,6 +931,11 @@ describe('swapStockChannelUtils', () => {
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {
+    const stock = {
+      subtitle: 'Stock',
+      sourceLogoUri: '',
+      underlyingAssetTicker: 'AAPL',
+    };
     const stockToken = buildStockSwapTokenFromMarketListToken({
       address: '0xaapl',
       networkId: 'evm--56',
@@ -910,18 +943,37 @@ describe('swapStockChannelUtils', () => {
       name: 'Apple',
       decimals: 18,
       price: '100',
-      stock: {
-        subtitle: 'Stock',
-        sourceLogoUri: '',
-        underlyingAssetTicker: 'AAPL',
-      },
+      stock,
     });
 
     expect(stockToken?.isStock).toBe(true);
     expect(stockToken).toMatchObject({
       price: '100',
       currency: 'usd',
+      stock,
     });
+
+    expect(
+      buildStockSwapTokenFromMarketToken({
+        id: 'aapl',
+        address: '0xaapl',
+        networkId: 'evm--56',
+        symbol: 'AAPL',
+        name: 'Apple',
+        decimals: 18,
+        price: 100,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        stock,
+      }),
+    ).toMatchObject({ isStock: true, stock });
 
     expect(
       buildStockSwapTokenFromMarketListToken({
