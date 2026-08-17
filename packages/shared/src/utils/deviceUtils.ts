@@ -673,17 +673,22 @@ async function shouldUseV2FirmwareUpdateFlow({
 function getRawDeviceId({
   device,
   features,
+  deviceState,
   isThirdParty,
 }: {
   device: Omit<SearchDevice, 'commType'>;
   features?: IOneKeyDeviceFeatures;
+  deviceState?: Pick<DeviceState, 'identity'>;
   isThirdParty?: boolean;
 }) {
   const knownDevice = device as KnownDevice | undefined;
   const usedFeatures = features || knownDevice?.features;
   return isThirdParty
     ? usedFeatures?.device_id || usedFeatures?.deviceId || device.deviceId || ''
-    : device.deviceId || usedFeatures?.deviceId || '';
+    : deviceState?.identity.deviceId ||
+        device.deviceId ||
+        usedFeatures?.deviceId ||
+        '';
 }
 
 function isBluetoothSearchDevice(device: {
