@@ -44,6 +44,7 @@ import {
 
 import {
   getSwapAddressAccountSelectorNum,
+  shouldActivateSwapCustomRecipientAddress,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -258,18 +259,56 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
-export function useSwapAddressInfo(type: ESwapDirectionType) {
-  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
-  const { activeAccount } = useActiveAccount({
-    num: getSwapAddressAccountSelectorNum({
-      type,
+export function useSwapAddressInfo(
+  type: ESwapDirectionType,
+  options?: {
+    ignoreCustomRecipient?: boolean;
+  },
+) {
+  const [
+    {
+      swapEnableRecipientAddress,
+      swapIncognitoMode,
       swapToAnotherAccountSwitchOn,
-    }),
-  });
+    },
+  ] = useSettingsAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
+  const [swapToAnotherAccountAddressAtom] =
+    useSwapToAnotherAccountAddressAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const { activeAccount: sourceActiveAccount } = useActiveAccount({ num: 0 });
+  const { activeAccount: targetActiveAccount } = useActiveAccount({ num: 1 });
+  const automaticTargetCanCreateAddress =
+    type === ESwapDirectionType.TO &&
+    targetActiveAccount.ready &&
+    targetActiveAccount.network?.id === toToken?.networkId
+      ? targetActiveAccount.canCreateAddress
+      : undefined;
+  const customRecipientAddressActive =
+    !options?.ignoreCustomRecipient &&
+    shouldActivateSwapCustomRecipientAddress({
+      type,
+      swapToAnotherAccountSwitchOn,
+      selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
+      swapEnableRecipientAddress,
+      fromNetworkId: fromToken?.networkId,
+      toNetworkId: toToken?.networkId,
+      incognitoMode: swapIncognitoMode,
+      providerSupportsRecipient: swapProviderSupportReceiveAddress,
+      swapType: swapTabSwitchType,
+      targetCanCreateAddress: automaticTargetCanCreateAddress,
+    });
+  const activeAccount =
+    getSwapAddressAccountSelectorNum({
+      type,
+      swapToAnotherAccountSwitchOn: customRecipientAddressActive,
+    }) === 1
+      ? targetActiveAccount
+      : sourceActiveAccount;
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
@@ -424,8 +463,23 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     tokenNetworkId,
   ]);
 
-  const [swapToAnotherAccountAddressAtom] =
-    useSwapToAnotherAccountAddressAtom();
+  const targetCanCreateAddress = useMemo(() => {
+    if (
+      type !== ESwapDirectionType.TO ||
+      !targetActiveAccount.ready ||
+      !tokenNetworkId ||
+      targetActiveAccount.network?.id !== tokenNetworkId
+    ) {
+      return undefined;
+    }
+    return targetActiveAccount.canCreateAddress;
+  }, [
+    targetActiveAccount.canCreateAddress,
+    targetActiveAccount.network?.id,
+    targetActiveAccount.ready,
+    tokenNetworkId,
+    type,
+  ]);
   const addressInfo = useMemo(() => {
     const res: {
       address: undefined | string;
@@ -433,19 +487,21 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
       activeAccount: IAccountSelectorActiveAccountInfo | undefined;
       isAddressInfoReady: boolean;
+      targetCanCreateAddress?: boolean;
     } = {
       networkId: undefined,
       address: undefined,
       accountInfo: undefined,
       activeAccount: undefined,
       isAddressInfoReady,
+      targetCanCreateAddress,
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
     if (
       shouldUseSwapCustomRecipientAddress({
         type,
-        swapToAnotherAccountSwitchOn,
+        swapToAnotherAccountSwitchOn: customRecipientAddressActive,
         selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
         selectedRecipientNetworkId: swapToAnotherAccountAddressAtom.networkId,
         activeNetworkId: activeAccount.network?.id,
@@ -556,7 +612,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     type,
-    swapToAnotherAccountSwitchOn,
+    customRecipientAddressActive,
     swapToAnotherAccountAddressAtom.address,
     swapToAnotherAccountAddressAtom.networkId,
     swapToAnotherAccountAddressAtom.accountInfo,
@@ -567,12 +623,16 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     tokenNetworkId,
     currentSelectNetwork?.networkId,
     shouldResolveTargetNetworkAccount,
+    targetCanCreateAddress,
   ]);
   return addressInfo;
 }
 
 export function useSwapRecipientAddressInfo(enable: boolean) {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const defaultSwapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO, {
+    ignoreCustomRecipient: true,
+  });
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
@@ -607,10 +667,12 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
 
   if (
     enable &&
+    defaultSwapToAddressInfo.isAddressInfoReady &&
     shouldShowSwapRecipientAddressInfo({
       swapToAnotherAccountSwitchOn,
       selectedRecipientAddress: swapToAnotherAddressInfo.address,
       selectedRecipientNetworkId: swapToAnotherAddressInfo.networkId,
+      currentAccountAddress: defaultSwapToAddressInfo.address,
       toTokenNetworkId: toToken?.networkId,
       toAddressNetworkId: swapToAddressInfo.networkId,
     })

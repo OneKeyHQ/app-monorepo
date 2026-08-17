@@ -334,6 +334,8 @@ export const {
   use: useSwapQuoteIntervalCountAtom,
 } = contextAtom<number>(0);
 
+export const { atom: swapWarningRequestIdAtom } = contextAtom<number>(0);
+
 export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,
