@@ -99,6 +99,10 @@ interface IOuterTabPagerViewProps {
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
   pageScrollPosition?: SharedValue<number>;
+  /** Pages currently rendered (active plus whatever a drag has revealed), so a
+      host can show a page's content the moment it becomes visible rather than
+      waiting for the swipe to commit (OK-60300) */
+  onVisiblePagesChange?: (pages: number[]) => void;
 }
 
 // --- Component ---
@@ -114,6 +118,7 @@ function OuterTabPagerViewComponent({
   earnTabsRef,
   earnBorrowPagerRef,
   pageScrollPosition,
+  onVisiblePagesChange,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useAnimatedRef<PagerView>();
@@ -229,6 +234,17 @@ function OuterTabPagerViewComponent({
       if (state === 'dragging') {
         wasUserDragRef.current = true;
         setTransitioning(true);
+        // 'dragging' arrives before the first onPageScroll offset, so the
+        // direction is still unknown. Mount both neighbours now; the pager has
+        // already started revealing one of them, and waiting for the
+        // runOnJS(onPageScroll) round trip is what left a blank page on screen
+        // for the first frames of the swipe (OK-60300).
+        const active = currentOuterIndexRef.current;
+        markPagesVisited(
+          [active - 1, active, active + 1].filter(
+            (index) => index >= 0 && index < INDEX_TO_TAB.length,
+          ),
+        );
       } else if (state === 'settling') {
         setTransitioning(true);
       } else if (state === 'idle') {
@@ -237,7 +253,7 @@ function OuterTabPagerViewComponent({
         setVisiblePair(null);
       }
     },
-    [setTransitioning, setVisiblePair],
+    [markPagesVisited, setTransitioning, setVisiblePair],
   );
 
   // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
@@ -318,12 +334,33 @@ function OuterTabPagerViewComponent({
             visiblePagePair[0] !== pageIndex && visiblePagePair[1] !== pageIndex
           );
         }
-        return activePageIndex !== pageIndex;
+        // Direction not resolved yet (the 'dragging' window): keep both
+        // neighbours alive so whichever one the finger reveals already has
+        // native views. Only lasts for the drag — idle falls back to the
+        // single active page below.
+        return Math.abs(activePageIndex - pageIndex) > 1;
       }
       return activePageIndex !== pageIndex;
     },
     [activePageIndex, isOuterPageTransitioning, visiblePagePair],
   );
+
+  // Mirror of shouldFreezePage: the set of pages whose content is actually on
+  // screen. Hosts use it to reveal a page's body in step with the swipe.
+  const visiblePagesKey = INDEX_TO_TAB.map((_, index) =>
+    shouldFreezePage(index) ? '0' : '1',
+  ).join('');
+  useEffect(() => {
+    if (!onVisiblePagesChange) {
+      return;
+    }
+    onVisiblePagesChange(
+      visiblePagesKey
+        .split('')
+        .map((flag, index) => (flag === '1' ? index : -1))
+        .filter((index) => index >= 0),
+    );
+  }, [onVisiblePagesChange, visiblePagesKey]);
 
   // --- Freeze/unfreeze resync & programmatic page scroll ---
   //
