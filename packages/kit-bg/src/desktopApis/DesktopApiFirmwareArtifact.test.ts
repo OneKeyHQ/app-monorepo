@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { zipSync } from 'fflate';
+
 import DesktopApiFirmwareArtifact, {
   isFirmwareArtifactUrlAllowed,
 } from './DesktopApiFirmwareArtifact';
@@ -341,5 +343,74 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       expectedSha256Verified: false,
     });
     expect(resumeOffsets).toEqual([0]);
+  });
+
+  it('materializes files while accepting validated directory entries', async () => {
+    const adapter = new DesktopApiFirmwareArtifact({
+      desktopApi: {} as never,
+    });
+    const payload = Buffer.from('signed resource package');
+    const archive = zipSync({
+      'bundles/': [
+        new Uint8Array(),
+        {
+          level: 0,
+          os: 3,
+          attrs: 0o4_0755 * 2 ** 16,
+        },
+      ],
+      'bundles/resource.okpkg': [
+        payload,
+        {
+          os: 3,
+          attrs: 0o10_0644 * 2 ** 16,
+        },
+      ],
+    });
+    const archiveSha256 = createHash('sha256').update(archive).digest('hex');
+    const payloadSha256 = createHash('sha256').update(payload).digest('hex');
+    const transactionId = 'fwtx:00000000-0000-4000-8000-000000000010';
+    const { leaseRef } = await adapter.createLease(transactionId);
+    const adapterWithStream = adapter as unknown as {
+      streamResponseToFile(
+        input: Parameters<DesktopApiFirmwareArtifact['download']>[0],
+        targetPath: string,
+        resumeOffset: number,
+      ): Promise<void>;
+    };
+    jest
+      .spyOn(adapterWithStream, 'streamResponseToFile')
+      .mockImplementation(async (_input, targetPath) => {
+        await writeFile(targetPath, archive);
+      });
+    const receipt = await adapter.download({
+      taskId: 'resource',
+      transactionId,
+      leaseRef,
+      artifactId: 'resource',
+      url: 'https://web.onekey-asset.com/resource.zip',
+      route: { routeType: 'domain' },
+      expectedSize: archive.byteLength,
+      expectedSha256: archiveSha256,
+      maxBytes: archive.byteLength,
+      overallDeadlineSeconds: 30,
+    });
+
+    await expect(
+      adapter.materialize({
+        leaseRef,
+        archiveArtifactRef: receipt.artifactRef,
+      }),
+    ).resolves.toEqual([
+      {
+        entryName: 'bundles/resource.okpkg',
+        receipt: {
+          artifactRef: `fw:${payloadSha256}`,
+          size: payload.byteLength,
+          sha256: payloadSha256,
+          expectedSha256Verified: false,
+        },
+      },
+    ]);
   });
 });
