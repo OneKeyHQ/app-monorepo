@@ -35,6 +35,10 @@ const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 // Inline min-height: the Tamagui prop drops 0, and without it the flex item's
 // min-height:auto lets tall tab content overflow the bounded pane.
 const scrollSnapFillStyle = { ...scrollSnapStyle, minHeight: 0 } as const;
+// The root is itself a flex item; without min-height:0 tall in-flow tab
+// content (e.g. table fixed columns) inflates it past the bounded pane.
+const rootFillStyle = { minHeight: 0 } as const;
+const rootFillScrollStyle = { ...overflowYScrollStyle, minHeight: 0 } as const;
 const childDivStyle = {
   width: '100%',
   flexShrink: 0,
@@ -701,7 +705,11 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={disableScroll ? undefined : overflowYScrollStyle}
+      style={
+        fillContentHeight
+          ? (disableScroll && rootFillStyle) || rootFillScrollStyle
+          : (!disableScroll && overflowYScrollStyle) || undefined
+      }
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
