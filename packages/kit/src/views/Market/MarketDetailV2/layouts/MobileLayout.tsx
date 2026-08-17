@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useHyperLiquidKlineSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks';
 import {
@@ -597,7 +598,9 @@ export function MobileLayout({
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
     !useTradingViewNative &&
-    nativeIndicatorQuickBarState.status !== 'hidden';
+    shouldReserveTradingViewNativeIndicatorQuickBar(
+      nativeIndicatorQuickBarState,
+    );
 
   const tradingViewChartHeight = useMemo(() => {
     if (

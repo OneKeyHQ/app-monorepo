@@ -1,5 +1,4 @@
 import {
-  type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
@@ -53,9 +52,11 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
+import type { ITradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
@@ -148,11 +149,6 @@ interface IBaseTradingViewV2Props {
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
-
-export type ITradingViewNativeIndicatorQuickBarState =
-  | { status: 'loading'; quickBar: null }
-  | { status: 'hidden'; quickBar: null }
-  | { status: 'visible'; quickBar: ReactElement };
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
@@ -716,13 +712,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const nativeIndicatorQuickBarState =
     useMemo<ITradingViewNativeIndicatorQuickBarState>(() => {
-      if (!isNativeIndicatorQuickBarAvailabilityResolved) {
-        return { status: 'loading', quickBar: null };
-      }
-      if (!nativeIndicatorQuickBar) {
-        return { status: 'hidden', quickBar: null };
-      }
-      return { status: 'visible', quickBar: nativeIndicatorQuickBar };
+      return resolveTradingViewNativeIndicatorQuickBarState({
+        isAvailabilityResolved: isNativeIndicatorQuickBarAvailabilityResolved,
+        quickBar: nativeIndicatorQuickBar,
+      });
     }, [
       isNativeIndicatorQuickBarAvailabilityResolved,
       nativeIndicatorQuickBar,
