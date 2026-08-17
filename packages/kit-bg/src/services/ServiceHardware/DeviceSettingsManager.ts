@@ -582,10 +582,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        // touch or Pro should unlock device first, otherwise features?.passphraseProtection will return undefined
+        // Protocol V2 exposes PIN selection, and non-sensitive settings may
+        // be unlocked by either the main PIN or an Attach PIN. Protocol V1
+        // has no PIN type parameter, so omit it and preserve the device-defined
+        // legacy unlock behavior.
         await this.serviceHardware.unlockDevice({
           connectId: dbDevice.connectId,
-          pinType: DeviceSessionPinType.Main,
+          ...(this._isProtocolV2Product(dbDevice)
+            ? { pinType: DeviceSessionPinType.Any }
+            : {}),
         });
 
         const state = await this.serviceHardware.getDeviceStateByWallet({
@@ -635,7 +640,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const state =
           await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock({
             connectId: compatibleConnectId,
-            pinType: DeviceSessionPinType.Main,
+            // Protocol V2 settings accept the main PIN or an Attach PIN.
+            // Protocol V1 does not define PIN types, so leave the parameter
+            // absent and let the legacy device command handle the unlock.
+            ...(this._isProtocolV2Product(device)
+              ? { pinType: DeviceSessionPinType.Any }
+              : {}),
             params: { scope: 'settings' },
             oneKeyOperationLease,
           });

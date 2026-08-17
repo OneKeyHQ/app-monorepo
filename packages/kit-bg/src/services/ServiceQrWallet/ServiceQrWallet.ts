@@ -266,6 +266,7 @@ class ServiceQrWallet extends ServiceBase {
         walletId: byWallet.id,
         backgroundApi: this.backgroundApi,
         includingNetworkWithGlobalDeriveType: true,
+        deviceType: byDevice?.deviceType,
         firmwareType: byDevice?.featuresInfo?.$app_firmware_type,
       });
     let allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
