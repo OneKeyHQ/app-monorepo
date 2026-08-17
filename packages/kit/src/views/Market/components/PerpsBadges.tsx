@@ -348,7 +348,6 @@ const StockIsOpenBadge = memo(
     const marketStatus = useUSMarketStatus({
       enabled: isOndoUSMarketStock(source) && isOpen === true,
     });
-
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(

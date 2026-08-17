@@ -20,10 +20,9 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -98,13 +97,12 @@ const SwapProActionButton = ({
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote, hasPreviousActionableQuote } =
     useSwapQuoteProgressState();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
-  const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
+  const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
@@ -119,7 +117,7 @@ const SwapProActionButton = ({
   }, [swapProTradeType, swapProInputAmount, swapFromInputAmount.value]);
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult?.toAmount || '0';
+      return swapQuoteResult?.toAmount || '0';
     }
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       // Single source with the Est. Receive row (synced from the computed
@@ -139,7 +137,6 @@ const SwapProActionButton = ({
   }, [
     swapProTradeType,
     swapQuoteResult?.toAmount,
-    swapProQuoteResult?.toAmount,
     toTokenAmount.value,
     limitPriceUseRate?.rate,
     swapFromInputAmount.value,
@@ -169,11 +166,8 @@ const SwapProActionButton = ({
   const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
   const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
     return swapQuoteResult;
-  }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
+  }, [swapQuoteResult]);
   const isWrapped = useMemo(
     () =>
       checkWrappedTokenPair({

@@ -13,6 +13,7 @@ import { SwapReviewDialog } from './SwapReviewDialog';
 const useSwapReviewActionsMock = jest.fn();
 const removeStoreMock = jest.fn();
 const reviewConfirmMock = jest.fn();
+const preSwapDialogPropsMock = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/states/jotai/utils/jotaiContextStore', () => ({
   jotaiContextStore: {
@@ -56,25 +57,30 @@ jest.mock('./PreSwapDialogContent', () => ({
     disableGlobalApproveSync,
     onConfirm,
     onDone,
+    saveSlippageForFutureOrders,
   }: {
     disableGlobalApproveSync?: boolean;
     onConfirm: () => void;
     onDone: () => void;
-  }) => (
-    <div
-      data-disable-global-approve-sync={
-        disableGlobalApproveSync ? 'true' : 'false'
-      }
-      data-testid="pre-swap-dialog-content"
-    >
-      <button data-testid="review-confirm" onClick={onConfirm} type="button">
-        confirm
-      </button>
-      <button data-testid="review-done" onClick={onDone} type="button">
-        done
-      </button>
-    </div>
-  ),
+    saveSlippageForFutureOrders?: (slippagePercentage: number) => void;
+  }) => {
+    preSwapDialogPropsMock({ saveSlippageForFutureOrders });
+    return (
+      <div
+        data-disable-global-approve-sync={
+          disableGlobalApproveSync ? 'true' : 'false'
+        }
+        data-testid="pre-swap-dialog-content"
+      >
+        <button data-testid="review-confirm" onClick={onConfirm} type="button">
+          confirm
+        </button>
+        <button data-testid="review-done" onClick={onDone} type="button">
+          done
+        </button>
+      </div>
+    );
+  },
 }));
 
 jest.mock('../../hooks/useSwapReviewActions', () => ({
@@ -103,6 +109,7 @@ jest.mock('./SwapReviewInitializer', () => ({
 describe('SwapReviewDialog', () => {
   beforeEach(() => {
     removeStoreMock.mockClear();
+    preSwapDialogPropsMock.mockClear();
     reviewConfirmMock.mockClear();
     useSwapReviewActionsMock.mockReturnValue({
       onConfirm: reviewConfirmMock,
@@ -114,8 +121,10 @@ describe('SwapReviewDialog', () => {
   it('renders the reusable swap review shell with the provided store and adapter', () => {
     const onDone = jest.fn();
     const onConfirmStart = jest.fn();
+    const saveSlippageForFutureOrders = jest.fn();
     const adapter = {
       prepareReview: jest.fn(),
+      saveSlippageForFutureOrders,
       sendApproveTx: jest.fn(),
       sendSwapTx: jest.fn(),
       sendWrappedTx: jest.fn(),
@@ -156,6 +165,9 @@ describe('SwapReviewDialog', () => {
     expect(useSwapReviewActionsMock).toHaveBeenCalledWith({
       adapter,
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
+    });
+    expect(preSwapDialogPropsMock).toHaveBeenCalledWith({
+      saveSlippageForFutureOrders,
     });
 
     fireEvent.click(screen.getByTestId('review-confirm'));
