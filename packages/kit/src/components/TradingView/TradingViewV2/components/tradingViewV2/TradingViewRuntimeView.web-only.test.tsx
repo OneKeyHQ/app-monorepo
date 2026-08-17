@@ -262,7 +262,7 @@ describe('TradingViewRuntimeView web fallback', () => {
     resolveReady?.();
   });
 
-  it('falls back after the grace period without remembering a temporary wait', async () => {
+  it('keeps waiting for the embed module instead of falling back to iframe', async () => {
     jest.useFakeTimers();
     const runtimeUrl = 'https://tradingview.onekeytest.com';
     let resolveModule:
@@ -284,10 +284,10 @@ describe('TradingViewRuntimeView web fallback', () => {
 
     expect(loadTradingViewEmbedModule).toHaveBeenCalledTimes(1);
     await act(async () => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(60_000);
       await Promise.resolve();
     });
-    expect(screen.getByTestId('fallback-webview')).toBeTruthy();
+    expect(screen.queryByTestId('fallback-webview')).toBeNull();
     expect(
       globalThis.sessionStorage.getItem(
         'onekey_tradingview_embed_failed:https://tradingview.onekeytest.com',
@@ -304,14 +304,12 @@ describe('TradingViewRuntimeView web fallback', () => {
       });
       await modulePromise;
     });
-    firstView.unmount();
-
-    render(<TradingViewRuntimeView src={runtimeUrl} />);
     await act(async () => {
       await Promise.resolve();
     });
     expect(mountTradingView).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('fallback-webview')).toBeNull();
+    firstView.unmount();
   });
 
   it('remembers an explicit embed failure for the current session', async () => {

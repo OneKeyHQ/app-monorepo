@@ -1,6 +1,13 @@
 import { jest } from '@jest/globals';
 
+import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
+
 import { preloadTradingViewEmbedBootstrapAssets } from './tradingViewEmbedLoader.web';
+
+const serviceWorkerScriptUrl = new URL(
+  TRADING_VIEW_EMBED_SERVICE_WORKER_PATH,
+  'http://localhost',
+).toString();
 
 const buildAsset = (file: string) => ({
   file,
@@ -290,8 +297,7 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
           addEventListener: jest.fn(),
           controller: {
             postMessage,
-            scriptURL:
-              'http://localhost/service-worker.js?tradingviewEmbedProtocol=1',
+            scriptURL: serviceWorkerScriptUrl,
           },
           ready: Promise.resolve({}),
           register: jest.fn(),
@@ -439,8 +445,7 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
           addEventListener: jest.fn(),
           controller: {
             postMessage,
-            scriptURL:
-              'http://localhost/service-worker.js?tradingviewEmbedProtocol=1',
+            scriptURL: serviceWorkerScriptUrl,
           },
           ready: Promise.resolve({}),
           register: jest.fn(),

@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 
+import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
+
 import { preloadTradingViewEmbedBootstrapAssets } from './tradingViewEmbedLoader.web';
 
 const buildAsset = (file: string) => ({
@@ -88,8 +90,10 @@ test('updates an outdated service worker before starting prefetch', async () => 
       );
     },
   );
-  const serviceWorkerScriptUrl =
-    'http://localhost/service-worker.js?tradingviewEmbedProtocol=1';
+  const serviceWorkerScriptUrl = new URL(
+    TRADING_VIEW_EMBED_SERVICE_WORKER_PATH,
+    'http://localhost',
+  ).toString();
   const activeWorker = {
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
@@ -159,7 +163,7 @@ test('updates an outdated service worker before starting prefetch', async () => 
     await preloadPromise;
 
     expect(serviceWorker.register).toHaveBeenCalledWith(
-      '/service-worker.js?tradingviewEmbedProtocol=1',
+      TRADING_VIEW_EMBED_SERVICE_WORKER_PATH,
       {
         scope: '/',
         updateViaCache: 'none',

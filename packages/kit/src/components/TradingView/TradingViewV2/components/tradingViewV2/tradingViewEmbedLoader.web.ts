@@ -5,6 +5,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { buildTradingViewEmbedProxyBaseUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
+import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import { tradingViewLocaleMap } from '../../../utils/tradingViewLocaleMap';
 
@@ -85,8 +86,6 @@ const manifestPromises = new Map<
 const bootstrapPreloadPromises = new Map<string, Promise<void>>();
 
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
-const ROOT_SERVICE_WORKER_PATH =
-  '/service-worker.js?tradingviewEmbedProtocol=1';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const CLAIM_CLIENTS_MESSAGE_TYPE = 'CLAIM_CLIENTS';
 const GET_EMBED_PROTOCOL_MESSAGE_TYPE = 'GET_TRADINGVIEW_EMBED_PROTOCOL';
@@ -605,7 +604,7 @@ class TradingViewServiceWorkerControllerWaiter {
   private async registerServiceWorker(): Promise<void> {
     try {
       const registration = await this.container.register(
-        ROOT_SERVICE_WORKER_PATH,
+        TRADING_VIEW_EMBED_SERVICE_WORKER_PATH,
         {
           scope: '/',
           updateViaCache: 'none',

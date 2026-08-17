@@ -26,6 +26,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import App from './App';
 
@@ -33,8 +34,6 @@ const DEFERRED_SENTRY_INIT_DELAY_MS = 6000;
 const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
 });
-const ROOT_SERVICE_WORKER_PATH =
-  '/service-worker.js?tradingviewEmbedProtocol=1';
 const SERVICE_WORKER_MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
   CHECK_VERSION: 'CHECK_VERSION',
@@ -346,7 +345,7 @@ if (
 ) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register(ROOT_SERVICE_WORKER_PATH, {
+      .register(TRADING_VIEW_EMBED_SERVICE_WORKER_PATH, {
         scope: '/',
         updateViaCache: 'none',
       })
