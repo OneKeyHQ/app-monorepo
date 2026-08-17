@@ -539,6 +539,62 @@ describe('swapStockChannelUtils', () => {
     });
   });
 
+  it('preserves cached Stock labels when token detail metadata is partial', () => {
+    const cachedStock = {
+      subtitle: '苹果',
+      sourceLogoUri: 'https://example.com/source.png',
+      underlyingAssetName: 'Apple Inc.',
+      underlyingAssetTicker: 'AAPL',
+      isOpen: true,
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: {
+          ...appleStockToken,
+          stock: cachedStock,
+        },
+        tokenDetail: {
+          ...appleStockToken,
+          stock: {
+            subtitle: ' ',
+            sourceLogoUri: '',
+            isOpen: false,
+          },
+        },
+      }),
+    ).toEqual({
+      ...appleStockToken,
+      stock: {
+        ...cachedStock,
+        isOpen: false,
+      },
+    });
+  });
+
+  it('keeps the current token reference when partial Stock detail adds no data', () => {
+    const cachedToken = {
+      ...appleStockToken,
+      stock: {
+        subtitle: '苹果',
+        sourceLogoUri: 'https://example.com/source.png',
+      },
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedToken,
+        tokenDetail: {
+          ...appleStockToken,
+          stock: {
+            subtitle: '',
+            sourceLogoUri: '',
+          },
+        },
+      }),
+    ).toBe(cachedToken);
+  });
+
   it('resyncs Stock execution tokens when only authoritative metadata changes', () => {
     const cachedStockToken = {
       ...appleStockToken,

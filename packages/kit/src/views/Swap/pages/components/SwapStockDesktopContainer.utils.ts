@@ -122,7 +122,10 @@ export function getStockMarketTokenSubtitle({
   currentStockSubtitle?: string;
   tokenDetailStockSubtitle?: string;
 }) {
-  return tokenDetailStockSubtitle ?? currentStockSubtitle;
+  if (tokenDetailStockSubtitle?.trim()) {
+    return tokenDetailStockSubtitle;
+  }
+  return currentStockSubtitle?.trim() ? currentStockSubtitle : undefined;
 }
 
 export function shouldShowStockQuoteActionLoading({

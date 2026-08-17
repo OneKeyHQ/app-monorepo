@@ -211,6 +211,15 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe('英特尔公司');
   });
 
+  it('keeps the selected subtitle when detail returns a blank label', () => {
+    expect(
+      getStockMarketTokenSubtitle({
+        currentStockSubtitle: '英特尔',
+        tokenDetailStockSubtitle: ' ',
+      }),
+    ).toBe('英特尔');
+  });
+
   it('does not expose the raw token name while Stock metadata loads', () => {
     expect(getStockMarketTokenSubtitle({})).toBeUndefined();
   });
