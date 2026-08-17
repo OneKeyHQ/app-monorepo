@@ -1063,6 +1063,10 @@ function PerpTradingForm({
 
   const [twapDurationHoursInput, setTwapDurationHoursInput] = useState('');
   const [twapDurationMinutesInput, setTwapDurationMinutesInput] = useState('');
+  // Restored drafts with a trigger/stop price must keep their inputs visible.
+  const [isTwapAdvancedVisible, setIsTwapAdvancedVisible] = useState(() =>
+    Boolean(formData.twapTriggerPrice || formData.twapStopPrice),
+  );
   const [focusedTwapDurationInput, setFocusedTwapDurationInput] =
     useState<ITwapDurationInputField | null>(null);
   const focusedTwapDurationInputRef = useRef<ITwapDurationInputField | null>(
@@ -2136,7 +2140,7 @@ function PerpTradingForm({
   };
 
   const renderTwapDetailsSection = () => {
-    if (!isTwapMode) {
+    if (!isTwapMode || !isTwapAdvancedVisible) {
       return null;
     }
 
@@ -2497,7 +2501,39 @@ function PerpTradingForm({
                 }
               />
             </XStack>
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="perp-twap-advanced-settings-checkbox"
+                value={isTwapAdvancedVisible}
+                onChange={(checked) => {
+                  const next = !!checked;
+                  setIsTwapAdvancedVisible(next);
+                  // Hidden inputs must never submit stale trigger/stop prices.
+                  if (!next) {
+                    updateForm({ twapTriggerPrice: '', twapStopPrice: '' });
+                  }
+                }}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
+              <SizableText
+                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                color="$text"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_advanced_settings,
+                })}
+              </SizableText>
+            </XStack>
           </YStack>
+          {renderTwapDetailsSection()}
         </YStack>
       );
     }
@@ -3021,8 +3057,6 @@ function PerpTradingForm({
       )}
 
       {isTwapMode ? null : renderPriceInputSection()}
-
-      {renderTwapDetailsSection()}
 
       <SizeInput
         referencePrice={referencePriceString}
