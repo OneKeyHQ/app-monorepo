@@ -156,6 +156,35 @@ describe('useTokenListReactivePipeline', () => {
     mockGetVaultSettings.mockClear();
   });
 
+  it('does not build an authoritative empty snapshot before any round materializes', async () => {
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+    });
+
+    await expect(
+      result.current.buildAuthoritativeSnapshot(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('builds a legitimate empty snapshot after an empty live round materializes', async () => {
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+      result.current.ingestLiveRound(
+        makeLiveRound({
+          tokens: { data: [], keys: '', map: {} },
+        }),
+        1,
+      );
+    });
+
+    const snapshot = await result.current.buildAuthoritativeSnapshot();
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.orderedTokens).toEqual([]);
+    expect(snapshot?.createAtNetworkWorth).toBe('0');
+  });
+
   it('kill-switch: enabled:false → seedAndFlushCache does not ingest', async () => {
     const { result } = render(false);
     act(() => {
@@ -346,7 +375,10 @@ describe('useTokenListReactivePipeline', () => {
 
     await act(async () => {
       const snap = await result.current.buildAuthoritativeSnapshot();
-      result.current.commitAuthoritativeIngest(snap);
+      expect(snap).toBeDefined();
+      if (snap) {
+        result.current.commitAuthoritativeIngest(snap);
+      }
     });
     expect(mockIngestRound).toHaveBeenCalledTimes(1);
     expect(
@@ -401,8 +433,9 @@ describe('useTokenListReactivePipeline', () => {
         generation: 1,
       });
       const snap = await result.current.buildAuthoritativeSnapshot();
+      expect(snap).toBeDefined();
       worth =
-        snap.accountsWorth[
+        snap?.accountsWorth[
           accountUtils.buildAccountValueKey({
             accountId: OWNER.accountId,
             networkId: OWNER.networkId,
@@ -437,7 +470,10 @@ describe('useTokenListReactivePipeline', () => {
       // authoritative commit lands first (bumps the epoch)
       await act(async () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        expect(snap).toBeDefined();
+        if (snap) {
+          result.current.commitAuthoritativeIngest(snap);
+        }
       });
       mockIngestRound.mockClear();
       // now let the throttled flush fire — it must abort (epoch superseded)
@@ -510,7 +546,10 @@ describe('useTokenListReactivePipeline', () => {
           generation: 1,
         });
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        expect(snap).toBeDefined();
+        if (snap) {
+          result.current.commitAuthoritativeIngest(snap);
+        }
       });
       mockIngestRound.mockClear();
 

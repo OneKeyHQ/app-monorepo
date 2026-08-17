@@ -13,6 +13,9 @@ describe('TokenListBlock portfolio sync producer', () => {
     const sendToBackgroundIndex = source.indexOf(
       'backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled',
     );
+    const emptySnapshotGateIndex = source.indexOf(
+      '!shouldDeferEmptyHardwarePortfolioSync({',
+    );
 
     expect(source).not.toContain('useDevSettingsPersistAtom');
     expect(source).toContain(
@@ -23,10 +26,13 @@ describe('TokenListBlock portfolio sync producer', () => {
       'accountUtils.isHwWallet({ walletId: wallet.id })',
     );
     expect(source).toContain('assetStatusCurrency &&');
+    expect(source).toContain('if (!snapshot || isStaleOwnerRequest())');
     expect(source).toContain('totalFiatCurrency: assetStatusCurrency');
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
     expect(buildIndex).toBeLessThan(sendToBackgroundIndex);
+    expect(emptySnapshotGateIndex).toBeGreaterThan(buildIndex);
+    expect(emptySnapshotGateIndex).toBeLessThan(sendToBackgroundIndex);
     expect(source).not.toContain(
       'appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled',
     );
