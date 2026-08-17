@@ -32,7 +32,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import { useHyperLiquidKlineSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks';
 import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
@@ -70,9 +69,8 @@ import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativ
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 import {
-  getMarketTradingViewStorageNamespace,
   getMarketTradingViewSubIndicatorCount,
-  setMarketTradingViewStorageNamespace,
+  normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
@@ -298,14 +296,6 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
-  const {
-    isHyperLiquidSource,
-    isLoading: isHyperLiquidSourceLoading,
-    symbol: hyperLiquidSymbol,
-  } = useHyperLiquidKlineSource(
-    marketTradingViewParams?.networkId ?? networkId,
-    marketTradingViewParams?.tokenAddress ?? tokenAddress,
-  );
   let marketTradingViewKey = 'v2';
   if (useTradingViewNative) {
     marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
@@ -321,40 +311,28 @@ export function MobileLayout({
     marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
   ] = useMarketTradingViewSubIndicatorCountPersistAtom();
-  const detectedMarketTradingViewStorageNamespace: IMarketTradingViewStorageNamespace =
-    isHyperLiquidSource && hyperLiquidSymbol ? 'market-hyperliquid' : 'market';
-  const marketTradingViewStorageNamespace =
-    getMarketTradingViewStorageNamespace({
-      chartKey: marketTradingViewKey,
-      detectedStorageNamespace: detectedMarketTradingViewStorageNamespace,
-      isSourceLoading: isHyperLiquidSourceLoading,
-      persistState: marketTradingViewSubIndicatorCountPersist,
-    });
+  const hasAttemptedMarketTradingViewPersistNormalizationRef = useRef(false);
   useEffect(() => {
+    if (hasAttemptedMarketTradingViewPersistNormalizationRef.current) {
+      return;
+    }
     if (
-      !platformEnv.isNative ||
-      useTradingViewNative ||
-      isHyperLiquidSourceLoading ||
-      !marketTradingViewParams
+      normalizeMarketTradingViewSubIndicatorCountPersist(
+        marketTradingViewSubIndicatorCountPersist,
+      ) === marketTradingViewSubIndicatorCountPersist
     ) {
       return;
     }
-
+    hasAttemptedMarketTradingViewPersistNormalizationRef.current = true;
     setMarketTradingViewSubIndicatorCountPersist((prev) =>
-      setMarketTradingViewStorageNamespace({
-        chartKey: marketTradingViewKey,
-        persistState: prev,
-        storageNamespace: detectedMarketTradingViewStorageNamespace,
-      }),
+      normalizeMarketTradingViewSubIndicatorCountPersist(prev),
     );
   }, [
-    detectedMarketTradingViewStorageNamespace,
-    isHyperLiquidSourceLoading,
-    marketTradingViewKey,
-    marketTradingViewParams,
+    marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
-    useTradingViewNative,
   ]);
+  const marketTradingViewStorageNamespace: IMarketTradingViewStorageNamespace =
+    'market';
   const persistedWebViewSubIndicatorCount = platformEnv.isNative
     ? getMarketTradingViewSubIndicatorCount({
         persistState: marketTradingViewSubIndicatorCountPersist,
