@@ -106,7 +106,7 @@ describe('ServiceSwap quote event request ownership', () => {
     delete globalMockBag.__swapQuoteEventSources;
   });
 
-  it('does not let an older preparation or cancellation replace the active stream', async () => {
+  it('keeps independently owned quote streams active', async () => {
     const service = createService();
     let resolveFirstPreparation: ((value: undefined) => void) | undefined;
     const firstPreparation = new Promise<undefined>((resolve) => {
@@ -130,11 +130,39 @@ describe('ServiceSwap quote event request ownership', () => {
     resolveFirstPreparation?.(undefined);
     await firstRequest;
 
-    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(1);
+    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(2);
+    const firstEventSource = globalMockBag.__swapQuoteEventSources?.[1];
     await service.cancelFetchQuoteEvents('quote-request-1');
     expect(activeEventSource?.close).not.toHaveBeenCalled();
+    expect(firstEventSource?.close).toHaveBeenCalledTimes(1);
 
     await service.cancelFetchQuoteEvents('quote-request-2');
     expect(activeEventSource?.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a request while it is still preparing without affecting another request', async () => {
+    const service = createService();
+    let resolveFirstPreparation: ((value: undefined) => void) | undefined;
+    const firstPreparation = new Promise<undefined>((resolve) => {
+      resolveFirstPreparation = resolve;
+    });
+    jest
+      .spyOn(service, 'getDenyCrossChainProvider')
+      .mockReturnValueOnce(firstPreparation)
+      .mockResolvedValue(undefined);
+
+    const firstRequest = service.fetchQuotesEvents(
+      createQuoteParams('quote-request-1'),
+    );
+    await Promise.resolve();
+    await service.cancelFetchQuoteEvents('quote-request-1');
+    await service.fetchQuotesEvents(createQuoteParams('quote-request-2'));
+
+    resolveFirstPreparation?.(undefined);
+    await firstRequest;
+
+    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(1);
+    const activeEventSource = globalMockBag.__swapQuoteEventSources?.[0];
+    expect(activeEventSource?.close).not.toHaveBeenCalled();
   });
 });

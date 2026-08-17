@@ -29,7 +29,14 @@ import type {
   TabBarProps,
 } from 'react-native-collapsible-tab-view';
 
-function MobileInformationTabsHeader(props: TabBarProps<string>) {
+function MobileInformationTabsHeader({
+  holdersTabLabel,
+  holdersTabName,
+  ...props
+}: TabBarProps<string> & {
+  holdersTabLabel: string;
+  holdersTabName: string;
+}) {
   const { tabNames, focusedTab, onTabPress } = props;
   const firstTabName = useMemo(() => {
     return tabNames[0];
@@ -45,6 +52,18 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
     },
     [focusedTab, onTabPress],
   );
+  const renderTabBarItem = useCallback(
+    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
+      <Tabs.TabBarItem
+        key={itemProps.name}
+        {...itemProps}
+        label={
+          itemProps.name === holdersTabName ? holdersTabLabel : itemProps.name
+        }
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   return (
     <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
@@ -53,6 +72,7 @@ function MobileInformationTabsHeader(props: TabBarProps<string>) {
           {...props}
           textSize="$bodyMdMedium"
           onTabPress={handleTabPress}
+          renderItem={renderTabBarItem}
         />
         <StickyHeader firstTabName={firstTabName} />
       </YStack>
@@ -80,10 +100,11 @@ export function MobileInformationTabs({
     useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
-  const holdersTabName = useMemo(() => {
-    const baseTitle = intl.formatMessage({
-      id: ETranslations.dexmarket_holders,
-    });
+  const holdersTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_holders,
+  });
+  const holdersTabLabel = useMemo(() => {
+    const baseTitle = holdersTabName;
     const holders = tokenDetail?.holders;
     if (holders !== undefined && holders > 0) {
       const displayValue = String(
@@ -92,7 +113,7 @@ export function MobileInformationTabs({
       return `${baseTitle} (${displayValue})`;
     }
     return baseTitle;
-  }, [intl, tokenDetail?.holders]);
+  }, [holdersTabName, tokenDetail?.holders]);
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const tabContainerWidth = useTabContainerWidth();
@@ -182,9 +203,16 @@ export function MobileInformationTabs({
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
-  const renderTabBar = useCallback(({ ...props }: any) => {
-    return <MobileInformationTabsHeader {...props} />;
-  }, []);
+  const renderTabBar = useCallback(
+    ({ ...props }: any) => (
+      <MobileInformationTabsHeader
+        {...props}
+        holdersTabName={holdersTabName}
+        holdersTabLabel={holdersTabLabel}
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   // Generate unique key based on tabs composition
   const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);

@@ -155,6 +155,7 @@ function AnimatedTabBarItemText({
 
 export function TabBarItem({
   name,
+  label,
   isFocused,
   onPress,
   tabItemStyle,
@@ -166,6 +167,7 @@ export function TabBarItem({
   index: tabIndex,
   testID,
 }: ITabBarItemProps) {
+  const displayLabel = label ?? name;
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
@@ -217,7 +219,7 @@ export function TabBarItem({
       >
         {useAnimatedText ? (
           <AnimatedTabBarItemText
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
           />
@@ -227,7 +229,7 @@ export function TabBarItem({
             color={isFocused ? '$textInverse' : '$text'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -260,7 +262,7 @@ export function TabBarItem({
         {useAnimatedText ? (
           <AnimatedTabBarItemText
             variant="text"
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
             isFocused={isFocused}
@@ -274,7 +276,7 @@ export function TabBarItem({
             color={isFocused || isHovered ? '$text' : '$textSubdued'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -299,7 +301,7 @@ export function TabBarItem({
         size={resolvedTextSize}
         color={isFocused ? '$text' : '$textSubdued'}
       >
-        {name}
+        {displayLabel}
       </SizableText>
       {isFocused ? (
         <YStack
@@ -633,6 +635,8 @@ export interface ITabBarProps extends TabBarProps<string> {
 
 export interface ITabBarItemProps {
   name: string;
+  /** Optional display label. `name` remains the stable tab identity. */
+  label?: string;
   isFocused: boolean;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
