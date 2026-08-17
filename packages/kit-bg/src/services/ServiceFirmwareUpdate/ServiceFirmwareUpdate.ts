@@ -2484,8 +2484,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // await other hardware task stop processing
             await timerUtils.wait(3000);
 
-            // Lock transport type during firmware update to prevent auto-switching
-            const currentTransportType = await this.getActiveTransportType();
+            // Desktop firmware updates must use the same USB-only product flow as x.
+            // Resolve again at execution time so Pro2 and Neo cannot retain a BLE route.
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });

@@ -977,6 +977,65 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
   });
 });
 
+describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const setForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const resolveHardwareTransport = jest.fn().mockResolvedValue({
+      connectId: 'PRO2_USB_ID',
+      transportType: EHardwareTransportType.WEBUSB,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<void>) => callback(),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          resolveHardwareTransport,
+          setForceTransportType,
+          clearForceTransportType,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockRejectedValue(new Error('stop after transport lock'));
+    const releaseResult = {
+      originalConnectId: 'PRO2_BLE_ID',
+      updatingConnectId: 'PRO2_BLE_ID',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+
+    await expect(
+      service.runUpdateWorkflowV2({
+        backuped: true,
+        usbConnected: true,
+        releaseResult,
+      }),
+    ).rejects.toThrow('stop after transport lock');
+
+    expect(resolveHardwareTransport).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    expect(setForceTransportType).toHaveBeenCalledWith({
+      forceTransportType: EHardwareTransportType.WEBUSB,
+    });
+    expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ServiceFirmwareUpdate workflow tracking', () => {
   beforeEach(() => {
     jest.clearAllMocks();
