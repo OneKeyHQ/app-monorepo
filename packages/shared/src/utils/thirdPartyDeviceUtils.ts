@@ -66,9 +66,14 @@ const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
   'trezor safe 7',
 ] as const;
 
+function normalizeThirdPartyModelName(model?: string): string {
+  if (!model) return '';
+  return model.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 function isTrezorBleSupportedModel(model?: string): boolean {
-  if (!model) return false;
-  const normalizedModel = model.trim().replace(/\s+/g, ' ').toLowerCase();
+  const normalizedModel = normalizeThirdPartyModelName(model);
+  if (!normalizedModel) return false;
   return (TREZOR_BLE_SUPPORTED_MODEL_NAMES as readonly string[]).includes(
     normalizedModel,
   );
@@ -359,4 +364,5 @@ export default {
   isTrezorBleBindingSupportedPlatform,
   isTrezorBleSupportedDevice,
   isTrezorBleSupportedModel,
+  normalizeThirdPartyModelName,
 };

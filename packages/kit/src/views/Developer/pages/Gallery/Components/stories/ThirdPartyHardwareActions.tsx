@@ -12,8 +12,10 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  AllWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
@@ -24,36 +26,52 @@ import { Layout } from './utils/Layout';
 type IDeviceMock = {
   label: string;
   vendor: EHardwareVendor;
-  model: string;
+  vendorModel?: string;
+  vendorModelName?: string;
 };
 
 const DEVICE_MOCKS: IDeviceMock[] = [
+  // vendorModel set → exercises the exact-case code lookup.
   {
     label: 'Trezor Model One',
     vendor: EHardwareVendor.trezor,
-    model: 'Model One',
+    vendorModel: 'T1B1',
   },
-  { label: 'Trezor Model T', vendor: EHardwareVendor.trezor, model: 'Model T' },
-  { label: 'Trezor Safe 3', vendor: EHardwareVendor.trezor, model: 'Safe 3' },
-  { label: 'Trezor Safe 5', vendor: EHardwareVendor.trezor, model: 'Safe 5' },
-  { label: 'Trezor Safe 7', vendor: EHardwareVendor.trezor, model: 'Safe 7' },
+  {
+    label: 'Trezor Model T',
+    vendor: EHardwareVendor.trezor,
+    vendorModel: 'T2T1',
+  },
+  // vendorModel unavailable, only the human-readable name → exercises the
+  // normalized name-alias fallback.
+  {
+    label: 'Trezor Safe 3',
+    vendor: EHardwareVendor.trezor,
+    vendorModelName: 'Safe 3',
+  },
+  {
+    label: 'Trezor Safe 5',
+    vendor: EHardwareVendor.trezor,
+    vendorModelName: 'Safe 5',
+  },
+  {
+    label: 'Trezor Safe 7',
+    vendor: EHardwareVendor.trezor,
+    vendorModel: 'T3W1',
+  },
   // Unknown model → must fall back to the generic Trezor avatar.
-  { label: 'Trezor (unknown)', vendor: EHardwareVendor.trezor, model: 'T9X9' },
-  { label: 'Ledger Nano X', vendor: EHardwareVendor.ledger, model: 'Nano X' },
-  { label: 'Ledger Stax', vendor: EHardwareVendor.ledger, model: 'Stax' },
+  {
+    label: 'Trezor (unknown)',
+    vendor: EHardwareVendor.trezor,
+    vendorModel: 'T9X9',
+  },
+  {
+    label: 'Ledger Nano X',
+    vendor: EHardwareVendor.ledger,
+    vendorModel: 'nanoX',
+  },
+  { label: 'Ledger Stax', vendor: EHardwareVendor.ledger, vendorModel: 'stax' },
 ];
-
-// Mirrors getThirdPartyDeviceAvatarImage: a known Trezor model uses its own
-// avatar key, everything else falls back to the vendor avatar.
-function resolveAvatarSource(device: IDeviceMock) {
-  const avatars: Record<string, number> = ThirdPartyWalletAvatarImages;
-  const profile = getVendorProfile(device.vendor);
-  const key =
-    device.vendor === EHardwareVendor.trezor && device.model in avatars
-      ? device.model
-      : profile.avatarKey;
-  return avatars[key] ?? avatars.trezor;
-}
 
 type IActionItem = {
   label: string;
@@ -137,6 +155,12 @@ function ActionRows({
 
 function ThirdPartyHardwareActionsTest() {
   const [device, setDevice] = useState<IDeviceMock>(DEVICE_MOCKS[0]);
+  const avatarKey = getThirdPartyDeviceAvatarImage({
+    vendor: device.vendor,
+    vendorModel: device.vendorModel,
+    vendorModelName: device.vendorModelName,
+    fallback: device.vendor === EHardwareVendor.ledger ? 'ledger' : 'trezor',
+  });
 
   return (
     <YStack gap="$5">
@@ -156,15 +180,15 @@ function ThirdPartyHardwareActionsTest() {
         </XStack>
         <XStack alignItems="center" gap="$3" pt="$2">
           <Image
-            source={resolveAvatarSource(device)}
+            source={AllWalletAvatarImages[avatarKey]}
             w="$10"
             h="$10"
             borderRadius="$2"
           />
           <YStack>
-            <SizableText size="$bodyMdMedium">{device.model}</SizableText>
+            <SizableText size="$bodyMdMedium">{device.label}</SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
-              {`vendor=${device.vendor}`}
+              {`vendor=${device.vendor} avatarKey=${avatarKey}`}
             </SizableText>
           </YStack>
         </XStack>

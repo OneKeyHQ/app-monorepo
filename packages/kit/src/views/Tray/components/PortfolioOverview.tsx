@@ -1,12 +1,13 @@
 import BigNumber from 'bignumber.js';
 
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -42,6 +43,11 @@ export function PortfolioOverview({
         wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers
       ]
     : undefined;
+  // Mirrors WalletAvatarBase's hidden-wallet branch, which this direct
+  // AllWalletAvatarImages lookup bypasses.
+  const isHiddenWallet = accountUtils.isHwHiddenWallet({
+    wallet: wallet as unknown as IDBWallet,
+  });
   const hasAccountAvatar = Boolean(
     account.avatar?.address ||
     account.avatar?.indexedAccount ||
@@ -85,6 +91,9 @@ export function PortfolioOverview({
             />
           ) : (
             (() => {
+              if (isHiddenWallet) {
+                return <Icon name="LockSolid" size="$6" flexShrink={0} />;
+              }
               if (avatarSource) {
                 return (
                   <Image
