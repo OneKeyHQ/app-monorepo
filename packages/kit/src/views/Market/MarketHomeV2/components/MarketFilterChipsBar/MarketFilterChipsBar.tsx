@@ -551,7 +551,6 @@ export function MarketFilterChipsBar({
   const activeChip = findActiveMarketFilterChip(
     filterState.conditions,
     sortState,
-    timeRange,
   );
 
   const handleQuickChipPress = (chip: IMarketFilterChip) => {
@@ -574,9 +573,10 @@ export function MarketFilterChipsBar({
             conditionCount: Object.keys(chip.conditions).length,
           },
     );
-    if (chip.timeRange && chip.timeRange !== timeRange) {
-      onTimeRangeChange(chip.timeRange);
-    }
+    // The chip applies to whatever window the user is on: market cap and
+    // liquidity do not move with the window at all, and the volume floor only
+    // changes how strict the third condition is. Overriding an explicit
+    // selection buys less than it costs (measured 2026-08-17, PRD 8/P2-9).
     applyConditions(chip.conditions, { sort: chip.sort });
   };
 

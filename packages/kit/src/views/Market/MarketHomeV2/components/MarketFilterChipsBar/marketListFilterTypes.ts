@@ -3,7 +3,6 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { IMarketTimeRangeValue } from '../../types';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 
 // Filter dimensions shown to the user. Each dimension maps to a pair of
@@ -95,8 +94,6 @@ export type IMarketFilterChip = {
   // Sort the chip dispatches, if any. Same state machine as the column header
   // (P1-10), so the header arrow and the chip can never disagree.
   sort?: IMarketListSortState;
-  // Quick chips anchor the time frame; the popover stays free (P2-9).
-  timeRange?: IMarketTimeRangeValue;
 };
 
 export type IMarketListFilterContextValue = {

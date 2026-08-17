@@ -105,44 +105,37 @@ describe('sameConditions', () => {
   });
 });
 
-describe('findActiveMarketFilterChip time frame anchoring', () => {
-  // The sort-bearing chip is the one that anchors a window, so it is the case
-  // that can drift: its icon and its descending-only lock are derived from
-  // preset identity, and both would keep applying after the user moves the
-  // toolbar off the anchor.
-  const anchored = MARKET_FILTER_CHIPS.find((chip) => chip.timeRange);
-
-  it('has at least one time-anchored chip to guard', () => {
-    expect(anchored).toBeDefined();
+describe('findActiveMarketFilterChip window independence', () => {
+  // 2026-08-17: chips carry no window of their own. Market cap and liquidity
+  // do not move with the window, and the volume floor only shifts how strict
+  // one of three conditions is, so a preset stays itself across windows.
+  it('no chip declares a time frame', () => {
+    expect(
+      MARKET_FILTER_CHIPS.filter(
+        (chip) => (chip as { timeRange?: string }).timeRange !== undefined,
+      ),
+    ).toEqual([]);
   });
 
-  it('matches while the window still equals the anchor', () => {
-    if (!anchored) return;
-    expect(
-      findActiveMarketFilterChip(
-        anchored.conditions,
-        anchored.sort ?? {},
-        anchored.timeRange,
-      ),
-    ).toBe(anchored);
+  // Guards the behavior this replaced: matching once took the window into
+  // account, so switching the toolbar window silently unlit the chip.
+  it('matches on conditions and sort alone', () => {
+    for (const chip of MARKET_FILTER_CHIPS) {
+      expect(findActiveMarketFilterChip(chip.conditions, chip.sort ?? {})).toBe(
+        chip,
+      );
+    }
   });
 
-  it('stops matching once the window moves away from the anchor', () => {
-    if (!anchored) return;
-    const otherWindow = anchored.timeRange === '24h' ? '1h' : '24h';
+  it('still refuses a chip whose sort no longer matches', () => {
+    const sorting = MARKET_FILTER_CHIPS.find((chip) => chip.sort);
+    expect(sorting).toBeDefined();
+    if (!sorting) return;
     expect(
-      findActiveMarketFilterChip(
-        anchored.conditions,
-        anchored.sort ?? {},
-        otherWindow,
-      ),
+      findActiveMarketFilterChip(sorting.conditions, {
+        sortBy: 'marketCap',
+        sortType: 'asc',
+      }),
     ).toBeUndefined();
-  });
-
-  it('ignores the window when the caller passes none', () => {
-    if (!anchored) return;
-    expect(
-      findActiveMarketFilterChip(anchored.conditions, anchored.sort ?? {}),
-    ).toBe(anchored);
   });
 });
