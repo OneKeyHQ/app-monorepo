@@ -505,10 +505,7 @@ export function buildPortfolioPayload({
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
-      count: Math.max(
-        Math.trunc(totalTokenCount) - payloadTokens.length,
-        0,
-      ),
+      count: Math.max(Math.trunc(totalTokenCount) - payloadTokens.length, 0),
       fiat: formatPortfolioFiat(
         otherTokensFiatValue,
         currencyPrefix,
