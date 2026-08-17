@@ -95,6 +95,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IFetchUSMarketStatusResult,
   ILMTronObject,
   IOKXTransactionObject,
   IPerpDepositQuoteResponse,
@@ -3605,6 +3606,38 @@ export default class ServiceSwap extends ServiceBase {
       console.error(error);
       return defaultConfig;
     }
+  }
+
+  // Short-lived memo so many concurrent subscribers (status badges, the
+  // trading-hours panel) share one request instead of each polling the API.
+  private fetchCheckUSMarketStatusMemo = memoizee(
+    async (): Promise<IFetchUSMarketStatusResult> => {
+      const unavailableStatus: IFetchUSMarketStatusResult = {
+        open: false,
+        session: 'CLOSED',
+        reason: 'market-status-unavailable',
+        unavailable: true,
+      };
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Swap);
+        const { data } = await client.get<
+          IFetchResponse<IFetchUSMarketStatusResult>
+        >('/swap/v1/check/us-market-status');
+        return data?.data ?? unavailableStatus;
+      } catch (error) {
+        console.error(error);
+        return unavailableStatus;
+      }
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
+    },
+  );
+
+  @backgroundMethod()
+  async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult> {
+    return this.fetchCheckUSMarketStatusMemo();
   }
 
   @backgroundMethod()

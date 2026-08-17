@@ -15,14 +15,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  StockMarketStatusAlert,
-  getStockMarketClosedDescription,
-  isStockMarketClosed,
-  resolveStockMarketStatusCase,
-} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { SwapProviderMirror } from '@onekeyhq/kit/src/views/Swap/pages/SwapProviderMirror';
 import {
   createGasAccountReviewSession,
@@ -36,7 +29,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -77,7 +69,6 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     tokenAddress,
     isNative: currentMarketTokenIsNative,
     tokenDetail,
-    perpsInfo,
     isReady,
   } = useTokenDetail();
   const intl = useIntl();
@@ -245,6 +236,9 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
+    // Market status never gates quoting. A live open-state flip only refreshes
+    // the current provider quote so a server-reported closed error can recover.
+    stockIsOpen: tokenDetail?.stock?.isOpen,
     marketToken: {
       networkId: networkId || '',
       contractAddress: tokenDetail?.address || '',
@@ -755,41 +749,6 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     [swapPanel, handleUserPaymentTokenChange],
   );
 
-  // Stock market-closed alert (reuses the shared StockMarketStatusAlert): when
-  // the underlying stock's market is closed, show the standard alert + optional
-  // Perps handoff and disable the trade button (handled in SwapPanelContent).
-  // Other (non-closed) backend errors keep the generic quote error text.
-  const { navigateToPerps } = usePerpsNavigation(
-    EPerpPageEnterSource.MarketStockClosed,
-  );
-  const stockHlTicker = perpsInfo?.hlTicker;
-  const stockHasPerps = Boolean(stockHlTicker);
-  const stockClosedTimeText = getStockMarketClosedDescription(
-    tokenDetail?.stock?.description,
-  );
-  const stockMarketClosedAlert = isStockMarketClosed(tokenDetail?.stock) ? (
-    <StockMarketStatusAlert
-      statusCase={resolveStockMarketStatusCase({
-        isOpen: false,
-        isPaused: tokenDetail?.stock?.isPaused,
-        hasOpenTime: Boolean(stockClosedTimeText),
-        hasPerps: stockHasPerps,
-      })}
-      timeText={stockClosedTimeText}
-      onTradePerps={
-        stockHlTicker
-          ? () => {
-              // SwapPanelWrap can be hosted in an in-page dialog (mobile Market
-              // Detail). Close it first so the old swap dialog doesn't linger
-              // above the Perps tab or race with overlay cleanup.
-              onCloseDialog?.();
-              navigateToPerps(stockHlTicker);
-            }
-          : undefined
-      }
-    />
-  ) : null;
-
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -829,7 +788,6 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       quoteListLength={quoteList.length}
       onOpenProviderList={handleOpenProviderList}
       quoteError={quoteError}
-      stockMarketClosedAlert={stockMarketClosedAlert}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}

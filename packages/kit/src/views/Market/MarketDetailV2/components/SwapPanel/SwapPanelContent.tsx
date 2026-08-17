@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -79,9 +78,6 @@ export type ISwapPanelContentProps = {
   quoteListLength: number;
   onOpenProviderList: () => void;
   quoteError?: string;
-  // Pre-built stock market-closed alert (StockMarketStatusAlert). When set it
-  // replaces the generic quote error text and disables the action button.
-  stockMarketClosedAlert?: ReactNode;
   disableNativeToken?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
@@ -115,7 +111,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     quoteListLength,
     onOpenProviderList,
     quoteError,
-    stockMarketClosedAlert,
     disableNativeToken,
     marketPresetSettings,
     estimatePriorityFeeFiatValues,
@@ -365,8 +360,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
-      {stockMarketClosedAlert}
-      {!stockMarketClosedAlert && quoteError ? (
+      {quoteError ? (
         <SizableText size="$bodyMd" color="$textCritical">
           {quoteError}
         </SizableText>
@@ -400,7 +394,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         disabled={
           isLoading || !!isActionDisabled || (!isRefreshQuote && !!quoteError)
         }
-        forceDisabled={!!stockMarketClosedAlert}
         isRefreshQuote={isRefreshQuote}
         onSwapAction={
           isRefreshQuote

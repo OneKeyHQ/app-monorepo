@@ -75,6 +75,13 @@ const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
     params: IFetchSwapNativeTokenConfigParams,
   ) => Promise<{ networkId: string; reserveGas: string }>
 > = jest.fn();
+const mockFetchQuotesEvents: jest.MockedFunction<
+  (params: unknown) => Promise<void>
+> = jest.fn();
+const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
+const mockCancelFetchQuoteEvents: jest.MockedFunction<
+  (quoteRequestId?: string) => Promise<void>
+> = jest.fn();
 const mockSetInAppNotificationAtom = jest.fn();
 const mockNavigationToTxConfirm = jest.fn();
 const mockNetAccountRun = jest.fn();
@@ -127,6 +134,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
+      fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
+      closeApproving: () => mockCloseApproving(),
+      cancelFetchQuoteEvents: (quoteRequestId?: string) =>
+        mockCancelFetchQuoteEvents(quoteRequestId),
     },
   },
 }));
@@ -169,6 +180,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  settingsAtom: {
+    get: jest.fn().mockResolvedValue({ swapIncognitoMode: false }),
+  },
   useInAppNotificationAtom: () => [
     mockInAppNotificationAtomState,
     mockSetInAppNotificationAtom,
@@ -400,6 +414,12 @@ describe('useSpeedSwapActions', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
     mockFetchSwapNativeTokenConfig.mockReset();
+    mockFetchQuotesEvents.mockReset();
+    mockFetchQuotesEvents.mockResolvedValue();
+    mockCloseApproving.mockReset();
+    mockCloseApproving.mockResolvedValue();
+    mockCancelFetchQuoteEvents.mockReset();
+    mockCancelFetchQuoteEvents.mockResolvedValue();
     mockSetInAppNotificationAtom.mockReset();
     mockNavigationToTxConfirm.mockReset();
     mockNetAccountRun.mockReset();
@@ -543,6 +563,34 @@ describe('useSpeedSwapActions', () => {
       expect(result.current.balanceToken.symbol).toBe('USDT');
       expect(result.current.balance?.toFixed()).toBe('250');
       expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+  });
+
+  it('re-requests the provider quote when a stock live-open state changes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { rerender } = renderSwapHook(
+      ({ stockIsOpen }: { stockIsOpen?: boolean }) =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          stockIsOpen,
+        }),
+      {
+        initialProps: {
+          stockIsOpen: false,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+
+    rerender({ stockIsOpen: true });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
     });
   });
 

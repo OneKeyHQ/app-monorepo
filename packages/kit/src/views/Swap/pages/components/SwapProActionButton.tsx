@@ -18,7 +18,6 @@ import {
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
@@ -49,7 +48,6 @@ import {
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
 import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
-import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 /**
  * Format value with compact notation (k, M, B, T)
@@ -98,13 +96,6 @@ const SwapProActionButton = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
-  // Stock market closed → trading is impossible even if a quote returns a price.
-  // Guard on the selected token so a stale Pro detail can't drive this state.
-  const stockMarketClosed = isSelectedProStockMarketClosed(
-    proTokenDetail,
-    swapProSelectToken,
-  );
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote, hasPreviousActionableQuote } =
@@ -282,7 +273,7 @@ const SwapProActionButton = ({
     if (!canExecuteInPro) {
       originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
-    return originalDisabled || stockMarketClosed;
+    return originalDisabled;
   }, [
     isActionDisabled,
     hasEnoughBalance,
@@ -291,7 +282,6 @@ const SwapProActionButton = ({
     balanceLoading,
     currentQuoteLoading,
     canExecuteInPro,
-    stockMarketClosed,
   ]);
 
   const actionButtonText = useMemo(() => {

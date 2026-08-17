@@ -126,7 +126,6 @@ import {
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
-  swapProTokenMarketDetailPerpsInfoAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
   swapProviderSupportReceiveAddressAtom,
@@ -723,7 +722,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           // the same state transition so its detail and websocket config
           // cannot render under the next token.
           set(swapProTokenMarketDetailInfoAtom(), undefined);
-          set(swapProTokenMarketDetailPerpsInfoAtom(), undefined);
           set(swapProTokenDetailWebsocketAtom(), undefined);
           set(swapProTokenMarketDetailInfoLoadingAtom(), false);
         }
@@ -3797,10 +3795,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           networkId,
         };
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
-        set(
-          swapProTokenMarketDetailPerpsInfoAtom(),
-          responseData.data.perpsInfo,
-        );
         set(swapProTokenDetailWebsocketAtom(), websocketConfig);
         if (
           currentSelectToken &&

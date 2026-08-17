@@ -395,6 +395,12 @@ export function useSpeedSwapActions(props: {
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
   onCloseDialog?: () => void;
+  /**
+   * Live per-stock open state from the token detail. Flips refresh the current
+   * provider quote so a stale server-reported closed error clears on reopen.
+   * Market status itself never gates quoting.
+   */
+  stockIsOpen?: boolean;
 }) {
   const {
     marketToken,
@@ -406,6 +412,7 @@ export function useSpeedSwapActions(props: {
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     // onCloseDialog,
+    stockIsOpen,
   } = props;
 
   const intl = useIntl();
@@ -3239,6 +3246,9 @@ export function useSpeedSwapActions(props: {
       value: fromTokenAmountDebounced,
       isInput: true,
     });
+    // Read only as a re-run trigger. The quote request remains authoritative
+    // for whether trading is available.
+    void stockIsOpen;
     if (
       !fromTokenAmountDebouncedBN.isNaN() &&
       fromTokenAmountDebouncedBN.gt(0) &&
@@ -3278,6 +3288,7 @@ export function useSpeedSwapActions(props: {
     resetQuoteAction,
     setSwapFromTokenAmount,
     slippage,
+    stockIsOpen,
     toToken.contractAddress,
     toToken.networkId,
   ]);

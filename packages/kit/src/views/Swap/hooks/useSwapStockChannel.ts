@@ -577,9 +577,8 @@ export function useSwapStockChannel() {
     ) {
       return ESwapStockChannelStage.MarketUnavailable;
     }
-    if (stockMarketStatus?.open === false) {
-      return ESwapStockChannelStage.MarketClosed;
-    }
+    // A closed market is NOT a blocking stage (OK-58986): quoting proceeds
+    // and providers decide whether the token still trades.
     if (payTokenStatus === ESwapStockChannelAsyncStatus.Initializing) {
       return ESwapStockChannelStage.InitializingPayToken;
     }
@@ -590,14 +589,12 @@ export function useSwapStockChannel() {
   }, [
     marketStatusStatus,
     payTokenStatus,
-    stockMarketStatus?.open,
     stockMarketStatus?.unavailable,
     stockTokenStatus,
   ]);
 
   const readyForQuote = isStockTradeReadyForQuote({
     currentStockToken,
-    marketOpen: stockMarketStatus?.open,
     marketStatusStatus,
     payToken,
     payTokenStatus,
