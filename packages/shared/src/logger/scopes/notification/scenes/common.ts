@@ -2,6 +2,8 @@ import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import type {
   ENotificationPushTopicTypes,
   INotificationPermissionDetail,
+  INotificationPermissionRecoveryActionResult,
+  INotificationPermissionRecoveryResult,
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
   INotificationPushRegisterParams,
@@ -143,5 +145,25 @@ export class CommonScene extends BaseScene {
   @LogToLocal()
   getPermission(params: INotificationPermissionDetail) {
     return [params.permission, params.isSupported];
+  }
+
+  @LogToLocal()
+  permissionRecoveryCheck(
+    params: INotificationPermissionRecoveryResult & {
+      platform: 'ios' | 'android' | 'other';
+      source: string;
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal()
+  permissionRecoveryAction(
+    params: INotificationPermissionRecoveryActionResult & {
+      permissionBefore: INotificationPermissionDetail['permission'];
+      platform: 'ios' | 'android' | 'other';
+    },
+  ) {
+    return params;
   }
 }
