@@ -44,6 +44,7 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 import {
+  getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2FirmwareVersionTitle,
 } from '../utils';
@@ -451,8 +452,12 @@ export function FirmwareChangeLogView({
 
   const handleConfirmClick = useCallback(async () => {
     if (platformEnv.isDesktop) {
+      const usbPreflightParams =
+        await getFirmwareUpdateUSBPreflightParams(result);
       const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+          usbPreflightParams,
+        );
       if (!isUSBDeviceAvailable) {
         Dialog.show({
           icon: 'TypeCoutline',
