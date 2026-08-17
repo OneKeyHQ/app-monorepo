@@ -392,6 +392,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       return false;
     }
 
+    // Margin conclusions need the account feed: in TWAP mode markPxBN can come
+    // from the market-wide ctx feed before activeAssetData has (re)loaded.
+    if (!activeAssetData) {
+      return false;
+    }
+
     // No margin for this side (guard on markPxBN to skip initial loading)
     if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
       return true;
@@ -424,6 +430,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
 
     return requiredMargin.isFinite() && requiredMargin.gt(availableMarginBN);
   }, [
+    activeAssetData,
     computedSizeForSide,
     calculationPriceBN,
     effectivePriceBN,

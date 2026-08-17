@@ -74,4 +74,13 @@ describe('useTradingCalculationsForSide', () => {
     expect(result.current.orderValue.toFixed()).toBe('200');
     expect(result.current.marginRequired.toFixed()).toBe('100');
   });
+
+  it('does not report insufficient margin while account data is still loading', () => {
+    mockActiveAssetCtx = { ctx: { markPrice: '100' } };
+    mockActiveAssetData = undefined;
+
+    const { result } = renderHook(() => useTradingCalculationsForSide('long'));
+
+    expect(result.current.isNoEnoughMargin).toBe(false);
+  });
 });
