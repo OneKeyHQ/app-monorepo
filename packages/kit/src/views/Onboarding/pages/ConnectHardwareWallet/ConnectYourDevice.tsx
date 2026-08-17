@@ -54,6 +54,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
@@ -1258,7 +1259,7 @@ export function ConnectYourDevicePage() {
         forceProtocolDetection: true,
       });
     } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
+      if (isOneKeyHardwareError(error)) {
         const { code, message } = error;
         if (
           code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||

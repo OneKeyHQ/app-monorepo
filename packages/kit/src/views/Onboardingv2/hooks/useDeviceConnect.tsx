@@ -19,6 +19,7 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -247,7 +248,7 @@ export function useDeviceConnect({
         setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
-        if (error instanceof OneKeyHardwareError) {
+        if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
