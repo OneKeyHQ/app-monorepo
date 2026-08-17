@@ -413,15 +413,6 @@ export function buildPortfolioPayload({
 }: IBuildPortfolioPayloadParams): IPortfolioPayload {
   const currencyPrefix = getPortfolioCurrencyPrefix(displayCurrency);
 
-  const excludedTokenCount = tokens.reduce((count, token) => {
-    const fiat = getTokenFiat({ aggregateTokenMap, token, tokenMap });
-    return count + (shouldExcludePortfolioTokenByValue(fiat) ? 1 : 0);
-  }, 0);
-  const transferableTokenCount = Math.max(
-    Math.trunc(totalTokenCount) - excludedTokenCount,
-    0,
-  );
-
   const topTokenCandidates = buildPortfolioTokenCandidates({
     aggregateTokenMap,
     currencyMap,
@@ -514,7 +505,10 @@ export function buildPortfolioPayload({
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
-      count: Math.max(transferableTokenCount - payloadTokens.length, 0),
+      count: Math.max(
+        Math.trunc(totalTokenCount) - payloadTokens.length,
+        0,
+      ),
       fiat: formatPortfolioFiat(
         otherTokensFiatValue,
         currencyPrefix,

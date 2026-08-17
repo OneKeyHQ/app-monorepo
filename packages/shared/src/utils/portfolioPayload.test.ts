@@ -128,7 +128,7 @@ describe('buildPortfolioPayload', () => {
 
     expect(payload.tokens.map((token) => token.symbol)).toEqual(['SOL']);
     expect(payload.otherTokens).toEqual({
-      count: 1,
+      count: 2,
       fiat: '$100.00',
       portfolioPercentage: 66.67,
     });
@@ -948,7 +948,7 @@ describe('buildPortfolioPayload', () => {
     ).toThrow(/1-47 UTF-8 bytes/u);
   });
 
-  test('does not transmit zero-price tokens or count them as other assets', () => {
+  test('does not transmit zero-price tokens but counts them as other assets', () => {
     const tokens = Array.from({ length: 3 }, (_, index) =>
       buildToken({ $key: `zero-${index}`, symbol: `ZERO${index}` }),
     );
@@ -975,7 +975,7 @@ describe('buildPortfolioPayload', () => {
     expect(payload.tokenCount).toBe(0);
     expect(payload.tokens).toEqual([]);
     expect(payload.otherTokens).toEqual({
-      count: 0,
+      count: 3,
       fiat: '$0.00',
       portfolioPercentage: 0,
     });
