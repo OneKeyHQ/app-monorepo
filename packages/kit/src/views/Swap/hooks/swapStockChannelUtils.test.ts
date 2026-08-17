@@ -431,17 +431,18 @@ describe('swapStockChannelUtils', () => {
     ).toBe(true);
   });
 
-  it('blocks Stock quote execution only when the market is explicitly closed', () => {
+  it('keeps Stock quote execution ready while the market is closed (OK-58986)', () => {
+    // Providers may still fill from on-chain liquidity outside US sessions —
+    // the quote response, not the market status, decides whether it trades.
     expect(
       isStockTradeReadyForQuote({
         currentStockToken: appleStockToken,
-        marketOpen: false,
         marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payToken: usdcToken,
         payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('waits for the initial Stock market detail request to settle', () => {

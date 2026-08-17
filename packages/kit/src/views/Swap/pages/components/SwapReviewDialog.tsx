@@ -57,11 +57,15 @@ function SwapReviewDialogContent({
   onDone: () => void;
   onConfirmStart?: () => void;
 }) {
-  const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
-    useSwapReviewActions({
-      adapter,
-      approveTransactionSource,
-    });
+  const {
+    onConfirm,
+    preSwapBeforeStepActions,
+    preSwapStepsStart,
+    rebuildReviewWithSlippage,
+  } = useSwapReviewActions({
+    adapter,
+    approveTransactionSource,
+  });
 
   return (
     <PreSwapDialogContent
@@ -73,6 +77,8 @@ function SwapReviewDialogContent({
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
+      rebuildReviewWithSlippage={rebuildReviewWithSlippage}
+      saveSlippageForFutureOrders={adapter.saveSlippageForFutureOrders}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}

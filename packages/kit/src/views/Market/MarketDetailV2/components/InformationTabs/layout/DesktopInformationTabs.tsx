@@ -37,7 +37,14 @@ function UpdatesArrowIcon() {
   return <Icon name="ArrowTopSolid" size="$3.5" color="$iconInverse" />;
 }
 
-function DesktopInformationTabsHeader(props: TabBarProps<string>) {
+function DesktopInformationTabsHeader({
+  holdersTabLabel,
+  holdersTabName,
+  ...props
+}: TabBarProps<string> & {
+  holdersTabLabel: string;
+  holdersTabName: string;
+}) {
   const { tabNames } = props;
   const [realtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const intl = useIntl();
@@ -58,6 +65,18 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
     resumeRealtimeUpdates?.();
     scrollTransactionsToTop?.();
   }, [resumeRealtimeUpdates, scrollTransactionsToTop]);
+  const renderTabBarItem = useCallback(
+    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
+      <Tabs.TabBarItem
+        key={itemProps.name}
+        {...itemProps}
+        label={
+          itemProps.name === holdersTabName ? holdersTabLabel : itemProps.name
+        }
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   return (
     <YStack
@@ -69,7 +88,11 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
       zIndex={10}
       overflow="visible"
     >
-      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
+      <Tabs.TabBar
+        {...props}
+        textSize="$bodyMdMedium"
+        renderItem={renderTabBarItem}
+      />
       {realtimePauseState.isPaused ? (
         <Badge
           position="absolute"
@@ -148,10 +171,11 @@ export function DesktopInformationTabs({
     useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
-  const holdersTabName = useMemo(() => {
-    const baseTitle = intl.formatMessage({
-      id: ETranslations.dexmarket_holders,
-    });
+  const holdersTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_holders,
+  });
+  const holdersTabLabel = useMemo(() => {
+    const baseTitle = holdersTabName;
     const holders = tokenDetail?.holders;
     if (holders !== undefined && holders > 0) {
       const displayValue = String(
@@ -160,7 +184,7 @@ export function DesktopInformationTabs({
       return `${baseTitle} (${displayValue})`;
     }
     return baseTitle;
-  }, [intl, tokenDetail?.holders]);
+  }, [holdersTabName, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
@@ -238,9 +262,16 @@ export function DesktopInformationTabs({
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange } = useBottomTabAnalytics(tabKeys);
 
-  const renderTabBar = useCallback(({ ...props }: any) => {
-    return <DesktopInformationTabsHeader {...props} />;
-  }, []);
+  const renderTabBar = useCallback(
+    ({ ...props }: any) => (
+      <DesktopInformationTabsHeader
+        {...props}
+        holdersTabName={holdersTabName}
+        holdersTabLabel={holdersTabLabel}
+      />
+    ),
+    [holdersTabLabel, holdersTabName],
+  );
 
   // Generate unique key based on tabs composition
   const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);

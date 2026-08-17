@@ -19,11 +19,16 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
+  useSwapQuoteFetchingAtom,
+  useSwapQuoteListAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -38,22 +43,34 @@ import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   onBalanceMax: () => void;
+  storeName: EJotaiContextStoreNames;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
+  storeName,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [swapProQuoteResultPro] = useSwapSpeedQuoteResultAtom();
-  const [swapProQuoteFetchingPro] = useSwapSpeedQuoteFetchingAtom();
+  const [swapProQuoteFetching] = useSwapQuoteFetchingAtom();
   const [swapCurrentQuoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const navigation = useAppNavigation();
+
+  const handleOpenProviderList = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName,
+      },
+    });
+  }, [navigation, storeName]);
 
   const handleDepositPress = useCallback(() => {
     if (!inputToken || !activeAccount) {
@@ -89,12 +106,7 @@ const SwapProTradeInfoGroup = ({
     return balanceBN.toFixed();
   }, [inputToken]);
 
-  const swapProQuoteResult = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.LIMIT) {
-      return swapCurrentQuoteResult;
-    }
-    return swapProQuoteResultPro;
-  }, [swapProQuoteResultPro, swapCurrentQuoteResult, swapProTradeType]);
+  const swapProQuoteResult = swapCurrentQuoteResult;
 
   const receiveValue = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
@@ -195,12 +207,28 @@ const SwapProTradeInfoGroup = ({
         isLoading={
           swapProTradeType === ESwapProTradeType.LIMIT
             ? false
-            : swapProQuoteFetchingPro
+            : swapProQuoteFetching
         }
         containerProps={{
           py: '$1',
         }}
       />
+      {swapProTradeType === ESwapProTradeType.MARKET &&
+      swapProQuoteResult?.info.provider ? (
+        <SwapProviderInfoItem
+          providerIcon={swapProQuoteResult.info.providerLogo ?? ''}
+          providerName={swapProQuoteResult.info.providerName ?? ''}
+          isBest={swapProQuoteResult.isBest}
+          fromToken={inputToken}
+          toToken={toToken}
+          showLock={!!swapProQuoteResult.allowanceResult}
+          percentageFee={swapProQuoteResult.fee?.percentageFee}
+          percentOriginFee={swapProQuoteResult.fee?.percentOriginFee}
+          onPress={
+            swapQuoteList.length > 1 ? handleOpenProviderList : undefined
+          }
+        />
+      ) : null}
     </YStack>
   );
 };
