@@ -2761,6 +2761,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
+      const stepInfo = await firmwareUpdateStepInfoAtom.get();
+      if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
+        await firmwareUpdateStepInfoAtom.set({
+          step: EFirmwareUpdateSteps.installing,
+          payload: {},
+        });
+      }
       await firmwareUpdateRetryAtom.set({
         id,
         error: toPlainErrorObject(error as any),

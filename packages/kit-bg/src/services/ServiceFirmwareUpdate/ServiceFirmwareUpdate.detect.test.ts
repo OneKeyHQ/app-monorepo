@@ -1114,6 +1114,10 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     await service.runUpdateTask({ id: 1 });
 
+    expect(firmwareUpdateStepInfoAtom.set).toHaveBeenCalledWith({
+      step: 'installing',
+      payload: {},
+    });
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
     );
