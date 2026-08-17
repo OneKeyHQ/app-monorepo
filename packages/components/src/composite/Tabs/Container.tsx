@@ -32,6 +32,9 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+// Inline min-height: the Tamagui prop drops 0, and without it the flex item's
+// min-height:auto lets tall tab content overflow the bounded pane.
+const scrollSnapFillStyle = { ...scrollSnapStyle, minHeight: 0 } as const;
 const childDivStyle = {
   width: '100%',
   flexShrink: 0,
@@ -127,9 +130,8 @@ export function ContainerChild({
         ref={listContainerRef as any}
         width={containerWidth || props.width}
         flex={fillContentHeight ? 1 : undefined}
-        minHeight={fillContentHeight ? 0 : undefined}
         overflow="hidden"
-        style={scrollSnapStyle}
+        style={fillContentHeight ? scrollSnapFillStyle : scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           const key =
