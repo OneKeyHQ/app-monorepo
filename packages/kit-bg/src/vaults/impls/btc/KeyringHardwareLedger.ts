@@ -241,6 +241,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       const { inputs, outputs } = encodedTx;
       const network = btcNetwork;
       const psbt = new BitcoinJS.Psbt({ network });
+      type IPsbtInputData = Parameters<typeof psbt.addInput>[0];
+      type IPsbtOutputData = Parameters<typeof psbt.addOutput>[0];
 
       const vault = this.vault as VaultBtc;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -305,7 +307,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         const fullPathParts = fullPath.replace(/^m\//, '').split('/');
         const relPath = fullPathParts.slice(accountPathParts.length).join('/');
 
-        const inputData: any = {
+        const inputData: IPsbtInputData = {
           hash: input.txid,
           index: input.vout,
           witnessUtxo: {
@@ -371,7 +373,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             value: BigInt(0),
           });
         } else {
-          const outputData: any = {
+          const outputData: IPsbtOutputData = {
             address: output.address,
             value: BigInt(output.value),
           };
