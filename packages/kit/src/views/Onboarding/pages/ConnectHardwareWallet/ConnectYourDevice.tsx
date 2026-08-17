@@ -1360,7 +1360,11 @@ export function ConnectYourDevicePage() {
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: deviceUtils.getRawDeviceId({ device, features }),
+          deviceId: deviceUtils.getRawDeviceId({
+            device,
+            features,
+            deviceState,
+          }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
