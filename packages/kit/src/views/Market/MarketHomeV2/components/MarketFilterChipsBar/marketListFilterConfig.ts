@@ -372,7 +372,11 @@ export function findActiveMarketFilterChip(
     // and preset-derived behavior (the icon, the descending-only sort lock)
     // keeps applying to a state the preset no longer matches. Callers that
     // pass no window opt out of this half of the comparison.
-    if (chip.timeRange && timeRange !== undefined && chip.timeRange !== timeRange) {
+    if (
+      chip.timeRange &&
+      timeRange !== undefined &&
+      chip.timeRange !== timeRange
+    ) {
       return false;
     }
     if (!chip.sort) {
