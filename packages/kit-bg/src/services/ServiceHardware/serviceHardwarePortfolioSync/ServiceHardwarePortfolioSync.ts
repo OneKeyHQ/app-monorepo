@@ -269,7 +269,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       !wallet ||
       wallet.id !== walletId ||
       accountUtils.isWalletDeprecatedOrMocked(wallet) ||
-      !accountUtils.isHwWallet({ walletId: wallet.id })
+      !accountUtils.isHwWallet({ walletId: wallet.id }) ||
+      accountUtils.isQrWallet({ walletId: wallet.id })
     ) {
       return undefined;
     }

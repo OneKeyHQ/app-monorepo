@@ -1835,7 +1835,8 @@ function TokenListBlock({
         assetStatusCurrency &&
         isProtocolV2ProductType(device?.deviceType) &&
         wallet &&
-        accountUtils.isHwWallet({ walletId: wallet.id })
+        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        !accountUtils.isQrWallet({ walletId: wallet.id })
       ) {
         const flattenedAggregateTokenMap = flattenAggregateTokensMap(
           snapshot.aggregateTokenMap,
