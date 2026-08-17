@@ -4,8 +4,11 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+
+import { sameConditions } from './marketListFilterConfig';
 
 import type {
   IMarketListFilterConditions,
@@ -37,16 +40,33 @@ export function MarketListFilterProvider({ children }: PropsWithChildren) {
     useState<IMarketListFilterState>(EMPTY_STATE);
   const [sortState, setSortState] = useState<IMarketListSortState>(EMPTY_SORT);
 
+  // Mirrors filterState so the callback below can compare against the current
+  // conditions without taking them as a dependency and churning its identity.
+  const conditionsRef = useRef(filterState.conditions);
+  conditionsRef.current = filterState.conditions;
+
   const applyConditions = useCallback(
     (
       conditions: IMarketListFilterConditions,
       options?: { sort?: IMarketListSortState },
     ) => {
+      // A caller applying both at once (a chip carrying its own sort) always
+      // wins, whether or not the conditions moved.
+      if (options?.sort) {
+        setFilterState({ conditions });
+        setSortState(options.sort);
+        return;
+      }
+      // Every entry point funnels through here — the chip row, the tier
+      // popover, clear-all and the Filters modal — and several of them re-apply
+      // the value that is already selected. Resetting the sort belongs to an
+      // actual change of slice: the ordering is only invalidated when the rows
+      // being ordered change. A no-op re-apply must leave the sort alone.
+      if (sameConditions(conditionsRef.current, conditions)) {
+        return;
+      }
       setFilterState({ conditions });
-      // Changing the filtered slice invalidates the ordering computed over the
-      // previous one, so sort resets — unless the caller is applying both at
-      // once (a chip that carries its own sort).
-      setSortState(options?.sort ?? EMPTY_SORT);
+      setSortState(EMPTY_SORT);
     },
     [],
   );

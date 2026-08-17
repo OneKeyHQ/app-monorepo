@@ -12,6 +12,7 @@ import type {
   IMarketListFilterConditions,
   IMarketListSortState,
 } from './marketListFilterTypes';
+import type { IMarketTimeRangeValue } from '../../types';
 import type { IntlShape } from 'react-intl';
 
 const H = 60 * 60 * 1000;
@@ -359,9 +360,19 @@ export function sameConditions(
 export function findActiveMarketFilterChip(
   conditions: IMarketListFilterConditions,
   sortState: IMarketListSortState,
+  timeRange?: IMarketTimeRangeValue,
 ): IMarketFilterChip | undefined {
   return MARKET_FILTER_CHIPS.find((chip) => {
     if (!sameConditions(chip.conditions, conditions)) {
+      return false;
+    }
+    // A chip anchors the time frame as much as it anchors the conditions, so
+    // moving the toolbar window away from the anchor takes the preset apart —
+    // otherwise the chip stays lit while the list it describes has changed,
+    // and preset-derived behavior (the icon, the descending-only sort lock)
+    // keeps applying to a state the preset no longer matches. Callers that
+    // pass no window opt out of this half of the comparison.
+    if (chip.timeRange && timeRange !== undefined && chip.timeRange !== timeRange) {
       return false;
     }
     if (!chip.sort) {

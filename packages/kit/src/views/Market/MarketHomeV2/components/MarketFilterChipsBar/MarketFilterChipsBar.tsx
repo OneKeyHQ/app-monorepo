@@ -551,6 +551,7 @@ export function MarketFilterChipsBar({
   const activeChip = findActiveMarketFilterChip(
     filterState.conditions,
     sortState,
+    timeRange,
   );
 
   const handleQuickChipPress = (chip: IMarketFilterChip) => {

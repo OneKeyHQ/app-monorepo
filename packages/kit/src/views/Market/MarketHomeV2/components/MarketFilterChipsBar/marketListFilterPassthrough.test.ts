@@ -1,6 +1,8 @@
 import {
+  MARKET_FILTER_CHIPS,
   MARKET_FILTER_DIMENSIONS,
   buildHotTokenFilterParams,
+  findActiveMarketFilterChip,
   pickLocalOnlyConditions,
   sameConditions,
 } from './marketListFilterConfig';
@@ -100,5 +102,47 @@ describe('sameConditions', () => {
       [EMarketFilterDimension.Holders]: 'min-1000',
     };
     expect(sameConditions(a, b)).toBe(true);
+  });
+});
+
+describe('findActiveMarketFilterChip time frame anchoring', () => {
+  // The sort-bearing chip is the one that anchors a window, so it is the case
+  // that can drift: its icon and its descending-only lock are derived from
+  // preset identity, and both would keep applying after the user moves the
+  // toolbar off the anchor.
+  const anchored = MARKET_FILTER_CHIPS.find((chip) => chip.timeRange);
+
+  it('has at least one time-anchored chip to guard', () => {
+    expect(anchored).toBeDefined();
+  });
+
+  it('matches while the window still equals the anchor', () => {
+    if (!anchored) return;
+    expect(
+      findActiveMarketFilterChip(
+        anchored.conditions,
+        anchored.sort ?? {},
+        anchored.timeRange,
+      ),
+    ).toBe(anchored);
+  });
+
+  it('stops matching once the window moves away from the anchor', () => {
+    if (!anchored) return;
+    const otherWindow = anchored.timeRange === '24h' ? '1h' : '24h';
+    expect(
+      findActiveMarketFilterChip(
+        anchored.conditions,
+        anchored.sort ?? {},
+        otherWindow,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('ignores the window when the caller passes none', () => {
+    if (!anchored) return;
+    expect(
+      findActiveMarketFilterChip(anchored.conditions, anchored.sort ?? {}),
+    ).toBe(anchored);
   });
 });
