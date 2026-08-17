@@ -89,10 +89,8 @@ export interface IKaspaGetTransactionOutput {
   accepting_block_hash: null;
 }
 
-// Shapes returned by GET /blocks/{blockId}?includeTransactions=true — the only
-// source carrying sequence, scriptPublicKey.version, lockTime and gas, which the
-// /transactions endpoints have no keys for. All four are needed to rebuild a
-// refTx the device can verify.
+// Shapes from GET /blocks/{blockId} — the only endpoint carrying sequence,
+// scriptPublicKey.version, lockTime and gas.
 export interface IKaspaBlockTransactionInput {
   previousOutpoint: {
     transactionId: string;

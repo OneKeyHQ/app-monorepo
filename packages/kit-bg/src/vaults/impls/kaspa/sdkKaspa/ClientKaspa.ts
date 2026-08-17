@@ -26,9 +26,8 @@ export class ClientKaspa {
     this.backgroundApi = backgroundApi;
   }
 
-  // Bound a request so a slow upstream can't stall the signing flow. Callers that
-  // chain requests pass one deadline so the total stays capped instead of adding
-  // up per hop; on expiry the refTx flow falls back to blind signing.
+  // Bounds a request so a slow upstream can't stall signing; chained calls share
+  // one deadline instead of each holding their own.
   private async withDeadline<T>(
     label: string,
     deadline: number,
@@ -56,9 +55,8 @@ export class ClientKaspa {
     return Date.now() + timerUtils.getTimeDurationMs({ seconds: 30 });
   }
 
-  // Batch-fetch full transactions by id via the REST search endpoint: one upstream
-  // request for all txids (POST body carried by params.data), instead of one GET
-  // per txid.
+  // Batch-fetches txs via REST search — one request for all txids instead of
+  // one GET each.
   async getTransactions(
     txids: string[],
     deadline: number = ClientKaspa.defaultDeadline(),
@@ -87,9 +85,8 @@ export class ClientKaspa {
     return txs;
   }
 
-  // Search resolves txid -> block (it is the only endpoint with a txid index);
-  // the block then supplies the fields search has no keys for. Both hops are
-  // batched into one request each, so a 90-input transaction costs 2 round trips.
+  // Search resolves txid -> block (the only endpoint with a txid index); the
+  // block then fills in the fields search lacks — 2 round trips total.
   async getRefTransactions(
     txids: string[],
   ): Promise<Map<string, IKaspaBlockTransaction>> {

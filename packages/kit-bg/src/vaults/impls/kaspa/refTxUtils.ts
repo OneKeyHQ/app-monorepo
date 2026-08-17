@@ -6,16 +6,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IKaspaRefTransaction } from './Vault';
 
-// Read a uint64 that feeds the txid the device recomputes from a refTx.
-//
-// `nullMeansZero` is for fields an upstream may drop when their value is 0 — true
-// for sequence/lockTime/gas, false for an amount, where empty is far more likely
-// to be a value that could not be represented than a genuine zero. Every
-// substitution is logged: otherwise a field that should have carried a value
-// leaves nothing behind but a device rejection.
-//
-// Past 2^53 the JSON parse already rounded the value and it cannot be recovered,
-// so bail and let the caller blind-sign.
+// Reads a uint64 refTx field. nullMeansZero=false for amounts (empty ≠ 0);
+// true for sequence/lockTime/gas, which upstream drops when zero. Values past
+// 2^53 are already rounded by the JSON parse, so bail rather than sign wrong.
 export function readRefTxUint64({
   value,
   field,
@@ -49,8 +42,7 @@ export function readRefTxUint64({
   return parsed.toFixed();
 }
 
-// Map a block-endpoint tx to the refTx shape the device recomputes the txid from.
-// Every field here feeds that hash, so a wrong value is a hard reject.
+// Maps a block-endpoint tx to the refTx shape the device recomputes the txid from.
 export function buildKaspaRefTx({
   tx,
   networkId,
@@ -62,8 +54,7 @@ export function buildKaspaRefTx({
   if (!txId) {
     throw new OneKeyLocalError('kaspa refTx: block transaction has no txId');
   }
-  // A coinbase prev tx legitimately has no inputs; missing outputs is bad data,
-  // and streaming an empty output list would only produce a wrong txid.
+  // A coinbase prev tx has no inputs; missing outputs would produce a wrong txid.
   if (!Array.isArray(tx.outputs) || tx.outputs.length === 0) {
     throw new OneKeyLocalError(`kaspa refTx: no outputs for ${txId}`);
   }
