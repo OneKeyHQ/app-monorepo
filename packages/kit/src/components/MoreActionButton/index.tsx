@@ -134,6 +134,7 @@ const MORE_ACTION_CANVAS_DARK_STYLE = { bg: '$bgApp' } as const;
 const MORE_ACTION_CARD_DARK_STYLE = { bg: '$neutral2' } as const;
 const MORE_ACTION_ICON_DARK_STYLE = { bg: '$bg' } as const;
 const MORE_ACTION_DESKTOP_ICON_DARK_STYLE = { bg: '$gray3' } as const;
+const MORE_ACTION_PRIME_BADGE_DARK_STYLE = { bg: '$gray4' } as const;
 const MORE_ACTION_DESKTOP_ICON_HOVER_STYLE = {
   bg: '$bgStrongHover',
 } as const;
@@ -580,7 +581,7 @@ function MoreActionContentGridItem({
             ai="center"
             jc="center"
             bg="$bg"
-            $theme-dark={{ bg: '$gray4' }}
+            $theme-dark={MORE_ACTION_PRIME_BADGE_DARK_STYLE}
             borderTopRightRadius={I18nManager.isRTL ? undefined : '$3'}
             borderBottomLeftRadius={I18nManager.isRTL ? undefined : '$3'}
             borderTopLeftRadius={I18nManager.isRTL ? '$3' : undefined}
