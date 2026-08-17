@@ -137,7 +137,8 @@ export const GLASS_SWEEP_TRACK: IKeyframe[] = [
 const SHEEN_STEP_MS = 140;
 const SHEEN_PULSE_MS = 500;
 export const MARK_STEP_MS = 300;
-const MARK_IN_MS = 180;
+/** One mark landing — also the beat the stage's live PIN dots play. */
+export const MARK_IN_MS = 180;
 export const MARKS_OUT_MS = 300;
 /** Complete row held before the marks leave together. */
 const MARKS_HOLD_MS = 1120;
