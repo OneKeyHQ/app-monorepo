@@ -30,7 +30,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import { resolveMarketTradeActionState } from './ActionButton.utils';
@@ -46,15 +45,14 @@ export interface IActionButtonProps extends IButtonProps {
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
+  paymentTokenPrice?: BigNumber;
   balance?: BigNumber;
   networkId?: string;
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
   onSwapAction?: () => void;
-  // Hard-disable that wins over the no-amount "enter amount" re-enable below
-  // (e.g. stock market closed — trading is impossible regardless of input).
-  forceDisabled?: boolean;
+  isRefreshQuote?: boolean;
 }
 
 export function ActionButton({
@@ -68,12 +66,13 @@ export function ActionButton({
   onPress,
   isWrapped,
   paymentToken,
+  paymentTokenPrice,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
-  forceDisabled,
+  isRefreshQuote,
   ...otherProps
 }: IActionButtonProps) {
   const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
@@ -88,13 +87,6 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
-  const paymentTokenNetworkId =
-    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
-  const { price: paymentTokenPrice } = usePaymentTokenPrice(
-    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    paymentTokenNetworkId,
-    currencyInfo.id,
-  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -261,6 +253,9 @@ export function ActionButton({
     isInsufficientBalance,
     isWrapped,
   });
+  const quoteRefreshAvailable = Boolean(
+    isRefreshQuote && hasAmount && !shouldDisable,
+  );
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -286,6 +281,12 @@ export function ActionButton({
     });
   }
 
+  if (quoteRefreshAvailable) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+  }
+
   if (shouldCreateAddress?.result || createAddressLoading) {
     buttonText = intl.formatMessage({
       id: ETranslations.global_create_address,
@@ -299,10 +300,15 @@ export function ActionButton({
   }
   // Use colored style only for normal trading states (has amount, not disabled, has account)
   let shouldUseColoredStyle =
-    hasAmount && !shouldDisable && !noAccount && !disabled;
+    hasAmount &&
+    (quoteRefreshAvailable || !shouldDisable) &&
+    !noAccount &&
+    !disabled;
 
   let isButtonDisabled = Boolean(
-    (shouldDisable || disabled || !hasAmount) &&
+    ((quoteRefreshAvailable ? false : shouldDisable) ||
+      disabled ||
+      !hasAmount) &&
     !shouldCreateAddress?.result &&
     !noAccount,
   );
@@ -326,17 +332,6 @@ export function ActionButton({
     buttonText = intl.formatMessage({ id: ETranslations.global_connect });
     shouldUseColoredStyle = false;
     isButtonDisabled = false;
-  }
-
-  // Hard-disable (e.g. stock market closed) blocks order submission only — it
-  // must NOT block wallet/address setup. Keep the "Connect" / "Create address"
-  // branches clickable so the user can still finish setup while the market is
-  // closed (handlePress routes those to connect/createAddress, not submit).
-  const isSetupAction =
-    noAccount || Boolean(shouldCreateAddress?.result) || createAddressLoading;
-  if (forceDisabled && !isSetupAction) {
-    isButtonDisabled = true;
-    shouldUseColoredStyle = false;
   }
 
   const buttonStyleProps: IButtonProps = shouldUseColoredStyle
@@ -396,19 +391,14 @@ export function ActionButton({
         return;
       }
 
-      // Hard-disable (e.g. stock market closed): never submit an order. Every
-      // setup branch above has already returned, so this guards only the
-      // submission path (defense-in-depth on top of the disabled button).
-      if (forceDisabled) {
-        return;
-      }
-
-      // Log swap action before executing - with error protection
-      try {
-        onSwapAction?.();
-      } catch (analyticsError) {
-        // Don't let analytics errors block the swap action
-        console.warn('Analytics logging failed:', analyticsError);
+      if (!isRefreshQuote) {
+        // Log swap action before executing - with error protection
+        try {
+          onSwapAction?.();
+        } catch (analyticsError) {
+          // Don't let analytics errors block the swap action
+          console.warn('Analytics logging failed:', analyticsError);
+        }
       }
 
       void onPress?.(event);
@@ -421,7 +411,7 @@ export function ActionButton({
       createAddressLoading,
       shouldCreateAddress?.result,
       onPress,
-      forceDisabled,
+      isRefreshQuote,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,

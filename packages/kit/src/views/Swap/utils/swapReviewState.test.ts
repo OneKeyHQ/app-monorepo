@@ -1,11 +1,77 @@
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
-import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchBuildTxResult,
+  IFetchQuoteResult,
+  ISwapStep,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildCustomSlippageQuoteResultCtx,
+  buildRebuiltSwapReviewQuoteResult,
   hasInFlightSwapReviewSteps,
   shouldCloseSwapReviewOnFocusLoss,
   shouldShowSwapReviewToAmountSkeleton,
 } from './swapReviewState';
+
+describe('buildCustomSlippageQuoteResultCtx', () => {
+  it('marks the active provider context as user-defined without mutating it', () => {
+    const providerContext = {
+      slippageType: 'Hardcoded',
+      quoteFromAmount: '10',
+      quoteToAmount: '20',
+    };
+    const quoteResultCtx = { hifiSwapQuoteResultCtx: providerContext };
+
+    expect(buildCustomSlippageQuoteResultCtx(quoteResultCtx)).toEqual({
+      hifiSwapQuoteResultCtx: {
+        ...providerContext,
+        slippageType: 'Custom',
+      },
+    });
+    expect(quoteResultCtx.hifiSwapQuoteResultCtx).toBe(providerContext);
+    expect(providerContext.slippageType).toBe('Hardcoded');
+  });
+});
+
+describe('buildRebuiltSwapReviewQuoteResult', () => {
+  it('keeps frozen execution context while accepting rebuilt quote fields', () => {
+    const allowanceResult = {
+      allowanceTarget: '0xspender',
+      amount: '10',
+    };
+    const quoteResultCtx = { okxQuoteResultCtx: { quoteFromAmount: '10' } };
+    const quoteResult = {
+      fromAmount: '10',
+      toAmount: '20',
+      minToAmount: '19',
+      allowanceResult,
+      quoteResultCtx,
+    } as IFetchQuoteResult;
+    const buildResult = {
+      ...quoteResult,
+      toAmount: '21',
+      minToAmount: '20.5',
+      allowanceResult: undefined,
+      quoteResultCtx: undefined,
+    } as IFetchBuildTxResult;
+
+    const result = buildRebuiltSwapReviewQuoteResult({
+      quoteResult,
+      buildResult,
+      slippagePercentage: 1,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        toAmount: '21',
+        minToAmount: '20.5',
+        slippage: 1,
+        allowanceResult,
+        quoteResultCtx,
+      }),
+    );
+  });
+});
 
 describe('shouldCloseSwapReviewOnFocusLoss', () => {
   const baseParams = {

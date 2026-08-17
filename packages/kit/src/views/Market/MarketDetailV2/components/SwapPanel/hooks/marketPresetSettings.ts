@@ -757,6 +757,22 @@ export function getMarketPresetSlippageValue({
   return defaultSlippage;
 }
 
+export function getMarketNonPresetSlippageValue({
+  mode,
+  customValue,
+  defaultSlippage,
+}: {
+  mode: ESwapSlippageSegmentKey;
+  customValue?: number;
+  defaultSlippage?: number;
+}) {
+  if (mode === ESwapSlippageSegmentKey.CUSTOM && customValue !== undefined) {
+    return customValue;
+  }
+
+  return defaultSlippage;
+}
+
 export function getMarketPresetNetworkFeeLevel(
   settings?: IMarketPresetDirectionSettings,
   config?: IMarketPresetConfig,

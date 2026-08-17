@@ -596,6 +596,7 @@ export interface ISwapGasInfo {
   payer?: IGasPayer;
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
+  gasAccountScenarioReason?: string;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -794,7 +795,6 @@ export enum ESwapFetchCancelCause {
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
   SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
-  SWAP_SPEED_QUOTE_CANCEL = 'SWAP_SPEED_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -958,6 +958,7 @@ export interface ILMTronObject {
 
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
+  supportRebuildTx?: boolean;
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
@@ -1222,20 +1223,6 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
-}
-
-export interface IFetchSpeedCheckResult {
-  errorMessage?: string;
-  isStock?: boolean;
-  protocol: string;
-  spenderAddress: string;
-  info: {
-    provider: string;
-    providerName: string;
-    providerLogo?: string;
-  };
-  fromTokenInfo?: ISwapTokenBase;
-  toTokenInfo?: ISwapTokenBase;
 }
 
 export interface IFetchUSMarketStatusResult {

@@ -96,7 +96,6 @@ export function useSpeedSwapInit(
     speedConfig: speedSwapConfig?.speedConfig,
     supportSpeedSwap: speedSwapConfig?.supportSpeedSwap,
     onlySupportCrossChain: speedSwapConfig?.onlySupportCrossChain,
-    provider: speedSwapConfig?.provider,
     swapMevNetConfig: speedSwapConfig?.speedConfig.swapMevNetConfig,
     speedDefaultSelectToken: speedSwapConfig?.speedDefaultSelectToken,
   };
