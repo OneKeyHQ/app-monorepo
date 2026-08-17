@@ -27,7 +27,10 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import {
+  DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
+  DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+} from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -49,6 +52,7 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -122,6 +126,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
+import type { IDBDevice } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -240,6 +245,8 @@ export type IDeviceGetStateOptions = Omit<
   IDeviceGetFeaturesOptions,
   'params'
 > & {
+  /** Reuse an existing desktop BLE link without scanning or reconnecting. */
+  desktopBleReuseConnectedOnly?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -279,6 +286,13 @@ function getPersistedDesktopBleConnectId(
   );
   return aliasesUsbConnectId ? undefined : bleConnectId;
 }
+
+// Evidence window for treating a caller-held connectId as a live session.
+// Receiving device traffic implies the OS pairing already exists, so only
+// connectIds stamped this recently may be probed by
+// silentlyBindLiveDesktopBleConnectId; probing anything else could summon
+// the OS pairing prompt without any app guidance UI.
+const LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS = 60_000;
 
 const isOneKeyLoaderMode = (mode?: string | null) =>
   mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
@@ -398,6 +412,36 @@ class ServiceHardware extends ServiceBase {
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
   private sdkInstanceMutex = new Semaphore(1);
+
+  private async runInDesktopBleConnectedOnlyScope<T>({
+    connectId,
+    enabled,
+    task,
+  }: {
+    connectId?: string;
+    enabled?: boolean;
+    task: () => Promise<T>;
+  }): Promise<T> {
+    if (!enabled) {
+      return task();
+    }
+    const nobleBle = globalThis.desktopApi?.nobleBle;
+    if (
+      !connectId ||
+      !nobleBle?.beginConnectedOnlyScope ||
+      !nobleBle.endConnectedOnlyScope
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only scope is unavailable',
+      );
+    }
+    const scopeId = nobleBle.beginConnectedOnlyScope(connectId);
+    try {
+      return await task();
+    } finally {
+      nobleBle.endConnectedOnlyScope(connectId, scopeId);
+    }
+  }
 
   private bindDeviceProtocolToSDK({
     connectId,
@@ -733,6 +777,56 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
+  private async writeBackProtocolV2DeviceLabel({
+    dbDeviceId,
+    label,
+  }: {
+    dbDeviceId: string;
+    label: string;
+  }) {
+    try {
+      const device = await localDb.getDeviceSafe(dbDeviceId);
+      const currentState = device?.deviceStateInfo;
+      if (
+        !device ||
+        currentState?.protocol !== 'V2' ||
+        currentState.identity.label === label
+      ) {
+        return;
+      }
+      const revision = currentState.revision + 1;
+      const updatedAt = Math.max(Date.now(), currentState.updatedAt + 1);
+      const event: DeviceStateEvent = {
+        connectId:
+          device.connectId ||
+          device.usbConnectId ||
+          device.bleConnectId ||
+          null,
+        changedKeys: ['identity.label'],
+        revision,
+        source: 'settings-write',
+        state: {
+          ...currentState,
+          identity: {
+            ...currentState.identity,
+            label,
+          },
+          revision,
+          updatedAt,
+        },
+      };
+      const persistResult = await localDb.updateDeviceState(event);
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'device label app write-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
+    }
+  }
+
   handleHardwareAvatarChanged = cacheUtils.memoizee(
     async ({
       walletId,
@@ -781,6 +875,8 @@ class ServiceHardware extends ServiceBase {
 
   private hardwareUiEventState = createHardwareUiEventState();
 
+  private firmwareProgressConnectIdsSinceDisconnect = new Set<string>();
+
   private connectedDeviceTracked = new Set<string>();
 
   private connectedDeviceIdentityKeysByConnection = new Map<
@@ -817,16 +913,42 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
-  private trackConnectedDevice(device: KnownDevice | undefined) {
+  private trackConnectedDevice(device: KnownDevice | undefined): {
+    identityKeys: string[];
+    identityKeysChanged: boolean;
+  } {
     const identityKeys = this.getConnectedDeviceIdentityKeys(device);
     const connectionKey = device?.connectId || identityKeys[0];
-    if (connectionKey && identityKeys.length > 0) {
+    if (!connectionKey || identityKeys.length === 0) {
+      return { identityKeys, identityKeysChanged: false };
+    }
+    const existingIdentityKeys =
+      this.connectedDeviceIdentityKeysByConnection.get(connectionKey);
+    const identityKeysChanged =
+      !existingIdentityKeys ||
+      existingIdentityKeys.size !== identityKeys.length ||
+      identityKeys.some((key) => !existingIdentityKeys.has(key));
+    if (identityKeysChanged) {
       this.connectedDeviceIdentityKeysByConnection.set(
         connectionKey,
         new Set(identityKeys),
       );
     }
-    return identityKeys;
+    return { identityKeys, identityKeysChanged };
+  }
+
+  private clearTrackedConnectedDevices() {
+    if (this.connectedDeviceIdentityKeysByConnection.size === 0) {
+      return;
+    }
+    // The identity map is a bg-runtime JS copy; UI runtimes cache their own
+    // snapshot, so every clear must broadcast or the green indicator goes
+    // stale after an SDK reset or transport switch.
+    this.connectedDeviceIdentityKeysByConnection.clear();
+    appEventBus.emit(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   }
 
   private untrackConnectedDevice(device: KnownDevice | undefined) {
@@ -853,6 +975,7 @@ class ServiceHardware extends ServiceBase {
   private resetHardwareUiEventQueue() {
     this.hardwareUiEventQueue.reset();
     this.hardwareUiEventState = createHardwareUiEventState();
+    this.firmwareProgressConnectIdsSinceDisconnect.clear();
   }
 
   private firmwareManifestRefreshMutex = new Semaphore(1);
@@ -963,6 +1086,7 @@ class ServiceHardware extends ServiceBase {
       refreshedFirmwareManifestKey !== this.loadedFirmwareManifestKey
     ) {
       await resetHardwareSDKInstance();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
     }
 
@@ -978,14 +1102,23 @@ class ServiceHardware extends ServiceBase {
     const currentTransportType =
       await this.connectionManager.getCurrentTransportType();
     const { forceTransportType } = await hardwareForceTransportAtom.get();
+    const isDesktopBackgroundCall =
+      platformEnv.isSupportDesktopBle &&
+      (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+        hardwareCallContext ===
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE);
     const normalizedForceTransportType = forceTransportType
       ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
           transportType: forceTransportType,
           connectProtocol: resolvedConnectProtocol,
         })
       : undefined;
+    const effectiveForceTransportType =
+      isDesktopBackgroundCall && options.hardwareTransportType
+        ? undefined
+        : normalizedForceTransportType;
     let hardwareTransportType =
-      normalizedForceTransportType ??
+      effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
     let shouldSwitch = false;
@@ -993,7 +1126,7 @@ class ServiceHardware extends ServiceBase {
     // Desktop Auto switch transport type
     if (
       platformEnv.isSupportDesktopBle &&
-      normalizedForceTransportType === undefined &&
+      effectiveForceTransportType === undefined &&
       options.hardwareTransportType === undefined
     ) {
       // Check if we should switch transport type based on optimal connection strategy
@@ -1020,6 +1153,7 @@ class ServiceHardware extends ServiceBase {
       );
       this.resetHardwareUiEventQueue();
       await resetHardwareSDKInstance();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
       this.activeHardwareSDKInstance = undefined;
       console.log('✅ TRANSPORT SWITCH: SDK reset completed');
@@ -1230,7 +1364,7 @@ class ServiceHardware extends ServiceBase {
   ) {
     if (this.registeredSdkEventsInstance !== instance) {
       this.resetHardwareUiEventQueue();
-      this.connectedDeviceIdentityKeysByConnection.clear();
+      this.clearTrackedConnectedDevices();
       this.registeredEvents = false;
     }
 
@@ -1250,8 +1384,14 @@ class ServiceHardware extends ServiceBase {
         FIRMWARE_EVENT,
         // UI_REQUEST,
       } = await CoreSDKLoader();
-      instance.on(UI_EVENT, (e) =>
-        this.hardwareUiEventQueue
+      instance.on(UI_EVENT, (e) => {
+        if (e.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+          const connectId = e.payload?.device?.connectId;
+          if (connectId) {
+            this.firmwareProgressConnectIdsSinceDisconnect.add(connectId);
+          }
+        }
+        return this.hardwareUiEventQueue
           .enqueue(e as UiEvent, async (queuedEvent, { isCurrent }) => {
             const originEvent = queuedEvent;
             const { type: uiRequestType, payload } = queuedEvent;
@@ -1385,11 +1525,39 @@ class ServiceHardware extends ServiceBase {
               } else {
                 // show hardware ui dialog
                 await hardwareUiStateAtom.set(
-                  (): IHardwareUiState => ({
-                    action: appliedUiRequestType,
-                    connectId: appliedConnectId,
-                    payload: appliedPayload,
-                  }),
+                  (previousState): IHardwareUiState => {
+                    const isSameFirmwareDevice =
+                      previousState?.connectId === appliedConnectId;
+                    let firmwarePayload = appliedPayload;
+                    if (
+                      isSameFirmwareDevice &&
+                      appliedUiRequestType ===
+                        EHardwareUiStateAction.FIRMWARE_PROGRESS &&
+                      previousState?.payload?.firmwareTipData
+                    ) {
+                      firmwarePayload = {
+                        ...appliedPayload,
+                        firmwareTipData: previousState.payload.firmwareTipData,
+                      };
+                    } else if (
+                      isSameFirmwareDevice &&
+                      appliedUiRequestType ===
+                        EHardwareUiStateAction.FIRMWARE_TIP
+                    ) {
+                      firmwarePayload = {
+                        ...appliedPayload,
+                        firmwareProgress:
+                          previousState?.payload?.firmwareProgress,
+                        firmwareProgressType:
+                          previousState?.payload?.firmwareProgressType,
+                      };
+                    }
+                    return {
+                      action: appliedUiRequestType,
+                      connectId: appliedConnectId,
+                      payload: firmwarePayload,
+                    };
+                  },
                 );
                 if (!isCurrent()) {
                   return;
@@ -1410,16 +1578,28 @@ class ServiceHardware extends ServiceBase {
               'hardware-ui-event-queue',
               error instanceof Error ? error.message : 'Unknown event error',
             );
-          }),
-      );
+          });
+      });
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
+        this.recordLiveConnectIdEvidence(event.connectId);
         deviceStateEventSequence += 1;
         const sdkEventSequence = deviceStateEventSequence;
         serviceHardwareUtils.hardwareLog('device state update', {
           revision: event.revision,
           source: event.source,
           changedKeys: event.changedKeys,
+          // Device identifiers must stay masked in persisted logs (see the
+          // PRO2_SERIAL contract in ServiceHardware.pro2DeviceManagement
+          // tests); the suffix is enough to correlate multi-device sessions.
+          connectId: serviceHardwareUtils.maskLogIdentifier(event.connectId),
+          serialNo: serviceHardwareUtils.maskLogIdentifier(
+            event.state?.identity?.serialNo,
+          ),
+          // The device-reported language is the key evidence for language
+          // sync issues (OK-60121); keep it visible in persisted logs.
+          language: event.state?.settings?.language,
+          updatedAt: event.state?.updatedAt,
         });
         const queueKeys = this.getDeviceStateSyncKeys([
           event.state.identity.serialNo,
@@ -1444,9 +1624,23 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state persistence failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
+            serviceHardwareUtils.hardwareLog('device state persist result', {
+              kind: persistenceResult?.kind ?? 'unknown',
+              reason:
+                persistenceResult?.kind === 'ignored'
+                  ? persistenceResult.reason
+                  : undefined,
+              revision: event.revision,
+              source: event.source,
+              eventLanguage: event.state?.settings?.language,
+              persistedLanguage:
+                persistenceResult?.kind === 'updated'
+                  ? persistenceResult.state.settings?.language
+                  : undefined,
+            });
             if (persistenceResult?.kind === 'identity-mismatch') {
               await this.backgroundApi.serviceHardwarePortfolioSync
                 ?.notifyHardwareDeviceIdentityMismatch({
@@ -1474,7 +1668,7 @@ class ServiceHardware extends ServiceBase {
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state subscriber failed',
-                error,
+                devOnlyData(error instanceof Error ? error.message : error),
               );
             }
           });
@@ -1506,8 +1700,26 @@ class ServiceHardware extends ServiceBase {
             return;
           }
 
+          // DEVICE.CONNECT can fire before features are complete, so the
+          // tracked identity may miss the raw deviceId; re-track once features
+          // arrive so deviceId-based consumers see the device as connected.
+          const { identityKeysChanged } = this.trackConnectedDevice(
+            message.device ?? undefined,
+          );
+          if (identityKeysChanged) {
+            appEventBus.emit(
+              EAppEventBusNames.HardwareConnectionStateUpdate,
+              undefined,
+            );
+          }
+
           // TODO: save features to dbDevice
-          serviceHardwareUtils.hardwareLog('features update', features);
+          // Full features dumps are dev-only; production logs keep the event
+          // name without the device blob.
+          serviceHardwareUtils.hardwareLog(
+            'features update',
+            devOnlyData(features),
+          );
 
           void localDb.updateDevice({
             features,
@@ -1516,8 +1728,14 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
-        const connectedIdentityKeys = this.trackConnectedDevice(message.device);
+        this.recordLiveConnectIdEvidence(message.device?.connectId);
+        const { identityKeys: connectedIdentityKeys } =
+          this.trackConnectedDevice(message.device);
         if (connectedIdentityKeys.length > 0) {
+          appEventBus.emit(
+            EAppEventBusNames.HardwareConnectionStateUpdate,
+            undefined,
+          );
           void this.backgroundApi.serviceHardwarePortfolioSync
             ?.notifyHardwareDeviceConnected({
               identityKeys: connectedIdentityKeys,
@@ -1582,10 +1800,19 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        // A disconnect ends the "connected and OS-paired right now" proof:
+        // factory reset and OS-level unpair both surface as a disconnect
+        // first, so the silent BLE bind probe must not trust this endpoint
+        // again until new traffic re-stamps it.
+        this.clearLiveConnectIdEvidence(message.device?.connectId);
         const disconnectedIdentityKeys = this.untrackConnectedDevice(
           message.device,
         );
         if (disconnectedIdentityKeys.length > 0) {
+          appEventBus.emit(
+            EAppEventBusNames.HardwareConnectionStateUpdate,
+            undefined,
+          );
           void this.backgroundApi.serviceHardwarePortfolioSync
             ?.notifyHardwareDeviceDisconnected({
               identityKeys: disconnectedIdentityKeys,
@@ -1595,7 +1822,13 @@ class ServiceHardware extends ServiceBase {
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           if (this.hardwareUiEventState.connectId === activeConnectId) {
-            this.resetHardwareUiEventQueue();
+            if (
+              !this.firmwareProgressConnectIdsSinceDisconnect.delete(
+                activeConnectId,
+              )
+            ) {
+              this.resetHardwareUiEventQueue();
+            }
           }
         }
       });
@@ -1677,6 +1910,7 @@ class ServiceHardware extends ServiceBase {
     await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(() =>
       this.sdkInstanceMutex.runExclusive(async () => {
         this.resetHardwareUiEventQueue();
+        this.clearTrackedConnectedDevices();
         this.registeredEvents = false;
         await resetHardwareSDKInstance();
         this.activeHardwareSDKInstance = undefined;
@@ -1774,6 +2008,17 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async isDeviceSearchInProgress() {
     return this.deviceSearchInProgressCount > 0;
+  }
+
+  @backgroundMethod()
+  async getConnectedHardwareDeviceIdentityKeys() {
+    return [
+      ...new Set(
+        [...this.connectedDeviceIdentityKeysByConnection.values()].flatMap(
+          (identityKeys) => [...identityKeys],
+        ),
+      ),
+    ];
   }
 
   @backgroundMethod()
@@ -2681,6 +2926,7 @@ class ServiceHardware extends ServiceBase {
   _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
     const {
       connectId,
+      desktopBleReuseConnectedOnly,
       params,
       silentMode,
       hardwareCallContext,
@@ -2712,10 +2958,15 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext,
       hardwareTransportType,
     });
-    const state = await convertDeviceResponse(
-      () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-      { silentMode },
-    );
+    const state = await this.runInDesktopBleConnectedOnlyScope({
+      connectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(
+          () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
+          { silentMode },
+        ),
+    });
     await this.rememberDeviceProtocol({
       connectIds: [connectId, state.identity.serialNo],
       protocol: state.protocol,
@@ -2745,6 +2996,7 @@ class ServiceHardware extends ServiceBase {
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
           hardwareCallContext,
+          hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
     return this._getDeviceStateWithMutex({
@@ -3080,8 +3332,11 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // SDK DEVICE.STATE drives both persistence and UI refreshes.
-        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+        await this.writeBackProtocolV2DeviceLabel({
+          dbDeviceId,
+          label: p.label,
+        });
+        await this.handleHardwareLabelChanged({
           walletId: p.walletId,
           dbDeviceId,
           label: p.label,
@@ -3153,29 +3408,17 @@ class ServiceHardware extends ServiceBase {
     if (isT1Model) {
       names = T1_HOME_SCREEN_DEFAULT_IMAGES;
     }
-    let size = getHomeScreenSize({
-      deviceType: device.deviceType,
-      homeScreenType,
-      thumbnail: false,
-    });
-    let thumbnailSize = getHomeScreenSize({
+    const size =
+      getHomeScreenSize({
+        deviceType: device.deviceType,
+        homeScreenType,
+        thumbnail: false,
+      }) ?? (isT1Model ? DEFAULT_T1_HOME_SCREEN_INFORMATION : undefined);
+    const thumbnailSize = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,
       thumbnail: true,
     });
-    size =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ?? size;
-    thumbnailSize =
-      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ?? thumbnailSize;
-    if (!size && isT1Model) {
-      size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
-    }
     return { names, size, thumbnailSize };
   }
 
@@ -3187,24 +3430,14 @@ class ServiceHardware extends ServiceBase {
   }): Promise<IDeviceHomeScreenConfig> {
     const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      });
-    const thumbnailSize =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      });
+    const size = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: false,
+    });
+    const thumbnailSize = getNftSize({
+      deviceType: device.deviceType,
+      thumbnail: true,
+    });
 
     return { names: [], size, thumbnailSize };
   }
@@ -3292,24 +3525,45 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPortfolioPackage({
     connectId,
+    desktopBleReuseConnectedOnly,
+    hardwareTransportType,
     packageBase64,
   }: {
     connectId: string;
+    desktopBleReuseConnectedOnly?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
     packageBase64: string;
   }) {
+    if (
+      desktopBleReuseConnectedOnly &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      throw new OneKeyLocalError(
+        'Desktop BLE connected-only reuse requires a pinned BLE transport',
+      );
+    }
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
-    return convertDeviceResponse(() =>
-      hardwareSDK.uploadPortfolio(compatibleConnectId, {
-        packageBase64,
-      }),
-    );
+    return this.runInDesktopBleConnectedOnlyScope({
+      connectId: compatibleConnectId,
+      enabled: desktopBleReuseConnectedOnly,
+      task: () =>
+        convertDeviceResponse(
+          () =>
+            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+              packageBase64,
+            }),
+          { silentMode: true },
+        ),
+    });
   }
 
   @backgroundMethod()
@@ -3506,9 +3760,13 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
-      willUpdateDeprecateMap,
-    });
+    const result =
+      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   /**
@@ -4132,6 +4390,141 @@ class ServiceHardware extends ServiceBase {
     return bleConnectId;
   }
 
+  // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
+  // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
+  // is connected and OS-paired at that moment; DEVICE.DISCONNECT deletes
+  // the entry because factory reset and OS-level unpair surface as a
+  // disconnect first, invalidating that proof.
+  private liveConnectIdEvidence = new Map<string, number>();
+
+  recordLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.set(normalized, Date.now());
+  }
+
+  clearLiveConnectIdEvidence(connectId?: string | null) {
+    const normalized = connectId?.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    this.liveConnectIdEvidence.delete(normalized);
+  }
+
+  private hasRecentLiveConnectIdEvidence(connectId: string): boolean {
+    const stampedAt = this.liveConnectIdEvidence.get(
+      connectId.trim().toLowerCase(),
+    );
+    return (
+      stampedAt !== undefined &&
+      Date.now() - stampedAt <= LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS
+    );
+  }
+
+  /**
+   * Silently bind a live desktop BLE connectId held by the caller onto a
+   * device record that lacks a BLE binding, so an in-progress BLE session
+   * never raises the Bluetooth pairing dialog (OK-60091).
+   *
+   * Only attempted when the incoming connectId differs from the record's USB
+   * identifiers (connectId/usbConnectId) — a USB serial input means a genuine
+   * USB→BLE switch, which must keep the scan + pairing-dialog repair flow —
+   * AND the connectId carried real device traffic within
+   * LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS, which proves the endpoint is
+   * connected and OS-paired, so the probe can never summon the OS pairing
+   * prompt. The endpoint is then verified with a bounded silent getFeatures
+   * probe that must report the expected raw deviceId; on an active session
+   * this reuses the live connection and answers in a few seconds. Any
+   * failure returns undefined so the caller falls back to the existing
+   * pairing-dialog flow.
+   */
+  private async silentlyBindLiveDesktopBleConnectId({
+    device,
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    device: IDBDevice;
+    connectId: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<string | undefined> {
+    const normalizedConnectId = connectId.trim().toLowerCase();
+    if (!normalizedConnectId) {
+      return undefined;
+    }
+    const isUsbAliasInput = [device.connectId, device.usbConnectId].some(
+      (candidate) => candidate?.trim().toLowerCase() === normalizedConnectId,
+    );
+    if (isUsbAliasInput) {
+      return undefined;
+    }
+    // Probe only endpoints that demonstrably carried device traffic moments
+    // ago. Anything else (e.g. a stale UUID kept by the UI across a device
+    // reboot or an unpair) might be an unpaired peripheral, and the probe's
+    // characteristic subscription would summon the OS pairing prompt with
+    // no app guidance UI — those cases must keep the pairing-dialog flow.
+    if (!this.hasRecentLiveConnectIdEvidence(connectId)) {
+      return undefined;
+    }
+    const expectedDeviceId =
+      featuresDeviceId ||
+      deviceUtils.getRawDeviceId({
+        device: deviceUtils.dbDeviceToSearchDevice(device),
+        features: features || device.featuresInfo,
+      });
+    if (!expectedDeviceId) {
+      return undefined;
+    }
+    // A live session always has a remembered protocol (rememberDeviceProtocol
+    // runs on every DEVICE.STATE event). Pin it: forcing re-detection here
+    // sends a Protocol V2 Ping into an active V1 session, which the device
+    // may not answer (observed as SDK error 713), while a protocol-pinned
+    // getFeatures is exactly the same shape as the session's healthy calls.
+    const knownProtocol = await this.getKnownDeviceProtocol(connectId);
+    if (!knownProtocol) {
+      return undefined;
+    }
+    try {
+      // Probe the caller's connectId directly over the pinned BLE transport;
+      // no connectId re-resolution happens here, so this cannot re-enter
+      // getCompatibleConnectId. silentMode must reach convertDeviceResponse:
+      // a failed probe would otherwise emit the global DeviceNotFound error
+      // dialog from the error constructor. The short SDK timeout keeps the
+      // pairing-dialog fallback fast when the endpoint is stale.
+      const connectResult = await this.getFeaturesWithoutCache({
+        connectId,
+        silentMode: true,
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        params: {
+          retryCount: 1,
+          connectProtocol: knownProtocol,
+          timeout: DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
+        },
+      });
+      // The probe identity must come from the probe result itself. V1
+      // features carry the SDK-normalized `deviceId`; V2 state projections
+      // (projectLegacyDeviceFeaturesFromState) only carry the raw
+      // `device_id` field.
+      const probedDeviceId =
+        connectResult?.deviceId || connectResult?.device_id || '';
+      if (probedDeviceId && probedDeviceId === expectedDeviceId) {
+        await localDb.updateDeviceConnectId({
+          dbDeviceId: device.id,
+          bleConnectId: connectId,
+        });
+        return connectId;
+      }
+    } catch (error) {
+      console.error('Silent BLE connectId bind failed:', error);
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   async getCompatibleConnectId({
     hardwareCallContext,
@@ -4194,7 +4587,8 @@ class ServiceHardware extends ServiceBase {
           hardwareCallContext ===
             EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
         ) {
-          const currentTransportType = await this.getCurrentTransportType();
+          const currentTransportType =
+            hardwareTransportType ?? (await this.getCurrentTransportType());
           const preferredBle = await this.resolveTrezorPreferredBleConnectId({
             device,
             bleConnectId: persistedDesktopBleConnectId,
@@ -4241,7 +4635,8 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
       hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
     ) {
-      const currentTransportType = await this.getCurrentTransportType();
+      const currentTransportType =
+        hardwareTransportType ?? (await this.getCurrentTransportType());
       if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
         if (persistedDesktopBleConnectId) {
           return persistedDesktopBleConnectId;
@@ -4271,6 +4666,20 @@ class ServiceHardware extends ServiceBase {
       if (device && !persistedDesktopBleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
           return device.usbConnectId || device.connectId || connectId;
+        }
+        // The caller may already hold a live BLE connectId (e.g. onboarding
+        // communicates over an active Noble session while the device record
+        // was created via USB and lacks bleConnectId). Verify and persist it
+        // silently before falling back to the pairing dialog (OK-60091).
+        const silentlyBoundBleConnectId =
+          await this.silentlyBindLiveDesktopBleConnectId({
+            device,
+            connectId,
+            featuresDeviceId,
+            features,
+          });
+        if (silentlyBoundBleConnectId) {
+          return silentlyBoundBleConnectId;
         }
         if (
           hardwareCallContext ===

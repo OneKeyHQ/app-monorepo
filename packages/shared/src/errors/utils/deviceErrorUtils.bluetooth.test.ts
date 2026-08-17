@@ -4,21 +4,43 @@ import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/hardwareEr
 
 import { convertDeviceError } from './deviceErrorUtils';
 
-describe('convertDeviceError Bluetooth link disabled', () => {
+describe('convertDeviceError Bluetooth unavailable while USB is connected', () => {
   it('explains that Bluetooth is unavailable while USB is connected', () => {
     const error = convertDeviceError({
-      code: HardwareErrorCode.RuntimeError,
-      error: 'Failure_ProcessError,link disabled',
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+      error: 'firmware wording may change',
     });
 
     expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
     expect(error).toMatchObject({
-      code: HardwareErrorCode.RuntimeError,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
       key: 'troubleshooting.desktop_bluetooth_usb_priority',
       payload: {
-        code: HardwareErrorCode.RuntimeError,
-        error: 'Failure_ProcessError,link disabled',
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+        error: 'firmware wording may change',
       },
     });
+  });
+
+  it.each([HardwareErrorCode.DeviceBusy, HardwareErrorCode.RuntimeError])(
+    'does not infer the error from an old firmware message for code %s',
+    (code) => {
+      const error = convertDeviceError({
+        code,
+        error: 'Failure_ProcessError,link disabled',
+      });
+
+      expect(error).not.toBeInstanceOf(
+        BluetoothUnavailableWhileUsbConnectedError,
+      );
+    },
+  );
+
+  it('maps the dedicated code without a firmware message', () => {
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+    });
+
+    expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
   });
 });

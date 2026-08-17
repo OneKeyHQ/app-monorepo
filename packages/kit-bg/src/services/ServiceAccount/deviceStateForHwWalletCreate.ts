@@ -6,6 +6,33 @@ type IGetDeviceStateForHwWalletCreate = (
   params: { scope: 'runtime' },
 ) => Promise<IOneKeyDeviceState>;
 
+export function getStandardHwWalletLabelForNameSync({
+  currentWalletName,
+  deviceState,
+  explicitName,
+  isThirdParty,
+  passphraseState,
+}: {
+  currentWalletName: string;
+  deviceState?: IOneKeyDeviceState;
+  explicitName?: string;
+  isThirdParty: boolean;
+  passphraseState?: string;
+}): string | undefined {
+  const label = deviceState?.identity.label;
+  if (
+    deviceState?.protocol !== 'V2' ||
+    isThirdParty ||
+    passphraseState ||
+    explicitName ||
+    !label ||
+    label === currentWalletName
+  ) {
+    return undefined;
+  }
+  return label;
+}
+
 export async function resolveDeviceStateForHwWalletCreate({
   existingState,
   preserveWalletSession,

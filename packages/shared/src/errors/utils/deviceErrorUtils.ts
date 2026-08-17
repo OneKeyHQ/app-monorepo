@@ -97,7 +97,7 @@ export function convertDeviceError(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const info = params;
 
-  if (message.toLowerCase().includes('link disabled')) {
+  if (code === HardwareErrorCode.BleUnavailableWhileUsbConnected) {
     return new HardwareErrors.BluetoothUnavailableWhileUsbConnectedError({
       payload,
     });

@@ -38,6 +38,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
+    HardwareConnectionStateUpdate: 'HardwareConnectionStateUpdate',
     HardwareDeviceStateUpdate: 'HardwareDeviceStateUpdate',
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     WalletUpdate: 'WalletUpdate',
@@ -80,6 +81,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDeviceSafe: jest.fn(),
     getDeviceByQuery: jest.fn(),
+    updateDevice: jest.fn(),
     updateDeviceState: jest.fn(),
   },
 }));
@@ -89,6 +91,9 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
   default: {
     appStatus: {
       getRawData: jest.fn().mockResolvedValue({}),
+      setRawData: jest.fn().mockResolvedValue({}),
+    },
+    legacyWalletNames: {
       setRawData: jest.fn().mockResolvedValue({}),
     },
   },
@@ -777,6 +782,11 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       device: { connectId: 'DEVICE_A_USB' },
     });
     await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(
+      expect.arrayContaining(['DEVICE_A_USB', 'DEVICE_B_USB']),
+    );
+    await expect(
       service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
     ).resolves.toBe(true);
 
@@ -784,8 +794,15 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       device: { connectId: 'DEVICE_A_USB' },
     });
     await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['DEVICE_B_USB']);
+    await expect(
       service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
     ).resolves.toBe(false);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   });
 
   it('forwards all tracked identity keys when a device disconnects', async () => {
@@ -824,6 +841,124 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(notifyHardwareDeviceDisconnected).toHaveBeenCalledWith({
       identityKeys: ['PRO2_USB', 'PRO2_UUID', 'PRO2_SERIAL'],
     });
+  });
+
+  it('features 到达后补录设备身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+
+    // DEVICE.CONNECT arrives before features are complete
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    listeners.get(DEVICE.SUPPORT_FEATURES)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_UUID',
+        deviceId: 'PRO2_DEVICE_ID',
+        features: { device_id: 'PRO2_DEVICE_ID' },
+      },
+    });
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(
+      expect.arrayContaining(['PRO2_USB', 'PRO2_UUID', 'PRO2_DEVICE_ID']),
+    );
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+
+    // An identical features event must not re-broadcast
+    jest.mocked(appEventBus.emit).mockClear();
+    listeners.get(DEVICE.SUPPORT_FEATURES)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_UUID',
+        deviceId: 'PRO2_DEVICE_ID',
+        features: { device_id: 'PRO2_DEVICE_ID' },
+      },
+    });
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+  });
+
+  it('SDK 实例替换时清空连接身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    // A replaced SDK instance no longer tracks the previous connections
+    await service.registerSdkEvents({ on: jest.fn() } as never);
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual([]);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
+  });
+
+  it('resetHardwareSDK 时清空连接身份并广播连接状态', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: (fn: () => Promise<void>) => fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual(['PRO2_USB']);
+    jest.mocked(appEventBus.emit).mockClear();
+
+    await service.resetHardwareSDK();
+
+    await expect(
+      service.getConnectedHardwareDeviceIdentityKeys(),
+    ).resolves.toEqual([]);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareConnectionStateUpdate,
+      undefined,
+    );
   });
 
   it('普通断连后保留已确认协议，供重连继续固定使用', async () => {
@@ -880,6 +1015,40 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 
     expect(updateWalletsDeprecatedState).not.toHaveBeenCalled();
     expect(emitMock).not.toHaveBeenCalledWith(
+      EAppEventBusNames.WalletUpdate,
+      undefined,
+    );
+  });
+
+  it('refreshes wallet consumers after a firmware switch deprecates wallets', async () => {
+    const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceAccount: {
+          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
+            'hw-wallet-1': {
+              wallet: { id: 'hw-wallet-1' },
+              device: { connectId: 'CLASSIC_USB' },
+            },
+          }),
+          updateWalletsDeprecatedState,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on this binding.
+    const emitMock = jest.mocked(appEventBus.emit);
+    emitMock.mockClear();
+
+    await service.updateHwWalletsDeprecatedStatus({
+      connectId: 'CLASSIC_USB',
+    });
+
+    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
+      willUpdateDeprecateMap: {
+        'hw-wallet-1': true,
+      },
+    });
+    expect(emitMock).toHaveBeenCalledWith(
       EAppEventBusNames.WalletUpdate,
       undefined,
     );
@@ -1019,6 +1188,124 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         firmwareProgressType: 'transferData',
       },
     });
+  });
+
+  it('preserves the firmware tip when the next progress event arrives', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+
+    await listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_TIP,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        data: { message: 'ConfirmOnDevice' },
+      },
+    });
+    const tipUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const tipState =
+      typeof tipUpdater === 'function' ? tipUpdater(undefined) : tipUpdater;
+
+    await listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        progress: 0,
+        progressType: 'installingFirmware',
+      },
+    });
+    const progressUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const progressState =
+      typeof progressUpdater === 'function'
+        ? progressUpdater(tipState)
+        : progressUpdater;
+
+    expect(progressState).toMatchObject({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: 'PRO2_USB',
+      payload: {
+        firmwareProgress: 0,
+        firmwareProgressType: 'installingFirmware',
+        firmwareTipData: { message: 'ConfirmOnDevice' },
+      },
+    });
+  });
+
+  it('preserves queued firmware progress across the expected install disconnect', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+    const uiListener = listeners.get(UI_EVENT);
+
+    const createProgressEvent = (progress: number) => ({
+      type: UI_REQUEST.FIRMWARE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        progress,
+        progressType: 'transferData',
+      },
+    });
+
+    await uiListener?.(createProgressEvent(1));
+    const progress25 = uiListener?.(createProgressEvent(25));
+    const progress50 = uiListener?.(createProgressEvent(50));
+    await listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+    await Promise.all([progress25, progress50]);
+
+    const firmwareProgressValues = setHardwareUiStateMock.mock.calls
+      .map(([updater]) =>
+        typeof updater === 'function' ? updater(undefined) : updater,
+      )
+      .filter(
+        (state) => state?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      )
+      .map((state) => state?.payload?.firmwareProgress);
+    expect(firmwareProgressValues).toEqual([1, 25, 50]);
   });
 
   it('forwards device transfer progress to the hardware UI state', async () => {
@@ -1189,14 +1476,19 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.objectContaining({ state, revision: 2 }),
     );
-    expect(hardwareLogSpy).toHaveBeenCalledWith('device state update', {
-      changedKeys: ['identity.label'],
-      revision: 2,
-      source: 'apply-settings',
-    });
+    expect(hardwareLogSpy).toHaveBeenCalledWith(
+      'device state update',
+      expect.objectContaining({
+        changedKeys: ['identity.label'],
+        revision: 2,
+        source: 'apply-settings',
+      }),
+    );
+    // Device identifiers must never enter hardwareLog unmasked.
     expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain(
       'PRO2_SERIAL',
     );
+    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain('PRO2_USB');
     hardwareLogSpy.mockRestore();
   });
 
@@ -1485,38 +1777,90 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(emitMock).toHaveBeenCalledTimes(2);
   });
 
-  it('does not duplicate label persistence after the SDK state event', async () => {
-    const service = new ServiceHardware({
-      backgroundApi: {
-        serviceAccount: {
-          getWalletSafe: jest.fn().mockResolvedValue({
-            associatedDevice: 'db-device-1',
-            name: 'Wallet',
-          }),
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'writes the %s label back to app state after changing the device label',
+    async (deviceType) => {
+      const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
+      const currentState = {
+        protocol: 'V2',
+        revision: 4,
+        updatedAt: 100,
+        identity: {
+          deviceId: 'DEVICE_ID',
+          serialNo: 'DEVICE_SERIAL',
+          deviceType,
+          label: 'Old label',
         },
-      } as unknown as IBackgroundApi,
-    });
-    service.deviceSettingsManager.setDeviceLabel = jest
-      .fn()
-      .mockResolvedValue({ message: 'Success' });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    jest.mocked(appEventBus.emit).mockClear();
-    await service.setDeviceLabel({
-      walletId: 'wallet-1',
-      label: 'Renamed Pro 2',
-    });
+        status: {},
+        settings: {},
+        versions: {},
+      };
+      jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'DEVICE_CONNECT_ID',
+        deviceStateInfo: currentState,
+      } as never);
+      jest.mocked(localDb.updateDeviceState).mockResolvedValue({
+        kind: 'updated',
+        deviceDbId: 'db-device-1',
+        state: currentState,
+      } as never);
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceAccount: {
+            getWalletSafe: jest.fn().mockResolvedValue({
+              associatedDevice: 'db-device-1',
+              name: 'Wallet',
+            }),
+            setWalletNameAndAvatar,
+          },
+        } as unknown as IBackgroundApi,
+      });
+      service.deviceSettingsManager.setDeviceLabel = jest
+        .fn()
+        .mockResolvedValue({ message: 'Success' });
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(appEventBus.emit).mockClear();
+      await service.setDeviceLabel({
+        walletId: 'hw-wallet-1',
+        label: 'Renamed Pro 2',
+      });
 
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(appEventBus.emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.HardwareDeviceStateUpdate,
-      expect.anything(),
-    );
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(appEventBus.emit).toHaveBeenCalledWith(
-      EAppEventBusNames.SyncDeviceLabelToWalletName,
-      expect.objectContaining({ label: 'Renamed Pro 2' }),
-    );
-  });
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(localDb.updateDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changedKeys: ['identity.label'],
+          connectId: 'DEVICE_CONNECT_ID',
+          revision: 5,
+          source: 'settings-write',
+          state: expect.objectContaining({
+            revision: 5,
+            identity: expect.objectContaining({
+              deviceType,
+              label: 'Renamed Pro 2',
+            }),
+          }),
+        }),
+      );
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        expect.objectContaining({
+          changedKeys: ['identity.label'],
+          revision: 5,
+        }),
+      );
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
+        walletId: 'hw-wallet-1',
+        name: 'Renamed Pro 2',
+        shouldCheckDuplicate: false,
+      });
+      expect(appEventBus.emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.SyncDeviceLabelToWalletName,
+        expect.anything(),
+      );
+    },
+  );
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {

@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
   hasDeviceStateIdentityMismatch,
@@ -9,9 +9,8 @@ import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDevi
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
-import type { IDeviceMetaState } from './atoms';
+import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -35,12 +34,26 @@ export function getDeviceStateSnapshotFromEvent({
   if (
     currentState &&
     typeof currentState.updatedAt === 'number' &&
-    typeof event.state.updatedAt === 'number' &&
-    (event.state.updatedAt < currentState.updatedAt ||
-      (event.state.updatedAt === currentState.updatedAt &&
-        event.state.revision <= currentState.revision))
+    typeof event.state.updatedAt === 'number'
   ) {
-    return undefined;
+    // 'settings-read' events are authoritative hardware read-backs. When the
+    // SDK cache already holds a device-side change the app never observed
+    // (e.g. BLE initialize runs before event listeners attach), the SDK
+    // force-emits them without bumping revision/updatedAt, so an event with
+    // stamps EQUAL to the current state must still be applied. A lower
+    // revision at the same timestamp is still an out-of-order older event
+    // and must not roll the newer snapshot back.
+    const isStale =
+      event.source === 'settings-read'
+        ? event.state.updatedAt < currentState.updatedAt ||
+          (event.state.updatedAt === currentState.updatedAt &&
+            event.state.revision < currentState.revision)
+        : event.state.updatedAt < currentState.updatedAt ||
+          (event.state.updatedAt === currentState.updatedAt &&
+            event.state.revision <= currentState.revision);
+    if (isStale) {
+      return undefined;
+    }
   }
   const currentDeviceId = currentState?.identity.deviceId ?? device?.deviceId;
   if (
@@ -113,42 +126,46 @@ export function resolveDeviceState({
   return snapshot?.state ?? persistedState;
 }
 
+/**
+ * Refresh reads can be served from short-lived DB record caches that may
+ * predate the write which triggered the refresh. Never let such a read
+ * regress a snapshot that a newer device-state event already applied.
+ */
+export function pickNewerDeviceStateSnapshot({
+  current,
+  incoming,
+}: {
+  current?: IDeviceStateSnapshot;
+  incoming?: IDeviceStateSnapshot;
+}): IDeviceStateSnapshot | undefined {
+  if (!current) {
+    return incoming;
+  }
+  if (!incoming) {
+    return current;
+  }
+  const currentUpdatedAt =
+    typeof current.state.updatedAt === 'number' ? current.state.updatedAt : 0;
+  const incomingUpdatedAt =
+    typeof incoming.state.updatedAt === 'number' ? incoming.state.updatedAt : 0;
+  if (incomingUpdatedAt !== currentUpdatedAt) {
+    return incomingUpdatedAt > currentUpdatedAt ? incoming : current;
+  }
+  return (incoming.state.revision ?? 0) >= (current.state.revision ?? 0)
+    ? incoming
+    : current;
+}
+
 export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
   const wallet = walletWithDevice?.wallet;
-  const device = walletWithDevice?.device;
   if (!wallet) {
     return false;
   }
-  if (!wallet.deprecated) {
-    // Hidden-only devices retain a mocked standard wallet as their
-    // device-management proxy.
-    return true;
-  }
-  if (wallet.isMocked) {
-    return false;
-  }
-
-  const deviceType =
-    device?.deviceStateInfo?.identity.deviceType ?? device?.deviceType;
-  if (!deviceType || !deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
-    return false;
-  }
-
-  const currentFirmwareType =
-    device?.deviceStateInfo?.identity.firmwareType ??
-    device?.featuresInfo?.$app_firmware_type ??
-    device?.featuresInfo?.firmwareType;
-  if (!currentFirmwareType) {
-    return false;
-  }
-
-  // Legacy wallets were created on Universal firmware. Switching firmware
-  // invalidates accounts, but the device must remain manageable to switch back.
-  const firmwareTypeAtCreated =
-    wallet.firmwareTypeAtCreated ?? EFirmwareType.Universal;
-  return currentFirmwareType !== firmwareTypeAtCreated;
+  // Hidden-only devices retain an active mocked standard wallet as their
+  // device-management proxy, while deprecated wallets stay hidden.
+  return !wallet.deprecated;
 }
 
 export function resolveUsableWalletWithDevice(
@@ -200,11 +217,23 @@ export function canEditPro2DeviceWideSettings({
 export function getDeviceMetaStaticDataFromState(state: IOneKeyDeviceState) {
   return {
     deviceName: deviceUtils.getDeviceDisplayName({ state }),
+    bleName: state.identity.bleName ?? undefined,
     serialNo: state.identity.serialNo ?? undefined,
     deviceType: state.identity.deviceType,
     firmwareType: state.identity.firmwareType,
     firmwareVersion: state.versions.firmware ?? undefined,
   };
+}
+
+export function getDeviceSecondaryIdentifier(
+  deviceMetaStatic: Pick<
+    IDeviceMetaStatic,
+    'bleName' | 'deviceType' | 'serialNo'
+  >,
+) {
+  return deviceMetaStatic.deviceType === EDeviceType.Pro2
+    ? deviceMetaStatic.bleName || deviceMetaStatic.serialNo
+    : deviceMetaStatic.serialNo;
 }
 
 export function buildDeviceMetaStateFromState({

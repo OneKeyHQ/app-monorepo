@@ -2,6 +2,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -25,6 +26,7 @@ import {
   getDeviceMetaStaticDataFromState,
   getDeviceStateSnapshotFromEvent,
   mergeDeviceSettingState,
+  pickNewerDeviceStateSnapshot,
   resolveDeviceState,
   resolveUsableWalletWithDevice,
   shouldApplyDeviceSettingMutationLocally,
@@ -124,6 +126,9 @@ async function buildDeviceMetaStatic(
 
   return {
     deviceName,
+    bleName: isThirdParty
+      ? undefined
+      : deviceUtils.buildDeviceBleName({ features }),
     serialNo: device.uuid,
     deviceType,
     firmwareType,
@@ -241,6 +246,17 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
         currentState,
         event,
       });
+      // Evidence for silently dropped events (OK-60121): the page shows
+      // stale settings exactly when this reports applied=false.
+      defaultLogger.hardware.sdkLog.serviceEvent('applyDeviceStateEvent', {
+        applied: Boolean(snapshot),
+        source: event.source,
+        revision: event.state?.revision,
+        eventUpdatedAt: event.state?.updatedAt,
+        currentUpdatedAt: currentState?.updatedAt,
+        currentRevision: currentState?.revision,
+        language: event.state?.settings?.language,
+      });
       if (!snapshot) {
         return false;
       }
@@ -311,13 +327,29 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
           if (get(currentWalletIdAtom()) !== walletId) {
             return data;
           }
-          set(deviceStateSnapshotAtom(), snapshot);
+          set(
+            deviceStateSnapshotAtom(),
+            pickNewerDeviceStateSnapshot({
+              current: get(deviceStateSnapshotAtom()),
+              // When the live read fails (e.g. the device reboots right
+              // after a firmware update), fall back to the persisted state
+              // so a retained snapshot cannot outlive newer DB data.
+              incoming:
+                snapshot ??
+                (data?.device?.deviceStateInfo
+                  ? { state: data.device.deviceStateInfo }
+                  : undefined),
+            }),
+          );
         } else if (!vendorProfile.isThirdParty) {
           set(
             deviceStateSnapshotAtom(),
-            data?.device?.deviceStateInfo
-              ? { state: data.device.deviceStateInfo }
-              : undefined,
+            pickNewerDeviceStateSnapshot({
+              current: get(deviceStateSnapshotAtom()),
+              incoming: data?.device?.deviceStateInfo
+                ? { state: data.device.deviceStateInfo }
+                : undefined,
+            }),
           );
         }
         await this.updateDeviceMetaStatic.call(set, walletId);

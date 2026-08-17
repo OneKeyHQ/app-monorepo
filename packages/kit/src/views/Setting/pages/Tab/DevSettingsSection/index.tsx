@@ -120,6 +120,7 @@ import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
+import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -716,7 +717,7 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
       },
       {
         key: 'devtools',
@@ -1094,9 +1095,17 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
+
+                      <SectionLoggerParityItem />
 
                       {platformEnv.isNativeAndroid ? (
                         <SectionPressItem

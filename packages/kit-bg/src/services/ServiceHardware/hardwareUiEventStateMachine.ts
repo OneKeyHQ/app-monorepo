@@ -138,13 +138,21 @@ export const reduceHardwareUiEventState = (
   const connectId =
     event.connectId ?? getPayloadConnectId(event.payload) ?? state.connectId;
   const requestedPhase = REQUEST_PHASES[event.type];
+  const isFirmwareStatusEvent =
+    event.type === EHardwareUiStateAction.FIRMWARE_TIP ||
+    event.type === EHardwareUiStateAction.FIRMWARE_PROGRESS;
   const isDifferentDevice =
     Boolean(state.connectId) &&
     Boolean(connectId) &&
     state.connectId !== connectId;
   const canSwitchDevice =
-    isDifferentDevice && (state.phase === 'closed' || Boolean(requestedPhase));
-  const currentState = canSwitchDevice ? createHardwareUiEventState() : state;
+    isDifferentDevice &&
+    (state.phase === 'closed' ||
+      Boolean(requestedPhase) ||
+      isFirmwareStatusEvent);
+  const currentState = canSwitchDevice
+    ? { ...createHardwareUiEventState(), connectId }
+    : state;
   const isCloseEvent =
     event.type === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW ||
     event.type === EHardwareUiStateAction.CLOSE_UI_WINDOW;

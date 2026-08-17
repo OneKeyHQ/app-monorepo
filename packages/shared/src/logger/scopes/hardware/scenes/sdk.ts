@@ -104,4 +104,14 @@ export class HardwareSDKScene extends BaseScene {
       devOnlyData(buildHardwareUiStateLogPayload(payload)),
     ];
   }
+
+  /**
+   * App-side hardware event evidence (device state receipt/persistence,
+   * settings read-backs, UI event application). Structured payloads, low
+   * frequency (hardware operations only).
+   */
+  @LogToLocal({ level: 'info' })
+  public serviceEvent(name: string, payload?: unknown) {
+    return [name, payload];
+  }
 }

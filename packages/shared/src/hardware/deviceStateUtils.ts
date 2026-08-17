@@ -67,13 +67,21 @@ export function mergeDeviceStateEvent({
   }
 
   let mergedState = sanitizeState(currentState);
-  // settings-read 是 SDK 从硬件读取到的权威设置快照。changedKeys 只表示
-  // 相对 SDK 内存缓存发生变化的字段，不能用它判断数据库需要同步哪些字段；
-  // 否则 SDK 缓存已更新、数据库仍旧时，会漏掉硬件侧手动修改的设置。
-  const mergeKeys =
-    source === 'settings-read'
-      ? Array.from(new Set([...changedKeys, 'settings']))
-      : changedKeys;
+  // 'settings-read' and Protocol V1 'initialize' / 'settings-write' events
+  // carry the SDK's full settings truth (GetFeatures snapshot, plus the just
+  // written fields for settings-write). changedKeys only reflects the delta
+  // against the SDK's in-memory cache, which can already hold a device-side
+  // change the app never observed (BLE initialize runs before event
+  // listeners attach), so a sparse merge would silently drop such settings
+  // forever. Merge the whole settings section for these sources. V2 events
+  // are section-scoped device-info reads and keep sparse semantics.
+  const isAuthoritativeSettingsSnapshot =
+    source === 'settings-read' ||
+    (incomingState.protocol === 'V1' &&
+      (source === 'initialize' || source === 'settings-write'));
+  const mergeKeys = isAuthoritativeSettingsSnapshot
+    ? Array.from(new Set([...changedKeys, 'settings']))
+    : changedKeys;
   for (const changedKey of mergeKeys) {
     const isNonPersistedKey =
       changedKey === 'identity.displayName' ||

@@ -70,16 +70,13 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { OnboardingPage } from '../components/Layout';
+import { getDeviceLabel } from '../deviceLabel';
 import {
   EBluetoothStatus,
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import {
-  getDeviceLabel,
-  getForceTransportType,
-  sortDevicesData,
-} from '../utils';
+import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
@@ -1044,7 +1041,7 @@ function ConnectYourDevicePage({
   const reactNavigation = useNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(supportsHardwareQrWallet);
+    return deviceTypeItems.some(supportsHardwareQrWallet);
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
     await timerUtils.wait(100);
