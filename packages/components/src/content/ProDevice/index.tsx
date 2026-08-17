@@ -39,19 +39,25 @@ export interface IProDeviceProps extends Omit<
    * the scene supplies the screen, so `screenContent` is ignored.
    */
   animation?: IProDeviceScene | IProDeviceAnimation;
+  /**
+   * The next entry arrives already lit — granted per arrival by presenters
+   * that carry the entrance themselves (see ../deviceSceneHost).
+   */
+  instantEntry?: boolean;
 }
 
 export function ProDevice({
   width,
   animation,
   screenContent,
+  instantEntry,
 }: IProDeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
     slot,
     animation: sceneAnimation,
-  } = useSceneScreen(target, SCENES);
+  } = useSceneScreen(target, SCENES, instantEntry);
   if (displayed) {
     return (
       <ProDeviceShell
