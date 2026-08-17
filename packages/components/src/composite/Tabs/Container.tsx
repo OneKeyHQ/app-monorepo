@@ -37,12 +37,12 @@ const childDivStyle = {
   flexShrink: 0,
   scrollSnapAlign: 'center',
 } as const;
-// Column flex so a flex:1 tab child can consume the bounded pane height.
+// Block flow keeps tab content at its natural height so the pane itself
+// scrolls; flex stretching here breaks nested horizontal scroll containers.
 const childDivFillStyle = {
   ...childDivStyle,
   height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
+  overflowY: 'auto',
 } as const;
 
 export function ContainerChild({
