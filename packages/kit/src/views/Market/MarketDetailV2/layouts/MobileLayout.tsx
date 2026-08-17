@@ -587,8 +587,8 @@ export function MobileLayout({
   const tradingViewChartHeight = useMemo(() => {
     if (
       typeof tradingViewHeight === 'number' &&
-      nativeIndicatorQuickBar &&
-      platformEnv.isNative
+      platformEnv.isNative &&
+      !useTradingViewNative
     ) {
       return Math.max(
         0,
@@ -597,7 +597,7 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [nativeIndicatorQuickBar, tradingViewHeight]);
+  }, [tradingViewHeight, useTradingViewNative]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -728,10 +728,19 @@ export function MobileLayout({
               })()}
             </Stack>
           </HeaderScrollGestureWrapper>
-          {nativeIndicatorQuickBar && platformEnv.isNative ? (
-            <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
-              {nativeIndicatorQuickBar}
-            </MobileIndicatorQuickBar>
+          {/* Reserve the async quick bar so the TradingView WebView never resizes. */}
+          {platformEnv.isNative && !useTradingViewNative ? (
+            <Stack
+              h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+              bg="$bgApp"
+              overflow="hidden"
+            >
+              {nativeIndicatorQuickBar ? (
+                <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
+                  {nativeIndicatorQuickBar}
+                </MobileIndicatorQuickBar>
+              ) : null}
+            </Stack>
           ) : (
             nativeIndicatorQuickBar
           )}
