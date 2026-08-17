@@ -8,7 +8,9 @@
  * Values are hard-coded rather than tokenised on purpose: this component is an
  * exploration of how the upstream default actually looks, so it must not be
  * pulled toward the app's existing palette. Wiring it to app tokens is a
- * separate, later decision.
+ * separate, later decision. One deliberate divergence from stock: the side and
+ * bottom padding are 24px, the shell's content-inset contract shared with the
+ * native sheet — consumers pad neither.
  *
  * Two things here look like mistakes but are not:
  *   - Centring uses `translate`, not `transform`, so the zoom keyframes compose
@@ -66,7 +68,7 @@
   gap: 16px;
   width: 100%;
   max-width: calc(100% - 32px);
-  padding: 16px;
+  padding: 16px 24px 24px;
   border-radius: 14px;
   background-color: #fff;
   color: #000;
