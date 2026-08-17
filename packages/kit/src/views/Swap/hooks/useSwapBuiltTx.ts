@@ -150,6 +150,10 @@ import {
 } from '../utils/swapBalanceUtils';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
 import {
+  buildCustomSlippageQuoteResultCtx,
+  buildRebuiltSwapReviewQuoteResult,
+} from '../utils/swapReviewState';
+import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategoryFromSwapType,
   getSwapTradeSource,
@@ -188,6 +192,19 @@ type ISwapSendTxResult = ISignedTxPro & {
 
 type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
+  netWorkFee?: ISwapPreSwapData['netWorkFee'];
+};
+
+type IBuildSwapActionOptions = {
+  skipLoading?: boolean;
+  forceRebuild?: boolean;
+  slippagePercentage?: number;
+  useCustomSlippage?: boolean;
+  updateReviewState?: boolean;
+};
+
+type IEstimateNetworkFeeOptions = {
+  updateReviewState?: boolean;
 };
 
 type IUseSwapBuildTxOptions = {
@@ -347,6 +364,7 @@ export function useSwapBuildTx({
     });
 
   const swapStepsRef = useRef(swapSteps);
+  const rebuildSwapRequestIdRef = useRef(0);
   if (swapStepsRef.current !== swapSteps) {
     swapStepsRef.current = swapSteps;
   }
@@ -2126,6 +2144,7 @@ export function useSwapBuildTx({
     async (
       buildSwapRes: { orderId?: string; result?: IFetchQuoteResult },
       quoteResult?: IFetchQuoteResult,
+      slippagePercentage = slippageItem.value,
     ) => {
       const swapType = getSwapExecutionTypeFromQuoteResult(
         buildSwapRes?.result,
@@ -2158,7 +2177,7 @@ export function useSwapBuildTx({
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
-        slippage: slippageItem.value.toString(),
+        slippage: slippagePercentage.toString(),
         sourceChain: buildSwapRes.result?.fromTokenInfo.networkId ?? '',
         receivedChain: buildSwapRes.result?.toTokenInfo.networkId ?? '',
         sourceTokenSymbol: buildSwapRes.result?.fromTokenInfo.symbol ?? '',
@@ -2205,8 +2224,20 @@ export function useSwapBuildTx({
       currentFromToken?: ISwapToken,
       currentToToken?: ISwapToken,
       data?: IFetchQuoteResult,
-      skipLoading?: boolean,
+      options?: IBuildSwapActionOptions,
     ) => {
+      const {
+        skipLoading = false,
+        forceRebuild = false,
+        slippagePercentage,
+        useCustomSlippage = false,
+        updateReviewState = true,
+      } = options ?? {};
+      const effectiveSlippagePercentage =
+        slippagePercentage ??
+        (data?.protocol === EProtocolOfExchange.STOCK
+          ? (data.slippage ?? slippageItem.value)
+          : slippageItem.value);
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -2229,12 +2260,15 @@ export function useSwapBuildTx({
         if (!checkRes) {
           throw new OneKeyAppError('checkOtherFee failed');
         }
-        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
+        if (
+          !forceRebuild &&
+          swapStepsRef.current.preSwapData.swapBuildResultData
+        ) {
           return swapStepsRef.current.preSwapData.swapBuildResultData;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
-          if (!skipLoading) {
+          if (!skipLoading && updateReviewState) {
             setSwapSteps((prev) => ({
               ...prev,
               preSwapData: {
@@ -2248,15 +2282,14 @@ export function useSwapBuildTx({
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage:
-              data.protocol === EProtocolOfExchange.STOCK
-                ? (data.slippage ?? slippageItem.value)
-                : slippageItem.value,
+            slippagePercentage: effectiveSlippagePercentage,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
             provider: data.info.provider,
             accountId: fromAccountId ?? '',
-            quoteResultCtx: data.quoteResultCtx,
+            quoteResultCtx: useCustomSlippage
+              ? buildCustomSlippageQuoteResultCtx(data.quoteResultCtx)
+              : data.quoteResultCtx,
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
@@ -2266,7 +2299,7 @@ export function useSwapBuildTx({
             }),
           });
         } catch (e: any) {
-          if (!skipLoading) {
+          if (!skipLoading && updateReviewState) {
             setSwapSteps((prev) => ({
               ...prev,
               preSwapData: {
@@ -2288,7 +2321,7 @@ export function useSwapBuildTx({
             swapProvider: data?.info.provider ?? '',
             swapProviderName: data?.info.providerName ?? '',
             swapType,
-            slippage: slippageItem.value.toString(),
+            slippage: effectiveSlippagePercentage.toString(),
             sourceChain: data?.fromTokenInfo.networkId ?? '',
             receivedChain: data?.toTokenInfo.networkId ?? '',
             sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
@@ -2497,7 +2530,10 @@ export function useSwapBuildTx({
               ...buildSwapRes,
               result: {
                 ...buildSwapRes.result,
-                slippage: buildSwapRes.result.slippage ?? slippageItem.value,
+                slippage:
+                  slippagePercentage ??
+                  buildSwapRes.result.slippage ??
+                  effectiveSlippagePercentage,
               },
             },
           };
@@ -2511,22 +2547,24 @@ export function useSwapBuildTx({
             buildSwapRes.orderId ??
             buildSwapRes.result.quoteId ??
             '';
-          setSwapSteps((prev) => ({
-            ...prev,
-            preSwapData: {
-              ...prev.preSwapData,
-              swapBuildLoading: false,
-              toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
-              swapBuildResultData: {
-                swapInfo,
-                orderId,
-                skipSendTransAction,
-                encodedTx,
-                transferInfo,
+          if (updateReviewState) {
+            setSwapSteps((prev) => ({
+              ...prev,
+              preSwapData: {
+                ...prev.preSwapData,
+                swapBuildLoading: false,
+                toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
+                swapBuildResultData: {
+                  swapInfo,
+                  orderId,
+                  skipSendTransAction,
+                  encodedTx,
+                  transferInfo,
+                },
               },
-            },
-          }));
-          void swapBuildFinish(buildSwapRes, data);
+            }));
+          }
+          void swapBuildFinish(buildSwapRes, data, effectiveSlippagePercentage);
           return {
             swapInfo,
             orderId,
@@ -2536,7 +2574,7 @@ export function useSwapBuildTx({
           };
         }
       }
-      if (!skipLoading) {
+      if (!skipLoading && updateReviewState) {
         setSwapSteps((prev) => ({
           ...prev,
           preSwapData: {
@@ -2615,12 +2653,9 @@ export function useSwapBuildTx({
           transferInfo,
           swapInfo,
           orderId,
-        } = await buildSwapAction(
-          currentFromToken,
-          currentToToken,
-          data,
+        } = await buildSwapAction(currentFromToken, currentToToken, data, {
           skipLoading,
-        );
+        });
         if (swapInfo) {
           if (skipSendTransAction) {
             void handleBuildTxSuccessWithSignedNoSend({
@@ -3156,7 +3191,9 @@ export function useSwapBuildTx({
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
+      options?: IEstimateNetworkFeeOptions,
     ): Promise<IEstimateNetworkFeeResult> => {
+      const { updateReviewState = true } = options ?? {};
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -3179,13 +3216,15 @@ export function useSwapBuildTx({
           isInternalSwap: true,
         });
 
-      setSwapSteps((prev) => ({
-        ...prev,
-        preSwapData: {
-          ...prev.preSwapData,
-          estimateNetworkFeeLoading: true,
-        },
-      }));
+      if (updateReviewState) {
+        setSwapSteps((prev) => ({
+          ...prev,
+          preSwapData: {
+            ...prev.preSwapData,
+            estimateNetworkFeeLoading: true,
+          },
+        }));
+      }
       try {
         const vaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -3257,14 +3296,16 @@ export function useSwapBuildTx({
                 approveUnsignedTxArr,
               })
             ) {
-              setSwapSteps((prev) => ({
-                ...prev,
-                preSwapData: {
-                  ...prev.preSwapData,
-                  estimateNetworkFeeLoading: false,
-                  netWorkFee: undefined,
-                },
-              }));
+              if (updateReviewState) {
+                setSwapSteps((prev) => ({
+                  ...prev,
+                  preSwapData: {
+                    ...prev.preSwapData,
+                    estimateNetworkFeeLoading: false,
+                    netWorkFee: undefined,
+                  },
+                }));
+              }
               return {
                 fallbackToSeparateTxConfirm: true,
               };
@@ -3478,31 +3519,35 @@ export function useSwapBuildTx({
         const gasFeeFiatValueAll = gasFeeFiatValues.reduce((acc, curr) => {
           return acc.plus(new BigNumber(curr));
         }, new BigNumber(0));
-        setSwapSteps((prev) => ({
-          ...prev,
-          preSwapData: {
-            ...prev.preSwapData,
-            netWorkFee: {
-              ...prev.preSwapData.netWorkFee,
-              gasInfos: [...gasFeeInfos],
-              gasFeeFiatValue: !gasFeeFiatValueAll.isZero()
-                ? gasFeeFiatValueAll.toFixed()
-                : undefined,
+        const netWorkFee: ISwapPreSwapData['netWorkFee'] = {
+          gasInfos: [...gasFeeInfos],
+          gasFeeFiatValue: !gasFeeFiatValueAll.isZero()
+            ? gasFeeFiatValueAll.toFixed()
+            : undefined,
+        };
+        if (updateReviewState) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              netWorkFee,
+              estimateNetworkFeeLoading: false,
             },
-            estimateNetworkFeeLoading: false,
-          },
-        }));
+          }));
+        }
+        return { netWorkFee };
       } catch (_e: any) {
-        setSwapSteps((prev) => ({
-          ...prev,
-          preSwapData: {
-            ...prev.preSwapData,
-            estimateNetworkFeeLoading: false,
-          },
-        }));
+        if (updateReviewState) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              estimateNetworkFeeLoading: false,
+            },
+          }));
+        }
         throw _e;
       }
-      return {};
     },
     [
       buildGasInfo,
@@ -3515,6 +3560,144 @@ export function useSwapBuildTx({
       findGasInfo,
       persistSettings.currencyInfo.id,
       persistSettings.useGasAccountByDefault,
+    ],
+  );
+
+  const rebuildSwapWithSlippage = useCallback(
+    async ({ slippagePercentage }: { slippagePercentage: number }) => {
+      const frozenReviewState = swapStepsRef.current;
+      const frozenQuoteResult = frozenReviewState.quoteResult;
+      const supportRebuildTx =
+        frozenReviewState.preSwapData.swapBuildResultData?.swapInfo
+          ?.swapBuildResData.supportRebuildTx;
+
+      if (!frozenQuoteResult || !supportRebuildTx) {
+        throw new OneKeyError('Current swap quote does not support rebuilding');
+      }
+
+      const requestId = rebuildSwapRequestIdRef.current + 1;
+      rebuildSwapRequestIdRef.current = requestId;
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          swapBuildLoading: true,
+          estimateNetworkFeeLoading: false,
+          stepBeforeActionsError: undefined,
+        },
+      }));
+
+      try {
+        const rebuiltSwapBuildResultData = await buildSwapAction(
+          frozenReviewState.preSwapData.fromToken,
+          frozenReviewState.preSwapData.toToken,
+          frozenQuoteResult,
+          {
+            forceRebuild: true,
+            slippagePercentage,
+            useCustomSlippage: true,
+            updateReviewState: false,
+          },
+        );
+        const { swapInfo, transferInfo, encodedTx } =
+          rebuiltSwapBuildResultData;
+        if (!swapInfo) {
+          throw new OneKeyError('Failed to rebuild swap transaction');
+        }
+
+        const rebuiltQuoteResult = buildRebuiltSwapReviewQuoteResult({
+          quoteResult: frozenQuoteResult,
+          buildResult: swapInfo.swapBuildResData.result,
+          slippagePercentage,
+        });
+        const { unsignedTxArr } =
+          await getApproveUnSignedTxArr(rebuiltQuoteResult);
+        const estimateNetworkFeeResult = await estimateNetworkFee(
+          fromAccountNetworkId ?? '',
+          fromAccountId ?? '',
+          {
+            networkId: fromAccountNetworkId ?? '',
+            accountId: fromAccountId ?? '',
+            transfersInfo: transferInfo ? [transferInfo] : undefined,
+            encodedTx,
+            swapInfo,
+          },
+          unsignedTxArr,
+          { updateReviewState: false },
+        );
+
+        if (
+          requestId !== rebuildSwapRequestIdRef.current ||
+          swapStepsRef.current.quoteResult !== frozenQuoteResult
+        ) {
+          throw new OneKeyError('Swap review changed while rebuilding');
+        }
+
+        const shouldFallback = Boolean(
+          estimateNetworkFeeResult.fallbackToSeparateTxConfirm,
+        );
+        const shouldResetSteps =
+          shouldFallback || frozenReviewState.preSwapData.shouldFallback;
+        const separateSteps = shouldResetSteps
+          ? buildSeparateApproveAndSwapSteps(rebuiltQuoteResult)
+          : undefined;
+        setSwapSteps((prev) => ({
+          ...prev,
+          steps: separateSteps?.length ? separateSteps : prev.steps,
+          quoteResult: rebuiltQuoteResult,
+          preSwapData: {
+            ...prev.preSwapData,
+            fromTokenAmount: rebuiltQuoteResult.fromAmount,
+            toTokenAmount: rebuiltQuoteResult.toAmount,
+            minToAmount: rebuiltQuoteResult.minToAmount,
+            providerInfo: rebuiltQuoteResult.info,
+            fee: rebuiltQuoteResult.fee,
+            slippage: slippagePercentage,
+            swapBuildResultData: rebuiltSwapBuildResultData,
+            swapBuildLoading: false,
+            estimateNetworkFeeLoading: false,
+            stepBeforeActionsLoading: false,
+            stepBeforeActionsError: undefined,
+            ...(shouldFallback
+              ? {
+                  shouldFallback: true,
+                  needFetchGas: true,
+                  supportNetworkFeeLevel: false,
+                  netWorkFee: undefined,
+                }
+              : {
+                  shouldFallback: false,
+                  needFetchGas: false,
+                  supportNetworkFeeLevel: true,
+                  netWorkFee: estimateNetworkFeeResult.netWorkFee,
+                }),
+          },
+        }));
+      } catch (error) {
+        if (
+          requestId === rebuildSwapRequestIdRef.current &&
+          swapStepsRef.current.quoteResult === frozenQuoteResult
+        ) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: false,
+              estimateNetworkFeeLoading: false,
+            },
+          }));
+        }
+        throw error;
+      }
+    },
+    [
+      buildSeparateApproveAndSwapSteps,
+      buildSwapAction,
+      estimateNetworkFee,
+      fromAccountId,
+      fromAccountNetworkId,
+      getApproveUnSignedTxArr,
+      setSwapSteps,
     ],
   );
 
@@ -3937,6 +4120,7 @@ export function useSwapBuildTx({
     preSwapStepsStart,
     cancelLimitOrder,
     preSwapBeforeStepActions,
+    rebuildSwapWithSlippage,
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
     markCurrentGasAccountReviewSubmitted,

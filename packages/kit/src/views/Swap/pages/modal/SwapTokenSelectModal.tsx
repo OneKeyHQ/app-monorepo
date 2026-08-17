@@ -530,7 +530,6 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const useLocalSearchFallback = !isSwapStockSelectTarget;
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
@@ -539,7 +538,6 @@ const SwapTokenSelectPage = ({
     requestLpToken,
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
-    useLocalSearchFallback,
   );
   const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
   const stockSearchBaseTokensRef = useRef<{

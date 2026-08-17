@@ -12,6 +12,7 @@ import {
   EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
+  getMarketNonPresetSlippageValue,
   getMarketPresetCustomizedMap,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
@@ -54,6 +55,23 @@ function buildSpeedConfigWithPreset(
 }
 
 describe('marketPresetSettings', () => {
+  it('uses the saved global custom slippage outside preset mode', () => {
+    expect(
+      getMarketNonPresetSlippageValue({
+        mode: ESwapSlippageSegmentKey.CUSTOM,
+        customValue: 1.25,
+        defaultSlippage: 0.5,
+      }),
+    ).toBe(1.25);
+    expect(
+      getMarketNonPresetSlippageValue({
+        mode: ESwapSlippageSegmentKey.AUTO,
+        customValue: 1.25,
+        defaultSlippage: 0.5,
+      }),
+    ).toBe(0.5);
+  });
+
   it('returns hardcoded dashboard presets from the Promise adapter', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.bsc.id,
