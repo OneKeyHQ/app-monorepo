@@ -395,7 +395,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       if (!walletId) return;
 
       const deviceType = get(walletWithDeviceStateAtom())?.device?.deviceType;
-      if (!shouldApplyDeviceSettingMutationLocally(deviceType)) {
+      if (!shouldApplyDeviceSettingMutationLocally(deviceType, next)) {
         return;
       }
       await this.updateDeviceSettingState.call(set, next);
