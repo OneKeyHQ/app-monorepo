@@ -48,19 +48,25 @@ export interface IClassicDeviceProps extends Omit<
    * the scene supplies the screen, so `screenContent` is ignored.
    */
   animation?: IClassicDeviceScene | IClassicDeviceAnimation;
+  /**
+   * The next entry arrives already lit — granted per arrival by presenters
+   * that carry the entrance themselves (see ../deviceSceneHost).
+   */
+  instantEntry?: boolean;
 }
 
 export function ClassicDevice({
   width,
   animation,
   screenContent,
+  instantEntry,
 }: IClassicDeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
     slot,
     animation: sceneAnimation,
-  } = useSceneScreen(target, SCENES);
+  } = useSceneScreen(target, SCENES, instantEntry);
   const okPress = useSharedValue(0);
   const pressDrive = useMemo(() => ({ ok: okPress }), [okPress]);
   const deviceAnimation: IClassicDeviceAnimation = useMemo(

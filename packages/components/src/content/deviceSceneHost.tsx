@@ -255,10 +255,17 @@ function SceneHost<TScene extends string>({
  * shell renders through. Returns the keyed slot to hand the shell and the
  * animation contract driving it; `displayed` undefined means the screen is
  * dark (no scene, or a scene whose content is null).
+ *
+ * `instantEntry` lands an entry already lit — honored at the moment the
+ * entry gate fires, for presenters that carry the entrance themselves: a
+ * stage fading the whole replica in would only stack the ramp under its
+ * fade as dead black time. The presenter grants it per arrival; entries
+ * with it unset keep the ramp.
  */
 export function useSceneScreen<TScene extends string>(
   target: TScene | undefined,
   scenes: Record<TScene, IDeviceSceneSpec>,
+  instantEntry?: boolean,
 ): {
   displayed: TScene | undefined;
   slot: ReactNode | undefined;
@@ -334,11 +341,15 @@ export function useSceneScreen<TScene extends string>(
     if (spec?.defersEntry && !gate.pixels) return;
     gate.armed = false;
     cancelAnimation(screenIn);
+    if (instantEntry) {
+      screenIn.value = 1;
+      return;
+    }
     screenIn.value = withTiming(1, {
       duration: CONTENT_IN_MS,
       easing: contentInEase,
     });
-  }, [scenes, screenIn]);
+  }, [instantEntry, scenes, screenIn]);
   useEffect(() => {
     if (!displayed || displayed !== target) return;
     if (reducedMotion) {
