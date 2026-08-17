@@ -49,6 +49,7 @@ import {
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
@@ -416,6 +417,26 @@ export function useSwapStockChannel() {
     ],
   );
 
+  const syncStockTokenDetail = useCallback(
+    (tokenDetail: ISwapToken) => {
+      const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
+      const nextStockToken = resolveStockExecutionTokenMetadata({
+        token: currentToken,
+        tokenDetail,
+      });
+      if (!nextStockToken || nextStockToken === currentToken) {
+        return;
+      }
+      setStockTokenState(nextStockToken);
+      setStockSelectedToken(nextStockToken);
+      stockTokenSnapshotRef.current = nextStockToken;
+      void syncStockExecutionTokens({
+        stockToken: nextStockToken,
+      });
+    },
+    [currentStockToken, setStockSelectedToken, syncStockExecutionTokens],
+  );
+
   useEffect(() => {
     const handleSwapStockTokenSelected = (token: ISwapToken) => {
       if (!token?.networkId) {
@@ -705,7 +726,15 @@ export function useSwapStockChannel() {
         token2: stockExecutionToToken,
       }),
     );
-    if (executionPairSynced) {
+    const currentStockExecutionToken =
+      tradeSide === ESwapStockTradeSide.Buy ? toToken : fromToken;
+    const stockExecutionMetadataSynced = Boolean(
+      currentStockToken &&
+      currentStockExecutionToken?.decimals === currentStockToken.decimals &&
+      Boolean(currentStockExecutionToken?.isStock) ===
+        Boolean(currentStockToken.isStock),
+    );
+    if (executionPairSynced && stockExecutionMetadataSynced) {
       return;
     }
 
@@ -751,6 +780,7 @@ export function useSwapStockChannel() {
       selectPayToken,
       switchTradeSide,
       selectRecentTokenPair,
+      syncStockTokenDetail,
     }),
     [
       channelStage,
@@ -769,6 +799,7 @@ export function useSwapStockChannel() {
       selectRecentTokenPair,
       selectStockSwapToken,
       selectStockToken,
+      syncStockTokenDetail,
       switchTradeSide,
       speedConfigReady,
       activeStockTokenDetail,
