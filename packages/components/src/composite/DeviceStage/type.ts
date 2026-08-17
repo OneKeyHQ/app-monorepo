@@ -10,16 +10,48 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 /**
  * Where the interaction currently stands. One dialog instance plays every
  * step of a burst; the content swaps in place so consecutive device requests
- * never close and reopen the surface. `off` is the step before the device
- * responds: no scene, the replica sits with its screen dark, and whichever
- * step follows enters by waking it.
+ * never close and reopen the surface — including the endings: failures and
+ * completion render on the same stage instead of a toast or a second dialog.
+ *
+ * `off` is the step before the device responds: no scene, the replica sits
+ * with its screen dark, and whichever step follows enters by waking it.
+ * `pinOnApp` and `passphraseOnApp` are the app-side inputs — the person
+ * types here while the device waits, so the replica leaves the stage and
+ * the input panel takes its place. `showQr` and `scanQr` are the air-gap
+ * pair — the app presents a code for the device to scan, then the app's
+ * camera scans the code the device shows back; the person is holding the
+ * device in both, so the replica stays off stage there too. `processing`
+ * is the wait after an input round-trips: the device is working and
+ * nothing is asked of the person.
+ * `error` is the terminal failure beat, worded by `errorReason`, with one
+ * recovery action. `success` is the landing beat — under a second, closed
+ * by the driver — and it holds the arrangement it arrives in rather than
+ * moving the stage.
  */
 export type IDeviceStageStep =
   | 'off'
   | 'connecting'
   | 'enterPin'
+  | 'pinOnApp'
   | 'enterPassphrase'
-  | 'confirm';
+  | 'passphraseOnApp'
+  | 'showQr'
+  | 'scanQr'
+  | 'confirm'
+  | 'processing'
+  | 'error'
+  | 'success';
+
+/**
+ * What went wrong, in stage vocabulary. Each reason picks the failure copy
+ * and the label of the single recovery action; the mapping from concrete
+ * SDK errors onto these four is the integration layer's.
+ */
+export type IDeviceStageErrorReason =
+  | 'rejected'
+  | 'pinInvalid'
+  | 'disconnected'
+  | 'busy';
 
 export interface IDeviceStageProps {
   /** Controlled visibility, passed straight through to the dialog. */
@@ -46,6 +78,69 @@ export interface IDeviceStageProps {
     value: string;
     highlightEnds?: boolean;
   }>;
+  /**
+   * Payload of the code the showQr step presents for the device to scan.
+   * Multi-part rotation for large payloads belongs to the integration
+   * layer, inside the same step.
+   */
+  qrValue?: string;
+  /**
+   * Advances showQr toward scanning the device's answer — the manual
+   * handoff an air-gapped flow cannot make on its own: nothing tells the
+   * app when the device has finished, so only the person, watching the
+   * device show its code, can move forward. Omitted (a one-way broadcast
+   * with nothing to scan back), the step renders no button.
+   */
+  onQrNext?: () => void;
+  /**
+   * Steps scanQr back to presenting the code — the escape hatch for a
+   * premature handoff: if the device never got the task, nothing will ever
+   * appear in the scan window, so the person must be able to return and
+   * show the code again. Omitted, the step renders no way back.
+   */
+  onQrBack?: () => void;
+  /** Words the error step speaks. Omitted, it falls back to a generic line. */
+  errorReason?: IDeviceStageErrorReason;
+  /**
+   * The error step's single recovery action — retry, reconnect. Without it
+   * the step renders no button and the sheet's dismissal is the only exit.
+   */
+  onErrorAction?: () => void;
+  /** The pinOnApp entry, confirmed. The driver decides what follows. */
+  onPinSubmit?: (pin: string) => void;
+  /**
+   * Which shape the passphrase form takes — the live form's two:
+   * 'create' (Add hidden wallet: Keep-accessible switch, empty disabled)
+   * or 'verify' (unlock an existing one: no switch, empty allowed).
+   * Defaults to 'create', the fuller shape.
+   */
+  passphraseMode?: 'create' | 'verify';
+  /**
+   * The passphraseOnApp entry, confirmed. Empty is the standard wallet.
+   * `keepAccessible` carries the Keep-accessible switch's position
+   * (create mode; false in verify mode, where the switch is absent).
+   */
+  onPassphraseSubmit?: (
+    passphrase: string,
+    options: { keepAccessible: boolean },
+  ) => void;
+  /**
+   * Shows the passphrase form's secondary "Enter Hidden Wallet PIN"
+   * action (the live attach-PIN path), for devices that support it.
+   * Omitted, no button renders.
+   */
+  onPassphraseAttachPin?: () => void;
+  /**
+   * Moves the current app-side input onto the device instead — the switch
+   * both input steps offer.
+   */
+  onSwitchToDevice?: () => void;
+  /**
+   * One-line inline failure inside the active input panel — the
+   * retry-in-place state after a refused entry, not a step change. On the
+   * PIN pad its arrival also clears the typed value.
+   */
+  inputError?: string;
   /**
    * Blocks every dismissal path for steps that must not be interrupted
    * (a firmware install, not an everyday confirm).
