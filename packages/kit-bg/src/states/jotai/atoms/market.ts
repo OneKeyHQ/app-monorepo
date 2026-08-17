@@ -72,17 +72,11 @@ export const {
   },
 });
 
-export type IMarketTradingViewStorageNamespace =
-  | 'market'
-  | 'market-hyperliquid';
+export type IMarketTradingViewStorageNamespace = 'market';
 
 export interface IMarketTradingViewSubIndicatorCountPersistAtom {
   subIndicatorCountByStorageNamespace: Partial<
     Record<IMarketTradingViewStorageNamespace, number>
-  >;
-  storageNamespaceByChartKey: Record<
-    string,
-    IMarketTradingViewStorageNamespace
   >;
 }
 
@@ -94,6 +88,5 @@ export const {
   name: EAtomNames.marketTradingViewSubIndicatorCountPersistAtom,
   initialValue: {
     subIndicatorCountByStorageNamespace: {},
-    storageNamespaceByChartKey: {},
   },
 });

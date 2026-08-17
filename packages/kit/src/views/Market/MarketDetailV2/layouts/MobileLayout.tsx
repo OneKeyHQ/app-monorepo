@@ -30,7 +30,8 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
-import { useHyperLiquidKlineSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks';
+import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
@@ -69,9 +70,8 @@ import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativ
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 import {
-  getMarketTradingViewStorageNamespace,
   getMarketTradingViewSubIndicatorCount,
-  setMarketTradingViewStorageNamespace,
+  normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
@@ -208,7 +208,9 @@ function MobileMarketTradingView({
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
-  onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
+  onNativeIndicatorQuickBarChange: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeSubIndicatorCountChange: (
     count: number | null,
     options?: { layoutRestored?: boolean },
@@ -280,14 +282,6 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
-  const {
-    isHyperLiquidSource,
-    isLoading: isHyperLiquidSourceLoading,
-    symbol: hyperLiquidSymbol,
-  } = useHyperLiquidKlineSource(
-    marketTradingViewParams?.networkId ?? networkId,
-    marketTradingViewParams?.tokenAddress ?? tokenAddress,
-  );
   let marketTradingViewKey = 'v2';
   if (useTradingViewNative) {
     marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
@@ -303,40 +297,28 @@ export function MobileLayout({
     marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
   ] = useMarketTradingViewSubIndicatorCountPersistAtom();
-  const detectedMarketTradingViewStorageNamespace: IMarketTradingViewStorageNamespace =
-    isHyperLiquidSource && hyperLiquidSymbol ? 'market-hyperliquid' : 'market';
-  const marketTradingViewStorageNamespace =
-    getMarketTradingViewStorageNamespace({
-      chartKey: marketTradingViewKey,
-      detectedStorageNamespace: detectedMarketTradingViewStorageNamespace,
-      isSourceLoading: isHyperLiquidSourceLoading,
-      persistState: marketTradingViewSubIndicatorCountPersist,
-    });
+  const hasAttemptedMarketTradingViewPersistNormalizationRef = useRef(false);
   useEffect(() => {
+    if (hasAttemptedMarketTradingViewPersistNormalizationRef.current) {
+      return;
+    }
     if (
-      !platformEnv.isNative ||
-      useTradingViewNative ||
-      isHyperLiquidSourceLoading ||
-      !marketTradingViewParams
+      normalizeMarketTradingViewSubIndicatorCountPersist(
+        marketTradingViewSubIndicatorCountPersist,
+      ) === marketTradingViewSubIndicatorCountPersist
     ) {
       return;
     }
-
+    hasAttemptedMarketTradingViewPersistNormalizationRef.current = true;
     setMarketTradingViewSubIndicatorCountPersist((prev) =>
-      setMarketTradingViewStorageNamespace({
-        chartKey: marketTradingViewKey,
-        persistState: prev,
-        storageNamespace: detectedMarketTradingViewStorageNamespace,
-      }),
+      normalizeMarketTradingViewSubIndicatorCountPersist(prev),
     );
   }, [
-    detectedMarketTradingViewStorageNamespace,
-    isHyperLiquidSourceLoading,
-    marketTradingViewKey,
-    marketTradingViewParams,
+    marketTradingViewSubIndicatorCountPersist,
     setMarketTradingViewSubIndicatorCountPersist,
-    useTradingViewNative,
   ]);
+  const marketTradingViewStorageNamespace: IMarketTradingViewStorageNamespace =
+    'market';
   const persistedWebViewSubIndicatorCount = platformEnv.isNative
     ? getMarketTradingViewSubIndicatorCount({
         persistState: marketTradingViewSubIndicatorCountPersist,
@@ -433,8 +415,12 @@ export function MobileLayout({
     isTradingViewInteractionOverlayOpen,
     setIsTradingViewInteractionOverlayOpen,
   ] = useState(false);
-  const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
-    useState<ReactNode | null>(null);
+  const [nativeIndicatorQuickBarState, setNativeIndicatorQuickBarState] =
+    useState<ITradingViewNativeIndicatorQuickBarState>({
+      status: 'loading',
+      quickBar: null,
+    });
+  const { quickBar: nativeIndicatorQuickBar } = nativeIndicatorQuickBarState;
   const persistWebViewSubIndicatorCount = useCallback(
     (count: number) => {
       if (!platformEnv.isNative || useTradingViewNative) {
@@ -516,7 +502,10 @@ export function MobileLayout({
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
     if (useTradingViewNative) {
-      setNativeIndicatorQuickBar(null);
+      setNativeIndicatorQuickBarState({
+        status: 'loading',
+        quickBar: null,
+      });
     }
   }, [networkId, tokenAddress, tokenSymbol, useTradingViewNative]);
 
@@ -527,8 +516,8 @@ export function MobileLayout({
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
   const handleNativeIndicatorQuickBarChange = useCallback(
-    (quickBar: ReactNode | null) => {
-      setNativeIndicatorQuickBar(() => quickBar);
+    (state: ITradingViewNativeIndicatorQuickBarState) => {
+      setNativeIndicatorQuickBarState(state);
     },
     [],
   );
@@ -570,11 +559,17 @@ export function MobileLayout({
     return 'calc(100vh - 96px - 74px - 250px)';
   }, [height, tradingViewSubIndicatorCount]);
 
+  const shouldReserveNativeIndicatorQuickBar =
+    platformEnv.isNative &&
+    !useTradingViewNative &&
+    shouldReserveTradingViewNativeIndicatorQuickBar(
+      nativeIndicatorQuickBarState,
+    );
+
   const tradingViewChartHeight = useMemo(() => {
     if (
       typeof tradingViewHeight === 'number' &&
-      nativeIndicatorQuickBar &&
-      platformEnv.isNative
+      shouldReserveNativeIndicatorQuickBar
     ) {
       return Math.max(
         0,
@@ -583,7 +578,7 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [nativeIndicatorQuickBar, tradingViewHeight]);
+  }, [shouldReserveNativeIndicatorQuickBar, tradingViewHeight]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -714,10 +709,19 @@ export function MobileLayout({
               })()}
             </Stack>
           </HeaderScrollGestureWrapper>
-          {nativeIndicatorQuickBar && platformEnv.isNative ? (
-            <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
-              {nativeIndicatorQuickBar}
-            </MobileIndicatorQuickBar>
+          {/* Reserve the async quick bar until its availability is known. */}
+          {shouldReserveNativeIndicatorQuickBar ? (
+            <Stack
+              h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+              bg="$bgApp"
+              overflow="hidden"
+            >
+              {nativeIndicatorQuickBar ? (
+                <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
+                  {nativeIndicatorQuickBar}
+                </MobileIndicatorQuickBar>
+              ) : null}
+            </Stack>
           ) : (
             nativeIndicatorQuickBar
           )}
@@ -749,6 +753,7 @@ export function MobileLayout({
     marketTradingViewStorageNamespace,
     nativeIndicatorQuickBar,
     networkId,
+    shouldReserveNativeIndicatorQuickBar,
     tradingViewNativeSource,
     tradingViewChartHeight,
     useTradingViewNative,
