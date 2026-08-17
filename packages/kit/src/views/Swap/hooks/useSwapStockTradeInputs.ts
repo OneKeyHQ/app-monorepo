@@ -33,10 +33,12 @@ import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
   type IStockBalanceSnapshot,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
+  resolveStockExecutionTokenMetadata,
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
@@ -254,11 +256,13 @@ function useStockInputTokenBalance({
 
   const balanceReady =
     detailState.scope === balanceScope && detailState.balance !== undefined;
+  const authoritativeBalance = balanceReady ? detailState.balance : undefined;
+  const authoritativeTokenDetail = balanceReady
+    ? detailState.tokenDetail
+    : undefined;
   const balanceState = resolveStockBalanceSnapshot({
-    authoritativeBalance: balanceReady ? detailState.balance : undefined,
-    authoritativeTokenDetail: balanceReady
-      ? detailState.tokenDetail
-      : undefined,
+    authoritativeBalance,
+    authoritativeTokenDetail,
     ownerScope: balanceOwnerScope,
     previousSnapshot: lastValidBalanceStateRef.current,
     seededBalance: enabled ? seededBalance : undefined,
@@ -271,6 +275,8 @@ function useStockInputTokenBalance({
   const tokenDetail = balanceState?.tokenDetail;
 
   return {
+    authoritativeBalance,
+    authoritativeTokenDetail,
     balance,
     tokenDetail,
     loading: isStockBalanceInitializing({
@@ -476,6 +482,7 @@ export function useSwapStockAmountInputState({
     disableNativePayToken,
     selectPayToken,
     stockTokenStatus,
+    syncStockTokenDetail,
     tradeSide,
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
@@ -496,6 +503,18 @@ export function useSwapStockAmountInputState({
   const stockInputTokenBalance = useStockInputTokenBalance({
     enabled: inputTokenReady,
     token: inputToken,
+  });
+  const authoritativeStockInputToken = isBuySide
+    ? undefined
+    : resolveStockExecutionTokenMetadata({
+        token: inputToken,
+        tokenDetail: stockInputTokenBalance.authoritativeTokenDetail,
+      });
+  const amountInputToken = authoritativeStockInputToken ?? inputToken;
+  const balanceActionsReady = isStockBalanceActionReady({
+    authoritativeBalance: stockInputTokenBalance.authoritativeBalance,
+    authoritativeStockToken: authoritativeStockInputToken,
+    isBuySide,
   });
   const resolvedInputTokenBalance =
     stockInputTokenBalance.balance ?? inputToken?.balanceParsed ?? '0';
@@ -543,7 +562,7 @@ export function useSwapStockAmountInputState({
     settingsPersistAtom.currencyInfo.symbol;
   const onAmountChange = useCallback(
     (value: string) => {
-      if (validateAmountInput(value, inputToken?.decimals)) {
+      if (validateAmountInput(value, amountInputToken?.decimals)) {
         setSwapAlerts({
           quoteId: '',
           states: [],
@@ -554,17 +573,17 @@ export function useSwapStockAmountInputState({
         });
       }
     },
-    [inputToken?.decimals, setFromTokenAmount, setSwapAlerts],
+    [amountInputToken?.decimals, setFromTokenAmount, setSwapAlerts],
   );
   const setInputAmount = useCallback(
     (amount: BigNumber) => {
-      if (!inputToken || !amount.isFinite() || amount.isNaN()) {
+      if (!amountInputToken || !amount.isFinite() || amount.isNaN()) {
         return;
       }
       const amountValue = amount
-        .decimalPlaces(Number(inputToken.decimals ?? 6), BigNumber.ROUND_DOWN)
+        .decimalPlaces(amountInputToken.decimals, BigNumber.ROUND_DOWN)
         .toFixed();
-      if (!validateAmountInput(amountValue, inputToken.decimals)) {
+      if (!validateAmountInput(amountValue, amountInputToken.decimals)) {
         return;
       }
       setSwapAlerts({
@@ -576,17 +595,47 @@ export function useSwapStockAmountInputState({
         isInput: true,
       });
     },
-    [inputToken, setFromTokenAmount, setSwapAlerts],
+    [amountInputToken, setFromTokenAmount, setSwapAlerts],
   );
+  useEffect(() => {
+    if (!authoritativeStockInputToken) {
+      return;
+    }
+    syncStockTokenDetail(authoritativeStockInputToken);
+  }, [authoritativeStockInputToken, syncStockTokenDetail]);
   const onBalanceMaxPress = useCallback(() => {
-    setInputAmount(new BigNumber(displayBalance ?? '0'));
-  }, [displayBalance, setInputAmount]);
+    if (!balanceActionsReady) {
+      return;
+    }
+    if (authoritativeStockInputToken) {
+      syncStockTokenDetail(authoritativeStockInputToken);
+    }
+    setInputAmount(new BigNumber(resolvedInputTokenBalance));
+  }, [
+    authoritativeStockInputToken,
+    balanceActionsReady,
+    resolvedInputTokenBalance,
+    setInputAmount,
+    syncStockTokenDetail,
+  ]);
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      const balanceBN = new BigNumber(displayBalance ?? '0');
+      if (!balanceActionsReady) {
+        return;
+      }
+      if (authoritativeStockInputToken) {
+        syncStockTokenDetail(authoritativeStockInputToken);
+      }
+      const balanceBN = new BigNumber(resolvedInputTokenBalance);
       setInputAmount(balanceBN.multipliedBy(stage / 100));
     },
-    [displayBalance, setInputAmount],
+    [
+      authoritativeStockInputToken,
+      balanceActionsReady,
+      resolvedInputTokenBalance,
+      setInputAmount,
+      syncStockTokenDetail,
+    ],
   );
   const hasBalanceError = useMemo(() => {
     if (!isBuySide || !inputToken) {
@@ -623,12 +672,13 @@ export function useSwapStockAmountInputState({
 
   return {
     amountFiatValue,
+    balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
     hasBalanceError,
-    inputToken,
+    inputToken: amountInputToken,
     inputTokenNetworkLogoURI,
     inputValue: fromTokenAmount.value,
     isBuySide,
