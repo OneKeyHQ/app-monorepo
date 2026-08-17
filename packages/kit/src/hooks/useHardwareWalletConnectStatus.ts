@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  buildHardwareConnectedDeviceKeys,
+  getWebUsbConnectedDeviceKey,
   isSupportedHardwareWebUsbDevice,
   isWalletConnectedByHardwareStatus,
 } from './useHardwareWalletConnectStatusUtils';
@@ -30,18 +25,19 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
   }
 
   const usb = globalThis?.navigator?.usb;
-  const [webUsbDevices, backgroundIdentityKeys] = await Promise.all([
-    usb && typeof usb.getDevices === 'function'
-      ? usb.getDevices()
-      : Promise.resolve<USBDevice[]>([]),
-    backgroundApiProxy.serviceHardware
-      .getConnectedHardwareDeviceIdentityKeys()
-      .catch((): string[] => []),
-  ]);
-  const deviceIds = buildHardwareConnectedDeviceKeys({
-    backgroundIdentityKeys,
-    webUsbDevices,
-  });
+  if (!usb || typeof usb.getDevices !== 'function') {
+    return EMPTY_SET;
+  }
+
+  const devices = await usb.getDevices();
+  const deviceIds = new Set<string>();
+
+  for (const device of devices) {
+    const key = getWebUsbConnectedDeviceKey(device);
+    if (key) {
+      deviceIds.add(key);
+    }
+  }
 
   return deviceIds.size > 0 ? deviceIds : EMPTY_SET;
 }
@@ -73,35 +69,32 @@ export function useHardwareWalletConnectStatus() {
   );
 
   useEffect(() => {
+    void refreshDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (!platformEnv.isSupportWebUSB) {
       return;
     }
 
     const usb = globalThis?.navigator?.usb;
+    if (!usb) {
+      return;
+    }
+
     const handleUSBEvent = (event: USBConnectionEvent) => {
       if (isSupportedHardwareWebUsbDevice(event.device)) {
         void refreshDevices();
       }
     };
-    const handleHardwareConnectionStateUpdate = () => {
-      void refreshDevices();
-    };
 
-    usb?.addEventListener('connect', handleUSBEvent);
-    usb?.addEventListener('disconnect', handleUSBEvent);
-    appEventBus.on(
-      EAppEventBusNames.HardwareConnectionStateUpdate,
-      handleHardwareConnectionStateUpdate,
-    );
-    void refreshDevices();
+    usb.addEventListener('connect', handleUSBEvent);
+    usb.addEventListener('disconnect', handleUSBEvent);
 
     return () => {
-      usb?.removeEventListener('connect', handleUSBEvent);
-      usb?.removeEventListener('disconnect', handleUSBEvent);
-      appEventBus.off(
-        EAppEventBusNames.HardwareConnectionStateUpdate,
-        handleHardwareConnectionStateUpdate,
-      );
+      usb.removeEventListener('connect', handleUSBEvent);
+      usb.removeEventListener('disconnect', handleUSBEvent);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
