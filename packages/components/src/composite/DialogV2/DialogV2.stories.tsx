@@ -12,9 +12,10 @@ import { XStack, YStack } from '@onekeyhq/components/src/primitives/Stack';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // DialogV2 is a bare presentation shell — backdrop, face and motion on web,
-// the system sheet on native; it ships no header, footer, actions or padding.
-// Each story composes the entire content, so together they double as the
-// reference for what a caller now owns.
+// the system sheet on native; it ships no header, footer or actions, only
+// the content-inset contract (24pt sides, safe-area bottom). Each story
+// composes the entire content, so together they double as the reference
+// for what a caller now owns.
 
 const LONG_TEXT = [
   'This wallet will be removed from this device only. The recovery phrase is not stored on our servers and cannot be recovered by support.',
@@ -35,9 +36,8 @@ function useDialogState() {
 /**
  * The composition the shell used to build in: heading, subdued description,
  * and a trailing action row. Now caller-side on purpose, so the stories
- * assemble it from these two pieces. No padding here — the web frame keeps
- * the stock 16px; the bare native sheet leaves spacing to real callers
- * (DeviceStage carries its own).
+ * assemble it from these two pieces. No padding here — the shell's own
+ * content inset (24pt sides, safe-area bottom) is the only spacing.
  */
 function Body({
   title,
