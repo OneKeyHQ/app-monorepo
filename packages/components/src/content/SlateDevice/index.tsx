@@ -42,19 +42,25 @@ export interface ISlateDeviceProps extends Omit<
    * the scene supplies the screen, so `screenContent` is ignored.
    */
   animation?: ISlateDeviceScene | ISlateDeviceAnimation;
+  /**
+   * The next entry arrives already lit — granted per arrival by presenters
+   * that carry the entrance themselves (see ../deviceSceneHost).
+   */
+  instantEntry?: boolean;
 }
 
 export function SlateDevice({
   width,
   animation,
   screenContent,
+  instantEntry,
 }: ISlateDeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
     slot,
     animation: sceneAnimation,
-  } = useSceneScreen(target, SCENES);
+  } = useSceneScreen(target, SCENES, instantEntry);
   if (displayed) {
     return (
       <SlateDeviceShell

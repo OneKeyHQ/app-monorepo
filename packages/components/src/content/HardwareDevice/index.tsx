@@ -68,6 +68,11 @@ export interface IHardwareDeviceProps {
   animation?: IHardwareDeviceScene;
   /** Rendered width in points; height follows each model's aspect ratio. */
   width?: number;
+  /**
+   * The next entry arrives already lit — granted per arrival by presenters
+   * that carry the entrance themselves (see ../deviceSceneHost).
+   */
+  instantEntry?: boolean;
 }
 
 /**
@@ -109,8 +114,11 @@ export function HardwareDevice({
   deviceType,
   animation,
   width,
+  instantEntry,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
-  return <Replica width={width} animation={animation} />;
+  return (
+    <Replica width={width} animation={animation} instantEntry={instantEntry} />
+  );
 }
