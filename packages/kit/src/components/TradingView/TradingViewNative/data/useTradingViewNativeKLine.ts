@@ -57,8 +57,9 @@ const HISTORY_BOUNDARY_PREFETCH_CACHE_MAX_SIZE = 100;
 const HISTORY_BOUNDARY_PREFETCH_CACHE_TTL = 24 * 60 * 60 * 1000;
 const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1W';
-const SPARSE_MARKET_HISTORY_SCAN_WINDOW_SECONDS = 24 * 60 * 60;
-const MAX_SPARSE_MARKET_HISTORY_SCAN_PAGE_COUNT = 60;
+const SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE: ITradingViewNativeChartInterval =
+  '1D';
+const MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT = 8;
 const MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT = Math.ceil(
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT / 2,
 );
@@ -199,6 +200,17 @@ interface IHistoryGapRecoveryResult {
   points: IMarketTokenKLineDataPoint[];
 }
 
+interface IHistoryGapRecoveryProgressOptions {
+  coverageState: IHistoryCoverageState;
+  interval: ITradingViewNativeChartInterval;
+  intervalSeconds: number;
+  isActive: () => boolean;
+  onPoints: (points: IMarketTokenKLineDataPoint[]) => void;
+  pagination: IHistoryPaginationState;
+  seriesKey: string;
+  timeTo: number;
+}
+
 interface IScopedVisiblePointRange {
   endIndex: number;
   interval: ITradingViewNativeChartInterval;
@@ -271,6 +283,31 @@ function mergeKLinePoints(
     pointsByTimestamp.set(incomingPoint.t, incomingPoint);
   }
   return normalizeKLinePoints([...pointsByTimestamp.values()]);
+}
+
+function mergeScopedChartDataPoints({
+  currentData,
+  interval,
+  points,
+  seriesKey,
+}: {
+  currentData: IChartData | null;
+  interval: ITradingViewNativeChartInterval;
+  points: IMarketTokenKLineDataPoint[];
+  seriesKey: string;
+}) {
+  if (
+    !points.length ||
+    currentData?.seriesKey !== seriesKey ||
+    currentData.interval !== interval
+  ) {
+    return currentData;
+  }
+  return {
+    ...currentData,
+    chartPictureVersion: currentData.chartPictureVersion + 1,
+    points: mergeKLinePoints(currentData.points, points),
+  };
 }
 
 function areKLinePointsEqual(
@@ -670,7 +707,6 @@ function prefetchHistoryBoundaryPage({
 async function recoverOlderHistoryFromBoundary({
   historyProvider,
   interval,
-  maxPageCount = MAX_SPARSE_MARKET_HISTORY_SCAN_PAGE_COUNT,
   onProgress,
   seriesKey,
   signal,
@@ -707,10 +743,42 @@ async function recoverOlderHistoryFromBoundary({
     };
   }
 
+  const locatorInterval = TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
+    (candidate) =>
+      candidate.value === SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE,
+  );
+  if (!locatorInterval) {
+    return null;
+  }
+  // A daily lookup skips empty calendar spans before minute requests are made.
+  const locatorData = await fetchRequiredHistoryPage({
+    historyProvider,
+    request: {
+      interval: locatorInterval,
+      signal,
+      timeFrom: boundaryTimestamp,
+      timeTo,
+    },
+    unavailableMessage:
+      'No daily candle history response is available for sparse history recovery',
+  });
+  if (signal.aborted) {
+    return null;
+  }
+  const activeDays = normalizeKLinePointsInRange({
+    from: boundaryTimestamp,
+    points: locatorData.points,
+    to: timeTo,
+  });
+  if (!activeDays.length) {
+    return null;
+  }
+
   const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
   let cursorTimeTo = Math.floor(timeTo);
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
+  let activeDayIndex = activeDays.length - 1;
   const buildResult = (): IHistoryGapRecoveryResult => {
     const hasMoreBefore = cursorTimeTo >= boundaryTimestamp;
     return {
@@ -722,15 +790,29 @@ async function recoverOlderHistoryFromBoundary({
     };
   };
   for (
-    let pageIndex = 0;
-    pageIndex < maxPageCount &&
+    let requestIndex = 0;
+    requestIndex < MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT &&
+    activeDayIndex >= 0 &&
     cursorTimeTo >= boundaryTimestamp &&
     points.length < normalizedTargetPointCount;
-    pageIndex += 1
+    requestIndex += 1
   ) {
-    const pageTimeFrom = Math.max(
-      cursorTimeTo - SPARSE_MARKET_HISTORY_SCAN_WINDOW_SECONDS,
-      boundaryTimestamp,
+    while (activeDayIndex >= 0) {
+      const candidateActiveDay = activeDays[activeDayIndex];
+      if (!candidateActiveDay || candidateActiveDay.t <= cursorTimeTo) {
+        break;
+      }
+      activeDayIndex -= 1;
+    }
+    const activeDay = activeDays[activeDayIndex];
+    if (!activeDay) {
+      break;
+    }
+    activeDayIndex -= 1;
+    const pageTimeFrom = Math.max(activeDay.t, boundaryTimestamp);
+    const pageTimeTo = Math.min(
+      cursorTimeTo,
+      activeDay.t + locatorInterval.seconds - 1,
     );
     const data = await fetchRequiredHistoryPage({
       historyProvider,
@@ -738,7 +820,7 @@ async function recoverOlderHistoryFromBoundary({
         interval,
         signal,
         timeFrom: pageTimeFrom,
-        timeTo: cursorTimeTo,
+        timeTo: pageTimeTo,
       },
       unavailableMessage:
         'No candle history response is available for sparse history recovery',
@@ -762,7 +844,7 @@ async function recoverOlderHistoryFromBoundary({
       normalizeKLinePointsInRange({
         from: pageTimeFrom,
         points: data.points,
-        to: cursorTimeTo,
+        to: pageTimeTo,
       }),
     );
     if (mergedPoints.length >= normalizedTargetPointCount) {
@@ -1113,6 +1195,68 @@ function addHistoryCoverageRange({
     intervalSeconds,
     ranges: coverageState.ranges,
   });
+}
+
+function applyHistoryGapRecoveryToPagination({
+  coverageState,
+  interval,
+  intervalSeconds,
+  pagination,
+  recovery,
+  seriesKey,
+  timeTo,
+}: {
+  coverageState: IHistoryCoverageState;
+  interval: ITradingViewNativeChartInterval;
+  intervalSeconds: number;
+  pagination: IHistoryPaginationState;
+  recovery: IHistoryGapRecoveryResult;
+  seriesKey: string;
+  timeTo: number;
+}) {
+  pagination.earliestTimestamp = recovery.cursorTimestamp;
+  pagination.hasMore = recovery.hasMoreBefore;
+  addHistoryCoverageRange({
+    coverageState,
+    from: recovery.cursorTimestamp,
+    interval,
+    intervalSeconds,
+    seriesKey,
+    to: timeTo,
+  });
+}
+
+function createHistoryGapRecoveryProgressHandler({
+  coverageState,
+  interval,
+  intervalSeconds,
+  isActive,
+  onPoints,
+  pagination,
+  seriesKey,
+  timeTo,
+}: IHistoryGapRecoveryProgressOptions) {
+  let appliedCursorTimestamp: number | undefined;
+  return (recovery: IHistoryGapRecoveryResult) => {
+    if (
+      !isActive() ||
+      recovery.historySource === 'fallback' ||
+      appliedCursorTimestamp === recovery.cursorTimestamp
+    ) {
+      return;
+    }
+    appliedCursorTimestamp = recovery.cursorTimestamp;
+    applyHistoryGapRecoveryToPagination({
+      coverageState,
+      interval,
+      intervalSeconds,
+      pagination,
+      recovery,
+      seriesKey,
+      timeTo,
+    });
+    onPoints(recovery.points);
+  };
 }
 
 function getVisibleHistoryGap({
@@ -3200,22 +3344,14 @@ export function useTradingViewNativeKLine({
           const publishOlderPoints = (
             pointsToPublish: IMarketTokenKLineDataPoint[],
           ) => {
-            if (!pointsToPublish.length) {
-              return;
-            }
-            setChartData((currentData) => {
-              if (
-                currentData?.seriesKey !== seriesKey ||
-                currentData.interval !== activeInterval
-              ) {
-                return currentData;
-              }
-              return {
-                ...currentData,
-                chartPictureVersion: currentData.chartPictureVersion + 1,
-                points: mergeKLinePoints(currentData.points, pointsToPublish),
-              };
-            });
+            setChartData((currentData) =>
+              mergeScopedChartDataPoints({
+                currentData,
+                interval: activeInterval,
+                points: pointsToPublish,
+                seriesKey,
+              }),
+            );
           };
 
           if (!olderPoints.length || shouldRecoverSparseHistory) {
@@ -3236,31 +3372,19 @@ export function useTradingViewNativeKLine({
           if (shouldRecoverSparseHistory) {
             publishOlderPoints(olderPoints);
             const recoveryTimeTo = Math.max(timeFrom - 1, 0);
-            let appliedRecoveryCursorTimestamp: number | undefined;
-            const applyRecoveryProgress = (
-              recovery: IHistoryGapRecoveryResult,
-            ) => {
-              if (
-                abortController.signal.aborted ||
-                historyPaginationRef.current !== pagination ||
-                recovery.historySource === 'fallback' ||
-                appliedRecoveryCursorTimestamp === recovery.cursorTimestamp
-              ) {
-                return;
-              }
-              appliedRecoveryCursorTimestamp = recovery.cursorTimestamp;
-              pagination.earliestTimestamp = recovery.cursorTimestamp;
-              pagination.hasMore = recovery.hasMoreBefore;
-              addHistoryCoverageRange({
+            const applyRecoveryProgress =
+              createHistoryGapRecoveryProgressHandler({
                 coverageState: historyCoverageRef.current,
-                from: recovery.cursorTimestamp,
                 interval: activeInterval,
                 intervalSeconds: interval.seconds,
+                isActive: () =>
+                  !abortController.signal.aborted &&
+                  historyPaginationRef.current === pagination,
+                onPoints: publishOlderPoints,
+                pagination,
                 seriesKey,
-                to: timeTo,
+                timeTo,
               });
-              publishOlderPoints(recovery.points);
-            };
             const recovery = await recoverOlderHistoryFromBoundary({
               historyProvider,
               interval,
@@ -3282,7 +3406,6 @@ export function useTradingViewNativeKLine({
             }
             if (!recovery) {
               if (!olderPoints.length) {
-                pagination.hasMore = false;
                 return;
               }
             } else {
@@ -3930,46 +4053,29 @@ export function useTradingViewNativeKLine({
         return;
       }
 
+      pagination.abortController = abortController;
       pagination.isLoading = true;
-      let appliedRecoveryCursorTimestamp: number | undefined;
-      const applyRecoveryProgress = (recovery: IHistoryGapRecoveryResult) => {
-        if (
-          isCancelled ||
-          latestRequestIdRef.current !== requestId ||
-          historyPaginationRef.current !== pagination ||
-          recovery.historySource === 'fallback' ||
-          appliedRecoveryCursorTimestamp === recovery.cursorTimestamp
-        ) {
-          return;
-        }
-        appliedRecoveryCursorTimestamp = recovery.cursorTimestamp;
-        pagination.earliestTimestamp = recovery.cursorTimestamp;
-        pagination.hasMore = recovery.hasMoreBefore;
-        addHistoryCoverageRange({
-          coverageState: historyCoverageRef.current,
-          from: recovery.cursorTimestamp,
-          interval: requestedInterval.value,
-          intervalSeconds: requestedInterval.seconds,
-          seriesKey,
-          to: initialEarliestTimestamp - 1,
-        });
-        if (!recovery.points.length) {
-          return;
-        }
-        setChartData((currentData) => {
-          if (
-            currentData?.seriesKey !== seriesKey ||
-            currentData.interval !== requestedInterval.value
-          ) {
-            return currentData;
-          }
-          return {
-            ...currentData,
-            chartPictureVersion: currentData.chartPictureVersion + 1,
-            points: mergeKLinePoints(currentData.points, recovery.points),
-          };
-        });
-      };
+      const applyRecoveryProgress = createHistoryGapRecoveryProgressHandler({
+        coverageState: historyCoverageRef.current,
+        interval: requestedInterval.value,
+        intervalSeconds: requestedInterval.seconds,
+        isActive: () =>
+          !isCancelled &&
+          latestRequestIdRef.current === requestId &&
+          historyPaginationRef.current === pagination,
+        onPoints: (recoveryPoints) =>
+          setChartData((currentData) =>
+            mergeScopedChartDataPoints({
+              currentData,
+              interval: requestedInterval.value,
+              points: recoveryPoints,
+              seriesKey,
+            }),
+          ),
+        pagination,
+        seriesKey,
+        timeTo: initialEarliestTimestamp - 1,
+      });
       try {
         const recovery = await recoverOlderHistoryFromBoundary({
           historyProvider,
@@ -4010,7 +4116,11 @@ export function useTradingViewNativeKLine({
           );
         }
       } finally {
-        if (historyPaginationRef.current === pagination) {
+        if (
+          historyPaginationRef.current === pagination &&
+          pagination.abortController === abortController
+        ) {
+          pagination.abortController = undefined;
           pagination.isLoading = false;
         }
       }
