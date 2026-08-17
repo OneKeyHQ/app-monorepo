@@ -1,6 +1,26 @@
-import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { shouldContinueOnboardingDeviceScan } from './onboardingDeviceScanErrorUtils';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
+import {
+  isOnboardingHardwareError,
+  shouldContinueOnboardingDeviceScan,
+} from './onboardingDeviceScanErrorUtils';
+
+describe('isOnboardingHardwareError', () => {
+  it('recognizes hardware error metadata rehydrated across native runtimes', () => {
+    const error = Object.assign(new OneKeyLocalError('link disabled'), {
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+    });
+
+    expect(isOnboardingHardwareError(error)).toBe(true);
+  });
+});
 
 describe('shouldContinueOnboardingDeviceScan', () => {
   it('keeps polling while USB temporarily blocks desktop Bluetooth', () => {
