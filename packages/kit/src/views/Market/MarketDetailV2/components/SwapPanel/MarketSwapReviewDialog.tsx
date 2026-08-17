@@ -11,6 +11,7 @@ import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 type IMarketSwapReviewDialogProps = {
   onDone: () => void;
+  onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
@@ -20,6 +21,7 @@ type IMarketSwapReviewDialogProps = {
 
 export function MarketSwapReviewDialog({
   onDone,
+  onConfirmStart,
   adapter,
   reviewState,
   defaultNetworkFeeLevel,
@@ -29,6 +31,7 @@ export function MarketSwapReviewDialog({
   return (
     <SwapReviewDialog
       onDone={onDone}
+      onConfirmStart={onConfirmStart}
       adapter={adapter}
       reviewState={reviewState}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}

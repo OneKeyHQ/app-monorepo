@@ -8,6 +8,8 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
+  removeSwapToAccountUnsupportedAlerts,
+  shouldCheckSwapToAccountUnsupportedAlert,
   shouldShowSwapAccountUnsupportedAlert,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
@@ -113,6 +115,7 @@ import {
   swapProTokenMarketDetailPerpsInfoAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
+  swapProviderSupportReceiveAddressAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentEventProviderKeysAtom,
   swapQuoteCurrentEventReceivedCountAtom,
@@ -142,6 +145,7 @@ import {
   swapTokenMapAtom,
   swapTokenMetadataAtom,
   swapTypeSwitchAtom,
+  swapWarningRequestIdAtom,
 } from './atoms';
 import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
@@ -239,6 +243,22 @@ function isQuoteEventErrorSelectedTokenPair({
         currentAmount: fromTokenAmount,
         eventAmount: quoteEventError.fromTokenAmount,
       })),
+  );
+}
+
+function isSameOptionalSwapToken({
+  token1,
+  token2,
+}: {
+  token1?: ISwapToken;
+  token2?: ISwapToken;
+}) {
+  return (
+    (!token1 && !token2) ||
+    equalTokenNoCaseSensitive({
+      token1,
+      token2,
+    })
   );
 }
 
@@ -1526,9 +1546,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   checkAccountNetworkNotSupportedAlert = async ({
     addressInfo,
     activeNetworkId,
+    message,
   }: {
     addressInfo?: ReturnType<typeof useSwapAddressInfo>;
     activeNetworkId: string;
+    message?: string;
   }) => {
     if (!addressInfo) {
       return undefined;
@@ -1544,11 +1566,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         activeNetworkId,
       });
     if (accountNetworkNotSupported) {
-      return {
+      let unsupportedMessage = message;
+      if (!unsupportedMessage) {
         // eslint-disable-next-line onekey/no-app-locale-main-thread
-        message: appLocale.intl.formatMessage({
+        unsupportedMessage = appLocale.intl.formatMessage({
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
-        }),
+        });
+      }
+      return {
+        message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
       };
     }
@@ -1670,8 +1696,27 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         allowNoConnectWallet?: boolean;
       },
     ) => {
+      const warningRequestId = get(swapWarningRequestIdAtom()) + 1;
+      set(swapWarningRequestIdAtom(), warningRequestId);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
+      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      const swapProviderSupportReceiveAddress = get(
+        swapProviderSupportReceiveAddressAtom(),
+      );
+      const isLatestSwapWarningCheck = () =>
+        get(swapWarningRequestIdAtom()) === warningRequestId &&
+        get(swapTypeSwitchAtom()) === swapTypeSwitch &&
+        get(swapProviderSupportReceiveAddressAtom()) ===
+          swapProviderSupportReceiveAddress &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectFromTokenAtom()),
+          token2: fromToken,
+        }) &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectToTokenAtom()),
+          token2: toToken,
+        });
       const networks = get(swapNetworks());
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
@@ -1685,7 +1730,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapQuoteCurrentEventReceivedCountAtom(),
       );
       const { swapIncognitoMode } = await settingsAtom.get();
-      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      if (!isLatestSwapWarningCheck()) {
+        return;
+      }
       const quoteEventProgressTotalCount = getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
@@ -1737,6 +1784,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteEventErrorAtom(), undefined);
       }
       const isLatestStockWarningCheck = () => {
+        if (!isLatestSwapWarningCheck()) {
+          return false;
+        }
         if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
           return true;
         }
@@ -1792,7 +1842,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         } else {
           const alerts = get(swapAlertsAtom());
-          const nextAlerts = removeSwapNoConnectWalletAlerts(alerts.states);
+          const alertsWithoutNoConnectWallet = removeSwapNoConnectWalletAlerts(
+            alerts.states,
+          );
+          const nextAlerts = removeSwapToAccountUnsupportedAlerts({
+            states: alertsWithoutNoConnectWallet,
+            shouldRemove: Boolean(
+              quoteResult &&
+              isCurrentQuoteResult &&
+              fromToken?.networkId &&
+              toToken?.networkId &&
+              fromToken.networkId !== toToken.networkId &&
+              swapProviderSupportReceiveAddress,
+            ),
+          });
           if (nextAlerts.length !== alerts.states.length) {
             set(swapAlertsAtom(), {
               states: nextAlerts,
@@ -1903,6 +1966,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               addressInfo: swapFromAddressInfo,
               activeNetworkId: fromToken.networkId,
             });
+          if (!isLatestSwapWarningCheck()) {
+            return;
+          }
           if (accountNetworkNotSupportedAlert) {
             alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
             set(swapAlertsAtom(), {
@@ -1913,19 +1979,51 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
+      const toWalletId = swapToAddressInfo.accountInfo?.wallet?.id;
       if (
+        swapToAddressInfo.isAddressInfoReady &&
         toToken &&
-        !swapToAddressInfo.address &&
-        swapToAddressInfo.accountInfo?.wallet?.id &&
+        shouldCheckSwapToAccountUnsupportedAlert({
+          hasToToken: true,
+          hasToAddress: Boolean(swapToAddressInfo.address),
+          hasToAccountWallet: Boolean(toWalletId),
+          isHardwareWallet: accountUtils.isHwWallet({
+            walletId: toWalletId,
+          }),
+          isCrossChain: Boolean(
+            fromToken?.networkId &&
+            toToken?.networkId &&
+            fromToken.networkId !== toToken.networkId,
+          ),
+          providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        }) &&
         alertsRes.every((item) => item.message !== notSupportSwapMessage)
       ) {
+        const toNetworkName =
+          swapSupportAllNetworks.find(
+            (network) => network.networkId === toToken.networkId,
+          )?.name ?? toToken.symbol;
         const accountNetworkNotSupportedAlert =
           await this.checkAccountNetworkNotSupportedAlert({
             addressInfo: swapToAddressInfo,
             activeNetworkId: toToken.networkId,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage(
+              { id: ETranslations.wallet_unsupported_network_title },
+              { network: toNetworkName },
+            ),
           });
+        if (!isLatestSwapWarningCheck()) {
+          return;
+        }
         if (accountNetworkNotSupportedAlert) {
-          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
+          alertsRes = [
+            ...alertsRes,
+            {
+              ...accountNetworkNotSupportedAlert,
+              toAccountNetworkNotSupported: true,
+            },
+          ];
           set(swapAlertsAtom(), {
             states: alertsRes,
             quoteId: quoteResult?.quoteId ?? '',
@@ -1933,7 +2031,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           return;
         }
       }
-
       // check from address
       if (
         fromToken &&
@@ -1962,15 +2059,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken &&
         swapToAddressInfo.isAddressInfoReady &&
         !swapToAddressInfo.address &&
-        (accountUtils.isHdWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        }) ||
-          accountUtils.isHwWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          }) ||
-          accountUtils.isQrWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          }))
+        swapToAddressInfo.targetCanCreateAddress === true
       ) {
         if (!(fromToken && fromToken.networkId === toToken.networkId)) {
           const alertAction = this.checkAddressNeedCreate(

@@ -36,6 +36,7 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { AprText } from './AprText';
+import { EARN_LIST_ROW_GAP } from './earnListRhythm';
 
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
@@ -224,8 +225,28 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
+// Extract the number from the server-side available.text (a localized label
+// followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
+// on the client, so we do not depend on the server copy format (OK-58877).
+//
+// This scrape rests on an invariant the server currently guarantees: the
+// amount is produced by formatNumberWithFlag, which hard-codes '.' as the
+// decimal separator and ',' as the group separator, so the digits are always
+// ASCII regardless of locale — only the surrounding label is translated, and
+// no locale pack embeds a digit in that label. If the server ever switches to
+// locale-aware number formatting (comma decimals, non-Latin digits), this
+// silently truncates or blanks the balance. The durable fix is a structured
+// numeric field on IRecommendV2Token rather than parsing display copy
+// (PR 12791 review P2).
+const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
+function extractAvailableNumber(text?: string) {
+  return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
+}
+
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
+  const intl = useIntl();
   const onPress = useRecommendedItemPress(token);
+  const availableNumber = extractAvailableNumber(token.available?.text);
 
   return (
     <ListItem
@@ -250,6 +271,17 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
               }}
             />
           </XStack>
+        }
+        secondary={
+          // "Balance {number}" subtitle (OK-58877): copy assembled on the
+          // client, number taken from available.text
+          availableNumber ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {`${intl.formatMessage({
+                id: ETranslations.global_balance,
+              })}: ${availableNumber}`}
+            </SizableText>
+          ) : undefined
         }
       />
       <YStack alignItems="flex-end" justifyContent="center">
@@ -540,7 +572,10 @@ function RecommendedSectionContainer({
     <YStack gap="$3">
       <YStack gap="$1" pointerEvents="box-none" px="$pagePadding">
         <SizableText size="$headingLg" pointerEvents="box-none">
-          {intl.formatMessage({ id: ETranslations.market_trending })}
+          {/* Holdings-based recommendations, "Earns on your holding" (OK-58506) */}
+          {intl.formatMessage({
+            id: ETranslations.earns_on_your_holding__title,
+          })}
         </SizableText>
       </YStack>
       {children}
@@ -583,7 +618,7 @@ function RecommendedSectionSkeleton({
         variant={variant}
         disableHorizontalBleed={disableHorizontalBleed}
       >
-        <YStack>
+        <YStack gap={EARN_LIST_ROW_GAP}>
           {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
             <RecommendedListSkeletonItem key={index} />
           ))}
@@ -662,9 +697,13 @@ export function RecommendedSection({
         disableHorizontalBleed={disableHorizontalBleed}
       >
         <YStack>
-          {visibleTokens.map((token) => (
-            <RecommendedListItem key={token.symbol} token={token} />
-          ))}
+          {/* The gap wraps the rows only — the show-more button keeps its own
+              pt, so pulling it inside would stack gap + pt above it (OK-59904) */}
+          <YStack gap={EARN_LIST_ROW_GAP}>
+            {visibleTokens.map((token) => (
+              <RecommendedListItem key={token.symbol} token={token} />
+            ))}
+          </YStack>
           {showMoreButton}
         </YStack>
       </RecommendedSectionContainer>

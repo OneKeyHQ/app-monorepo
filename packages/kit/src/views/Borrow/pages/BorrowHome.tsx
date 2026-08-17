@@ -15,6 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
+import { EBorrowDataStatus } from '../borrowDataStatus';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
@@ -36,6 +37,10 @@ type IBorrowHomeProps = {
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
+  onBorrowHistoryActionChange?: (
+    handler: (() => void) | null,
+    visible: boolean,
+  ) => void;
 };
 
 const BorrowPendingBridge = ({
@@ -72,7 +77,11 @@ const BorrowPendingBridge = ({
 };
 
 const BorrowHomeContent = memo(
-  ({ header, isActive = true }: IBorrowHomeProps) => {
+  ({
+    header,
+    isActive = true,
+    onBorrowHistoryActionChange,
+  }: IBorrowHomeProps) => {
     const tabBarHeight = useScrollContentTabBarOffset();
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
@@ -89,8 +98,13 @@ const BorrowHomeContent = memo(
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
-    const { reserves, market, earnAccount, refreshAllBorrowData } =
-      useBorrowContext();
+    const {
+      reserves,
+      market,
+      earnAccount,
+      refreshAllBorrowData,
+      borrowDataStatus,
+    } = useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
     const alerts = useMemo(
       () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
@@ -121,7 +135,23 @@ const BorrowHomeContent = memo(
         earnAccount.data?.accountAddress,
       ],
     );
-    const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
+    const hasAlertsNow = Boolean(alerts?.length) || showNoAddressWarning;
+    // The two alert sources settle independently (reserves + health factor),
+    // and each re-run briefly drops its result, so this flag flips more than
+    // once during a single load. Every flip swaps Overview's $10 bottom
+    // spacing for the alert block's own margins, which is the ~32pt jump that
+    // appears and is taken back again below the Claimable Rewards row.
+    //
+    // Hold the last settled answer while a load is in flight, so the layout
+    // moves once, when the data is actually final.
+    const lastSettledHasAlertsRef = useRef(false);
+    const isBorrowDataSettled = borrowDataStatus === EBorrowDataStatus.Ready;
+    if (isBorrowDataSettled) {
+      lastSettledHasAlertsRef.current = hasAlertsNow;
+    }
+    const hasAlerts = isBorrowDataSettled
+      ? hasAlertsNow
+      : lastSettledHasAlertsRef.current;
 
     const refreshEarnAccount = earnAccount.refresh;
     const handleCreateAddress = useCallback(async () => {
@@ -157,6 +187,7 @@ const BorrowHomeContent = memo(
             showBottomSpacing={!hasAlerts}
             isActive={isActive}
             onHealthFactorAlertsChange={setHealthFactorAlerts}
+            onBorrowHistoryActionChange={onBorrowHistoryActionChange}
           />
           {hasAlerts ? (
             <YStack
@@ -264,6 +295,7 @@ const BorrowHomeCmp = memo(
     pendingTxs,
     onRegisterBorrowRefresh,
     onBorrowNetworksChange,
+    onBorrowHistoryActionChange,
   }: IBorrowHomeProps) => {
     return (
       <BorrowProvider>
@@ -275,7 +307,11 @@ const BorrowHomeCmp = memo(
           isActive={isActive}
           onBorrowNetworksChange={onBorrowNetworksChange}
         >
-          <BorrowHomeContent header={header} isActive={isActive} />
+          <BorrowHomeContent
+            header={header}
+            isActive={isActive}
+            onBorrowHistoryActionChange={onBorrowHistoryActionChange}
+          />
         </BorrowDataGate>
       </BorrowProvider>
     );

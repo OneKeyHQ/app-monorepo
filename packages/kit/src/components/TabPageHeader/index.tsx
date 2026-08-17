@@ -97,8 +97,8 @@ function BaseDesktopTabPageHeader({
   const theme = useTheme();
 
   const renderUniversalSearchInput = useCallback(
-    () => <UniversalSearchInput />,
-    [],
+    () => <UniversalSearchInput tabRoute={tabRoute} />,
+    [tabRoute],
   );
 
   const renderDesktopModeRightButtons = useCallback(() => {

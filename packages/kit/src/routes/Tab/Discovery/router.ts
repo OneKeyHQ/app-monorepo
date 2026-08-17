@@ -10,6 +10,7 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import { earnLazyPageFallback } from '../../../views/Earn/components/EarnLazyPageFallback';
 import { createMarketDetailV2Route } from '../../../views/Market/MarketDetailV2/MarketDetailV2Route';
 
 const Browser = LazyLoadRootTabPage(
@@ -20,9 +21,36 @@ const DiscoveryDashboard = LazyLoadRootTabPage(
 );
 const EarnProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocols'),
+  earnLazyPageFallback,
+);
+const EarnTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnTokens'),
+  earnLazyPageFallback,
+);
+const EarnFixedRateTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnFixedRateTokens'),
+  earnLazyPageFallback,
+);
+const EarnAllProtocols = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnAllProtocols'),
+  earnLazyPageFallback,
+);
+const EarnProtocolTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnProtocolTokens'),
+  earnLazyPageFallback,
 );
 const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+  earnLazyPageFallback,
+);
+const BorrowHome = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/BorrowHomePage'),
+);
+const EarnPositions = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnPositions'),
+);
+const BorrowReserveDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
 // Market pages for native platforms (Market is embedded in Discovery on mobile)
@@ -46,13 +74,57 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
+    name: ETabEarnRoutes.EarnTokens,
+    component: EarnTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnFixedRateTokens,
+    component: EarnFixedRateTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnAllProtocols,
+    component: EarnAllProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocolTokens,
+    component: EarnProtocolTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    // Earn detail share route (landing for the universal link
+    // /earn/:network/:symbol/:provider). On native, earn pages live in the
+    // Discovery stack; without registering it here, safePushToEarnRoute's push
+    // is silently dropped by React Navigation (tap does nothing)
+    name: ETabEarnRoutes.EarnProtocolDetailsShare,
+    component: EarnProtocolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
     name: ETabEarnRoutes.EarnProtocolDetails,
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
   },
-  // Market pages for native platforms (Market is embedded in Discovery on mobile)
+  // Borrow and Market pages live in the Discovery stack on native.
   ...(platformEnv.isNative
     ? [
+        {
+          name: ETabEarnRoutes.BorrowHome,
+          component: BorrowHome,
+          headerShown: true,
+        },
+        {
+          name: ETabEarnRoutes.EarnPositions,
+          component: EarnPositions,
+          headerShown: true,
+        },
+        {
+          name: ETabEarnRoutes.BorrowReserveDetails,
+          component: BorrowReserveDetails,
+          headerShown: true,
+        },
         {
           name: ETabMarketRoutes.MarketDetailV2,
           component: MarketDetailV2,

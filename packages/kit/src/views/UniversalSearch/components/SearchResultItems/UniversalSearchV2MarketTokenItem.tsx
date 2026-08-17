@@ -37,7 +37,10 @@ import {
   formatTokenSymbolForDisplay,
   getTokenPriceChangeStyle,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchV2MarketToken,
+} from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
@@ -154,12 +157,14 @@ interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
   isTrending?: boolean;
   getSearchInput?: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
   isTrending,
   getSearchInput,
+  source,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
@@ -212,6 +217,7 @@ export function UniversalSearchV2MarketTokenItem({
     const searchText = getSearchInput?.();
     if (searchText) {
       defaultLogger.universalSearch.search.universalSearchClick({
+        source,
         searchText,
         type: item.type,
         itemId: address ?? symbol ?? '',
@@ -269,6 +275,7 @@ export function UniversalSearchV2MarketTokenItem({
     item.type,
     toMarketDetailPage,
     appNavigation,
+    source,
   ]);
 
   if (!isMounted) {

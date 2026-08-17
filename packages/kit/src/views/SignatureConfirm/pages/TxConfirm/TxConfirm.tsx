@@ -84,6 +84,7 @@ function TxConfirm() {
     unsignedTxs,
     isQueueMode,
     unsignedTxQueue,
+    gasAccountScenario,
   } = route.params;
 
   const {
@@ -460,6 +461,7 @@ function TxConfirm() {
           networkId={networkId}
           accountId={accountId}
           transferPayload={transferPayload}
+          gasAccountScenario={gasAccountScenario}
         />
         {sourceInfo?.origin ? (
           <DAppSiteMark
@@ -499,6 +501,7 @@ function TxConfirm() {
     networkId,
     accountId,
     transferPayload,
+    gasAccountScenario,
     sourceInfo?.origin,
     urlSecurityInfo,
     securityCheckRequestKey,

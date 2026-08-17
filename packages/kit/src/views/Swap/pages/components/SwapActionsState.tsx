@@ -63,6 +63,7 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
+import { shouldRequireSwapRecipientAddress } from '../../hooks/useSwapAccount.utils';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -125,9 +126,6 @@ const SwapActionsState = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
     useSwapQuoteProgressState();
-  const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
-    swapEnableRecipientAddress,
-  );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
@@ -180,13 +178,34 @@ const SwapActionsState = ({
     [incognitoTooltipContent],
   );
 
+  const requiresCustomRecipient = shouldRequireSwapRecipientAddress({
+    fromNetworkId: fromToken?.networkId,
+    toNetworkId: toToken?.networkId,
+    fromAddress: swapFromAddressInfo.address,
+    toAddress: swapToAddressInfo.address,
+    hasActionableQuote: Boolean(currentQuoteRes?.toAmount),
+    hasSelectedRecipient: Boolean(
+      !swapEnableRecipientAddress &&
+      swapToAnotherAccountSwitchOn &&
+      swapToAnotherAccountAddress.address,
+    ),
+    isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+    incognitoMode: swapIncognitoMode,
+    providerSupportsRecipient: swapProviderSupportReceiveAddress,
+    swapType: swapTypeSwitch,
+    targetCanCreateAddress: swapToAddressInfo.targetCanCreateAddress,
+  });
+  const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
+    swapEnableRecipientAddress || requiresCustomRecipient,
+  );
+
   const shouldShowRecipient = useMemo(
     () =>
       !!(
         (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
           swapTypeSwitch === ESwapTabSwitchType.STOCK ||
           !swapIncognitoMode) &&
-        swapEnableRecipientAddress &&
+        (swapEnableRecipientAddress || requiresCustomRecipient) &&
         swapProviderSupportReceiveAddress &&
         fromToken &&
         toToken
@@ -194,6 +213,7 @@ const SwapActionsState = ({
     [
       swapIncognitoMode,
       swapEnableRecipientAddress,
+      requiresCustomRecipient,
       swapProviderSupportReceiveAddress,
       fromToken,
       swapTypeSwitch,
@@ -297,8 +317,15 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const shouldOpenRecipientFromAction =
+    requiresCustomRecipient &&
+    swapActionState.label ===
+      intl.formatMessage({
+        id: ETranslations.swap_page_button_enter_a_recipient,
+      });
+
   const isActionDisabled =
-    swapActionState.disabled ||
+    (swapActionState.disabled && !shouldOpenRecipientFromAction) ||
     swapActionState.isLoading ||
     shouldBlockIncognitoRecipientAction;
 
@@ -316,6 +343,10 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldOpenRecipientFromAction) {
+      onOpenRecipientAddress();
       return;
     }
     if (shouldBlockIncognitoRecipientAction) {
@@ -339,9 +370,11 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onOpenRecipientAddress,
     onPreSwap,
     quoteAction,
     shouldBlockIncognitoRecipientAction,
+    shouldOpenRecipientFromAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
     swapIncognitoMode,
@@ -587,6 +620,7 @@ const SwapActionsState = ({
               {recipientSendToLabel}
             </SizableText>
             <SizableText
+              testID={SwapTestIDs.recipientPickerButton}
               flexShrink={0}
               size="$bodyMd"
               cursor="pointer"
@@ -649,6 +683,7 @@ const SwapActionsState = ({
             {recipientSendToLabel}
           </SizableText>
           <SizableText
+            testID={SwapTestIDs.recipientPickerButton}
             flexShrink={1}
             minWidth={0}
             size="$bodyMd"
@@ -710,6 +745,7 @@ const SwapActionsState = ({
               {recipientSendToLabel}
             </SizableText>
             <SizableText
+              testID={SwapTestIDs.recipientPickerButton}
               flexShrink={0}
               size="$bodyMd"
               cursor="pointer"

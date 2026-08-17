@@ -38,7 +38,6 @@ import {
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,7 +69,6 @@ import type {
   IFeeTron,
   IFeeUTXO,
   IGasAccountQuote,
-  IGasAccountUiState,
   IGasEIP1559,
   IGasLegacy,
   IGasPayer,
@@ -130,13 +128,21 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import {
-  EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
-} from '../../SignatureConfirm/constants/gasAccountErrorCodes';
+import { EGasAccountErrorStrategy } from '../../SignatureConfirm/constants/gasAccountErrorCodes';
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
+  buildDirectSwapGasAccountAnalyticsContext,
+  buildDirectSwapGasAccountUiState,
+  createGasAccountReviewSession,
+  logDirectSwapGasAccountDecision,
+  logGasAccountReviewExit,
+  markGasAccountReviewSubmitted,
+  runDirectSwapGasAccountStep,
+  sendDirectSwapWithGasAccountAnalytics,
+} from '../utils/gasAccountAnalytics';
+import {
   type ISwapBtcOutputValidationError,
+  buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapRequiredNativeBalanceAmount,
@@ -310,7 +316,8 @@ export function useSwapBuildTx() {
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
-  const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
+  const [persistSettings, setPersistSettings] = useSettingsPersistAtom();
+  const { isFirstTimeSwap } = persistSettings;
   const swapActionState = useSwapActionState();
   const [swapNetWorkFeeLevel] = useSwapStepNetFeeLevelAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -329,6 +336,22 @@ export function useSwapBuildTx() {
   if (swapStepsRef.current !== swapSteps) {
     swapStepsRef.current = swapSteps;
   }
+  const gasAccountReviewSessionRef = useRef<
+    ReturnType<typeof createGasAccountReviewSession> | undefined
+  >(undefined);
+
+  const beginGasAccountReviewSession = useCallback(() => {
+    gasAccountReviewSessionRef.current = createGasAccountReviewSession();
+  }, []);
+
+  const endGasAccountReviewSession = useCallback(() => {
+    logGasAccountReviewExit(gasAccountReviewSessionRef.current);
+    gasAccountReviewSessionRef.current = undefined;
+  }, []);
+
+  const markCurrentGasAccountReviewSubmitted = useCallback(() => {
+    markGasAccountReviewSubmitted(gasAccountReviewSessionRef.current);
+  }, []);
 
   const isModalPage = useIsOverlayPage();
 
@@ -695,39 +718,54 @@ export function useSwapBuildTx() {
         fromAmount: amount,
         otherFeeInfos,
       });
-
-      if (!nativeBalanceRequirement) {
-        return true;
+      const firstGasInfo = gasInfos?.find((item) => item.gasInfo)?.gasInfo;
+      const nativeToken =
+        nativeBalanceRequirement?.token ??
+        (firstGasInfo
+          ? buildNativeTokenFromGasInfo({
+              gasInfo: firstGasInfo,
+              networkId,
+              fromToken: token,
+            })
+          : undefined);
+      if (!nativeToken) {
+        return { isSufficient: true };
       }
 
       const checkResult = await checkSwapLatestBalanceSufficient({
-        token: nativeBalanceRequirement.token,
-        amount: nativeBalanceRequirement.amount,
+        token: nativeToken,
+        amount: nativeBalanceRequirement?.amount ?? '0',
         accountAddress: fromUserAddress,
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
         const toastId = [
           'swap-native-balance-insufficient',
-          nativeBalanceRequirement.token.networkId,
+          nativeToken.networkId,
           checkResult.tokenSymbol,
-          nativeBalanceRequirement.reserveAmount,
+          nativeBalanceRequirement?.reserveAmount,
         ].join('-');
         const { title, message } = getSwapBalanceInsufficientToast({
-          networkId: nativeBalanceRequirement.token.networkId,
+          networkId: nativeToken.networkId,
           tokenSymbol: checkResult.tokenSymbol,
-          reserveAmount: nativeBalanceRequirement.includesFromAmount
+          reserveAmount: nativeBalanceRequirement?.includesFromAmount
             ? undefined
-            : nativeBalanceRequirement.reserveAmount,
+            : nativeBalanceRequirement?.reserveAmount,
         });
         Toast.error({
           title,
           message,
           toastId,
         });
-        return false;
+        return {
+          isSufficient: false,
+          nativeBalance: checkResult.balance,
+        };
       }
-      return true;
+      return {
+        isSufficient: true,
+        nativeBalance: checkResult.balance,
+      };
     },
     [fromAccountId, fromUserAddress, getSwapBalanceInsufficientToast],
   );
@@ -941,7 +979,18 @@ export function useSwapBuildTx() {
         otherFeeInfos:
           unsignedTxItem.swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
       });
-      if (!checkLatestNativeBalanceRes) {
+      const gasAccountAnalyticsContext =
+        buildDirectSwapGasAccountAnalyticsContext({
+          entryPoint: 'swapDirect',
+          networkId,
+          unsignedTx: unsignedTxItem,
+          gasInfo,
+          txSize,
+          nativeBalance: checkLatestNativeBalanceRes.nativeBalance,
+          useGasAccountByDefault: persistSettings.useGasAccountByDefault,
+          fiatCurrency: persistSettings.currencyInfo.id,
+        });
+      if (!checkLatestNativeBalanceRes.isSufficient) {
         throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
       }
       setSwapSteps(
@@ -963,92 +1012,58 @@ export function useSwapBuildTx() {
           };
         },
       );
-      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-        networkId,
-        accountId,
-        unsignedTxs: [updatedUnsignedTxItem],
-        precheckTiming: ESendPreCheckTimingEnum.Confirm,
-      });
-      await backgroundApiProxy.serviceTransaction.verifyTransaction({
-        networkId,
-        accountId,
-        verifyTxTasks: ['feeInfo'],
-        verifyTxFeeInfoParams: {
-          feeAmount: totalNative,
-          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
-          doubleConfirm: true,
+      await runDirectSwapGasAccountStep({
+        context: gasAccountAnalyticsContext,
+        failureStage: 'precheck',
+        task: async () => {
+          await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+            networkId,
+            accountId,
+            unsignedTxs: [updatedUnsignedTxItem],
+            precheckTiming: ESendPreCheckTimingEnum.Confirm,
+          });
+          await backgroundApiProxy.serviceTransaction.verifyTransaction({
+            networkId,
+            accountId,
+            verifyTxTasks: ['feeInfo'],
+            verifyTxFeeInfoParams: {
+              feeAmount: totalNative,
+              feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
+              doubleConfirm: true,
+            },
+            encodedTx: updatedUnsignedTxItem.encodedTx,
+          });
         },
-        encodedTx: updatedUnsignedTxItem.encodedTx,
       });
-      // When estimate-fee confirmed Gas Account sponsorship, attach the quote so
-      // broadcast pays via the sponsor. Mirrors the transaction-confirm page
-      // (TxFeeInfo): selectedPayer 'gasAccount' + `gas-account:${quoteId}` key.
-      const gasAccountUiState: IGasAccountUiState | undefined =
-        gasInfo.gasAccountEligible &&
-        gasInfo.payer === 'gasAccount' &&
-        gasInfo.gasAccountQuote?.quoteId
-          ? {
-              payer: gasInfo.payer,
-              gasAccountEligible: true,
-              gasAccountQuote: gasInfo.gasAccountQuote,
-              selectedPayer: 'gasAccount',
-              // Same nonce the quote was bound to at estimate-fee time.
-              lockedUserNonce:
-                typeof updatedUnsignedTxItem.nonce === 'number'
-                  ? updatedUnsignedTxItem.nonce
-                  : undefined,
-              idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
-            }
-          : undefined;
+      const gasAccountUiState = buildDirectSwapGasAccountUiState({
+        gasInfo,
+        unsignedTx: updatedUnsignedTxItem,
+      });
       const sendTxParams = {
         networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false as const,
       };
-      let res: Awaited<
-        ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
-      >;
-      try {
-        res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
-          ...sendTxParams,
-          gasAccountUiState,
-        });
-      } catch (e) {
-        // Broadcast failed at the gas-account layer. Route by the same strategy
-        // table the confirm page (TxConfirmActions) uses. Plain (non
-        // gas-account) errors, and errors on a non-sponsored send, propagate.
-        const entry = gasAccountUiState
-          ? getGasAccountErrorEntry(getGasAccountErrorCode(e))
-          : undefined;
-        if (!entry) {
-          throw e;
-        }
-        // Mute the original bridge error so the global handler doesn't toast it
-        // (would duplicate the mapped message / conflict with suppressToast).
-        (e as IOneKeyError).autoToast = false;
-        const message = intl.formatMessage({ id: entry.messageKey });
-        // Honor the suppressToast contract (e.g. daily-limit codes stay silent).
-        if (!entry.suppressToast) {
-          Toast.error({ title: message });
-        }
-        if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
-          // Sponsor path unavailable for this attempt (pool exhausted, daily
-          // limit, sponsor down …). Mirror the confirm page: drop the sponsor
-          // quote and resend once as user-paid so the swap can still go through
-          // when the user has native for gas. A user-paid failure (e.g. no
-          // native) then propagates honestly.
-          res =
-            await backgroundApiProxy.serviceSend.signAndSendTransaction(
-              sendTxParams,
-            );
-        } else {
-          // Refresh (quote/nonce stale — already prevented in Swap by the
-          // fresh estimate-at-send + locked nonce) and Hint (terminal) fail the
-          // step. OneKeyAppError avoids the tx-confirm fallback and a 2nd toast.
-          throw new OneKeyAppError({ message, autoToast: false });
-        }
-      }
+      const res = await sendDirectSwapWithGasAccountAnalytics({
+        context: gasAccountAnalyticsContext,
+        gasAccountUiState,
+        send: (uiState) =>
+          backgroundApiProxy.serviceSend.signAndSendTransaction({
+            ...sendTxParams,
+            gasAccountUiState: uiState,
+          }),
+        onGasAccountError: (error, entry) => {
+          (error as IOneKeyError).autoToast = false;
+          const message = intl.formatMessage({ id: entry.messageKey });
+          if (!entry.suppressToast) {
+            Toast.error({ title: message });
+          }
+          if (entry.strategy !== EGasAccountErrorStrategy.Fallback) {
+            throw new OneKeyAppError({ message, autoToast: false });
+          }
+        },
+      });
       const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
         networkId,
         accountId,
@@ -1083,6 +1098,8 @@ export function useSwapBuildTx() {
       checkLatestNativeTokenBalance,
       getSwapBtcOutputValidationToast,
       intl,
+      persistSettings.currencyInfo.id,
+      persistSettings.useGasAccountByDefault,
       setSwapSteps,
     ],
   );
@@ -1360,6 +1377,7 @@ export function useSwapBuildTx() {
         payer?: IGasPayer;
         gasAccountEligible?: boolean;
         gasAccountQuote?: IGasAccountQuote;
+        gasAccountScenarioReason?: string;
       },
       gasCommon: {
         baseFee?: string;
@@ -1436,6 +1454,7 @@ export function useSwapBuildTx() {
         payer: gasRes.payer,
         gasAccountEligible: gasRes.gasAccountEligible,
         gasAccountQuote: gasRes.gasAccountQuote,
+        gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
       };
     },
     [
@@ -3103,6 +3122,7 @@ export function useSwapBuildTx() {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
+      const gasAccountReviewSession = gasAccountReviewSessionRef.current;
       const swapInfo = buildUnsignedParams?.swapInfo;
       // Gas Account sponsorship pre-check from the build-tx response; forwarded
       // to estimate-fee so the preview can decide whether to show the sponsored
@@ -3376,7 +3396,31 @@ export function useSwapBuildTx() {
               swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
           },
         );
-        if (!checkLatestNativeBalanceRes) {
+        const swapGasFeeInfo = findGasInfo(gasFeeInfos, unsignedTx.encodedTx);
+        const gasAccountAnalyticsContext = swapGasFeeInfo
+          ? buildDirectSwapGasAccountAnalyticsContext({
+              entryPoint: 'swapDirect',
+              networkId,
+              unsignedTx,
+              gasInfo: swapGasFeeInfo.gasInfo,
+              txSize: swapGasFeeInfo.txSize,
+              nativeBalance: checkLatestNativeBalanceRes.nativeBalance,
+              useGasAccountByDefault: persistSettings.useGasAccountByDefault,
+              fiatCurrency: persistSettings.currencyInfo.id,
+            })
+          : undefined;
+        if (
+          gasAccountAnalyticsContext &&
+          gasAccountReviewSession &&
+          gasAccountReviewSessionRef.current === gasAccountReviewSession
+        ) {
+          gasAccountReviewSession.analyticsContext = gasAccountAnalyticsContext;
+          if (!gasAccountReviewSession.decisionLogged) {
+            gasAccountReviewSession.decisionLogged = true;
+            logDirectSwapGasAccountDecision(gasAccountAnalyticsContext);
+          }
+        }
+        if (!checkLatestNativeBalanceRes.isSufficient) {
           throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
         }
         const gasFeeFiatValues = await Promise.all(
@@ -3428,6 +3472,9 @@ export function useSwapBuildTx() {
       fromAccountId,
       fromUserAddress,
       checkLatestNativeTokenBalance,
+      findGasInfo,
+      persistSettings.currencyInfo.id,
+      persistSettings.useGasAccountByDefault,
     ],
   );
 
@@ -3846,5 +3893,12 @@ export function useSwapBuildTx() {
     ],
   );
 
-  return { preSwapStepsStart, cancelLimitOrder, preSwapBeforeStepActions };
+  return {
+    preSwapStepsStart,
+    cancelLimitOrder,
+    preSwapBeforeStepActions,
+    beginGasAccountReviewSession,
+    endGasAccountReviewSession,
+    markCurrentGasAccountReviewSubmitted,
+  };
 }
