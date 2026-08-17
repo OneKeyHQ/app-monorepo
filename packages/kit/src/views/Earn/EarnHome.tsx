@@ -76,7 +76,7 @@ function BasicEarnHome({
   /** Owns data fetching: only the committed tab requests. */
   showContent?: boolean;
   /**
-   * Owns painting. The outer pager reveals the neighbouring page as soon as the
+   * Owns painting. The outer pager reveals the neighboring page as soon as the
    * finger moves, but showContent only flips once the swipe commits, so the
    * body stayed display:none for the whole gesture and the user swiped onto a
    * blank page (OK-60300). Deliberately separate from showContent so following

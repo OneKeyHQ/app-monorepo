@@ -235,7 +235,7 @@ function OuterTabPagerViewComponent({
         wasUserDragRef.current = true;
         setTransitioning(true);
         // 'dragging' arrives before the first onPageScroll offset, so the
-        // direction is still unknown. Mount both neighbours now; the pager has
+        // direction is still unknown. Mount both neighbors now; the pager has
         // already started revealing one of them, and waiting for the
         // runOnJS(onPageScroll) round trip is what left a blank page on screen
         // for the first frames of the swipe (OK-60300).
@@ -335,7 +335,7 @@ function OuterTabPagerViewComponent({
           );
         }
         // Direction not resolved yet (the 'dragging' window): keep both
-        // neighbours alive so whichever one the finger reveals already has
+        // neighbors alive so whichever one the finger reveals already has
         // native views. Only lasts for the drag — idle falls back to the
         // single active page below.
         return Math.abs(activePageIndex - pageIndex) > 1;
