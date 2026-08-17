@@ -1,4 +1,5 @@
 import {
+  type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
@@ -139,12 +140,19 @@ interface IBaseTradingViewV2Props {
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   showNativeIndicatorQuickBar?: boolean;
-  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
+
+export type ITradingViewNativeIndicatorQuickBarState =
+  | { status: 'loading'; quickBar: null }
+  | { status: 'hidden'; quickBar: null }
+  | { status: 'visible'; quickBar: ReactElement };
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
@@ -670,6 +678,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [resetInteractionLocks, webRef],
   );
 
+  const isNativeIndicatorQuickBarAvailabilityResolved =
+    !enableNativeChartControls ||
+    !showNativeIndicatorQuickBar ||
+    nativeChartControlsConfig !== null;
+
   const nativeIndicatorQuickBar = useMemo(() => {
     if (
       !enableNativeChartControls ||
@@ -701,9 +714,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     showNativeIndicatorQuickBar,
   ]);
 
+  const nativeIndicatorQuickBarState =
+    useMemo<ITradingViewNativeIndicatorQuickBarState>(() => {
+      if (!isNativeIndicatorQuickBarAvailabilityResolved) {
+        return { status: 'loading', quickBar: null };
+      }
+      if (!nativeIndicatorQuickBar) {
+        return { status: 'hidden', quickBar: null };
+      }
+      return { status: 'visible', quickBar: nativeIndicatorQuickBar };
+    }, [
+      isNativeIndicatorQuickBarAvailabilityResolved,
+      nativeIndicatorQuickBar,
+    ]);
+
   useEffect(() => {
-    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBar);
-  }, [nativeIndicatorQuickBar, onNativeIndicatorQuickBarChange]);
+    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBarState);
+  }, [nativeIndicatorQuickBarState, onNativeIndicatorQuickBarChange]);
 
   useEffect(() => {
     return () => {
@@ -717,7 +744,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
 
     return () => {
-      onNativeIndicatorQuickBarChange(null);
+      onNativeIndicatorQuickBarChange({
+        status: 'loading',
+        quickBar: null,
+      });
     };
   }, [onNativeIndicatorQuickBarChange]);
 

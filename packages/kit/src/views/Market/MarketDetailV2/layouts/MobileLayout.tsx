@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useHyperLiquidKlineSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks';
 import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
@@ -222,7 +223,9 @@ function MobileMarketTradingView({
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
-  onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
+  onNativeIndicatorQuickBarChange: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeSubIndicatorCountChange: (
     count: number | null,
     options?: { layoutRestored?: boolean },
@@ -447,8 +450,12 @@ export function MobileLayout({
     isTradingViewInteractionOverlayOpen,
     setIsTradingViewInteractionOverlayOpen,
   ] = useState(false);
-  const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
-    useState<ReactNode | null>(null);
+  const [nativeIndicatorQuickBarState, setNativeIndicatorQuickBarState] =
+    useState<ITradingViewNativeIndicatorQuickBarState>({
+      status: 'loading',
+      quickBar: null,
+    });
+  const { quickBar: nativeIndicatorQuickBar } = nativeIndicatorQuickBarState;
   const persistWebViewSubIndicatorCount = useCallback(
     (count: number) => {
       if (!platformEnv.isNative || useTradingViewNative) {
@@ -530,7 +537,10 @@ export function MobileLayout({
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
     if (useTradingViewNative) {
-      setNativeIndicatorQuickBar(null);
+      setNativeIndicatorQuickBarState({
+        status: 'loading',
+        quickBar: null,
+      });
     }
   }, [networkId, tokenAddress, tokenSymbol, useTradingViewNative]);
 
@@ -541,8 +551,8 @@ export function MobileLayout({
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
   const handleNativeIndicatorQuickBarChange = useCallback(
-    (quickBar: ReactNode | null) => {
-      setNativeIndicatorQuickBar(() => quickBar);
+    (state: ITradingViewNativeIndicatorQuickBarState) => {
+      setNativeIndicatorQuickBarState(state);
     },
     [],
   );
@@ -584,11 +594,15 @@ export function MobileLayout({
     return 'calc(100vh - 96px - 74px - 250px)';
   }, [height, tradingViewSubIndicatorCount]);
 
+  const shouldReserveNativeIndicatorQuickBar =
+    platformEnv.isNative &&
+    !useTradingViewNative &&
+    nativeIndicatorQuickBarState.status !== 'hidden';
+
   const tradingViewChartHeight = useMemo(() => {
     if (
       typeof tradingViewHeight === 'number' &&
-      platformEnv.isNative &&
-      !useTradingViewNative
+      shouldReserveNativeIndicatorQuickBar
     ) {
       return Math.max(
         0,
@@ -597,7 +611,7 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [tradingViewHeight, useTradingViewNative]);
+  }, [shouldReserveNativeIndicatorQuickBar, tradingViewHeight]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -728,8 +742,8 @@ export function MobileLayout({
               })()}
             </Stack>
           </HeaderScrollGestureWrapper>
-          {/* Reserve the async quick bar so the TradingView WebView never resizes. */}
-          {platformEnv.isNative && !useTradingViewNative ? (
+          {/* Reserve the async quick bar until its availability is known. */}
+          {shouldReserveNativeIndicatorQuickBar ? (
             <Stack
               h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
               bg="$bgApp"
@@ -772,6 +786,7 @@ export function MobileLayout({
     marketTradingViewStorageNamespace,
     nativeIndicatorQuickBar,
     networkId,
+    shouldReserveNativeIndicatorQuickBar,
     tradingViewNativeSource,
     tradingViewChartHeight,
     useTradingViewNative,
