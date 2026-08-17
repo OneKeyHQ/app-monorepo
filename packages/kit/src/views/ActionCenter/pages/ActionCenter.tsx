@@ -16,12 +16,13 @@ export default function ActionCenter() {
   const navigation = useNavigation();
   const theme = useTheme();
   const themeVariant = useThemeVariant();
+  const canvasBackgroundColor =
+    themeVariant === 'light' ? theme.bgSubdued.val : theme.bgApp.val;
   const nativeHeaderStyle = useMemo(
     () => ({
-      backgroundColor:
-        themeVariant === 'light' ? theme.bgSubdued.val : theme.bgApp.val,
+      backgroundColor: canvasBackgroundColor,
     }),
-    [theme.bgApp.val, theme.bgSubdued.val, themeVariant],
+    [canvasBackgroundColor],
   );
 
   useLayoutEffect(() => {
@@ -38,7 +39,7 @@ export default function ActionCenter() {
   // tall empty band under the bar. The pt: top branch is kept for iOS
   // <26 / Android / web where there's no native bar to reserve space.
   return (
-    <Page>
+    <Page backgroundColor={canvasBackgroundColor}>
       <Page.Body
         pt={platformEnv.isNativeIOS26Plus ? 0 : top}
         bg="$bgSubdued"
