@@ -306,6 +306,7 @@ describe('TradingViewV2 native source discovery', () => {
         tokenAddress="0xabc"
         networkId="evm--1"
         decimal={8}
+        historyStartTime={123}
       />,
     );
 
@@ -321,6 +322,12 @@ describe('TradingViewV2 native source discovery', () => {
 
     expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledTimes(
       1,
+    );
+    expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledWith(
+      expect.objectContaining({ historyStartTime: 123 }),
+    );
+    expect(mockPrefetchTradingViewV2FirstScreenData).toHaveBeenCalledWith(
+      expect.objectContaining({ historyStartTime: 123 }),
     );
     expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
 
@@ -550,6 +557,65 @@ describe('TradingViewV2 native source discovery', () => {
 
     expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
       expect.objectContaining({ activeInterval: '240' }),
+    );
+  });
+
+  it('accepts the new document interval after a WebView reload', () => {
+    const intervals = [
+      { label: '1m', value: '1' },
+      { label: '4H', value: '240' },
+    ];
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        enableNativeChartControls
+      />,
+    );
+
+    const getMessageHandlerParams = () =>
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onIntervalConfigChange?: (
+              data: ITradingViewIntervalConfigData,
+            ) => void;
+          }
+        | undefined;
+
+    act(() => {
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '1',
+      });
+      (
+        mockNativeChartControlsProps?.onIntervalChange as
+          | ((interval: string) => void)
+          | undefined
+      )?.('240');
+    });
+    expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
+      expect.objectContaining({ activeInterval: '240' }),
+    );
+
+    act(() => {
+      (
+        mockWebViewProps.at(-1)?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      getMessageHandlerParams()?.onIntervalConfigChange?.({
+        intervals,
+        activeInterval: '1',
+      });
+    });
+
+    expect(mockNativeChartControlsProps?.intervalConfig).toEqual(
+      expect.objectContaining({ activeInterval: '1' }),
+    );
+    expect(mockUseTradingViewV2WebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ chartType: '1' }),
     );
   });
 

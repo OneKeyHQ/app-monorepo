@@ -33,10 +33,14 @@ interface IMarketPriceUpdatePayload {
 }
 
 function normalizeMarketWsKLineInterval(interval: string | undefined): string {
-  switch (interval) {
+  const normalizedInterval = interval?.trim();
+  switch (normalizedInterval) {
     case '1':
     case '1m':
       return '1m';
+    case '3':
+    case '3m':
+      return '3m';
     case '5':
     case '5m':
       return '5m';
@@ -50,18 +54,35 @@ function normalizeMarketWsKLineInterval(interval: string | undefined): string {
     case '1h':
     case '1H':
       return '1h';
+    case '120':
+    case '2h':
+    case '2H':
+      return '2h';
     case '240':
     case '4h':
     case '4H':
       return '4h';
+    case '480':
+    case '8h':
+    case '8H':
+      return '8h';
+    case '720':
+    case '12h':
+    case '12H':
+      return '12h';
     case '1d':
     case '1D':
       return '1d';
+    case '3d':
+    case '3D':
+      return '3d';
     case '1w':
     case '1W':
       return '1w';
+    case '1M':
+      return '1M';
     default:
-      return interval || '1m';
+      return normalizedInterval || '1m';
   }
 }
 

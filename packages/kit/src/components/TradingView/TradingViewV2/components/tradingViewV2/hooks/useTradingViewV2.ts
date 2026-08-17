@@ -64,7 +64,11 @@ interface ITradingViewV2FirstScreenPrefetchRecord {
 
 interface ITradingViewV2FirstScreenPrefetchSubscriberParams extends Pick<
   ITradingViewV2FirstScreenPrefetchParams,
-  'tokenAddress' | 'networkId' | 'kLineProvider' | 'kLineProviderSymbol'
+  | 'tokenAddress'
+  | 'networkId'
+  | 'kLineProvider'
+  | 'kLineProviderSymbol'
+  | 'historyStartTime'
 > {
   interval: string;
   onResult: (
@@ -241,6 +245,12 @@ function normalizeKLineRequestInterval(interval: string) {
   }
 }
 
+function normalizeKLineHistoryStartTime(historyStartTime: number | undefined) {
+  return Number.isFinite(historyStartTime) && (historyStartTime ?? 0) >= 0
+    ? Math.floor(historyStartTime ?? 0)
+    : undefined;
+}
+
 function getKLineIntervalSeconds(interval: string) {
   const match =
     normalizeKLineRequestInterval(interval).match(/^(\d+)([mHDWMy])$/);
@@ -328,6 +338,7 @@ function buildKLineRequestKey({
   interval,
   kLineProvider = 'onekey',
   kLineProviderSymbol,
+  historyStartTime,
 }: Pick<
   ITradingViewV2Params,
   | 'tokenAddress'
@@ -335,6 +346,7 @@ function buildKLineRequestKey({
   | 'interval'
   | 'kLineProvider'
   | 'kLineProviderSymbol'
+  | 'historyStartTime'
 >) {
   const normalizedInterval = normalizeKLineRequestInterval(interval);
   const normalizedNetworkId = networkId.trim();
@@ -343,6 +355,8 @@ function buildKLineRequestKey({
       networkId: normalizedNetworkId,
       contractAddress: tokenAddress.trim(),
     }) ?? '';
+  const normalizedHistoryStartTime =
+    normalizeKLineHistoryStartTime(historyStartTime);
 
   return [
     kLineProvider,
@@ -350,6 +364,7 @@ function buildKLineRequestKey({
     normalizedNetworkId,
     normalizedTokenAddress,
     normalizedInterval,
+    normalizedHistoryStartTime ?? '',
   ].join(':');
 }
 
@@ -369,6 +384,7 @@ export function subscribeTradingViewV2FirstScreenPrefetch({
   interval,
   kLineProvider,
   kLineProviderSymbol,
+  historyStartTime,
   onResult,
   onError,
 }: ITradingViewV2FirstScreenPrefetchSubscriberParams) {
@@ -379,6 +395,7 @@ export function subscribeTradingViewV2FirstScreenPrefetch({
     interval,
     kLineProvider,
     kLineProviderSymbol,
+    historyStartTime,
   });
   let isActive = true;
   const handleRecord = (record: ITradingViewV2FirstScreenPrefetchRecord) => {
@@ -1416,6 +1433,7 @@ export function prefetchTradingViewV2FirstScreenData(
     interval,
     kLineProvider: params.kLineProvider,
     kLineProviderSymbol: params.kLineProviderSymbol,
+    historyStartTime: params.historyStartTime,
   });
   const existingRecord = firstScreenPrefetchRecords.get(key);
   if (existingRecord) {

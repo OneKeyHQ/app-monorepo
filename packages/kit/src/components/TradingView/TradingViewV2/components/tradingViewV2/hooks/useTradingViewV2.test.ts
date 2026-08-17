@@ -743,4 +743,90 @@ describe('first-screen K-line prefetch subscription', () => {
       dateNowSpy.mockRestore();
     }
   });
+
+  it('does not coalesce pending requests with different history start times', async () => {
+    const tokenAddress = '0x0000000000000000000000000000000000000689';
+    const firstRequest = createDeferred<IMarketTokenKLineResponse | null>();
+    const secondRequest = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchMarketTokenKlineByCount
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+    const requestParams = {
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+      targetCount: 1,
+      requestExactRange: true,
+    };
+
+    const firstPromise = fetchTradingViewV2DataWithSlicing({
+      ...requestParams,
+      historyStartTime: 100,
+    });
+    const secondPromise = fetchTradingViewV2DataWithSlicing({
+      ...requestParams,
+      historyStartTime: 200,
+    });
+
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(2);
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ historyStartTime: 100 }),
+    );
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ historyStartTime: 200 }),
+    );
+
+    firstRequest.resolve({ points: [buildPoint(1020, 1)], total: 1 });
+    secondRequest.resolve({ points: [buildPoint(1080, 2)], total: 1 });
+    await expect(firstPromise).resolves.toMatchObject({
+      points: [buildPoint(1020, 1)],
+    });
+    await expect(secondPromise).resolves.toMatchObject({
+      points: [buildPoint(1080, 2)],
+    });
+  });
+
+  it('does not reuse a retained prefetch with a different history start time', async () => {
+    const tokenAddress = '0x0000000000000000000000000000000000000690';
+    mockFetchMarketTokenKlineByCount
+      .mockResolvedValueOnce({
+        points: [buildPoint(1020, 1)],
+        total: 1,
+        historyMeta: { noData: true },
+      })
+      .mockResolvedValueOnce({
+        points: [buildPoint(1080, 2)],
+        total: 1,
+        historyMeta: { noData: true },
+      });
+
+    const firstResult = await prefetchTradingViewV2FirstScreenData({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      historyStartTime: 100,
+    });
+    const secondResult = await prefetchTradingViewV2FirstScreenData({
+      tokenAddress,
+      networkId: 'evm--1',
+      interval: '1m',
+      historyStartTime: 200,
+    });
+
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(2);
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ historyStartTime: 100 }),
+    );
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ historyStartTime: 200 }),
+    );
+    expect(firstResult?.points).toEqual([buildPoint(1020, 1)]);
+    expect(secondResult?.points).toEqual([buildPoint(1080, 2)]);
+  });
 });

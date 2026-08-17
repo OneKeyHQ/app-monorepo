@@ -1443,6 +1443,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       pendingLegacyHistoryReadyRef.current = null;
       notifiedLegacyHistoryReadyKeyRef.current = null;
       isKLineHistoryReadyRef.current = false;
+      pendingNativeKLineResolutionRef.current = undefined;
       setFirstHistoryReadyKey(null);
       setIntervalConfig(null);
       setNativeChartControlsConfig(null);
@@ -1532,6 +1533,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           interval: bootstrapKLineResolution,
           kLineProvider,
           kLineProviderSymbol,
+          historyStartTime,
           onResult: (result) => {
             if (!requestTarget.isCurrent()) {
               return;
