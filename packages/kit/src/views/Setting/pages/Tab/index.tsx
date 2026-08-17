@@ -141,8 +141,8 @@ function TabItemView({
         // Keep a stable 20px leading slot while desktop Settings renders an
         // optically lighter 18px glyph inside it.
         size="small"
-        // 32px rows: 6px vertical padding around the 20px label line.
-        py="$1.5"
+        // 36px rows on desktop/web; keep native iPad at the compact 32px size.
+        py={platformEnv.isNative ? '$1.5' : '$2'}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
