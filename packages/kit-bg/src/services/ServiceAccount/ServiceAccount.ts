@@ -3679,6 +3679,30 @@ class ServiceAccount extends ServiceBase {
           throw deviceNotOpenedPassphraseError;
         }
 
+        // The passphrase call above emitted DEVICE.STATE events (including the
+        // unlock / attach-PIN status); wait for their persistence and prefer
+        // the persisted post-unlock snapshot over the pre-unlock seed for
+        // everything derived or stored below. Pure DB reads — no device I/O,
+        // so the hidden session established above is never touched.
+        await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+          connectIds: [
+            compatibleConnectId,
+            dbDevice.connectId,
+            dbDevice.deviceId,
+            seededDbDevice.deviceStateInfo?.identity.serialNo,
+          ],
+        });
+        const postUnlockDbDevice =
+          await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+            connectId,
+          });
+        if (postUnlockDbDevice?.deviceStateInfo) {
+          seededDbDevice = {
+            ...seededDbDevice,
+            deviceStateInfo: postUnlockDbDevice.deviceStateInfo,
+          };
+        }
+
         // TODO save remember states
         const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
           dbDevice: seededDbDevice,
@@ -3717,12 +3741,20 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        // The seeded snapshot predates the passphrase prompt, so its
-        // unlockedAttachPin can be stale when the device was unlocked with the
-        // attach PIN during this flow. Prefer the state persisted from the
-        // DEVICE.STATE events emitted by the passphrase/derivation calls above.
+        // resolvedFeatures already reflects the post-unlock snapshot refreshed
+        // above, but the XFP / address derivation calls inside
+        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
+        // the persistence queue once more and prefer the latest stored status.
         let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
         try {
+          await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+            connectIds: [
+              compatibleConnectId,
+              dbDevice.connectId,
+              dbDevice.deviceId,
+              seededDbDevice.deviceStateInfo?.identity.serialNo,
+            ],
+          });
           const latestDbDevice =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
               connectId,
