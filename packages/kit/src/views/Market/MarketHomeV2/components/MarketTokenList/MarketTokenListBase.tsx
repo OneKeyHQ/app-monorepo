@@ -80,13 +80,6 @@ const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: `${REDESIGN_ROW_HEIGHT}px`,
 } satisfies CSSProperties;
-// Watchlist mode: only these 3 columns are sortable (server-side sort)
-const SORTABLE_COLUMNS = {
-  liquidity: 'liquidity',
-  marketCap: 'mc',
-  turnover: 'v24hUSD',
-} as const;
-
 // Map sort keys to ESortWay enum values for logging.
 // clientSort mode keys sortBy by dataIndex, so this also covers the full
 // client-sortable column set (see MARKET_CLIENT_SORT_FIELD_MAP).
@@ -599,37 +592,30 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode && !clientSort) {
+      // The watchlist is ordered by drag, so a header sort would silently
+      // overwrite the arrangement the user built by hand. It never sorts.
+      if (isWatchlistMode || !clientSort) {
         return undefined;
       }
 
-      // Stock metadata columns are not server-sortable, but in clientSort mode
-      // they sort locally off the displayed `record.stock` value.
+      // Stock metadata columns are not server-sortable, but they sort locally
+      // off the displayed `record.stock` value.
       if (
         useStockMetadataColumns &&
         STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex)) &&
-        !(
-          clientSort &&
-          MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[String(column.dataIndex)]
-        )
+        !MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[String(column.dataIndex)]
       ) {
         return undefined;
       }
 
-      // Client sort mode allows any column mapped by clientSortFieldMap
-      // (sortKey === dataIndex); watchlist mode uses restricted
-      // server-side sortable columns.
+      // Any column mapped by clientSortFieldMap is sortable (sortKey ===
+      // dataIndex), narrowed further by clientSortableColumns when the caller
+      // supports fewer of them than the map does.
       const columnKey = String(column.dataIndex);
-      let sortKey: string | undefined;
-      if (clientSort) {
-        const isColumnClientSortable =
-          Boolean(clientSortFieldMap[columnKey]) &&
-          (!clientSortableColumnSet || clientSortableColumnSet.has(columnKey));
-        sortKey = isColumnClientSortable ? columnKey : undefined;
-      } else {
-        sortKey =
-          SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
-      }
+      const isColumnClientSortable =
+        Boolean(clientSortFieldMap[columnKey]) &&
+        (!clientSortableColumnSet || clientSortableColumnSet.has(columnKey));
+      const sortKey = isColumnClientSortable ? columnKey : undefined;
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
