@@ -151,6 +151,7 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
@@ -221,6 +222,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -267,6 +269,7 @@ export function DesktopLayout({
         tokenAddress={marketTradingViewParams.tokenAddress}
         networkId={marketTradingViewParams.networkId}
         tokenSymbol={marketTradingViewParams.tokenSymbol}
+        decimal={marketTradingViewParams.decimal}
         isNative={marketTradingViewParams.isNative}
         dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}
