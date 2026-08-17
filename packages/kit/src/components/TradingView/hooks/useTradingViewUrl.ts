@@ -21,6 +21,8 @@ interface IUseTradingViewUrlOptions {
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
 }
 
+const TRADING_VIEW_TEST_BUNDLE_HOST = 'app-bundle.onekeytest.com';
+
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const { additionalParams, disabledFeatures } = options;
 
@@ -31,6 +33,9 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const shouldUseTestTradingViewUrl =
+    platformEnv.isWeb &&
+    globalThis.location?.hostname === TRADING_VIEW_TEST_BUNDLE_HOST;
 
   const baseUrl = useMemo(() => {
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
@@ -41,11 +46,16 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       return TRADING_VIEW_URL_TEST;
     }
 
+    if (shouldUseTestTradingViewUrl) {
+      return TRADING_VIEW_URL_TEST;
+    }
+
     return TRADING_VIEW_URL;
   }, [
     devSettings.enabled,
     devSettings.settings?.useLocalTradingViewUrl,
     localTradingViewUrl,
+    shouldUseTestTradingViewUrl,
   ]);
 
   const timezone = useMemo(
