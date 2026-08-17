@@ -526,7 +526,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('returns the resolved BLE connectId after the firmware preflight', async () => {
+  it('uses the USB connectId for desktop firmware preflight', async () => {
     const dbDevice = {
       id: 'db-pro2-device',
       connectId: 'PRB09B0088A',
@@ -550,13 +550,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           getHardwareTransportType: jest
             .fn()
             .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          setHardwareTransportType: jest.fn(),
         },
         serviceHardwareUI: { withHardwareProcessing },
       } as unknown as IBackgroundApi,
     });
-    jest
-      .spyOn(service, 'getCompatibleConnectId')
-      .mockResolvedValue(dbDevice.bleConnectId as string);
     const getFeaturesWithoutCache = jest
       .spyOn(service, 'getFeaturesWithoutCache')
       .mockResolvedValue({ success: true } as any);
@@ -565,15 +563,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       service.checkDeviceReachableForFirmwareUpdate({
         connectId: dbDevice.usbConnectId as string,
       }),
-    ).resolves.toBe(dbDevice.bleConnectId);
+    ).resolves.toBe(dbDevice.usbConnectId);
     expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
-      connectId: dbDevice.bleConnectId,
+      connectId: dbDevice.usbConnectId,
       params: {
         retryCount: 1,
-        forceProtocolDetection: true,
-        timeout: 30_000,
+        forceProtocolDetection: false,
       },
-      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
     });
   });
 

@@ -3043,6 +3043,44 @@ class ServiceFirmwareUpdate extends ServiceBase {
         finalFirmwareVersion: updateResult?.firmwareVersion || '',
         finalBootloaderVersion: updateResult?.bootloaderVersion || '',
       });
+
+      const versionMismatches: string[] = [];
+      const verifyVersion = (
+        expectedVersion: string | undefined,
+        actualVersion: string | undefined,
+      ) => {
+        if (
+          expectedVersion &&
+          semver.valid(expectedVersion) &&
+          (!actualVersion ||
+            !semver.valid(actualVersion) ||
+            !semver.eq(actualVersion, expectedVersion))
+        ) {
+          versionMismatches.push(expectedVersion);
+        }
+      };
+
+      if (
+        params.targetsToUpdate.some(
+          (target) => target === 'app_v1' || target === 'app_v2',
+        )
+      ) {
+        verifyVersion(params.firmwareVersion, updateResult?.firmwareVersion);
+      }
+      if (params.targetsToUpdate.includes('boot')) {
+        verifyVersion(
+          params.bootloaderVersion,
+          updateResult?.bootloaderVersion,
+        );
+      }
+      if (params.targetsToUpdate.includes('coprocessor')) {
+        verifyVersion(params.bleVersion, updateResult?.bleVersion);
+      }
+
+      if (versionMismatches.length > 0) {
+        throw new FirmwareUpdateVersionMismatchError();
+      }
+
       return { message: 'success', ...updateResult };
     }, executionArtifacts);
   }

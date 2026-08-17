@@ -1005,6 +1005,8 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
       }),
     );
   }
+
+  override code = HardwareErrorCode.FirmwareVerificationFailed;
 }
 
 export class CosmosInvalidJsonMessage extends OneKeyHardwareError {

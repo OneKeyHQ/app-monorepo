@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -705,6 +705,139 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
     expect(firmwareUpdateStepInfoAtom.set).toHaveBeenCalledWith({
       step: 'installing',
       payload: { installingTarget: {} },
+    });
+  });
+
+  it.each([
+    {
+      target: 'app_v1' as const,
+      expectedVersions: {
+        firmwareVersion: '3.0.0',
+        bootloaderVersion: undefined,
+        bleVersion: undefined,
+      },
+      actualVersions: {
+        firmwareVersion: '2.0.0',
+        bootloaderVersion: '1.0.0',
+        bleVersion: '1.0.0',
+      },
+    },
+    {
+      target: 'boot' as const,
+      expectedVersions: {
+        firmwareVersion: undefined,
+        bootloaderVersion: '3.0.0',
+        bleVersion: undefined,
+      },
+      actualVersions: {
+        firmwareVersion: '1.0.0',
+        bootloaderVersion: '2.0.0',
+        bleVersion: '1.0.0',
+      },
+    },
+    {
+      target: 'coprocessor' as const,
+      expectedVersions: {
+        firmwareVersion: undefined,
+        bootloaderVersion: undefined,
+        bleVersion: '3.0.0',
+      },
+      actualVersions: {
+        firmwareVersion: '1.0.0',
+        bootloaderVersion: '1.0.0',
+        bleVersion: '2.0.0',
+      },
+    },
+  ])(
+    'rejects a Protocol V2 $target final version mismatch',
+    async ({ target, expectedVersions, actualVersions }) => {
+      const firmwareUpdateV4 = jest.fn().mockResolvedValue({
+        success: true,
+        payload: actualVersions,
+      });
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardware: {
+            getSDKInstance: jest.fn().mockResolvedValue({
+              firmwareUpdateV4,
+              on: jest.fn(),
+              off: jest.fn(),
+            }),
+          },
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+          serviceDevSetting: {
+            getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+          },
+        } as unknown as IBackgroundApi,
+      });
+
+      await expect(
+        service.updatingFirmwareV4({
+          connectId: 'PRO2_CONNECT_ID',
+          ...expectedVersions,
+          firmwareType: undefined,
+          isPro2Device: true,
+          pro2TargetsToUpdate: [target],
+          requirePreparedArtifacts: false,
+          targetsToUpdate: [target],
+        }),
+      ).rejects.toMatchObject({
+        code: HardwareErrorCode.FirmwareVerificationFailed,
+        message: 'FirmwareUpdateVersionMismatch',
+      });
+    },
+  );
+
+  it('accepts matching Protocol V2 final versions', async () => {
+    const firmwareUpdateV4 = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        firmwareVersion: '3.0.0',
+        bootloaderVersion: '2.0.0',
+        bleVersion: '1.0.0',
+      },
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest.fn().mockResolvedValue({
+            firmwareUpdateV4,
+            on: jest.fn(),
+            off: jest.fn(),
+          }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.updatingFirmwareV4({
+        connectId: 'PRO2_CONNECT_ID',
+        firmwareVersion: '3.0.0',
+        bootloaderVersion: '2.0.0',
+        bleVersion: '1.0.0',
+        firmwareType: undefined,
+        isPro2Device: true,
+        pro2TargetsToUpdate: ['app_v1', 'boot', 'coprocessor'],
+        requirePreparedArtifacts: false,
+        targetsToUpdate: ['app_v1', 'boot', 'coprocessor'],
+      }),
+    ).resolves.toMatchObject({
+      message: 'success',
+      firmwareVersion: '3.0.0',
+      bootloaderVersion: '2.0.0',
+      bleVersion: '1.0.0',
     });
   });
 

@@ -12,7 +12,6 @@ import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { shouldKeepDesktopBleForFirmwareUpdate } from '../../FirmwareUpdate/firmwareUpdateTransportUtils';
 import { getDesktopForceUSBTransportType } from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -37,27 +36,6 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures | undefined;
     }): Promise<IUSBConnectPrepareResult | null> => {
-      if (platformEnv.isDesktop) {
-        const forceTransportType =
-          await backgroundApiProxy.serviceHardware.getCurrentForceTransportType();
-        const currentTransportType =
-          await backgroundApiProxy.serviceHardware.getCurrentTransportType();
-        if (
-          shouldKeepDesktopBleForFirmwareUpdate({
-            forceTransportType,
-            currentTransportType,
-          })
-        ) {
-          if (isNil(device.connectId)) {
-            return null;
-          }
-          return {
-            connectId: device.connectId,
-            needsRestore: false,
-          };
-        }
-      }
-
       const connectProtocol = isProtocolV2ProductType(device.deviceType)
         ? 'V2'
         : undefined;

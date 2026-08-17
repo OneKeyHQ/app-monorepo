@@ -332,6 +332,11 @@ export class HardwareConnectionManager {
 
     if (platformEnv.isSupportDesktopBle) {
       const mode = await this.getDesktopUsbSetting(connectProtocol);
+      if (hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE) {
+        return mode === 'bridge'
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
+      }
       const usbAvailable = await this.detectUSBDeviceAvailability(
         connectId,
         connectProtocol,
