@@ -3411,9 +3411,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixAvatar) {
           if (profile.isThirdParty) {
-            // Third-party vendor: resolve the per-model avatar from persisted
-            // settings (device.settings is always populated by
-            // refillDeviceInfo, parseDeviceSettingsRaw is defensive fallback).
+            // Resolve per-model avatar; parseDeviceSettingsRaw is a defensive fallback.
             const deviceSettings =
               device?.settings ?? parseDeviceSettingsRaw(device?.settingsRaw);
             const expectedImg = getThirdPartyDeviceAvatarImage({

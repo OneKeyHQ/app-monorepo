@@ -117,9 +117,7 @@ const TREZOR_MODEL_CODE_TO_AVATAR_KEY = new Map<
   ['T3W1', 'TrezorSafe7'],
 ]);
 
-// Human-name fallback only, used when vendorModel (internal_model code) is
-// unavailable. Normalized via thirdPartyDeviceUtils.normalizeThirdPartyModelName,
-// with a leading "trezor " prefix stripped. Ledger never needs this: its
+// Fallback when vendorModel is unavailable; Ledger never needs this since its
 // vendorModel is always the DMK code, never a human string.
 const TREZOR_MODEL_NAME_ALIAS_TO_AVATAR_KEY = new Map<
   string,
@@ -156,8 +154,7 @@ export function getThirdPartyDeviceAvatarImage({
   fallback: IThirdPartyWalletAvatarImageNames;
 }): IThirdPartyWalletAvatarImageNames {
   if (vendor === EHardwareVendor.trezor) {
-    // Exact-case code lookup first — SDK model codes are fixed identifiers,
-    // never normalize/lowercase this branch or 'T3W1' silently stops matching.
+    // Exact-case lookup — normalizing this branch stops 'T3W1' from matching.
     const byCode =
       vendorModel && TREZOR_MODEL_CODE_TO_AVATAR_KEY.get(vendorModel);
     if (byCode) return byCode;

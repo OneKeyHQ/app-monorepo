@@ -43,8 +43,7 @@ export function PortfolioOverview({
         wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers
       ]
     : undefined;
-  // Mirrors WalletAvatarBase's hidden-wallet branch, which this direct
-  // AllWalletAvatarImages lookup bypasses.
+  // Mirrors WalletAvatarBase's hidden-wallet branch (bypassed by this direct lookup).
   const isHiddenWallet = accountUtils.isHwHiddenWallet({
     wallet: wallet as unknown as IDBWallet,
   });

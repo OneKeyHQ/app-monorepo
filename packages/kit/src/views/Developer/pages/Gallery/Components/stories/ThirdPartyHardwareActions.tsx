@@ -42,8 +42,7 @@ const DEVICE_MOCKS: IDeviceMock[] = [
     vendor: EHardwareVendor.trezor,
     vendorModel: 'T2T1',
   },
-  // vendorModel unavailable, only the human-readable name → exercises the
-  // normalized name-alias fallback.
+  // vendorModel unavailable → exercises the normalized name-alias fallback.
   {
     label: 'Trezor Safe 3',
     vendor: EHardwareVendor.trezor,
