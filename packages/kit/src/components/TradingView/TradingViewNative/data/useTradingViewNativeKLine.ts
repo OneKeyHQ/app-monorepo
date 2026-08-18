@@ -914,7 +914,9 @@ async function recoverOlderHistoryFromBoundary({
       });
       const mergedPoints = mergeKLinePoints(points, pagePoints);
       if (mergedPoints.length >= normalizedTargetPointCount) {
-        points = mergedPoints.slice(-normalizedTargetPointCount);
+        // Keep the complete page as preload data. Truncating it here would
+        // make the viewport request the discarded candles again immediately.
+        points = mergedPoints;
         cursorTimeTo = (points[0]?.t ?? pageTimeFrom) - 1;
         onProgress?.(buildResult());
         break;

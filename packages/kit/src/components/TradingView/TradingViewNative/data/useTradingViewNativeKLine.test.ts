@@ -783,6 +783,68 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
+  it('keeps a capped sparse recovery page as viewport preload data', async () => {
+    const intervalSeconds = 60;
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2000;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    jest.spyOn(Date, 'now').mockReturnValue(2_000_000_000);
+    let activeIntervalRequestCount = 0;
+    let dailyRequestCount = 0;
+    mockFetchHistory.mockImplementation(async ({ interval }) => {
+      if (interval.value === '1W') {
+        return buildResponse(50, 100_000);
+      }
+      if (interval.value === '1D') {
+        dailyRequestCount += 1;
+        return dailyRequestCount === 1
+          ? buildResponse(60, 110_000)
+          : buildMultiPointResponse([
+              { close: 70, timestamp: 740_000 },
+              { close: 80, timestamp: 830_000 },
+            ]);
+      }
+
+      activeIntervalRequestCount += 1;
+      if (activeIntervalRequestCount === 1) {
+        return buildMultiPointResponse(
+          Array.from({ length: 7 }, (_, index) => ({
+            close: 100 + index,
+            timestamp: 1_000_000 + index * intervalSeconds,
+          })),
+        );
+      }
+      if (activeIntervalRequestCount === 2) {
+        return buildMultiPointResponse([
+          { close: 90, timestamp: 830_100 },
+          { close: 91, timestamp: 830_160 },
+        ]);
+      }
+      return buildMultiPointResponse(
+        Array.from({ length: 299 }, (_, index) => ({
+          close: 200 + index,
+          timestamp: 740_100 + index * intervalSeconds,
+        })),
+      );
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(308));
+    expect(activeIntervalRequestCount).toBe(3);
+
+    const visiblePointCount = 164;
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: result.current.points.length,
+        startIndex: result.current.points.length - visiblePointCount,
+      }),
+    );
+
+    expect(activeIntervalRequestCount).toBe(3);
+  });
+
   it('crosses more than eight empty active days during initial sparse recovery', async () => {
     const currentTimestamp = 30_000_000;
     const oldestActiveDayTimestamp = 10_000_000;
@@ -1246,7 +1308,7 @@ describe('TradingViewNative K-line data state machine', () => {
         startIndex: 0,
       }),
     );
-    await waitFor(() => expect(result.current.points).toHaveLength(11));
+    await waitFor(() => expect(result.current.points).toHaveLength(12));
 
     const activeIntervalRequests = mockFetchHistory.mock.calls
       .map(([request]) => request)
@@ -1264,7 +1326,7 @@ describe('TradingViewNative K-line data state machine', () => {
         timeTo: olderBatchPoints[3].timestamp - 1,
       }),
     );
-    expect(result.current.points[0]?.t).toBe(olderBatchPoints[1].timestamp);
+    expect(result.current.points[0]?.t).toBe(olderBatchPoints[0].timestamp);
   });
 
   it('stops sparse Market pagination at the refined daily boundary', async () => {
