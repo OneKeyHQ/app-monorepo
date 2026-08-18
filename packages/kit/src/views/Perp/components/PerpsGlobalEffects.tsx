@@ -979,10 +979,6 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      const preferredInstrument = resolveInitialPreferredInstrument({
-        pendingInstrument: pendingInitialTradeInstrument,
-        restoredInstrument: activeTradeInstrumentRef.current,
-      });
       if (pendingInitialTradeInstrument) {
         markPerpsColdStartPerf('initial_symbol_pending_instrument', {
           coin: pendingInitialTradeInstrument.coin,
@@ -1088,7 +1084,15 @@ function useHyperliquidSymbolSelect() {
         // strands the page for good. The diverged resync falls through here
         // too, and there the fallback would abort an in-flight spot switch.
         allowPerpFallback: claimed,
-        preferredInstrument: claimed ? preferredInstrument : undefined,
+        // Resolved here rather than earlier: the claiming run can await a
+        // trading-meta fetch above, and a pair the user picks during that wait
+        // has to be the one restored, not the pair that was open before it.
+        preferredInstrument: claimed
+          ? resolveInitialPreferredInstrument({
+              pendingInstrument: pendingInitialTradeInstrument,
+              restoredInstrument: activeTradeInstrumentRef.current,
+            })
+          : undefined,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,
