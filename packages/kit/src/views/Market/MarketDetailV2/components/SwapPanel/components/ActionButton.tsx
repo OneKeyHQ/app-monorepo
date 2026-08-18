@@ -324,7 +324,9 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  const isButtonLoading = createAddressLoading || Boolean(loading);
+  const isButtonLoading = shouldJumpToSwap
+    ? createAddressLoading
+    : createAddressLoading || Boolean(loading);
 
   const buttonStyleProps: IButtonProps = shouldUseColoredStyle
     ? {
@@ -340,11 +342,11 @@ export function ActionButton({
         showAccountSelector();
         return;
       }
-      if (isButtonLoading) {
-        return;
-      }
       if (shouldJumpToSwap) {
         handleJumpToSwapAction();
+        return;
+      }
+      if (isButtonLoading) {
         return;
       }
       if (!hasAmount && !shouldCreateAddress?.result && !createAddressLoading) {
