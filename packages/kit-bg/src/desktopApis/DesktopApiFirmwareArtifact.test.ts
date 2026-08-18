@@ -345,11 +345,15 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     expect(resumeOffsets).toEqual([0]);
   });
 
-  it('materializes files while accepting validated directory entries', async () => {
+  it('materializes every file in a manifest-free RESC archive', async () => {
     const adapter = new DesktopApiFirmwareArtifact({
       desktopApi: {} as never,
     });
-    const payload = Buffer.from('signed resource package');
+    const imagesPackage = Buffer.from('signed images resource package');
+    const bootResourcePackage = Buffer.from(
+      'signed boot resource package with staging path',
+    );
+    const hashReport = Buffer.from('resource hashes');
     const archive = zipSync({
       'bundles/': [
         new Uint8Array(),
@@ -359,8 +363,22 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
           attrs: 0o4_0755 * 2 ** 16,
         },
       ],
-      'bundles/resource.okpkg': [
-        payload,
+      'bundles/images-release.okpkg': [
+        imagesPackage,
+        {
+          os: 3,
+          attrs: 0o10_0644 * 2 ** 16,
+        },
+      ],
+      'loaders/bootloader/boot_resource-release.okpkg': [
+        bootResourcePackage,
+        {
+          os: 3,
+          attrs: 0o10_0644 * 2 ** 16,
+        },
+      ],
+      'resource_hash.txt': [
+        hashReport,
         {
           os: 3,
           attrs: 0o10_0644 * 2 ** 16,
@@ -368,7 +386,15 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       ],
     });
     const archiveSha256 = createHash('sha256').update(archive).digest('hex');
-    const payloadSha256 = createHash('sha256').update(payload).digest('hex');
+    const imagesSha256 = createHash('sha256')
+      .update(imagesPackage)
+      .digest('hex');
+    const bootResourceSha256 = createHash('sha256')
+      .update(bootResourcePackage)
+      .digest('hex');
+    const hashReportSha256 = createHash('sha256')
+      .update(hashReport)
+      .digest('hex');
     const transactionId = 'fwtx:00000000-0000-4000-8000-000000000010';
     const { leaseRef } = await adapter.createLease(transactionId);
     const adapterWithStream = adapter as unknown as {
@@ -403,11 +429,29 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       }),
     ).resolves.toEqual([
       {
-        entryName: 'bundles/resource.okpkg',
+        entryName: 'bundles/images-release.okpkg',
         receipt: {
-          artifactRef: `fw:${payloadSha256}`,
-          size: payload.byteLength,
-          sha256: payloadSha256,
+          artifactRef: `fw:${imagesSha256}`,
+          size: imagesPackage.byteLength,
+          sha256: imagesSha256,
+          expectedSha256Verified: false,
+        },
+      },
+      {
+        entryName: 'loaders/bootloader/boot_resource-release.okpkg',
+        receipt: {
+          artifactRef: `fw:${bootResourceSha256}`,
+          size: bootResourcePackage.byteLength,
+          sha256: bootResourceSha256,
+          expectedSha256Verified: false,
+        },
+      },
+      {
+        entryName: 'resource_hash.txt',
+        receipt: {
+          artifactRef: `fw:${hashReportSha256}`,
+          size: hashReport.byteLength,
+          sha256: hashReportSha256,
           expectedSha256Verified: false,
         },
       },
