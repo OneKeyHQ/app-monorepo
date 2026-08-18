@@ -71,14 +71,19 @@ function buildSecurePayloadKey(progressKey: string): string {
  * secureStorage and are deleted together with the index on final payment
  * state or TTL expiry. On platforms without secure storage (bare web,
  * dev desktop) progress is simply not persisted — signatures are never
- * written to plaintext storage as a fallback.
+ * written to plaintext storage as a fallback; flows containing a
+ * broadcast-capable action are refused upfront there instead (see
+ * ServiceWalletConnectPay.getRequiredPaymentActions).
  */
 export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDbWalletConnectPay> {
   entityName = 'walletConnectPay';
 
   override enableCache = false;
 
-  private async supportsSecurePayload(): Promise<boolean> {
+  // Public so the payment flow can preflight before any action executes:
+  // broadcast-capable actions must not start when their progress cannot be
+  // durably recorded (see ServiceWalletConnectPay.getRequiredPaymentActions)
+  async supportsDurableProgress(): Promise<boolean> {
     try {
       return await appStorage.secureStorage.supportSecureStorage();
     } catch {
@@ -170,8 +175,11 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     result: string;
   }): Promise<void> {
     // never fall back to plaintext: without secure storage the progress is
-    // simply not persisted and a retry starts from the first action
-    if (!(await this.supportsSecurePayload())) {
+    // simply not persisted and a retry starts from the first action.
+    // Broadcast-capable flows are refused upfront on such platforms
+    // (getRequiredPaymentActions checks supportsDurableProgress), so
+    // skipping here only ever affects re-executable sign-only results
+    if (!(await this.supportsDurableProgress())) {
       return;
     }
     const now = Date.now();

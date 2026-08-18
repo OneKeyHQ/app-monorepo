@@ -238,6 +238,25 @@ class ServiceWalletConnectPay extends ServiceBase {
       optionId,
     });
     validateWcPayActions(actions);
+    // A broadcast-capable action must never start on a platform that cannot
+    // durably record its txid (bare web, dev desktop without safeStorage):
+    // if the process dies after the broadcast but before confirmPayment, a
+    // retry would find no stored progress and broadcast the payment a second
+    // time. Sign-only actions stay allowed — re-executing them reproduces
+    // the same consumable artifact instead of a second on-chain transfer.
+    const hasBroadcastAction = actions.some(
+      (action) =>
+        action.walletRpc.method === EWcPayActionMethod.EthSendTransaction,
+    );
+    if (
+      hasBroadcastAction &&
+      !(await this.backgroundApi.simpleDb.walletConnectPay.supportsDurableProgress())
+    ) {
+      // copy pending product i18n keys
+      throw new OneKeyError(
+        'On-chain payments are not supported on this platform',
+      );
+    }
     return actions;
   }
 
