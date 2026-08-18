@@ -64,7 +64,7 @@ const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1W';
 const SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1D';
-const MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT = 8;
+const MAX_SPARSE_MARKET_HISTORY_REQUEST_COUNT = 8;
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
 const MAX_VIEWPORT_HISTORY_PAGE_COUNT = 20;
 const MAX_VIEWPORT_HISTORY_BOUNDARY_SEARCH_COUNT = 32;
@@ -739,10 +739,46 @@ function prefetchHistoryBoundaryPage({
   return promise;
 }
 
+function getSparseHistoryRequestRanges({
+  activeDays,
+  boundaryTimestamp,
+  locatorIntervalSeconds,
+  timeTo,
+}: {
+  activeDays: IMarketTokenKLineDataPoint[];
+  boundaryTimestamp: number;
+  locatorIntervalSeconds: number;
+  timeTo: number;
+}) {
+  // Spread every locator candidate across the fixed request budget instead of
+  // consuming one minute-history request for each active day.
+  const activeDayBatchSize = Math.max(
+    Math.ceil(activeDays.length / MAX_SPARSE_MARKET_HISTORY_REQUEST_COUNT),
+    1,
+  );
+  const ranges: { timeFrom: number; timeTo: number }[] = [];
+  for (
+    let batchEndIndex = activeDays.length;
+    batchEndIndex > 0;
+    batchEndIndex -= activeDayBatchSize
+  ) {
+    const batchStartIndex = Math.max(batchEndIndex - activeDayBatchSize, 0);
+    const oldestActiveDay = activeDays[batchStartIndex];
+    const newestActiveDay = activeDays[batchEndIndex - 1];
+    if (!oldestActiveDay || !newestActiveDay) {
+      break;
+    }
+    ranges.push({
+      timeFrom: Math.max(oldestActiveDay.t, boundaryTimestamp),
+      timeTo: Math.min(timeTo, newestActiveDay.t + locatorIntervalSeconds - 1),
+    });
+  }
+  return ranges;
+}
+
 async function recoverOlderHistoryFromBoundary({
   historyProvider,
   interval,
-  maxPageCount = MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT,
   onProgress,
   seriesKey,
   signal,
@@ -751,7 +787,6 @@ async function recoverOlderHistoryFromBoundary({
 }: {
   historyProvider: ITradingViewNativeDataProvider;
   interval: ITradingViewNativeKLineInterval;
-  maxPageCount?: number;
   onProgress?: (result: IHistoryGapRecoveryResult) => void;
   seriesKey: string;
   signal: AbortSignal;
@@ -810,12 +845,16 @@ async function recoverOlderHistoryFromBoundary({
     return null;
   }
 
-  const normalizedMaxPageCount = Math.max(Math.floor(maxPageCount), 1);
   const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
+  const requestRanges = getSparseHistoryRequestRanges({
+    activeDays,
+    boundaryTimestamp,
+    locatorIntervalSeconds: locatorInterval.seconds,
+    timeTo,
+  });
   let cursorTimeTo = Math.floor(timeTo);
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
-  let activeDayIndex = activeDays.length - 1;
   const buildResult = (): IHistoryGapRecoveryResult => {
     const hasMoreBefore = cursorTimeTo >= boundaryTimestamp;
     return {
@@ -826,31 +865,15 @@ async function recoverOlderHistoryFromBoundary({
       points,
     };
   };
-  for (
-    let requestIndex = 0;
-    requestIndex < normalizedMaxPageCount &&
-    activeDayIndex >= 0 &&
-    cursorTimeTo >= boundaryTimestamp &&
-    points.length < normalizedTargetPointCount;
-    requestIndex += 1
-  ) {
-    while (activeDayIndex >= 0) {
-      const candidateActiveDay = activeDays[activeDayIndex];
-      if (!candidateActiveDay || candidateActiveDay.t <= cursorTimeTo) {
-        break;
-      }
-      activeDayIndex -= 1;
-    }
-    const activeDay = activeDays[activeDayIndex];
-    if (!activeDay) {
+  for (const requestRange of requestRanges) {
+    if (
+      cursorTimeTo < boundaryTimestamp ||
+      points.length >= normalizedTargetPointCount
+    ) {
       break;
     }
-    activeDayIndex -= 1;
-    const pageTimeFrom = Math.max(activeDay.t, boundaryTimestamp);
-    const pageTimeTo = Math.min(
-      cursorTimeTo,
-      activeDay.t + locatorInterval.seconds - 1,
-    );
+    const pageTimeFrom = requestRange.timeFrom;
+    const pageTimeTo = Math.min(cursorTimeTo, requestRange.timeTo);
     const data = await fetchRequiredHistoryPage({
       historyProvider,
       request: {
@@ -3433,10 +3456,6 @@ export function useTradingViewNativeKLine({
             const recovery = await recoverOlderHistoryFromBoundary({
               historyProvider,
               interval,
-              maxPageCount: Math.max(
-                MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT,
-                recoveryTargetPointCount,
-              ),
               onProgress: applyRecoveryProgress,
               seriesKey,
               signal: abortController.signal,
