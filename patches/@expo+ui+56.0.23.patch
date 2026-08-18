@@ -1,5 +1,78 @@
+diff --git a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
+index 54918d4..c724a30 100644
+--- a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
++++ b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
+@@ -13,6 +13,10 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ + (void)detachTouchHandler:(UIGestureRecognizer *)touchHandler fromView:(UIView *)view;
+ 
++// OneKey patch: restore UIKit view-touch delivery for native controls
++// (UISwitch and friends) inside the hosted RN content of a system sheet.
+++ (void)relaxSheetGestureInterferenceFromView:(UIView *)view;
++
+ @end
+ 
+ NS_ASSUME_NONNULL_END
+diff --git a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
+index eb34427..8998787 100644
+--- a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
++++ b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.mm
+@@ -23,4 +23,53 @@
+   }
+ }
+ 
++// OneKey patch: restore UIKit view-touch delivery for native controls.
++// React Native's own touch pipeline works inside a system sheet's hosted
++// content (RCTSurfaceTouchHandler never delays or cancels), but native
++// controls such as UISwitch rely on plain UIKit view-touch delivery, and
++// two recognizers above the hosted content break that road:
++//  - the sheet's drag pan on UIDropShadowView has delaysTouchesEnded, so
++//    a tap's end phase is withheld from the control while the pan
++//    deliberates (and dropped when it loses);
++//  - SwiftUI's hover recognizer on the presentation hosting view cancels
++//    touches in view when it engages.
++// The end-delay is released on every recognizer up the chain; the cancel
++// relax stays narrowed to the hover bridge (the sheet pan must keep
++// cancelling, or dragging the sheet would also operate the controls
++// under the finger). Runs twice because the sheet finishes presenting
++// after the host appears; the writes are idempotent.
+++ (void)relaxSheetGestureInterferenceFromView:(UIView *)view {
++  __weak UIView *weakView = view;
++  void (^apply)(void) = ^{
++    UIView *cur = weakView;
++    int depth = 0;
++    while (cur && depth < 40) {
++      NSString *viewClass = NSStringFromClass(cur.class);
++      for (UIGestureRecognizer *recognizer in cur.gestureRecognizers) {
++        NSString *recognizerClass = NSStringFromClass(recognizer.class);
++        if ([viewClass containsString:@"HostingView"] &&
++            [recognizerClass containsString:@"Hover"] &&
++            recognizer.cancelsTouchesInView) {
++          recognizer.cancelsTouchesInView = NO;
++          NSLog(@"OneKeyTouchRelax: %@ on %@ cancelsTouchesInView -> NO", recognizerClass, viewClass);
++        }
++        // A recognizer that withholds touch ends while it deliberates
++        // starves native controls of the end phase entirely when it never
++        // resolves for direct touches (SwiftUI's hover bridge) or loses
++        // late (the sheet pan). RN's pipeline is recognizer-based and
++        // unaffected either way, so releasing the delay only restores the
++        // controls.
++        if (recognizer.delaysTouchesEnded) {
++          recognizer.delaysTouchesEnded = NO;
++          NSLog(@"OneKeyTouchRelax: %@ on %@ delaysTouchesEnded -> NO", recognizerClass, viewClass);
++        }
++      }
++      cur = cur.superview;
++      depth++;
++    }
++  };
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), apply);
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), apply);
++}
++
+ @end
 diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-index f385284..6c099fc 100644
+index f385284..d47e174 100644
 --- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
 +++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
 @@ -248,3 +248,18 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
@@ -21,6 +94,7 @@ index f385284..6c099fc 100644
 +    content.preferredColorScheme(colorScheme.toNativeColorScheme())
 +  }
 +}
+\ No newline at end of file
 diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
 index 6867c8f..23fbf10 100644
 --- a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
@@ -38,3 +112,17 @@ index 6867c8f..23fbf10 100644
      register("contentTransition") { params, appContext, _ in
        return try ContentTransitionModifier(from: params, appContext: appContext)
      }
+diff --git a/node_modules/@expo/ui/ios/RNHostView.swift b/node_modules/@expo/ui/ios/RNHostView.swift
+index 4cf3893..ce61c9c 100644
+--- a/node_modules/@expo/ui/ios/RNHostView.swift
++++ b/node_modules/@expo/ui/ios/RNHostView.swift
+@@ -63,6 +63,9 @@ private final class RNHostTouchHandler: ObservableObject {
+     detach()
+     touchHandler = ExpoUITouchHandlerHelper.createAndAttachTouchHandler(for: view)
+     attachedView = view
++    // OneKey patch: restore UIKit view-touch delivery for native controls
++    // hosted inside a system sheet (see ExpoUITouchHandlerHelper).
++    ExpoUITouchHandlerHelper.relaxSheetGestureInterference(from: view)
+   }
+ 
+   func detach() {
