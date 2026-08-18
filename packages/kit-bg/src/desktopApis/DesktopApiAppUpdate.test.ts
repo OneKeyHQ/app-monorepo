@@ -296,6 +296,26 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     expect(removeSpy).not.toHaveBeenCalled();
   });
 
+  test('preserves a prepared package when a later metadata check fails', async () => {
+    const downloadedFile = createCachedPackage();
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile,
+      files: [{ url: 'https://example.com/app.zip' }],
+      releaseDate: '2026-08-12',
+      version: '6.0.0',
+    });
+
+    emitUpdaterEvent('error', new Error('net::ERR_CONNECTION_RESET'));
+
+    await expect(
+      api.getDownloadedFileAvailability(downloadedFile),
+    ).resolves.toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.available,
+    });
+    expect(api.downloadedEvent?.version).toBe('6.0.0');
+  });
+
   test('manual install can open a valid package without MacUpdater preparation', async () => {
     const downloadedFile = createCachedPackage();
     const api = new DesktopApiAppUpdate({ desktopApi: {} as never });

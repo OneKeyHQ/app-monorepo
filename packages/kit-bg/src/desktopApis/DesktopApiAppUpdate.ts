@@ -258,7 +258,6 @@ class DesktopApiAppUpdate {
     autoUpdater.on('error', (err) => {
       logger.error('auto-updater', `An error happened: ${err.toString()}`);
       this.failActiveUpdaterRehydrate(err);
-      this.downloadedEvent = undefined;
       this.isDownloading = false;
       const mainWindow = this.getMainWindow();
       if (!mainWindow) {
