@@ -158,6 +158,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
   const showMarketPresetSelector =
     !isWrapped && !!marketPresetSettings?.enabled;
+  const shouldReduceSellForPresetGap =
+    tradeType === ESwapDirection.SELL &&
+    !quoteError &&
+    showMarketPresetSelector &&
+    !!marketPresetSettings?.presets.length;
   const suppressStandaloneSlippage =
     isWrapped || showMarketPresetSelector || !!marketPresetSettings?.isLoading;
   let actionButtonOnPress = onSwap;
@@ -350,13 +355,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
         {/* Balance display */}
         {tradeType === ESwapDirection.SELL ? (
-          <SellForSelector
-            defaultTokens={defaultTokens}
-            currentSelectToken={balanceToken as ISwapTokenBase}
-            onTokenSelect={(token) => setPaymentToken(token as IToken)}
-            symbol={paymentToken?.symbol ?? '-'}
-            isLoading={!hasInitialReady}
-          />
+          <YStack mb={shouldReduceSellForPresetGap ? '$-1' : undefined}>
+            <SellForSelector
+              defaultTokens={defaultTokens}
+              currentSelectToken={balanceToken as ISwapTokenBase}
+              onTokenSelect={(token) => setPaymentToken(token as IToken)}
+              symbol={paymentToken?.symbol ?? '-'}
+              isLoading={!hasInitialReady}
+            />
+          </YStack>
         ) : null}
       </YStack>
 
