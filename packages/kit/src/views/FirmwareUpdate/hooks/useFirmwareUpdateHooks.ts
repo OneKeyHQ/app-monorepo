@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
@@ -13,7 +13,10 @@ import type {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
-
+import {
+  releaseFirmwareUpdateWorkflowPage,
+  retainFirmwareUpdateWorkflowPage,
+} from '../firmwareUpdateWorkflowLifetime';
 import { useFirmwareUpdateActions } from './useFirmwareUpdateActions';
 
 let isNavExitConfirmShow = false;
@@ -139,6 +142,22 @@ export function useAppExitPrevent({
 
   // Prevent Desktop exit
   // TODO
+}
+
+export function useFirmwareUpdateWorkflowLifetime({
+  onReallyLeave,
+}: {
+  onReallyLeave?: () => void | Promise<void>;
+} = {}) {
+  const onReallyLeaveRef = useRef(onReallyLeave);
+  onReallyLeaveRef.current = onReallyLeave;
+
+  useEffect(() => {
+    retainFirmwareUpdateWorkflowPage();
+    return () => {
+      releaseFirmwareUpdateWorkflowPage(() => onReallyLeaveRef.current?.());
+    };
+  }, []);
 }
 
 export function useExtensionUpdatingFromExpandTab() {

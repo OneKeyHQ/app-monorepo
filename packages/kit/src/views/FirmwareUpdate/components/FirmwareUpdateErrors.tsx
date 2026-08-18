@@ -26,6 +26,7 @@ import {
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { shouldHideFirmwareUpdateInternalError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -520,6 +521,25 @@ export function useFirmwareUpdateErrors({
     ) {
       return {
         content: <HowToUpdateFullResource />,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (shouldHideFirmwareUpdateInternalError(error)) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.hardware_third_party_device_disconnected,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_device_disconnected_desc,
+            })}
+            displayTroubleshooting
+          />
+        ),
+        onRetryHandler: onRetry,
         retryText: defaultRetryText,
       };
     }

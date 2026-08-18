@@ -27,6 +27,9 @@ jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
 }));
 
 const usbPriorityMessage = 'Disconnect USB to continue using Bluetooth.';
+const deviceDisconnectedMessage =
+  'The device has been disconnected. Please reconnect the device and try again.';
+const deviceDisconnectedTitle = 'Device disconnected';
 
 function IntlWrapper({ children }: { children: ReactNode }) {
   return (
@@ -35,6 +38,10 @@ function IntlWrapper({ children }: { children: ReactNode }) {
       messages={{
         [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
           usbPriorityMessage,
+        [ETranslations.hardware_third_party_device_disconnected]:
+          deviceDisconnectedTitle,
+        [ETranslations.update_device_disconnected_desc]:
+          deviceDisconnectedMessage,
         [ETranslations.global_retry]: 'Retry',
       }}
     >
@@ -76,5 +83,45 @@ describe('firmware update USB-priority errors', () => {
     }>;
 
     expect(content.props.message).toBe(usbPriorityMessage);
+  });
+});
+
+describe('firmware update cancellation errors', () => {
+  const error = {
+    className: 'FirmwareUpdateTasksClear',
+    message: 'updateTasksClear: exitUpdateWorkflow',
+  } as const;
+
+  it('does not expose exitUpdateWorkflow in the Protocol V2 error view', () => {
+    const { result } = renderHook(
+      () =>
+        useFirmwareUpdateErrorsV2({
+          error,
+          lastFirmwareTipMessage: undefined,
+        }),
+      { wrapper: IntlWrapper },
+    );
+
+    expect(result.current.errorMessage).toBe(deviceDisconnectedMessage);
+  });
+
+  it('does not expose exitUpdateWorkflow in the legacy error view', () => {
+    const { result } = renderHook(
+      () =>
+        useLegacyFirmwareUpdateErrors({
+          error,
+          lastFirmwareTipMessage: undefined,
+          onRetry: undefined,
+          result: undefined,
+        }),
+      { wrapper: IntlWrapper },
+    );
+    const content = result.current.content as ReactElement<{
+      message?: string;
+      title?: string;
+    }>;
+
+    expect(content.props.title).toBe(deviceDisconnectedTitle);
+    expect(content.props.message).toBe(deviceDisconnectedMessage);
   });
 });

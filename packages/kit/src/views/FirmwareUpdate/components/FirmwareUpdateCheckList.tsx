@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmwareVersions';
@@ -222,7 +223,9 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
-                  const err = toPlainErrorObject(error as any);
+                  const err = toUserFacingFirmwareUpdateError(
+                    toPlainErrorObject(error as any),
+                  );
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
                     payload: {
