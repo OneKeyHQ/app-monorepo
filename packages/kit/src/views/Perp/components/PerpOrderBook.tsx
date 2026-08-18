@@ -59,6 +59,7 @@ import {
   PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS,
   getPerpsOrderBookVisualSnapshotDelayMs,
 } from '../utils/orderBookVisualScheduler';
+import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 
 import {
   type IOrderBookSelection,
@@ -828,6 +829,28 @@ export function PerpOrderBook({
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
+    shouldCompactOrderBookForConnectWallet,
+    shouldCompactOrderBookForFirstDeposit,
+    shouldShowEnableTradingButton,
+  ]);
+
+  // OK-59100: the level count drives how tall the order book renders, which is
+  // what the iOS tab scroller has to exceed before the page can scroll at all.
+  // Logged with the account flags that select it so a report can be tied to the
+  // branch it actually took.
+  useEffect(() => {
+    perpsFieldDiagnostics('orderbook.levelCount', {
+      mobileMaxLevelsPerSide,
+      mode: activeTradeInstrument.mode,
+      compactForFirstDeposit: shouldCompactOrderBookForFirstDeposit,
+      compactForConnectWallet: shouldCompactOrderBookForConnectWallet,
+      showEnableTradingButton: shouldShowEnableTradingButton,
+      hasTpsl: formData.hasTpsl,
+    });
+  }, [
+    activeTradeInstrument.mode,
+    formData.hasTpsl,
+    mobileMaxLevelsPerSide,
     shouldCompactOrderBookForConnectWallet,
     shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,

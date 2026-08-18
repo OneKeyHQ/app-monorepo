@@ -60,10 +60,20 @@ import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
 } from '../utils/mobilePerpMarketScrollState';
+import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const MOBILE_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
+
+// OK-59100: `react-native-collapsible-tab-view` sizes its iOS scroller with
+// `contentInset` rather than padding, so its own `contentContainerStyle`
+// carries the minHeight that guarantees there is anything to scroll at all.
+// External styles are merged AFTER the library's, so the previous
+// `minHeight: 0` silently deleted that guarantee and left the order book
+// scrollable only when its intrinsic content happened to be tall enough.
+// `flexGrow: 0` is kept — it is what stops the short content from stretching.
+const IOS_ORDERBOOK_SCROLL_CONTENT_STYLE = { flexGrow: 0 };
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   key: IMobilePerpMarketTab;
@@ -321,8 +331,28 @@ function MobilePerpMarket() {
       ? windowHeight
       : undefined;
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
+    perpsFieldDiagnostics('interactionOverlay.change', {
+      isOpen,
+      at: Date.now(),
+    });
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
+
+  // Records what the iOS scroller actually has to work with: if
+  // `contentHeight` never exceeds the visible box, the page cannot scroll no
+  // matter what `scrollEnabled` says.
+  const handleOrderbookContentSizeChange = useCallback(
+    (contentWidth: number, contentHeight: number) => {
+      perpsFieldDiagnostics('iosOrderbookTab.contentSize', {
+        contentWidth: Math.round(contentWidth),
+        contentHeight: Math.round(contentHeight),
+        windowHeight: Math.round(windowHeight),
+        chartHeight: MOBILE_CHART_HEIGHT,
+        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
+      });
+    },
+    [windowHeight],
+  );
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -633,7 +663,8 @@ function MobilePerpMarket() {
                     <Tabs.ScrollView
                       scrollEnabled={!isTradingViewInteractionOverlayOpen}
                       showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                      contentContainerStyle={IOS_ORDERBOOK_SCROLL_CONTENT_STYLE}
+                      onContentSizeChange={handleOrderbookContentSizeChange}
                     >
                       <YStack
                         onLayout={(event) =>

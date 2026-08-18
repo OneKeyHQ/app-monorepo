@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
@@ -33,8 +34,14 @@ function PerpMarketFooter() {
         : ETranslations.perp_trade_short,
   });
 
+  // OK-59100 reports these two buttons as unresponsive alongside the stuck
+  // scroller. They live in Page.Footer, outside the Tabs container, so nothing
+  // in that scroll path should be able to swallow their touches — logging entry
+  // here separates "the tap never arrived" from "the tap ran but goBack() did
+  // not visibly do anything".
   const handleCancel = useCallback(
     (close: () => void) => {
+      perpsFieldDiagnostics('marketFooter.press', { side: 'long' });
       actionsRef.current.updateTradingForm({ side: 'long' });
       close();
     },
@@ -43,6 +50,7 @@ function PerpMarketFooter() {
 
   const handleConfirm = useCallback(
     (close: () => void) => {
+      perpsFieldDiagnostics('marketFooter.press', { side: 'short' });
       actionsRef.current.updateTradingForm({ side: 'short' });
       close();
     },
