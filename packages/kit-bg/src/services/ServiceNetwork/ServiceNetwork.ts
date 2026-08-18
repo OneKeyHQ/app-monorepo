@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniq, uniqBy } from 'lodash';
 import pLimit from 'p-limit';
@@ -24,7 +24,12 @@ import {
   AGGREGATE_TOKEN_MOCK_NETWORK_ID,
   NETWORK_SHOW_VALUE_THRESHOLD_USD,
 } from '@onekeyhq/shared/src/consts/networkConsts';
-import { IMPL_BTC, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_SOL,
+  IMPL_TRON,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -1342,6 +1347,18 @@ class ServiceNetwork extends ServiceBase {
           });
 
         if (walletDevice) {
+          if (walletDevice.deviceType === EDeviceType.Pro2) {
+            const networksNotSupportedByPro2QrWallet = networkVaultSettings
+              .filter(
+                (o) =>
+                  o.network.impl === IMPL_SOL || o.network.impl === IMPL_TRON,
+              )
+              .map((o) => o.network.id);
+            networkIdsIncompatible = networkIdsIncompatible.concat(
+              networksNotSupportedByPro2QrWallet,
+            );
+          }
+
           // Filter by firmware type (Bitcoin Only, etc.)
           const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
             walletId,
@@ -1356,7 +1373,7 @@ class ServiceNetwork extends ServiceBase {
               networkIdsIncompatible.concat(nonBtcNetworks);
           }
         }
-        // Qr account only support btc/evm network
+        // Pro2 QR accounts only support BTC/EVM networks.
       }
     }
 

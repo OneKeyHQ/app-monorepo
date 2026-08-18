@@ -58,6 +58,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: {
     isHwWallet: jest.fn(),
+    isQrWallet: jest.fn(),
     isWalletDeprecatedOrMocked: jest.fn(
       (
         wallet: { deprecated?: boolean; isMocked?: boolean } | null | undefined,
@@ -281,6 +282,7 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
 
 describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     jest.mocked(localDb.getWalletSafe).mockResolvedValue({
       id: 'hw-1',
       name: 'OneKey Wallet',
@@ -316,6 +318,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     } as never);
     (accountUtils.isHwWallet as jest.Mock).mockImplementation(
       ({ walletId }: { walletId?: string }) => walletId?.startsWith('hw-'),
+    );
+    (accountUtils.isQrWallet as jest.Mock).mockImplementation(
+      ({ walletId }: { walletId?: string }) => walletId?.startsWith('qr-'),
     );
   });
 
@@ -373,6 +378,34 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(handleSettled).toHaveBeenCalledWith(
       expect.objectContaining({ totalFiat: '2' }),
     );
+  });
+
+  test('rejects a QR wallet even if it is also classified as hardware', async () => {
+    jest.mocked(localDb.getWalletSafe).mockResolvedValue({
+      id: 'qr-1',
+      name: 'OneKey QR Wallet',
+      type: 'qr',
+    } as never);
+    (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
+    (accountUtils.isQrWallet as jest.Mock).mockReturnValue(true);
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const handleSettled = jest.fn();
+    (
+      service as unknown as {
+        handleAllNetworksTokenListSettled: typeof handleSettled;
+      }
+    ).handleAllNetworksTokenListSettled = handleSettled;
+
+    await service.notifyAllNetworksTokenListSettled({
+      ...buildHardwarePayload(),
+      walletId: 'qr-1',
+      walletType: 'qr',
+    });
+
+    expect(handleSettled).not.toHaveBeenCalled();
+    expect(localDb.getWalletDeviceSafe).not.toHaveBeenCalled();
   });
 
   function buildHardwarePayload() {

@@ -1,15 +1,50 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import {
   getFirmwareUpdateDeviceTitle,
+  getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2ResourceReleaseId,
   hasProtocolV2FirmwareUpdateTarget,
   isPro2SafeOSFirmwareUpdate,
 } from './utils';
+
+describe('getFirmwareUpdateUSBPreflightParams', () => {
+  it('uses the release device identity and Protocol V2 mode', async () => {
+    await expect(
+      getFirmwareUpdateUSBPreflightParams({
+        deviceType: EDeviceType.Pro2,
+        updatingConnectId: 'PRO2_USB_ID',
+      } as ICheckAllFirmwareReleaseResult),
+    ).resolves.toEqual({
+      connectId: 'PRO2_USB_ID',
+      connectProtocol: 'V2',
+    });
+  });
+
+  it('prefers the USB serial resolved from release features', async () => {
+    const buildDeviceUSBConnectId = jest
+      .spyOn(deviceUtils, 'buildDeviceUSBConnectId')
+      .mockResolvedValue('PRO2_USB_SERIAL');
+
+    await expect(
+      getFirmwareUpdateUSBPreflightParams({
+        deviceType: EDeviceType.Pro2,
+        features: {} as ICheckAllFirmwareReleaseResult['features'],
+        updatingConnectId: 'PRO2_BLE_ID',
+      } as ICheckAllFirmwareReleaseResult),
+    ).resolves.toEqual({
+      connectId: 'PRO2_USB_SERIAL',
+      connectProtocol: 'V2',
+    });
+
+    buildDeviceUSBConnectId.mockRestore();
+  });
+});
 
 function buildResult({
   deviceType = EDeviceType.Pro2,

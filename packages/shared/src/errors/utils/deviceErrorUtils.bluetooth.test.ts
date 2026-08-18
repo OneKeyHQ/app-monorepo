@@ -1,8 +1,21 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/hardwareErrors';
+import { OneKeyLocalError } from '../errors/localError';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
-import { convertDeviceError } from './deviceErrorUtils';
+import { convertDeviceError, isOneKeyHardwareError } from './deviceErrorUtils';
+
+describe('isOneKeyHardwareError', () => {
+  it('recognizes hardware error metadata rehydrated across runtimes', () => {
+    const error = Object.assign(new OneKeyLocalError('link disabled'), {
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+    });
+
+    expect(isOneKeyHardwareError(error)).toBe(true);
+  });
+});
 
 describe('convertDeviceError Bluetooth unavailable while USB is connected', () => {
   it('explains that Bluetooth is unavailable while USB is connected', () => {

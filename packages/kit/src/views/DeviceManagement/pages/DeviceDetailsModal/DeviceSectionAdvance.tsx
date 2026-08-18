@@ -60,7 +60,6 @@ function DeviceSectionAdvancePassphrase() {
       justifyContent="center"
       value={passphraseEnabled ?? false}
       onAction={onPressPassphrase}
-      disabled={passphraseEnabled === undefined}
     >
       {({ value, disabled, onChange }) => (
         <Switch

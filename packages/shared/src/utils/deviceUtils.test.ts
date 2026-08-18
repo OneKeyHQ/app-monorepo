@@ -84,6 +84,18 @@ jest.mock('../hardware/instance', () => ({
 }));
 
 describe('deviceUtils', () => {
+  it('prefers the live device state ID after the device is reset', () => {
+    expect(
+      deviceUtils.getRawDeviceId({
+        device: { deviceId: 'OLD_DEVICE_ID' } as never,
+        features: { deviceId: 'OLD_DEVICE_ID' } as never,
+        deviceState: {
+          identity: { deviceId: 'NEW_DEVICE_ID' },
+        } as never,
+      }),
+    ).toBe('NEW_DEVICE_ID');
+  });
+
   it('reads the visible name and versions from canonical DeviceState sections', () => {
     const state = {
       identity: {

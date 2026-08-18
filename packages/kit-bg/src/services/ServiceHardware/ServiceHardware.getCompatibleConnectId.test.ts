@@ -526,7 +526,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('returns the resolved BLE connectId after the firmware preflight', async () => {
+  it('uses the USB connectId for desktop firmware preflight', async () => {
     const dbDevice = {
       id: 'db-pro2-device',
       connectId: 'PRB09B0088A',
@@ -550,13 +550,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           getHardwareTransportType: jest
             .fn()
             .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          setHardwareTransportType: jest.fn(),
         },
         serviceHardwareUI: { withHardwareProcessing },
       } as unknown as IBackgroundApi,
     });
-    jest
-      .spyOn(service, 'getCompatibleConnectId')
-      .mockResolvedValue(dbDevice.bleConnectId as string);
     const getFeaturesWithoutCache = jest
       .spyOn(service, 'getFeaturesWithoutCache')
       .mockResolvedValue({ success: true } as any);
@@ -565,15 +563,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       service.checkDeviceReachableForFirmwareUpdate({
         connectId: dbDevice.usbConnectId as string,
       }),
-    ).resolves.toBe(dbDevice.bleConnectId);
+    ).resolves.toBe(dbDevice.usbConnectId);
     expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
-      connectId: dbDevice.bleConnectId,
+      connectId: dbDevice.usbConnectId,
       params: {
         retryCount: 1,
-        forceProtocolDetection: true,
-        timeout: 30_000,
+        forceProtocolDetection: false,
       },
-      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
     });
   });
 
@@ -1140,7 +1137,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses USB when any authorized OneKey WebUSB device is available', async () => {
+  it('uses USB only when the selected authorized OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -1191,6 +1188,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       const detectBluetoothAvailability = jest
         .spyOn(service.connectionManager, 'detectBluetoothAvailability')
         .mockResolvedValue(true);
+
+      await expect(
+        service.connectionManager.detectWebUSBAvailability('OTHER_USB_ID'),
+      ).resolves.toBe(false);
+      await expect(
+        service.connectionManager.detectWebUSBAvailability('PRO2_USB_ID'),
+      ).resolves.toBe(true);
 
       await expect(
         service.connectionManager.shouldSwitchTransportType({
@@ -1331,7 +1335,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses Bridge when any Bridge device is enumerated', async () => {
+  it('uses Bridge only when the selected device is enumerated', async () => {
     mockedAxios.post.mockResolvedValue({
       data: [{ path: 'UNRELATED_USB_ID' }],
     });
@@ -1367,6 +1371,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     const detectBluetoothAvailability = jest
       .spyOn(service.connectionManager, 'detectBluetoothAvailability')
       .mockResolvedValue(true);
+
+    await expect(
+      service.connectionManager.detectBridgeAvailability('OTHER_USB_ID'),
+    ).resolves.toBe(false);
+    await expect(
+      service.connectionManager.detectBridgeAvailability('UNRELATED_USB_ID'),
+    ).resolves.toBe(true);
 
     await expect(
       service.connectionManager.shouldSwitchTransportType({

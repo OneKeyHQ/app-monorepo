@@ -159,6 +159,46 @@ describe('DeviceSettingsManager device adapters', () => {
   );
 
   test.each([
+    [EDeviceType.Pro2, { pinType: DeviceSessionPinType.Any }],
+    [EDeviceType.Touch, {}],
+  ])(
+    'uses the expected PIN policy when reading %s advanced settings',
+    async (deviceType, expectedPinParams) => {
+      const device = buildDevice(deviceType);
+      jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
+      const unlockDevice = jest.fn(async () => undefined);
+      const backgroundApi = {
+        serviceHardware: {
+          unlockDevice,
+          getDeviceStateByWallet: jest.fn(async () => ({
+            status: { passphraseProtection: true },
+          })),
+          getDeviceSupportFeatures: jest.fn(async () => ({
+            inputPinOnSoftware: { support: true },
+          })),
+        },
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (action: () => Promise<unknown>) => action(),
+          ),
+        },
+      } as unknown as IBackgroundApi;
+      const manager = new DeviceSettingsManager({ backgroundApi });
+
+      await expect(
+        manager.getDeviceAdvanceSettings({ walletId: 'wallet-1' }),
+      ).resolves.toMatchObject({
+        passphraseEnabled: true,
+        inputPinOnSoftwareSupport: true,
+      });
+      expect(unlockDevice).toHaveBeenCalledWith({
+        connectId: device.connectId,
+        ...expectedPinParams,
+      });
+    },
+  );
+
+  test.each([
     ['Custom Label', 'Custom Label'],
     [null, ''],
   ])(
@@ -193,7 +233,7 @@ describe('DeviceSettingsManager device adapters', () => {
       ).resolves.toBe(expected);
       expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
         connectId: device.connectId,
-        pinType: DeviceSessionPinType.Main,
+        pinType: DeviceSessionPinType.Any,
         params: { scope: 'settings' },
         oneKeyOperationLease: expect.objectContaining({
           deviceKey: 'device-db-id',

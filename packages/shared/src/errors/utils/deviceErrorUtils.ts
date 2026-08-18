@@ -331,17 +331,22 @@ export async function convertDeviceResponse<T>(
   return response.payload;
 }
 
+export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    oneKeyError instanceof HardwareErrors.OneKeyHardwareError ||
+    oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
+    oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
+    oneKeyError?.$isHardwareError === true,
+  );
+}
+
 export function isHardwareError({
   error,
 }: {
   error: IOneKeyError | undefined;
 }) {
-  const isOneKeyHardwareError =
-    error instanceof HardwareErrors.OneKeyHardwareError ||
-    error?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
-    error?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
-    error?.$isHardwareError === true;
-  return error && isOneKeyHardwareError;
+  return error && isOneKeyHardwareError(error);
 }
 
 export function isHardwareErrorByCode({
@@ -352,7 +357,7 @@ export function isHardwareErrorByCode({
   code: number | Array<number | string> | undefined;
 }) {
   // HardwareErrorCode
-  const isOneKeyHardwareError = isHardwareError({ error });
+  const isHardwareErrorDetected = isHardwareError({ error });
 
   const isCodeMatch = (errorCode: number | undefined | string) =>
     errorCode === code ||
@@ -360,7 +365,7 @@ export function isHardwareErrorByCode({
 
   return (
     error &&
-    isOneKeyHardwareError &&
+    isHardwareErrorDetected &&
     (isCodeMatch(error?.code) || isCodeMatch(error?.payload?.code))
   );
 }

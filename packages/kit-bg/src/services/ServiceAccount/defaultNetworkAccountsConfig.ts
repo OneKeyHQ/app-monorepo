@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -8,10 +8,12 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IAccountDeriveTypes } from '../../vaults/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type IBuildDefaultAddAccountNetworksParams = {
   backgroundApi: IBackgroundApi;
   walletId: string;
+  deviceType?: IDeviceType;
   includingNetworkWithGlobalDeriveType?: boolean;
   firmwareType: EFirmwareType | undefined;
   /** true when called from wallet-creation flow; undefined/false means add-account flow */
@@ -254,7 +256,7 @@ export async function buildDefaultAddAccountNetworks(
 export async function buildDefaultAddAccountNetworksForQrWallet(
   params: IBuildDefaultAddAccountNetworksParams,
 ) {
-  const { firmwareType } = params;
+  const { deviceType, firmwareType } = params;
   if (firmwareType === EFirmwareType.BitcoinOnly) {
     return buildAddAccountsNetworks({
       ...params,
@@ -267,7 +269,7 @@ export async function buildDefaultAddAccountNetworksForQrWallet(
     ...params,
     btc: true,
     evm: true,
-    sol: true,
+    sol: deviceType !== EDeviceType.Pro2,
   });
   return networks;
 }
