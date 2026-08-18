@@ -603,7 +603,7 @@ describe('servicePendingInstallTask', () => {
       updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: undefined,
       fullFlowRetryByTarget: {
-        '2.0.0:1': { count: 1, updatedAt: Date.now() },
+        'recovery:2.0.0:1': { count: 1, updatedAt: Date.now() },
       },
     });
     pendingTaskValue = makeAppShellInstallTask();
@@ -611,11 +611,45 @@ describe('servicePendingInstallTask', () => {
     await service.processPendingInstallTask();
 
     expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+    expect(
+      appUpdateState.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count,
+    ).toBe(1);
     expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.StartAutoDownloadUpdate,
       expect.anything(),
     );
+  });
+
+  test('reconciliation recovery budget does not exhaust pending full-flow retries', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+      status: 'missing',
+    });
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+      fullFlowRetryByTarget: {
+        'recovery:2.0.0:1': { count: 2, updatedAt: Date.now() },
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe('notify');
+    expect(
+      appUpdateState.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count,
+    ).toBe(2);
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+    expect(appUpdateState.freezeUntil).toBeUndefined();
+    expect(appUpdateState.ignoredTargets?.['2.0.0:1']).toBeUndefined();
   });
 
   test('exhausted app package recovery enters updateIncomplete', async () => {
@@ -797,6 +831,12 @@ describe('servicePendingInstallTask', () => {
 
   test('app-install target already aligned clears task', async () => {
     const service = createService();
+    setState({
+      fullFlowRetryByTarget: {
+        '1.0.0:1': { count: 1, updatedAt: Date.now() },
+        'recovery:1.0.0:1': { count: 2, updatedAt: Date.now() },
+      },
+    });
     // Target app version matches current env
     pendingTaskValue = makeAppShellInstallTask({
       targetAppVersion: '1.0.0',
@@ -806,6 +846,7 @@ describe('servicePendingInstallTask', () => {
     await service.processPendingInstallTask();
 
     expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
   test('frozen target blocks app-install sync', async () => {

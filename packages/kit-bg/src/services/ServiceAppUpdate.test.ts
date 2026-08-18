@@ -473,7 +473,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
-      expect(result.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+      expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
 
       const emitSpy = jest.spyOn(appEventBus, 'emit');
       await jest.runAllTimersAsync();
@@ -499,7 +499,7 @@ describe('ServiceAppUpdate state transitions', () => {
           downloadedFile: '/tmp/app-2.0.0.zip',
         },
         fullFlowRetryByTarget: {
-          '2.0.0:1': {
+          'recovery:2.0.0:1': {
             count: 2,
             updatedAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
           },
@@ -509,7 +509,7 @@ describe('ServiceAppUpdate state transitions', () => {
       const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
-      expect(result.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+      expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
     });
 
     test('repeated missing auto-update packages stop after the persisted retry budget', async () => {
@@ -538,7 +538,9 @@ describe('ServiceAppUpdate state transitions', () => {
 
       for (let retry = 1; retry <= 3; retry += 1) {
         const result = await service.reconcileAppShellPackage();
-        expect(result.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(retry);
+        expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(
+          retry,
+        );
         if (retry < 3) {
           expect(result.status).toBe(EAppUpdateStatus.notify);
           await jest.runAllTimersAsync();

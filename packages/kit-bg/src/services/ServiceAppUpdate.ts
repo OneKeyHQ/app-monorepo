@@ -54,6 +54,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 import {
+  APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX,
   MAX_FULL_FLOW_RETRY,
   PLACEHOLDER_SIGNATURE,
   clearPendingInstallTask,
@@ -454,8 +455,11 @@ class ServiceAppUpdate extends ServiceBase {
     const shouldConsumeRecoveryBudget =
       nextStatus === EAppUpdateStatus.notify &&
       availability.status !== EAppUpdatePackageAvailabilityStatus.notPrepared;
-    const targetKey = shouldConsumeRecoveryBudget
+    const updateTargetKey = shouldConsumeRecoveryBudget
       ? this.computeUpdateTargetKey(snapshot)
+      : null;
+    const recoveryTargetKey = updateTargetKey
+      ? `${APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX}${updateTargetKey}`
       : null;
     let invalidated = false;
     await appUpdatePersistAtom.set((current) => {
@@ -472,12 +476,12 @@ class ServiceAppUpdate extends ServiceBase {
       }
       invalidated = true;
       let fullFlowRetryByTarget = current.fullFlowRetryByTarget;
-      if (targetKey) {
+      if (recoveryTargetKey) {
         const recoveryCount =
-          (current.fullFlowRetryByTarget?.[targetKey]?.count || 0) + 1;
+          (current.fullFlowRetryByTarget?.[recoveryTargetKey]?.count || 0) + 1;
         fullFlowRetryByTarget = {
           ...current.fullFlowRetryByTarget,
-          [targetKey]: {
+          [recoveryTargetKey]: {
             count: recoveryCount,
             updatedAt: Date.now(),
           },
