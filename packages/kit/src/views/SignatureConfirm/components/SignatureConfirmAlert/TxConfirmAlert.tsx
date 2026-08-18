@@ -63,7 +63,6 @@ function TxConfirmAlert(props: IProps) {
   const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
     networkId,
     gasAccountScenario,
-    isPrivateSend: transferPayload?.isPrivateSend === true,
   });
 
   // Single source of truth for the token-fee alert gate so logging and
