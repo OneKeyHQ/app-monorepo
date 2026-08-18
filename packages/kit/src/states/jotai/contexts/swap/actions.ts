@@ -1760,6 +1760,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
+        source: quoteOverride?.source,
         actionLock: true,
         fromToken,
         toToken,
