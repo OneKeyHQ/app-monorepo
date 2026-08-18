@@ -176,21 +176,9 @@ export function useWcPayActionExecutor() {
         ) {
           const prevNetworkId = wcPayChainIdToNetworkId(prevRpc.chainId);
           if (prevNetworkId) {
-            const prevDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                { networkId: prevNetworkId },
-              );
-            const prevAccount =
-              await backgroundApiProxy.serviceAccount.getNetworkAccount({
-                accountId: indexedAccountId ? undefined : accountId,
-                indexedAccountId,
-                networkId: prevNetworkId,
-                deriveType: prevDeriveType,
-              });
             const { isReverted } =
               await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
                 networkId: prevNetworkId,
-                accountId: prevAccount.id,
                 txid: prevTxid,
               });
             if (isReverted) {
@@ -330,7 +318,6 @@ export function useWcPayActionExecutor() {
                 await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined(
                   {
                     networkId,
-                    accountId: account.id,
                     txid,
                   },
                 );

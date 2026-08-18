@@ -13,6 +13,7 @@ import {
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
   WALLET_CONNECT_PAY_SOLANA_CHAINS,
+  WALLET_CONNECT_PAY_TRUSTED_HOST,
   validateWcPayLinkDomain,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
@@ -23,7 +24,6 @@ import type {
   IWcPayOptionsResult,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
-import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
 
@@ -437,24 +437,31 @@ class ServiceWalletConnectPay extends ServiceBase {
   @backgroundMethod()
   async waitForTxMined({
     networkId,
-    accountId,
     txid,
     timeoutMs = 180_000,
   }: {
     networkId: string;
-    accountId: string;
     txid: string;
     timeoutMs?: number;
   }): Promise<{ isReverted: boolean }> {
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const rpcUrl = await vault.getRpcUrl();
-    const { ClientEvm } =
-      await import('../../vaults/impls/evm/sdkEvm/ClientEvm');
-    const client = new ClientEvm(rpcUrl);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const receipt = await client
-        .call<{ status?: string } | null>('eth_getTransactionReceipt', [txid])
+      // vault.getRpcUrl() is only an unimplemented base-class stub (returns
+      // ''), so the receipt must be read through the wallet backend RPC proxy
+      // — the same path dapp eth_* calls take — which also routes custom
+      // networks to their configured RPC.
+      const receipt = await this.backgroundApi.serviceDApp
+        .proxyRPCCall<{ status?: string } | null>({
+          networkId,
+          request: {
+            method: 'eth_getTransactionReceipt',
+            params: [txid],
+          },
+          origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
+        })
+        // proxyRPCCall's return items are loosely typed (raw envelope vs
+        // parsed result union), so narrow explicitly to the receipt shape
+        .then(([result]) => result as { status?: string } | null)
         .catch(() => null);
       if (receipt) {
         return { isReverted: !!receipt.status && receipt.status !== '0x1' };
