@@ -184,7 +184,22 @@ export function useFirstDepositAction() {
       }
 
       return runAccountScopedRequest(async (isRequestCurrent) => {
-        let status: IPerpsActiveAccountStatusAtom | undefined;
+        let status = await perpsActiveAccountStatusAtom.get();
+        if (getEnableTradingDialogConfirmDecision(status) === 'deposit') {
+          if (!isRequestCurrent() || options?.shouldIgnoreResult?.()) {
+            return { shouldContinue: false, status };
+          }
+          const result = await handleEnableTradingPostStatus(status, options);
+          if (isRequestCurrent() && !options?.shouldIgnoreResult?.()) {
+            // Keep the account snapshot fresh without delaying a deposit menu
+            // that already passed the live first-deposit status gate.
+            void backgroundApiProxy.serviceHyperliquid
+              .checkPerpsAccountStatus()
+              .catch(() => undefined);
+          }
+          return result;
+        }
+
         try {
           await errorToastUtils.withErrorAutoToast(() =>
             backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus(),
