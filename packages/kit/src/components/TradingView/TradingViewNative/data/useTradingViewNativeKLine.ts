@@ -775,72 +775,22 @@ async function recoverOlderHistoryFromBoundary({
   }
 
   let cursorTimeTo = Math.floor(timeTo);
+  let cursorTimestamp = cursorTimeTo + 1;
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
   const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
-  const buildResult = (): IHistoryGapRecoveryResult => {
-    const hasMoreBefore = cursorTimeTo >= boundaryTimestamp;
-    return {
-      boundaryTimestamp,
-      cursorTimestamp: hasMoreBefore ? cursorTimeTo + 1 : boundaryTimestamp,
-      hasMoreBefore,
-      historySource,
-      points,
-    };
-  };
-  const fetchTimeRange = async (
-    rangeTimeFrom: number,
-    rangeTimeTo: number,
-  ): Promise<'aborted' | 'complete' | 'fallback'> => {
-    const data = await fetchRequiredHistoryPage({
-      historyProvider,
-      request: {
-        interval,
-        signal,
-        timeFrom: rangeTimeFrom,
-        timeTo: rangeTimeTo,
-      },
-      unavailableMessage:
-        'No candle history response is available for sparse history recovery',
-    });
-    if (signal.aborted) {
-      return 'aborted';
-    }
-
-    historySource = data.historySource;
-    if (historySource === 'fallback') {
-      return 'fallback';
-    }
-    const rangePoints = normalizeKLinePointsInRange({
-      from: rangeTimeFrom,
-      points: data.points,
-      to: rangeTimeTo,
-    });
-    points = mergeKLinePoints(points, rangePoints);
-    onProgress?.(buildResult());
-
-    const rangeMayBeTruncated = historyProvider.hasMoreHistory({
-      historySource: data.historySource,
-      interval,
-      receivedPointCount: rangePoints.length,
-    });
-    if (!rangeMayBeTruncated || rangeTimeFrom >= rangeTimeTo) {
-      return 'complete';
-    }
-
-    // A capped response only means this time block needs finer coverage. It
-    // must never move the cursor across chart history that was not requested.
-    const midpoint = Math.floor((rangeTimeFrom + rangeTimeTo) / 2);
-    const newerRangeResult = await fetchTimeRange(midpoint + 1, rangeTimeTo);
-    if (newerRangeResult !== 'complete') {
-      return newerRangeResult;
-    }
-    return fetchTimeRange(rangeTimeFrom, midpoint);
-  };
   const requestCandleCount = Math.max(
     Math.floor(historyProvider.getHistoryRequestCandleCount(interval)),
     1,
   );
+  const buildResult = (): IHistoryGapRecoveryResult => ({
+    boundaryTimestamp,
+    cursorTimestamp,
+    hasMoreBefore: cursorTimestamp > boundaryTimestamp,
+    historySource,
+    points,
+  });
+
   while (
     cursorTimeTo >= boundaryTimestamp &&
     points.length < normalizedTargetPointCount
@@ -854,21 +804,52 @@ async function recoverOlderHistoryFromBoundary({
       }),
       boundaryTimestamp,
     );
-    const rangeResult = await fetchTimeRange(rangeTimeFrom, rangeTimeTo);
-    if (rangeResult === 'aborted') {
+    const data = await fetchRequiredHistoryPage({
+      historyProvider,
+      request: {
+        interval,
+        signal,
+        timeFrom: rangeTimeFrom,
+        timeTo: rangeTimeTo,
+      },
+      unavailableMessage:
+        'No candle history response is available for sparse history recovery',
+    });
+    if (signal.aborted) {
       return null;
     }
-    if (rangeResult === 'fallback') {
+
+    historySource = data.historySource;
+    if (historySource === 'fallback') {
       return {
         boundaryTimestamp,
-        cursorTimestamp: rangeTimeFrom,
+        cursorTimestamp: boundaryTimestamp,
         hasMoreBefore: false,
         historySource,
         points: [],
       };
     }
 
-    cursorTimeTo = rangeTimeFrom - 1;
+    const rangePoints = normalizeKLinePointsInRange({
+      from: rangeTimeFrom,
+      points: data.points,
+      to: rangeTimeTo,
+    });
+    points = mergeKLinePoints(points, rangePoints);
+    const rangeMayBeTruncated = historyProvider.hasMoreHistory({
+      historySource,
+      interval,
+      receivedPointCount: rangePoints.length,
+    });
+
+    // A short page only exhausts its requested time window. Keep walking older
+    // windows until the next-screen target or the real history boundary is met.
+    // A capped page resumes from its earliest returned candle without splitting
+    // and refetching the same range.
+    cursorTimestamp = rangeMayBeTruncated
+      ? (rangePoints[0]?.t ?? rangeTimeFrom)
+      : rangeTimeFrom;
+    cursorTimeTo = cursorTimestamp - 1;
     onProgress?.(buildResult());
   }
 

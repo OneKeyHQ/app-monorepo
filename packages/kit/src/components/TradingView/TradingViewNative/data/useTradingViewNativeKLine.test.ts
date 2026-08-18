@@ -772,7 +772,7 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
-  it('continues through short and empty time blocks until the next-screen target', async () => {
+  it('continues through short and empty time windows until the next-screen target', async () => {
     const intervalSeconds = 60;
     const initialTimestamp = 1_000_000;
     const requestCandleCount = 200;
@@ -855,7 +855,7 @@ describe('TradingViewNative K-line data state machine', () => {
     unmount();
   });
 
-  it('refines a capped time block without skipping its uncovered timestamps', async () => {
+  it('uses the earliest candle in a capped boundary page as the next cursor', async () => {
     const intervalSeconds = 60;
     const initialTimestamp = 1_000_000;
     const boundaryTimestamp = 800_000;
@@ -863,6 +863,8 @@ describe('TradingViewNative K-line data state machine', () => {
       close: 70 + index,
       timestamp: 880_100 + index * 400,
     }));
+    const nextLoadMoreRequest =
+      createDeferred<ITradingViewNativeHistoryResponse | null>();
     mockHistoryBatchSize = 299;
     mockHistoryRequestCandleCount = 2000;
     mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
@@ -885,30 +887,43 @@ describe('TradingViewNative K-line data state machine', () => {
             })),
           );
         }
-        return buildMultiPointResponse(
-          cappedPoints.filter(
-            (point) => point.timestamp >= timeFrom && point.timestamp <= timeTo,
-          ),
-        );
+        if (activeIntervalRequestCount === 2) {
+          expect({ timeFrom, timeTo }).toEqual({
+            timeFrom: 879_999,
+            timeTo: initialTimestamp - 1,
+          });
+          return buildMultiPointResponse(cappedPoints);
+        }
+        return nextLoadMoreRequest.promise;
       },
     );
-    const { result } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       useTradingViewNativeKLine({ source: buildMarketSource() }),
     );
 
     await waitFor(() => expect(result.current.points).toHaveLength(306));
-    expect(activeIntervalRequestCount).toBe(4);
+    expect(activeIntervalRequestCount).toBe(2);
+
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: result.current.points.length,
+        startIndex: 0,
+      }),
+    );
+    await waitFor(() => expect(activeIntervalRequestCount).toBe(3));
     const activeIntervalRequests = mockFetchHistory.mock.calls
       .map(([request]) => request)
       .filter((request) => request.interval.value === '1');
-    expect(activeIntervalRequests.slice(1)).toEqual([
-      expect.objectContaining({ timeFrom: 879_999, timeTo: 999_999 }),
-      expect.objectContaining({ timeFrom: 940_000, timeTo: 999_999 }),
-      expect.objectContaining({ timeFrom: 879_999, timeTo: 939_999 }),
-    ]);
+    expect(activeIntervalRequests[2]).toEqual(
+      expect.objectContaining({
+        timeTo: (cappedPoints[0]?.timestamp ?? 0) - 1,
+      }),
+    );
+
+    unmount();
   });
 
-  it('crosses more than eight empty time blocks before reaching the global boundary', async () => {
+  it('continues through empty time windows until the real history boundary', async () => {
     const initialTimestamp = 1_000_000;
     const boundaryTimestamp = 998_790;
     mockHistoryBatchSize = 299;
