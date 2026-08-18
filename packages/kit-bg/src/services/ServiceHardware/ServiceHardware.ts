@@ -53,7 +53,10 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
-import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -2679,14 +2682,17 @@ class ServiceHardware extends ServiceBase {
     connectId,
     walletId,
     immediate,
+    deviceType: deviceTypeFromCaller,
   }: {
     connectId?: string;
     walletId?: string;
     forceDeviceResetToHome?: boolean;
     immediate?: boolean;
+    deviceType?: string;
   }) {
     // TODO skip cancel if device is canceling, save last cancel time
 
+    let resolvedDeviceType = deviceTypeFromCaller;
     try {
       if (!connectId && walletId && accountUtils.isHwWallet({ walletId })) {
         const device =
@@ -2697,9 +2703,26 @@ class ServiceHardware extends ServiceBase {
           // eslint-disable-next-line no-param-reassign
           connectId = device.connectId;
         }
+        resolvedDeviceType = resolvedDeviceType || device?.deviceType;
       }
     } catch (_error) {
       //
+    }
+
+    if (!resolvedDeviceType && connectId) {
+      try {
+        const device = await localDb.getDeviceByQuery({ connectId });
+        resolvedDeviceType = device?.deviceType;
+      } catch (_error) {
+        //
+      }
+    }
+
+    // Protocol V2 Cancel is only implemented by Pro 2 / Neo. Do not emit it
+    // on Classic / Mini / Pro1, and never probe an unproven BLE link just to
+    // deliver a command the firmware does not handle.
+    if (!isProtocolV2ProductType(resolvedDeviceType)) {
+      return;
     }
 
     const fn = async () => {
