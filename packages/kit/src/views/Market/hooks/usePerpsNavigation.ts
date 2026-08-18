@@ -26,9 +26,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
           | undefined;
         try {
           proxy = (
-            await import(
-              '@onekeyhq/kit/src/background/instance/backgroundApiProxy'
-            )
+            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
           ).default;
           await proxy.serviceHyperliquid.setPendingInitialTradeInstrument({
             coin,

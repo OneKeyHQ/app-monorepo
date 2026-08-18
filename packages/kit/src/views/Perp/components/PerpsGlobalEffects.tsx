@@ -971,7 +971,8 @@ function useHyperliquidSymbolSelect() {
         pendingInitialTradeInstrument,
         instrumentTarget,
         tradingUniverse,
-      } = await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
+      } =
+        await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
       markPerpsColdStartPerf('initial_symbol_prepare', {
         elapsedMs: Date.now() - prepareStartedAt,
       });
