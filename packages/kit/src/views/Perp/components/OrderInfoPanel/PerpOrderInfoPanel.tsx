@@ -41,6 +41,7 @@ import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdraw
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
+import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
@@ -193,31 +194,44 @@ function PerpOrderInfoPanel() {
   }, [showUnifoldDepositTracker]);
 
   const renderTabBarToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) =>
-      focusedTab === 'Account' && isUnifoldDepositTrackerAvailable ? (
-        <Button
-          testID="perps-account-history-deposit-tracker"
-          size="small"
-          variant="secondary"
-          childrenAsText={false}
-          borderRadius="$full"
-          h={28}
-          mr="$3"
-          onPress={handleShowUnifoldDepositTracker}
-        >
-          <Icon
-            name="ClockTimeHistoryOutline"
-            size="$4"
-            mr="$1.5"
-            color="$icon"
-          />
-          <SizableText size="$bodySmMedium">
-            {intl.formatMessage({
-              id: ETranslations.perp_unifold_crypto_deposits__title,
-            })}
-          </SizableText>
-        </Button>
-      ) : null,
+    ({ focusedTab }: { focusedTab: string }) => {
+      if (focusedTab === 'Balances') {
+        return (
+          <XStack mr="$3" alignItems="center">
+            <HideSmallSpotHoldingsCheckbox />
+          </XStack>
+        );
+      }
+
+      if (focusedTab === 'Account' && isUnifoldDepositTrackerAvailable) {
+        return (
+          <Button
+            testID="perps-account-history-deposit-tracker"
+            size="small"
+            variant="secondary"
+            childrenAsText={false}
+            borderRadius="$full"
+            h={28}
+            mr="$3"
+            onPress={handleShowUnifoldDepositTracker}
+          >
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$4"
+              mr="$1.5"
+              color="$icon"
+            />
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_crypto_deposits__title,
+              })}
+            </SizableText>
+          </Button>
+        );
+      }
+
+      return null;
+    },
     [handleShowUnifoldDepositTracker, intl, isUnifoldDepositTrackerAvailable],
   );
 

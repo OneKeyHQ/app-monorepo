@@ -20,6 +20,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsComputedAccountValueAtom,
+  usePerpsCustomSettingsAtom,
   useSpotAssetCtxsMapAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,8 +37,13 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
+import { HideSmallSpotHoldingsCheckbox } from '../Components/HideSmallSpotHoldingsCheckbox';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
-import { calculateSpotHoldingPnl, isSpotHoldingStableCoin } from '../utils';
+import {
+  calculateSpotHoldingPnl,
+  filterSpotHoldingBalances,
+  isSpotHoldingStableCoin,
+} from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -103,6 +109,7 @@ function SpotBalanceList({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
   const { showDepositWithdrawModal, isDepositDisabled } =
@@ -272,16 +279,27 @@ function SpotBalanceList({
     isUnifiedAccountMode,
   ]);
 
-  // Filter out zero-balance tokens
-  const filteredBalances = useMemo(
-    () => allBalances.filter((b) => !new BigNumber(b.total).isZero()),
+  const nonZeroBalances = useMemo(
+    () =>
+      filterSpotHoldingBalances({
+        balances: allBalances,
+        hideBelowThreshold: false,
+      }),
     [allBalances],
+  );
+  const filteredBalances = useMemo(
+    () =>
+      filterSpotHoldingBalances({
+        balances: nonZeroBalances,
+        hideBelowThreshold: perpsCustomSettings.hideSmallSpotHoldings ?? false,
+      }),
+    [nonZeroBalances, perpsCustomSettings.hideSmallSpotHoldings],
   );
   const displayBalances =
     isMobile &&
     currentUser?.accountAddress &&
     isLoaded &&
-    filteredBalances.length === 0
+    nonZeroBalances.length === 0
       ? ZERO_USDC_BALANCES
       : filteredBalances;
 
@@ -439,6 +457,9 @@ function SpotBalanceList({
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
             </SizableText>
           </Badge>
+        </XStack>
+        <XStack px="$4" py="$1.5" alignItems="center">
+          <HideSmallSpotHoldingsCheckbox isMobile />
         </XStack>
         <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$0.5">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">

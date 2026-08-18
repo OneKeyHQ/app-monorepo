@@ -3,6 +3,7 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import {
   calculateSpotHoldingPnl,
   canChasePerpsOrder,
+  filterSpotHoldingBalances,
   formatSpotHoldingPnlText,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
@@ -10,6 +11,12 @@ import {
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
+
+type ISpotHoldingFilterTestItem = {
+  rawCoin: string;
+  total: string;
+  usdcValueNum: number;
+};
 
 function makeOpenOrder(
   overrides: Partial<IPerpsFrontendOrder> = {},
@@ -80,6 +87,35 @@ describe('calculateSpotHoldingPnl', () => {
         isStable: isSpotHoldingStableCoin('USDH'),
       }),
     ).toEqual({});
+  });
+});
+
+describe('filterSpotHoldingBalances', () => {
+  const balances: ISpotHoldingFilterTestItem[] = [
+    { rawCoin: 'USDC', total: '0.5', usdcValueNum: 0.5 },
+    { rawCoin: 'BELOW', total: '2', usdcValueNum: 4.99 },
+    { rawCoin: 'EXACT', total: '1', usdcValueNum: 5 },
+    { rawCoin: 'ABOVE', total: '1', usdcValueNum: 5.01 },
+    { rawCoin: 'UNKNOWN', total: '1', usdcValueNum: Number.NaN },
+    { rawCoin: 'ZERO', total: '0', usdcValueNum: 10 },
+  ];
+
+  it('keeps every non-zero holding when the filter is disabled', () => {
+    expect(
+      filterSpotHoldingBalances({
+        balances,
+        hideBelowThreshold: false,
+      }).map((item) => item.rawCoin),
+    ).toEqual(['USDC', 'BELOW', 'EXACT', 'ABOVE', 'UNKNOWN']);
+  });
+
+  it('hides only finite non-USDC holdings strictly below five dollars', () => {
+    expect(
+      filterSpotHoldingBalances({
+        balances,
+        hideBelowThreshold: true,
+      }).map((item) => item.rawCoin),
+    ).toEqual(['USDC', 'EXACT', 'ABOVE', 'UNKNOWN']);
   });
 });
 

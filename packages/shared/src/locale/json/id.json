@@ -3031,6 +3031,7 @@
   "perp_market_info_rank_tooltip__desc": "Peringkat pasar berdasarkan kapitalisasi pasar.",
   "perp_market_info_raw_source__title": "Materi sumber",
   "perp_market_info_raw_source_tooltip__desc": "Materi sumber pihak ketiga ditampilkan seperti yang disediakan dan belum diterjemahkan.",
+  "perp_holdings_hide_below_amount__action": "Sembunyikan aset bernilai di bawah {amount}",
   "perp_market_info_reference_note__desc": "Data pasar disediakan oleh pihak ketiga sebagai data pasar global hanya untuk referensi. Data ini dapat berbeda dari harga perdagangan, volume, dan data lain di Hyperliquid. Informasi ini disediakan apa adanya dan tidak merupakan pernyataan atau jaminan apa pun.",
   "perp_market_info_social_media__title": "Media sosial",
   "perp_market_info_total_supply_tooltip__desc": "Jumlah total token yang saat ini diterbitkan.",

@@ -3031,6 +3031,7 @@
   "perp_market_info_rank_tooltip__desc": "依市值排名的市場排序。",
   "perp_market_info_raw_source__title": "原始資料",
   "perp_market_info_raw_source_tooltip__desc": "第三方原始資料依照提供內容顯示，尚未翻譯。",
+  "perp_holdings_hide_below_amount__action": "隱藏價值低於 {amount} 的持倉",
   "perp_market_info_reference_note__desc": "基礎資料由第三方提供，屬於全球市場資料，僅供參考，可能與 Hyperliquid 的交易價格、成交量等資料不同。此資訊按「原樣」提供，不構成任何形式的陳述或保證。",
   "perp_market_info_social_media__title": "社群媒體",
   "perp_market_info_total_supply_tooltip__desc": "目前已發行的代幣總數。",

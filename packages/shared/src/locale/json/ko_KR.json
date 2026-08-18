@@ -3031,6 +3031,7 @@
   "perp_market_info_rank_tooltip__desc": "시가총액 기준 시장 순위.",
   "perp_market_info_raw_source__title": "출처 자료",
   "perp_market_info_raw_source_tooltip__desc": "제3자 출처 자료는 제공된 그대로 표시되며 아직 번역되지 않았습니다.",
+  "perp_holdings_hide_below_amount__action": "가치가 {amount} 미만인 보유 자산 숨기기",
   "perp_market_info_reference_note__desc": "시장 데이터는 제3자가 글로벌 시장 데이터로 제공하며 참고용으로만 사용됩니다. Hyperliquid의 거래 가격, 거래량 및 기타 데이터와 다를 수 있습니다. 이 정보는 있는 그대로 제공되며 어떠한 진술이나 보증도 구성하지 않습니다.",
   "perp_market_info_social_media__title": "소셜 미디어",
   "perp_market_info_total_supply_tooltip__desc": "현재 발행된 총 토큰 수.",

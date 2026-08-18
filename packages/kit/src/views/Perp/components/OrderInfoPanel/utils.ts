@@ -172,6 +172,37 @@ export const getFillDirectionDisplayInfo = ({
 
 export const isSpotHoldingStableCoin = isHyperliquidSpotStableCoin;
 
+export const MIN_VISIBLE_SPOT_HOLDING_VALUE_USD = 5;
+
+type ISpotHoldingFilterItem = {
+  rawCoin: string;
+  total: string;
+  usdcValueNum: number;
+};
+
+export function filterSpotHoldingBalances<T extends ISpotHoldingFilterItem>({
+  balances,
+  hideBelowThreshold,
+}: {
+  balances: T[];
+  hideBelowThreshold: boolean;
+}): T[] {
+  return balances.filter((balance) => {
+    if (new BigNumber(balance.total).isZero()) {
+      return false;
+    }
+
+    if (!hideBelowThreshold || balance.rawCoin === 'USDC') {
+      return true;
+    }
+
+    return (
+      !Number.isFinite(balance.usdcValueNum) ||
+      balance.usdcValueNum >= MIN_VISIBLE_SPOT_HOLDING_VALUE_USD
+    );
+  });
+}
+
 export const calculateSpotHoldingPnl = ({
   total,
   entryNtl,
