@@ -923,12 +923,14 @@ describe('TradingViewNative K-line data state machine', () => {
     unmount();
   });
 
-  it('continues through empty time windows until the real history boundary', async () => {
+  it('stops a recovery batch after ten consecutive empty time windows', async () => {
     const initialTimestamp = 1_000_000;
-    const boundaryTimestamp = 998_790;
+    const boundaryTimestamp = 900_000;
     mockHistoryBatchSize = 299;
     mockHistoryRequestCandleCount = 2;
     mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    const resumedLoadMoreRequest =
+      createDeferred<ITradingViewNativeHistoryResponse | null>();
     let activeIntervalRequestCount = 0;
     mockFetchHistory.mockImplementation(async ({ interval }) => {
       if (interval.value === '1W') {
@@ -939,14 +941,18 @@ describe('TradingViewNative K-line data state machine', () => {
       }
 
       activeIntervalRequestCount += 1;
-      return activeIntervalRequestCount === 1
-        ? buildMultiPointResponse([
-            { close: 100, timestamp: initialTimestamp },
-            { close: 110, timestamp: initialTimestamp + 60 },
-          ])
-        : { points: [], total: 0 };
+      if (activeIntervalRequestCount === 1) {
+        return buildMultiPointResponse([
+          { close: 100, timestamp: initialTimestamp },
+          { close: 110, timestamp: initialTimestamp + 60 },
+        ]);
+      }
+      if (activeIntervalRequestCount === 12) {
+        return resumedLoadMoreRequest.promise;
+      }
+      return { points: [], total: 0 };
     });
-    const { result } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       useTradingViewNativeKLine({ source: buildMarketSource() }),
     );
 
@@ -963,7 +969,109 @@ describe('TradingViewNative K-line data state machine', () => {
     recoveryRequests.slice(1).forEach((request, index) => {
       expect(request.timeTo).toBe(recoveryRequests[index].timeFrom - 1);
     });
-    expect(recoveryRequests.at(-1)?.timeFrom).toBe(boundaryTimestamp);
+    expect(recoveryRequests.at(-1)?.timeFrom).toBe(998_790);
+    expect(recoveryRequests.at(-1)?.timeFrom).toBeGreaterThan(
+      boundaryTimestamp,
+    );
+
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(activeIntervalRequestCount).toBe(12));
+    expect(
+      mockFetchHistory.mock.calls.filter(
+        ([request]) => request.interval.value === '1',
+      )[11]?.[0],
+    ).toEqual(
+      expect.objectContaining({
+        timeTo: 998_789,
+      }),
+    );
+
+    unmount();
+  });
+
+  it('resets the consecutive empty-window limit after receiving a candle', async () => {
+    const initialTimestamp = 1_000_000;
+    const boundaryTimestamp = 900_000;
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    let activeIntervalRequestCount = 0;
+    mockFetchHistory.mockImplementation(async ({ interval, timeFrom }) => {
+      if (interval.value === '1W') {
+        return buildResponse(50, boundaryTimestamp - 3600);
+      }
+      if (interval.value === '1D') {
+        return buildResponse(60, boundaryTimestamp);
+      }
+
+      activeIntervalRequestCount += 1;
+      if (activeIntervalRequestCount === 1) {
+        return buildMultiPointResponse(
+          Array.from({ length: 196 }, (_, index) => ({
+            close: 100 + index,
+            timestamp: initialTimestamp + index * 60,
+          })),
+        );
+      }
+      const recoveryRequestCount = activeIntervalRequestCount - 1;
+      if (recoveryRequestCount === 10 || recoveryRequestCount === 20) {
+        return buildResponse(70 + recoveryRequestCount, timeFrom + 1);
+      }
+      return { points: [], total: 0 };
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(198));
+    expect(activeIntervalRequestCount).toBe(21);
+  });
+
+  it('counts an empty load-more window toward the ten-window limit', async () => {
+    const initialTimestamp = 1_000_000;
+    const boundaryTimestamp = 900_000;
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    let activeIntervalRequestCount = 0;
+    mockFetchHistory.mockImplementation(async ({ interval }) => {
+      if (interval.value === '1W') {
+        return buildResponse(50, boundaryTimestamp - 3600);
+      }
+      if (interval.value === '1D') {
+        return buildResponse(60, boundaryTimestamp);
+      }
+
+      activeIntervalRequestCount += 1;
+      if (activeIntervalRequestCount === 1) {
+        return buildMultiPointResponse(
+          Array.from({ length: 299 }, (_, index) => ({
+            close: 100 + index,
+            timestamp: initialTimestamp + index * 60,
+          })),
+        );
+      }
+      return { points: [], total: 0 };
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(299));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() =>
+      expect(result.current.calendarAvailableTimeRange).toEqual({
+        from: boundaryTimestamp,
+      }),
+    );
+
+    expect(activeIntervalRequestCount).toBe(11);
+    expect(
+      mockFetchHistory.mock.calls
+        .map(([request]) => request)
+        .filter((request) => request.interval.value === '1')
+        .slice(2),
+    ).toHaveLength(9);
   });
 
   it.each([

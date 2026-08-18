@@ -63,6 +63,7 @@ const HISTORY_BOUNDARY_PREFETCH_CACHE_TTL = 24 * 60 * 60 * 1000;
 const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1W';
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
+const MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT = 10;
 const MAX_VIEWPORT_HISTORY_PAGE_COUNT = 20;
 const MAX_VIEWPORT_HISTORY_BOUNDARY_SEARCH_COUNT = 32;
 const MAX_REALTIME_BUFFER_CANDLES = 160;
@@ -738,6 +739,7 @@ function prefetchHistoryBoundaryPage({
 
 async function recoverOlderHistoryFromBoundary({
   historyProvider,
+  initialConsecutiveEmptyWindowCount = 0,
   interval,
   onProgress,
   seriesKey,
@@ -746,6 +748,7 @@ async function recoverOlderHistoryFromBoundary({
   timeTo,
 }: {
   historyProvider: ITradingViewNativeDataProvider;
+  initialConsecutiveEmptyWindowCount?: number;
   interval: ITradingViewNativeKLineInterval;
   onProgress?: (result: IHistoryGapRecoveryResult) => void;
   seriesKey: string;
@@ -776,6 +779,10 @@ async function recoverOlderHistoryFromBoundary({
 
   let cursorTimeTo = Math.floor(timeTo);
   let cursorTimestamp = cursorTimeTo + 1;
+  let consecutiveEmptyWindowCount = Math.max(
+    Math.floor(initialConsecutiveEmptyWindowCount),
+    0,
+  );
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
   const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
@@ -793,7 +800,9 @@ async function recoverOlderHistoryFromBoundary({
 
   while (
     cursorTimeTo >= boundaryTimestamp &&
-    points.length < normalizedTargetPointCount
+    points.length < normalizedTargetPointCount &&
+    consecutiveEmptyWindowCount <
+      MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT
   ) {
     const rangeTimeTo = cursorTimeTo;
     const rangeTimeFrom = Math.max(
@@ -835,6 +844,9 @@ async function recoverOlderHistoryFromBoundary({
       points: data.points,
       to: rangeTimeTo,
     });
+    consecutiveEmptyWindowCount = rangePoints.length
+      ? 0
+      : consecutiveEmptyWindowCount + 1;
     points = mergeKLinePoints(points, rangePoints);
     const rangeMayBeTruncated = historyProvider.hasMoreHistory({
       historySource,
@@ -843,7 +855,8 @@ async function recoverOlderHistoryFromBoundary({
     });
 
     // A short page only exhausts its requested time window. Keep walking older
-    // windows until the next-screen target or the real history boundary is met.
+    // windows until the next-screen target, the real history boundary, or the
+    // consecutive-empty safety limit is met.
     // A capped page resumes from its earliest returned candle without splitting
     // and refetching the same range.
     cursorTimestamp = rangeMayBeTruncated
@@ -3390,6 +3403,7 @@ export function useTradingViewNativeKLine({
               });
             const recovery = await recoverOlderHistoryFromBoundary({
               historyProvider,
+              initialConsecutiveEmptyWindowCount: olderPoints.length ? 0 : 1,
               interval,
               onProgress: applyRecoveryProgress,
               seriesKey,
