@@ -38,7 +38,6 @@ export function FirmwareUpdateCheckList({
   const isMountedRef = useRef(true);
   const isBluetoothTransport = isBluetoothFirmwareUpdateTransport({
     isNative: platformEnv.isNative,
-    hardwareTransportType,
   });
 
   useEffect(

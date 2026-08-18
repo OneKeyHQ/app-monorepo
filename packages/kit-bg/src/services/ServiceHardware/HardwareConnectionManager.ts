@@ -139,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -156,13 +156,18 @@ export class HardwareConnectionManager {
           dev.serialNumber.trim().length > 0;
         return isOneKey && hasSerialNumber;
       });
-      return onekeyDevices.length > 0;
+      const expectedConnectId = connectId?.trim().toLowerCase();
+      return onekeyDevices.some(
+        (device) =>
+          !expectedConnectId ||
+          device.serialNumber?.trim().toLowerCase() === expectedConnectId,
+      );
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -180,7 +185,14 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      return devices.length > 0;
+      const expectedConnectId = connectId?.trim().toLowerCase();
+      return devices.some((device) => {
+        if (!expectedConnectId) return true;
+        return (
+          typeof device.path === 'string' &&
+          device.path.trim().toLowerCase() === expectedConnectId
+        );
+      });
     } catch (_error) {
       return false;
     }
@@ -334,6 +346,11 @@ export class HardwareConnectionManager {
 
     if (platformEnv.isSupportDesktopBle) {
       const mode = await this.getDesktopUsbSetting(connectProtocol);
+      if (hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE) {
+        return mode === 'bridge'
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
+      }
       const usbAvailable = await this.detectUSBDeviceAvailability(
         connectId,
         connectProtocol,

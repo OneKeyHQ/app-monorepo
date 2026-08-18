@@ -216,6 +216,10 @@ export function useFirmwareUpdateErrors({
   const defaultRetryText = intl.formatMessage({
     id: ETranslations.global_retry,
   });
+  const firmwareUpdateCode = error?.payload?.params?.firmwareUpdateCode;
+  const hasInternalFirmwareUpdateFailureCode =
+    typeof firmwareUpdateCode === 'string' &&
+    firmwareUpdateCode.startsWith('Firmware');
   return useMemo<{
     content: React.ReactNode;
     detail?: React.ReactNode;
@@ -265,6 +269,30 @@ export function useFirmwareUpdateErrors({
             })}
             message={intl.formatMessage({
               id: ETranslations.update_check_connection_try_again,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: HardwareErrorCode.FirmwareVerificationFailed,
+      }) ||
+      hasInternalFirmwareUpdateFailureCode
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_update_failed,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.global_network_doctor_action_contact_support_persist,
             })}
           />
         ),
@@ -503,7 +531,15 @@ export function useFirmwareUpdateErrors({
       content: null,
       retryText: defaultRetryText,
     };
-  }, [intl, error, lastFirmwareTipMessage, defaultRetryText, onRetry, result]);
+  }, [
+    intl,
+    error,
+    lastFirmwareTipMessage,
+    defaultRetryText,
+    onRetry,
+    result,
+    hasInternalFirmwareUpdateFailureCode,
+  ]);
 }
 
 function WorkflowErrors({

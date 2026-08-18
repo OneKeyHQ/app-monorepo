@@ -224,10 +224,20 @@ describe('device details navigation state', () => {
 });
 
 describe('device setting state updates', () => {
-  it('uses the DeviceState event as the only post-mutation source for Pro2', () => {
+  it('only applies a confirmed passphrase mutation locally for Pro2', () => {
     expect(shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro2)).toBe(
       false,
     );
+    expect(
+      shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro2, {
+        passphraseEnabled: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro2, {
+        hapticFeedback: true,
+      }),
+    ).toBe(false);
     expect(shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro)).toBe(true);
   });
 

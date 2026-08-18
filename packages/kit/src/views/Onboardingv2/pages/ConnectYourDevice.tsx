@@ -31,7 +31,7 @@ import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/use
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
@@ -1157,7 +1157,7 @@ function ConnectYourDevicePage({
           connectProtocol: detectedConnectProtocol,
         });
       } catch (error) {
-        if (error instanceof OneKeyHardwareError) {
+        if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||

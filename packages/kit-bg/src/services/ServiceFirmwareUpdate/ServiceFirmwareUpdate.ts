@@ -2484,8 +2484,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // await other hardware task stop processing
             await timerUtils.wait(3000);
 
-            // Lock transport type during firmware update to prevent auto-switching
-            const currentTransportType = await this.getActiveTransportType();
+            // Desktop firmware updates must use the same USB-only product flow as x.
+            // Resolve again at execution time so Pro2 and Neo cannot retain a BLE route.
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
@@ -2761,6 +2786,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
+      const stepInfo = await firmwareUpdateStepInfoAtom.get();
+      if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
+        await firmwareUpdateStepInfoAtom.set({
+          step: EFirmwareUpdateSteps.installing,
+          payload: {},
+        });
+      }
       await firmwareUpdateRetryAtom.set({
         id,
         error: toPlainErrorObject(error as any),
@@ -3036,6 +3068,44 @@ class ServiceFirmwareUpdate extends ServiceBase {
         finalFirmwareVersion: updateResult?.firmwareVersion || '',
         finalBootloaderVersion: updateResult?.bootloaderVersion || '',
       });
+
+      const versionMismatches: string[] = [];
+      const verifyVersion = (
+        expectedVersion: string | undefined,
+        actualVersion: string | undefined,
+      ) => {
+        if (
+          expectedVersion &&
+          semver.valid(expectedVersion) &&
+          (!actualVersion ||
+            !semver.valid(actualVersion) ||
+            !semver.eq(actualVersion, expectedVersion))
+        ) {
+          versionMismatches.push(expectedVersion);
+        }
+      };
+
+      if (
+        params.targetsToUpdate.some(
+          (target) => target === 'app_v1' || target === 'app_v2',
+        )
+      ) {
+        verifyVersion(params.firmwareVersion, updateResult?.firmwareVersion);
+      }
+      if (params.targetsToUpdate.includes('boot')) {
+        verifyVersion(
+          params.bootloaderVersion,
+          updateResult?.bootloaderVersion,
+        );
+      }
+      if (params.targetsToUpdate.includes('coprocessor')) {
+        verifyVersion(params.bleVersion, updateResult?.bleVersion);
+      }
+
+      if (versionMismatches.length > 0) {
+        throw new FirmwareUpdateVersionMismatchError();
+      }
+
       return { message: 'success', ...updateResult };
     }, executionArtifacts);
   }

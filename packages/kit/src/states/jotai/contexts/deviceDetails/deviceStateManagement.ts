@@ -201,8 +201,12 @@ export function mergeDeviceSettingState(
 
 export function shouldApplyDeviceSettingMutationLocally(
   deviceType?: EDeviceType,
+  next?: Partial<IDeviceMetaState>,
 ) {
-  return !isProtocolV2ProductType(deviceType);
+  return (
+    !isProtocolV2ProductType(deviceType) ||
+    typeof next?.passphraseEnabled === 'boolean'
+  );
 }
 
 export function canEditPro2DeviceWideSettings({

@@ -11,6 +11,7 @@ import type {
 import {
   Accordion,
   Alert,
+  Dialog,
   Icon,
   SizableText,
   Stack,
@@ -30,6 +31,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -42,6 +44,7 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 import {
+  getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2FirmwareVersionTitle,
 } from '../utils';
@@ -448,6 +451,30 @@ export function FirmwareChangeLogView({
   const { showCheckList } = useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
+    if (platformEnv.isDesktop) {
+      const usbPreflightParams =
+        await getFirmwareUpdateUSBPreflightParams(result);
+      const isUSBDeviceAvailable =
+        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+          usbPreflightParams,
+        );
+      if (!isUSBDeviceAvailable) {
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.upgrade_use_usb,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.upgrade_recommend_usb,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
+    }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
@@ -466,7 +493,7 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo]);
+  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 

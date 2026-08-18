@@ -10,6 +10,22 @@ import type {
 
 import type { IntlShape } from 'react-intl';
 
+export async function getFirmwareUpdateUSBPreflightParams(
+  result: ICheckAllFirmwareReleaseResult | undefined,
+) {
+  const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
+    features: result?.features,
+  });
+
+  return {
+    connectId:
+      usbConnectId ?? result?.updatingConnectId ?? result?.originalConnectId,
+    connectProtocol: isProtocolV2ProductType(result?.deviceType)
+      ? ('V2' as const)
+      : undefined,
+  };
+}
+
 export function getFirmwareUpdateDeviceTitle(
   result: ICheckAllFirmwareReleaseResult,
 ) {

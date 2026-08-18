@@ -25,11 +25,9 @@ function areSetsEqual(a: Set<string>, b: Set<string>): boolean {
 }
 
 async function fetchConnectedDevices(): Promise<Set<string>> {
-  if (!platformEnv.isSupportWebUSB) {
-    return EMPTY_SET;
-  }
-
-  const usb = globalThis?.navigator?.usb;
+  const usb = platformEnv.isSupportWebUSB
+    ? globalThis?.navigator?.usb
+    : undefined;
   const [webUsbDevices, backgroundIdentityKeys] = await Promise.all([
     usb && typeof usb.getDevices === 'function'
       ? usb.getDevices()
@@ -73,11 +71,9 @@ export function useHardwareWalletConnectStatus() {
   );
 
   useEffect(() => {
-    if (!platformEnv.isSupportWebUSB) {
-      return;
-    }
-
-    const usb = globalThis?.navigator?.usb;
+    const usb = platformEnv.isSupportWebUSB
+      ? globalThis?.navigator?.usb
+      : undefined;
     const handleUSBEvent = (event: USBConnectionEvent) => {
       if (isSupportedHardwareWebUsbDevice(event.device)) {
         void refreshDevices();

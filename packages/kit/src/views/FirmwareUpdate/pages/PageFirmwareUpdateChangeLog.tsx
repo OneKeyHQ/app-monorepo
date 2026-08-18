@@ -108,10 +108,6 @@ function PageFirmwareUpdateChangeLog() {
     stepInfo.step === EFirmwareUpdateSteps.showCheckList;
 
   const content = useMemo(() => {
-    // keep change log modal content when install modal back
-    if (confirmUpdateResult.current) {
-      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
-    }
     if (isLoading) {
       return (
         <>
@@ -135,6 +131,10 @@ function PageFirmwareUpdateChangeLog() {
           />
         </>
       );
+    }
+    // keep change log modal content when install modal back
+    if (confirmUpdateResult.current) {
+      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
     }
     if (shouldShowChangeLog) {
       return (
