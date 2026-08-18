@@ -82,7 +82,10 @@ import {
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -625,23 +628,19 @@ export function LimitOrderForm({
     isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
     isPerpActionDisabled,
   });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositAction &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
 
   const handleFirstDepositPress = useCallback(() => {
-    if (isTradingActionLoading) {
-      return;
-    }
     const accountKey = firstDepositAccountKey;
     void requestFirstDepositAction({
       beforeDeposit: onClose,
       shouldIgnoreResult: () =>
         Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
     });
-  }, [
-    firstDepositAccountKey,
-    isTradingActionLoading,
-    onClose,
-    requestFirstDepositAction,
-  ]);
+  }, [firstDepositAccountKey, onClose, requestFirstDepositAction]);
 
   const handleConnectWallet = useCallback(async () => {
     onClose();
@@ -1477,11 +1476,7 @@ export function LimitOrderForm({
             childrenAsText={false}
             borderRadius="$full"
             variant="primary"
-            disabled={isTradingActionLoading}
-            loading={isTradingActionLoading}
-            onPress={
-              isTradingActionLoading ? undefined : handleFirstDepositPress
-            }
+            onPress={handleFirstDepositPress}
             testID="chart-limit-deposit-to-trade"
             h={36}
           >
