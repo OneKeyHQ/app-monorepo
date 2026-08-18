@@ -80,6 +80,7 @@ import {
 
 import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
 import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
+import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
 import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
@@ -797,12 +798,14 @@ const SwapHeaderRightActionContainer = ({
   iconColor,
   compact,
   marketPresetSettings,
+  routeSwapType,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  routeSwapType?: ESwapTabSwitchType;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -862,10 +865,19 @@ const SwapHeaderRightActionContainer = ({
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  // Settings is the only hub entry outside the wide desktop header, so it has to
+  // resolve its placement from the same route/store reconciliation the header
+  // uses — otherwise the hub can linger on Limit/Stock (or be missing on Swap)
+  // until the route-driven tab switch lands in the store.
+  const pendingRouteSwapType = useSwapActivityHubPendingRouteSwapType({
+    routeSwapType,
+    swapTypeSwitch,
+  });
   const swapActivityHubActionPlacement = getSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),
     isMediumLayout: md,
     isModal: pageType === EPageType.modal,
+    pendingRouteSwapType,
     swapTypeSwitch,
   });
   const showActivityHubInSettings =

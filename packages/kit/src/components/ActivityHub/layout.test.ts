@@ -3,8 +3,8 @@ import {
   getActivityHubLayout,
 } from './layout';
 
-function getShortcutTileWidth(hasCampaigns: boolean) {
-  const { panelWidth, shortcutColumns } = getActivityHubLayout(hasCampaigns);
+function getShortcutTileWidth(isWidePanel: boolean) {
+  const { panelWidth, shortcutColumns } = getActivityHubLayout(isWidePanel);
   return (panelWidth - ACTIVITY_HUB_SHORTCUT_ROW_PADDING) / shortcutColumns;
 }
 
@@ -19,7 +19,7 @@ describe('getActivityHubLayout', () => {
     expect(getShortcutTileWidth(false)).toBe(getShortcutTileWidth(true));
   });
 
-  it('spans the whole row with the shortcuts when campaigns are hidden', () => {
+  it('spans the whole row with the shortcuts in the narrow panel', () => {
     const { shortcutBasis, shortcutColumns } = getActivityHubLayout(false);
 
     expect(shortcutColumns * Number.parseFloat(shortcutBasis)).toBe(100);

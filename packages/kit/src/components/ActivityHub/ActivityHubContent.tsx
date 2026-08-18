@@ -18,6 +18,8 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { getActivityHubLayout } from './layout';
+
 import type { IActivityHubShortcutBasis } from './layout';
 import type { IActivityHubCampaign, IActivityHubSource } from './types';
 
@@ -156,7 +158,6 @@ export function ActivityHubContent({
   copyAsUrl = false,
   closePopover,
   showTitle = true,
-  shortcutBasis = '25%',
   onOpenInviteeReward,
   campaigns,
 }: {
@@ -164,7 +165,6 @@ export function ActivityHubContent({
   copyAsUrl?: boolean;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
-  shortcutBasis?: IActivityHubShortcutBasis;
   onOpenInviteeReward: () => void;
   campaigns?: IActivityHubCampaign[];
 }) {
@@ -178,6 +178,12 @@ export function ActivityHubContent({
   });
   const campaignItems = campaigns ?? [];
   const hasCampaigns = campaignItems.length > 0;
+  // The tile basis is paired with the panel width, so it is derived here instead
+  // of passed in: a host that forgot it would squeeze the two shortcuts into a
+  // quarter of the row each. Below md the hub is a screen-wide sheet whose width
+  // no host controls, so the tiles keep the 4-column basis there and the row
+  // stays half empty rather than growing tiles to half the screen.
+  const { shortcutBasis } = getActivityHubLayout(hasCampaigns || !isDesktop);
 
   return (
     <YStack mb="$2">

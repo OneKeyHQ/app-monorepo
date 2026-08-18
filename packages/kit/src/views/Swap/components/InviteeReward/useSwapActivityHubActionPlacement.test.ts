@@ -24,7 +24,10 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapActivityHubActionPlacement } from './useSwapActivityHubActionPlacement';
+import {
+  useSwapActivityHubActionPlacement,
+  useSwapActivityHubPendingRouteSwapType,
+} from './useSwapActivityHubActionPlacement';
 
 function getUseAtomValueMock() {
   return jest.requireMock('jotai').useAtomValue as jest.Mock;
@@ -93,5 +96,30 @@ describe('useSwapActivityHubActionPlacement', () => {
     });
 
     expect(result.current).toBe('hidden');
+  });
+});
+
+describe('useSwapActivityHubPendingRouteSwapType', () => {
+  it('keeps the route type until the caller store catches up', () => {
+    const { result, rerender } = renderHook(
+      ({ swapTypeSwitch }: { swapTypeSwitch: ESwapTabSwitchType }) =>
+        useSwapActivityHubPendingRouteSwapType({
+          routeSwapType: ESwapTabSwitchType.LIMIT,
+          swapTypeSwitch,
+        }),
+      {
+        initialProps: {
+          swapTypeSwitch: ESwapTabSwitchType.SWAP,
+        },
+      },
+    );
+
+    expect(result.current).toBe(ESwapTabSwitchType.LIMIT);
+
+    act(() => {
+      rerender({ swapTypeSwitch: ESwapTabSwitchType.LIMIT });
+    });
+
+    expect(result.current).toBeUndefined();
   });
 });

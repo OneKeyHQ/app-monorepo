@@ -142,7 +142,6 @@ function RebateList({
         </ListItem>
       ))}
       <Stack
-        bg="$bgSubdued"
         mt="$2.5"
         px="$pagePadding"
         py="$3.5"

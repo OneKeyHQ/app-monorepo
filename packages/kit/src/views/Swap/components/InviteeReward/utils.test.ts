@@ -87,6 +87,22 @@ describe('getSwapActivityHubActionPlacement', () => {
       isModal: false,
       swapTypeSwitch: ESwapTabSwitchType.LIMIT,
     },
+    {
+      expected: 'hidden',
+      isDesktop: false,
+      isMediumLayout: true,
+      isModal: false,
+      pendingRouteSwapType: ESwapTabSwitchType.LIMIT,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+    },
+    {
+      expected: 'settings',
+      isDesktop: false,
+      isMediumLayout: true,
+      isModal: false,
+      pendingRouteSwapType: ESwapTabSwitchType.SWAP,
+      swapTypeSwitch: ESwapTabSwitchType.LIMIT,
+    },
   ])(
     'places the action in $expected for the current surface',
     ({

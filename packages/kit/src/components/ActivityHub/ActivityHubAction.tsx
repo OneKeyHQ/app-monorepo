@@ -8,6 +8,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ActivityHubContent } from './ActivityHubContent';
+import { getActivityHubLayout } from './layout';
 
 import type { IActivityHubCampaign, IActivityHubSource } from './types';
 
@@ -42,6 +43,10 @@ export function ActivityHubAction({
   const activityCenterTitle = intl.formatMessage({
     id: ETranslations.perps_activity_hub,
   });
+  // Nothing inside the panel sets its width, so the popover has to carry the
+  // width paired with the tile basis. On md the content sits in a sheet that is
+  // already as wide as the screen.
+  const { panelWidth } = getActivityHubLayout(Boolean(campaigns?.length));
 
   return (
     <Popover
@@ -50,6 +55,9 @@ export function ActivityHubAction({
       title={activityCenterTitle}
       showHeader={!gtMd}
       placement="bottom-end"
+      floatingPanelProps={{
+        width: gtMd ? panelWidth : undefined,
+      }}
       sheetProps={
         gtMd
           ? undefined

@@ -11,6 +11,7 @@ const mockShareReferRewards = jest.fn();
 const mockOpenUrlExternal = jest.fn();
 const mockPopoverClose = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
+let mockGtMd = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -65,7 +66,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Primitive,
     XStack: Primitive,
     YStack: Primitive,
-    useMedia: () => ({ gtMd: true }),
+    useMedia: () => ({ gtMd: mockGtMd }),
   };
 });
 
@@ -96,10 +97,12 @@ jest.mock(
 
 import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
+import { getActivityHubLayout } from './layout';
 
 describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGtMd = true;
   });
 
   it('opens invite share and invitee rewards after the host closes', async () => {
@@ -155,7 +158,7 @@ describe('ActivityHubContent', () => {
     expect(screen.queryByText(/perps.ongoing_events/)).toBeNull();
   });
 
-  it('keeps the popover close promise and default floating width', async () => {
+  it('keeps the popover close promise', async () => {
     let resolveClose: (() => void) | undefined;
     mockPopoverClose.mockImplementation(
       () =>
@@ -173,16 +176,73 @@ describe('ActivityHubContent', () => {
       />,
     );
 
-    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith(undefined);
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe('25%');
-
     fireEvent.click(screen.getByTestId('activity-hub-my-rewards'));
     expect(mockPopoverClose).toHaveBeenCalledTimes(1);
     expect(onOpenInviteeReward).not.toHaveBeenCalled();
 
     resolveClose?.();
     await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
+  });
+
+  it('pairs the popover width with the shortcut basis', () => {
+    const narrowPanel = getActivityHubLayout(false);
+
+    render(
+      <ActivityHubAction
+        source="Earn"
+        onOpenInviteeReward={jest.fn()}
+        renderTrigger={<div />}
+      />,
+    );
+
+    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
+      width: narrowPanel.panelWidth,
+    });
+    expect(
+      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
+    ).toBe(narrowPanel.shortcutBasis);
+  });
+
+  it('keeps the wide-panel tile basis on the md sheet', () => {
+    mockGtMd = false;
+
+    render(
+      <ActivityHubContent
+        source="Earn"
+        closePopover={jest.fn()}
+        onOpenInviteeReward={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
+    ).toBe(getActivityHubLayout(true).shortcutBasis);
+  });
+
+  it('widens the popover when campaign cards are shown', () => {
+    const withCampaigns = getActivityHubLayout(true);
+
+    render(
+      <ActivityHubAction
+        source="Perps"
+        onOpenInviteeReward={jest.fn()}
+        renderTrigger={<div />}
+        campaigns={[
+          {
+            id: 'campaign-1',
+            title: 'campaign title',
+            subtitle: 'campaign subtitle',
+            url: 'https://onekey.so',
+          },
+        ]}
+      />,
+    );
+
+    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
+      width: withCampaigns.panelWidth,
+    });
+    expect(
+      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
+    ).toBe(withCampaigns.shortcutBasis);
   });
 });

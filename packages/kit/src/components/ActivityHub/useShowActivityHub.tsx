@@ -24,14 +24,12 @@ function ActivityHubDialogContent({
   campaigns,
 }: IShowActivityHubParams) {
   const dialog = useDialogInstance();
-  const { shortcutBasis } = getActivityHubLayout(Boolean(campaigns?.length));
 
   return (
     <ActivityHubContent
       source={source}
       copyAsUrl={copyAsUrl}
       showTitle={false}
-      shortcutBasis={shortcutBasis}
       closePopover={() => dialog.close()}
       onOpenInviteeReward={onOpenInviteeReward}
       campaigns={campaigns}
