@@ -829,12 +829,8 @@ class DesktopApiAppUpdate {
       semver.gt(preparedVersion, currentVersion);
     const isMainEventBound =
       preparedEvent?.downloadedFile === downloadedFile && isVersionBound;
-    // BaseUpdater owns the executable path on Windows/Linux. MacUpdater has a
-    // different process-local proxy, represented by the main-owned event above.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const isUpdaterBound = isMac
-      ? true
-      : Boolean(autoUpdater.isInstallerPath(downloadedFile));
+    const isUpdaterBound = Boolean(autoUpdater.isInstallerPath(downloadedFile));
     if (!isMainEventBound || !isUpdaterBound) {
       throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
     }
@@ -881,6 +877,9 @@ class DesktopApiAppUpdate {
         ElectronTranslations.update_installation_not_safe_alert_text,
       );
     }
+    // Rebind after async verification so a concurrent download cannot swap
+    // the updater state before the synchronous install handoff.
+    this.getCurrentProcessPreparedInstallParams(installVerifyParams);
     store.setUpdateBuildNumber(buildNumber);
     logger.info(
       'auto-update',

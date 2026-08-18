@@ -4,7 +4,6 @@ const os = require('os');
 const path = require('path');
 
 const { AppUpdater } = require('electron-updater/out/AppUpdater');
-const { BaseUpdater } = require('electron-updater/out/BaseUpdater');
 const {
   DownloadedUpdateHelper,
 } = require('electron-updater/out/DownloadedUpdateHelper');
@@ -170,7 +169,7 @@ describe('electron-updater runtime patch', () => {
     }
   });
 
-  test('only accepts the updater-bound installer path', () => {
+  test('exposes the updater-bound installer path on every updater', () => {
     const updater = {
       downloadedUpdateHelper: {
         file: '/tmp/OneKey-Wallet-verified.zip',
@@ -178,13 +177,13 @@ describe('electron-updater runtime patch', () => {
     };
 
     expect(
-      BaseUpdater.prototype.isInstallerPath.call(
+      AppUpdater.prototype.isInstallerPath.call(
         updater,
         '/tmp/OneKey-Wallet-verified.zip',
       ),
     ).toBe(true);
     expect(
-      BaseUpdater.prototype.isInstallerPath.call(
+      AppUpdater.prototype.isInstallerPath.call(
         updater,
         '/tmp/OneKey-Wallet-stale.zip',
       ),

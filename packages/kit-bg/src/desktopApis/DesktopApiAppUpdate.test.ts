@@ -15,6 +15,7 @@ const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
 };
+let mockPreparedInstallerPath: string | undefined;
 const mockOpenPath = jest.fn();
 const mockShowMessageBox = jest.fn();
 const mockAutoUpdater = {
@@ -106,6 +107,14 @@ const mainWindow = {
 };
 
 function emitUpdaterEvent(event: string, payload: unknown) {
+  if (
+    event === 'update-downloaded' &&
+    typeof payload === 'object' &&
+    payload !== null &&
+    'downloadedFile' in payload
+  ) {
+    mockPreparedInstallerPath = String(payload.downloadedFile);
+  }
   mockUpdaterHandlers.get(event)?.(payload);
 }
 
@@ -115,6 +124,14 @@ function createCachedPackage() {
   const downloadedFile = path.join(cacheDir, 'app.zip');
   fs.writeFileSync(downloadedFile, 'cached package');
   return downloadedFile;
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 beforeAll(async () => {
@@ -137,6 +154,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUpdaterHandlers.clear();
   mockDownloadUpdate.mockReset();
+  mockPreparedInstallerPath = undefined;
+  mockAutoUpdater.isInstallerPath.mockImplementation(
+    (installerPath: string) => installerPath === mockPreparedInstallerPath,
+  );
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-update-'));
   mockAutoUpdater.app.baseCachePath = tempDir;
   originalSkipGPGVerification = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
@@ -376,5 +397,81 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     ).resolves.toBe(true);
 
     expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(false);
+  });
+
+  test('rejects when updater state changes during package verification', async () => {
+    const downloadedFile = createCachedPackage();
+    const replacementFile = path.join(path.dirname(downloadedFile), 'next.zip');
+    fs.writeFileSync(replacementFile, 'replacement package');
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile,
+      files: [{ url: 'https://example.com/app.zip' }],
+      releaseDate: '2026-08-12',
+      version: '6.0.0',
+    });
+    const verificationStarted = createDeferred<void>();
+    const verificationResult = createDeferred<boolean>();
+    jest.spyOn(api, 'verifyFile').mockImplementationOnce(() => {
+      verificationStarted.resolve();
+      return verificationResult.promise;
+    });
+    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
+
+    const installPromise = api.installPackage({
+      buildNumber: '1',
+      latestVersion: '6.0.0',
+      downloadedFile,
+      downloadUrl: 'https://example.com/app.zip',
+    });
+    await verificationStarted.promise;
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile: replacementFile,
+      files: [{ url: 'https://example.com/next.zip' }],
+      releaseDate: '2026-08-13',
+      version: '6.1.0',
+    });
+    verificationResult.resolve(true);
+
+    await expect(installPromise).rejects.toThrow(
+      EAppUpdatePackageErrorCode.packageNotPrepared,
+    );
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  test('rejects when the updater path changes before its event is published', async () => {
+    const downloadedFile = createCachedPackage();
+    const replacementFile = path.join(path.dirname(downloadedFile), 'next.zip');
+    fs.writeFileSync(replacementFile, 'replacement package');
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile,
+      files: [{ url: 'https://example.com/app.zip' }],
+      releaseDate: '2026-08-12',
+      version: '6.0.0',
+    });
+    const verificationStarted = createDeferred<void>();
+    const verificationResult = createDeferred<boolean>();
+    jest.spyOn(api, 'verifyFile').mockImplementationOnce(() => {
+      verificationStarted.resolve();
+      return verificationResult.promise;
+    });
+    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
+
+    const installPromise = api.installPackage({
+      buildNumber: '1',
+      latestVersion: '6.0.0',
+      downloadedFile,
+      downloadUrl: 'https://example.com/app.zip',
+    });
+    await verificationStarted.promise;
+    mockPreparedInstallerPath = replacementFile;
+    verificationResult.resolve(true);
+
+    await expect(installPromise).rejects.toThrow(
+      EAppUpdatePackageErrorCode.packageNotPrepared,
+    );
+    expect(api.downloadedEvent?.downloadedFile).toBe(downloadedFile);
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
   });
 });

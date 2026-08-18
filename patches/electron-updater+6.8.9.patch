@@ -27,7 +27,7 @@ index 449df36..3c8a76c 100644
  export interface DownloadUpdateOptions {
      readonly updateInfoAndProvider: UpdateInfoAndProvider;
 diff --git a/node_modules/electron-updater/out/AppUpdater.js b/node_modules/electron-updater/out/AppUpdater.js
-index d6d5deb..7664ea9 100644
+index d6d5deb..08e655d 100644
 --- a/node_modules/electron-updater/out/AppUpdater.js
 +++ b/node_modules/electron-updater/out/AppUpdater.js
 @@ -246,6 +246,16 @@ class AppUpdater extends events_1.EventEmitter {
@@ -64,34 +64,22 @@ index d6d5deb..7664ea9 100644
          const downloadOptions = {
              headers: taskOptions.downloadUpdateOptions.requestHeaders,
              cancellationToken: taskOptions.downloadUpdateOptions.cancellationToken,
-diff --git a/node_modules/electron-updater/out/BaseUpdater.d.ts b/node_modules/electron-updater/out/BaseUpdater.d.ts
-index 00bbd5f..c0718df 100644
---- a/node_modules/electron-updater/out/BaseUpdater.d.ts
-+++ b/node_modules/electron-updater/out/BaseUpdater.d.ts
-@@ -9,6 +9,7 @@ export declare abstract class BaseUpdater extends AppUpdater {
-     quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
-     protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
-     protected get installerPath(): string | null;
-+    isInstallerPath(installerPath: string): boolean;
-     protected abstract doInstall(options: InstallOptions): boolean;
-     install(isSilent?: boolean, isForceRunAfter?: boolean): boolean;
-     protected addQuitHandler(): void;
-diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index f7c2965..db5fc3e 100644
---- a/node_modules/electron-updater/out/BaseUpdater.js
-+++ b/node_modules/electron-updater/out/BaseUpdater.js
-@@ -38,6 +38,10 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
-     get installerPath() {
-         return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
+@@ -640,6 +653,10 @@ class AppUpdater extends events_1.EventEmitter {
+         log.info(`New version ${version} has been downloaded to ${updateFile}`);
+         return await done(true);
      }
 +    // OneKey patch: verify that the updater is bound to the package just verified by the app.
 +    isInstallerPath(installerPath) {
 +        return this.downloadedUpdateHelper?.file === installerPath;
 +    }
-     // must be sync (because quit even handler is not async)
-     install(isSilent = false, isForceRunAfter = false) {
-         if (this.quitAndInstallCalled) {
-@@ -53,18 +57,12 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+     async differentialDownloadInstaller(fileInfo, downloadUpdateOptions, installerPath, provider, oldInstallerFileName) {
+         try {
+             if (this._testOnlyOptions != null && !this._testOnlyOptions.isUseDifferentialDownload) {
+diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
+index f7c2965..669a0f4 100644
+--- a/node_modules/electron-updater/out/BaseUpdater.js
++++ b/node_modules/electron-updater/out/BaseUpdater.js
+@@ -53,18 +53,12 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
          }
          // prevent calling several times
          this.quitAndInstallCalled = true;
