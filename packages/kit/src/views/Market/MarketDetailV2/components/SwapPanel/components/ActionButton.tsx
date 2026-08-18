@@ -302,8 +302,12 @@ export function ActionButton({
     !noAccount,
   );
 
-  if (shouldJumpToSwap && hasAmount) {
+  if (shouldJumpToSwap) {
     shouldUseColoredStyle = true;
+    isButtonDisabled = false;
+    if (!hasAmount) {
+      buttonText = `${actionText} ${truncatedSymbol}`.trim();
+    }
   }
 
   if (platformEnv.isWeb && noAccount) {
