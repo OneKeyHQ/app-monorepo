@@ -37,6 +37,7 @@ import {
   ESwapNetworkFeeLevel,
   ESwapProTradeType,
   type ESwapQuoteKind,
+  ESwapQuoteSource,
   type ESwapRateDifferenceUnit,
   type ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -382,6 +383,7 @@ export const {
   use: useSwapQuoteActionLockAtom,
 } = contextAtom<{
   type?: ESwapTabSwitchType;
+  source?: ESwapQuoteSource;
   actionLock: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -501,7 +503,8 @@ export const {
     currentEventProviderKeys,
     quoteEventCompleted,
     deferNonActionableQuoteUntilEventSettled:
-      activeSwapType === ESwapTabSwitchType.STOCK,
+      activeSwapType === ESwapTabSwitchType.STOCK ||
+      quoteActionLock.source === ESwapQuoteSource.MARKET,
   });
 });
 

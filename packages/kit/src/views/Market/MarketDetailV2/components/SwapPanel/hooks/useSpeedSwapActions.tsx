@@ -120,6 +120,7 @@ import {
   ESwapFetchCancelCause,
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -730,12 +731,23 @@ export function useSpeedSwapActions(props: {
       ESwapQuoteKind.SELL,
       true,
       userAddress,
+      undefined,
+      {
+        fromToken,
+        toToken,
+        fromTokenAmount: fromTokenAmountDebounced,
+        type: ESwapTabSwitchType.SWAP,
+        source: ESwapQuoteSource.MARKET,
+      },
     );
   }, [
+    fromToken,
+    fromTokenAmountDebounced,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
     quoteAction,
     slippage,
+    toToken,
   ]);
 
   const buildReviewStepTexts = useCallback(
@@ -1124,6 +1136,46 @@ export function useSpeedSwapActions(props: {
         throw new OneKeyLocalError(
           'Market swap quote changed while preparing review.',
         );
+      }
+
+      if (selectedQuote.swapShouldSignedData) {
+        const reviewBuildRes: IFetchBuildTxResponse = {
+          ...(selectedQuote.quoteId ? { orderId: selectedQuote.quoteId } : {}),
+          result: {
+            ...selectedQuote,
+            slippage: selectedQuote.slippage ?? slippage,
+          },
+        };
+        const swapInfo: ISwapTxInfo = {
+          protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
+          sender: {
+            amount: selectedQuote.fromAmount ?? amount,
+            token: fromTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: fromTokenFinal.networkId,
+            },
+          },
+          receiver: {
+            amount: selectedQuote.toAmount,
+            token: toTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: toTokenFinal.networkId,
+            },
+          },
+          accountAddress: userAddress,
+          receivingAddress: userAddress,
+          swapBuildResData: reviewBuildRes,
+        };
+
+        return {
+          buildRes: reviewBuildRes,
+          encodedTx: undefined,
+          transferInfo: undefined,
+          swapInfo,
+          userAddress,
+        };
       }
 
       setSpeedSwapBuildTxLoading(true);
@@ -3268,6 +3320,14 @@ export function useSpeedSwapActions(props: {
         ESwapQuoteKind.SELL,
         undefined,
         userAddress,
+        undefined,
+        {
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+          fromTokenAmount: fromTokenAmountDebounced,
+          type: ESwapTabSwitchType.SWAP,
+          source: ESwapQuoteSource.MARKET,
+        },
       );
     } else {
       const quoteRequestId = quoteRequestIdRef.current;
