@@ -356,6 +356,57 @@ describe('TradingViewNative K-line data state machine', () => {
     ).toBe(false);
   });
 
+  it('keeps the selected history source across every interval', async () => {
+    mockFetchHistory.mockImplementation(async ({ interval }) => {
+      if (interval.value === '60') {
+        return buildResponse(100, 200_000);
+      }
+      if (interval.value === '1W') {
+        return {
+          ...buildResponse(80, 100_000),
+          historySource: 'fallback',
+        };
+      }
+      return {
+        ...buildResponse(90, 110_000),
+        historySource: 'fallback',
+      };
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    mockEmitTradingViewNativeDebugEvent.mockClear();
+    act(() => result.current.handleHistoryBoundaryPrefetch());
+    await waitFor(() =>
+      expect(
+        mockFetchHistory.mock.calls.some(
+          ([request]) => request.interval.value === '1W',
+        ),
+      ).toBe(true),
+    );
+
+    expect(result.current.calendarAvailableTimeRange).toBeUndefined();
+    expect(
+      mockFetchHistory.mock.calls.some(
+        ([request]) => request.interval.value === '1D',
+      ),
+    ).toBe(false);
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          historySource: 'fallback',
+          interval: '1W',
+          reason: 'source-mismatch',
+          selectedHistorySource: 'primary',
+        }),
+        level: 'warning',
+        name: 'history.response.dropped',
+      }),
+    );
+  });
+
   it('logs a resolved response as aborted after its request is cancelled', async () => {
     const historyRequest =
       createDeferred<ITradingViewNativeHistoryResponse | null>();
@@ -853,6 +904,56 @@ describe('TradingViewNative K-line data state machine', () => {
     );
 
     unmount();
+  });
+
+  it('continues sparse recovery after dropping a fallback response', async () => {
+    const intervalSeconds = 60;
+    const initialTimestamp = 1_000_000;
+    const boundaryTimestamp = 900_000;
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 200;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    let activeIntervalRequestCount = 0;
+    mockFetchHistory.mockImplementation(
+      async ({ interval, timeFrom, timeTo }) => {
+        if (interval.value === '1W') {
+          return buildResponse(50, boundaryTimestamp - 3600);
+        }
+        if (interval.value === '1D') {
+          return buildResponse(60, boundaryTimestamp);
+        }
+
+        activeIntervalRequestCount += 1;
+        if (activeIntervalRequestCount === 1) {
+          return buildMultiPointResponse(
+            Array.from({ length: 7 }, (_, index) => ({
+              close: 100 + index,
+              timestamp: initialTimestamp + index * intervalSeconds,
+            })),
+          );
+        }
+        if (activeIntervalRequestCount === 2) {
+          return {
+            ...buildResponse(80, timeFrom + 1),
+            historySource: 'fallback',
+          };
+        }
+        return buildMultiPointResponse(
+          Array.from({ length: 191 }, (_, index) => ({
+            close: 70 + index,
+            timestamp: timeFrom + 1 + index * intervalSeconds,
+          })).filter(
+            (point) => point.timestamp >= timeFrom && point.timestamp <= timeTo,
+          ),
+        );
+      },
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(198));
+    expect(activeIntervalRequestCount).toBe(3);
   });
 
   it('uses the earliest candle in a capped boundary page as the next cursor', async () => {
@@ -1588,12 +1689,15 @@ describe('TradingViewNative K-line data state machine', () => {
     const latestIntervalTimestamp = currentTimestamp - 300;
     mockHistoryRequestCandleCount = 288;
     mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    mockHasMoreHistory.mockImplementation(
+      ({ interval }) => interval.value === '1',
+    );
     mockFetchHistory.mockImplementation(
       async ({ interval, timeFrom, timeTo }) => {
         if (interval.value === '1') {
           return buildResponse(100, currentTimestamp - 60);
         }
-        return buildFallbackMultiPointResponse(
+        return buildMultiPointResponse(
           [
             {
               close: 110,

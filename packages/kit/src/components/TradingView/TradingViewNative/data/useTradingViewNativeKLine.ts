@@ -1612,7 +1612,7 @@ export function useTradingViewNativeKLine({
       ? historyPointTypeScopeState.scopes
       : undefined;
   const historyProvider = useMemo<ITradingViewNativeDataProvider>(() => {
-    const historyDataSourceScopes = new Map<string, IHistoryDataSource>();
+    let selectedHistoryDataSource: IHistoryDataSource | undefined;
     const historyPointTypeScopes = new Map<
       string,
       IHistoryPointTypeClassification
@@ -1656,28 +1656,37 @@ export function useTradingViewNativeKLine({
             return data;
           }
 
+          if (
+            data &&
+            selectedHistoryDataSource &&
+            selectedHistoryDataSource !== responseDataSource
+          ) {
+            emitTradingViewNativeDebugEvent({
+              details: {
+                ...responseDetails,
+                reason: 'source-mismatch',
+                selectedHistorySource: selectedHistoryDataSource,
+              },
+              level: 'warning',
+              name: 'history.response.dropped',
+            });
+            return {
+              ...data,
+              historySource:
+                selectedHistoryDataSource === 'fallback'
+                  ? 'fallback'
+                  : undefined,
+              points: [],
+              total: 0,
+            };
+          }
+
           if (data && data.points.length > 0) {
+            selectedHistoryDataSource ??= responseDataSource;
             const scopeKey = getHistoryPointTypeScopeKey(
               seriesKey,
               request.interval.value,
             );
-            const selectedDataSource = historyDataSourceScopes.get(scopeKey);
-            if (
-              selectedDataSource &&
-              selectedDataSource !== responseDataSource
-            ) {
-              emitTradingViewNativeDebugEvent({
-                details: {
-                  ...responseDetails,
-                  reason: 'source-mismatch',
-                  selectedHistorySource: selectedDataSource,
-                },
-                level: 'warning',
-                name: 'history.response.dropped',
-              });
-              return { ...data, points: [], total: 0 };
-            }
-            historyDataSourceScopes.set(scopeKey, responseDataSource);
             const currentClassification = historyPointTypeScopes.get(scopeKey);
             const nextClassification = resolveHistoryPointTypeClassification({
               currentClassification,
