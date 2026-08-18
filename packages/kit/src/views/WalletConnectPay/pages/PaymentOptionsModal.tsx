@@ -319,7 +319,8 @@ function PaymentOptionsPage() {
         accountId,
         indexedAccountId,
         completedResults,
-        // absolute deadline re-checked before every signing confirmation;
+        // absolute deadline checked before every action and enforced
+        // before any broadcast (onBeforeSend + background broadcastDeadline);
         // it never moves during the flow, so capturing it here stays correct
         expiryMs: effectiveExpiryMs,
         // awaited by the executor before the sequence continues, so a
