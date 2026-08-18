@@ -36,6 +36,9 @@ export const SwapTestIDs = {
 
   // Pro
   proContainer: 'swap-pro-container',
+  proTokenSelector: 'swap-pro-token-selector',
+  proPrice: 'swap-pro-price',
+  proTransactionList: 'swap-pro-transaction-list',
   proPositionListHeader: 'Swap-Pro-Position-List-Header', // preserve existing
   proBuySellGroup: 'swap-pro-buy-sell-group',
   proSearchTokenList: 'swap-pro-search-token-list',

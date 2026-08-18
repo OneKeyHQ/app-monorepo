@@ -23,7 +23,6 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
-  IMarketPerpsInfo,
   IMarketTokenDetail,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
@@ -455,10 +454,11 @@ export const {
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteCurrentEventListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
+  const quoteActionLock = get(swapQuoteActionLockAtom());
   const sortType = get(swapProviderSortAtom());
   return sortSwapQuotes(list, {
     sort: sortType,
-    fromTokenAmount: fromTokenAmount.value,
+    fromTokenAmount: quoteActionLock.fromTokenAmount ?? fromTokenAmount.value,
   });
 });
 
@@ -470,21 +470,27 @@ export const {
   const fromTokenAmount = get(swapFromTokenAmountAtom());
   const toTokenAmount = get(swapToTokenAmountAtom());
   const swapTypeSwitch = get(swapTypeSwitchAtom());
+  const quoteActionLock = get(swapQuoteActionLockAtom());
+  const activeFromTokenAmount =
+    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+  const activeToTokenAmount =
+    quoteActionLock.toTokenAmount ?? toTokenAmount.value;
+  const activeSwapType = quoteActionLock.type ?? swapTypeSwitch;
   const selectionIntent = get(swapManualSelectQuoteProvidersAtom());
   const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
   const quoteEventCompleted = get(swapQuoteEventCompletedAtom());
   const currentEventProviderKeys = get(swapQuoteCurrentEventProviderKeysAtom());
   const recommendedSortedList = sortSwapQuotes(list, {
     sort: ESwapProviderSort.RECOMMENDED,
-    fromTokenAmount: fromTokenAmount.value,
+    fromTokenAmount: activeFromTokenAmount,
   });
   const currentEventSortedQuotes =
-    swapTypeSwitch === ESwapTabSwitchType.STOCK
+    activeSwapType === ESwapTabSwitchType.STOCK
       ? recommendedSortedList.filter((quote) =>
           isStockQuoteInputAmountMatched({
             quote,
-            fromAmount: fromTokenAmount.value,
-            toAmount: toTokenAmount.value,
+            fromAmount: activeFromTokenAmount,
+            toAmount: activeToTokenAmount,
           }),
         )
       : recommendedSortedList;
@@ -495,7 +501,7 @@ export const {
     currentEventProviderKeys,
     quoteEventCompleted,
     deferNonActionableQuoteUntilEventSettled:
-      swapTypeSwitch === ESwapTabSwitchType.STOCK,
+      activeSwapType === ESwapTabSwitchType.STOCK,
   });
 });
 
@@ -775,16 +781,6 @@ export const {
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
 
 export const {
-  atom: swapProTokenMarketDetailPerpsInfoAtom,
-  use: useSwapProTokenMarketDetailPerpsInfoAtom,
-} = contextAtom<IMarketPerpsInfo | undefined>(undefined);
-
-export const {
-  atom: swapProTokenTransactionPriceAtom,
-  use: useSwapProTokenTransactionPriceAtom,
-} = contextAtom<string>('');
-
-export const {
   atom: swapProTokenDetailWebsocketAtom,
   use: useSwapProTokenDetailWebsocketAtom,
 } = contextAtom<IMarketTokenDetailWebsocket | undefined>(undefined);
@@ -874,21 +870,6 @@ export const {
   atom: swapProLimitPriceValueAtom,
   use: useSwapProLimitPriceValueAtom,
 } = contextAtom<string>('');
-
-export const {
-  atom: swapSpeedQuoteFetchingAtom,
-  use: useSwapSpeedQuoteFetchingAtom,
-} = contextAtom<boolean>(false);
-
-export const { atom: swapSpeedQuoteRequestIdAtom } = contextAtom<number>(0);
-
-export const { atom: swapSpeedQuoteRequestScopeKeyAtom } =
-  contextAtom<string>('');
-
-export const {
-  atom: swapSpeedQuoteResultAtom,
-  use: useSwapSpeedQuoteResultAtom,
-} = contextAtom<IFetchQuoteResult | undefined>(undefined);
 
 export const {
   atom: swapProTokenSupportLimitAtom,

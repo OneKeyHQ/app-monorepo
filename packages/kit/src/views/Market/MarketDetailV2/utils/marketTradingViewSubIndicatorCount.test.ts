@@ -1,47 +1,33 @@
 import type { IMarketTradingViewSubIndicatorCountPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
 
 import {
-  getMarketTradingViewStorageNamespace,
   getMarketTradingViewSubIndicatorCount,
-  setMarketTradingViewStorageNamespace,
+  normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from './marketTradingViewSubIndicatorCount';
 
 describe('market TradingView sub-indicator count persistence', () => {
-  it('keeps regular Market and Hyperliquid layout counts independent', () => {
+  it('persists one shared Market layout count', () => {
     const initialState: IMarketTradingViewSubIndicatorCountPersistAtom = {
       subIndicatorCountByStorageNamespace: {},
-      storageNamespaceByChartKey: {},
     };
-    const marketState = setMarketTradingViewSubIndicatorCount({
+    const persistState = setMarketTradingViewSubIndicatorCount({
       count: 1,
       persistState: initialState,
       storageNamespace: 'market',
     });
-    const finalState = setMarketTradingViewSubIndicatorCount({
-      count: 3,
-      persistState: marketState,
-      storageNamespace: 'market-hyperliquid',
-    });
 
     expect(
       getMarketTradingViewSubIndicatorCount({
-        persistState: finalState,
+        persistState,
         storageNamespace: 'market',
       }),
     ).toBe(1);
-    expect(
-      getMarketTradingViewSubIndicatorCount({
-        persistState: finalState,
-        storageNamespace: 'market-hyperliquid',
-      }),
-    ).toBe(3);
   });
 
   it('preserves state identity when the stored count is unchanged', () => {
     const persistState: IMarketTradingViewSubIndicatorCountPersistAtom = {
       subIndicatorCountByStorageNamespace: { market: 2 },
-      storageNamespaceByChartKey: {},
     };
 
     expect(
@@ -53,42 +39,30 @@ describe('market TradingView sub-indicator count persistence', () => {
     ).toBe(persistState);
   });
 
-  it('uses the persisted chart namespace while source detection is loading', () => {
-    const chartKey = 'v2:btc:btc:BTC';
-    const initialState: IMarketTradingViewSubIndicatorCountPersistAtom = {
-      subIndicatorCountByStorageNamespace: {},
-      storageNamespaceByChartKey: {},
-    };
-    const persistState = setMarketTradingViewStorageNamespace({
-      chartKey,
-      persistState: initialState,
-      storageNamespace: 'market-hyperliquid',
-    });
+  it('removes legacy namespaces and chart-key mappings', () => {
+    const legacyPersistState = {
+      subIndicatorCountByStorageNamespace: {
+        market: 2,
+        'market-hyperliquid': 4,
+      },
+      storageNamespaceByChartKey: {
+        'v2:btc:btc:BTC': 'market-hyperliquid',
+      },
+    } as unknown as IMarketTradingViewSubIndicatorCountPersistAtom;
 
     expect(
-      getMarketTradingViewStorageNamespace({
-        chartKey,
-        detectedStorageNamespace: 'market',
-        isSourceLoading: true,
-        persistState,
-      }),
-    ).toBe('market-hyperliquid');
-    expect(
-      getMarketTradingViewStorageNamespace({
-        chartKey,
-        detectedStorageNamespace: 'market',
-        isSourceLoading: false,
-        persistState,
-      }),
-    ).toBe('market');
-
-    const regularMarketState = setMarketTradingViewStorageNamespace({
-      chartKey,
-      persistState,
-      storageNamespace: 'market',
+      normalizeMarketTradingViewSubIndicatorCountPersist(legacyPersistState),
+    ).toEqual({
+      subIndicatorCountByStorageNamespace: { market: 2 },
     });
     expect(
-      regularMarketState.storageNamespaceByChartKey[chartKey],
-    ).toBeUndefined();
+      setMarketTradingViewSubIndicatorCount({
+        count: 2,
+        persistState: legacyPersistState,
+        storageNamespace: 'market',
+      }),
+    ).toEqual({
+      subIndicatorCountByStorageNamespace: { market: 2 },
+    });
   });
 });

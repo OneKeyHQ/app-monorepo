@@ -10,6 +10,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -1379,10 +1380,12 @@ class ServiceSend extends ServiceBase {
     unsignedMessage,
     networkId,
     accountId,
+    useNonBlockingKdf,
   }: {
     unsignedMessage?: IUnsignedMessage;
     networkId: string;
     accountId: string;
+    useNonBlockingKdf?: boolean;
   }) {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -1399,10 +1402,15 @@ class ServiceSend extends ServiceBase {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
 
+    const kdfParams = useNonBlockingKdf
+      ? getPbkdf2KdfParamsForNonDbTxNoCache()
+      : undefined;
+
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
+        kdfParams,
       });
     const signedMessage =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1411,6 +1419,7 @@ class ServiceSend extends ServiceBase {
             messages: [validUnsignedMessage],
             password,
             deviceParams,
+            ...kdfParams,
           });
           return _signedMessage;
         },

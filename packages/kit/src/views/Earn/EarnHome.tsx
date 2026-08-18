@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -218,32 +219,29 @@ function BasicEarnHome({
       EAvailableAssetsTypeEnum.Staking,
     ] as const;
 
-    const results = await Promise.all(
+    await Promise.all(
       types.map(async (type) => {
         actions.current.setLoadingState(`availableAssets-${type}`, true);
+        let assets: IEarnAvailableAsset[] = [];
         try {
-          const assets =
-            await backgroundApiProxy.serviceStaking.getAvailableAssets({
-              type,
-            });
-          return {
+          assets = await backgroundApiProxy.serviceStaking.getAvailableAssets({
             type,
-            assets,
-          };
+          });
         } catch {
-          return {
-            type,
-            assets: [],
-          };
-        } finally {
-          actions.current.setLoadingState(`availableAssets-${type}`, false);
+          assets = [];
         }
+        // Store before clearing the flag, and per type rather than after
+        // Promise.all: AvailableAssetsFlatList only shows its skeleton while
+        // `loading && assets.length === 0` and otherwise renders nothing for an
+        // empty section, so clearing the flag first left every section that had
+        // already resolved blank until the slowest sibling landed — the home
+        // looked like it dropped its sections and popped them back in
+        // (PR 12791 review). Releasing each type as it arrives also lets a fast
+        // section paint without waiting on the others.
+        actions.current.updateAvailableAssetsByType(type, assets);
+        actions.current.setLoadingState(`availableAssets-${type}`, false);
       }),
     );
-
-    results.forEach(({ type, assets }) => {
-      actions.current.updateAvailableAssetsByType(type, assets);
-    });
   }, [actions]);
 
   const refreshEarnData = useCallback(

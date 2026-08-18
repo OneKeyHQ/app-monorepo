@@ -2,6 +2,7 @@
 
 import { fireEvent, render, waitFor } from '@testing-library/react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
   EModalSettingRoutes,
@@ -9,6 +10,7 @@ import {
   ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
 import {
+  EUniversalSearchSource,
   EUniversalSearchType,
   type IUniversalSearchSettings,
 } from '@onekeyhq/shared/types/search';
@@ -79,7 +81,6 @@ jest.mock(
     useIsTabNavigator: () => mockIsTabNavigator,
   }),
 );
-
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     universalSearch: {
@@ -90,6 +91,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+const mockUniversalSearchClick = jest.spyOn(
+  defaultLogger.universalSearch.search,
+  'universalSearchClick',
+);
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
   default: {
@@ -146,6 +151,7 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       <UniversalSearchSettingsItem
         item={settingsResult}
         getSearchInput={() => 'notifications'}
+        source={EUniversalSearchSource.Browser}
       />,
     );
     fireEvent.click(getByTestId('settings-result'));
@@ -157,6 +163,13 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       );
     });
     expect(mockPushModal).not.toHaveBeenCalled();
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith({
+      source: EUniversalSearchSource.Browser,
+      searchText: 'notifications',
+      type: EUniversalSearchType.Settings,
+      itemId: 'notifications',
+      itemTitle: 'Notifications',
+    });
   });
 
   it('opens Settings at the target tab when Settings is not already active', async () => {
@@ -169,6 +182,7 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       <UniversalSearchSettingsItem
         item={settingsResult}
         getSearchInput={() => 'notifications'}
+        source={EUniversalSearchSource.Browser}
       />,
     );
     fireEvent.click(getByTestId('settings-result'));
@@ -201,6 +215,7 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       <UniversalSearchSettingsItem
         item={sectionFallbackResult}
         getSearchInput={() => 'theme'}
+        source={EUniversalSearchSource.Browser}
       />,
     );
     fireEvent.click(getByTestId('settings-result'));
@@ -224,6 +239,7 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       <UniversalSearchSettingsItem
         item={sectionFallbackResult}
         getSearchInput={() => 'theme'}
+        source={EUniversalSearchSource.Browser}
       />,
     );
     fireEvent.click(getByTestId('settings-result'));
@@ -244,6 +260,7 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       <UniversalSearchSettingsItem
         item={sectionFallbackResult}
         getSearchInput={() => 'theme'}
+        source={EUniversalSearchSource.Browser}
       />,
     );
     fireEvent.click(getByTestId('settings-result'));

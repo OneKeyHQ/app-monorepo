@@ -40,15 +40,51 @@ jest.mock('@onekeyhq/components', () => ({
       {children}
     </button>
   ),
-  Skeleton: () => <div data-testid="skeleton" />,
+  Skeleton: ({ maxWidth, w }: { maxWidth?: number; w?: number | string }) => (
+    <div data-max-width={maxWidth} data-testid="skeleton" data-width={w} />
+  ),
   XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
-    <div data-testid={testID}>{children}</div>
+  YStack: ({
+    children,
+    flexBasis,
+    flexGrow,
+    minWidth,
+    testID,
+  }: {
+    children?: ReactNode;
+    flexBasis?: number | string;
+    flexGrow?: number;
+    minWidth?: number;
+    testID?: string;
+  }) => (
+    <div
+      data-flex-basis={flexBasis}
+      data-flex-grow={flexGrow}
+      data-min-width={minWidth}
+      data-testid={testID}
+    >
+      {children}
+    </div>
   ),
 }));
 
 jest.mock('../../Staking/components/ProtocolDetails/EarnText', () => ({
-  EarnText: ({ text }: { text: { text: string } }) => <span>{text.text}</span>,
+  EarnText: ({
+    adjustsFontSizeToFit,
+    minimumFontScale,
+    text,
+  }: {
+    adjustsFontSizeToFit?: boolean;
+    minimumFontScale?: number;
+    text: { text: string };
+  }) => (
+    <span
+      data-adjusts-font-size-to-fit={adjustsFontSizeToFit}
+      data-minimum-font-scale={minimumFontScale}
+    >
+      {text.text}
+    </span>
+  ),
 }));
 
 describe('OverviewMetric', () => {
@@ -92,5 +128,40 @@ describe('OverviewMetric', () => {
 
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.getByTestId('static-metric').tagName).toBe('DIV');
+  });
+
+  it('keeps loading and loaded content inside the same equal-width column', () => {
+    render(
+      <OverviewMetric
+        isLoading
+        testID="equal-metric"
+        title={{ text: 'Net APY' }}
+        widthMode="equal"
+      />,
+    );
+
+    const metric = screen.getByTestId('equal-metric');
+    expect(metric.getAttribute('data-flex-basis')).toBe('0');
+    expect(metric.getAttribute('data-flex-grow')).toBe('1');
+    expect(metric.getAttribute('data-min-width')).toBe('0');
+
+    const skeleton = screen.getByTestId('skeleton');
+    expect(skeleton.getAttribute('data-width')).toBe('100%');
+    expect(skeleton.getAttribute('data-max-width')).toBe('72');
+  });
+
+  it('scales long equal-width values instead of relying on truncation', () => {
+    render(
+      <OverviewMetric
+        testID="equal-metric"
+        title={{ text: 'Net worth' }}
+        text={{ text: '$1,234,567.89' }}
+        widthMode="equal"
+      />,
+    );
+
+    const value = screen.getByText('$1,234,567.89');
+    expect(value.getAttribute('data-adjusts-font-size-to-fit')).toBe('true');
+    expect(value.getAttribute('data-minimum-font-scale')).toBe('0.75');
   });
 });
