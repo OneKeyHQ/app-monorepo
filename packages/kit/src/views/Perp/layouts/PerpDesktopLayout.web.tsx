@@ -307,9 +307,7 @@ function PerpDesktopLayout() {
       >
         <Stack w={160} h={1} />
       </Spotlight>
-      {/* Inline min-height: tall tab content must not inflate this flex item
-          past the bounded pane, so the tabs can scroll internally. */}
-      <YStack flex={1} style={{ minHeight: 0 }}>
+      <YStack flex={1}>
         <PerpOrderInfoPanel />
       </YStack>
     </XStack>

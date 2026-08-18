@@ -32,24 +32,10 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
-// Inline min-height: the Tamagui prop drops 0, and without it the flex item's
-// min-height:auto lets tall tab content overflow the bounded pane.
-const scrollSnapFillStyle = { ...scrollSnapStyle, minHeight: 0 } as const;
-// The root is itself a flex item; without min-height:0 tall in-flow tab
-// content (e.g. table fixed columns) inflates it past the bounded pane.
-const rootFillStyle = { minHeight: 0 } as const;
-const rootFillScrollStyle = { ...overflowYScrollStyle, minHeight: 0 } as const;
 const childDivStyle = {
   width: '100%',
   flexShrink: 0,
   scrollSnapAlign: 'center',
-} as const;
-// Block flow keeps tab content at its natural height so the pane itself
-// scrolls; flex stretching here breaks nested horizontal scroll containers.
-const childDivFillStyle = {
-  ...childDivStyle,
-  height: '100%',
-  overflowY: 'auto',
 } as const;
 
 export function ContainerChild({
@@ -59,7 +45,6 @@ export function ContainerChild({
   focusedTab,
   tabNames,
   disableWebTabContentVisibility,
-  fillContentHeight = false,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
@@ -67,7 +52,6 @@ export function ContainerChild({
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
   disableWebTabContentVisibility: boolean;
-  fillContentHeight?: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -133,9 +117,8 @@ export function ContainerChild({
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
-        flex={fillContentHeight ? 1 : undefined}
         overflow="hidden"
-        style={fillContentHeight ? scrollSnapFillStyle : scrollSnapStyle}
+        style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           const key =
@@ -146,10 +129,7 @@ export function ContainerChild({
               ? (child.props as { name: string }).name
               : index;
           return (
-            <div
-              style={fillContentHeight ? childDivFillStyle : childDivStyle}
-              key={key}
-            >
+            <div style={childDivStyle} key={key}>
               {child}
             </div>
           );
@@ -193,12 +173,6 @@ export interface ITabContainerProps {
   allowHeaderOverscroll?: boolean;
   disableScroll?: boolean;
   /**
-   * Web only. Makes the tab content area fill the container's remaining height
-   * so tab children can use flex sizing and scroll internally. Use together
-   * with disableScroll inside height-bounded panes.
-   */
-  fillContentHeight?: boolean;
-  /**
    * Disables content-visibility on web tab wrappers. Use this for shared scroll
    * containers with dynamic content or header heights.
    */
@@ -222,14 +196,12 @@ export function Container({
   ref: containerRef,
   initialTabName,
   disableScroll,
-  fillContentHeight = false,
   disableWebTabContentVisibility = false,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
     | 'disableScroll'
-    | 'fillContentHeight'
     | 'disableWebTabContentVisibility'
     | 'useNativeHeaderAnimation'
     | 'renderSubHeader'
@@ -705,11 +677,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={
-        fillContentHeight
-          ? (disableScroll && rootFillStyle) || rootFillScrollStyle
-          : (!disableScroll && overflowYScrollStyle) || undefined
-      }
+      style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
@@ -759,7 +727,6 @@ export function Container({
                   disableWebTabContentVisibility={
                     disableWebTabContentVisibility
                   }
-                  fillContentHeight={fillContentHeight}
                 >
                   {children}
                 </ContainerChild>

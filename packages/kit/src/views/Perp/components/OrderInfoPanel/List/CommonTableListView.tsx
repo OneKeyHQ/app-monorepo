@@ -56,7 +56,11 @@ import {
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 
 const TradesHistoryLoadingView = () => {
   return (
@@ -418,7 +422,6 @@ export interface ICommonTableListViewProps<T = unknown> {
   disableListScroll?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
-  enableDesktopVerticalScroll?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
   onPullToRefresh?: () => Promise<void>;
@@ -437,7 +440,6 @@ export function CommonTableListView<T>({
   listLoading,
   setCurrentListPage,
   paginationToBottom,
-  enableDesktopVerticalScroll,
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
@@ -496,6 +498,26 @@ export function CommonTableListView<T>({
     enabled: hasFixedColumns,
     initialVisible: true,
   });
+
+  const headerScrollViewRef = useRef<React.ElementRef<
+    typeof ScrollView
+  > | null>(null);
+  // The fixed header row lives outside the body scroller, so mirror the
+  // body's horizontal offset onto it.
+  const handleDesktopBodyScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      headerScrollViewRef.current?.scrollTo({
+        x: event.nativeEvent.contentOffset.x,
+        animated: false,
+      });
+      if (platformEnv.isNative) {
+        handleNativeScroll(event);
+      } else {
+        handleWebScroll();
+      }
+    },
+    [handleNativeScroll, handleWebScroll],
+  );
 
   const paginatedData = useMemo<T[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -862,9 +884,34 @@ export function CommonTableListView<T>({
       )}
     </XStack>
   );
+  const desktopHeader = (
+    <XStack
+      borderBottomWidth="$px"
+      borderBottomColor={borderColor}
+      bg={headerBgColor}
+    >
+      <ScrollView
+        ref={headerScrollViewRef}
+        style={{ flex: 1 }}
+        horizontal
+        scrollEnabled={false}
+        showsHorizontalScrollIndicator={false}
+      >
+        <XStack py="$2" pl="$5" pr="$3" minWidth={scrollableMinWidth}>
+          {scrollableColumns.map((column, index) =>
+            renderHeaderCell(column, index),
+          )}
+        </XStack>
+      </ScrollView>
+      {hasFixedColumns ? (
+        <XStack py="$2" px="$3" minWidth={fixedMinWidth}>
+          {fixedColumns.map((column, index) => renderHeaderCell(column, index))}
+        </XStack>
+      ) : null}
+    </XStack>
+  );
   const desktopTable = (
     <XStack flex={1}>
-      {/* Scrollable columns */}
       <ScrollView
         ref={scrollViewRef}
         style={{
@@ -873,7 +920,7 @@ export function CommonTableListView<T>({
         horizontal
         showsHorizontalScrollIndicator
         nestedScrollEnabled
-        onScroll={platformEnv.isNative ? handleNativeScroll : handleWebScroll}
+        onScroll={handleDesktopBodyScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
@@ -881,21 +928,6 @@ export function CommonTableListView<T>({
         }}
       >
         <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
-          <XStack
-            py="$2"
-            pl="$5"
-            pr="$3"
-            display="flex"
-            minWidth={scrollableMinWidth}
-            width="100%"
-            borderBottomWidth="$px"
-            borderBottomColor={borderColor}
-            bg={headerBgColor}
-          >
-            {scrollableColumns.map((column, index) =>
-              renderHeaderCell(column, index),
-            )}
-          </XStack>
           <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
             {effectiveListLoading ? (
               <YStack
@@ -944,18 +976,6 @@ export function CommonTableListView<T>({
             visible={showFixedShadow}
             isDark={isDark}
           />
-          <XStack
-            py="$2"
-            px="$3"
-            display="flex"
-            borderBottomWidth="$px"
-            borderBottomColor={borderColor}
-            bg={headerBgColor}
-          >
-            {fixedColumns.map((column, index) =>
-              renderHeaderCell(column, index),
-            )}
-          </XStack>
           <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
             {effectiveListLoading ? <YStack flex={1} p="$20" /> : null}
             {!effectiveListLoading && paginatedData.length === 0 ? (
@@ -980,26 +1000,17 @@ export function CommonTableListView<T>({
     </XStack>
   );
 
-  const shouldEnableDesktopVerticalScroll =
-    enableDesktopVerticalScroll && !disableListScroll;
-
   return (
     <YStack flex={1}>
-      <YStack flex={1}>
-        {shouldEnableDesktopVerticalScroll ? (
-          <ScrollView
-            style={{
-              flex: 1,
-            }}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-          >
-            {desktopTable}
-          </ScrollView>
-        ) : (
-          desktopTable
-        )}
-
+      {desktopHeader}
+      <ScrollView
+        style={{
+          flex: 1,
+        }}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        {desktopTable}
         {enablePagination && currentListPage ? (
           <PaginationFooter
             currentPage={currentListPage}
@@ -1014,7 +1025,7 @@ export function CommonTableListView<T>({
             onViewAll={onViewAll}
           />
         ) : null}
-      </YStack>
+      </ScrollView>
     </YStack>
   );
 }
