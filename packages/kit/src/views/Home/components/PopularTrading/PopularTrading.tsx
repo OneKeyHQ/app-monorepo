@@ -80,6 +80,7 @@ import {
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
+  mapMarketPerpsTokenToDisplay,
 } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
@@ -568,21 +569,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               // Perps item
               const perpsToken = perpsTokenMap.get(targetItem.perpsCoin);
               if (!perpsToken) return null;
-              return {
-                chainId: '',
-                contractAddress: '',
-                isNative: false,
-                symbol: perpsToken.displayName,
-                name: perpsToken.displayName,
-                logoUrl: perpsToken.tokenImageUrl ?? '',
-                price: parseFloat(perpsToken.markPrice ?? '0'),
-                priceChange24h: perpsToken.change24hPercent ?? 0,
-                marketCap: 0,
-                perpsCoin: targetItem.perpsCoin,
-                maxLeverage: perpsToken.maxLeverage,
-                perpsSubtitle: getTokenSubtitle(perpsToken.name, perpsAliases),
-                volume24h: parseFloat(perpsToken.volume24h ?? '0'),
-              };
+              return mapMarketPerpsTokenToDisplay({
+                token: perpsToken,
+                subtitle: getTokenSubtitle(perpsToken.name, perpsAliases),
+              });
             }
 
             // Spot item
