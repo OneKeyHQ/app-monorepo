@@ -9,10 +9,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IFirmwareUpdateDevSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { applyPro2FirmwareForceTargetChange } from '@onekeyhq/kit-bg/src/states/jotai/atoms/applyPro2FirmwareForceTargetChange';
+import type { IPro2FirmwareForceTargetMode } from '@onekeyhq/kit-bg/src/states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
 
@@ -37,75 +37,61 @@ function Pro2FirmwareUpdateTargetRow({
     devSetting.pro2ForceUpdateTargets ?? EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS;
   const onceTargets =
     devSetting.pro2ForceUpdateOnceTargets ?? EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS;
+  const forceEnabled = targets.includes(target.value);
+  const onceEnabled = onceTargets.includes(target.value);
 
-  const updateTargets = useCallback(
-    async ({
-      nextTargets,
-      nextOnceTargets,
-    }: {
-      nextTargets: IPro2FirmwareUpdateTarget[];
-      nextOnceTargets: IPro2FirmwareUpdateTarget[];
-    }) => {
-      const values = {
-        pro2ForceUpdateTargets: nextTargets,
-        pro2ForceUpdateOnceTargets: nextOnceTargets,
-      };
-      setDevSetting((previous) => ({ ...previous, ...values }));
-      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
-        values,
-      );
+  const toggleTarget = useCallback(
+    (mode: IPro2FirmwareForceTargetMode, enabled: boolean) => {
+      setDevSetting((previous) => ({
+        ...previous,
+        ...applyPro2FirmwareForceTargetChange({
+          enabled,
+          mode,
+          onceTargets: previous.pro2ForceUpdateOnceTargets ?? [],
+          target: target.value,
+          targets: previous.pro2ForceUpdateTargets ?? [],
+        }),
+      }));
     },
-    [setDevSetting],
-  );
-
-  const setTargetEnabled = useCallback(
-    async (enabled: boolean) => {
-      const nextTargets = enabled
-        ? Array.from(new Set([...targets, target.value]))
-        : targets.filter((item) => item !== target.value);
-      const nextOnceTargets = enabled
-        ? onceTargets.filter((item) => item !== target.value)
-        : onceTargets;
-      await updateTargets({ nextTargets, nextOnceTargets });
-    },
-    [onceTargets, target.value, targets, updateTargets],
-  );
-
-  const setOnceTargetEnabled = useCallback(
-    async (enabled: boolean) => {
-      const nextOnceTargets = enabled
-        ? Array.from(new Set([...onceTargets, target.value]))
-        : onceTargets.filter((item) => item !== target.value);
-      const nextTargets = enabled
-        ? targets.filter((item) => item !== target.value)
-        : targets;
-      await updateTargets({ nextTargets, nextOnceTargets });
-    },
-    [onceTargets, target.value, targets, updateTargets],
+    [setDevSetting, target.value],
   );
 
   return (
     <ListItem title={target.label} titleProps={{ color: '$textCritical' }}>
       <XStack gap="$4" alignItems="center">
-        <YStack alignItems="center" gap="$1">
+        <YStack
+          alignItems="center"
+          gap="$1"
+          px="$2"
+          py="$1"
+          cursor="pointer"
+          onPress={() => toggleTarget('force', !forceEnabled)}
+        >
           <SizableText size="$bodySm" color="$textSubdued">
             force
           </SizableText>
           <Switch
             size={ESwitchSize.small}
-            value={targets.includes(target.value)}
-            onChange={setTargetEnabled}
+            value={forceEnabled}
+            pointerEvents="none"
             testID={`pro2-firmware-force-${target.value}`}
           />
         </YStack>
-        <YStack alignItems="center" gap="$1">
+        <YStack
+          alignItems="center"
+          gap="$1"
+          px="$2"
+          py="$1"
+          cursor="pointer"
+          onPress={() => toggleTarget('once', !onceEnabled)}
+        >
           <SizableText size="$bodySm" color="$textSubdued">
             once
           </SizableText>
           <Switch
             size={ESwitchSize.small}
-            value={onceTargets.includes(target.value)}
-            onChange={setOnceTargetEnabled}
+            value={onceEnabled}
+            pointerEvents="none"
             testID={`pro2-firmware-force-once-${target.value}`}
           />
         </YStack>
@@ -117,18 +103,12 @@ function Pro2FirmwareUpdateTargetRow({
 function FirmwareUpdatePro2DevSettings() {
   const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
 
-  const resetPro2ForceTargets = useCallback(async () => {
-    const values: Pick<
-      IFirmwareUpdateDevSettings,
-      'pro2ForceUpdateTargets' | 'pro2ForceUpdateOnceTargets'
-    > = {
-      pro2ForceUpdateTargets: [],
+  const resetPro2ForceTargets = useCallback(() => {
+    setDevSetting((previous) => ({
+      ...previous,
       pro2ForceUpdateOnceTargets: [],
-    };
-    setDevSetting((previous) => ({ ...previous, ...values }));
-    await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
-      values,
-    );
+      pro2ForceUpdateTargets: [],
+    }));
   }, [setDevSetting]);
 
   return (
