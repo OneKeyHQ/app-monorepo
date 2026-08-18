@@ -178,6 +178,14 @@ export function ActionButton({
     return symbol;
   }, [token?.symbol]);
 
+  const truncatedMarketSymbol = useMemo(() => {
+    const symbol = actionToken?.symbol || token?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [actionToken?.symbol, token?.symbol]);
+
   const tokenFormatter: INumberFormatProps = useMemo(() => {
     return {
       formatter: 'balance',
@@ -306,7 +314,7 @@ export function ActionButton({
     shouldUseColoredStyle = true;
     isButtonDisabled = false;
     if (!hasAmount) {
-      buttonText = `${actionText} ${truncatedSymbol}`.trim();
+      buttonText = `${actionText} ${truncatedMarketSymbol}`.trim();
     }
   }
 
