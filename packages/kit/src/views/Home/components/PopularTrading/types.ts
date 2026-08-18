@@ -15,6 +15,7 @@ interface IFavoriteTokenDisplay {
   perpsCoin?: string;
   maxLeverage?: number;
   perpsSubtitle?: string;
+  perpsDexLabel?: string;
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
 }
