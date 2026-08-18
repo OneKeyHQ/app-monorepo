@@ -109,6 +109,7 @@ import {
   EGasAccountErrorStrategy,
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
+import { resolveSponsorPayerState } from '../../utils/gasAccountPayerSelection';
 
 import { buildPresetMultiTxsFee } from './presetFeeInfoUtils';
 import { TxFeeEditor } from './TxFeeEditor';
@@ -560,15 +561,28 @@ function TxFeeInfo(props: IProps) {
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'`, even when a
         // frontend scenario disables Gas Account.
+        //
+        // Display payer and submit wiring are derived together from the
+        // post-filtered sponsor state so they cannot drift: when megafuel is
+        // suppressed for Private Send, a server `payer='megafuel'` preference
+        // falls through to an eligible gas account quote instead of silently
+        // degrading to user-paid.
         const serverPayer: IGasPayer = r.payer ?? 'user';
-        const nextEffectiveFeePayer: IGasPayer =
-          isCustomRpcEnabled ||
-          sponsorDisabledForBatch ||
-          (megafuelDisabledForPrivateSend && serverPayer === 'megafuel') ||
-          (gasAccountDisabledByScenario && serverPayer === 'gasAccount') ||
-          (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
-            ? 'user'
-            : serverPayer;
+        const {
+          effectiveFeePayer: nextEffectiveFeePayer,
+          selectedPayer: nextSelectedPayer,
+        } = resolveSponsorPayerState({
+          serverPayer,
+          megafuelSponsorable: !!r.megafuelEligible?.sponsorable,
+          gasAccountQuoteEligible: !!(
+            r.gasAccountEligible && r.gasAccountQuote
+          ),
+          isCustomRpcEnabled,
+          sponsorDisabledForBatch,
+          megafuelDisabledForPrivateSend,
+          gasAccountDisabledByScenario,
+          gasAccountTemporarilyDisabled,
+        });
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
         if (
@@ -626,11 +640,6 @@ function TxFeeInfo(props: IProps) {
           }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
           resetGasAccountTemporarilyDisabled();
-          const nextSelectedPayer =
-            r.megafuelEligible?.sponsorable || r.payer !== 'gasAccount'
-              ? 'user'
-              : 'gasAccount';
-
           updateGasAccountUiState({
             payer: r.payer,
             gasAccountEligible: true,
