@@ -920,7 +920,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
           ) {
             throw new FirmwareArtifactDesktopError(
               'ARTIFACT_ARCHIVE_INVALID',
-              'Firmware archive entry metadata does not match the manifest',
+              'Firmware archive entry metadata does not match the approved entry set',
             );
           }
           names.add(entryName);
