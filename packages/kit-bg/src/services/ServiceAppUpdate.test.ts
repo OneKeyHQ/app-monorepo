@@ -628,6 +628,40 @@ describe('ServiceAppUpdate state transitions', () => {
       );
     });
 
+    test.each([EAppUpdateStatus.ready, EAppUpdateStatus.manualInstall])(
+      'manual package in %s resumes updater cache preparation without an incomplete state',
+      async (status) => {
+        const {
+          AppUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+          status: EAppUpdatePackageAvailabilityStatus.notPrepared,
+        });
+        resetAtom({
+          latestVersion: '2.0.0',
+          status,
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedEvent: {
+            downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+            downloadedFile: '/tmp/app-2.0.0.zip',
+          },
+        });
+
+        const result = await service.reconcileAppShellPackage();
+
+        expect(result.status).toBe(EAppUpdateStatus.downloadPackage);
+        expect(result.downloadedEvent).toBeUndefined();
+        expect(result.fullFlowRetryByTarget).toEqual({});
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        await jest.runAllTimersAsync();
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.StartAutoDownloadUpdate,
+          { decision: 'appShellPackageRecovery' },
+        );
+      },
+    );
+
     test('missing package during verification enters the recovery flow', async () => {
       const {
         AppUpdate,

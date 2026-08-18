@@ -915,6 +915,9 @@ class DesktopApiAppUpdate {
   async manualInstallPackage(
     verifyParams: IInstallUpdateParams,
   ): Promise<void> {
+    // Signature verification proves authenticity, but not that a renderer
+    // selected the current feed version. Keep Win/Linux bound to the package
+    // prepared by this process before opening its directory.
     const installVerifyParams = isMac
       ? verifyParams
       : this.getCurrentProcessPreparedInstallParams(verifyParams);

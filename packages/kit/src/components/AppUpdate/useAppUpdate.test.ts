@@ -2077,6 +2077,34 @@ describe('useDownloadPackage', () => {
       expect(onFail).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
     });
+
+    test('not-prepared package entering rehydrate does not surface an install error', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      mockPlatformEnv.isDesktop = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.downloadPackage,
+      });
+      appUpd.installPackage.mockRejectedValue(
+        new Error('APP_PACKAGE_NOT_PREPARED'),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(onFail).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
+    });
   });
 
   // ----- B6. manualInstallPackage -----

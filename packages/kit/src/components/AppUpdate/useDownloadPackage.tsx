@@ -110,7 +110,8 @@ export const useDownloadPackage = () => {
           await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
         const recoveredStatus =
           info.status === EAppUpdateStatus.updateIncomplete ||
-          info.status === EAppUpdateStatus.notify
+          info.status === EAppUpdateStatus.notify ||
+          info.status === EAppUpdateStatus.downloadPackage
             ? info.status
             : undefined;
         if (
