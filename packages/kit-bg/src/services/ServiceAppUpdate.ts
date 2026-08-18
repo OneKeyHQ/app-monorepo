@@ -54,6 +54,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 import {
+  MAX_FULL_FLOW_RETRY,
   PLACEHOLDER_SIGNATURE,
   clearPendingInstallTask,
   getPendingInstallTask,
@@ -419,6 +420,7 @@ class ServiceAppUpdate extends ServiceBase {
     const snapshot = await appUpdatePersistAtom.get();
     if (
       !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
+      isFirstLaunchAfterUpdated(snapshot) ||
       snapshot.storeUrl ||
       getUpdateFileType(snapshot) !== EUpdateFileType.appShell
     ) {
@@ -442,9 +444,15 @@ class ServiceAppUpdate extends ServiceBase {
       return snapshot;
     }
 
-    const nextStatus = isAutoUpdateStrategy(snapshot.updateStrategy)
+    let nextStatus = isAutoUpdateStrategy(snapshot.updateStrategy)
       ? EAppUpdateStatus.notify
       : EAppUpdateStatus.updateIncomplete;
+    const shouldConsumeRecoveryBudget =
+      nextStatus === EAppUpdateStatus.notify &&
+      availability.status !== EAppUpdatePackageAvailabilityStatus.notPrepared;
+    const targetKey = shouldConsumeRecoveryBudget
+      ? this.computeUpdateTargetKey(snapshot)
+      : null;
     let invalidated = false;
     await appUpdatePersistAtom.set((current) => {
       const isSamePackageState =
@@ -459,11 +467,27 @@ class ServiceAppUpdate extends ServiceBase {
         return current;
       }
       invalidated = true;
+      let fullFlowRetryByTarget = current.fullFlowRetryByTarget;
+      if (targetKey) {
+        const recoveryCount =
+          (current.fullFlowRetryByTarget?.[targetKey]?.count || 0) + 1;
+        fullFlowRetryByTarget = {
+          ...current.fullFlowRetryByTarget,
+          [targetKey]: {
+            count: recoveryCount,
+            updatedAt: Date.now(),
+          },
+        };
+        if (recoveryCount > MAX_FULL_FLOW_RETRY) {
+          nextStatus = EAppUpdateStatus.updateIncomplete;
+        }
+      }
       return {
         ...current,
         status: nextStatus,
         errorText: undefined,
         downloadedEvent: undefined,
+        fullFlowRetryByTarget,
       };
     });
 

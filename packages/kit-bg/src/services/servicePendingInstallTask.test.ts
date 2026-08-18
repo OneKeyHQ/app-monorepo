@@ -514,6 +514,10 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.status).toBe('notify');
     expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'appShellPackageRecovery' },
+    );
   });
 
   test('unavailable app shell package triggers full-flow re-download', async () => {
@@ -540,6 +544,10 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.status).toBe('notify');
     expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'appShellPackageRecovery' },
+    );
   });
 
   test('unprepared macOS package triggers rehydrate without consuming failure budget', async () => {

@@ -197,9 +197,17 @@ jest.mock('../../hooks/useRunAfterTokensDone', () => ({
   },
 }));
 
-jest.mock('../../utils/passwordUtils', () => ({
-  whenAppUnlocked: () => Promise.resolve(),
-}));
+jest.mock('../../utils/passwordUtils', () => {
+  const fn = jest.fn(() => Promise.resolve());
+  (globalThis as any).__mockWhenAppUnlocked = fn;
+  return { whenAppUnlocked: fn };
+});
+
+// Keep one event-bus singleton across jest.isolateModules() so events emitted
+// by a test reach the foreground listener registered by the isolated module.
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () =>
+  jest.requireActual('@onekeyhq/shared/src/eventBus/appEventBus'),
+);
 
 jest.mock('@onekeyhq/shared/src/request/Interceptor', () => ({
   getRequestHeaders: jest.fn().mockResolvedValue({}),
@@ -355,6 +363,7 @@ const mockToastError = g.__mockToastError;
 const mockOpenUrlExternal = g.__mockOpenUrlExternal;
 const mockPlatformEnv = g.__mockPlatformEnv;
 const mockAtomHolder = g.__mockAtomHolder;
+const mockWhenAppUnlocked = g.__mockWhenAppUnlocked;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -373,14 +382,8 @@ function resetAllMocks() {
   jest.clearAllMocks();
   setAtom({});
 
-  // OK-58962: these are module-level and leak across tests if not reset —
-  // a stale `true` here would silently defer every later first-launch test.
-  mockPlatformEnv.isExtensionUiStandaloneWindow = false;
-  mockPlatformEnv.isExtensionUiSidePanel = false;
   mockPlatformEnv.isDesktop = false;
   mockPlatformEnv.isDesktopMac = false;
-  sidePanelUiState.hasReceivedPushedModal = false;
-  dappSvc.hasPendingDappRequest.mockResolvedValue(false);
 
   // Default resolved values. getUpdateInfo uses mockImplementation so it
   // always returns the CURRENT mockAtomHolder.value — tests that reassign
@@ -414,6 +417,7 @@ function resetAllMocks() {
   svc.resetToInComplete.mockResolvedValue(undefined);
   svc.fetchChangeLog.mockResolvedValue(undefined);
   svc.updateLastDialogShownAt.mockResolvedValue(undefined);
+  mockWhenAppUnlocked.mockResolvedValue(undefined);
   // Defaults match the safe baseline: native disallows skip, dev setting off.
   bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
   devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
@@ -2253,6 +2257,36 @@ describe('useAppUpdateInfo useEffect', () => {
       );
     });
 
+    test('desktop appShell recovery dialog waits for the app to unlock', async () => {
+      let resolveUnlock: (() => void) | undefined;
+      mockWhenAppUnlocked.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveUnlock = resolve;
+          }),
+      );
+      mockPlatformEnv.isDesktop = true;
+      setAtom({
+        status: EAppUpdateStatus.updateIncomplete,
+        latestVersion: '2.0.0',
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(mockWhenAppUnlocked).toHaveBeenCalled();
+      expect(mockDialogShow).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveUnlock?.();
+        await Promise.resolve();
+      });
+      expect(mockDialogShow).toHaveBeenCalled();
+    });
+
     test('non-desktop status=updateIncomplete → does not add a startup dialog', async () => {
       setAtom({
         status: EAppUpdateStatus.updateIncomplete,
@@ -2844,6 +2878,74 @@ describe('useAppUpdateInfo useEffect', () => {
       });
 
       expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
+    });
+
+    test('rehydrated macOS seamless package installs when it becomes ready in-session', async () => {
+      setAtom({
+        status: EAppUpdateStatus.done,
+        updateStrategy: EUpdateStrategy.manual,
+        latestVersion: '1.0.0',
+      });
+      mockPlatformEnv.isDesktop = true;
+      mockPlatformEnv.isDesktopMac = true;
+
+      const hooks = requireFreshHooks();
+      const { rerender } = renderHook(() =>
+        hooks.useAppUpdateInfo(false, true),
+      );
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+      svc.processPendingInstallTask.mockClear();
+
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          isUpdaterRehydrated: true,
+        },
+      });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
+    });
+
+    test('update-incomplete event waits for the app to unlock', async () => {
+      let resolveUnlock: (() => void) | undefined;
+      mockWhenAppUnlocked.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveUnlock = resolve;
+          }),
+      );
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+      act(() => {
+        appEventBus.emit(
+          EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+          undefined,
+        );
+      });
+
+      expect(mockWhenAppUnlocked).toHaveBeenCalled();
+      expect(mockDialogShow).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveUnlock?.();
+        await Promise.resolve();
+      });
+      expect(mockDialogShow).toHaveBeenCalled();
     });
 
     test('ready + manual strategy → shows regular update dialog', async () => {

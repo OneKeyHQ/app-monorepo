@@ -10,6 +10,7 @@ import {
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -40,7 +41,7 @@ import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 export const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 const MAX_TASK_RETRY = 3;
-const MAX_FULL_FLOW_RETRY = 2;
+export const MAX_FULL_FLOW_RETRY = 2;
 const MAX_RETRY_DELAY_MS = 10 * 60 * 1000;
 const RETRY_BASE_DELAY_MS = 30 * 1000;
 const RETRY_JITTER_MS = 5 * 1000;
@@ -1021,6 +1022,19 @@ class ServicePendingInstallTask {
         clearReason: 'full_flow_retry_fallback_to_refetch',
         level: 'warn',
       });
+      if (isAppPackageInvalid) {
+        const current = await appUpdatePersistAtom.get();
+        if (
+          current.latestVersion === task.targetAppVersion &&
+          current.status === EAppUpdateStatus.notify &&
+          !current.downloadedEvent &&
+          isAutoUpdateStrategy(current.updateStrategy)
+        ) {
+          appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+            decision: 'appShellPackageRecovery',
+          });
+        }
+      }
       return;
     }
 
