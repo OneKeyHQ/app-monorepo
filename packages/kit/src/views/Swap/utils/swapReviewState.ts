@@ -70,6 +70,16 @@ export function buildRebuiltSwapReviewQuoteResult({
   };
 }
 
+export function resolveSwapReviewNeedFetchGasAfterRebuild({
+  fallbackToSeparateTxConfirm,
+  previousNeedFetchGas,
+}: {
+  fallbackToSeparateTxConfirm: boolean;
+  previousNeedFetchGas?: boolean;
+}) {
+  return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
+}
+
 export function hasInFlightSwapReviewSteps({ steps }: { steps: ISwapStep[] }) {
   return steps.some(
     (step) =>
