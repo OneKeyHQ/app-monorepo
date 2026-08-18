@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -473,6 +473,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     const getDeviceState = jest.fn().mockResolvedValue({
       identity: { deviceId: 'PRO2_DEVICE_ID' },
       protocol: 'V2',
+      status: { unlocked: true },
     });
     const getCurrentTransportType = jest
       .fn()
@@ -631,6 +632,111 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
+  test('skips silent USB upload when the device is locked and does not retry', async () => {
+    jest.useFakeTimers();
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: false },
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(
+      serviceInternals.submitPortfolioJsonToServer,
+    ).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'device-locked',
+        walletId: 'hw-1',
+      }),
+    );
+
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    });
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('skips silent desktop BLE upload when the device is locked', async () => {
+    jest.useFakeTimers();
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+    });
+    try {
+      const {
+        getDeviceState,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false, false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      getDeviceState.mockResolvedValue({
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        protocol: 'V2',
+        status: { unlocked: false },
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+      await armDesktopBleIdleLease(service);
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+        expect.objectContaining({ status: 'device-locked' }),
+      );
+    } finally {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isNative: true,
+        isSupportDesktopBle: false,
+      });
+      jest.useRealTimers();
+    }
+  });
+
+  test('does not retry a firmware DeviceLocked refusal', async () => {
+    jest.useFakeTimers();
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    const lockedError = Object.assign(new Error('Device locked'), {
+      code: HardwareErrorCode.DeviceLocked,
+      payload: { firmwareMessage: 'Device locked' },
+    });
+    uploadPortfolioPackage.mockRejectedValueOnce(lockedError);
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'device-locked',
+        walletId: 'hw-1',
+      }),
+    );
+    jest.useRealTimers();
+  });
+
   test('does not pack or upload when the target device is disconnected', async () => {
     const {
       getDeviceState,
@@ -707,6 +813,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     getDeviceState.mockResolvedValue({
       identity: { deviceId: 'OTHER_DEVICE_ID' },
       protocol: 'V2',
+      status: { unlocked: true },
     });
 
     await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
@@ -767,7 +874,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     getDeviceState.mockResolvedValueOnce({
       identity: { deviceId: 'PRO2_DEVICE_ID' },
       protocol: 'V2',
-      status: { mode: EOneKeyDeviceMode.normal },
+      status: { mode: EOneKeyDeviceMode.normal, unlocked: true },
     });
     await service.notifyHardwareDeviceConnected({
       identityKeys: ['PRO2_CONNECT_ID'],
@@ -847,7 +954,15 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '2',
     });
 
-    expect(getDeviceState).toHaveBeenCalledTimes(1);
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ params: { scope: 'firmware' } }),
+    );
+    expect(getDeviceState).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ params: { scope: 'runtime' } }),
+    );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(2);
 
     await service.notifyHardwareDeviceConnected({
@@ -858,7 +973,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '3',
     });
 
-    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).toHaveBeenCalledTimes(3);
+    expect(getDeviceState).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ params: { scope: 'firmware' } }),
+    );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
   });
 
@@ -917,7 +1036,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       ...buildHardwarePayload(),
       totalFiat: '2',
     });
-    expect(getDeviceState).toHaveBeenCalledTimes(1);
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
 
     await service.notifyHardwareDeviceDisconnected({
       identityKeys: ['PRO2_CONNECT_ID'],
@@ -927,7 +1046,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '3',
     });
 
-    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).toHaveBeenCalledTimes(3);
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
   });
 
@@ -1772,6 +1891,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
           getDeviceState: jest.fn().mockResolvedValue({
             identity: { deviceId: 'PRO2_DEVICE_ID' },
             protocol: 'V2',
+            status: { unlocked: true },
           }),
           getCurrentTransportType: jest
             .fn()
