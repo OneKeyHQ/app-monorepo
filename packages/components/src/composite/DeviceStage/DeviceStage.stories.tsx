@@ -44,7 +44,9 @@ const meta = {
       },
     ],
     qrValue: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
-    passphraseMode: 'create',
+    // The flow spec's plain entry shape; flip to 'create' for the
+    // Add-hidden-wallet titling and its empty-entry refusal.
+    passphraseMode: 'verify',
     errorReason: 'rejected',
     locked: false,
   },
