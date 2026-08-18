@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -77,6 +78,9 @@ type ISelectStockSwapTokenOptions = {
 };
 
 export function useSwapStockChannel() {
+  const locale = useLocaleVariant().toLowerCase();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
@@ -99,6 +103,9 @@ export function useSwapStockChannel() {
   const manualStockPayTokenKeyRef = useRef('');
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
+  // Token-selector metadata is already localized. Keep its locale separate
+  // from the persisted token so a cold-start snapshot cannot flash old copy.
+  const stockTokenMetadataLocaleRef = useRef<string | undefined>(undefined);
 
   const selectedTokensStockPair = useMemo(
     () =>
@@ -298,6 +305,7 @@ export function useSwapStockChannel() {
       ) {
         resetStockTradeReceiveAmount();
       }
+      stockTokenMetadataLocaleRef.current = localeRef.current;
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
@@ -322,6 +330,7 @@ export function useSwapStockChannel() {
       if (!nextStockToken || nextStockToken === currentToken) {
         return;
       }
+      stockTokenMetadataLocaleRef.current = localeRef.current;
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
@@ -333,19 +342,25 @@ export function useSwapStockChannel() {
   );
 
   useEffect(() => {
+    const detail = stockTokenDetail;
+    const currentSubtitle = currentStockToken?.stock?.subtitle?.trim();
+    const detailSubtitle = detail?.stock?.subtitle?.trim();
+    // Detail is authoritative after a locale change; keep the selected token
+    // and its execution snapshot aligned with the current-language metadata.
     if (
       !currentStockToken ||
-      currentStockToken.stock?.subtitle?.trim() ||
-      !stockTokenDetail?.stock?.subtitle?.trim()
+      !detail ||
+      !detailSubtitle ||
+      currentSubtitle === detailSubtitle
     ) {
       return;
     }
     syncStockTokenDetail({
       ...currentStockToken,
-      decimals: stockTokenDetail.decimals,
-      isNative: stockTokenDetail.isNative ?? currentStockToken.isNative,
+      decimals: detail.decimals,
+      isNative: detail.isNative ?? currentStockToken.isNative,
       isStock: true,
-      stock: stockTokenDetail.stock,
+      stock: detail.stock,
     });
   }, [currentStockToken, stockTokenDetail, syncStockTokenDetail]);
 
@@ -529,6 +544,7 @@ export function useSwapStockChannel() {
       resetStockTradeAmounts();
       setTradeSideState(nextTradeSide);
       setStockTokenState(nextStockToken);
+      stockTokenMetadataLocaleRef.current = localeRef.current;
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
       manualStockPayTokenKeyRef.current = getTokenIdentityKey(nextPayToken);
@@ -618,6 +634,9 @@ export function useSwapStockChannel() {
     stockTokenStatus,
   });
 
+  const hasCurrentLocaleStockMetadata =
+    stockTokenMetadataLocaleRef.current === locale;
+
   useEffect(() => {
     const executionTokensToSync = resolveStockExecutionTokensToSync({
       currentFromToken: fromToken,
@@ -660,6 +679,7 @@ export function useSwapStockChannel() {
       displayStockTokenDetail,
       realtimeChartPoint,
       currentStockToken,
+      hasCurrentLocaleStockMetadata,
       payToken,
       fromToken,
       toToken,
@@ -679,6 +699,7 @@ export function useSwapStockChannel() {
     [
       channelStage,
       currentStockToken,
+      hasCurrentLocaleStockMetadata,
       defaultStockTokenLoading,
       fromToken,
       marketStatusStatus,

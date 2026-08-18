@@ -89,6 +89,10 @@ export enum ESwapQuoteKind {
   BUY = 'buy',
 }
 
+export enum ESwapQuoteSource {
+  MARKET = 'Market',
+}
+
 export enum ESwapSource {
   WALLET_TAB = 'wallet_tab',
   WALLET_HOME = 'wallet_home',
@@ -394,6 +398,7 @@ export interface ISwapApproveTransaction {
   blockNumber?: number;
 }
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress?: string;
   receivingAddress?: string;
   incognito?: boolean;
@@ -643,6 +648,7 @@ export interface ISwapPreSwapData {
 }
 
 export interface IFetchSwapQuoteParams {
+  source?: ESwapQuoteSource;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;
