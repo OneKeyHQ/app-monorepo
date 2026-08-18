@@ -3606,10 +3606,61 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        // Seed the canonical device state BEFORE opening the hidden-wallet
+        // passphrase session: a live state read on Protocol V1 restores the
+        // standard session, so reading it after getPassphraseState would
+        // clobber the hidden session and cost extra device round trips to
+        // re-establish it (see getFeaturesForHwWalletCreate). Known-V2 devices
+        // are excluded — their flow always reads live state by design. An
+        // unknown-protocol device that turns out V2 pays one redundant read,
+        // but that class is practically empty: V2 device records have always
+        // stored connectProtocol since the protocol field was introduced.
+        let seededDbDevice = dbDevice;
+        let seededConnectProtocol = connectProtocol;
+        const hiddenWalletVendorProfile = getVendorProfile(
+          dbDevice.vendor ?? EHardwareVendor.onekey,
+        );
+        if (
+          !seededDbDevice.deviceStateInfo &&
+          !hiddenWalletVendorProfile.isThirdParty &&
+          seededConnectProtocol !== 'V2'
+        ) {
+          const seededState =
+            await this.backgroundApi.serviceHardware.getDeviceState({
+              connectId: compatibleConnectId,
+              params: {
+                scope: 'runtime',
+                ...(seededConnectProtocol
+                  ? { connectProtocol: seededConnectProtocol }
+                  : {}),
+              },
+            });
+          // Mirror the live-identity guard in resolveDeviceStateForHwWalletCreate:
+          // with a seeded snapshot its fast path returns early, so the guard
+          // must run here to keep the old no-snapshot fail-fast behavior.
+          if (
+            seededState.status.mode === 'normal' &&
+            !seededState.identity.deviceId
+          ) {
+            throw new OneKeyLocalError(
+              'Unable to resolve live hardware device identity',
+            );
+          }
+          // DEVICE.STATE persistence is async; carry the snapshot in memory so
+          // downstream steps take their fast paths deterministically.
+          seededDbDevice = { ...seededDbDevice, deviceStateInfo: seededState };
+          if (
+            !seededConnectProtocol &&
+            (seededState.protocol === 'V1' || seededState.protocol === 'V2')
+          ) {
+            seededConnectProtocol = seededState.protocol;
+          }
+        }
+
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
-          dbDevice,
+          dbDevice: seededDbDevice,
           serviceHardware: this.backgroundApi.serviceHardware,
           serviceThirdPartyHardware:
             this.backgroundApi.serviceThirdPartyHardware,
@@ -3628,16 +3679,46 @@ class ServiceAccount extends ServiceBase {
           throw deviceNotOpenedPassphraseError;
         }
 
+        // The passphrase call above emitted DEVICE.STATE events (including the
+        // unlock / attach-PIN status); wait for their persistence and prefer
+        // the persisted post-unlock snapshot over the pre-unlock seed for
+        // everything derived or stored below. Pure DB reads — no device I/O,
+        // so the hidden session established above is never touched. Gated like
+        // the seeding block: third-party vendors are excluded, and an empty
+        // connectId must not reach getDeviceByConnectId — getDeviceByQuery
+        // would degenerate to "first OneKey device" and overlay an unrelated
+        // device's state.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+            connectIds: [
+              compatibleConnectId,
+              dbDevice.connectId,
+              dbDevice.deviceId,
+              seededDbDevice.deviceStateInfo?.identity.serialNo,
+            ],
+          });
+          const postUnlockDbDevice =
+            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+              connectId,
+            });
+          if (postUnlockDbDevice?.deviceStateInfo) {
+            seededDbDevice = {
+              ...seededDbDevice,
+              deviceStateInfo: postUnlockDbDevice.deviceStateInfo,
+            };
+          }
+        }
+
         // TODO save remember states
         const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice,
+          dbDevice: seededDbDevice,
           compatibleConnectId,
         });
         const dbWallet = await this.createHWWalletBase({
-          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
-          connectProtocol,
-          deviceState: dbDevice.deviceStateInfo,
+          connectProtocol: seededConnectProtocol,
+          deviceState: seededDbDevice.deviceStateInfo,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3666,9 +3747,40 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
+        // resolvedFeatures already reflects the post-unlock snapshot refreshed
+        // above, but the XFP / address derivation calls inside
+        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
+        // the persistence queue once more and prefer the latest stored status.
+        let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
+        // Same gate as the post-unlock refresh above: attach-PIN is
+        // OneKey-specific, and an empty connectId must not reach the lookup.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          try {
+            await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+              connectIds: [
+                compatibleConnectId,
+                dbDevice.connectId,
+                dbDevice.deviceId,
+                seededDbDevice.deviceStateInfo?.identity.serialNo,
+              ],
+            });
+            const latestDbDevice =
+              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+                connectId,
+              });
+            const latestUnlockedAttachPin =
+              latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
+            if (typeof latestUnlockedAttachPin === 'boolean') {
+              isAttachPinMode = latestUnlockedAttachPin;
+            }
+          } catch {
+            // keep the resolved-features fallback
+          }
+        }
+
         return {
           ...dbWallet,
-          isAttachPinMode: resolvedFeatures.unlockedAttachPin,
+          isAttachPinMode,
         };
       },
       {
