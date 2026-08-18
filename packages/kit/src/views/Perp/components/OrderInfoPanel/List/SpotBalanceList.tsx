@@ -494,10 +494,6 @@ function SpotBalanceList({
   ]);
 
   const renderListEmptyComponent = () => {
-    if (isMobile) {
-      return <></>;
-    }
-
     if (hasHiddenBalances) {
       return (
         <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
@@ -506,6 +502,10 @@ function SpotBalanceList({
           </SizableText>
         </YStack>
       );
+    }
+
+    if (isMobile) {
+      return <></>;
     }
 
     return <PerpHoldingsEmptyState isMobile={isMobile} />;
