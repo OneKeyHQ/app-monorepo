@@ -815,15 +815,17 @@ class ServiceSend extends ServiceBase {
 
     // A Gas Account quote is bound to a single user tx (payloadHash + locked
     // nonce). In batch flows every iteration would otherwise reuse the same
-    // quoteId/idempotencyKey. Private Send is also explicitly excluded from
-    // Gas Account, so sponsor state must not be threaded into submit.
-    const effectiveGasAccountUiState =
-      isMultiTxs || isPrivateSend ? undefined : gasAccountUiState;
+    // quoteId/idempotencyKey. Private Send is always a single deposit
+    // transfer, so its sponsor state passes through (OK-59993).
+    const effectiveGasAccountUiState = isMultiTxs
+      ? undefined
+      : gasAccountUiState;
     // Only thread the submitId through when we're actually going to engage the
     // retry loop, to avoid registering a controller for paths that will never
     // abort it.
-    const effectiveGasAccountSubmitId =
-      isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
+    const effectiveGasAccountSubmitId = isMultiTxs
+      ? undefined
+      : gasAccountSubmitId;
 
     // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
     // Re-validate that nonce against the on-chain nonce at the last moment

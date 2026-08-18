@@ -32,6 +32,7 @@ import type {
   IGasLegacy,
   IGasPayer,
 } from '../fee';
+import type { IMarketStockInfo } from '../marketV2';
 import type { EMessageTypesEth } from '../message';
 import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
@@ -86,6 +87,10 @@ export enum EExplorerType {
 export enum ESwapQuoteKind {
   SELL = 'sell',
   BUY = 'buy',
+}
+
+export enum ESwapQuoteSource {
+  MARKET = 'Market',
 }
 
 export enum ESwapSource {
@@ -262,6 +267,7 @@ export interface ISwapToken extends ISwapTokenBase {
   isPopular?: boolean;
   isWrapped?: boolean;
   subtitles?: string;
+  stock?: IMarketStockInfo;
 
   freeFeeObject?: IFreeFeeObject;
 }
@@ -392,6 +398,7 @@ export interface ISwapApproveTransaction {
   blockNumber?: number;
 }
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress?: string;
   receivingAddress?: string;
   incognito?: boolean;
@@ -641,6 +648,7 @@ export interface ISwapPreSwapData {
 }
 
 export interface IFetchSwapQuoteParams {
+  source?: ESwapQuoteSource;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;

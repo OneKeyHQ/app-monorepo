@@ -9,6 +9,7 @@ import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
   hasInFlightSwapReviewSteps,
+  resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
   shouldShowSwapReviewToAmountSkeleton,
 } from './swapReviewState';
@@ -70,6 +71,35 @@ describe('buildRebuiltSwapReviewQuoteResult', () => {
         quoteResultCtx,
       }),
     );
+  });
+});
+
+describe('resolveSwapReviewNeedFetchGasAfterRebuild', () => {
+  it('preserves approval-dependent gas refresh after a successful rebuild', () => {
+    expect(
+      resolveSwapReviewNeedFetchGasAfterRebuild({
+        fallbackToSeparateTxConfirm: false,
+        previousNeedFetchGas: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps atomic batch transactions on their cached gas path', () => {
+    expect(
+      resolveSwapReviewNeedFetchGasAfterRebuild({
+        fallbackToSeparateTxConfirm: false,
+        previousNeedFetchGas: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('forces a gas refresh when the rebuilt review falls back', () => {
+    expect(
+      resolveSwapReviewNeedFetchGasAfterRebuild({
+        fallbackToSeparateTxConfirm: true,
+        previousNeedFetchGas: false,
+      }),
+    ).toBe(true);
   });
 });
 

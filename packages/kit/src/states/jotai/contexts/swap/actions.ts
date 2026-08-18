@@ -56,6 +56,7 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapQuoteSource,
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchTokensParams,
@@ -325,6 +326,7 @@ type ISwapQuoteActionOverride = {
   fromTokenAmount: string;
   toTokenAmount?: string;
   type: ESwapTabSwitchType;
+  source?: ESwapQuoteSource;
 };
 
 function isQuoteEventProtocolForCurrentSwapType({
@@ -627,6 +629,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             fromTokenAmount: event.params.fromTokenAmount ?? '',
             toTokenAmount: event.params.toTokenAmount,
             type: activeSwapType,
+            source: event.params.source,
           },
         );
       }, swapRefreshInterval);
@@ -1495,6 +1498,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       incognito?: boolean,
       quoteRequestId?: string,
       protocolOverride?: ESwapTabSwitchType,
+      source?: ESwapQuoteSource,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = protocolOverride ?? get(swapTypeSwitchAtom());
@@ -1558,6 +1562,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       });
       try {
         await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+          source,
           fromToken,
           toToken,
           fromTokenAmount,
@@ -1755,6 +1760,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
+        source: quoteOverride?.source,
         actionLock: true,
         fromToken,
         toToken,
@@ -1782,6 +1788,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         incognito,
         quoteRequestId,
         swapTabSwitchType,
+        quoteOverride?.source,
       );
     },
   );

@@ -90,7 +90,10 @@ import {
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
-import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
@@ -2609,35 +2612,29 @@ function TradingButtonGroup({
   const intl = useIntl();
   const formData = useTradingFormEmptySizeParams();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const requestFirstDepositAction = useFirstDepositAction();
   const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
   const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
   firstDepositAccountKeyRef.current = firstDepositAccountKey;
-  const isFirstDepositLoading =
-    perpsAccountLoading.selectAccountLoading ||
-    perpsAccountLoading.enableTradingLoading;
   const shouldShowFirstDepositPrompt = shouldShowPerpsFirstDepositPrompt({
     status: perpsAccountStatus,
     isLiveStatusPending,
     isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
   });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositPrompt &&
+      !perpConfigCommon?.ipDisablePerp &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
   const handleFirstDepositPress = useCallback(() => {
-    if (isFirstDepositLoading) {
-      return;
-    }
     const accountKey = firstDepositAccountKey;
     void requestFirstDepositAction({
       shouldIgnoreResult: () =>
         Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
     });
-  }, [
-    firstDepositAccountKey,
-    isFirstDepositLoading,
-    requestFirstDepositAction,
-  ]);
+  }, [firstDepositAccountKey, requestFirstDepositAction]);
 
   if (perpConfigCommon?.ipDisablePerp) {
     return <IpRestrictedSingleButton isMobile={isMobile} />;
@@ -2653,9 +2650,7 @@ function TradingButtonGroup({
           childrenAsText={false}
           borderRadius="$full"
           variant="primary"
-          disabled={isFirstDepositLoading}
-          loading={isFirstDepositLoading}
-          onPress={isFirstDepositLoading ? undefined : handleFirstDepositPress}
+          onPress={handleFirstDepositPress}
           testID="perp-new-user-trading-panel-deposit-btn"
           h={36}
         >

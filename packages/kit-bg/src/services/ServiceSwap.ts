@@ -1142,6 +1142,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async fetchQuotesEvents({
+    source,
     fromToken,
     toToken,
     fromTokenAmount,
@@ -1178,6 +1179,7 @@ export default class ServiceSwap extends ServiceBase {
         accountId: accountId ?? '',
       });
     const params: IFetchQuotesParams = {
+      source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,

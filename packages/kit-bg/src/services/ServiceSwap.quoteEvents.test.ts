@@ -40,7 +40,10 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 }));
 
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import ServiceSwap from './ServiceSwap';
 
@@ -68,11 +71,12 @@ function createService() {
       },
     },
   });
+  const getUri = jest.fn(() => 'https://example.com/swap/v1/quote/events');
   jest.spyOn(service, 'getDenySingleSwapProvider').mockResolvedValue(undefined);
   jest.spyOn(service, 'getClient').mockResolvedValue({
-    getUri: jest.fn(() => 'https://example.com/swap/v1/quote/events'),
+    getUri,
   } as never);
-  return service;
+  return { getUri, service };
 }
 
 function createQuoteParams(quoteRequestId: string) {
@@ -107,7 +111,7 @@ describe('ServiceSwap quote event request ownership', () => {
   });
 
   it('keeps independently owned quote streams active', async () => {
-    const service = createService();
+    const { service } = createService();
     let resolveFirstPreparation: ((value: undefined) => void) | undefined;
     const firstPreparation = new Promise<undefined>((resolve) => {
       resolveFirstPreparation = resolve;
@@ -141,7 +145,7 @@ describe('ServiceSwap quote event request ownership', () => {
   });
 
   it('cancels a request while it is still preparing without affecting another request', async () => {
-    const service = createService();
+    const { service } = createService();
     let resolveFirstPreparation: ((value: undefined) => void) | undefined;
     const firstPreparation = new Promise<undefined>((resolve) => {
       resolveFirstPreparation = resolve;
@@ -164,5 +168,24 @@ describe('ServiceSwap quote event request ownership', () => {
     expect(globalMockBag.__swapQuoteEventSources).toHaveLength(1);
     const activeEventSource = globalMockBag.__swapQuoteEventSources?.[0];
     expect(activeEventSource?.close).not.toHaveBeenCalled();
+  });
+
+  it('forwards the Market source to the quote event request', async () => {
+    const { getUri, service } = createService();
+
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('market-quote-request'),
+      source: ESwapQuoteSource.MARKET,
+    });
+
+    expect(getUri).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/swap/v1/quote/events',
+        params: expect.objectContaining({
+          source: 'Market',
+        }),
+      }),
+    );
+    await service.cancelFetchQuoteEvents('market-quote-request');
   });
 });
