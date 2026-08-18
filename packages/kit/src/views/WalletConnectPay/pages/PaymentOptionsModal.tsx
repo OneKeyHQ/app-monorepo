@@ -21,6 +21,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import {
+  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  shouldRefuseWcPayWithoutDurableProgress,
+} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
@@ -133,6 +137,13 @@ function PaymentOptionsPage() {
             accountId,
             indexedAccountId,
           });
+        let supportsDurableProgress = false;
+        try {
+          supportsDurableProgress =
+            await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress();
+        } catch {
+          supportsDurableProgress = false;
+        }
         // resolve wallet-side network presets once so each option can render
         // the local network icon/name even when the server omits icon urls
         const networkIds = Array.from(
@@ -150,7 +161,7 @@ function PaymentOptionsPage() {
         for (const network of networks) {
           networkMap[network.id] = network;
         }
-        return { pay, networkMap };
+        return { pay, networkMap, supportsDurableProgress };
       } catch {
         setLoadError(true);
         return undefined;
@@ -169,9 +180,23 @@ function PaymentOptionsPage() {
 
   const payResult = result?.pay;
   const networkMap = result?.networkMap;
+  const supportsDurableProgress = result?.supportsDurableProgress ?? false;
   const options = payResult?.options ?? [];
+  const isOptionDisabledOnPlatform = (option: IWcPayOption) =>
+    shouldRefuseWcPayWithoutDurableProgress({
+      actions: option.actions,
+      supportsDurableProgress,
+    });
+  // skip options that cannot finish on this platform so Continue never
+  // starts KYC for a payment that getRequiredPaymentActions would refuse
   const selectedOption: IWcPayOption | undefined =
-    options.find((o) => o.id === selectedOptionId) ?? options[0];
+    options.find(
+      (option) =>
+        option.id === selectedOptionId && !isOptionDisabledOnPlatform(option),
+    ) ?? options.find((option) => !isOptionDisabledOnPlatform(option));
+  const hasPayableOption = options.some(
+    (option) => !isOptionDisabledOnPlatform(option),
+  );
   // The effective deadline is the earliest of the payment-level and the
   // selected option's expiry; the countdown, the Continue gate and every
   // in-flow re-check below must all use this single value.
@@ -211,6 +236,19 @@ function PaymentOptionsPage() {
     try {
       const { paymentId } = payResult;
       const optionId = selectedOption.id;
+
+      // Refuse broadcast options before the compliance form: collecting KYC
+      // and then failing at getRequiredPaymentActions would submit personal
+      // data for a payment that cannot complete on this platform.
+      if (
+        shouldRefuseWcPayWithoutDurableProgress({
+          actions: selectedOption.actions,
+          supportsDurableProgress:
+            await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress(),
+        })
+      ) {
+        throw new OneKeyLocalError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+      }
 
       // 1. compliance data collection must complete BEFORE fetching actions.
       // Prefer per-option collectData; fall back to the legacy top-level field
@@ -426,10 +464,12 @@ function PaymentOptionsPage() {
                 const tokenImageUri = display.iconUrl || network?.logoURI;
                 const networkImageUri =
                   network?.logoURI ?? display.networkIconUrl;
+                const isDisabled = isOptionDisabledOnPlatform(option);
                 return (
                   <ListItem
                     key={option.id}
                     userSelect="none"
+                    disabled={isDisabled}
                     checkMark={selectedOption?.id === option.id}
                     onPress={() => setSelectedOptionId(option.id)}
                   >
@@ -496,6 +536,17 @@ function PaymentOptionsPage() {
                     {isPaymentInactive
                       ? `This payment is ${payStatus ?? 'closed'} and can no longer be paid.`
                       : 'No supported asset has enough balance to cover this payment. Top up a supported stablecoin (plus gas) and try again.'}
+                  </SizableText>
+                </Stack>
+              ) : null}
+              {options.length > 0 && !hasPayableOption ? (
+                <Stack alignItems="center" py="$4">
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    textAlign="center"
+                  >
+                    {WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE}
                   </SizableText>
                 </Stack>
               ) : null}

@@ -7,6 +7,10 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  shouldRefuseWcPayWithoutDurableProgress,
+} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
   WALLET_CONNECT_PAY_SOLANA_CHAINS,
   validateWcPayLinkDomain,
@@ -238,26 +242,34 @@ class ServiceWalletConnectPay extends ServiceBase {
       optionId,
     });
     validateWcPayActions(actions);
-    // A broadcast-capable action must never start on a platform that cannot
-    // durably record its txid (bare web, dev desktop without safeStorage):
-    // if the process dies after the broadcast but before confirmPayment, a
-    // retry would find no stored progress and broadcast the payment a second
-    // time. Sign-only actions stay allowed — re-executing them reproduces
-    // the same consumable artifact instead of a second on-chain transfer.
-    const hasBroadcastAction = actions.some(
-      (action) =>
-        action.walletRpc.method === EWcPayActionMethod.EthSendTransaction,
-    );
+    // Final backstop: the options page also runs this check before the
+    // compliance form (so KYC is never collected for a payment that cannot
+    // finish here). option.actions can be empty or diverge from this list,
+    // so the gate must still run on the freshly fetched actions.
     if (
-      hasBroadcastAction &&
-      !(await this.backgroundApi.simpleDb.walletConnectPay.supportsDurableProgress())
+      shouldRefuseWcPayWithoutDurableProgress({
+        actions,
+        supportsDurableProgress: await this.supportsDurableProgress(),
+      })
     ) {
-      // copy pending product i18n keys
-      throw new OneKeyError(
-        'On-chain payments are not supported on this platform',
-      );
+      throw new OneKeyError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
     }
     return actions;
+  }
+
+  /**
+   * Whether action progress can be encrypted at rest. Broadcast-capable
+   * payments must not start when this is false (bare web, desktop without
+   * safeStorage): a process death after broadcast would otherwise retry
+   * with no stored txid and send the payment twice.
+   */
+  @backgroundMethod()
+  async supportsDurableProgress(): Promise<boolean> {
+    try {
+      return await this.backgroundApi.simpleDb.walletConnectPay.supportsDurableProgress();
+    } catch {
+      return false;
+    }
   }
 
   /**

@@ -122,17 +122,16 @@ export function useWcPayActionExecutor() {
       // only ever return Expired/Failed. Each confirmation wait therefore
       // races the deadline: the confirmation settling first always wins, so
       // a produced result is never discarded; when the deadline fires first
-      // the sequence fails and the dangling confirm modal is closed. A
-      // submit already in flight can still broadcast after the deadline
-      // rejection — its late result is persisted via onActionComplete so a
-      // retry resumes it instead of broadcasting a duplicate payment.
-      const confirmWithinDeadline = async ({
-        index,
-        waitForConfirm,
-      }: {
-        index: number;
-        waitForConfirm: Promise<string>;
-      }): Promise<string> => {
+      // the sequence fails and the dangling confirm modal is closed.
+      //
+      // Closing that modal unmounts TxConfirm, which fires onCancel because
+      // `isSubmitted` is only set after broadcast returns. Do not persist a
+      // late eth_sendTransaction result from waitForConfirm — onCancel
+      // rejects it. Persist inside onSuccess instead, which still runs after
+      // the race has already rejected.
+      const confirmWithinDeadline = async (
+        waitForConfirm: Promise<string>,
+      ): Promise<string> => {
         if (expiryMs === undefined) {
           return waitForConfirm;
         }
@@ -155,11 +154,6 @@ export function useWcPayActionExecutor() {
                   // copy pending product i18n keys
                   reject(new OneKeyLocalError('This payment has expired'));
                   navigation.popStack();
-                  void waitForConfirm
-                    .then((lateResult) =>
-                      onActionComplete?.({ index, result: lateResult }),
-                    )
-                    .catch(() => undefined);
                 },
                 Math.max(leftMs, 0),
               );
@@ -260,9 +254,15 @@ export function useWcPayActionExecutor() {
                   encodedTx,
                 },
               );
-            const txid = await confirmWithinDeadline({
-              index: i,
-              waitForConfirm: new Promise<string>((resolve, reject) => {
+            // Persist from onSuccess, not after waitForConfirm settles:
+            // confirmWithinDeadline may popStack on expiry, which unmounts
+            // TxConfirm and fires onCancel (isSubmitted is only set after
+            // broadcast returns). That rejects waitForConfirm, so a .then
+            // on it never sees the txid. onActionComplete at this index is
+            // idempotent with a later await of the same promise.
+            let persistBroadcast: Promise<void> | undefined;
+            const txid = await confirmWithinDeadline(
+              new Promise<string>((resolve, reject) => {
                 navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                   screen: EModalSignatureConfirmRoutes.TxConfirm,
                   params: {
@@ -280,6 +280,11 @@ export function useWcPayActionExecutor() {
                     onSuccess: (txs: ISendTxOnSuccessData[]) => {
                       const id = txs?.[0]?.signedTx?.txid;
                       if (id) {
+                        persistBroadcast = Promise.resolve(
+                          onActionComplete?.({ index: i, result: id }),
+                        ).catch((error) => {
+                          console.error('wcPay persist txid failed', error);
+                        });
                         resolve(id);
                       } else {
                         reject(new OneKeyLocalError('Missing transaction id'));
@@ -293,20 +298,16 @@ export function useWcPayActionExecutor() {
                   },
                 });
               }),
-            });
+            );
             results.push(txid);
-            // record the txid immediately: the tx is already on-chain, so a
-            // failure in any later step (including the mined-wait below) must
-            // not lose it, or a retry would broadcast a duplicate payment.
-            // Persistence itself failing (a secure-storage write error) must
-            // not abort the flow either: the txid is still in memory and
-            // confirmPayment can still report it to the server, while
-            // aborting here would lose both and guarantee a duplicate
-            // broadcast on retry
-            try {
-              await onActionComplete?.({ index: i, result: txid });
-            } catch (persistError) {
-              console.error('wcPay persist txid failed', persistError);
+            // happy path: wait for the durable record before the next
+            // action. Persistence failure is already swallowed above so a
+            // keystore error cannot drop the in-memory txid before
+            // confirmPayment. On the expiry-during-broadcast path this
+            // await is skipped (confirmWithinDeadline already threw) and
+            // the fire-and-forget persist from onSuccess still runs.
+            if (persistBroadcast) {
+              await persistBroadcast;
             }
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
@@ -332,9 +333,8 @@ export function useWcPayActionExecutor() {
           }
           case EWcPayActionMethod.EthSignTypedDataV4: {
             const message = extractWcPayTypedDataMessage(parsed);
-            const signature = await confirmWithinDeadline({
-              index: i,
-              waitForConfirm: new Promise<string>((resolve, reject) => {
+            const signature = await confirmWithinDeadline(
+              new Promise<string>((resolve, reject) => {
                 navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                   screen: EModalSignatureConfirmRoutes.MessageConfirm,
                   params: {
@@ -359,7 +359,7 @@ export function useWcPayActionExecutor() {
                   },
                 });
               }),
-            });
+            );
             results.push(signature);
             await onActionComplete?.({ index: i, result: signature });
             break;
@@ -374,9 +374,8 @@ export function useWcPayActionExecutor() {
                 accountAddress: account.address,
               }),
             });
-            const signature = await confirmWithinDeadline({
-              index: i,
-              waitForConfirm: new Promise<string>((resolve, reject) => {
+            const signature = await confirmWithinDeadline(
+              new Promise<string>((resolve, reject) => {
                 navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                   screen: EModalSignatureConfirmRoutes.MessageConfirm,
                   params: {
@@ -401,7 +400,7 @@ export function useWcPayActionExecutor() {
                   },
                 });
               }),
-            });
+            );
             results.push(signature);
             await onActionComplete?.({ index: i, result: signature });
             break;
@@ -418,9 +417,8 @@ export function useWcPayActionExecutor() {
                   encodedTx,
                 },
               );
-            const rawTx = await confirmWithinDeadline({
-              index: i,
-              waitForConfirm: new Promise<string>((resolve, reject) => {
+            const rawTx = await confirmWithinDeadline(
+              new Promise<string>((resolve, reject) => {
                 navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                   screen: EModalSignatureConfirmRoutes.TxConfirm,
                   params: {
@@ -457,7 +455,7 @@ export function useWcPayActionExecutor() {
                   },
                 });
               }),
-            });
+            );
             // confirmPayment expects the full signed transaction; sol
             // signedTx.rawTx is already base64, pass through unchanged
             results.push(rawTx);
