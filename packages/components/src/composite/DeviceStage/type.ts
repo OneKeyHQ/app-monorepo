@@ -109,32 +109,41 @@ export interface IDeviceStageProps {
   /** The pinOnApp entry, confirmed. The driver decides what follows. */
   onPinSubmit?: (pin: string) => void;
   /**
-   * Which shape the passphrase form takes — the live form's two:
-   * 'create' (Add hidden wallet: Keep-accessible switch, empty disabled)
-   * or 'verify' (unlock an existing one: no switch, empty allowed).
-   * Defaults to 'create', the fuller shape.
+   * Which shape the passphrase step takes — the live flow's two:
+   * 'verify' (unlock an existing hidden wallet: the step's own title,
+   * empty entry allowed — it is the standard wallet) or 'create' (the
+   * Add-hidden-wallet flow: the step titles itself after it, and an
+   * empty entry is refused inline). Defaults to 'verify', the plain
+   * entry shape.
    */
   passphraseMode?: 'create' | 'verify';
   /**
-   * The passphraseOnApp entry, confirmed. Empty is the standard wallet.
-   * `keepAccessible` carries the Keep-accessible switch's position
-   * (create mode; false in verify mode, where the switch is absent).
+   * The passphraseOnApp entry, confirmed. Empty is the standard wallet
+   * (verify mode; create refuses it before this fires). In create mode
+   * `keepAccessible` rides along — whether the new hidden wallet stays
+   * after the app closes (the Keep-accessible switch). The live flow
+   * treats that as a preference every exit shares, so the device switch
+   * and the attach-PIN action carry the same options; in verify mode
+   * they are absent everywhere.
    */
   onPassphraseSubmit?: (
     passphrase: string,
-    options: { keepAccessible: boolean },
+    options?: { keepAccessible: boolean },
   ) => void;
   /**
    * Shows the passphrase form's secondary "Enter Hidden Wallet PIN"
    * action (the live attach-PIN path), for devices that support it.
-   * Omitted, no button renders.
+   * Omitted, no button renders. The wallet it opens obeys the same
+   * Keep-accessible choice, hence the options (create mode only).
    */
-  onPassphraseAttachPin?: () => void;
+  onPassphraseAttachPin?: (options?: { keepAccessible: boolean }) => void;
   /**
    * Moves the current app-side input onto the device instead — the switch
-   * both input steps offer.
+   * both input steps offer. From the passphrase form's create mode it
+   * carries the Keep-accessible preference out, like that form's every
+   * other exit; the PIN pad calls it bare.
    */
-  onSwitchToDevice?: () => void;
+  onSwitchToDevice?: (options?: { keepAccessible: boolean }) => void;
   /**
    * One-line inline failure inside the active input panel — the
    * retry-in-place state after a refused entry, not a step change. On the
