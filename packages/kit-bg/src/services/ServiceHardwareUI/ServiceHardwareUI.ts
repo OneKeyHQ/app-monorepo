@@ -706,6 +706,7 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let skipDeviceCancelAfterError = false;
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
@@ -854,6 +855,14 @@ class ServiceHardwareUI extends ServiceBase {
           }, 300);
         }
       }
+      if (
+        isHardwareErrorByCode({
+          error: error as any,
+          code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+        })
+      ) {
+        skipDeviceCancelAfterError = true;
+      }
       // skip reset to home if user cancel
       if (
         isHardwareErrorByCode({
@@ -883,6 +892,7 @@ class ServiceHardwareUI extends ServiceBase {
             HardwareErrorCode.BleTimeoutError,
             HardwareErrorCode.BleForceCleanRunPromise,
             HardwareErrorCode.BleDeviceBondError,
+            HardwareErrorCode.BleUnavailableWhileUsbConnected,
             HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
           ],
         })
@@ -909,8 +919,7 @@ class ServiceHardwareUI extends ServiceBase {
         } else if (connectId) {
           if (!skipCloseHardwareUiStateDialog) {
             const closeDialogParams = {
-              // skipDeviceCancel: true,
-              skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
+              skipDeviceCancel: skipDeviceCancel || skipDeviceCancelAfterError,
               deviceResetToHome,
             };
             if (isBusy) {

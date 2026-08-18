@@ -74,6 +74,19 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+      })
+    ) {
+      return {
+        errorMessage: intl.formatMessage({
+          id: ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+        }),
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: HardwareErrorCode.FirmwareUpdateDownloadFailed,
       })
     ) {

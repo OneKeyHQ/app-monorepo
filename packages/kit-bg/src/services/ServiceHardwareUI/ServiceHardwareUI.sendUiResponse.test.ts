@@ -1,6 +1,9 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -287,6 +290,68 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
     releaseFirmwareOperation?.('updated');
     await expect(firmwarePromise).resolves.toBe('updated');
     expect(service.processingNestedNum).toBe(0);
+  });
+});
+
+describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => {
+  it('does not send a follow-up cancel after BLE is disabled by USB priority', async () => {
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: {
+          cancelTimer: undefined,
+          getFeaturesMutex: {
+            isLocked: jest.fn(() => false),
+            waitForUnlock: jest.fn(),
+          },
+        },
+        serviceAccount: {
+          generateHwWalletsMissingXfp: jest.fn(),
+        },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheck: jest.fn(),
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+        },
+      },
+    });
+    const closeHardwareUiStateDialog = jest
+      .spyOn(service, 'closeHardwareUiStateDialog')
+      .mockResolvedValue(undefined);
+    const serviceInternals = service as unknown as {
+      withHardwareProcessingInternal: <T>(
+        operation: () => Promise<T>,
+        options: {
+          deviceParams: {
+            dbDevice: {
+              connectId: string;
+            };
+          };
+          hideCheckingDeviceLoading: boolean;
+        },
+      ) => Promise<T>;
+    };
+
+    await expect(
+      serviceInternals.withHardwareProcessingInternal(
+        async () => {
+          throw new BluetoothUnavailableWhileUsbConnectedError();
+        },
+        {
+          deviceParams: {
+            dbDevice: {
+              connectId: 'PRO2_BLE_ID',
+            },
+          },
+          hideCheckingDeviceLoading: true,
+        },
+      ),
+    ).rejects.toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
+
+    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
+      connectId: 'PRO2_BLE_ID',
+      deviceResetToHome: false,
+      skipDeviceCancel: true,
+    });
   });
 });
 
