@@ -38,6 +38,7 @@ import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
+import { useVisibleSpotHoldingsCount } from '../../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
@@ -62,10 +63,12 @@ function TabBarItem({
   name,
   isFocused,
   onPress,
+  holdingsCount,
 }: {
   name: string;
   isFocused: boolean;
   onPress: (name: string) => void;
+  holdingsCount: number;
 }) {
   const intl = useIntl();
 
@@ -73,15 +76,7 @@ function TabBarItem({
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-  const [{ balances }] = useSpotBalancesAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
-  const [abstractionMode] = usePerpsAbstractionModeAtom();
-  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
-    abstractionMode,
-    currentUser?.accountAddress,
-  );
   const currentAccountAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
@@ -106,20 +101,6 @@ function TabBarItem({
     dataAccountAddress: twapOrdersState.accountAddress,
     data: twapOrdersState.twapOrders,
   }).length;
-
-  const holdingsCount = useMemo(() => {
-    const nonUsdcSpotCount = balances.filter(
-      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
-    ).length;
-    const hasSpotUsdc = balances.some(
-      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
-    );
-    const hasPerpsUsdc =
-      !isUnifiedAccountMode &&
-      !!accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0);
-    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
 
   const tabCount = useMemo(() => {
     if (name === 'Balances') {
@@ -186,6 +167,22 @@ function PerpOrderInfoPanel() {
   const initialTabName =
     tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
   const [activeTab, setActiveTab] = useState(initialTabName);
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
+  const holdingsCount = useVisibleSpotHoldingsCount({
+    balances,
+    hasPerpsUsdc,
+  });
   const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
     useShowUnifoldDepositTracker();
 
@@ -285,6 +282,7 @@ function PerpOrderInfoPanel() {
               name={name}
               isFocused={isFocused}
               onPress={onPress}
+              holdingsCount={holdingsCount}
             />
           )}
           renderToolbar={renderTabBarToolbar}

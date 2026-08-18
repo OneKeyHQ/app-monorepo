@@ -50,6 +50,7 @@ import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { usePerpsAccountScopedCacheAddress } from '../hooks/usePerpsAccountScopedCacheAddress';
+import { useVisibleSpotHoldingsCount } from '../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
 import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 import {
@@ -251,19 +252,14 @@ export function PerpMobileLayout() {
     ? (cachedSpotBalances?.balances ?? balances)
     : balances;
 
-  const holdingsCount = useMemo(() => {
-    const nonUsdcSpotCount = displayBalances.filter(
-      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
-    ).length;
-    const hasSpotUsdc = displayBalances.some(
-      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
-    );
-    const hasPerpsUsdc =
-      !isUnifiedAccountMode &&
-      !!accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0);
-    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
+  const holdingsCount = useVisibleSpotHoldingsCount({
+    balances: displayBalances,
+    hasPerpsUsdc,
+  });
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {

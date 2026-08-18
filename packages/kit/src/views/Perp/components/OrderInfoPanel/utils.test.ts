@@ -8,6 +8,7 @@ import {
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
+  getVisibleSpotHoldingsCount,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
@@ -16,6 +17,7 @@ type ISpotHoldingFilterTestItem = {
   rawCoin: string;
   total: string;
   usdcValueNum: number;
+  hasPriceSource: boolean;
 };
 
 function makeOpenOrder(
@@ -92,12 +94,42 @@ describe('calculateSpotHoldingPnl', () => {
 
 describe('filterSpotHoldingBalances', () => {
   const balances: ISpotHoldingFilterTestItem[] = [
-    { rawCoin: 'USDC', total: '0.5', usdcValueNum: 0.5 },
-    { rawCoin: 'BELOW', total: '2', usdcValueNum: 4.99 },
-    { rawCoin: 'EXACT', total: '1', usdcValueNum: 5 },
-    { rawCoin: 'ABOVE', total: '1', usdcValueNum: 5.01 },
-    { rawCoin: 'UNKNOWN', total: '1', usdcValueNum: Number.NaN },
-    { rawCoin: 'ZERO', total: '0', usdcValueNum: 10 },
+    {
+      rawCoin: 'USDC',
+      total: '0.5',
+      usdcValueNum: 0.5,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'BELOW',
+      total: '2',
+      usdcValueNum: 4.99,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'EXACT',
+      total: '1',
+      usdcValueNum: 5,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'ABOVE',
+      total: '1',
+      usdcValueNum: 5.01,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'UNKNOWN',
+      total: '1',
+      usdcValueNum: 0,
+      hasPriceSource: false,
+    },
+    {
+      rawCoin: 'ZERO',
+      total: '0',
+      usdcValueNum: 10,
+      hasPriceSource: true,
+    },
   ];
 
   it('keeps every non-zero holding when the filter is disabled', () => {
@@ -109,13 +141,34 @@ describe('filterSpotHoldingBalances', () => {
     ).toEqual(['USDC', 'BELOW', 'EXACT', 'ABOVE', 'UNKNOWN']);
   });
 
-  it('hides only finite non-USDC holdings strictly below five dollars', () => {
+  it('hides only priced non-USDC holdings strictly below five dollars', () => {
     expect(
       filterSpotHoldingBalances({
         balances,
         hideBelowThreshold: true,
       }).map((item) => item.rawCoin),
     ).toEqual(['USDC', 'EXACT', 'ABOVE', 'UNKNOWN']);
+  });
+});
+
+describe('getVisibleSpotHoldingsCount', () => {
+  it('uses the same threshold and price-source rules as the holdings list', () => {
+    expect(
+      getVisibleSpotHoldingsCount({
+        balances: [
+          { coin: 'USDC', total: '0', entryNtl: '0' },
+          { coin: 'BELOW', total: '2', entryNtl: '1' },
+          { coin: 'EXACT', total: '1', entryNtl: '1' },
+          { coin: 'UNKNOWN', total: '1', entryNtl: '0' },
+        ],
+        tokenPriceLookup: {
+          BELOW: '2.495',
+          EXACT: '5',
+        },
+        hideBelowThreshold: true,
+        hasPerpsUsdc: true,
+      }),
+    ).toBe(3);
   });
 });
 

@@ -40,9 +40,10 @@ import { BalanceRow } from '../Components/BalanceRow';
 import { HideSmallSpotHoldingsCheckbox } from '../Components/HideSmallSpotHoldingsCheckbox';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
 import {
+  buildSpotTokenPriceLookup,
   calculateSpotHoldingPnl,
   filterSpotHoldingBalances,
-  isSpotHoldingStableCoin,
+  getSpotHoldingValuation,
 } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -61,6 +62,7 @@ export interface IBalanceDisplayItem {
   contract?: string;
   logoURI?: string;
   usdcValueNum: number;
+  hasPriceSource: boolean;
   spotUniverse?: ISpotUniverse;
   isAssetClickable?: boolean;
   // True when the same coin appears in both spot and perps (e.g. USDC)
@@ -78,6 +80,7 @@ const ZERO_USDC_BALANCE: IBalanceDisplayItem = {
   isAssetClickable: false,
   needsSuffix: false,
   usdcValueNum: 0,
+  hasPriceSource: true,
 };
 
 const ZERO_USDC_BALANCES = [ZERO_USDC_BALANCE];
@@ -121,30 +124,12 @@ function SpotBalanceList({
 
   useEffect(() => {
     setCurrentListPage(1);
-  }, [currentUser?.accountAddress]);
+  }, [currentUser?.accountAddress, perpsCustomSettings.hideSmallSpotHoldings]);
 
-  const tokenPriceLookup = useMemo(() => {
-    const lookup: Record<string, string> = {};
-    // First pass: prefer USDC-quoted pairs for accurate USD value
-    for (const u of spotUniverses) {
-      if (u.quoteName === 'USDC') {
-        const ctx = priceMap[u.name];
-        if (ctx?.markPx) {
-          lookup[u.baseName] = ctx.markPx;
-        }
-      }
-    }
-    // Second pass: fill remaining from any quote
-    for (const u of spotUniverses) {
-      if (!lookup[u.baseName]) {
-        const ctx = priceMap[u.name];
-        if (ctx?.markPx) {
-          lookup[u.baseName] = ctx.markPx;
-        }
-      }
-    }
-    return lookup;
-  }, [priceMap, spotUniverses]);
+  const tokenPriceLookup = useMemo(
+    () => buildSpotTokenPriceLookup({ spotUniverses, priceMap }),
+    [priceMap, spotUniverses],
+  );
 
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
@@ -164,22 +149,16 @@ function SpotBalanceList({
         return;
       }
 
-      const totalBN = new BigNumber(b.total);
+      const midPrice = tokenPriceLookup[b.coin];
+      const { totalBN, entryNtlBN, isStable, hasPriceSource, usdcValueBN } =
+        getSpotHoldingValuation({
+          rawCoin: b.coin,
+          total: b.total,
+          entryNtl: b.entryNtl,
+          midPrice,
+        });
       const holdBN = new BigNumber(b.hold);
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
-      const entryNtlBN = new BigNumber(b.entryNtl || '0');
-
-      const isStable = isSpotHoldingStableCoin(b.coin);
-
-      const midPrice = tokenPriceLookup[b.coin];
-      let usdcValueBN: BigNumber;
-      if (isStable) {
-        usdcValueBN = totalBN;
-      } else if (midPrice) {
-        usdcValueBN = totalBN.multipliedBy(midPrice);
-      } else {
-        usdcValueBN = entryNtlBN;
-      }
 
       const { pnl, pnlPercent } = calculateSpotHoldingPnl({
         total: b.total,
@@ -223,6 +202,7 @@ function SpotBalanceList({
         isAssetClickable,
         needsSuffix: false,
         usdcValueNum: usdcValueBN.toNumber(),
+        hasPriceSource,
       });
     });
 
@@ -258,6 +238,7 @@ function SpotBalanceList({
         isAssetClickable: false,
         needsSuffix: false,
         usdcValueNum: mergedUsdcTotalBN.toNumber(),
+        hasPriceSource: true,
       });
     }
 
@@ -295,6 +276,7 @@ function SpotBalanceList({
       }),
     [nonZeroBalances, perpsCustomSettings.hideSmallSpotHoldings],
   );
+  const hasHiddenBalances = filteredBalances.length < nonZeroBalances.length;
   const displayBalances =
     isMobile &&
     currentUser?.accountAddress &&
@@ -511,6 +493,24 @@ function SpotBalanceList({
     showDepositWithdrawModal,
   ]);
 
+  const renderListEmptyComponent = () => {
+    if (isMobile) {
+      return <></>;
+    }
+
+    if (hasHiddenBalances) {
+      return (
+        <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_no_data })}
+          </SizableText>
+        </YStack>
+      );
+    }
+
+    return <PerpHoldingsEmptyState isMobile={isMobile} />;
+  };
+
   return (
     <CommonTableListView
       onPullToRefresh={async () => {
@@ -544,9 +544,7 @@ function SpotBalanceList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
-      ListEmptyComponent={
-        isMobile ? <></> : <PerpHoldingsEmptyState isMobile={isMobile} />
-      }
+      ListEmptyComponent={renderListEmptyComponent()}
       ListHeaderComponent={mobileHeaderComponent}
     />
   );
