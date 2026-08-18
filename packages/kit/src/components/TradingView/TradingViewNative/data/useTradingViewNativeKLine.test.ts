@@ -783,56 +783,79 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
-  it('keeps a capped sparse recovery page as viewport preload data', async () => {
+  it('exhausts every capped page in a sparse recovery range', async () => {
     const intervalSeconds = 60;
+    const cappedPageStartTimestamp = 808_460;
     mockHistoryBatchSize = 299;
     mockHistoryRequestCandleCount = 2000;
     mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
     jest.spyOn(Date, 'now').mockReturnValue(2_000_000_000);
     let activeIntervalRequestCount = 0;
     let dailyRequestCount = 0;
-    mockFetchHistory.mockImplementation(async ({ interval }) => {
-      if (interval.value === '1W') {
-        return buildResponse(50, 100_000);
-      }
-      if (interval.value === '1D') {
-        dailyRequestCount += 1;
-        return dailyRequestCount === 1
-          ? buildResponse(60, 110_000)
-          : buildMultiPointResponse([
-              { close: 70, timestamp: 740_000 },
-              { close: 80, timestamp: 830_000 },
-            ]);
-      }
+    mockFetchHistory.mockImplementation(
+      async ({ interval, timeFrom, timeTo }) => {
+        if (interval.value === '1W') {
+          return buildResponse(50, 100_000);
+        }
+        if (interval.value === '1D') {
+          dailyRequestCount += 1;
+          return dailyRequestCount === 1
+            ? buildResponse(60, 110_000)
+            : buildMultiPointResponse([
+                { close: 70, timestamp: 740_000 },
+                { close: 80, timestamp: 830_000 },
+              ]);
+        }
 
-      activeIntervalRequestCount += 1;
-      if (activeIntervalRequestCount === 1) {
+        activeIntervalRequestCount += 1;
+        if (activeIntervalRequestCount === 1) {
+          return buildMultiPointResponse(
+            Array.from({ length: 7 }, (_, index) => ({
+              close: 100 + index,
+              timestamp: 1_000_000 + index * intervalSeconds,
+            })),
+          );
+        }
+        if (activeIntervalRequestCount === 2) {
+          expect({ timeFrom, timeTo }).toEqual({
+            timeFrom: 830_000,
+            timeTo: 916_399,
+          });
+          return buildMultiPointResponse([
+            { close: 90, timestamp: 830_100 },
+            { close: 91, timestamp: 830_160 },
+          ]);
+        }
+        if (activeIntervalRequestCount === 3) {
+          expect({ timeFrom, timeTo }).toEqual({
+            timeFrom: 740_000,
+            timeTo: 826_399,
+          });
+          return buildMultiPointResponse(
+            Array.from({ length: 299 }, (_, index) => ({
+              close: 200 + index,
+              timestamp: cappedPageStartTimestamp + index * intervalSeconds,
+            })),
+          );
+        }
+        expect({ timeFrom, timeTo }).toEqual({
+          timeFrom: 740_000,
+          timeTo: cappedPageStartTimestamp - 1,
+        });
         return buildMultiPointResponse(
-          Array.from({ length: 7 }, (_, index) => ({
-            close: 100 + index,
-            timestamp: 1_000_000 + index * intervalSeconds,
+          Array.from({ length: 5 }, (_, index) => ({
+            close: 150 + index,
+            timestamp: 740_100 + index * intervalSeconds,
           })),
         );
-      }
-      if (activeIntervalRequestCount === 2) {
-        return buildMultiPointResponse([
-          { close: 90, timestamp: 830_100 },
-          { close: 91, timestamp: 830_160 },
-        ]);
-      }
-      return buildMultiPointResponse(
-        Array.from({ length: 299 }, (_, index) => ({
-          close: 200 + index,
-          timestamp: 740_100 + index * intervalSeconds,
-        })),
-      );
-    });
+      },
+    );
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({ source: buildMarketSource() }),
     );
 
-    await waitFor(() => expect(result.current.points).toHaveLength(308));
-    expect(activeIntervalRequestCount).toBe(3);
+    await waitFor(() => expect(result.current.points).toHaveLength(313));
+    expect(activeIntervalRequestCount).toBe(4);
 
     const visiblePointCount = 164;
     act(() =>
@@ -842,7 +865,7 @@ describe('TradingViewNative K-line data state machine', () => {
       }),
     );
 
-    expect(activeIntervalRequestCount).toBe(3);
+    expect(activeIntervalRequestCount).toBe(4);
   });
 
   it('crosses more than eight empty active days during initial sparse recovery', async () => {
@@ -1050,34 +1073,40 @@ describe('TradingViewNative K-line data state machine', () => {
       mockReadTradingViewNativeActiveInterval.mockReturnValue(activeInterval);
       let activeIntervalRequestCount = 0;
       let dailyRequestCount = 0;
-      mockFetchHistory.mockImplementation(async ({ interval }) => {
-        if (interval.value === '1W') {
-          return buildResponse(50, 100_000);
-        }
-        if (interval.value === '1D') {
-          dailyRequestCount += 1;
-          return dailyRequestCount === 1
-            ? buildResponse(60, 110_000)
-            : buildResponse(70, 920_000);
-        }
+      const recoveryPoints = Array.from({ length: 98 }, (_, index) => ({
+        close: 70 + index,
+        timestamp: 920_100 + index * intervalSeconds,
+      }));
+      mockFetchHistory.mockImplementation(
+        async ({ interval, timeFrom, timeTo }) => {
+          if (interval.value === '1W') {
+            return buildResponse(50, 100_000);
+          }
+          if (interval.value === '1D') {
+            dailyRequestCount += 1;
+            return dailyRequestCount === 1
+              ? buildResponse(60, 110_000)
+              : buildResponse(70, 920_000);
+          }
 
-        activeIntervalRequestCount += 1;
-        if (activeIntervalRequestCount === 1) {
-          return buildMultiPointResponse([
-            { close: 100, timestamp: 1_000_000 },
-            { close: 110, timestamp: 1_000_000 + intervalSeconds },
-          ]);
-        }
-        if (activeIntervalRequestCount === 2) {
-          return buildResponse(90, 995_000);
-        }
-        return buildMultiPointResponse(
-          Array.from({ length: 98 }, (_, index) => ({
-            close: 70 + index,
-            timestamp: 920_100 + index * intervalSeconds,
-          })),
-        );
-      });
+          activeIntervalRequestCount += 1;
+          if (activeIntervalRequestCount === 1) {
+            return buildMultiPointResponse([
+              { close: 100, timestamp: 1_000_000 },
+              { close: 110, timestamp: 1_000_000 + intervalSeconds },
+            ]);
+          }
+          if (activeIntervalRequestCount === 2) {
+            return buildResponse(90, 995_000);
+          }
+          return buildMultiPointResponse(
+            recoveryPoints.filter(
+              (point) =>
+                point.timestamp >= timeFrom && point.timestamp <= timeTo,
+            ),
+          );
+        },
+      );
       const { result } = renderHook(() =>
         useTradingViewNativeKLine({ source: buildMarketSource() }),
       );
@@ -1103,7 +1132,7 @@ describe('TradingViewNative K-line data state machine', () => {
       expect(result.current.points.some((point) => point.t === 995_000)).toBe(
         true,
       );
-      expect(mockFetchHistory).toHaveBeenCalledTimes(6);
+      expect(mockFetchHistory).toHaveBeenCalledTimes(7);
     },
   );
 
@@ -1174,7 +1203,7 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
-  it('continues sparse minute preloading until the full-screen buffer target', async () => {
+  it('loads every sparse minute range located by daily history', async () => {
     const currentTimestamp = 100_000_000;
     const initialFirstTimestamp = 90_000_000;
     const activeDays = Array.from({ length: 100 }, (_, index) => ({
@@ -1237,7 +1266,7 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(dailyRequestCount).toBe(2);
   });
 
-  it('continues paging inside a sparse recovery batch after a full Market page', async () => {
+  it('exhausts all located sparse ranges after load-more starts recovery', async () => {
     const intervalSeconds = 60;
     const currentTimestamp = 1_000_120;
     const boundaryTimestamp = 100_000;
@@ -1306,20 +1335,12 @@ describe('TradingViewNative K-line data state machine', () => {
         startIndex: 0,
       }),
     );
-    await waitFor(() => expect(result.current.points).toHaveLength(6));
-
-    act(() =>
-      result.current.handleVisiblePointRangeChange({
-        endIndex: 5,
-        startIndex: 0,
-      }),
-    );
     await waitFor(() => expect(result.current.points).toHaveLength(12));
 
     const activeIntervalRequests = mockFetchHistory.mock.calls
       .map(([request]) => request)
       .filter((request) => request.interval.value === '1');
-    expect(activeIntervalRequests).toHaveLength(6);
+    expect(activeIntervalRequests).toHaveLength(7);
     expect(activeIntervalRequests[4]).toEqual(
       expect.objectContaining({
         timeFrom: olderActiveDayTimestamp,
@@ -1330,6 +1351,12 @@ describe('TradingViewNative K-line data state machine', () => {
       expect.objectContaining({
         timeFrom: olderActiveDayTimestamp,
         timeTo: olderBatchPoints[3].timestamp - 1,
+      }),
+    );
+    expect(activeIntervalRequests[6]).toEqual(
+      expect.objectContaining({
+        timeFrom: olderActiveDayTimestamp,
+        timeTo: olderBatchPoints[0].timestamp - 1,
       }),
     );
     expect(result.current.points[0]?.t).toBe(olderBatchPoints[0].timestamp);
@@ -1384,35 +1411,40 @@ describe('TradingViewNative K-line data state machine', () => {
     let activeIntervalRequestCount = 0;
     let dailyRequestCount = 0;
     let weeklyRequestCount = 0;
-    mockFetchHistory.mockImplementation(async ({ interval }) => {
-      if (interval.value === '1W') {
-        weeklyRequestCount += 1;
-        return weeklyRequestCount <= 3 ? null : buildResponse(50, 100_000);
-      }
-      if (interval.value === '1D') {
-        dailyRequestCount += 1;
-        return dailyRequestCount === 1
-          ? buildResponse(60, 110_000)
-          : buildResponse(70, 920_000);
-      }
+    const recoveryPoints = Array.from({ length: 99 }, (_, index) => ({
+      close: 70 + index,
+      timestamp: 920_100 + index * 60,
+    }));
+    mockFetchHistory.mockImplementation(
+      async ({ interval, timeFrom, timeTo }) => {
+        if (interval.value === '1W') {
+          weeklyRequestCount += 1;
+          return weeklyRequestCount <= 3 ? null : buildResponse(50, 100_000);
+        }
+        if (interval.value === '1D') {
+          dailyRequestCount += 1;
+          return dailyRequestCount === 1
+            ? buildResponse(60, 110_000)
+            : buildResponse(70, 920_000);
+        }
 
-      activeIntervalRequestCount += 1;
-      if (activeIntervalRequestCount === 1) {
-        return buildMultiPointResponse([
-          { close: 100, timestamp: 1_000_000 },
-          { close: 110, timestamp: 1_000_060 },
-        ]);
-      }
-      if (activeIntervalRequestCount <= 3) {
-        return { points: [], total: 0 };
-      }
-      return buildMultiPointResponse(
-        Array.from({ length: 99 }, (_, index) => ({
-          close: 70 + index,
-          timestamp: 920_100 + index * 60,
-        })),
-      );
-    });
+        activeIntervalRequestCount += 1;
+        if (activeIntervalRequestCount === 1) {
+          return buildMultiPointResponse([
+            { close: 100, timestamp: 1_000_000 },
+            { close: 110, timestamp: 1_000_060 },
+          ]);
+        }
+        if (activeIntervalRequestCount <= 3) {
+          return { points: [], total: 0 };
+        }
+        return buildMultiPointResponse(
+          recoveryPoints.filter(
+            (point) => point.timestamp >= timeFrom && point.timestamp <= timeTo,
+          ),
+        );
+      },
+    );
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({ source: buildMarketSource() }),
     );
@@ -1428,7 +1460,7 @@ describe('TradingViewNative K-line data state machine', () => {
     act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
     await waitFor(() => expect(result.current.points).toHaveLength(101));
     expect(weeklyRequestCount).toBe(4);
-    expect(activeIntervalRequestCount).toBe(4);
+    expect(activeIntervalRequestCount).toBe(5);
   });
 
   it('keeps load-more ownership when aborted initial recovery settles', async () => {
