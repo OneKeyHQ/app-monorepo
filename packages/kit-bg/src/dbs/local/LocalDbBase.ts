@@ -101,10 +101,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
-  AllWalletAvatarImages,
   getDeviceAvatarImage,
+  getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
-import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -630,21 +630,20 @@ export function buildThirdPartyDeviceDisplayName({
   return `${vendorName} Device`;
 }
 
-export function getThirdPartyDeviceAvatarImage({
-  profile,
-  modelName,
+function getThirdPartyDeviceModelCode({
+  device,
+  features,
 }: {
-  profile: ReturnType<typeof getVendorProfile>;
-  modelName?: string;
-}): IAllWalletAvatarImageNamesWithoutDividers {
-  if (
-    profile.vendor === EHardwareVendor.trezor &&
-    modelName &&
-    modelName in AllWalletAvatarImages
-  ) {
-    return modelName as IAllWalletAvatarImageNamesWithoutDividers;
-  }
-  return profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+}): string | undefined {
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    internal_model?: string;
+  };
+  return (
+    featureRecord.internal_model ||
+    getExtraDeviceFieldString(device, 'vendorModel')
+  );
 }
 
 function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
@@ -3425,10 +3424,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixAvatar) {
           if (profile.isThirdParty) {
-            // Third-party vendor: fix avatar to match vendor key
-            const expectedImg =
-              profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
-            if (avatarInfo?.img && avatarInfo.img !== expectedImg) {
+            // Resolve per-model avatar; parseDeviceSettingsRaw is a defensive fallback.
+            const deviceSettings =
+              device?.settings ?? parseDeviceSettingsRaw(device?.settingsRaw);
+            const expectedImg = getThirdPartyDeviceAvatarImage({
+              vendor: profile.vendor,
+              vendorModel: deviceSettings.vendorModel,
+              vendorModelName: deviceSettings.vendorModelName,
+              fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+            });
+            if (avatarInfo?.img !== expectedImg) {
               wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
               wallet.avatar = JSON.stringify(wallet.avatarInfo);
             }
@@ -6138,7 +6143,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceType: EDeviceType.Unknown,
       firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
-        img: getThirdPartyDeviceAvatarImage({ profile, modelName }),
+        img: getThirdPartyDeviceAvatarImage({
+          vendor: profile.vendor,
+          vendorModel: getThirdPartyDeviceModelCode({ device, features }),
+          vendorModelName: modelName,
+          fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+        }),
       },
       deviceName: finalDeviceName,
       featuresInfo: buildThirdPartyFeaturesInfoFromDevice({

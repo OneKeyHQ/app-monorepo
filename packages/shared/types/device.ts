@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
+import type { IThirdPartyWalletAvatarImageNames } from '../src/utils/avatarUtils';
 import type {
   BleReleaseInfoPayload,
   CommonParams,
@@ -496,6 +497,8 @@ export interface IConnectYourDeviceItem {
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
   vendor?: EHardwareVendor;
+  // Resolved per-model avatar key for third-party (Ledger/Trezor) scan rows.
+  avatarImg?: IThirdPartyWalletAvatarImageNames;
 }
 
 export interface IFirmwareVerifyResult {

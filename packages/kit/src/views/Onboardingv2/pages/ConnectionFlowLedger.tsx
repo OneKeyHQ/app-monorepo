@@ -24,7 +24,10 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  ThirdPartyWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -223,11 +226,23 @@ export default function LedgerConnectionFlow() {
   // --- Device list data ---
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: ThirdPartyWalletAvatarImages.ledger,
-        device: item,
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const vendorFields = item as SearchDevice & {
+          vendorModel?: string;
+          vendorModelName?: string;
+        };
+        return {
+          title: item.name,
+          src: ThirdPartyWalletAvatarImages.ledger,
+          device: item,
+          avatarImg: getThirdPartyDeviceAvatarImage({
+            vendor: EHardwareVendor.ledger,
+            vendorModel: vendorFields.vendorModel,
+            vendorModelName: vendorFields.vendorModelName,
+            fallback: 'ledger',
+          }),
+        };
+      }),
     [searchedDevices],
   );
 
@@ -397,7 +412,10 @@ export default function LedgerConnectionFlow() {
                       }}
                       userSelect="none"
                     >
-                      <WalletAvatar wallet={undefined} img="ledger" />
+                      <WalletAvatar
+                        wallet={undefined}
+                        img={data.avatarImg ?? 'ledger'}
+                      />
                       <ListItem.Text primary={data.device?.name} flex={1} />
                     </ListItem>
                   ))}
