@@ -145,16 +145,18 @@ const installPackage: IInstallPackage = async (params) => {
       }`,
     );
   }
-  await withUpdateError(async () => {
-    await Promise.all([
+  return withUpdateError(async () => {
+    const [installStarted] = await Promise.all([
       globalThis.desktopApiProxy.appUpdate.installPackage({
         ...downloadedEvent,
+        latestVersion: params.latestVersion,
         buildNumber: String(platformEnv.buildNumber || 1),
       }),
       new Promise<void>((resolve) => {
         setTimeout(resolve, 3500);
       }),
     ]);
+    return installStarted;
   });
 };
 

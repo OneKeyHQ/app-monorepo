@@ -412,11 +412,15 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async processPendingInstallTask() {
-    await this.pendingInstallTaskService.processPendingInstallTask();
+    return (
+      (await this.pendingInstallTaskService.processPendingInstallTask()) ===
+      true
+    );
   }
 
   @backgroundMethod()
   async reconcileAppShellPackage() {
+    await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
     if (
       !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
@@ -1458,13 +1462,12 @@ class ServiceAppUpdate extends ServiceBase {
     }
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      status: EAppUpdateStatus.ready,
-    }));
-
-    const latest = await appUpdatePersistAtom.get();
+    const latest = appInfo;
     if (!latest.latestVersion && !latest.jsBundleVersion) {
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        status: EAppUpdateStatus.ready,
+      }));
       return;
     }
     const traceId = generateUUID();
@@ -1485,6 +1488,22 @@ class ServiceAppUpdate extends ServiceBase {
       traceId,
       stage: 'ready_to_install',
       appInfo: latest,
+    });
+    await appUpdatePersistAtom.set((prev) => {
+      const isSameVerifiedPackage =
+        (prev.status === EAppUpdateStatus.verifyPackage ||
+          prev.status === EAppUpdateStatus.ready) &&
+        prev.latestVersion === latest.latestVersion &&
+        prev.jsBundleVersion === latest.jsBundleVersion &&
+        prev.downloadedEvent?.downloadedFile ===
+          latest.downloadedEvent?.downloadedFile;
+      if (!isSameVerifiedPackage) {
+        return prev;
+      }
+      return {
+        ...prev,
+        status: EAppUpdateStatus.ready,
+      };
     });
   }
 

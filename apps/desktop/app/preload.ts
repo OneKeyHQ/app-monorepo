@@ -41,6 +41,7 @@ export interface IVerifyUpdateParams {
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
+  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;

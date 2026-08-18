@@ -45,7 +45,7 @@ describe('desktop app update adapter', () => {
       },
     };
     getDownloadedFileAvailability.mockResolvedValue({ status: 'available' });
-    installPackage.mockResolvedValue(undefined);
+    installPackage.mockResolvedValue(true);
     onUpdateError.mockReturnValue(jest.fn());
   });
 
@@ -111,6 +111,27 @@ describe('desktop app update adapter', () => {
     await expect(promise).rejects.toBe(error);
     expect(unsubscribe).toHaveBeenCalled();
   });
+
+  test.each([true, false])(
+    'returns the main-process install decision (%s)',
+    async (installStarted) => {
+      installPackage.mockResolvedValueOnce(installStarted);
+
+      const promise = AppUpdate.installPackage({
+        latestVersion: '6.5.3',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://example.com/app.zip',
+        },
+      } as any);
+      await jest.runAllTimersAsync();
+
+      await expect(promise).resolves.toBe(installStarted);
+      expect(installPackage).toHaveBeenCalledWith(
+        expect.objectContaining({ latestVersion: '6.5.3' }),
+      );
+    },
+  );
 
   test('does not start installation for a macOS package not prepared in the current process', async () => {
     getDownloadedFileAvailability.mockResolvedValueOnce({

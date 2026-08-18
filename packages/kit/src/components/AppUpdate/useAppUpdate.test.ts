@@ -404,6 +404,7 @@ function resetAllMocks() {
   svc.verifyPackage.mockResolvedValue(undefined);
   svc.verifyPackageFailed.mockResolvedValue(undefined);
   svc.readyToInstall.mockResolvedValue(undefined);
+  svc.processPendingInstallTask.mockResolvedValue(true);
   svc.updateDownloadedEvent.mockResolvedValue(undefined);
   // OCDS §5.11 attempt-budget hooks default to a fresh budget so download
   // tests proceed; give-up cases override per test.
@@ -421,6 +422,7 @@ function resetAllMocks() {
   // Defaults match the safe baseline: native disallows skip, dev setting off.
   bundleUpd.isSkipGpgVerificationAllowed.mockResolvedValue(false);
   devSvc.getSkipBundleGPGVerification.mockResolvedValue(false);
+  appUpd.installPackage.mockResolvedValue(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -1950,6 +1952,26 @@ describe('useDownloadPackage', () => {
       expect(onFail).not.toHaveBeenCalled();
     });
 
+    test('appShell install cancelled → does not report success or failure', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      appUpd.installPackage.mockResolvedValueOnce(false);
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(appUpd.installPackage).toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(onFail).not.toHaveBeenCalled();
+    });
+
     test('jsBundle success → calls BundleUpdate.installBundle + onSuccess', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
@@ -2897,6 +2919,46 @@ describe('useAppUpdateInfo useEffect', () => {
         await jest.runAllTimersAsync();
       });
       svc.processPendingInstallTask.mockClear();
+
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          isUpdaterRehydrated: true,
+        },
+      });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
+    });
+
+    test('unprepared auto-ready state does not consume the later rehydrate install', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.zip',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        },
+      });
+      mockPlatformEnv.isDesktop = true;
+      mockPlatformEnv.isDesktopMac = true;
+
+      const hooks = requireFreshHooks();
+      const { rerender } = renderHook(() =>
+        hooks.useAppUpdateInfo(false, true),
+      );
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+      expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
 
       setAtom({
         status: EAppUpdateStatus.ready,

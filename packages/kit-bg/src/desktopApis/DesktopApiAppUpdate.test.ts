@@ -2,7 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 const mockUpdaterHandlers = new Map<string, (...args: unknown[]) => void>();
 const mockDownloadUpdate = jest.fn<Promise<string[]>, [unknown]>();
@@ -13,6 +16,7 @@ const mockLogger = {
   warn: jest.fn(),
 };
 const mockOpenPath = jest.fn();
+const mockShowMessageBox = jest.fn();
 const mockAutoUpdater = {
   app: { baseCachePath: '' },
   autoDownload: false,
@@ -21,6 +25,7 @@ const mockAutoUpdater = {
   disableDifferentialDownload: false,
   downloadUpdate: mockDownloadUpdate,
   forceDevUpdateConfig: false,
+  isInstallerPath: jest.fn(),
   logger: mockLogger,
   on: jest.fn((event: string, handler: (...args: unknown[]) => void): void => {
     mockUpdaterHandlers.set(event, handler);
@@ -41,12 +46,14 @@ jest.mock('electron', () => ({
   BrowserWindow: { getAllWindows: jest.fn(() => []) },
   app: {
     exit: jest.fn(),
+    getVersion: jest.fn(() => '5.9.0'),
     isReady: jest.fn(() => true),
+    removeAllListeners: jest.fn(),
     relaunch: jest.fn(),
     whenReady: jest.fn(async () => undefined),
   },
   autoUpdater: { once: jest.fn() },
-  dialog: { showMessageBox: jest.fn() },
+  dialog: { showMessageBox: mockShowMessageBox },
   shell: { openPath: mockOpenPath },
 }));
 
@@ -185,7 +192,7 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     expect(api.downloadedEvent?.isUpdaterRehydrated).toBe(true);
     expect(mockLogger.info).toHaveBeenCalledWith(
       'auto-updater',
-      expect.arrayContaining(['Mac updater cache rehydrate prepared:']),
+      expect.arrayContaining(['Updater cache rehydrate prepared:']),
     );
   });
 
@@ -213,7 +220,7 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'auto-updater',
       expect.arrayContaining([
-        'Mac updater cache rehydrate failed:',
+        'Updater cache rehydrate failed:',
         '- Error code: EIO',
         '- Next action: retry with cache clear',
       ]),
@@ -246,7 +253,7 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     expect(mockLogger.info).toHaveBeenCalledWith(
       'auto-updater',
       expect.arrayContaining([
-        'Mac updater cache rehydrate is using network fallback:',
+        'Updater cache rehydrate is using network fallback:',
       ]),
     );
     expect(mockLogger.info).toHaveBeenCalledWith(
@@ -284,5 +291,90 @@ describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
     ).resolves.toBeUndefined();
 
     expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(downloadedFile));
+  });
+
+  test('returns false when the user postpones installation', async () => {
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    mockShowMessageBox.mockResolvedValueOnce({ response: 1 });
+
+    await expect(
+      api.installPackage({
+        buildNumber: '1',
+        latestVersion: '2.0.0',
+        downloadedFile: '/tmp/app.zip',
+        downloadUrl: 'https://example.com/app.zip',
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      'a renderer path that differs from the main event',
+      '/tmp/other.zip',
+      '6.0.0',
+    ],
+    [
+      'a renderer version that differs from the main event',
+      'prepared',
+      '6.0.1',
+    ],
+    ['a prepared version that is not an upgrade', 'prepared', '5.8.0'],
+  ])('rejects %s', async (_label, requestedFile, requestedVersion) => {
+    const downloadedFile = createCachedPackage();
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    const preparedVersion =
+      requestedVersion === '5.8.0' ? requestedVersion : '6.0.0';
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile,
+      files: [{ url: 'https://example.com/app.zip' }],
+      releaseDate: '2026-08-12',
+      version: preparedVersion,
+    });
+    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
+
+    let installError: Error | undefined;
+    try {
+      await api.installPackage({
+        buildNumber: '1',
+        latestVersion: requestedVersion,
+        downloadedFile:
+          requestedFile === 'prepared' ? downloadedFile : requestedFile,
+        downloadUrl: 'https://example.com/app.zip',
+      });
+    } catch (error) {
+      installError = error as Error;
+    }
+
+    expect(installError?.message).toContain(
+      EAppUpdatePackageErrorCode.packageNotPrepared,
+    );
+    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  test('installs the exact upgrade prepared by the current main process', async () => {
+    const downloadedFile = createCachedPackage();
+    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
+    emitUpdaterEvent('update-downloaded', {
+      downloadedFile,
+      files: [{ url: 'https://example.com/app.zip' }],
+      releaseDate: '2026-08-12',
+      version: '6.0.0',
+    });
+    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
+
+    await expect(
+      api.installPackage({
+        buildNumber: '1',
+        latestVersion: '6.0.0',
+        downloadedFile,
+        downloadUrl: 'https://example.com/app.zip',
+        skipGPGVerification: true,
+      }),
+    ).resolves.toBe(true);
+
+    expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(false);
   });
 });

@@ -135,7 +135,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     verifyPackage: jest.fn(async () => undefined),
     verifyASC: jest.fn(async () => undefined),
     downloadASC: jest.fn(async () => undefined),
-    installPackage: jest.fn(async () => undefined),
+    installPackage: jest.fn(async () => true),
     manualInstallPackage: jest.fn(async () => undefined),
     clearPackage: jest.fn(async () => undefined),
   },
@@ -483,6 +483,35 @@ describe('ServiceAppUpdate state transitions', () => {
       );
     });
 
+    test('expired full-flow retry count is pruned before reconciliation', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+        fullFlowRetryByTarget: {
+          '2.0.0:1': {
+            count: 2,
+            updatedAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+          },
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+    });
+
     test('repeated missing auto-update packages stop after the persisted retry budget', async () => {
       const {
         AppUpdate,
@@ -587,7 +616,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
-      expect(result.fullFlowRetryByTarget).toBeUndefined();
+      expect(result.fullFlowRetryByTarget).toEqual({});
 
       const emitSpy = jest.spyOn(appEventBus, 'emit');
       await jest.runAllTimersAsync();
@@ -625,13 +654,6 @@ describe('ServiceAppUpdate state transitions', () => {
       const {
         AppUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-      let resolveAvailability: (value: { status: string }) => void = () => {};
-      AppUpdate.checkPackageAvailability.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveAvailability = resolve;
-          }),
-      );
       resetAtom({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.ready,
@@ -640,15 +662,15 @@ describe('ServiceAppUpdate state transitions', () => {
           downloadedFile: '/tmp/app-2.0.0.zip',
         },
       });
+      AppUpdate.checkPackageAvailability.mockImplementationOnce(async () => {
+        atomValue = {
+          ...atomValue,
+          updateStrategy: EUpdateStrategy.seamless,
+        };
+        return { status: 'missing' };
+      });
 
-      const reconciliation = service.reconcileAppShellPackage();
-      await Promise.resolve();
-      atomValue = {
-        ...atomValue,
-        updateStrategy: EUpdateStrategy.seamless,
-      };
-      resolveAvailability({ status: 'missing' });
-      const result = await reconciliation;
+      const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.updateStrategy).toBe(EUpdateStrategy.seamless);

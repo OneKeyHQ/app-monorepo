@@ -1,9 +1,13 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { AppUpdater } = require('electron-updater/out/AppUpdater');
 const { BaseUpdater } = require('electron-updater/out/BaseUpdater');
+const {
+  DownloadedUpdateHelper,
+} = require('electron-updater/out/DownloadedUpdateHelper');
 
 describe('electron-updater runtime patch', () => {
   test('resets cached update-check state before a retry', async () => {
@@ -85,42 +89,82 @@ describe('electron-updater runtime patch', () => {
     expect(getOrCreateStagingUserId).toHaveBeenCalledTimes(2);
   });
 
-  test('rehydrates the persisted installer metadata after an app restart', async () => {
+  test('rehydrates a cached installer through the upstream validation path', async () => {
     const cacheDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'electron-updater-test-'),
     );
-    const downloadedFileInfo = {
-      fileName: 'OneKey-Wallet-9906.17.0-win-x64.exe',
-      sha512: 'sha512-value',
-      isAdminRightsRequired: false,
-    };
-    const downloadedUpdateHelper = {
-      cacheDirForPendingUpdate: cacheDir,
-      updateFile: jest.fn(),
-      updateDownloadedFileInfo: jest.fn(),
-    };
-    const updater = {
-      downloadedUpdateHelper,
-      _logger: { info: jest.fn() },
-    };
+    const helper = new DownloadedUpdateHelper(cacheDir);
+    const pendingDir = helper.cacheDirForPendingUpdate;
+    const fileName = 'OneKey-Wallet-6.6.0-win-x64.exe';
+    const installerPath = path.join(pendingDir, fileName);
+    const installer = 'verified installer';
+    const sha512 = crypto
+      .createHash('sha512')
+      .update(installer)
+      .digest('base64');
+    fs.mkdirSync(pendingDir, { recursive: true });
+    fs.writeFileSync(installerPath, installer);
+    fs.writeFileSync(
+      path.join(pendingDir, 'update-info.json'),
+      JSON.stringify({
+        fileName,
+        sha512,
+        isAdminRightsRequired: false,
+        version: '6.6.0',
+      }),
+    );
 
     try {
-      fs.writeFileSync(
-        path.join(cacheDir, 'update-info.json'),
-        JSON.stringify(downloadedFileInfo),
-      );
+      await expect(
+        helper.validateDownloadedPath(
+          installerPath,
+          { version: '6.6.0' },
+          { info: { sha512 } },
+          { info: jest.fn(), warn: jest.fn() },
+        ),
+      ).resolves.toBe(installerPath);
+      expect(helper.file).toBe(installerPath);
+      expect(helper.downloadedFileInfo).toMatchObject({ version: '6.6.0' });
+    } finally {
+      fs.rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
 
-      await BaseUpdater.prototype.updateInstallerPath.call(
-        updater,
-        'C:\\Users\\asus\\AppData\\Local\\OneKey\\pending\\installer.exe',
-      );
+  test('rejects cached metadata for a different trusted feed version', async () => {
+    const cacheDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'electron-updater-test-'),
+    );
+    const helper = new DownloadedUpdateHelper(cacheDir);
+    const pendingDir = helper.cacheDirForPendingUpdate;
+    const fileName = 'OneKey-Wallet.exe';
+    const installerPath = path.join(pendingDir, fileName);
+    const sha512 = crypto
+      .createHash('sha512')
+      .update('same installer bytes')
+      .digest('base64');
+    fs.mkdirSync(pendingDir, { recursive: true });
+    fs.writeFileSync(installerPath, 'same installer bytes');
+    fs.writeFileSync(
+      path.join(pendingDir, 'update-info.json'),
+      JSON.stringify({
+        fileName,
+        sha512,
+        isAdminRightsRequired: false,
+        version: '6.5.0',
+      }),
+    );
 
-      expect(downloadedUpdateHelper.updateFile).toHaveBeenCalledWith(
-        'C:\\Users\\asus\\AppData\\Local\\OneKey\\pending\\installer.exe',
-      );
-      expect(
-        downloadedUpdateHelper.updateDownloadedFileInfo,
-      ).toHaveBeenCalledWith(downloadedFileInfo);
+    try {
+      await expect(
+        helper.validateDownloadedPath(
+          installerPath,
+          { version: '6.6.0' },
+          { info: { sha512 } },
+          { info: jest.fn(), warn: jest.fn() },
+        ),
+      ).resolves.toBeNull();
+      expect(helper.file).toBeNull();
+      expect(fs.existsSync(installerPath)).toBe(false);
     } finally {
       fs.rmSync(cacheDir, { recursive: true, force: true });
     }

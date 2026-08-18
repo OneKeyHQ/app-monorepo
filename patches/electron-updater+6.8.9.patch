@@ -1,5 +1,5 @@
 diff --git a/node_modules/electron-updater/out/AppUpdater.d.ts b/node_modules/electron-updater/out/AppUpdater.d.ts
-index 449df36..8df0438 100644
+index 449df36..3c8a76c 100644
 --- a/node_modules/electron-updater/out/AppUpdater.d.ts
 +++ b/node_modules/electron-updater/out/AppUpdater.d.ts
 @@ -15,6 +15,7 @@ export type AppUpdaterEvents = {
@@ -18,13 +18,11 @@ index 449df36..8df0438 100644
      /**
       * Asks the server whether there is an update.
       * @returns null if the updater is disabled, otherwise info about the latest version
-@@ -204,6 +206,9 @@ export declare abstract class AppUpdater extends AppUpdater_base {
+@@ -204,6 +206,7 @@ export declare abstract class AppUpdater extends AppUpdater_base {
      private getOrCreateDownloadHelper;
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
-+    isExistInstallerPath(): boolean;
 +    isInstallerPath(installerPath: string): boolean;
-+    updateInstallerPath(installerPath: string): Promise<void>;
  }
  export interface DownloadUpdateOptions {
      readonly updateInfoAndProvider: UpdateInfoAndProvider;
@@ -67,97 +65,101 @@ index d6d5deb..7664ea9 100644
              headers: taskOptions.downloadUpdateOptions.requestHeaders,
              cancellationToken: taskOptions.downloadUpdateOptions.cancellationToken,
 diff --git a/node_modules/electron-updater/out/BaseUpdater.d.ts b/node_modules/electron-updater/out/BaseUpdater.d.ts
-index 00bbd5f..24fd1ed 100644
+index 00bbd5f..c0718df 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.d.ts
 +++ b/node_modules/electron-updater/out/BaseUpdater.d.ts
-@@ -9,6 +9,9 @@ export declare abstract class BaseUpdater extends AppUpdater {
+@@ -9,6 +9,7 @@ export declare abstract class BaseUpdater extends AppUpdater {
      quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected get installerPath(): string | null;
-+    isExistInstallerPath(): boolean;
 +    isInstallerPath(installerPath: string): boolean;
-+    updateInstallerPath(installerPath: string): Promise<void>;
      protected abstract doInstall(options: InstallOptions): boolean;
      install(isSilent?: boolean, isForceRunAfter?: boolean): boolean;
      protected addQuitHandler(): void;
 diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index f7c2965..d82933c 100644
+index f7c2965..db5fc3e 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.js
 +++ b/node_modules/electron-updater/out/BaseUpdater.js
-@@ -2,6 +2,7 @@
- Object.defineProperty(exports, "__esModule", { value: true });
- exports.BaseUpdater = void 0;
- const child_process_1 = require("child_process");
-+const fs_extra_1 = require("fs-extra");
- const path = require("path");
- const AppUpdater_1 = require("./AppUpdater");
- class BaseUpdater extends AppUpdater_1.AppUpdater {
-@@ -38,6 +39,36 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+@@ -38,6 +38,10 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
      get installerPath() {
          return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
      }
-+    // OneKey patch: expose whether a cached installer path is currently available.
-+    isExistInstallerPath() {
-+        return Boolean(this.installerPath);
-+    }
 +    // OneKey patch: verify that the updater is bound to the package just verified by the app.
 +    isInstallerPath(installerPath) {
 +        return this.downloadedUpdateHelper?.file === installerPath;
 +    }
-+    // OneKey patch: restore a downloaded installer path from our persisted update state.
-+    async updateInstallerPath(installerPath) {
-+        if (!this.downloadedUpdateHelper) {
-+            this.downloadedUpdateHelper = await this.getOrCreateDownloadHelper();
-+        }
-+        const cacheDir = this.downloadedUpdateHelper?.cacheDirForPendingUpdate;
-+        const updateInfoFilePath = path.join(cacheDir, "update-info.json");
-+        const doesUpdateInfoFileExist = await (0, fs_extra_1.pathExists)(updateInfoFilePath);
-+        if (!doesUpdateInfoFileExist) {
-+            return;
-+        }
-+        try {
-+            // OneKey patch: force text decoding because packaged Electron can return a Uint8Array.
-+            const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath, { encoding: "utf8" });
-+            const downloadedFileInfo = cachedInfo?.downloadedFileInfo ?? cachedInfo;
-+            this.downloadedUpdateHelper.updateFile(installerPath);
-+            this.downloadedUpdateHelper.updateDownloadedFileInfo(downloadedFileInfo);
-+        }
-+        catch (error) {
-+            this._logger.info(error);
-+        }
-+    }
      // must be sync (because quit even handler is not async)
      install(isSilent = false, isForceRunAfter = false) {
          if (this.quitAndInstallCalled) {
+@@ -53,18 +57,12 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+         }
+         // prevent calling several times
+         this.quitAndInstallCalled = true;
+-        try {
+-            this._logger.info(`Install: isSilent: ${isSilent}, isForceRunAfter: ${isForceRunAfter}`);
+-            return this.doInstall({
+-                isSilent,
+-                isForceRunAfter,
+-                isAdminRightsRequired: downloadedFileInfo.isAdminRightsRequired,
+-            });
+-        }
+-        catch (e) {
+-            this.dispatchError(e);
+-            return false;
+-        }
++        this._logger.info(`Install: isSilent: ${isSilent}, isForceRunAfter: ${isForceRunAfter}`);
++        return this.doInstall({
++            isSilent,
++            isForceRunAfter,
++            isAdminRightsRequired: downloadedFileInfo.isAdminRightsRequired,
++        });
+     }
+     addQuitHandler() {
+         if (this.quitHandlerAdded || !this.autoInstallOnAppQuit) {
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
-index 26ea883..64ed1bc 100644
+index 26ea883..d78d930 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
-@@ -14,6 +14,8 @@ export declare class DownloadedUpdateHelper {
-     get file(): string | null;
-     get packageFile(): string | null;
-     get cacheDirForPendingUpdate(): string;
-+    updateFile(file: string): void;
-+    updateDownloadedFileInfo(info: ResolvedUpdateFileInfo): void;
-     validateDownloadedPath(updateFile: string, updateInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo, logger: Logger): Promise<string | null>;
-     setDownloadedFile(downloadedFile: string, packageFile: string | null, versionInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo, updateFileName: string, isSaveCache: boolean): Promise<void>;
-     clear(): Promise<void>;
+@@ -30,6 +30,7 @@ interface CachedUpdateInfo {
+     fileName: string;
+     sha512: string;
+     readonly isAdminRightsRequired: boolean;
++    version: string;
+ }
+ export declare function createTempUpdateFile(name: string, cacheDir: string, log: Logger): Promise<string>;
+ export {};
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.js b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-index e6c33ea..890debd 100644
+index e6c33ea..20add74 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-@@ -30,6 +30,14 @@ class DownloadedUpdateHelper {
-     get cacheDirForPendingUpdate() {
-         return path.join(this.cacheDir, "pending");
-     }
-+    // OneKey patch: allow the app to rehydrate the cached installer path.
-+    updateFile(file) {
-+        this._file = file;
-+    }
-+    // OneKey patch: allow the app to rehydrate downloaded update metadata.
-+    updateDownloadedFileInfo(downloadedFileInfo) {
-+        this._downloadedFileInfo = downloadedFileInfo;
-+    }
-     async validateDownloadedPath(updateFile, updateInfo, fileInfo, logger) {
-         if (this.versionInfo != null && this.file === updateFile && this.fileInfo != null) {
-             // update has already been downloaded from this running instance
+@@ -46,6 +46,12 @@ class DownloadedUpdateHelper {
+         if (cachedUpdateFile === null) {
+             return null;
+         }
++        if (this._downloadedFileInfo?.version !== updateInfo.version) {
++            logger.warn(`Cached update version doesn't match the latest available update. New update must be downloaded. Cached: ${this._downloadedFileInfo?.version ?? "none"}, expected: ${updateInfo.version}`);
++            await this.cleanCacheDirForPendingUpdate();
++            this._downloadedFileInfo = null;
++            return null;
++        }
+         logger.info(`Update has already been downloaded to ${updateFile}).`);
+         this._file = cachedUpdateFile;
+         return cachedUpdateFile;
+@@ -59,6 +65,7 @@ class DownloadedUpdateHelper {
+             fileName: updateFileName,
+             sha512: fileInfo.info.sha512,
+             isAdminRightsRequired: fileInfo.info.isAdminRightsRequired === true,
++            version: versionInfo.version,
+         };
+         if (isSaveCache) {
+             await (0, fs_extra_1.outputJson)(this.getUpdateInfoFile(), this._downloadedFileInfo);
+@@ -93,7 +100,8 @@ class DownloadedUpdateHelper {
+         }
+         let cachedInfo;
+         try {
+-            cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
++            // OneKey patch: force text decoding because packaged Electron can return a Uint8Array.
++            cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath, { encoding: "utf8" });
+         }
+         catch (error) {
+             let message = `No cached update info available`;

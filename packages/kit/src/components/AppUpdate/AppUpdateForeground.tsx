@@ -108,6 +108,20 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     installPackage,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
+  const processRehydratedAppInstall = useCallback(() => {
+    if (autoReadyInstallHandled) return;
+    autoReadyInstallHandled = true;
+    void backgroundApiProxy.serviceAppUpdate
+      .processPendingInstallTask()
+      .then((installStarted) => {
+        if (!installStarted) {
+          autoReadyInstallHandled = false;
+        }
+      })
+      .catch(() => {
+        autoReadyInstallHandled = false;
+      });
+  }, []);
   const showUpdateInCompleteDialogWhenUnlocked = useCallback(() => {
     void (async () => {
       await whenAppUnlocked();
@@ -430,11 +444,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             platformEnv.isDesktopMac &&
             info.downloadedEvent?.isUpdaterRehydrated
           ) {
-            const shouldProcessRehydratedPackage = !autoReadyInstallHandled;
-            autoReadyInstallHandled = true;
-            if (shouldProcessRehydratedPackage) {
-              void backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
-            }
+            processRehydratedAppInstall();
           } else {
             void installPackage(
               () => undefined,
@@ -453,9 +463,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             !autoReadyInstallHandled &&
             platformEnv.isDesktopMac &&
             info.downloadedEvent?.isUpdaterRehydrated;
-          autoReadyInstallHandled = true;
           if (shouldProcessRehydratedPackage) {
-            void backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
+            processRehydratedAppInstall();
           }
           // showSilentUpdateDialog();
         } else {
@@ -508,13 +517,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) return;
     if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
-    autoReadyInstallHandled = true;
-    if (
-      platformEnv.isDesktopMac &&
-      appUpdateInfo.downloadedEvent?.isUpdaterRehydrated
-    ) {
-      void backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
-    }
+    if (!platformEnv.isDesktopMac) return;
+    if (!appUpdateInfo.downloadedEvent?.isUpdaterRehydrated) return;
+    processRehydratedAppInstall();
     // OK-55397: regular silent packages remain queued for the next restart.
     // A rehydrated macOS package must run now because MacUpdater preparation
     // belongs to this process and is lost on another restart.
@@ -523,7 +528,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // appUpdateInfo is omitted intentionally — including the object ref
     // would re-fire on every unrelated field mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
+  }, [
+    enabled,
+    appUpdateInfo.status,
+    appUpdateInfo.updateStrategy,
+    appUpdateInfo.downloadedEvent?.downloadedFile,
+    appUpdateInfo.downloadedEvent?.isUpdaterRehydrated,
+    processRehydratedAppInstall,
+  ]);
 
   // Mid-session auto-download bridge.
   //

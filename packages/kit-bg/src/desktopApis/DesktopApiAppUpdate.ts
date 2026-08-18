@@ -16,6 +16,7 @@ import {
   autoUpdater,
 } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
+import semver from 'semver';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
@@ -95,12 +96,12 @@ export interface IUpdateProgressUpdate {
   transferred: number;
 }
 
-interface IMacUpdaterRehydrateCandidate {
+interface IUpdaterRehydrateCandidate {
   downloadedFile: string;
   detectedAt: number;
 }
 
-interface IMacUpdaterRehydrateAttempt {
+interface IUpdaterRehydrateAttempt {
   downloadedFile: string;
   startedAt: number;
   networkProgressObserved: boolean;
@@ -141,25 +142,23 @@ class DesktopApiAppUpdate {
 
   updateCancellationToken: CancellationToken | undefined;
 
-  private macUpdaterRehydrateCandidate:
-    | IMacUpdaterRehydrateCandidate
-    | undefined;
+  private updaterRehydrateCandidate: IUpdaterRehydrateCandidate | undefined;
 
-  private activeMacUpdaterRehydrate: IMacUpdaterRehydrateAttempt | undefined;
+  private activeUpdaterRehydrate: IUpdaterRehydrateAttempt | undefined;
 
-  private failActiveMacUpdaterRehydrate(error: unknown): void {
-    const attempt = this.activeMacUpdaterRehydrate;
+  private failActiveUpdaterRehydrate(error: unknown): void {
+    const attempt = this.activeUpdaterRehydrate;
     if (!attempt) {
       return;
     }
     logger.warn('auto-updater', [
-      'Mac updater cache rehydrate failed:',
+      'Updater cache rehydrate failed:',
       `- Downloaded file: ${path.basename(attempt.downloadedFile)}`,
       `- Duration: ${Date.now() - attempt.startedAt}ms`,
       `- Error code: ${(error as NodeJS.ErrnoException)?.code || 'UNKNOWN'}`,
       '- Next action: retry with cache clear',
     ]);
-    this.activeMacUpdaterRehydrate = undefined;
+    this.activeUpdaterRehydrate = undefined;
   }
 
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
@@ -258,7 +257,7 @@ class DesktopApiAppUpdate {
 
     autoUpdater.on('error', (err) => {
       logger.error('auto-updater', `An error happened: ${err.toString()}`);
-      this.failActiveMacUpdaterRehydrate(err);
+      this.failActiveUpdaterRehydrate(err);
       this.downloadedEvent = undefined;
       this.isDownloading = false;
       const mainWindow = this.getMainWindow();
@@ -294,14 +293,14 @@ class DesktopApiAppUpdate {
 
     autoUpdater.on('download-progress', (progressObj) => {
       if (
-        this.activeMacUpdaterRehydrate &&
-        !this.activeMacUpdaterRehydrate.networkProgressObserved
+        this.activeUpdaterRehydrate &&
+        !this.activeUpdaterRehydrate.networkProgressObserved
       ) {
-        this.activeMacUpdaterRehydrate.networkProgressObserved = true;
+        this.activeUpdaterRehydrate.networkProgressObserved = true;
         logger.info('auto-updater', [
-          'Mac updater cache rehydrate is using network fallback:',
+          'Updater cache rehydrate is using network fallback:',
           `- Downloaded file: ${path.basename(
-            this.activeMacUpdaterRehydrate.downloadedFile,
+            this.activeUpdaterRehydrate.downloadedFile,
           )}`,
         ]);
       }
@@ -327,14 +326,15 @@ class DesktopApiAppUpdate {
     autoUpdater.on(
       'update-downloaded',
       ({ version, releaseDate, downloadedFile, files }) => {
-        const rehydrateAttempt = this.activeMacUpdaterRehydrate;
+        const rehydrateAttempt = this.activeUpdaterRehydrate;
         const downloadUrl = files.find((file) =>
           file.url.endsWith(path.basename(downloadedFile)),
         )?.url;
 
-        this.macUpdaterRehydrateCandidate = undefined;
-        this.activeMacUpdaterRehydrate = undefined;
+        this.updaterRehydrateCandidate = undefined;
+        this.activeUpdaterRehydrate = undefined;
         this.downloadedEvent = {
+          version,
           downloadedFile,
           downloadUrl,
           isUpdaterRehydrated: Boolean(rehydrateAttempt),
@@ -342,7 +342,7 @@ class DesktopApiAppUpdate {
 
         if (rehydrateAttempt) {
           logger.info('auto-updater', [
-            'Mac updater cache rehydrate prepared:',
+            'Updater cache rehydrate prepared:',
             `- Downloaded file: ${path.basename(downloadedFile)}`,
             `- Duration: ${Date.now() - rehydrateAttempt.startedAt}ms`,
             `- Network progress observed: ${b2t(
@@ -390,30 +390,29 @@ class DesktopApiAppUpdate {
   async getDownloadedFileAvailability(
     downloadedFile?: string,
   ): Promise<IAppUpdatePackageAvailability> {
-    // MacUpdater serves the ZIP through a process-local proxy. A persisted path
-    // is not installable after relaunch until this process emits update-downloaded.
+    // electron-updater owns the installer path in process memory. A persisted
+    // renderer path is not installable after relaunch until this process emits
+    // update-downloaded from a trusted feed check/cache validation cycle.
     const availability = resolveDownloadedFileAvailability(downloadedFile, {
-      requireCurrentProcessPreparation: isMac,
+      requireCurrentProcessPreparation: true,
       preparedDownloadedFile: this.downloadedEvent?.downloadedFile,
     });
-    if (isMac && downloadedFile) {
+    if (downloadedFile) {
       if (
         availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared
       ) {
-        if (
-          this.macUpdaterRehydrateCandidate?.downloadedFile !== downloadedFile
-        ) {
-          this.macUpdaterRehydrateCandidate = {
+        if (this.updaterRehydrateCandidate?.downloadedFile !== downloadedFile) {
+          this.updaterRehydrateCandidate = {
             downloadedFile,
             detectedAt: Date.now(),
           };
           logger.info('auto-updater', [
-            'Mac updater cache rehydrate candidate detected:',
+            'Updater cache rehydrate candidate detected:',
             `- Downloaded file: ${path.basename(downloadedFile)}`,
           ]);
         }
       } else {
-        this.macUpdaterRehydrateCandidate = undefined;
+        this.updaterRehydrateCandidate = undefined;
       }
     }
     return availability;
@@ -455,8 +454,8 @@ class DesktopApiAppUpdate {
       this.updateCancellationToken.cancel();
     }
     this.isDownloading = false;
-    this.macUpdaterRehydrateCandidate = undefined;
-    this.activeMacUpdaterRehydrate = undefined;
+    this.updaterRehydrateCandidate = undefined;
+    this.activeUpdaterRehydrate = undefined;
     this.downloadedEvent = undefined;
     try {
       // @ts-ignore
@@ -554,19 +553,17 @@ class DesktopApiAppUpdate {
     if (this.updateCancellationToken) {
       this.updateCancellationToken.cancel();
     }
-    const rehydrateCandidate = isMac
-      ? this.macUpdaterRehydrateCandidate
-      : undefined;
-    this.macUpdaterRehydrateCandidate = undefined;
-    this.activeMacUpdaterRehydrate = undefined;
+    const rehydrateCandidate = this.updaterRehydrateCandidate;
+    this.updaterRehydrateCandidate = undefined;
+    this.activeUpdaterRehydrate = undefined;
     if (rehydrateCandidate) {
-      this.activeMacUpdaterRehydrate = {
+      this.activeUpdaterRehydrate = {
         downloadedFile: rehydrateCandidate.downloadedFile,
         startedAt: Date.now(),
         networkProgressObserved: false,
       };
       logger.info('auto-updater', [
-        'Mac updater cache rehydrate started:',
+        'Updater cache rehydrate started:',
         `- Downloaded file: ${path.basename(
           rehydrateCandidate.downloadedFile,
         )}`,
@@ -582,7 +579,7 @@ class DesktopApiAppUpdate {
       await autoUpdater.downloadUpdate(this.updateCancellationToken);
       logger.info('auto-updater', 'Download update success');
     } catch (e) {
-      this.failActiveMacUpdaterRehydrate(e);
+      this.failActiveUpdaterRehydrate(e);
       this.isDownloading = false;
       logger.info('auto-updater', 'Update cancelled', e);
       // CancellationError
@@ -809,7 +806,47 @@ class DesktopApiAppUpdate {
     return true;
   }
 
-  async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
+  private getCurrentProcessPreparedInstallParams(
+    verifyParams: IInstallUpdateParams,
+  ): IInstallUpdateParams {
+    const preparedEvent = this.downloadedEvent;
+    const downloadedFile = verifyParams.downloadedFile;
+    const expectedVersion = verifyParams.latestVersion;
+    const preparedVersion = preparedEvent?.version;
+    const currentVersion = app.getVersion();
+    if (
+      !preparedEvent ||
+      !downloadedFile ||
+      !expectedVersion ||
+      !preparedVersion
+    ) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+    }
+    const isVersionBound =
+      preparedVersion === expectedVersion &&
+      semver.valid(preparedVersion) !== null &&
+      semver.valid(currentVersion) !== null &&
+      semver.gt(preparedVersion, currentVersion);
+    const isMainEventBound =
+      preparedEvent?.downloadedFile === downloadedFile && isVersionBound;
+    // BaseUpdater owns the executable path on Windows/Linux. MacUpdater has a
+    // different process-local proxy, represented by the main-owned event above.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const isUpdaterBound = isMac
+      ? true
+      : Boolean(autoUpdater.isInstallerPath(downloadedFile));
+    if (!isMainEventBound || !isUpdaterBound) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+    }
+    return {
+      ...verifyParams,
+      latestVersion: preparedVersion,
+      downloadedFile: preparedEvent.downloadedFile,
+      downloadUrl: preparedEvent.downloadUrl || verifyParams.downloadUrl,
+    };
+  }
+
+  async installPackage(verifyParams: IInstallUpdateParams): Promise<boolean> {
     // Keep this native main-process confirmation as an authorization boundary:
     // a compromised renderer must not be able to silently replace the app by
     // invoking the install IPC. File integrity is verified again below.
@@ -823,37 +860,22 @@ class DesktopApiAppUpdate {
       message: i18nText(ElectronTranslations.update_new_update_downloaded),
     });
     if (selection.response !== 0) {
-      return;
+      return false;
     }
     const buildNumber = verifyParams.buildNumber;
     logger.info('auto-updater', 'Installation request', buildNumber);
+    const installVerifyParams =
+      this.getCurrentProcessPreparedInstallParams(verifyParams);
     if (!isMac) {
       // On Linux AppImage, bail out early if APPIMAGE env is unusable —
       // quitAndInstall would otherwise crash inside electron-updater with
       // `ENOENT: ... unlink ''` and leave the user stuck.
       if (isLinux && isAppImage && !this.canAutoInstallAppImage()) {
-        await this.manualInstallPackage(verifyParams);
-        return;
-      }
-      const downloadedFilePath = verifyParams.downloadedFile;
-      if (downloadedFilePath) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        await autoUpdater?.updateInstallerPath(downloadedFilePath);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const isUpdated = downloadedFilePath
-        ? autoUpdater?.isInstallerPath(downloadedFilePath)
-        : false;
-      logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
-      if (!isUpdated) {
-        await this.manualInstallPackage(verifyParams);
-        return;
+        await this.manualInstallPackage(installVerifyParams);
+        return true;
       }
     }
-    // This is intentionally the last asynchronous operation before handing the
-    // exact bound path to electron-updater. It closes the user-confirmation and
-    // updater-rehydration windows without trusting an earlier renderer result.
-    const verified = await this.verifyFile(verifyParams);
+    const verified = await this.verifyFile(installVerifyParams);
     if (!verified) {
       throw new OneKeyLocalError(
         ElectronTranslations.update_installation_not_safe_alert_text,
@@ -885,21 +907,25 @@ class DesktopApiAppUpdate {
         app.exit();
       });
       autoUpdater.quitAndInstall(false);
-      return;
+      return true;
     }
     autoUpdater.quitAndInstall(false);
+    return true;
   }
 
   async manualInstallPackage(
     verifyParams: IInstallUpdateParams,
   ): Promise<void> {
+    const installVerifyParams = isMac
+      ? verifyParams
+      : this.getCurrentProcessPreparedInstallParams(verifyParams);
     logger.info(
       'auto-updater',
       'Opening downloaded file',
-      verifyParams.buildNumber,
-      verifyParams,
+      installVerifyParams.buildNumber,
+      installVerifyParams,
     );
-    const verified = await this.verifyFile(verifyParams, {
+    const verified = await this.verifyFile(installVerifyParams, {
       requireCurrentProcessPreparation: false,
     });
     if (!verified) {
@@ -907,22 +933,25 @@ class DesktopApiAppUpdate {
         ElectronTranslations.update_installation_not_safe_alert_text,
       );
     }
-    await this.assertDownloadedFileAvailable(verifyParams.downloadedFile, {
-      requireCurrentProcessPreparation: false,
-    });
+    await this.assertDownloadedFileAvailable(
+      installVerifyParams.downloadedFile,
+      {
+        requireCurrentProcessPreparation: false,
+      },
+    );
     logger.info(
       'auto-updater',
       'Manual installation request',
-      verifyParams.buildNumber,
+      installVerifyParams.buildNumber,
     );
-    if (verifyParams.downloadedFile) {
+    if (installVerifyParams.downloadedFile) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         const { shell } = require('electron');
         // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- shell from dynamic require is untyped
         const openPathError = await shell.openPath(
-          path.dirname(verifyParams.downloadedFile),
+          path.dirname(installVerifyParams.downloadedFile),
         );
         if (openPathError) {
           throw new OneKeyLocalError(

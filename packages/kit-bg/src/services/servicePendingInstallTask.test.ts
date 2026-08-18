@@ -77,7 +77,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     checkPackageAvailability: jest.fn(async () => ({
       status: 'notApplicable',
     })),
-    installPackage: jest.fn(async () => undefined),
+    installPackage: jest.fn(async () => true),
   },
   BundleUpdate: {
     switchBundle: jest.fn(async () => undefined),
@@ -472,6 +472,22 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue.lastError).toBe('INTERRUPTED');
   });
 
+  test('running app install is cleared immediately after the target app starts', async () => {
+    const service = createService();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    platformEnvMock.version = '2.0.0';
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'running',
+      runningStartedAt: Date.now(),
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
   test('executes app shell install task when package is ready', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
@@ -489,6 +505,35 @@ describe('servicePendingInstallTask', () => {
 
     expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalled();
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+  });
+
+  test('cancelled app shell install remains pending without retrying', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.installPackage.mockResolvedValueOnce(false);
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    const result = await service.processPendingInstallTask();
+
+    expect(result).toBeUndefined();
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 0,
+      runningStartedAt: undefined,
+    });
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
   });
 
   test('missing app shell package triggers full-flow re-download', async () => {
@@ -547,6 +592,68 @@ describe('servicePendingInstallTask', () => {
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.StartAutoDownloadUpdate,
       { decision: 'appShellPackageRecovery' },
+    );
+  });
+
+  test('already invalidated app package does not consume the retry budget twice', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '2.0.0',
+      status: 'notify' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: undefined,
+      fullFlowRetryByTarget: {
+        '2.0.0:1': { count: 1, updatedAt: Date.now() },
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      expect.anything(),
+    );
+  });
+
+  test('exhausted app package recovery enters updateIncomplete', async () => {
+    const refreshUpdateStatus = jest.fn(async (): Promise<undefined> => {
+      setState({ status: 'notify' as any });
+      return undefined;
+    });
+    const service = createService(refreshUpdateStatus);
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+      status: 'missing',
+    });
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+      fullFlowRetryByTarget: {
+        '2.0.0:1': { count: 2, updatedAt: Date.now() },
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe('updateIncomplete');
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
+    expect(appUpdateState.ignoredTargets?.['2.0.0:1']).toMatchObject({
+      reason: 'FULL_FLOW_RETRY_EXHAUSTED',
+    });
+    expect(refreshUpdateStatus).not.toHaveBeenCalled();
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      expect.anything(),
     );
   });
 

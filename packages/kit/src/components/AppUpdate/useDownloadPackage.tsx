@@ -147,7 +147,10 @@ export const useDownloadPackage = () => {
           }
           await BundleUpdate.installBundle(data.downloadedEvent);
         } else {
-          await AppUpdate.installPackage(data);
+          const installStarted = await AppUpdate.installPackage(data);
+          if (!installStarted) {
+            return;
+          }
         }
         defaultLogger.app.appUpdate.endInstallPackage(true);
         onSuccess();

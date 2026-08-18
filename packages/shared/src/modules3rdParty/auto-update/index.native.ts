@@ -172,11 +172,12 @@ const installPackage: IInstallPackage = async ({
   defaultLogger.update.app.log('install', latestVersion);
   const nativeLatestVersion = toNativeString(latestVersion).trim();
   if (!nativeLatestVersion) {
-    return;
+    return false;
   }
-  return getReactNativeAppUpdate().installAPK({
+  await getReactNativeAppUpdate().installAPK({
     downloadUrl: toNativeString(downloadUrl),
   });
+  return true;
 };
 
 const DOWNLOAD_EVENT_TYPE = {

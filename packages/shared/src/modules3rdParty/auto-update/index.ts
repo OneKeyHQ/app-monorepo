@@ -23,7 +23,7 @@ const verifyASC: IVerifyASC = async () => Promise.resolve();
 
 const verifyPackage: IVerifyPackage = async () => Promise.resolve();
 
-const installPackage: IInstallPackage = async () => Promise.resolve();
+const installPackage: IInstallPackage = async () => Promise.resolve(false);
 
 const checkPackageAvailability: ICheckPackageAvailability = async () => ({
   status: EAppUpdatePackageAvailabilityStatus.notApplicable,

@@ -4,6 +4,7 @@ import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/Des
 import type { IAppUpdateInfo } from '../../appUpdate';
 
 export interface IDownloadPackageParams {
+  version?: string;
   downloadUrl?: string;
   latestVersion?: string;
   bundleVersion?: string;
@@ -13,7 +14,7 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
-  /** Desktop macOS only: MacUpdater was prepared from its persisted cache. */
+  /** Desktop only: electron-updater was prepared from its persisted cache. */
   isUpdaterRehydrated?: boolean;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
   skipGPGVerification?: boolean;
@@ -30,7 +31,7 @@ export type IDownloadPackage = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent | null>;
 
-export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
+export type IInstallPackage = (params: IAppUpdateInfo) => Promise<boolean>;
 
 export enum EAppUpdatePackageAvailabilityStatus {
   available = 'available',
