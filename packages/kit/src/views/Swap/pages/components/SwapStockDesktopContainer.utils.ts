@@ -117,20 +117,15 @@ export function shouldShowStockMarketHeaderSkeleton({
 
 export function getStockMarketTokenSubtitle({
   currentStockSubtitle,
-  currentTokenName,
-  hasTokenDetail,
   tokenDetailStockSubtitle,
 }: {
   currentStockSubtitle?: string;
-  currentTokenName?: string;
-  hasTokenDetail: boolean;
   tokenDetailStockSubtitle?: string;
 }) {
-  return (
-    tokenDetailStockSubtitle ??
-    currentStockSubtitle ??
-    (hasTokenDetail ? undefined : currentTokenName)
-  );
+  if (tokenDetailStockSubtitle?.trim()) {
+    return tokenDetailStockSubtitle;
+  }
+  return currentStockSubtitle?.trim() ? currentStockSubtitle : undefined;
 }
 
 export function shouldShowStockQuoteActionLoading({

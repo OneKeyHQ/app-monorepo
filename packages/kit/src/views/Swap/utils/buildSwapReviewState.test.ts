@@ -345,7 +345,7 @@ describe('buildSwapReviewState', () => {
     expect(result.preSwapData.needFetchGas).toBe(false);
   });
 
-  it('builds a continuous approve and swap flow for external accounts', () => {
+  it('waits for external account approval before sending the swap', () => {
     const result = buildSwapReviewState({
       accountId: 'external--60--0xabc',
       networkId: fromToken.networkId,
@@ -371,9 +371,54 @@ describe('buildSwapReviewState', () => {
       ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
     );
     expect(result.steps.map((step) => step.type)).toEqual([
-      ESwapStepType.BATCH_APPROVE_SWAP,
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.SEND_TX,
     ]);
-    expect(result.steps[0].stepTitle).toContain('[ 0 / 2 ]');
+    expect(result.steps[0].shouldWaitApproved).toBe(true);
+    expect(result.preSwapData.needFetchGas).toBe(true);
+    expect(result.preSwapData.isHWAndExBatchTransfer).toBe(true);
+  });
+
+  it('waits for each external reset approval before sending the swap', () => {
+    const result = buildSwapReviewState({
+      accountId: 'external--60--0xabc',
+      networkId: fromToken.networkId,
+      batchApproveAndSwapEnabled: true,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        allowanceResult: {
+          allowanceTarget: '0xspender',
+          amount: '1',
+          shouldResetApprove: true,
+        },
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+      shouldFallback: false,
+      supportPreBuild: true,
+      slippage: 1,
+      texts,
+    });
+
+    expect(result.batchTransferType).toBe(
+      ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+    );
+    expect(result.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.SEND_TX,
+    ]);
+    expect(result.steps[0]).toMatchObject({
+      isResetApprove: true,
+      shouldWaitApproved: true,
+    });
+    expect(result.steps[1]).toMatchObject({
+      isResetApprove: false,
+      shouldWaitApproved: true,
+    });
+    expect(result.preSwapData.needFetchGas).toBe(true);
     expect(result.preSwapData.isHWAndExBatchTransfer).toBe(true);
   });
 

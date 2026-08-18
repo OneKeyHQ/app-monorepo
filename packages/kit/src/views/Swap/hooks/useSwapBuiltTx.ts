@@ -152,6 +152,7 @@ import { isSwapGasSponsored } from '../utils/swapGasUtils';
 import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
+  resolveSwapReviewNeedFetchGasAfterRebuild,
 } from '../utils/swapReviewState';
 import {
   getStockTradeAnalyticsPayload,
@@ -3636,6 +3637,11 @@ export function useSwapBuildTx({
         const shouldFallback = Boolean(
           estimateNetworkFeeResult.fallbackToSeparateTxConfirm,
         );
+        const needFetchGasAfterRebuild =
+          resolveSwapReviewNeedFetchGasAfterRebuild({
+            fallbackToSeparateTxConfirm: shouldFallback,
+            previousNeedFetchGas: frozenReviewState.preSwapData.needFetchGas,
+          });
         const shouldResetSteps =
           shouldFallback || frozenReviewState.preSwapData.shouldFallback;
         const separateSteps = shouldResetSteps
@@ -3661,13 +3667,13 @@ export function useSwapBuildTx({
             ...(shouldFallback
               ? {
                   shouldFallback: true,
-                  needFetchGas: true,
+                  needFetchGas: needFetchGasAfterRebuild,
                   supportNetworkFeeLevel: false,
                   netWorkFee: undefined,
                 }
               : {
                   shouldFallback: false,
-                  needFetchGas: false,
+                  needFetchGas: needFetchGasAfterRebuild,
                   supportNetworkFeeLevel: true,
                   netWorkFee: estimateNetworkFeeResult.netWorkFee,
                 }),

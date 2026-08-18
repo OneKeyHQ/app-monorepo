@@ -1502,8 +1502,6 @@ function StockMarketTokenHeader({
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
   const tokenSubtitle = getStockMarketTokenSubtitle({
     currentStockSubtitle: currentStockToken?.stock?.subtitle,
-    currentTokenName: currentStockToken?.name,
-    hasTokenDetail: Boolean(tokenDetail),
     tokenDetailStockSubtitle: stock?.subtitle,
   });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
