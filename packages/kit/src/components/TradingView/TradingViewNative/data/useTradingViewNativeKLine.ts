@@ -1660,6 +1660,7 @@ export function useTradingViewNativeKLine({
   const marketTokenAddress =
     source.kind === 'market' ? source.tokenAddress : '';
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
+  const marketHistorySymbol = marketTokenAddress.trim() ? '' : marketSymbol;
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
   const rawHistoryProvider = useMemo(() => {
@@ -1676,7 +1677,7 @@ export function useTradingViewNativeKLine({
       isNative: marketIsNative,
       networkId: marketNetworkId,
       tokenAddress: marketTokenAddress,
-      symbol: marketSymbol,
+      symbol: marketHistorySymbol,
       realtime: 'disabled',
     });
   }, [
@@ -1684,8 +1685,8 @@ export function useTradingViewNativeKLine({
     hyperliquidEnvironment,
     marketFallbackCoinGeckoId,
     marketIsNative,
+    marketHistorySymbol,
     marketNetworkId,
-    marketSymbol,
     marketTokenAddress,
     sourceKind,
   ]);

@@ -338,7 +338,7 @@ describe('TradingViewNative data providers', () => {
     });
 
     expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
-    expect(provider.key).toBe('market:stock--0:stock-aapl:AAPL');
+    expect(provider.key).toBe('market:stock--0:stock-aapl');
     await expect(
       provider.fetchHistory({
         interval: getInterval('60'),

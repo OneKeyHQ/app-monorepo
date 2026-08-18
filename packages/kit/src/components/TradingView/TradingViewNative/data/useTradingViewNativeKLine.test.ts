@@ -184,11 +184,13 @@ function buildMarketSource({
   fallbackCoinGeckoId,
   isNative,
   realtime = 'disabled',
+  symbol = 'TOKEN',
   tokenAddress = '0x123',
 }: {
   fallbackCoinGeckoId?: string;
   isNative?: boolean;
   realtime?: 'disabled' | 'websocket';
+  symbol?: string;
   tokenAddress?: string;
 } = {}): ITradingViewNativeSource {
   return {
@@ -197,7 +199,7 @@ function buildMarketSource({
     ...(isNative ? { isNative: true } : {}),
     networkId: 'evm--1',
     tokenAddress,
-    symbol: 'TOKEN',
+    symbol,
     realtime,
   };
 }
@@ -530,9 +532,7 @@ describe('TradingViewNative K-line data state machine', () => {
     rerender({ isNative: true });
 
     expect(result.current.intervalConfig.activeInterval).toBe('240');
-    expect(result.current.dataProviderKey).toBe(
-      'market:evm--1:0xeeee:TOKEN:native',
-    );
+    expect(result.current.dataProviderKey).toBe('market:evm--1:0xeeee:native');
     expect(result.current.points).toEqual([]);
     expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith({
       interval: '15',
@@ -3708,17 +3708,24 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(result.current.points[0]?.c).toBe(200);
   });
 
-  it('enables Market realtime without restarting in-flight history', async () => {
+  it('applies Market metadata without restarting in-flight address history', async () => {
     const historyRequest = createDeferred<IMarketTokenKLineResponse | null>();
     mockFetchHistory.mockReturnValue(historyRequest.promise);
     const { result, rerender } = renderHook(
-      ({ realtime }: { realtime: 'disabled' | 'websocket' }) =>
+      ({
+        realtime,
+        symbol,
+      }: {
+        realtime: 'disabled' | 'websocket';
+        symbol: string;
+      }) =>
         useTradingViewNativeKLine({
-          source: buildMarketSource({ realtime }),
+          source: buildMarketSource({ realtime, symbol }),
         }),
       {
         initialProps: {
           realtime: 'disabled' as 'disabled' | 'websocket',
+          symbol: '',
         },
       },
     );
@@ -3726,11 +3733,13 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(1));
     const initialHistorySignal = mockFetchHistory.mock.calls[0]?.[0].signal;
     expect(mockSubscribeRealtime).not.toHaveBeenCalled();
+    expect(result.current.dataProviderKey).toBe('market:evm--1:0x123');
 
-    rerender({ realtime: 'websocket' });
+    rerender({ realtime: 'websocket', symbol: 'MSTRon' });
     await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1));
     expect(mockFetchHistory).toHaveBeenCalledTimes(1);
     expect(initialHistorySignal?.aborted).toBe(false);
+    expect(result.current.dataProviderKey).toBe('market:evm--1:0x123');
 
     await act(async () => {
       historyRequest.resolve(buildResponse(100));
