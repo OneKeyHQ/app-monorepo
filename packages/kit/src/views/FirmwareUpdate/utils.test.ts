@@ -1,7 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import {
