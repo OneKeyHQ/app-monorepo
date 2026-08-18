@@ -10,14 +10,25 @@ import {
 import BigNumber from 'bignumber.js';
 import { createStore } from 'jotai';
 
-import { ProviderJotaiContextSwap } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
-import type { ISwapReviewGasInfoEntry } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import {
+  ProviderJotaiContextSwap,
+  swapQuoteActionLockAtom,
+  swapQuoteEventCompletedAtom,
+  swapQuoteFetchingAtom,
+  swapQuoteListAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import type {
+  ISwapReviewGasInfoEntry,
+  ISwapReviewState,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
+  IFetchBuildTxResponse,
+  IFetchQuoteResult,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxInfo,
@@ -25,6 +36,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapQuoteSource,
+  ESwapStepType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -79,6 +91,9 @@ const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
 const mockFetchQuotesEvents: jest.MockedFunction<
   (params: unknown) => Promise<void>
 > = jest.fn();
+const mockFetchBuildTx: jest.MockedFunction<
+  (params: unknown) => Promise<IFetchBuildTxResponse | undefined>
+> = jest.fn();
 const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
 const mockCancelFetchQuoteEvents: jest.MockedFunction<
   (quoteRequestId?: string) => Promise<void>
@@ -120,6 +135,7 @@ let mockCurrencyInfo = {
   id: 'usd',
   symbol: '$',
 };
+let mockSwapStore: ReturnType<typeof createStore>;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -136,6 +152,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
+      fetchBuildTx: (params: unknown) => mockFetchBuildTx(params),
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
@@ -365,7 +382,11 @@ function createHookProps({
 }
 
 function SwapContextWrapper({ children }: { children?: ReactNode }) {
-  const store = useMemo(() => createStore(), []);
+  const store = useMemo(() => {
+    const nextStore = createStore();
+    mockSwapStore = nextStore;
+    return nextStore;
+  }, []);
   return (
     <ProviderJotaiContextSwap store={store}>
       {children}
@@ -417,6 +438,7 @@ describe('useSpeedSwapActions', () => {
     mockFetchSwapNativeTokenConfig.mockReset();
     mockFetchQuotesEvents.mockReset();
     mockFetchQuotesEvents.mockResolvedValue();
+    mockFetchBuildTx.mockReset();
     mockCloseApproving.mockReset();
     mockCloseApproving.mockResolvedValue();
     mockCancelFetchQuoteEvents.mockReset();
@@ -596,6 +618,74 @@ describe('useSpeedSwapActions', () => {
     await waitFor(() => {
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('opens signed quote review without building before the signature', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+      ),
+    );
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+    const signedQuote: IFetchQuoteResult = {
+      protocol: EProtocolOfExchange.SWAP,
+      info: {
+        provider: 'oneInchFusion',
+        providerName: '1inch Fusion',
+      },
+      fromTokenInfo: quoteRequest.fromToken ?? usdcToken,
+      toTokenInfo: quoteRequest.toToken ?? btcToken,
+      fromAmount: '1',
+      toAmount: '0.00001',
+      swapShouldSignedData: {
+        unSignedInfo: {
+          origin: 'https://app.onekey.so',
+          scope: 'swap',
+          signedType: 'eth_signTypedData_v4' as never,
+        },
+        oneInchFusionOrder: {
+          makerAddress: '0xuser',
+          typedData: {} as never,
+        },
+      },
+    };
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), [signedQuote]);
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteReadyForReview).toBe(true);
+    });
+
+    let reviewState: ISwapReviewState | undefined;
+    await act(async () => {
+      reviewState = await result.current.prepareMarketSwapReview();
+    });
+
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(reviewState?.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.SIGN_MESSAGE,
+    ]);
   });
 
   it('clears a previous token balance while the next balance is loading', async () => {

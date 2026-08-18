@@ -1138,6 +1138,46 @@ export function useSpeedSwapActions(props: {
         );
       }
 
+      if (selectedQuote.swapShouldSignedData) {
+        const reviewBuildRes: IFetchBuildTxResponse = {
+          ...(selectedQuote.quoteId ? { orderId: selectedQuote.quoteId } : {}),
+          result: {
+            ...selectedQuote,
+            slippage: selectedQuote.slippage ?? slippage,
+          },
+        };
+        const swapInfo: ISwapTxInfo = {
+          protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
+          sender: {
+            amount: selectedQuote.fromAmount ?? amount,
+            token: fromTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: fromTokenFinal.networkId,
+            },
+          },
+          receiver: {
+            amount: selectedQuote.toAmount,
+            token: toTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: toTokenFinal.networkId,
+            },
+          },
+          accountAddress: userAddress,
+          receivingAddress: userAddress,
+          swapBuildResData: reviewBuildRes,
+        };
+
+        return {
+          buildRes: reviewBuildRes,
+          encodedTx: undefined,
+          transferInfo: undefined,
+          swapInfo,
+          userAddress,
+        };
+      }
+
       setSpeedSwapBuildTxLoading(true);
       try {
         const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
