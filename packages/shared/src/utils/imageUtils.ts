@@ -42,6 +42,43 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
+// Threshold that maximizes between-class variance, separating an image's own bright/dark clusters.
+function otsuThreshold(luminance: Uint8ClampedArray): number {
+  const histogram = new Array<number>(256).fill(0);
+  for (let p = 0; p < luminance.length; p += 1) {
+    histogram[luminance[p]] += 1;
+  }
+
+  const total = luminance.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
+
+  let sumBackground = 0;
+  let weightBackground = 0;
+  let maxVariance = 0;
+  let threshold = 128;
+  for (let t = 0; t < 256; t += 1) {
+    weightBackground += histogram[t];
+    if (weightBackground === 0) continue;
+    const weightForeground = total - weightBackground;
+    if (weightForeground === 0) break;
+
+    sumBackground += t * histogram[t];
+    const meanBackground = sumBackground / weightBackground;
+    const meanForeground = (sum - sumBackground) / weightForeground;
+    const betweenClassVariance =
+      weightBackground *
+      weightForeground *
+      (meanBackground - meanForeground) *
+      (meanBackground - meanForeground);
+    if (betweenClassVariance > maxVariance) {
+      maxVariance = betweenClassVariance;
+      threshold = t;
+    }
+  }
+  return threshold;
+}
+
 export function getOriginX(
   originW: number,
   originH: number,
@@ -100,29 +137,46 @@ function convertToBlackAndWhiteImageBase64(
       canvas.width = img.width;
       canvas.height = img.height;
 
+      // Composite over white so transparent RGBA pixels aren't read as black below.
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
+      const pixelCount = data.length / 4;
+
+      // Perceptual luminance instead of a plain RGB average, which under-weights green.
+      const luminance = new Uint8ClampedArray(pixelCount);
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        luminance[p] = toGrayScale(data[i], data[i + 1], data[i + 2]);
+      }
+
+      // Otsu threshold instead of a fixed 128 — adapts per image without a
+      // stretch, which a couple of outlier pixels could otherwise skew.
+      let threshold = 128;
+      try {
+        threshold = otsuThreshold(luminance);
+      } catch (error) {
+        console.error(
+          'otsuThreshold failed, falling back to threshold 128',
+          error,
+        );
+      }
 
       let whiteCount = 0;
-
-      // TODO optimize this
-      // https://github.com/trezor/homescreen-editor/blob/gh-pages/js/main.js#L234
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        if (avg > 128) {
-          whiteCount += 4;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        const bw = luminance[p] > threshold ? 255 : 0;
+        if (bw === 255) {
+          whiteCount += 1;
         }
-        const bw = avg > 128 ? 255 : 0;
-        // const bw = avg > 128 ? 0 : 255;
         data[i] = bw;
         data[i + 1] = bw;
         data[i + 2] = bw;
       }
 
       // reverse color if white part is more than half
-      if (whiteCount > data.length / 2) {
+      if (whiteCount > pixelCount / 2) {
         for (let i = 0; i < data.length; i += 4) {
           data[i] = 255 - data[i];
           data[i + 1] = 255 - data[i + 1];
