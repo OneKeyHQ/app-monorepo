@@ -17,6 +17,7 @@ import {
   releaseFirmwareUpdateWorkflowPage,
   retainFirmwareUpdateWorkflowPage,
 } from '../firmwareUpdateWorkflowLifetime';
+
 import { useFirmwareUpdateActions } from './useFirmwareUpdateActions';
 
 let isNavExitConfirmShow = false;

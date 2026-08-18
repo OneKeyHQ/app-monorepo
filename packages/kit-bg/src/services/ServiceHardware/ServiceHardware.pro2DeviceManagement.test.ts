@@ -1991,6 +1991,21 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
     expect(sdkCancel).not.toHaveBeenCalled();
   });
 
+  it('looks up a stored Pro2 when the caller supplies Unknown', async () => {
+    const { sdkCancel, service } = createCancelService({
+      deviceType: EDeviceType.Pro2,
+    });
+
+    await service.cancel({
+      connectId: 'PRO2_SERIAL',
+      immediate: true,
+      deviceType: EDeviceType.Unknown,
+    });
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+    expect(sdkCancel).toHaveBeenCalledWith('PRO2_BLE_CONNECT_ID');
+  });
+
   it('keeps automatic cleanup cancellation debounced', async () => {
     const { sdkCancel, service } = createCancelService();
 

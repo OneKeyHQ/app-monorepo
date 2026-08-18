@@ -171,7 +171,9 @@ function isSilentUploadBlockedByDevice(error: unknown): boolean {
     return true;
   }
   const text = collectErrorText(error);
-  return DEVICE_LOCKED_MESSAGE.test(text) || DEVICE_RESETTING_MESSAGE.test(text);
+  return (
+    DEVICE_LOCKED_MESSAGE.test(text) || DEVICE_RESETTING_MESSAGE.test(text)
+  );
 }
 
 function isDeviceStateLocked(state: {
@@ -229,6 +231,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   >();
 
   private pendingDisconnectedPayloadByTargetKey = new Map<
+    string,
+    IPortfolioSyncSettledPayload
+  >();
+
+  private pendingLockedPayloadByTargetKey = new Map<
     string,
     IPortfolioSyncSettledPayload
   >();
@@ -773,6 +780,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         targetKey,
       });
       this.scheduleDesktopBleIdleSync({ targetKey });
+      this.replayLockedPortfolioSnapshot(targetKey);
       return true;
     }
     if (!platformEnv.isNative) {
@@ -798,6 +806,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         targetKey,
       });
 
+      this.replayLockedPortfolioSnapshot(targetKey);
       const pendingPayload =
         this.pendingMobileBlePayloadByTargetKey.get(targetKey);
       if (!pendingPayload) {
@@ -980,6 +989,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     if (eventPayload.deviceConnectId) {
       this.cancelHardwareBusyRetry(eventPayload.deviceConnectId);
     }
+    this.pendingLockedPayloadByTargetKey.set(targetKey, eventPayload);
     debugPortfolioSyncLog('skip-device-locked', {
       deviceConnectId: eventPayload.deviceConnectId,
       targetKey,
@@ -992,6 +1002,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       updatedAt: Date.now(),
       walletId: eventPayload.walletId,
     });
+  }
+
+  private replayLockedPortfolioSnapshot(targetKey: string) {
+    const pendingPayload = this.pendingLockedPayloadByTargetKey.get(targetKey);
+    if (!pendingPayload) {
+      return;
+    }
+    this.pendingLockedPayloadByTargetKey.delete(targetKey);
+    this.handleAllNetworksTokenListSettled(pendingPayload);
   }
 
   private async isDeviceIdentityMismatchPending({
@@ -1148,6 +1167,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
         this.handleAllNetworksTokenListSettled(pendingPayload);
       }
+      this.replayLockedPortfolioSnapshot(targetKey);
     }
   }
 

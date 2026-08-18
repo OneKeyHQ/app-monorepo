@@ -93,6 +93,7 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleLocationError,
   HardwareErrorCode.BleRequiredUUID,
   HardwareErrorCode.BleConnectedError,
+  HardwareErrorCode.PollingTimeout,
   HardwareErrorCode.BleDeviceNotBonded,
   HardwareErrorCode.BleServiceNotFound,
   HardwareErrorCode.BleCharacteristicNotFound,

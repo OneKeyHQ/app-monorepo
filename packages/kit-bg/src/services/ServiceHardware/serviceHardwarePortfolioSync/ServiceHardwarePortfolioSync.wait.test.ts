@@ -650,9 +650,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     await jest.advanceTimersByTimeAsync(1000);
 
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
-    expect(
-      serviceInternals.submitPortfolioJsonToServer,
-    ).toHaveBeenCalledTimes(1);
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
     expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
       expect.objectContaining({
         status: 'device-locked',
@@ -669,6 +669,38 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       ...buildHardwarePayload(),
       totalFiat: '2',
     });
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('replays the locked snapshot after the device reconnects unlocked', async () => {
+    jest.useFakeTimers();
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: false },
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
+    await service.notifyHardwareDeviceConnected({
+      identityKeys: ['PRO2_CONNECT_ID'],
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     jest.useRealTimers();
   });
@@ -701,9 +733,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await jest.advanceTimersByTimeAsync(30_000);
 
       expect(uploadPortfolioPackage).not.toHaveBeenCalled();
-      expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
-        expect.objectContaining({ status: 'device-locked' }),
-      );
+      expect(
+        (service as unknown as { lastResult: unknown }).lastResult,
+      ).toEqual(expect.objectContaining({ status: 'device-locked' }));
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,

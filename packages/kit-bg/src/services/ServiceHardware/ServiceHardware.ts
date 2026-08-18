@@ -2709,6 +2709,10 @@ class ServiceHardware extends ServiceBase {
       //
     }
 
+    if (resolvedDeviceType === EDeviceType.Unknown) {
+      resolvedDeviceType = undefined;
+    }
+
     if (!resolvedDeviceType && connectId) {
       try {
         const device = await localDb.getDeviceByQuery({ connectId });
@@ -2922,6 +2926,14 @@ class ServiceHardware extends ServiceBase {
     // todo remove: sdk guarantees not to block this method
     timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+    onTimeout: (options) => {
+      if (options.connectId) {
+        void this.cancel({
+          connectId: options.connectId,
+          immediate: true,
+        });
+      }
+    },
   });
 
   getFeaturesMutex = new Semaphore(1);
@@ -3007,6 +3019,14 @@ class ServiceHardware extends ServiceBase {
     asyncFunc: this._getDeviceStateLowLevel,
     timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+    onTimeout: (options) => {
+      if (options.connectId) {
+        void this.cancel({
+          connectId: options.connectId,
+          immediate: true,
+        });
+      }
+    },
   });
 
   _getDeviceStateWithMutex = async (

@@ -51,4 +51,23 @@ describe('firmwareUpdateWorkflowLifetime', () => {
     jest.advanceTimersByTime(1);
     expect(onReallyLeave).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the install-page cancel when an error returns to changelog', () => {
+    const changelogLeave = jest.fn();
+    const installLeave = jest.fn();
+
+    retainFirmwareUpdateWorkflowPage();
+    retainFirmwareUpdateWorkflowPage();
+    releaseFirmwareUpdateWorkflowPage(installLeave);
+    jest.advanceTimersByTime(1000);
+
+    expect(installLeave).not.toHaveBeenCalled();
+    expect(getFirmwareUpdateWorkflowAlivePageCountForTest()).toBe(1);
+
+    releaseFirmwareUpdateWorkflowPage(changelogLeave);
+    jest.advanceTimersByTime(500);
+
+    expect(installLeave).toHaveBeenCalledTimes(1);
+    expect(changelogLeave).toHaveBeenCalledTimes(1);
+  });
 });

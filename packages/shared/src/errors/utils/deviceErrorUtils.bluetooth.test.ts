@@ -2,7 +2,9 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   BluetoothUnavailableWhileUsbConnectedError,
+  ConnectTimeoutError,
   DeviceBondError,
+  DeviceMethodCallTimeout,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -58,6 +60,31 @@ describe('convertDeviceError Bluetooth unavailable while USB is connected', () =
     });
 
     expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
+  });
+});
+
+describe('DeviceMethodCallTimeout', () => {
+  it('uses the existing connection-failed help text', () => {
+    expect(new DeviceMethodCallTimeout()).toMatchObject({
+      key: 'global.connection_failed_help_text',
+    });
+  });
+});
+
+describe('convertDeviceError BLE connection timeout', () => {
+  it.each([
+    HardwareErrorCode.BleConnectedError,
+    HardwareErrorCode.PollingTimeout,
+  ])('uses the existing connection-failed help text for code %s', (code) => {
+    const error = convertDeviceError({
+      code,
+      error: 'BLE setup wedged repeatedly',
+    });
+
+    expect(error).toBeInstanceOf(ConnectTimeoutError);
+    expect(error).toMatchObject({
+      key: 'global.connection_failed_help_text',
+    });
   });
 });
 

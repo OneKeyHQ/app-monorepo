@@ -291,6 +291,7 @@ export class DeviceMethodCallTimeout extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceMethodCallTimeout',
+        defaultKey: ETranslations.global_connection_failed_help_text,
       }),
     );
   }
