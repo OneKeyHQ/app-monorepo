@@ -127,9 +127,9 @@ type IActiveInstrumentTarget = Awaited<
 
 type IPendingInstrumentIntent = Awaited<
   ReturnType<
-    typeof backgroundApiProxy.serviceHyperliquid.consumePendingInstrumentIntent
+    typeof backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect
   >
->;
+>['deeplinkIntent'];
 
 // Read the authoritative side rather than this runtime's mirrors: the mirror is
 // refreshed by a broadcast whose delivery is not confirmed, and a resync that
