@@ -993,6 +993,122 @@ describe('TradingViewNative K-line data state machine', () => {
     },
   );
 
+  it.each([
+    ['1', 60],
+    ['5', 5 * 60],
+  ] as const)(
+    'preloads %s-minute Market history from half a visible screen to one screen',
+    async (activeInterval, intervalSeconds) => {
+      const currentTimestamp = 2_000_000;
+      const initialFirstTimestamp = currentTimestamp - 298 * intervalSeconds;
+      const olderFirstTimestamp = initialFirstTimestamp - 30 * intervalSeconds;
+      mockHistoryBatchSize = 299;
+      mockHistoryRequestCandleCount = 2000;
+      mockReadTradingViewNativeActiveInterval.mockReturnValue(activeInterval);
+      jest.spyOn(Date, 'now').mockReturnValue(currentTimestamp * 1000);
+      mockFetchHistory
+        .mockResolvedValueOnce(
+          buildMultiPointResponse(
+            Array.from({ length: 299 }, (_, index) => ({
+              close: 100 + index,
+              timestamp: initialFirstTimestamp + index * intervalSeconds,
+            })),
+          ),
+        )
+        .mockResolvedValueOnce(
+          buildMultiPointResponse(
+            Array.from({ length: 30 }, (_, index) => ({
+              close: 70 + index,
+              timestamp: olderFirstTimestamp + index * intervalSeconds,
+            })),
+          ),
+        );
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({ source: buildMarketSource() }),
+      );
+
+      await waitFor(() => expect(result.current.points).toHaveLength(299));
+      act(() =>
+        result.current.handleVisiblePointRangeChange({
+          endIndex: 91,
+          startIndex: 31,
+        }),
+      );
+      expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+
+      act(() =>
+        result.current.handleVisiblePointRangeChange({
+          endIndex: 90,
+          startIndex: 30,
+        }),
+      );
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+      expect(mockFetchHistory.mock.calls[1]?.[0]).toEqual(
+        expect.objectContaining({
+          timeFrom: initialFirstTimestamp - 30 * intervalSeconds - 1,
+          timeTo: initialFirstTimestamp - 1,
+        }),
+      );
+      await waitFor(() => expect(result.current.points).toHaveLength(329));
+      expect(result.current.points[0]?.t).toBe(olderFirstTimestamp);
+    },
+  );
+
+  it('continues sparse minute preloading until the full-screen buffer target', async () => {
+    const currentTimestamp = 2_100_000;
+    const initialFirstTimestamp = 2_000_000;
+    const activeDays = Array.from({ length: 10 }, (_, index) => ({
+      close: 70 + index,
+      timestamp: 700_000 + index * 24 * 60 * 60,
+    }));
+    mockHistoryBatchSize = 299;
+    mockHistoryRequestCandleCount = 2000;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    jest.spyOn(Date, 'now').mockReturnValue(currentTimestamp * 1000);
+    let activeIntervalRequestCount = 0;
+    let dailyRequestCount = 0;
+    mockFetchHistory.mockImplementation(async ({ interval, timeFrom }) => {
+      if (interval.value === '1W') {
+        return buildResponse(50, 500_000);
+      }
+      if (interval.value === '1D') {
+        dailyRequestCount += 1;
+        return dailyRequestCount === 1
+          ? buildResponse(60, 600_000)
+          : buildMultiPointResponse(activeDays);
+      }
+
+      activeIntervalRequestCount += 1;
+      if (activeIntervalRequestCount === 1) {
+        return buildMultiPointResponse(
+          Array.from({ length: 299 }, (_, index) => ({
+            close: 100 + index,
+            timestamp: initialFirstTimestamp + index * 60,
+          })),
+        );
+      }
+      if (activeIntervalRequestCount === 2) {
+        return { points: [], total: 0 };
+      }
+      return buildResponse(60 + activeIntervalRequestCount, timeFrom);
+    });
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(299));
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 10,
+        startIndex: 0,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(309));
+    expect(activeIntervalRequestCount).toBe(12);
+    expect(dailyRequestCount).toBe(2);
+  });
+
   it('stops sparse Market pagination at the refined daily boundary', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;
@@ -3510,69 +3626,78 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(handleRealtimePoint).toHaveBeenCalledTimes(1);
   });
 
-  it('loads and prepends one older page near the left boundary', async () => {
-    mockHistoryBatchSize = 2;
-    mockHistoryRequestCandleCount = 2;
+  it('preloads older history from a half-screen buffer to a full screen', async () => {
+    mockHistoryBatchSize = 150;
+    mockHistoryRequestCandleCount = 45;
     const olderHistoryRequest =
       createDeferred<IMarketTokenKLineResponse | null>();
     mockFetchHistory
       .mockResolvedValueOnce(
-        buildMultiPointResponse([
-          { close: 100, timestamp: 1_000_000 },
-          { close: 110, timestamp: 1_003_600 },
-        ]),
+        buildSequentialResponse({
+          count: 150,
+          firstTimestamp: 1_000_000,
+          startingClose: 100,
+        }),
       )
       .mockReturnValueOnce(olderHistoryRequest.promise)
       .mockResolvedValueOnce(
         buildMultiPointResponse([
-          { close: 110, timestamp: 1_003_600 },
-          { close: 120, timestamp: 1_007_200 },
+          { close: 249, timestamp: 1_536_400 },
+          { close: 250, timestamp: 1_540_000 },
         ]),
       );
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({ source: buildMarketSource() }),
     );
 
-    await waitFor(() => expect(result.current.points).toHaveLength(2));
-    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 21 }));
+    await waitFor(() => expect(result.current.points).toHaveLength(150));
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 136,
+        startIndex: 46,
+      }),
+    );
     expect(mockFetchHistory).toHaveBeenCalledTimes(1);
 
     act(() => {
-      result.current.handleVisiblePointRangeChange({ startIndex: 20 });
-      result.current.handleVisiblePointRangeChange({ startIndex: 0 });
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 135,
+        startIndex: 45,
+      });
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 90,
+        startIndex: 0,
+      });
     });
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
     expect(mockFetchHistory.mock.calls[1]?.[0]).toEqual(
       expect.objectContaining({
         interval: expect.objectContaining({ value: '60' }),
-        timeFrom: 992_799,
+        timeFrom: 837_999,
         timeTo: 999_999,
       }),
     );
 
     await act(async () => {
       olderHistoryRequest.resolve(
-        buildMultiPointResponse([
-          { close: 80, timestamp: 992_800 },
-          { close: 90, timestamp: 996_400 },
-        ]),
+        buildSequentialResponse({
+          count: 45,
+          firstTimestamp: 838_000,
+          startingClose: 55,
+        }),
       );
       await olderHistoryRequest.promise;
     });
-    await waitFor(() =>
-      expect(result.current.points.map((point) => point.c)).toEqual([
-        80, 90, 100, 110,
-      ]),
-    );
+    await waitFor(() => expect(result.current.points).toHaveLength(195));
+    expect(result.current.points.slice(0, 3).map((point) => point.c)).toEqual([
+      55, 56, 57,
+    ]);
 
     updateVisibility(false);
     updateVisibility(true);
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(3));
-    await waitFor(() =>
-      expect(result.current.points.map((point) => point.c)).toEqual([
-        80, 90, 100, 110, 120,
-      ]),
-    );
+    await waitFor(() => expect(result.current.points).toHaveLength(196));
+    expect(result.current.points.at(-1)?.c).toBe(250);
   });
 
   it('retries a transient older-history failure automatically', async () => {

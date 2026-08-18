@@ -50,7 +50,12 @@ import type {
   ITradingViewNativeViewportTarget,
 } from '../utils/chartViewport';
 
-const HISTORY_LOAD_MORE_THRESHOLD = 20;
+const HISTORY_GAP_SEARCH_PADDING_POINT_COUNT = 20;
+const HISTORY_NEWER_LOAD_MORE_THRESHOLD = 20;
+const HISTORY_OLDER_LOAD_MORE_FALLBACK_THRESHOLD = 20;
+const HISTORY_OLDER_LOAD_MORE_FALLBACK_TARGET_POINT_COUNT = Math.ceil(
+  TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT / 2,
+);
 const HISTORY_GAP_REQUEST_CANDLE_COUNT = 100;
 const HISTORY_GAP_EMPTY_SCAN_PAGE_COUNT = 4;
 const HISTORY_BOUNDARY_PREFETCH_CACHE_MAX_SIZE = 100;
@@ -60,9 +65,6 @@ const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
 const SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1D';
 const MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT = 8;
-const MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT = Math.ceil(
-  TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT / 2,
-);
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
 const MAX_VIEWPORT_HISTORY_PAGE_COUNT = 20;
 const MAX_VIEWPORT_HISTORY_BOUNDARY_SEARCH_COUNT = 32;
@@ -402,6 +404,39 @@ function getHasPotentialEarlierHistory({
   return pageHasMoreHistory;
 }
 
+function getOlderHistoryPreloadPointCount({
+  endIndex,
+  startIndex,
+}: {
+  endIndex?: number;
+  startIndex: number;
+}) {
+  if (!Number.isFinite(startIndex)) {
+    return 0;
+  }
+
+  const loadedPointCountBeforeViewport = Math.max(Math.floor(startIndex), 0);
+  if (endIndex === undefined) {
+    return loadedPointCountBeforeViewport <=
+      HISTORY_OLDER_LOAD_MORE_FALLBACK_THRESHOLD
+      ? HISTORY_OLDER_LOAD_MORE_FALLBACK_TARGET_POINT_COUNT
+      : 0;
+  }
+  if (!Number.isFinite(endIndex)) {
+    return 0;
+  }
+  const visiblePointCount = Math.max(
+    Math.ceil(endIndex) - Math.floor(startIndex),
+    1,
+  );
+  const preloadTriggerPointCount = Math.ceil(visiblePointCount / 2);
+  if (loadedPointCountBeforeViewport > preloadTriggerPointCount) {
+    return 0;
+  }
+
+  return Math.max(visiblePointCount - loadedPointCountBeforeViewport, 0);
+}
+
 function getHistoryBoundaryPrefetchCacheKey(seriesKey: string) {
   return `${seriesKey}:${HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE}`;
 }
@@ -707,6 +742,7 @@ function prefetchHistoryBoundaryPage({
 async function recoverOlderHistoryFromBoundary({
   historyProvider,
   interval,
+  maxPageCount = MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT,
   onProgress,
   seriesKey,
   signal,
@@ -774,6 +810,7 @@ async function recoverOlderHistoryFromBoundary({
     return null;
   }
 
+  const normalizedMaxPageCount = Math.max(Math.floor(maxPageCount), 1);
   const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
   let cursorTimeTo = Math.floor(timeTo);
   let historySource: 'fallback' | undefined;
@@ -791,7 +828,7 @@ async function recoverOlderHistoryFromBoundary({
   };
   for (
     let requestIndex = 0;
-    requestIndex < MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT &&
+    requestIndex < normalizedMaxPageCount &&
     activeDayIndex >= 0 &&
     cursorTimeTo >= boundaryTimestamp &&
     points.length < normalizedTargetPointCount;
@@ -1264,7 +1301,7 @@ function getVisibleHistoryGap({
   endIndex,
   intervalSeconds,
   points,
-  searchPaddingPointCount = HISTORY_LOAD_MORE_THRESHOLD,
+  searchPaddingPointCount = HISTORY_GAP_SEARCH_PADDING_POINT_COUNT,
   startIndex,
 }: {
   coverageRanges: IHistoryCoverageRange[];
@@ -3043,7 +3080,7 @@ export function useTradingViewNativeKLine({
         endIndex !== undefined &&
         Number.isFinite(endIndex) &&
         endIndex >=
-          currentChartData.points.length - HISTORY_LOAD_MORE_THRESHOLD;
+          currentChartData.points.length - HISTORY_NEWER_LOAD_MORE_THRESHOLD;
       if (isNearNewerBoundary && pagination.hasMoreAfter) {
         const currentTimestamp = Math.floor(Date.now() / 1000);
         const newerCursorTimestamp =
@@ -3256,7 +3293,14 @@ export function useTradingViewNativeKLine({
         return;
       }
 
-      if (startIndex > HISTORY_LOAD_MORE_THRESHOLD || !pagination.hasMore) {
+      if (!pagination.hasMore) {
+        return;
+      }
+      const olderHistoryPreloadPointCount = getOlderHistoryPreloadPointCount({
+        endIndex,
+        startIndex,
+      });
+      if (!olderHistoryPreloadPointCount) {
         return;
       }
 
@@ -3277,7 +3321,7 @@ export function useTradingViewNativeKLine({
         (interval.value === '1' || interval.value === '5');
       const timeFrom = getHistoryTimeFrom({
         candleCount: isMarketMinuteHistory
-          ? MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT
+          ? olderHistoryPreloadPointCount
           : historyProvider.getHistoryRequestCandleCount(interval),
         intervalSeconds: interval.seconds,
         timeTo,
@@ -3315,9 +3359,7 @@ export function useTradingViewNativeKLine({
             (point) => point.t < earliestTimestamp,
           );
           let olderPoints = isMarketMinuteHistory
-            ? receivedOlderPoints.slice(
-                -MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT,
-              )
+            ? receivedOlderPoints.slice(-olderHistoryPreloadPointCount)
             : receivedOlderPoints;
           let paginationCursorTimestamp = olderPoints[0]?.t;
           const pageHasMoreHistory = historyProvider.hasMoreHistory({
@@ -3339,8 +3381,7 @@ export function useTradingViewNativeKLine({
             historySource !== 'fallback' &&
             (interval.value === '1' || interval.value === '5') &&
             !pageHasMoreHistory &&
-            olderPoints.length <
-              MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT;
+            olderPoints.length < olderHistoryPreloadPointCount;
           const publishOlderPoints = (
             pointsToPublish: IMarketTokenKLineDataPoint[],
           ) => {
@@ -3372,6 +3413,10 @@ export function useTradingViewNativeKLine({
           if (shouldRecoverSparseHistory) {
             publishOlderPoints(olderPoints);
             const recoveryTimeTo = Math.max(timeFrom - 1, 0);
+            const recoveryTargetPointCount = Math.max(
+              olderHistoryPreloadPointCount - olderPoints.length,
+              1,
+            );
             const applyRecoveryProgress =
               createHistoryGapRecoveryProgressHandler({
                 coverageState: historyCoverageRef.current,
@@ -3388,14 +3433,14 @@ export function useTradingViewNativeKLine({
             const recovery = await recoverOlderHistoryFromBoundary({
               historyProvider,
               interval,
+              maxPageCount: Math.max(
+                MAX_SPARSE_MARKET_HISTORY_ACTIVE_DAY_REQUEST_COUNT,
+                recoveryTargetPointCount,
+              ),
               onProgress: applyRecoveryProgress,
               seriesKey,
               signal: abortController.signal,
-              targetPointCount: Math.max(
-                MARKET_MINUTE_HISTORY_LOAD_MORE_TARGET_POINT_COUNT -
-                  olderPoints.length,
-                1,
-              ),
+              targetPointCount: recoveryTargetPointCount,
               timeTo: recoveryTimeTo,
             });
             if (
