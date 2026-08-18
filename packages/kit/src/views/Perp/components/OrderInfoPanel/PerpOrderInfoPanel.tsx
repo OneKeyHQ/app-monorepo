@@ -59,16 +59,39 @@ const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Balances': ETranslations.perp_holdings_tokens,
 };
 
+function DesktopHoldingsTabCount() {
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
+  const holdingsCount = useVisibleSpotHoldingsCount({
+    balances,
+    hasPerpsUsdc,
+  });
+
+  if (holdingsCount <= 0) {
+    return null;
+  }
+
+  return <SizableText size="$bodyMdMedium">{`(${holdingsCount})`}</SizableText>;
+}
+
 function TabBarItem({
   name,
   isFocused,
   onPress,
-  holdingsCount,
 }: {
   name: string;
   isFocused: boolean;
   onPress: (name: string) => void;
-  holdingsCount: number;
 }) {
   const intl = useIntl();
 
@@ -103,9 +126,6 @@ function TabBarItem({
   }).length;
 
   const tabCount = useMemo(() => {
-    if (name === 'Balances') {
-      return holdingsCount > 0 ? `(${holdingsCount})` : '';
-    }
     if (name === 'Trades History') {
       return '';
     }
@@ -119,13 +139,7 @@ function TabBarItem({
       return `(${twapOrdersLength})`;
     }
     return '';
-  }, [
-    holdingsCount,
-    name,
-    openOrdersLength,
-    positionsLength,
-    twapOrdersLength,
-  ]);
+  }, [name, openOrdersLength, positionsLength, twapOrdersLength]);
 
   const translationKey = tabNameToTranslationKey[name];
   const tabTitle = translationKey
@@ -134,8 +148,7 @@ function TabBarItem({
       })
     : name;
 
-  const displayTitle =
-    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
+  const displayTitle = `${tabTitle} ${tabCount}`.trim();
 
   return (
     <DebugRenderTracker
@@ -151,7 +164,8 @@ function TabBarItem({
         onPress={() => onPress(name)}
         cursor="pointer"
       >
-        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+        {name === 'Balances' ? <DesktopHoldingsTabCount /> : null}
       </XStack>
     </DebugRenderTracker>
   );
@@ -167,22 +181,6 @@ function PerpOrderInfoPanel() {
   const initialTabName =
     tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
   const [activeTab, setActiveTab] = useState(initialTabName);
-  const [{ balances }] = useSpotBalancesAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [currentUser] = usePerpsActiveAccountAtom();
-  const [abstractionMode] = usePerpsAbstractionModeAtom();
-  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
-    abstractionMode,
-    currentUser?.accountAddress,
-  );
-  const hasPerpsUsdc =
-    !isUnifiedAccountMode &&
-    !!accountSummary?.totalRawUsd &&
-    new BigNumber(accountSummary.totalRawUsd).gt(0);
-  const holdingsCount = useVisibleSpotHoldingsCount({
-    balances,
-    hasPerpsUsdc,
-  });
   const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
     useShowUnifoldDepositTracker();
 
@@ -282,7 +280,6 @@ function PerpOrderInfoPanel() {
               name={name}
               isFocused={isFocused}
               onPress={onPress}
-              holdingsCount={holdingsCount}
             />
           )}
           renderToolbar={renderTabBarToolbar}

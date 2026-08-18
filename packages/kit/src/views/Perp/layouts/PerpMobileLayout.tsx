@@ -60,6 +60,8 @@ import {
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
 
+import type { ISpotHoldingRawBalance } from '../components/OrderInfoPanel/utils';
+
 export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
@@ -127,7 +129,36 @@ export const TabBarItem = memo(
   },
 );
 
+const MobileHoldingsTabBarItem = memo(
+  ({
+    isFocused,
+    onPress,
+    balances,
+    hasPerpsUsdc,
+  }: {
+    isFocused: boolean;
+    onPress: (name: ETabName) => void;
+    balances: ISpotHoldingRawBalance[];
+    hasPerpsUsdc: boolean;
+  }) => {
+    const holdingsCount = useVisibleSpotHoldingsCount({
+      balances,
+      hasPerpsUsdc,
+    });
+
+    return (
+      <TabBarItem
+        name={ETabName.Balances}
+        isFocused={isFocused}
+        onPress={onPress}
+        tabCount={holdingsCount > 0 ? `(${holdingsCount})` : ''}
+      />
+    );
+  },
+);
+
 TabBarItem.displayName = 'TabBarItem';
+MobileHoldingsTabBarItem.displayName = 'MobileHoldingsTabBarItem';
 
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
@@ -256,10 +287,15 @@ export function PerpMobileLayout() {
     !isUnifiedAccountMode &&
     !!accountSummary?.totalRawUsd &&
     new BigNumber(accountSummary.totalRawUsd).gt(0);
-  const holdingsCount = useVisibleSpotHoldingsCount({
-    balances: displayBalances,
-    hasPerpsUsdc,
-  });
+  const holdingsCount = useMemo(() => {
+    const nonUsdcSpotCount = displayBalances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+    ).length;
+    const hasSpotUsdc = displayBalances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [displayBalances, hasPerpsUsdc]);
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -274,13 +310,6 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
-
-  const holdingsTabCount = useMemo(() => {
-    if (holdingsCount > 0) {
-      return `(${holdingsCount})`;
-    }
-    return '';
-  }, [holdingsCount]);
 
   const handleTraceLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
@@ -425,11 +454,11 @@ export function PerpMobileLayout() {
             onPress={setActiveTab}
             tabCount={openOrdersTabCount}
           />
-          <TabBarItem
-            name={ETabName.Balances}
+          <MobileHoldingsTabBarItem
             isFocused={activeTab === ETabName.Balances}
             onPress={setActiveTab}
-            tabCount={holdingsTabCount}
+            balances={displayBalances}
+            hasPerpsUsdc={hasPerpsUsdc}
           />
         </XStack>
         <IconButton
