@@ -144,6 +144,7 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import { selectHardwarePortfolioTokens } from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -1845,14 +1846,11 @@ function TokenListBlock({
           ...snapshot.mergeTokenListMap,
           ...flattenedAggregateTokenMap,
         };
-        const portfolioTokens = [
-          ...snapshot.orderedTokens,
-          ...snapshot.smallBalanceTokens,
-        ].filter((token) =>
-          new BigNumber(
-            portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
-          ).isGreaterThan(0),
-        );
+        const portfolioTokens = selectHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
+          ...cellsNonZeroInputs,
+        });
 
         if (
           !shouldDeferEmptyHardwarePortfolioSync({
@@ -1921,6 +1919,7 @@ function TokenListBlock({
     account?.id,
     account?.indexedAccountId,
     accountName,
+    cellsNonZeroInputs,
     device?.connectId,
     device?.deviceType,
     device?.id,
