@@ -12,7 +12,10 @@ export function equalsIgnoreCase(
   a: string | undefined | null,
   b: string | undefined | null,
 ): boolean {
-  return a?.toUpperCase() === b?.toUpperCase();
+  if (a === undefined || a === null || b === undefined || b === null) {
+    return a === b;
+  }
+  return a.toUpperCase() === b.toUpperCase();
 }
 
 const STRINGIFY_REPLACER = {

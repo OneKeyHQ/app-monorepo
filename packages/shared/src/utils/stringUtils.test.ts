@@ -1,9 +1,31 @@
-import stringUtils, { stableStringify } from './stringUtils';
+import stringUtils, { equalsIgnoreCase, stableStringify } from './stringUtils';
 
 test('stableStringify', () => {
   expect(stableStringify({ a: '1', b: '2' })).toBe(
     stableStringify({ b: '2', a: '1' }),
   );
+});
+
+describe('equalsIgnoreCase', () => {
+  test('returns true for case-insensitive matching strings', () => {
+    expect(equalsIgnoreCase('hello', 'HELLO')).toBe(true);
+    expect(equalsIgnoreCase('OneKey', 'onekey')).toBe(true);
+    expect(equalsIgnoreCase('', '')).toBe(true);
+  });
+
+  test('returns false for non-matching strings', () => {
+    expect(equalsIgnoreCase('hello', 'world')).toBe(false);
+    expect(equalsIgnoreCase('onekey', 'twoKey')).toBe(false);
+  });
+
+  test('handles null and undefined correctly', () => {
+    expect(equalsIgnoreCase(null, null)).toBe(true);
+    expect(equalsIgnoreCase(undefined, undefined)).toBe(true);
+    expect(equalsIgnoreCase(null, undefined)).toBe(false);
+    expect(equalsIgnoreCase(undefined, null)).toBe(false);
+    expect(equalsIgnoreCase('hello', null)).toBe(false);
+    expect(equalsIgnoreCase('hello', undefined)).toBe(false);
+  });
 });
 
 describe('isValidEmail', () => {
