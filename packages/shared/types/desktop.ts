@@ -33,7 +33,14 @@ export type INobleBleApi = {
   disconnect: (uuid: string) => Promise<void>;
   subscribe: (uuid: string) => Promise<void>;
   unsubscribe: (uuid: string) => Promise<void>;
-  write: (uuid: string, data: string) => Promise<void>;
+  // options must reach the main handler: the transport suppresses per-packet
+  // write pacing for V2 devices via pacingDelayMs; dropping it silently
+  // re-enables the default delay on every packet.
+  write: (
+    uuid: string,
+    data: string,
+    options?: { pacingDelayMs?: number },
+  ) => Promise<void>;
   cancelPairing: () => Promise<void>;
   onNotification: (
     callback: (deviceId: string, data: string) => void,
