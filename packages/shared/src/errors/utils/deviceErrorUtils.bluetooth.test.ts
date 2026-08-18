@@ -1,6 +1,9 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/hardwareErrors';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  DeviceBondError,
+} from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
@@ -55,5 +58,19 @@ describe('convertDeviceError Bluetooth unavailable while USB is connected', () =
     });
 
     expect(error).toBeInstanceOf(BluetoothUnavailableWhileUsbConnectedError);
+  });
+});
+
+describe('convertDeviceError invalid Bluetooth bond', () => {
+  it('tells the user to re-pair the device in system settings', () => {
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondError,
+    });
+
+    expect(error).toBeInstanceOf(DeviceBondError);
+    expect(error).toMatchObject({
+      code: HardwareErrorCode.BleDeviceBondError,
+      key: 'feedback.try_repairing_device_in_settings',
+    });
   });
 });
