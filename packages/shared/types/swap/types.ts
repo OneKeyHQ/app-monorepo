@@ -32,6 +32,7 @@ import type {
   IGasLegacy,
   IGasPayer,
 } from '../fee';
+import type { IMarketStockInfo } from '../marketV2';
 import type { EMessageTypesEth } from '../message';
 import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
@@ -262,6 +263,7 @@ export interface ISwapToken extends ISwapTokenBase {
   isPopular?: boolean;
   isWrapped?: boolean;
   subtitles?: string;
+  stock?: IMarketStockInfo;
 
   freeFeeObject?: IFreeFeeObject;
 }

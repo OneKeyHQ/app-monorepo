@@ -210,7 +210,6 @@ function TxConfirmActions(props: IProps) {
   const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
     networkId,
     gasAccountScenario,
-    isPrivateSend: transferPayload?.isPrivateSend === true,
   });
   const gasAccountActionSessionKey =
     unsignedTx?.uuid ??

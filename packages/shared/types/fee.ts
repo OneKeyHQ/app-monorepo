@@ -184,6 +184,7 @@ export const GAS_ACCOUNT_SCENARIOS = [
   'perps',
   'earn',
   'dapp',
+  'privateSend',
 ] as const;
 // Frontend-only scenario codes that intentionally opt out of Gas Account.
 // These must not be sent to backend estimate-fee as scenario values.
