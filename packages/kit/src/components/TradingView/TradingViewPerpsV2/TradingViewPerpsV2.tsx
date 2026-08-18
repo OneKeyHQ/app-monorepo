@@ -289,6 +289,10 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
+  const onLoadEndRef = useRef(onLoadEnd);
+  onLoadEndRef.current = onLoadEnd;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
@@ -487,12 +491,14 @@ export function TradingViewPerpsV2(
   }, [restoreNonce]);
 
   const onChartLinesReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
   const onChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     setChartContentReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
@@ -649,6 +655,11 @@ export function TradingViewPerpsV2(
     syncTradingViewTheme(webRef.current, theme);
   }, [theme]);
 
+  const handleLoadEnd = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+    onLoadEndRef.current?.();
+  }, []);
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
@@ -666,7 +677,7 @@ export function TradingViewPerpsV2(
         customReceiveHandler={customReceiveHandler}
         skipBackgroundBridge
         onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
+        onLoadEnd={handleLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid

@@ -17,6 +17,7 @@ export interface ISubmenuColumnProps {
 }
 
 const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
+const expandedBackgroundStyle = { transition: 'opacity 150ms ease' };
 
 export function SubmenuColumn({
   webPageTabBar,
@@ -86,6 +87,7 @@ export function SubmenuColumn({
           bg="$bgApp"
           opacity={isExpanded ? 1 : 0}
           pointerEvents="none"
+          style={expandedBackgroundStyle}
         />
         {webPageTabBar}
       </YStack>

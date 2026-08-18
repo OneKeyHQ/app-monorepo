@@ -70,6 +70,7 @@ import type {
 } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -160,6 +161,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
@@ -204,6 +207,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    onLoadEnd,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -666,6 +670,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [onLoadStart, resetInteractionLocks],
   );
 
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      syncTradingViewTheme(webRef.current, latestThemeRef.current);
+      onLoadEnd?.(event);
+    },
+    [onLoadEnd],
+  );
+
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
@@ -745,6 +757,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         }}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
+        onLoadEnd={handleLoadEnd}
         onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
@@ -760,6 +773,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
+      handleLoadEnd,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
