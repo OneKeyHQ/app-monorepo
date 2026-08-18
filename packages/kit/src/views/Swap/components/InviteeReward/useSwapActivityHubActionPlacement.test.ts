@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 /* eslint-disable import/first */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -25,19 +22,15 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   },
 }));
 
-jest.mock('./SwapInviteeRewardActionButton', () => ({
-  SwapInviteeRewardActionButton: () => null,
-}));
-
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapInviteeRewardActionPlacement } from './SwapInviteeRewardHeaderAction';
+import { useSwapActivityHubActionPlacement } from './useSwapActivityHubActionPlacement';
 
 function getUseAtomValueMock() {
   return jest.requireMock('jotai').useAtomValue as jest.Mock;
 }
 
-describe('useSwapInviteeRewardActionPlacement', () => {
+describe('useSwapActivityHubActionPlacement', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -48,10 +41,9 @@ describe('useSwapInviteeRewardActionPlacement', () => {
 
     const { result, rerender } = renderHook(
       ({ routeSwapType }: { routeSwapType?: ESwapTabSwitchType }) =>
-        useSwapInviteeRewardActionPlacement({
+        useSwapActivityHubActionPlacement({
           isDesktop: true,
           isMediumLayout: false,
-          isNative: false,
           routeSwapType,
         }),
       {
@@ -82,10 +74,9 @@ describe('useSwapInviteeRewardActionPlacement', () => {
 
     const { result, rerender } = renderHook(
       ({ routeSwapType }: { routeSwapType?: ESwapTabSwitchType }) =>
-        useSwapInviteeRewardActionPlacement({
+        useSwapActivityHubActionPlacement({
           isDesktop: true,
           isMediumLayout: false,
-          isNative: false,
           routeSwapType,
         }),
       {

@@ -7,23 +7,20 @@ import { jotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/jotaiCon
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapInviteeRewardActionButton } from './SwapInviteeRewardActionButton';
-import { getSwapInviteeRewardActionPlacement } from './utils';
+import { getSwapActivityHubActionPlacement } from './utils';
 
 interface IRouteSwapTypeState {
   routeSwapType?: ESwapTabSwitchType;
   pendingRouteSwapType?: ESwapTabSwitchType;
 }
 
-export function useSwapInviteeRewardActionPlacement({
+export function useSwapActivityHubActionPlacement({
   isDesktop,
   isMediumLayout,
-  isNative,
   routeSwapType,
 }: {
   isDesktop: boolean;
   isMediumLayout: boolean;
-  isNative: boolean;
   routeSwapType?: ESwapTabSwitchType;
 }) {
   const swapStore = useMemo(
@@ -66,20 +63,10 @@ export function useSwapInviteeRewardActionPlacement({
     }
   }, [routeSwapType, routeSwapTypeState, swapTypeSwitch]);
 
-  return getSwapInviteeRewardActionPlacement({
+  return getSwapActivityHubActionPlacement({
     isDesktop,
     isMediumLayout,
-    isNative,
     pendingRouteSwapType,
     swapTypeSwitch,
   });
-}
-
-export function SwapInviteeRewardHeaderAction() {
-  return (
-    <SwapInviteeRewardActionButton
-      testID="swap-invitee-reward-top-nav-button"
-      icon="GiftOutline"
-    />
-  );
 }
