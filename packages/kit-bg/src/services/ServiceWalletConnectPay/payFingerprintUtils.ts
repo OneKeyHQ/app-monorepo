@@ -1,3 +1,6 @@
+import { sha256 } from '@noble/hashes/sha256';
+
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IWcPayAction } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
@@ -21,9 +24,22 @@ export function getWcPayActionFingerprint(action: IWcPayAction): string | null {
   } catch {
     return null;
   }
-  return stringUtils.stableStringify({
-    chainId,
-    method,
-    params: parsedParams,
-  });
+  // Fingerprints are only ever compared for equality, so store a sha256 of
+  // the canonical form rather than the canonical form itself: a Solana
+  // action's params embed the full base64 rawTx (kilobytes per entry), and
+  // persisting that verbatim would both bloat the secure-storage payload
+  // toward platform write limits (Android keystore-backed storage) and keep
+  // sensitive request data at rest that the comparison never needs.
+  return bufferUtils.bytesToHex(
+    sha256(
+      bufferUtils.toBuffer(
+        stringUtils.stableStringify({
+          chainId,
+          method,
+          params: parsedParams,
+        }),
+        'utf8',
+      ),
+    ),
+  );
 }

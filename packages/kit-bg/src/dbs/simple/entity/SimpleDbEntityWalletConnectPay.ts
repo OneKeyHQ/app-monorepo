@@ -6,7 +6,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IWcPayStoredActionEntry {
-  // stableStringify of the action's normalized walletRpc (chainId + method
+  // sha256 hex of the action's normalized walletRpc (chainId + method
   // + JSON-parsed params, see getWcPayActionFingerprint); proves a stored
   // result still belongs to the same-index action when the server returns a
   // recomputed action list on a later attempt
@@ -16,8 +16,8 @@ export interface IWcPayStoredActionEntry {
 
 // Plaintext SimpleDb keeps only this expiry/lookup index. The sensitive
 // payload — action results (consumable signatures / fully signed
-// transactions) and fingerprints (raw walletRpc) — is encrypted at rest in
-// appStorage.secureStorage under a key derived from the same progress key.
+// transactions) — is encrypted at rest in appStorage.secureStorage under a
+// key derived from the same progress key.
 export interface IWcPayStoredProgressMeta {
   paymentId: string;
   optionId: string;
