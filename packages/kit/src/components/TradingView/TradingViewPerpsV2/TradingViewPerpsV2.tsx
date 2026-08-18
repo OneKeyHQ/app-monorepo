@@ -23,7 +23,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import {
+  syncTradingViewTheme,
+  useNavigationHandler,
+  useTradingViewUrl,
+} from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -301,7 +305,9 @@ export function TradingViewPerpsV2(
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}${
+    const themeKey =
+      platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
+    return `${themeKey}${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
@@ -379,6 +385,7 @@ export function TradingViewPerpsV2(
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
+    theme,
   });
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
@@ -637,6 +644,10 @@ export function TradingViewPerpsV2(
   const onWebViewRef = useCallback((ref: IWebViewRef | null) => {
     webRef.current = ref;
   }, []);
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),

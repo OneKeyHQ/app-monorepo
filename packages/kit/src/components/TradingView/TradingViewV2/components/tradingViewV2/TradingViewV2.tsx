@@ -11,6 +11,7 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
 import {
+  syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
@@ -499,6 +500,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useTradingViewUrl({
       additionalParams,
       disabledFeatures,
+      theme,
     });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
@@ -544,6 +546,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartType: activeKLineResolution,
     symbol: chartSymbol,
   });
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
@@ -729,7 +735,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
+        key={tradingViewUrlWithParams}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
@@ -757,7 +763,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
-      theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],
