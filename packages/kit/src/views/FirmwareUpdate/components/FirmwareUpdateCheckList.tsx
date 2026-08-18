@@ -248,7 +248,8 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'failed',
-                    errorCode: err?.code,
+                    errorCode:
+                      err?.code === undefined ? undefined : String(err.code),
                     errorMessage: err?.message,
                     retryCount: trackingInfo.retryCount,
                     durationMs: trackingInfo.durationMs,

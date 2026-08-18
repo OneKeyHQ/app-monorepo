@@ -46,13 +46,15 @@ export function isFirmwareUpdateDeviceDisconnectedError(
   if (error.className === EOneKeyErrorClassNames.DeviceNotFound) {
     return true;
   }
-  return isHardwareErrorByCode({
-    error,
-    code: [
-      HardwareErrorCode.DeviceNotFound,
-      HardwareErrorCode.BridgeDeviceDisconnected,
-    ],
-  });
+  return Boolean(
+    isHardwareErrorByCode({
+      error,
+      code: [
+        HardwareErrorCode.DeviceNotFound,
+        HardwareErrorCode.BridgeDeviceDisconnected,
+      ],
+    }),
+  );
 }
 
 export function shouldHideFirmwareUpdateInternalError(

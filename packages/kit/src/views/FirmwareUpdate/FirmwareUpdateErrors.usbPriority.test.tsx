@@ -7,6 +7,10 @@ import { renderHook } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors } from './components/FirmwareUpdateErrors';
@@ -31,21 +35,19 @@ const deviceDisconnectedMessage =
   'The device has been disconnected. Please reconnect the device and try again.';
 const deviceDisconnectedTitle = 'Device disconnected';
 
+const intlMessages: Record<string, string> = {
+  [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
+    usbPriorityMessage,
+  [ETranslations.hardware_third_party_device_disconnected]:
+    deviceDisconnectedTitle,
+  [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
+  [ETranslations.global_retry]: 'Retry',
+};
+
 function IntlWrapper({ children }: { children: ReactNode }) {
   return (
-    <IntlProvider
-      locale="en"
-      messages={{
-        [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
-          usbPriorityMessage,
-        [ETranslations.hardware_third_party_device_disconnected]:
-          deviceDisconnectedTitle,
-        [ETranslations.update_device_disconnected_desc]:
-          deviceDisconnectedMessage,
-        [ETranslations.global_retry]: 'Retry',
-      }}
-    >
-      {children}
+    <IntlProvider locale="en" messages={intlMessages}>
+      {children as never}
     </IntlProvider>
   );
 }
@@ -87,10 +89,10 @@ describe('firmware update USB-priority errors', () => {
 });
 
 describe('firmware update cancellation errors', () => {
-  const error = {
-    className: 'FirmwareUpdateTasksClear',
+  const error: IOneKeyError = {
+    className: EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
     message: 'updateTasksClear: exitUpdateWorkflow',
-  } as const;
+  };
 
   it('does not expose exitUpdateWorkflow in the Protocol V2 error view', () => {
     const { result } = renderHook(
