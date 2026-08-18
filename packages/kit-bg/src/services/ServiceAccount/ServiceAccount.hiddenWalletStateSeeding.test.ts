@@ -76,13 +76,14 @@ function buildService({
     callOrder.push('waitForDeviceStateSync');
     return Promise.resolve();
   });
+  const getDeviceByConnectIdMock = jest.fn().mockResolvedValue(latestDbDevice);
   const service = new ServiceAccount({
     backgroundApi: {
       serviceHardware: {
         getCompatibleConnectId: jest.fn().mockResolvedValue('CONNECT_ID_1'),
         getDeviceState: getDeviceStateMock,
         getPassphraseState: getPassphraseStateMock,
-        getDeviceByConnectId: jest.fn().mockResolvedValue(latestDbDevice),
+        getDeviceByConnectId: getDeviceByConnectIdMock,
         waitForDeviceStateSync: waitForDeviceStateSyncMock,
       },
       serviceThirdPartyHardware: {},
@@ -116,7 +117,12 @@ function buildService({
     .fn()
     .mockResolvedValue({ wallet: { id: 'hw-wallet-hidden-1' } });
   service.setWalletTempStatus = jest.fn().mockResolvedValue(undefined);
-  return { service, getDeviceStateMock, getPassphraseStateMock };
+  return {
+    service,
+    getDeviceStateMock,
+    getPassphraseStateMock,
+    getDeviceByConnectIdMock,
+  };
 }
 
 describe('createHWHiddenWallet canonical device state seeding', () => {
@@ -268,6 +274,31 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
     });
     expect(service.createHWWalletBase).toHaveBeenCalledWith(
       expect.objectContaining({ deviceState: postUnlockState }),
+    );
+  });
+
+  it('never queries by an empty connectId for the post-unlock refresh', async () => {
+    const callOrder: string[] = [];
+    // Third-party USB records may legitimately have no connectId; an empty
+    // connectId lookup would degenerate to "first OneKey device" in the DB.
+    const dbDevice = buildDbDevice({ connectProtocol: 'V1', connectId: '' });
+    const { service, getDeviceByConnectIdMock } = buildService({
+      dbDevice,
+      callOrder,
+      latestDbDevice: {
+        deviceStateInfo: {
+          ...SEEDED_STATE,
+          identity: { deviceId: 'UNRELATED_DEVICE', serialNo: 'UNRELATED' },
+        } as unknown as IOneKeyDeviceState,
+      },
+    });
+
+    await service.createHWHiddenWallet({ walletId: 'hw-wallet-1' });
+
+    expect(getDeviceByConnectIdMock).not.toHaveBeenCalled();
+    // The seeded state stays in place instead of an unrelated device's record.
+    expect(service.createHWWalletBase).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceState: SEEDED_STATE }),
     );
   });
 

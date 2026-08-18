@@ -3683,24 +3683,30 @@ class ServiceAccount extends ServiceBase {
         // unlock / attach-PIN status); wait for their persistence and prefer
         // the persisted post-unlock snapshot over the pre-unlock seed for
         // everything derived or stored below. Pure DB reads — no device I/O,
-        // so the hidden session established above is never touched.
-        await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
-          connectIds: [
-            compatibleConnectId,
-            dbDevice.connectId,
-            dbDevice.deviceId,
-            seededDbDevice.deviceStateInfo?.identity.serialNo,
-          ],
-        });
-        const postUnlockDbDevice =
-          await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-            connectId,
+        // so the hidden session established above is never touched. Gated like
+        // the seeding block: third-party vendors are excluded, and an empty
+        // connectId must not reach getDeviceByConnectId — getDeviceByQuery
+        // would degenerate to "first OneKey device" and overlay an unrelated
+        // device's state.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+            connectIds: [
+              compatibleConnectId,
+              dbDevice.connectId,
+              dbDevice.deviceId,
+              seededDbDevice.deviceStateInfo?.identity.serialNo,
+            ],
           });
-        if (postUnlockDbDevice?.deviceStateInfo) {
-          seededDbDevice = {
-            ...seededDbDevice,
-            deviceStateInfo: postUnlockDbDevice.deviceStateInfo,
-          };
+          const postUnlockDbDevice =
+            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+              connectId,
+            });
+          if (postUnlockDbDevice?.deviceStateInfo) {
+            seededDbDevice = {
+              ...seededDbDevice,
+              deviceStateInfo: postUnlockDbDevice.deviceStateInfo,
+            };
+          }
         }
 
         // TODO save remember states
@@ -3746,26 +3752,30 @@ class ServiceAccount extends ServiceBase {
         // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
         // the persistence queue once more and prefer the latest stored status.
         let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
-        try {
-          await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
-            connectIds: [
-              compatibleConnectId,
-              dbDevice.connectId,
-              dbDevice.deviceId,
-              seededDbDevice.deviceStateInfo?.identity.serialNo,
-            ],
-          });
-          const latestDbDevice =
-            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-              connectId,
+        // Same gate as the post-unlock refresh above: attach-PIN is
+        // OneKey-specific, and an empty connectId must not reach the lookup.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          try {
+            await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+              connectIds: [
+                compatibleConnectId,
+                dbDevice.connectId,
+                dbDevice.deviceId,
+                seededDbDevice.deviceStateInfo?.identity.serialNo,
+              ],
             });
-          const latestUnlockedAttachPin =
-            latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
-          if (typeof latestUnlockedAttachPin === 'boolean') {
-            isAttachPinMode = latestUnlockedAttachPin;
+            const latestDbDevice =
+              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+                connectId,
+              });
+            const latestUnlockedAttachPin =
+              latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
+            if (typeof latestUnlockedAttachPin === 'boolean') {
+              isAttachPinMode = latestUnlockedAttachPin;
+            }
+          } catch {
+            // keep the resolved-features fallback
           }
-        } catch {
-          // keep the resolved-features fallback
         }
 
         return {
