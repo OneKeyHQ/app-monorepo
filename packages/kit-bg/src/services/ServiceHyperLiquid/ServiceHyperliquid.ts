@@ -609,6 +609,31 @@ export default class ServiceHyperliquid extends ServiceBase {
     return { coin: intent.coin, mode: intent.mode };
   }
 
+  // Four sequential proxy hops used to sit between the first Perp frame and the
+  // symbol it should show. Each one is cheap when the background is idle and
+  // ~220ms when it is not, which is exactly the cold start the user waits on.
+  // The universe read stays behind `claimed` so a non-claiming run does no more
+  // work than before.
+  @backgroundMethod()
+  async prepareInitialSymbolSelect(): Promise<{
+    claimed: boolean;
+    deeplinkIntent: { coin: string; mode: ITradingMode } | undefined;
+    instrumentTarget: Awaited<
+      ReturnType<ServiceHyperliquid['getActiveTradeInstrumentTarget']>
+    >;
+    tradingUniverse:
+      | Awaited<ReturnType<ServiceHyperliquid['getTradingUniverse']>>
+      | undefined;
+  }> {
+    const claimed = await this.tryClaimInitialSymbolSelect();
+    const deeplinkIntent = await this.consumePendingInstrumentIntent();
+    const instrumentTarget = await this.getActiveTradeInstrumentTarget();
+    const tradingUniverse = claimed
+      ? await this.getTradingUniverse()
+      : undefined;
+    return { claimed, deeplinkIntent, instrumentTarget, tradingUniverse };
+  }
+
   private get exchangeService(): ServiceHyperliquidExchange {
     return this.backgroundApi.serviceHyperliquidExchange;
   }

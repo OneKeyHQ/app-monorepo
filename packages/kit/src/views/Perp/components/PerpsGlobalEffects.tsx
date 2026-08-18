@@ -965,26 +965,29 @@ function useHyperliquidSymbolSelect() {
     try {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
-      const claimed =
-        await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      //
+      // The intent is consumed on every run, claiming or not, so one left
+      // behind by a deeplink that never reached this page cannot hijack a
+      // later init. instrumentTarget is resolved once and reused below: two
+      // independent reads can straddle the background's own two-step write,
+      // and a divergence seen only in that gap would force a switch onto the
+      // current pair, wiping the order form.
+      const prepareStartedAt = Date.now();
+      const { claimed, deeplinkIntent, instrumentTarget, tradingUniverse } =
+        await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
+      markPerpsColdStartPerf('initial_symbol_prepare', {
+        elapsedMs: Date.now() - prepareStartedAt,
+      });
       markPerpsColdStartPerf('initial_symbol_claimed', {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      // Consumed on every run, claiming or not, so an intent left behind by a
-      // deeplink that never reached this page cannot hijack a later init.
-      const deeplinkIntent =
-        await backgroundApiProxy.serviceHyperliquid.consumePendingInstrumentIntent();
       if (deeplinkIntent?.coin) {
         markPerpsColdStartPerf('initial_symbol_deeplink_intent', {
           coin: deeplinkIntent.coin,
           mode: deeplinkIntent.mode,
         });
       }
-      // Resolved once and reused below: two independent reads can straddle the
-      // background's own two-step write, and a divergence seen only in that gap
-      // would force a switch onto the current pair, wiping the order form.
-      const instrumentTarget = await resolveActiveInstrumentTarget();
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
@@ -1059,13 +1062,15 @@ function useHyperliquidSymbolSelect() {
           })();
         };
 
-        const tradingUniverse =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        const hasCachedTradingUniverse =
-          hasTradingUniverseCache(tradingUniverse);
+        // Fetched in the same hop as the latch claim above; the background
+        // only reads it on a claiming run, which is the only branch that
+        // reaches here.
+        const hasCachedTradingUniverse = tradingUniverse
+          ? hasTradingUniverseCache(tradingUniverse)
+          : false;
         markPerpsColdStartPerf('initial_symbol_trading_universe_cache', {
           hasCachedTradingUniverse,
-          universeCounts: tradingUniverse.universesByDex?.map(
+          universeCounts: tradingUniverse?.universesByDex?.map(
             (items) => items?.length ?? 0,
           ),
         });
