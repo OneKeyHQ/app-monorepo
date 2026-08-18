@@ -47,6 +47,7 @@ describe('getThirdPartyDeviceAvatarImage', () => {
     ['T3B1', 'TrezorSafe3'],
     ['T3T1', 'TrezorSafe5'],
     ['T3W1', 'TrezorSafe7'],
+    ['1', 'TrezorModelOne'],
   ])('resolves Trezor model code %s to %s', (vendorModel, expected) => {
     expect(
       getThirdPartyDeviceAvatarImage({

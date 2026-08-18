@@ -118,6 +118,8 @@ const TREZOR_MODEL_CODE_TO_AVATAR_KEY = new Map<
   ['T3B1', 'TrezorSafe3'],
   ['T3T1', 'TrezorSafe5'],
   ['T3W1', 'TrezorSafe7'],
+  // Legacy pre-internal_model firmware (Trezor One).
+  ['1', 'TrezorModelOne'],
 ]);
 
 // Fallback when vendorModel is unavailable; Ledger never needs this since its
