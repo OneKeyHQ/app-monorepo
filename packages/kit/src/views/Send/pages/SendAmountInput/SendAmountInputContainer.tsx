@@ -3113,6 +3113,9 @@ function SendAmountInputContainer() {
                   instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
                   oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  isFreeNetworkFee:
+                    data?.[0]?.isNetworkFeeSponsored ??
+                    normalizedBuildSwapRes.result.fee?.isFreeNetworkFee,
                   protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
