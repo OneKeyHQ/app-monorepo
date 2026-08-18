@@ -56,7 +56,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { SettingTestIDs } from '../../testIDs';
+import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -79,9 +79,17 @@ import {
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { getSettingsDisplayTitle } from './settingsDisplay';
+import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
+import {
+  SubConnectionsSettings,
+  SubNotificationsSettings,
+} from './SubSettingsLinkPanes';
+import { useSettingsLayout } from './useIsTabNavigator';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -96,32 +104,80 @@ const DevSettingsSection = LazyLoadPage(
   true,
 );
 
-export interface ISubSettingConfig {
+/**
+ * Panes backing the sidebar tabs derived from `desktopTab` annotations.
+ * `desktopTab` is typed against this map, so annotating an item with a tab
+ * that has no pane component is a compile error instead of a blank tab.
+ */
+const settingsLinkTabComponents = {
+  [ESettingsTabNames.Notifications]: SubNotificationsSettings,
+  [ESettingsTabNames.Connections]: SubConnectionsSettings,
+};
+
+const SETTINGS_CONFIG_ORDER = new Map(
+  [...SETTINGS_SIDEBAR_ORDER, ESettingsTabNames.Search].map((name, index) => [
+    name,
+    index,
+  ]),
+);
+
+interface ISubSettingConfigBase {
   icon: string | IKeyOfIcons;
   title: string;
+  mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  /**
+   * Phone layouts promote this item to the settings home cards; its own
+   * category page hides it there.
+   */
+  mobileHome?: boolean;
+  /**
+   * Tab-navigator layouts promote this item to its own sidebar tab. The
+   * synthetic tab category is derived from the item, so platform gating and
+   * copy never fork from the source item. Must key into
+   * `settingsLinkTabComponents` so every annotated tab has a pane.
+   */
+  desktopTab?: keyof typeof settingsLinkTabComponents;
   testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
-  /** Route within the SettingModal navigator for direct navigation from universal search */
-  settingRoute?: EModalSettingRoutes;
   renderElement?: React.ReactElement<any>;
   /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
   isExternalLink?: boolean;
 }
 
+/**
+ * Every item is search-indexed, so each needs a stable identity for analytics
+ * and recent-search records (it must survive copy changes): an explicit
+ * kebab-case `id`, or a `settingRoute` (the route within the SettingModal
+ * navigator for direct navigation from universal search) that already
+ * identifies it. Enforced here so an item with neither cannot compile.
+ */
+type ISubSettingIdentity =
+  | { id: string; settingRoute?: EModalSettingRoutes }
+  | { id?: string; settingRoute: EModalSettingRoutes };
+
+export type ISubSettingConfig = ISubSettingConfigBase & ISubSettingIdentity;
+
 export type ISettingsConfig = (
   | {
       icon: string;
+      mobileIcon?: string | IKeyOfIcons;
       title: string;
+      mobileTitle?: string;
       subtitle?: string;
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      /**
+       * Synthetic category derived from an item's `desktopTab` annotation.
+       * Rendered only by the tab navigator; list layouts must skip it.
+       */
+      desktopOnlyTab?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
       tabBarIconStyle?: IIconProps;
@@ -140,6 +196,9 @@ export type ISettingsConfig = (
     }
   | undefined
 )[];
+
+export type ISettingCategoryConfig = NonNullable<ISettingsConfig[number]>;
+
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const isShowAppUpdateUI = useMemo(() => {
@@ -148,7 +207,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       updateStatus: appUpdateInfo.data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
+  const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
@@ -168,8 +229,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
 
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
-  return useMemo(
-    () => [
+  return useMemo(() => {
+    const clearPendingTransactionsItem: ISubSettingConfig = {
+      id: 'clear-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      }),
+      renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
       // {
       //   name: ESettingsTabNames.OneKeyID,
@@ -184,11 +253,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         : {
             name: ESettingsTabNames.Backup,
             icon: 'CloudUploadSolid',
-            title: intl.formatMessage({ id: ETranslations.global_backup }),
+            mobileIcon: 'CloudUploadOutline',
+            title: intl.formatMessage({
+              id: ETranslations.global_backup,
+            }),
             configs: [
               [
                 cloudBackupFeatureInfo?.supportCloudBackup
                   ? {
+                      id: 'cloud-backup',
                       icon: cloudBackupFeatureInfo?.icon,
                       title: cloudBackupFeatureInfo?.title,
                       onPress: (navigation) => {
@@ -203,6 +276,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : null,
                 {
                   // OneKey Cloud
+                  id: 'onekey-cloud',
                   icon: 'CloudOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
@@ -224,6 +298,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 !platformEnv.isWebDappMode
                   ? {
                       // OneKey Transfer
+                      id: 'onekey-transfer',
                       icon: 'MultipleDevicesOutline',
                       title: intl.formatMessage({
                         id: ETranslations.transfer_transfer,
@@ -242,6 +317,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 !platformEnv.isWebDappMode
                   ? {
+                      id: 'manual-backup',
                       icon: 'SignatureOutline',
                       title: intl.formatMessage({
                         id: ETranslations.manual_backup,
@@ -255,6 +331,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : undefined,
                 platformEnv.isNative
                   ? {
+                      id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',
                       title: intl.formatMessage({
                         id: ETranslations.global_onekey_lite,
@@ -268,6 +345,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : undefined,
                 {
                   // OneKey Keytag
+                  id: 'onekey-keytag',
                   icon: 'OnekeyKeytagOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_keytag,
@@ -284,49 +362,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           },
       {
         name: ESettingsTabNames.Preferences,
-        icon: 'SettingsSolid',
+        // No solid pair exists for SliderThree; both states use the outline.
+        icon: 'SliderThreeOutline',
+        mobileIcon: 'SliderThreeOutline',
         title: intl.formatMessage({
           id: ETranslations.global_preferences,
         }),
         configs: [
-          [
-            platformEnv.isExtension
-              ? {
-                  icon: 'ThumbtackOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_default_wallet_settings,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
-                      screen: EDAppConnectionModal.DefaultWalletSettingsModal,
-                    });
-                  },
-                }
-              : undefined,
-          ],
-          [
-            {
-              icon: 'TranslateOutline',
-              title: intl.formatMessage({
-                id: ETranslations.global_language,
-              }),
-              renderElement: <LanguageListItem />,
-            },
-            {
-              icon: 'DollarOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_default_currency,
-              }),
-              renderElement: <CurrencyListItem />,
-            },
-            {
-              icon: 'PaletteOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_theme,
-              }),
-              renderElement: <ThemeListItem />,
-            },
-          ],
           [
             !platformEnv.isWeb
               ? {
@@ -334,6 +376,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  mobileHome: true,
+                  desktopTab: ESettingsTabNames.Notifications,
                   testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
@@ -343,10 +387,45 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : undefined,
+            {
+              id: 'language',
+              icon: 'TranslateOutline',
+              title: intl.formatMessage({
+                id: ETranslations.global_language,
+              }),
+              renderElement: <LanguageListItem />,
+            },
+            {
+              id: 'currency',
+              icon: 'DollarOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_default_currency,
+              }),
+              renderElement: <CurrencyListItem />,
+            },
+            {
+              id: 'theme',
+              icon: 'PaletteOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_theme,
+              }),
+              renderElement: <ThemeListItem />,
+            },
+            platformEnv.isNative
+              ? {
+                  id: 'haptic-feedback',
+                  icon: 'HandPointerOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_vibration_haptic,
+                  }),
+                  renderElement: <HapticFeedbackListItem />,
+                }
+              : undefined,
           ],
           [
             platformEnv.isSupportDesktopBle
               ? {
+                  id: 'desktop-bluetooth',
                   icon: 'BluetoothOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_bluetooth,
@@ -354,10 +433,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <DesktopBluetoothListItem />,
                 }
               : undefined,
-          ],
-          [
             platformEnv.isDesktopMac
               ? {
+                  id: 'menu-bar-tray',
                   icon: 'DockOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_menu_bar_tray,
@@ -368,10 +446,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <MenuBarTrayListItem />,
                 }
               : undefined,
-          ],
-          [
             isNativeTablet()
               ? {
+                  id: 'split-view',
                   icon: 'LayoutColumnOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_split_view,
@@ -384,15 +461,70 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            platformEnv.isNative
+            platformEnv.isDesktop
               ? {
-                  icon: 'HandPointerOutline',
+                  id: 'shortcuts',
+                  icon: 'ShortcutsCustom',
                   title: intl.formatMessage({
-                    id: ETranslations.global_vibration_haptic,
+                    id: ETranslations.settings_shortcuts,
                   }),
-                  renderElement: <HapticFeedbackListItem />,
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.ShortcutsModal, {
+                      screen: EModalShortcutsRoutes.ShortcutsPreview,
+                    });
+                  },
                 }
               : undefined,
+          ],
+          [
+            platformEnv.isExtension
+              ? {
+                  id: 'default-wallet-settings',
+                  icon: 'ThumbtackOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_default_wallet_settings,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
+                      screen: EDAppConnectionModal.DefaultWalletSettingsModal,
+                    });
+                  },
+                }
+              : undefined,
+          ],
+        ],
+      },
+      {
+        name: ESettingsTabNames.AppData,
+        icon: 'StorageSolid',
+        mobileIcon: 'StorageOutline',
+        title: intl.formatMessage({
+          id: ETranslations.app_data__title,
+        }),
+        configs: [
+          [
+            {
+              id: 'clear-cache',
+              icon: 'BroomOutline',
+              testID: SettingTestIDs.clearAppCacheItem,
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_cache_on_app,
+              }),
+              renderElement: <ClearAppCacheListItem />,
+            },
+            platformEnv.isWebDappMode
+              ? clearPendingTransactionsItem
+              : undefined,
+          ],
+          [
+            {
+              id: 'reset-app',
+              icon: 'FolderDeleteOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_reset_app,
+              }),
+              renderElement: <ResetAppListItem />,
+            },
           ],
         ],
       },
@@ -401,12 +533,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         : {
             name: ESettingsTabNames.Wallet,
             icon: 'WalletSolid',
+            mobileIcon: 'WalletOutline',
             title: intl.formatMessage({
               id: ETranslations.global_wallet,
             }),
             configs: [
               [
                 {
+                  id: 'address-book',
                   icon: 'ContactsOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
@@ -416,8 +550,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     void onPressAddressBook(navigation);
                   },
                 },
-              ],
-              [
                 !platformEnv.isWeb
                   ? {
                       icon: 'RefreshCcwOutline',
@@ -433,6 +565,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
+              ],
+              [
                 {
                   icon: 'LabOutline',
                   title: intl.formatMessage({
@@ -456,6 +590,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     );
                   },
                 },
+                {
+                  id: 'gas-account',
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
+                },
               ],
               [
                 {
@@ -471,9 +616,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     );
                   },
                 },
-              ],
-              [
                 {
+                  id: 'btc-multiple-addresses',
                   icon: 'FlashCardSolid',
                   title: intl.formatMessage({
                     id: ETranslations.settings_btc_multiple_addresses,
@@ -484,172 +628,172 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
+              [clearPendingTransactionsItem],
+            ],
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            name: ESettingsTabNames.Security,
+            icon: 'Shield2CheckSolid',
+            mobileIcon: 'Shield2CheckOutline',
+            testID: SettingTestIDs.securityItem,
+            title: intl.formatMessage({
+              id: ETranslations.global_security,
+            }),
+            configs: [
               [
-                {
-                  icon: 'GasOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_prefer_gas_account__title,
-                  }),
-                  subtitle: intl.formatMessage({
-                    id: ETranslations.settings_prefer_gas_account__desc,
-                  }),
-                  renderElement: <UseGasAccountByDefaultListItem />,
-                },
+                isPasswordSet &&
+                (biologyAuthIsSupport || webAuthIsSupport) &&
+                !platformEnv.isWebDappMode
+                  ? {
+                      id: 'biometric-auth',
+                      title: biometricAuthInfo.title,
+                      icon: biometricAuthInfo.icon,
+                      renderElement: <BiologyAuthListItem />,
+                    }
+                  : null,
+                isPasswordSet && !platformEnv.isWebDappMode
+                  ? {
+                      id: 'auto-lock',
+                      icon: 'ClockTimeHistoryOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_auto_lock,
+                      }),
+                      renderElement: <AutoLockListItem />,
+                    }
+                  : null,
+                platformEnv.isWebDappMode
+                  ? undefined
+                  : {
+                      id: 'passcode',
+                      icon: 'KeyOutline',
+                      title: intl.formatMessage({
+                        id: isPasswordSet
+                          ? ETranslations.global_change_passcode
+                          : ETranslations.global_set_passcode,
+                      }),
+                      renderElement: <ChangeOrSetPasswordListItem />,
+                    },
+                platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
+                  ? undefined
+                  : {
+                      id: 'reset-pin',
+                      icon: 'InputOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.reset_pin,
+                      }),
+                      renderElement: <ResetPinListItem />,
+                    },
+              ],
+              [
+                platformEnv.isWebDappMode
+                  ? undefined
+                  : {
+                      icon: 'ShieldCheckDoneOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_protection,
+                      }),
+                      keywords: [
+                        intl.formatMessage({
+                          id: ETranslations.settings_token_risk_reminder,
+                        }),
+                        intl.formatMessage({
+                          id: ETranslations.settings_protection_allowlist_title,
+                        }),
+                        intl.formatMessage({
+                          id: ETranslations.settings_create_transactions,
+                        }),
+                        intl.formatMessage({
+                          id: ETranslations.settings_create_remove_wallets,
+                        }),
+                        'allowlist',
+                      ],
+                      settingRoute: EModalSettingRoutes.SettingProtectModal,
+                      onPress: (navigation) => {
+                        navigation?.push(
+                          EModalSettingRoutes.SettingProtectModal,
+                        );
+                      },
+                    },
+                platformEnv.isWebDappMode
+                  ? undefined
+                  : {
+                      id: 'dapp-connections',
+                      icon: 'LinkOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_connected_sites,
+                      }),
+                      mobileTitle: intl.formatMessage({
+                        id: ETranslations.explore_dapp_connections,
+                      }),
+                      mobileHome: true,
+                      desktopTab: ESettingsTabNames.Connections,
+                      keywords: [
+                        intl.formatMessage({
+                          id: ETranslations.settings_connected_sites,
+                        }),
+                        intl.formatMessage({
+                          id: ETranslations.explore_dapp_connections,
+                        }),
+                        'dApp',
+                        'WalletConnect',
+                      ],
+                      onPress: (navigation) => {
+                        navigation?.pushModal(
+                          EModalRoutes.DAppConnectionModal,
+                          {
+                            screen: EDAppConnectionModal.ConnectionList,
+                          },
+                        );
+                      },
+                    },
+                platformEnv.isWebDappMode
+                  ? undefined
+                  : {
+                      icon: 'NoteOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_signature_record,
+                      }),
+                      settingRoute:
+                        EModalSettingRoutes.SettingSignatureRecordModal,
+                      onPress: (navigation) => {
+                        navigation?.push(
+                          EModalSettingRoutes.SettingSignatureRecordModal,
+                        );
+                      },
+                    },
+              ],
+              [
+                platformEnv.isExtension
+                  ? {
+                      icon: 'MenuCircleHorOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.setting_floating_icon,
+                      }),
+                      settingRoute:
+                        EModalSettingRoutes.SettingFloatingIconModal,
+                      onPress: (navigation) => {
+                        navigation?.push(
+                          EModalSettingRoutes.SettingFloatingIconModal,
+                        );
+                      },
+                    }
+                  : undefined,
               ],
             ],
           },
-      {
-        name: ESettingsTabNames.Security,
-        icon: 'Shield2CheckSolid',
-        testID: SettingTestIDs.securityItem,
-        title: intl.formatMessage({
-          id: ETranslations.global_security,
-        }),
-        configs: [
-          [
-            isPasswordSet &&
-            (biologyAuthIsSupport || webAuthIsSupport) &&
-            !platformEnv.isWebDappMode
-              ? {
-                  title: biometricAuthInfo.title,
-                  icon: biometricAuthInfo.icon,
-                  renderElement: <BiologyAuthListItem />,
-                }
-              : null,
-            isPasswordSet && !platformEnv.isWebDappMode
-              ? {
-                  icon: 'ClockTimeHistoryOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_auto_lock,
-                  }),
-                  renderElement: <AutoLockListItem />,
-                }
-              : null,
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
-                  icon: 'KeyOutline',
-                  title: intl.formatMessage({
-                    id: isPasswordSet
-                      ? ETranslations.global_change_passcode
-                      : ETranslations.global_set_passcode,
-                  }),
-                  renderElement: <ChangeOrSetPasswordListItem />,
-                },
-            platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
-              ? undefined
-              : {
-                  icon: 'InputOutline',
-                  title: intl.formatMessage({ id: ETranslations.reset_pin }),
-                  renderElement: <ResetPinListItem />,
-                },
-          ],
-          [
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
-                  icon: 'ShieldCheckDoneOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_protection,
-                  }),
-                  keywords: [
-                    intl.formatMessage({
-                      id: ETranslations.settings_token_risk_reminder,
-                    }),
-                    intl.formatMessage({
-                      id: ETranslations.settings_protection_allowlist_title,
-                    }),
-                    intl.formatMessage({
-                      id: ETranslations.settings_create_transactions,
-                    }),
-                    intl.formatMessage({
-                      id: ETranslations.settings_create_remove_wallets,
-                    }),
-                    'allowlist',
-                  ],
-                  settingRoute: EModalSettingRoutes.SettingProtectModal,
-                  onPress: (navigation) => {
-                    navigation?.push(EModalSettingRoutes.SettingProtectModal);
-                  },
-                },
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
-                  icon: 'LinkOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_connected_sites,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.DAppConnectionModal, {
-                      screen: EDAppConnectionModal.ConnectionList,
-                    });
-                  },
-                },
-            platformEnv.isWebDappMode
-              ? undefined
-              : {
-                  icon: 'NoteOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_signature_record,
-                  }),
-                  settingRoute: EModalSettingRoutes.SettingSignatureRecordModal,
-                  onPress: (navigation) => {
-                    navigation?.push(
-                      EModalSettingRoutes.SettingSignatureRecordModal,
-                    );
-                  },
-                },
-          ],
-          [
-            platformEnv.isExtension
-              ? {
-                  icon: 'MenuCircleHorOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.setting_floating_icon,
-                  }),
-                  settingRoute: EModalSettingRoutes.SettingFloatingIconModal,
-                  onPress: (navigation) => {
-                    navigation?.push(
-                      EModalSettingRoutes.SettingFloatingIconModal,
-                    );
-                  },
-                }
-              : undefined,
-          ],
-          [
-            {
-              icon: 'BroomOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_cache_on_app,
-              }),
-              renderElement: <ClearAppCacheListItem />,
-            },
-            {
-              icon: 'ClockTimeHistoryOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_pending_transactions,
-              }),
-              renderElement: <ClearPendingTransactionsListItem />,
-            },
-          ],
-          [
-            {
-              icon: 'FolderDeleteOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_reset_app,
-              }),
-              renderElement: <ResetAppListItem />,
-            },
-          ],
-        ],
-      },
       platformEnv.isWebDappMode
         ? undefined
         : {
             name: ESettingsTabNames.Network,
             icon: 'GlobusSolid',
+            mobileIcon: 'GlobusOutline',
             title: intl.formatMessage({
               id: ETranslations.global_network,
+            }),
+            mobileTitle: intl.formatMessage({
+              id: ETranslations.global_networks,
             }),
             configs: [
               [
@@ -679,6 +823,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
                 platformEnv.isDev
                   ? {
+                      id: 'hardware-communication',
                       icon: 'UsbOutline',
                       title: intl.formatMessage({
                         id: ETranslations.device_hardware_communication,
@@ -689,6 +834,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 (platformEnv.isExtension || platformEnv.isWeb) &&
                 settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
                   ? {
+                      id: 'hardware-bridge-status',
                       icon: 'ApiConnectionOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_hardware_bridge_status,
@@ -720,23 +866,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
+        mobileIcon: 'InfoCircleOutline',
         testID: SettingTestIDs.aboutItem,
         title: intl.formatMessage({
-          id: ETranslations.global_about,
+          id: ETranslations.about_onekey__title,
         }),
-        showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
+        showDot: shouldShowUpdate,
         configs: [
           [
             {
+              id: 'whats-new',
               icon: 'InfoCircleOutline',
               title: intl.formatMessage({
-                id: appUpdateInfo.isNeedUpdate
+                id: shouldShowUpdate
                   ? ETranslations.settings_app_update_available
                   : ETranslations.settings_whats_new,
               }),
               renderElement: <ListVersionItem />,
             },
+          ],
+          [
             {
+              id: 'help-center',
               icon: 'BookOpenOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_help_center,
@@ -750,18 +901,39 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             {
+              id: 'contact-us',
               icon: 'HelpSupportOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
               }),
+              mobileHome: true,
               onPress: () => {
                 void showIntercom();
               },
             },
+            isMobileLayout
+              ? {
+                  id: 'official-channels',
+                  icon: 'SpeakerPromoteOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.official_channels__title,
+                  }),
+                  keywords: [...OFFICIAL_CHANNELS_SEARCH_KEYWORDS],
+                  mobileHome: true,
+                  settingRoute: EModalSettingRoutes.SettingOfficialChannels,
+                  testID: SettingTestIDs.officialChannelsItem,
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingOfficialChannels,
+                    );
+                  },
+                }
+              : undefined,
             platformEnv.isExtension ||
             platformEnv.isNativeAndroidGooglePlay ||
             platformEnv.isNativeIOS
               ? {
+                  id: 'rate-app',
                   icon: 'StarOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
@@ -788,6 +960,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              id: 'user-agreement',
               icon: 'PeopleOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
@@ -801,6 +974,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             {
+              id: 'privacy-policy',
               icon: 'FileTextOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
@@ -815,22 +989,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            platformEnv.isDesktop
-              ? {
-                  icon: 'ShortcutsCustom',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_shortcuts,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.ShortcutsModal, {
-                      screen: EModalShortcutsRoutes.ShortcutsPreview,
-                    });
-                  },
-                }
-              : undefined,
-          ],
-          [
             {
+              id: 'export-state-logs',
               icon: 'FileDownloadOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
@@ -849,6 +1009,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       devSettings.enabled
         ? {
             icon: 'CodeSolid',
+            mobileIcon: 'CodeOutline',
             name: ESettingsTabNames.Dev,
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
@@ -865,6 +1026,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'dev-mode',
                   icon: 'CodeOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_dev_mode,
@@ -885,28 +1047,62 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         configs: [],
         Component: SubSearchSettings,
       },
-    ],
-    [
-      intl,
-      cloudBackupFeatureInfo?.supportCloudBackup,
-      cloudBackupFeatureInfo?.icon,
-      cloudBackupFeatureInfo?.title,
-      isPasswordSet,
-      biologyAuthIsSupport,
-      webAuthIsSupport,
-      biometricAuthInfo.title,
-      biometricAuthInfo.icon,
-      settings.hardwareTransportType,
-      isShowAppUpdateUI,
-      appUpdateInfo.isNeedUpdate,
-      devSettings.enabled,
-      isKeylessWalletExistsLocal,
-      startBackup,
-      onPressAddressBook,
-      helpCenterUrl,
-      userAgreementUrl,
-      privacyPolicyUrl,
-      isPrimeActive,
-    ],
-  );
+    ];
+    // Desktop link tabs are derived from the annotated items so their
+    // platform gating and copy never fork from the source item.
+    const linkTabCategories: ISettingsConfig = config.flatMap(
+      (category) =>
+        category?.configs
+          .flat()
+          .filter(
+            (
+              item,
+            ): item is ISubSettingConfig &
+              Required<Pick<ISubSettingConfig, 'desktopTab'>> =>
+              Boolean(item?.desktopTab),
+          )
+          .map((item) => ({
+            name: item.desktopTab,
+            icon: item.icon,
+            mobileIcon: item.icon,
+            title: getSettingsDisplayTitle(item, true),
+            testID: item.testID
+              ? settingsSidebarTabTestID(item.testID)
+              : undefined,
+            desktopOnlyTab: true,
+            Component: settingsLinkTabComponents[item.desktopTab],
+            configs: [],
+          })) ?? [],
+    );
+    return [...config, ...linkTabCategories].toSorted((a, b) => {
+      const aOrder = a
+        ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
+        : SETTINGS_CONFIG_ORDER.size + 1;
+      const bOrder = b
+        ? (SETTINGS_CONFIG_ORDER.get(b.name) ?? SETTINGS_CONFIG_ORDER.size)
+        : SETTINGS_CONFIG_ORDER.size + 1;
+      return aOrder - bOrder;
+    });
+  }, [
+    intl,
+    cloudBackupFeatureInfo?.supportCloudBackup,
+    cloudBackupFeatureInfo?.icon,
+    cloudBackupFeatureInfo?.title,
+    isPasswordSet,
+    biologyAuthIsSupport,
+    webAuthIsSupport,
+    biometricAuthInfo.title,
+    biometricAuthInfo.icon,
+    settings.hardwareTransportType,
+    shouldShowUpdate,
+    devSettings.enabled,
+    isKeylessWalletExistsLocal,
+    startBackup,
+    onPressAddressBook,
+    helpCenterUrl,
+    userAgreementUrl,
+    privacyPolicyUrl,
+    isPrimeActive,
+    isMobileLayout,
+  ]);
 };

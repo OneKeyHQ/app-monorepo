@@ -229,6 +229,25 @@ export function getInputsToSignFromPsbt({
   return inputsToSign;
 }
 
+export function findBtcSighashNoneInput({
+  psbt,
+  inputsToSign,
+}: {
+  psbt: Psbt;
+  inputsToSign: readonly Pick<ITxInputToSign, 'index'>[];
+}) {
+  return inputsToSign.find((input) => {
+    const sighashType = psbt.data.inputs[input.index]?.sighashType;
+    if (typeof sighashType !== 'number') {
+      return false;
+    }
+
+    // Mask off ANYONECANPAY so NONE and NONE|ANYONECANPAY are both rejected.
+    const outputType = sighashType & Transaction.SIGHASH_OUTPUT_MASK;
+    return outputType === Transaction.SIGHASH_NONE;
+  });
+}
+
 // UniSat-compatible `signPsbts` passes `options` as an array (one entry per
 // psbt); OneKey/legacy callers pass a single shared options object. Return the
 // options that apply to the psbt at `index` for both shapes. Dropping the

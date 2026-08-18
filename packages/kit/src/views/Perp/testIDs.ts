@@ -7,6 +7,9 @@ export const PerpTestIDs = {
   TokenSelector: 'perp-token-selector',
   TokenSelectorMobile: 'perp-token-selector-mobile',
   TokenSelectorSearch: 'perp-token-selector-search',
+  ActiveDexBadge: 'perp-active-dex-badge',
+  TokenSelectorDexBadge: (coin: string) =>
+    `perp-token-selector-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-dex-badge`,
 
   // -- Trading form: margin & leverage --
   MarginModeSelector: 'perp-margin-mode-selector',

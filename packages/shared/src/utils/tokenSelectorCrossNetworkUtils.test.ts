@@ -1,8 +1,12 @@
+import { getNetworkIdsMap } from '../config/networkIds';
+
 import {
   ETokenSelectorSyntheticRowType,
   buildCrossNetworkSearchListData,
   extractCrossNetworkSearchQuery,
+  getTokenNetworkAliasMap,
   isTokenSelectorSyntheticRow,
+  tokenizeTokenSearchKeywords,
 } from './tokenSelectorCrossNetworkUtils';
 
 import type { ITokenSelectorListRow } from './tokenSelectorCrossNetworkUtils';
@@ -201,6 +205,35 @@ describe('extractCrossNetworkSearchQuery', () => {
       shortname: 'SOL',
     },
     {
+      id: 'evm--56',
+      name: 'BNB Chain',
+      symbol: 'BNB',
+      code: 'bsc',
+      shortcode: 'bsc',
+      shortname: 'BSC',
+    },
+    // Mirrors presetNetworks bifrostDot: code/shortcode contain a hyphen, which
+    // the tokenizer splits — phrase matching must normalize both sides.
+    {
+      id: 'dot--bifrost',
+      name: 'Bifrost Polkadot',
+      symbol: 'BNC',
+      code: 'dot-bifrost',
+      shortcode: 'dot-bifrost',
+      shortname: 'BNC',
+    },
+    // Custom networks resolve token details via raw RPC contract calls, so
+    // scoping a stripped query to one would turn "no results" into an error.
+    {
+      id: 'evm--98765',
+      name: 'Mycustomnet',
+      symbol: 'MCN',
+      code: 'mycustomnet',
+      shortcode: 'mycustomnet',
+      shortname: 'Mycustomnet',
+      isCustomNetwork: true,
+    },
+    {
       id: 'onekeyall--0',
       name: 'All Networks',
       code: 'onekeyall',
@@ -297,5 +330,126 @@ describe('extractCrossNetworkSearchQuery', () => {
     expect(
       extractCrossNetworkSearchQuery({ keywords: '  USDT   TRX  ', networks }),
     ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+  });
+
+  test('separator-joined queries are tokenized before extraction', () => {
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt-trc20', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'USDT-Trx', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt波场', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+  });
+
+  test('network aliases resolve to their preset network, exact-equality only', () => {
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt trc20', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt 波场', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt erc20', networks }),
+    ).toEqual({ networkId: 'evm--1', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt bep20', networks }),
+    ).toEqual({ networkId: 'evm--56', keywords: 'usdt' });
+    // Aliases never match on prefix/substring.
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt trc', networks }),
+    ).toEqual({ keywords: 'usdt trc' });
+  });
+
+  test('hyphenated network fields still match after tokenization', () => {
+    // code/shortcode 'dot-bifrost' tokenizes to 'dot bifrost' on both sides.
+    expect(
+      extractCrossNetworkSearchQuery({
+        keywords: 'usdt dot-bifrost',
+        networks,
+      }),
+    ).toEqual({ networkId: 'dot--bifrost', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({
+        keywords: 'usdt dot bifrost',
+        networks,
+      }),
+    ).toEqual({ networkId: 'dot--bifrost', keywords: 'usdt' });
+  });
+
+  test('custom networks are never extraction candidates', () => {
+    expect(
+      extractCrossNetworkSearchQuery({
+        keywords: 'usdt mycustomnet',
+        networks,
+      }),
+    ).toEqual({ keywords: 'usdt mycustomnet' });
+  });
+});
+
+describe('tokenizeTokenSearchKeywords', () => {
+  test('splits on hyphen, underscore, slash, and plus', () => {
+    expect(tokenizeTokenSearchKeywords('USDT-Trc20')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+    expect(tokenizeTokenSearchKeywords('usdt_trc20')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+    expect(tokenizeTokenSearchKeywords('usdt/trc20')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+    expect(tokenizeTokenSearchKeywords('usdt+trc20')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+  });
+
+  test('splits on the boundary between ASCII and CJK runs', () => {
+    expect(tokenizeTokenSearchKeywords('usdt波场')).toEqual(['usdt', '波场']);
+    expect(tokenizeTokenSearchKeywords('波场usdt')).toEqual(['波场', 'usdt']);
+    expect(tokenizeTokenSearchKeywords('波场')).toEqual(['波场']);
+  });
+
+  test('collapses runs of whitespace and mixed separators', () => {
+    expect(tokenizeTokenSearchKeywords('  USDT   Trc20 ')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+    expect(tokenizeTokenSearchKeywords('usdt - trc20')).toEqual([
+      'usdt',
+      'trc20',
+    ]);
+    expect(tokenizeTokenSearchKeywords('')).toEqual([]);
+    expect(tokenizeTokenSearchKeywords('  ')).toEqual([]);
+  });
+
+  test('separator-free strings stay one verbatim lowercased token', () => {
+    expect(
+      tokenizeTokenSearchKeywords('0xdAC17F958D2ee523a2206206994597C13D831ec7'),
+    ).toEqual(['0xdac17f958d2ee523a2206206994597c13d831ec7']);
+    // Dots and colons are not separators — they stay inside the token.
+    expect(tokenizeTokenSearchKeywords('0x1::aptos_coin::AptosCoin')).toEqual([
+      '0x1::aptos',
+      'coin::aptoscoin',
+    ]);
+    expect(tokenizeTokenSearchKeywords('usdt.tether-token.near')).toEqual([
+      'usdt.tether',
+      'token.near',
+    ]);
+  });
+});
+
+describe('getTokenNetworkAliasMap', () => {
+  test('first-batch aliases are keyed by preset network ids', () => {
+    const map = getTokenNetworkAliasMap();
+    const networkIds = getNetworkIdsMap();
+    expect(map[networkIds.trx]).toEqual(['trc20', '波场', '波場']);
+    expect(map[networkIds.eth]).toEqual(['erc20']);
+    expect(map[networkIds.bsc]).toEqual(['bep20']);
   });
 });

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -18,11 +19,22 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY as PRICE_AXIS_FONT_FAMILY,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
+import {
+  type ITradingViewNativeIndicatorSeries,
+  getTradingViewNativeIndicatorPriceAxisLabel,
+} from '../utils/chartIndicators';
+import {
+  getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLabel,
+  getTradingViewNativePriceAxisLabel,
+  getTradingViewNativePriceAxisWidth,
+} from '../utils/chartLayout';
+import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -50,7 +62,11 @@ import {
   getTradingViewNativeWheelZoomScale,
 } from './chartWheel';
 
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+  ITradingViewNativeInitialRightOffset,
+} from '../types';
 
 const ONEKEY_WATERMARK_ASSET =
   require('@onekeyhq/components/svg/illus/logo.svg') as
@@ -66,12 +82,15 @@ interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,
   ) => void;
+  candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
   viewportRequest?: ITradingViewNativeViewportRequest | null;
@@ -91,18 +110,59 @@ interface IDrawKLineChartOptions {
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
   hasVolume: boolean;
+  candleLabels: ITradingViewNativeCandleLabels;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
+  priceAxisWidth: number;
   runtimeState: ITradingViewNativeChartRuntimeState;
   watermarkImage: HTMLImageElement | null;
   watermarkOpacity: number;
 }
 
-function getCanvasChartWidth(canvas: HTMLCanvasElement) {
-  return getTradingViewNativeChartWidth(canvas.getBoundingClientRect().width);
+interface ICanvasPriceAxisLabels {
+  currentPrice: string;
+  widestIndicatorPrice: string;
+  widestPrice: string;
+  widestVolume: string;
 }
 
 function getCanvasFont(font: ITradingViewNativeChartSceneFont) {
+  if (font === 'priceAxis') {
+    return `${AXIS_FONT_SIZE}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
+  }
   return `${font === 'axis' ? AXIS_FONT_SIZE : LEGEND_FONT_SIZE}px sans-serif`;
+}
+
+function getCanvasPriceAxisWidth(
+  canvas: HTMLCanvasElement,
+  labels: ICanvasPriceAxisLabels,
+) {
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return getTradingViewNativePriceAxisWidth({
+      currentPriceLabelWidth: 0,
+      widestPriceLabelWidth: 0,
+    });
+  }
+  context.font = getCanvasFont('priceAxis');
+  return getTradingViewNativePriceAxisWidth({
+    currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
+    widestPriceLabelWidth: Math.max(
+      context.measureText(labels.widestPrice).width,
+      context.measureText(labels.widestIndicatorPrice).width,
+    ),
+    widestVolumeLabelWidth: context.measureText(labels.widestVolume).width,
+  });
+}
+
+function getCanvasChartWidth(
+  canvas: HTMLCanvasElement,
+  labels: ICanvasPriceAxisLabels,
+) {
+  return getTradingViewNativeChartWidth(
+    canvas.getBoundingClientRect().width,
+    getCanvasPriceAxisWidth(canvas, labels),
+  );
 }
 
 function drawChartScene({
@@ -230,7 +290,10 @@ function drawKLineChart({
   chartType,
   colors,
   hasVolume,
+  candleLabels,
+  indicatorSeries,
   points,
+  priceAxisWidth,
   runtimeState,
   watermarkImage,
   watermarkOpacity,
@@ -260,11 +323,14 @@ function drawKLineChart({
     crosshair: runtimeState.crosshair,
     hasVolume,
     height,
+    indicatorSeries,
     measureTextWidth: (text, font) => {
       context.font = getCanvasFont(font);
       return context.measureText(text).width;
     },
+    candleLabels,
     points,
+    priceAxisWidth,
     viewport: runtimeState.viewport,
     watermarkOpacity,
     width,
@@ -282,17 +348,22 @@ export const TradingViewNativeChart = memo(
     candleIntervalSeconds,
     chartType,
     hasVolume,
+    indicatorSeries,
+    initialRightOffset,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
+    candleLabels,
     points,
     testID,
     viewportRequest,
   }: ITradingViewNativeChartProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const runtimeStateRef = useRef<ITradingViewNativeChartRuntimeState>(
-      createTradingViewNativeChartRuntimeState(),
+      createTradingViewNativeChartRuntimeState({
+        initialRightOffset,
+      }),
     );
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
     const wheelDeltaNormalizerRef = useRef(
@@ -305,12 +376,23 @@ export const TradingViewNativeChart = memo(
     const [watermarkImage, setWatermarkImage] =
       useState<HTMLImageElement | null>(null);
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
+    const [webFontMeasureVersion, setWebFontMeasureVersion] = useState(0);
     const [viewportState, setViewportState] = useState(
       () => runtimeStateRef.current.viewport,
     );
     const panOffset = viewportState.offset;
     const zoomScale = viewportState.zoomScale;
     const pointCount = points.length;
+    const priceAxisLabels = useMemo(
+      () => ({
+        currentPrice: getTradingViewNativeCurrentPriceLabel(points),
+        widestIndicatorPrice:
+          getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
+        widestPrice: getTradingViewNativePriceAxisLabel(points),
+        widestVolume: getTradingViewNativeVolumeAxisLabel(points),
+      }),
+      [indicatorSeries, points],
+    );
     const previousLatestTimestampRef = useRef<number | undefined>(
       points[pointCount - 1]?.t,
     );
@@ -326,6 +408,30 @@ export const TradingViewNativeChart = memo(
     useEffect(() => {
       onChartWidthChange?.(measuredChartWidth);
     }, [measuredChartWidth, onChartWidthChange]);
+
+    useEffect(() => {
+      const fontSet = document.fonts;
+      if (!fontSet) {
+        return undefined;
+      }
+
+      let isActive = true;
+      const refreshMeasurement = () => {
+        if (isActive) {
+          setWebFontMeasureVersion((currentVersion) => currentVersion + 1);
+        }
+      };
+
+      void fontSet
+        .load(getCanvasFont('priceAxis'))
+        .then(refreshMeasurement, refreshMeasurement);
+      fontSet.addEventListener?.('loadingdone', refreshMeasurement);
+
+      return () => {
+        isActive = false;
+        fontSet.removeEventListener?.('loadingdone', refreshMeasurement);
+      };
+    }, []);
 
     useEffect(() => {
       const image = new Image();
@@ -348,6 +454,7 @@ export const TradingViewNativeChart = memo(
         if (!canvas) {
           return;
         }
+        const priceAxisWidth = getCanvasPriceAxisWidth(canvas, priceAxisLabels);
         drawKLineChart({
           candleIntervalSeconds,
           canvas,
@@ -361,7 +468,10 @@ export const TradingViewNativeChart = memo(
             up: CHART_UP_COLOR,
           },
           hasVolume,
+          candleLabels,
+          indicatorSeries,
           points,
+          priceAxisWidth,
           runtimeState: nextRuntimeState,
           watermarkImage,
           watermarkOpacity,
@@ -374,8 +484,11 @@ export const TradingViewNativeChart = memo(
         chartType,
         grid,
         hasVolume,
+        indicatorSeries,
         line,
+        candleLabels,
         points,
+        priceAxisLabels,
         watermarkImage,
         watermarkOpacity,
       ],
@@ -392,7 +505,15 @@ export const TradingViewNativeChart = memo(
       if (!canvas) {
         return;
       }
-      const chartWidth = getCanvasChartWidth(canvas);
+      const chartWidth = getCanvasChartWidth(canvas, priceAxisLabels);
+      const runtimeAfterInitialMeasure = reduceTradingViewNativeChartRuntime(
+        runtimeStateRef.current,
+        {
+          type: 'initialWidthMeasured',
+          width: canvas.clientWidth,
+        },
+      );
+      runtimeStateRef.current = runtimeAfterInitialMeasure;
       const runtimeEvent = {
         appendedPointCount: dataUpdateMetadata.appendedPointCount,
         chartWidth,
@@ -403,8 +524,9 @@ export const TradingViewNativeChart = memo(
       if (dragState) {
         dragState.startOffset = reduceTradingViewNativeChartRuntime(
           {
-            ...runtimeStateRef.current,
+            ...runtimeAfterInitialMeasure,
             viewport: {
+              ...runtimeAfterInitialMeasure.viewport,
               offset: dragState.startOffset,
               zoomScale: dragState.zoomScale,
             },
@@ -413,7 +535,7 @@ export const TradingViewNativeChart = memo(
         ).viewport.offset;
       }
       const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-        runtimeStateRef.current,
+        runtimeAfterInitialMeasure,
         runtimeEvent,
       );
       runtimeStateRef.current = nextRuntimeState;
@@ -422,7 +544,7 @@ export const TradingViewNativeChart = memo(
           ? currentState
           : nextRuntimeState.viewport,
       );
-    }, [pointCount, points]);
+    }, [pointCount, points, priceAxisLabels]);
 
     useLayoutEffect(() => {
       if (
@@ -489,8 +611,20 @@ export const TradingViewNativeChart = memo(
         return undefined;
       }
       const renderCurrentChart = () => {
-        renderChart(runtimeStateRef.current);
-        const nextChartWidth = getCanvasChartWidth(canvas);
+        const currentRuntimeState = runtimeStateRef.current;
+        const measuredRuntimeState = reduceTradingViewNativeChartRuntime(
+          currentRuntimeState,
+          {
+            type: 'initialWidthMeasured',
+            width: canvas.clientWidth,
+          },
+        );
+        if (measuredRuntimeState !== currentRuntimeState) {
+          runtimeStateRef.current = measuredRuntimeState;
+          setViewportState(measuredRuntimeState.viewport);
+        }
+        renderChart(measuredRuntimeState);
+        const nextChartWidth = getCanvasChartWidth(canvas, priceAxisLabels);
         setMeasuredChartWidth((currentWidth) =>
           currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
         );
@@ -501,7 +635,13 @@ export const TradingViewNativeChart = memo(
       return () => {
         resizeObserver.disconnect();
       };
-    }, [panOffset, renderChart, zoomScale]);
+    }, [
+      panOffset,
+      priceAxisLabels,
+      renderChart,
+      webFontMeasureVersion,
+      zoomScale,
+    ]);
 
     useEffect(() => {
       if (measuredChartWidth <= 0 || pointCount <= 0) {
@@ -527,7 +667,10 @@ export const TradingViewNativeChart = memo(
         if (event.button !== 0) {
           return;
         }
-        const chartWidth = getCanvasChartWidth(event.currentTarget);
+        const chartWidth = getCanvasChartWidth(
+          event.currentTarget,
+          priceAxisLabels,
+        );
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
           runtimeStateRef.current,
           {
@@ -553,7 +696,7 @@ export const TradingViewNativeChart = memo(
           zoomScale: nextRuntimeState.viewport.zoomScale,
         };
       },
-      [pointCount, renderChart],
+      [pointCount, priceAxisLabels, renderChart],
     );
 
     const handlePointerMove = useCallback(
@@ -564,10 +707,13 @@ export const TradingViewNativeChart = memo(
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtimeStateRef.current,
             {
+              chartWidth: getCanvasChartWidth(
+                event.currentTarget,
+                priceAxisLabels,
+              ),
               height: canvasRect.height,
               pointCount,
               type: 'crosshairMoved',
-              width: canvasRect.width,
               x: event.clientX - canvasRect.left,
               y: event.clientY - canvasRect.top,
             },
@@ -581,7 +727,10 @@ export const TradingViewNativeChart = memo(
         }
         event.preventDefault();
         dragState.currentClientX = event.clientX;
-        const chartWidth = getCanvasChartWidth(event.currentTarget);
+        const chartWidth = getCanvasChartWidth(
+          event.currentTarget,
+          priceAxisLabels,
+        );
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
           runtimeStateRef.current,
           {
@@ -603,7 +752,7 @@ export const TradingViewNativeChart = memo(
             : nextRuntimeState.viewport,
         );
       },
-      [pointCount, renderChart],
+      [pointCount, priceAxisLabels, renderChart],
     );
 
     const handlePointerLeave = useCallback(() => {
@@ -654,7 +803,7 @@ export const TradingViewNativeChart = memo(
         event.preventDefault();
 
         const canvasRect = canvas.getBoundingClientRect();
-        const chartWidth = getCanvasChartWidth(canvas);
+        const chartWidth = getCanvasChartWidth(canvas, priceAxisLabels);
         const currentRuntimeState = runtimeStateRef.current;
         let nextRuntimeState = currentRuntimeState;
         if (wheelDelta.deltaY !== 0) {
@@ -701,7 +850,7 @@ export const TradingViewNativeChart = memo(
             : nextRuntimeState.viewport,
         );
       },
-      [pointCount],
+      [pointCount, priceAxisLabels],
     );
 
     useEffect(() => {

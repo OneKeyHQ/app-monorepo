@@ -4,6 +4,7 @@ import {
   buildPerpDepositOrderStatusRequestParams,
   buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
+  mergeSwapTokenLists,
   shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
 
@@ -113,5 +114,30 @@ describe('buildSwapRequestErrorToastPayload', () => {
       requestId: undefined,
       title: 'Request failed',
     });
+  });
+});
+
+describe('mergeSwapTokenLists', () => {
+  it('keeps search results first and deduplicates support-list tokens case-insensitively', () => {
+    const searchToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xAbC',
+      symbol: 'SEARCH',
+      decimals: 18,
+    };
+    const supportToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xabc',
+      symbol: 'SUPPORT',
+      decimals: 18,
+    };
+    const anotherNetworkToken = {
+      ...supportToken,
+      networkId: 'evm--137',
+    };
+
+    expect(
+      mergeSwapTokenLists([[searchToken], [supportToken, anotherNetworkToken]]),
+    ).toEqual([searchToken, anotherNetworkToken]);
   });
 });

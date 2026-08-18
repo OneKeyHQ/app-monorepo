@@ -53,6 +53,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
@@ -77,13 +78,13 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
+import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
@@ -184,6 +185,7 @@ function ProtocolSwitchTriggerRow({
   fallbackAprText,
   isLoading,
   isSwitchEnabled,
+  canSwitchProtocols,
   onPress,
 }: {
   currentProtocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
@@ -191,10 +193,14 @@ function ProtocolSwitchTriggerRow({
   fallbackProviderLogoUri?: string;
   fallbackAprText?: string;
   isLoading?: boolean;
+  /** Interactive right now — false while a tx is in flight (OK-58029) */
   isSwitchEnabled: boolean;
+  /** Switchable in principle. Drives layout only, so a transient lock cannot
+      change the rendered shape and remount the icon (OK-59957) */
+  canSwitchProtocols: boolean;
   onPress: () => void;
 }) {
-  const providerName = capitalizeString(
+  const providerName = getEarnProviderDisplayName(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
@@ -205,7 +211,9 @@ function ProtocolSwitchTriggerRow({
     protocol: currentProtocol,
     fallbackText: fallbackAprText,
   });
-  const showChevron = isSwitchEnabled || isLoading;
+  // Presence follows canSwitchProtocols so locking the switcher mid-tx dims the
+  // chevron instead of removing it (its removal reflowed the row) (OK-59957)
+  const showChevron = canSwitchProtocols || isLoading;
   let aprElement = null;
 
   if (aprDisplay) {
@@ -315,7 +323,14 @@ function ProtocolSwitcher({
     protocols,
     selectedProtocol,
   } = protocolSwitchConfig;
-  const isSwitchEnabled = protocols.length > 1 && !disabled;
+  // Split structural from interactive (OK-59957). canSwitchProtocols decides
+  // whether the Popover wrapper exists; disabled only removes interactivity.
+  // Deriving the tree shape from `disabled` made pressing the stake button
+  // swap <Popover renderTrigger={trigger}/> for a bare <trigger/>, which
+  // unmounted and remounted the row — reloading the remote protocol image
+  // (the visible flicker) and reflowing it as the chevron vanished.
+  const canSwitchProtocols = protocols.length > 1;
+  const isSwitchEnabled = canSwitchProtocols && !disabled;
   const renderProtocolListContent = useCallback(
     ({
       closePopover,
@@ -349,6 +364,23 @@ function ProtocolSwitcher({
       tokenSymbol,
     ],
   );
+  // Always-controlled open state (OK-59957). Passing `open` only while locked
+  // would flip Popover between controlled and uncontrolled: its internal
+  // isOpen would stay true through the lock and the list would pop itself open
+  // again when the tx finished.
+  const [isProtocolListOpen, setIsProtocolListOpen] = useState(false);
+  const handleProtocolListOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setIsProtocolListOpen(nextOpen && isSwitchEnabled);
+    },
+    [isSwitchEnabled],
+  );
+  useEffect(() => {
+    if (!isSwitchEnabled) {
+      setIsProtocolListOpen(false);
+    }
+  }, [isSwitchEnabled]);
+
   const trigger = (
     <ProtocolSwitchTriggerRow
       currentProtocol={currentProtocol}
@@ -357,11 +389,15 @@ function ProtocolSwitcher({
       fallbackAprText={fallbackAprText}
       isLoading={isLoading}
       isSwitchEnabled={isSwitchEnabled}
+      canSwitchProtocols={canSwitchProtocols}
       onPress={() => {}}
     />
   );
 
-  if (!isSwitchEnabled) {
+  // Only a genuinely single-protocol asset drops the Popover wrapper — that is
+  // stable for the lifetime of the screen, so the trigger is never remounted
+  // mid-interaction (OK-59957)
+  if (!canSwitchProtocols) {
     return trigger;
   }
 
@@ -369,6 +405,10 @@ function ProtocolSwitcher({
     <Popover
       title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
       placement="bottom-end"
+      // Locked mid-tx (OK-58029) simply stays closed, rather than unmounting
+      // the Popover and changing the tree shape (OK-59957)
+      open={isProtocolListOpen}
+      onOpenChange={handleProtocolListOpenChange}
       renderTrigger={trigger}
       floatingPanelProps={{
         w: 360,
@@ -385,6 +425,11 @@ type IUniversalStakeProps = {
   balance: string;
 
   tokenImageUri?: string;
+  /**
+   * Token metadata still resolving and no image came in via route params —
+   * skeleton the icon instead of flashing the placeholder coin (OK-59961)
+   */
+  tokenImageLoading?: boolean;
   tokenSymbol?: string;
 
   decimals?: number;
@@ -447,6 +492,7 @@ export function UniversalStake({
   decimals,
   minTransactionFee = '0',
   tokenImageUri,
+  tokenImageLoading,
   tokenSymbol,
   providerName = '',
   providerLogo,
@@ -513,6 +559,8 @@ export function UniversalStake({
       }),
     [networkId],
   ).result;
+  const networkLogoURI =
+    protocolSwitchConfig?.currentProtocol?.network.logoURI ?? network?.logoURI;
 
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     undefined | IEarnEstimateFeeResp
@@ -963,12 +1011,29 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const checkAmountRequestIdRef = useRef(0);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(
-    async ({ amount, identity }: { amount: string; identity?: string }) => {
-      if (isInvalidAmount(amount)) {
+    async ({
+      amount,
+      identity,
+      requestId,
+    }: {
+      amount: string;
+      identity?: string;
+      requestId: number;
+    }) => {
+      if (
+        requestId !== checkAmountRequestIdRef.current ||
+        isInvalidAmount(amount)
+      ) {
+        return;
+      }
+      // An empty form is represented as "0" by the initial effect. Treat it as
+      // not entered yet so the disabled CTA does not flash a loading spinner.
+      if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
         return;
       }
       setCheckAmountLoading(true);
@@ -990,6 +1055,9 @@ export function UniversalStake({
           slippage: pendleSlippage,
           stakeType,
         });
+        if (requestId !== checkAmountRequestIdRef.current) {
+          return;
+        }
 
         if (Number(response.code) === 0) {
           setCheckoutAmountMessage('');
@@ -999,17 +1067,40 @@ export function UniversalStake({
           setCheckAmountAlerts([]);
         }
       } finally {
-        setCheckAmountLoading(false);
+        if (requestId === checkAmountRequestIdRef.current) {
+          setCheckAmountLoading(false);
+        }
       }
     },
     300,
   );
 
   useEffect(() => {
-    void checkAmount({
-      amount: amountValue || '0',
-      identity: stakefishIdentity,
-    });
+    checkAmount.cancel();
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const amount = amountValue || '0';
+    const cleanup = () => {
+      checkAmount.cancel();
+      if (requestId === checkAmountRequestIdRef.current) {
+        checkAmountRequestIdRef.current += 1;
+      }
+    };
+
+    if (isInvalidAmount(amount)) {
+      setCheckAmountLoading(false);
+      return cleanup;
+    }
+
+    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      setCheckAmountLoading(false);
+      return cleanup;
+    }
+
+    void checkAmount({ amount, identity: stakefishIdentity, requestId });
+    return cleanup;
   }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
@@ -1035,10 +1126,9 @@ export function UniversalStake({
       if (!isOverflowDecimals) {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount({ amount: value, identity: stakefishIdentity });
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1216,6 +1306,20 @@ export function UniversalStake({
       }
     }
 
+    // OK-59196 (review P2): gate here, before submitting/wrap progress state
+    // transitions, so rejecting the risk dialog leaves the form untouched —
+    // the gate inside useUniversalStake would otherwise return void and the
+    // caller would resetAmount() as if the flow had completed
+    const earnRiskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
+    });
+    if (!earnRiskConfirmed) {
+      return;
+    }
+
     // Stakefish ETH: sign before building the staking transaction.
     if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);
@@ -1390,6 +1494,12 @@ export function UniversalStake({
   // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
   // can re-enter the approve step once the allowance has been reset to 0.
   const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  // Whitelist flag for the deliberate USDT-reset re-entry (OK-58027): that
+  // flow re-enters onApprove while approving === true, so the reentry guard
+  // must let it through (review P0). A ref (not a param) keeps onApprove
+  // zero-arg — it is passed directly to the footer button's onPress, where a
+  // press event would otherwise land in the options slot.
+  const usdtResetReentryRef = useRef(false);
 
   const resetUSDTApproveValue = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -1436,6 +1546,9 @@ export function UniversalStake({
                 // navigationToTxConfirm outside any try/catch, and a swallowed
                 // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                  // Bypass the approving-reentry guard: this deliberate
+                  // re-entry runs with approving === true (OK-58027)
+                  usdtResetReentryRef.current = true;
                   void onApproveRef.current?.().catch((e) => {
                     console.error(
                       'Re-enter approve after USDT reset failed:',
@@ -1569,7 +1682,32 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    // Take the approving lock synchronously BEFORE any await (review P1):
+    // the confirm button's loading derives from `approving`, so awaiting
+    // first would leave a double-tap window as wide as one bg IPC roundtrip.
+    // The USDT reset flow (OK-58027) re-enters deliberately with
+    // approving === true, so it is whitelisted via usdtResetReentryRef —
+    // blocking it would dead-end the flow with the button stuck loading
+    // (review P0)
+    const isUsdtResetReentry = usdtResetReentryRef.current;
+    usdtResetReentryRef.current = false;
+    if (approving && !isUsdtResetReentry) {
+      return;
+    }
     setApproving(true);
+    // OK-59196: the approve step is the user's first on-chain action in the
+    // two-step flow and bypasses useUniversalStake, so the one-time risk
+    // disclaimer must gate here too (once accepted it resolves immediately)
+    const riskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId: approveTarget.networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
+    });
+    if (!riskConfirmed) {
+      setApproving(false);
+      return;
+    }
     let approveAllowance = allowance;
     try {
       const allowanceInfo = await fetchAllowanceResponse();
@@ -1694,6 +1832,7 @@ export function UniversalStake({
       },
     });
   }, [
+    approving,
     allowance,
     amountValue,
     tokenInfo?.token,
@@ -1709,11 +1848,13 @@ export function UniversalStake({
     getPermitCache,
     getPermitSignature,
     providerName,
+    actionSymbol,
     updatePermitCache,
     onSubmit,
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
+    intl,
   ]);
 
   // Keep the ref pointing at the latest onApprove so the earlier-defined USDT
@@ -1743,7 +1884,7 @@ export function UniversalStake({
     amountValue,
     showApyDetail,
     receiveInputConfig,
-    networkLogoURI: network?.logoURI,
+    networkLogoURI,
     isQuoteExpired,
     loading: quoteLoading,
   });
@@ -2165,8 +2306,9 @@ export function UniversalStake({
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
+                selectedTokenImageLoading: tokenImageLoading,
                 selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-                selectedNetworkImageUri: network?.logoURI,
+                selectedNetworkImageUri: networkLogoURI,
                 ...tokenSelectorTriggerProps,
               }}
               balanceProps={{
@@ -2369,7 +2511,7 @@ export function UniversalStake({
                                 borderRadius="$2"
                               />
                               <SizableText size="$bodyMd">
-                                {capitalizeString(providerName || '')}
+                                {getEarnProviderDisplayName(providerName || '')}
                               </SizableText>
                             </XStack>
                             <YStack
@@ -2453,6 +2595,7 @@ export function UniversalStake({
           </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (

@@ -47,6 +47,11 @@ export type IBasicPageProps = PropsWithChildren<
      * @description Test ID for end-to-end testing.
      */
     testID?: string;
+    /** @platform cross-platform
+     * @description Background color for the page root, including safe areas.
+     * @default $bgApp
+     */
+    backgroundColor?: IStackProps['backgroundColor'];
   } & IPageLifeCycle
 >;
 

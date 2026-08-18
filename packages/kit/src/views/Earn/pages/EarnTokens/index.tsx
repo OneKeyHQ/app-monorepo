@@ -23,6 +23,12 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
+import {
+  EARN_LIST_ESTIMATED_ITEM_SIZE,
+  EARN_LIST_ROW_GAP,
+  EarnListRowSeparator,
+} from '../../components/earnListRhythm';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -31,7 +37,10 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
-import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import {
+  mergeSimpleEarnWithStakingAssets,
+  parseAprPercentValue,
+} from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -64,17 +73,25 @@ function getAssetAprSortValue(asset: IEarnAvailableAsset): number {
   return parseAprPercentValue(asset.aprWithoutFee || asset.apr);
 }
 
+// Stable identity so gating the first paint never re-creates the list data
+const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
+
 function EarnTokensSkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$4" pt="$4">
+    // Mirrors the real row: same layout (symbol left, APY over TVL right), same
+    // ListItem box metrics and the same row gap, so the skeleton-to-content
+    // swap shifts neither row heights nor row rhythm (OK-59841, OK-59904)
+    <YStack px="$pagePadding" gap={EARN_LIST_ROW_GAP}>
       {Array.from({ length: 8 }).map((_, index) => (
-        <XStack key={index} ai="center" gap="$3">
+        <XStack key={index} minHeight="$11" py="$2" ai="center" gap="$3">
           <Skeleton w="$10" h="$10" borderRadius="$full" />
-          <YStack gap="$1.5" flex={1}>
+          <YStack flex={1}>
             <Skeleton h="$4" w="$24" />
+          </YStack>
+          <YStack ai="flex-end" gap="$1.5">
+            <Skeleton h="$4" w="$20" />
             <Skeleton h="$3" w="$16" />
           </YStack>
-          <Skeleton h="$4" w="$20" />
         </XStack>
       ))}
     </YStack>
@@ -94,16 +111,34 @@ function EarnTokensContent() {
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
-  // Fetch All + StableCoins once; every category derives from these two
-  // datasets client-side, so switching chips never re-requests the server
+  // Fetch SimpleEarn + Staking + StableCoins once; every category derives from
+  // these datasets client-side, so switching chips never re-requests the
+  // server.
+  // OK-59338: the base dataset is a server-side category (which already
+  // excludes fixed-rate PT products) instead of All minus a fixed-rate symbol
+  // set — that subtraction also removed simple-earn products of symbols that
+  // happen to have a PT variant too (USDe), making them unsearchable here.
+  // OK-59854: SimpleEarn alone is not the whole base though. Server categories
+  // are disjoint, so native-staking assets (SOL/BTC/ETH/APT/POL/ATOM) only
+  // appear under Staking; without them this page showed strictly fewer tokens
+  // than the Earn home Trending section that links to it.
   const { result: assets, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: EAvailableAssetsTypeEnum.All,
+        type: EAvailableAssetsTypeEnum.SimpleEarn,
       }),
     [],
     { watchLoading: true, undefinedResultIfError: true },
   );
+  const { result: stakingAssets, isLoading: isStakingLoading } =
+    usePromiseResult(
+      () =>
+        backgroundApiProxy.serviceStaking.getAvailableAssets({
+          type: EAvailableAssetsTypeEnum.Staking,
+        }),
+      [],
+      { watchLoading: true, undefinedResultIfError: true },
+    );
   const { result: stableAssets, isLoading: isStableLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -112,41 +147,30 @@ function EarnTokensContent() {
     [],
     { watchLoading: true, undefinedResultIfError: true },
   );
+  const baseAssets = useMemo(
+    () => mergeSimpleEarnWithStakingAssets(assets ?? [], stakingAssets ?? []),
+    [assets, stakingAssets],
+  );
   const stableSymbols = useMemo(
     () => new Set((stableAssets ?? []).map((asset) => asset.symbol)),
     [stableAssets],
   );
-  // Category view over the two datasets (review P2)
+  // Category view over the merged dataset (review P2)
   const categoryAssets = useMemo(() => {
-    const list = assets ?? [];
     if (categoryType === 'stable') {
-      return list.filter((asset) => stableSymbols.has(asset.symbol));
+      return baseAssets.filter((asset) => stableSymbols.has(asset.symbol));
     }
     if (categoryType === 'nonStable') {
-      return list.filter((asset) => !stableSymbols.has(asset.symbol));
+      return baseAssets.filter((asset) => !stableSymbols.has(asset.symbol));
     }
-    return list;
-  }, [assets, categoryType, stableSymbols]);
-
-  // The Tokens list excludes fixed-rate assets (OK-58879): fixed-rate (PT-like,
-  // separate symbols) has its own list page, so filter by the fixedRate symbol set
-  const { result: fixedRateAssets } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: EAvailableAssetsTypeEnum.FixedRate,
-      }),
-    [],
-    { undefinedResultIfError: true },
-  );
-  const fixedRateSymbols = useMemo(
-    () => new Set((fixedRateAssets ?? []).map((asset) => asset.symbol)),
-    [fixedRateAssets],
-  );
+    return baseAssets;
+  }, [baseAssets, categoryType, stableSymbols]);
 
   // Data source for the default sort (OK-58880): total TVL of all providers
   // under each symbol. Reuses the all-protocol aggregation (single request +
-  // 5-minute cache); not shown on rows, used for sorting only
-  const { providers: aggregatedProviders } = useEarnAllProtocols();
+  // 5-minute cache)
+  const { providers: aggregatedProviders, isLoading: isAggregationLoading } =
+    useEarnAllProtocols();
   const symbolTvlMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const aggregated of aggregatedProviders) {
@@ -195,9 +219,6 @@ function EarnTokensContent() {
     const selectedSet = new Set(selectedNetworkIds);
     const keyword = searchText.trim().toLowerCase();
     return list.filter((asset) => {
-      if (fixedRateSymbols.has(asset.symbol)) {
-        return false;
-      }
       if (
         selectedSet.size > 0 &&
         !(asset.protocols ?? []).some((protocol) =>
@@ -215,7 +236,7 @@ function EarnTokensContent() {
       }
       return true;
     });
-  }, [categoryAssets, fixedRateSymbols, searchText, selectedNetworkIds]);
+  }, [categoryAssets, searchText, selectedNetworkIds]);
 
   const sortedAssets = useMemo(
     () =>
@@ -295,32 +316,39 @@ function EarnTokensContent() {
     [navigateToAsset],
   );
 
-  const tvlLabel = useMemo(
-    () => intl.formatMessage({ id: ETranslations.earn_tvl }),
-    [intl],
-  );
-
+  // Product dropped the TVL sub-line from this aggregated page. Only the
+  // display goes — symbolTvlMap still backs the TVL sort options and the
+  // TVL-desc default, so it must stay.
   const renderItem = useCallback(
     ({ item }: { item: IEarnAvailableAsset }) => (
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
         totalLiquidityLabel={totalLiquidityLabel}
-        // Walkthrough r3: show the summed provider TVL under APY so the
-        // default TVL-desc sort is visible on the row
-        tvlValue={symbolTvlMap.get(item.symbol.toLowerCase())}
-        tvlLabel={tvlLabel}
         testID={EarnTestIDs.tokensPageItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel, symbolTvlMap, tvlLabel],
+    [handleAssetPress, totalLiquidityLabel],
   );
 
   const keyExtractor = useCallback(
     (item: IEarnAvailableAsset) => item.symbol,
     [],
   );
+
+  // OK-59841: available-assets resolves well before the protocol aggregation,
+  // but the aggregation owns both the TVL sub-line on every row and the values
+  // the default TVL sort reads. Painting as soon as available-assets lands
+  // therefore draws one-line rows in a provisional (all-zero) order, then
+  // grows every row by a line and reorders the whole list — which reads as a
+  // jitter under the page title. Keep the skeleton until every field the rows
+  // render and sort by is settled, so the list is painted exactly once.
+  const isInitialLoading =
+    isLoading ||
+    isStakingLoading ||
+    isAggregationLoading ||
+    (categoryType !== 'all' && isStableLoading);
 
   // Passed as an element (stable component type), so re-renders reconcile
   // in place and the SearchBar keeps focus while typing
@@ -403,15 +431,22 @@ function EarnTokensContent() {
       <ListView
         flex={1}
         {...earnListScrollBehaviorProps}
-        data={sortedAssets}
-        estimatedItemSize={60}
+        data={isInitialLoading ? EMPTY_ASSETS : sortedAssets}
+        estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          isLoading || (categoryType !== 'all' && isStableLoading) ? (
+          isInitialLoading ? (
             <EarnTokensSkeleton />
-          ) : null
+          ) : (
+            <EarnListEmptyState
+              isFiltered={
+                searchText.trim().length > 0 || selectedNetworkIds.length > 0
+              }
+            />
+          )
         }
         contentContainerStyle={{ pb: tabBarHeight }}
       />

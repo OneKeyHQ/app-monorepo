@@ -1,6 +1,7 @@
 export const EarnTestIDs = {
   // Main page
   earnPage: 'earn-page',
+  recommendedItem: (symbol: string) => `earn-recommended-${symbol}`,
   borrowEntryButton: 'earn-borrow-entry-button',
   homeShortcut: (name: string) => `earn-home-shortcut-${name}`,
 

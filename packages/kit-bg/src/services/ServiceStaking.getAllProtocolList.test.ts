@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -5,12 +6,16 @@ import ServiceStaking from './ServiceStaking';
 
 import type { AxiosInstance } from 'axios';
 
-// The full-list fast path must reuse getProtocolList's gating semantics
-// (review P1): locally disabled or client-unsupported protocols and
-// WithdrawOnly rows must never surface on the aggregation pages, and rows
-// without a symbol cannot be config-checked so they are dropped (which makes
-// old symbol-less servers yield an empty list and pushes callers onto the
-// per-symbol fan-out fallback).
+// The full-list fast path must reuse getProtocolList's enabled gating
+// (review P1): locally disabled or client-unsupported protocols must never
+// surface on the aggregation pages. WithdrawOnly rows are kept (OK-59305) so
+// sunset protocols stay reachable for redeem.
+//
+// An empty array is the "response not usable, fall back to the per-symbol
+// fan-out" signal. It is returned whenever the fast path cannot produce a
+// complete list — a response missing symbols on any row, or a config lookup
+// that threw — rather than silently handing back a subset the caller would
+// treat as complete (PR 12791 review P1).
 
 function createProtocolItem({
   symbol,
@@ -107,12 +112,12 @@ describe('ServiceStaking.getAllProtocolList gating', () => {
     ]);
   });
 
-  it('drops WithdrawOnly rows without consulting the config', async () => {
-    const { service, getStakingConfigs } = createServiceHarness({
+  it('keeps WithdrawOnly rows so sunset protocols stay reachable (OK-59305)', async () => {
+    const { service } = createServiceHarness({
       protocols: [
         createProtocolItem({ symbol: 'USDT', provider: 'enabled-provider' }),
         createProtocolItem({
-          symbol: 'USDT',
+          symbol: 'ETH',
           provider: 'withdraw-only-provider',
           group: EStakeProtocolGroupEnum.WithdrawOnly,
         }),
@@ -127,10 +132,8 @@ describe('ServiceStaking.getAllProtocolList gating', () => {
 
     expect(result.map((item) => item.provider.name)).toEqual([
       'enabled-provider',
+      'withdraw-only-provider',
     ]);
-    expect(getStakingConfigs).not.toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'withdraw-only-provider' }),
-    );
   });
 
   it('drops symbol-less rows so old servers fall back to fan-out', async () => {
@@ -146,6 +149,52 @@ describe('ServiceStaking.getAllProtocolList gating', () => {
 
     expect(result).toEqual([]);
     expect(getStakingConfigs).not.toHaveBeenCalled();
+  });
+
+  it('reports a partially symbol-less response as unusable rather than a subset (PR 12791 review P1)', async () => {
+    const { service, getStakingConfigs } = createServiceHarness({
+      protocols: [
+        createProtocolItem({ symbol: 'USDT', provider: 'enabled-provider' }),
+        createProtocolItem({ provider: 'symbol-less-provider' }),
+      ],
+      enabledByProvider: {
+        'enabled-provider': true,
+        'symbol-less-provider': true,
+      },
+    });
+
+    const result = await service.getAllProtocolList();
+
+    // Returning only the symbol-bearing row would look complete to the caller
+    // and silently hide the rest of the providers
+    expect(result).toEqual([]);
+    expect(getStakingConfigs).not.toHaveBeenCalled();
+  });
+
+  it('reports the fast path as unusable when a config lookup throws (PR 12791 review P1)', async () => {
+    const { service } = createServiceHarness({
+      protocols: [
+        createProtocolItem({ symbol: 'USDT', provider: 'enabled-provider' }),
+        createProtocolItem({ symbol: 'USDC', provider: 'throwing-provider' }),
+      ],
+      enabledByProvider: { 'enabled-provider': true },
+    });
+    jest
+      .spyOn(service, 'getStakingConfigs')
+      .mockImplementation(async ({ provider }) => {
+        if (provider === 'throwing-provider') {
+          throw new OneKeyLocalError('vault settings unavailable');
+        }
+        return { enabled: true } as Awaited<
+          ReturnType<ServiceStaking['getStakingConfigs']>
+        >;
+      });
+
+    const result = await service.getAllProtocolList();
+
+    // A transient lookup failure must not silently drop that provider from the
+    // aggregation pages while the rest still renders as if complete
+    expect(result).toEqual([]);
   });
 
   it('checks the config with each row own symbol/network/provider', async () => {

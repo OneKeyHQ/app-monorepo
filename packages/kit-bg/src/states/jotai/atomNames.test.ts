@@ -1,6 +1,13 @@
 import { EAtomNames, atomsConfig } from './atomNames';
 
 describe('atomsConfig', () => {
+  it('replaces the Market chart settings snapshot instead of merging legacy fields', () => {
+    expect(
+      atomsConfig[EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]
+        ?.mergeInitialValue,
+    ).toBe(false);
+  });
+
   it('replaces Perps snapshot atoms instead of merging stale fields', () => {
     expect(
       atomsConfig[EAtomNames.perpsActiveAssetAtom]?.mergeInitialValue,

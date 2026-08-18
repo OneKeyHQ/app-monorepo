@@ -27,7 +27,6 @@ import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
   IMarketTokenListItem,
-  IMarketTokenTransaction,
 } from '@onekeyhq/shared/types/marketV2';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -74,18 +73,15 @@ import {
   useSwapProTokenBalanceLoadingAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenSupportLimitAtom,
-  useSwapProTokenTransactionPriceAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '../../Market/hooks';
-import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import {
@@ -778,8 +774,7 @@ export function useSwapProTokenInfoSync() {
 }
 
 export function useSwapProTokenInit() {
-  const { setSwapProSelectToken, cancelSpeedQuote, cleanSpeedQuote } =
-    useSwapActions().current;
+  const { setSwapProSelectToken, resetQuoteAction } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
@@ -862,8 +857,7 @@ export function useSwapProTokenInit() {
       if (swapProUseSelectBuyTokenAtom) {
         setSwapProUseSelectBuyTokenAtom(undefined);
         setSwapProInputAmount('');
-        cancelSpeedQuote();
-        void cleanSpeedQuote();
+        void resetQuoteAction();
       }
       return;
     }
@@ -921,8 +915,7 @@ export function useSwapProTokenInit() {
     swapProUseSelectBuyTokenAtom,
     setSwapProUseSelectBuyTokenAtom,
     setSwapProInputAmount,
-    cancelSpeedQuote,
-    cleanSpeedQuote,
+    resetQuoteAction,
     defaultTokensFromType,
     findPreferredToken,
   ]);
@@ -971,8 +964,7 @@ export function useSwapProTokenInit() {
       if (swapProSellToToken) {
         setSwapProSellToToken(undefined);
         setSwapFromInputAmount({ value: '', isInput: true });
-        cancelSpeedQuote();
-        void cleanSpeedQuote();
+        void resetQuoteAction();
       }
       return;
     }
@@ -1075,8 +1067,7 @@ export function useSwapProTokenInit() {
     defaultTokensFromType,
     setSwapProSellToToken,
     setSwapFromInputAmount,
-    cancelSpeedQuote,
-    cleanSpeedQuote,
+    resetQuoteAction,
     swapProSelectToken?.networkId,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.isStock,
@@ -1462,108 +1453,6 @@ export function useSwapProTokenDetailInfo() {
   };
 }
 
-export function useSwapProTokenTransactionList(
-  tokenAddress: string,
-  networkId: string,
-  enableWebSocket: boolean,
-  supportSpeedSwap?: boolean,
-) {
-  const currencyInfo = useCurrency();
-  const [, setSwapProTokenTransactionPrice] =
-    useSwapProTokenTransactionPriceAtom();
-  const [swapProTokenTransactionList, setSwapProTokenTransactionList] =
-    useState<IMarketTokenTransaction[]>([]);
-  const swapProTokenTransactionListRef = useRef<IMarketTokenTransaction[]>(
-    swapProTokenTransactionList,
-  );
-  if (swapProTokenTransactionListRef.current !== swapProTokenTransactionList) {
-    swapProTokenTransactionListRef.current = [...swapProTokenTransactionList];
-  }
-  const {
-    result: transactionsData,
-    isLoading: isRefreshing,
-    run: fetchTransactions,
-  } = usePromiseResult(
-    async () => {
-      if (!networkId || !supportSpeedSwap) {
-        return undefined;
-      }
-      try {
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions(
-            {
-              tokenAddress,
-              networkId,
-              limit: 10,
-            },
-          );
-        return response;
-      } catch (_e) {
-        return { list: [] };
-      }
-    },
-    [networkId, supportSpeedSwap, tokenAddress],
-    {
-      watchLoading: true,
-    },
-  );
-  useEffect(() => {
-    const newTransactions = transactionsData?.list;
-    if (!newTransactions || newTransactions.length === 0) {
-      setSwapProTokenTransactionList([]);
-      setSwapProTokenTransactionPrice('');
-      return;
-    }
-    setSwapProTokenTransactionList(newTransactions);
-    setSwapProTokenTransactionPrice(newTransactions[0].to.price ?? '');
-  }, [transactionsData?.list, setSwapProTokenTransactionPrice]);
-
-  const addNewTransactions = useCallback(
-    (newTransactions: IMarketTokenTransaction[]) => {
-      if (newTransactions.length === 0) {
-        return;
-      }
-
-      const prev = swapProTokenTransactionListRef.current;
-      const seenHashes = new Set(prev.map((tx) => tx.hash));
-      const nextTransactions = newTransactions.filter((tx) => {
-        if (seenHashes.has(tx.hash)) {
-          return false;
-        }
-        seenHashes.add(tx.hash);
-        return true;
-      });
-
-      if (nextTransactions.length === 0) {
-        return;
-      }
-
-      const updatedTransactions = [...nextTransactions, ...prev].toSorted(
-        (a, b) => b.timestamp - a.timestamp,
-      );
-      setSwapProTokenTransactionList(updatedTransactions);
-      setSwapProTokenTransactionPrice(updatedTransactions[0].to.price ?? '');
-    },
-    [setSwapProTokenTransactionPrice],
-  );
-
-  // Subscribe to real-time transaction updates
-  // Only enable if websocket.txs is enabled and other conditions are met
-  useTransactionsWebSocket({
-    networkId,
-    tokenAddress,
-    enabled: enableWebSocket && supportSpeedSwap,
-    currency: currencyInfo.id,
-    onNewTransactions: addNewTransactions,
-  });
-
-  return {
-    swapProTokenTransactionList,
-    isRefreshing,
-    fetchTransactions,
-  };
-}
-
 function useSwapProPositionAccountIdentity() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
@@ -1861,7 +1750,6 @@ export function useSwapProPositionsListFilter(
 export function useSwapBuildTxInfo() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
@@ -1870,12 +1758,7 @@ export function useSwapBuildTxInfo() {
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
-  const currentQuoteRes = useMemo(() => {
-    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return currentQuote;
-  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
+  const currentQuoteRes = currentQuote;
   const fromSelectToken = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken;
@@ -1906,8 +1789,7 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, cancelSpeedQuote, cleanSpeedQuote } =
-    useSwapActions().current;
+  const { quoteSpeedAction, resetQuoteAction } = useSwapActions().current;
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -1923,6 +1805,27 @@ export function useSwapProActionsQuote() {
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProUseSelectBuyTokenAtom] = useSwapProUseSelectBuyTokenAtom();
   const [swapProSellToTokenAtom] = useSwapProSellToTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  // Live per-stock open state from the 10s-polled Pro token detail, used
+  // ONLY as a quote re-run trigger below: a market reopen must re-request
+  // the quote so a latched closed-market error clears without an input edit
+  // (OK-58986). Guarded to the selected token as a defensive ownership check
+  // so a stale response can never refresh the next token's quote.
+  const selectedStockIsOpen = useMemo(() => {
+    if (!proTokenDetail || !swapProSelectToken) {
+      return undefined;
+    }
+    const detailMatchesSelectedToken = equalTokenNoCaseSensitive({
+      token1: {
+        networkId: proTokenDetail.networkId,
+        contractAddress: proTokenDetail.address,
+      },
+      token2: swapProSelectToken,
+    });
+    return detailMatchesSelectedToken
+      ? proTokenDetail.stock?.isOpen
+      : undefined;
+  }, [proTokenDetail, swapProSelectToken]);
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapProAccount = useSwapProAccount();
   const slippageItemRef = useRef(slippageItem);
@@ -1941,6 +1844,9 @@ export function useSwapProActionsQuote() {
   );
 
   useEffect(() => {
+    // Read only as a re-run trigger: an open-state flip re-requests the
+    // quote so stale closed-market state refreshes (OK-58986).
+    void selectedStockIsOpen;
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
       enableSwapProMarketQuote &&
@@ -1970,15 +1876,15 @@ export function useSwapProActionsQuote() {
     swapProAccount.result?.id,
     slippageItem.key,
     swapProMarketQuoteCustomSlippage,
+    selectedStockIsOpen,
   ]);
 
   useEffect(() => {
     const debounceInputAmountBN = new BigNumber(debounceInputAmount || '0');
     if (debounceInputAmountBN.isNaN() || debounceInputAmountBN.lte(0)) {
-      cancelSpeedQuote();
-      void cleanSpeedQuote();
+      void resetQuoteAction();
     }
-  }, [cancelSpeedQuote, cleanSpeedQuote, debounceInputAmount]);
+  }, [debounceInputAmount, resetQuoteAction]);
 
   useEffect(() => {
     if (
@@ -1988,7 +1894,6 @@ export function useSwapProActionsQuote() {
       setSwapProInputAmount('');
     }
   }, [
-    cleanSpeedQuote,
     enableSwapProMarketQuote,
     setSwapProInputAmount,
     swapProAccount.result?.addressDetail.address,
@@ -2001,26 +1906,26 @@ export function useSwapProActionsQuote() {
 
 export function useSwapProErrorAlert({
   isSwapProActive,
+  isAccountContextReady,
   accountScope,
   accountStatus,
 }: {
   isSwapProActive: boolean;
+  isAccountContextReady: boolean;
   accountScope: string;
   accountStatus: ESwapProAccountStatus;
 }) {
   const intl = useIntl();
   const [, setSwapProErrorAlert] = useSwapProErrorAlertAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return swapCurrentQuote;
-  }, [swapProTradeType, swapProQuoteResult, swapCurrentQuote]);
+  const currentQuoteRes = swapCurrentQuote;
   const previousAccountScopeRef = useRef('');
   useEffect(() => {
+    if (!isAccountContextReady) {
+      previousAccountScopeRef.current = '';
+      setSwapProErrorAlert(undefined);
+      return;
+    }
     const alertAction = getSwapProErrorAlertAction({
       isSwapProActive,
       previousAccountScope: previousAccountScopeRef.current,
@@ -2054,6 +1959,7 @@ export function useSwapProErrorAlert({
     accountStatus,
     currentQuoteRes,
     intl,
+    isAccountContextReady,
     isSwapProActive,
     setSwapProErrorAlert,
   ]);

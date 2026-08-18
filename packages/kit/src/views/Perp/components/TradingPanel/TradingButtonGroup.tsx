@@ -48,7 +48,6 @@ import {
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -87,16 +86,26 @@ import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimi
 import {
   type IEnableTradingWithDepositFallbackResult,
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
-import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
-import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountKey,
+  shouldPreserveColdStartButtonVisualState,
+} from '../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
-import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
+import {
+  getEnableTradingDialogConfirmDecision,
+  shouldShowPerpsFirstDepositPrompt,
+} from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -120,6 +129,7 @@ import {
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
+import { PerpsFirstDepositPromptCard } from './components/PerpsFirstDepositPromptCard';
 import {
   type ISizeInputMinimumOrderAction,
   getMinimumOrderToastActionProps,
@@ -198,18 +208,6 @@ const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
 const noopHandleConfirm: (
   overrideSide?: 'long' | 'short',
 ) => Promise<void> = async () => undefined;
-
-function getPerpsAccountKey(account: {
-  accountId?: string | null;
-  indexedAccountId?: string | null;
-  accountAddress?: string | null;
-}) {
-  const accountId = account.accountId ?? account.indexedAccountId;
-  if (!accountId && !account.accountAddress) {
-    return undefined;
-  }
-  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
-}
 
 function hasPerpsOrderSizeInput(
   formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
@@ -447,7 +445,8 @@ function SideButtonInternal({
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const isSpot = tradingMode === 'spot';
   // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
   // box consistent. Mirror that here so secondary text and minimum-order
@@ -1848,7 +1847,8 @@ function EmptySizeSideButton({
     enableTradingModeOverride ?? enableTradingMode;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const formData = useTradingFormOrderPriceParams();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const isSpot = tradingMode === 'spot';
@@ -2414,7 +2414,8 @@ function TradingButtonGroupLive({
   onRequestSizeInputFocus,
   minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
@@ -2523,7 +2524,8 @@ function TradingButtonGroupEmptySize({
   onRequestSizeInputFocus,
   minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
@@ -2607,7 +2609,67 @@ function TradingButtonGroup({
   onRequestSizeInputFocus,
   minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
+  const intl = useIntl();
   const formData = useTradingFormEmptySizeParams();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const requestFirstDepositAction = useFirstDepositAction();
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
+  const shouldShowFirstDepositPrompt = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending,
+    isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+  });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositPrompt &&
+      !perpConfigCommon?.ipDisablePerp &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
+  const handleFirstDepositPress = useCallback(() => {
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
+    });
+  }, [firstDepositAccountKey, requestFirstDepositAction]);
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
+
+  if (shouldShowFirstDepositPrompt) {
+    return (
+      <YStack gap="$3">
+        <PerpsFirstDepositPromptCard />
+        <Button
+          width="100%"
+          size="medium"
+          childrenAsText={false}
+          borderRadius="$full"
+          variant="primary"
+          onPress={handleFirstDepositPress}
+          testID="perp-new-user-trading-panel-deposit-btn"
+          h={36}
+        >
+          <YStack alignItems="center" gap={2}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textInverse"
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_top_up,
+              })}
+            </SizableText>
+          </YStack>
+        </Button>
+      </YStack>
+    );
+  }
 
   if (shouldUseEmptySizeTradingButtons(formData)) {
     return (

@@ -77,6 +77,7 @@ export function createTradingViewNativeMarketDataProvider({
   let primaryHistoryUnavailable =
     !canUseMarketHistory ||
     unavailableMarketHistoryTokenKeys.has(marketTokenKey);
+  const selectedHistorySources = new Map<string, 'fallback' | 'primary'>();
   const marketHistoryPageSize =
     source.isNative || !source.tokenAddress.trim()
       ? MARKET_NATIVE_HISTORY_PAGE_SIZE
@@ -90,6 +91,7 @@ export function createTradingViewNativeMarketDataProvider({
 
   return {
     getHistoryRequestCandleCount: (interval) =>
+      selectedHistorySources.get(interval.value) === 'fallback' ||
       primaryHistoryUnavailable
         ? fallbackHistoryProvider.getHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
@@ -103,6 +105,12 @@ export function createTradingViewNativeMarketDataProvider({
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
       const { interval, signal, timeFrom, timeTo } = request;
+      const selectedHistorySource = selectedHistorySources.get(interval.value);
+      const selectHistorySource = (historySource: 'fallback' | 'primary') => {
+        if (!selectedHistorySources.has(interval.value)) {
+          selectedHistorySources.set(interval.value, historySource);
+        }
+      };
       let pointType: IMarketKLinePointType | undefined;
       let usedFallback = false;
       const data = await fetchMarketKLineData({
@@ -112,25 +120,31 @@ export function createTradingViewNativeMarketDataProvider({
         timeFrom,
         timeTo,
         autoHandleError: false,
-        kLineDataFallback: async (fallbackRequest: {
-          timeFrom: number;
-          timeTo: number;
-        }) => {
-          const fallbackTimeFrom = Math.max(
-            fallbackRequest.timeTo -
-              interval.seconds *
-                fallbackHistoryProvider.getHistoryRequestCandleCount(interval),
-            0,
-          );
-          return fallbackHistoryProvider.fetchHistory({
-            interval,
-            signal,
-            timeFrom: Math.min(fallbackRequest.timeFrom, fallbackTimeFrom),
-            timeTo: fallbackRequest.timeTo,
-          });
-        },
+        kLineDataFallback:
+          selectedHistorySource === 'primary'
+            ? undefined
+            : async (fallbackRequest: { timeFrom: number; timeTo: number }) => {
+                const fallbackTimeFrom = Math.max(
+                  fallbackRequest.timeTo -
+                    interval.seconds *
+                      fallbackHistoryProvider.getHistoryRequestCandleCount(
+                        interval,
+                      ),
+                  0,
+                );
+                return fallbackHistoryProvider.fetchHistory({
+                  interval,
+                  signal,
+                  timeFrom: Math.min(
+                    fallbackRequest.timeFrom,
+                    fallbackTimeFrom,
+                  ),
+                  timeTo: fallbackRequest.timeTo,
+                });
+              },
         onFallbackKLineData: () => {
           usedFallback = true;
+          selectHistorySource('fallback');
         },
         onPrimaryKLineDataUnavailable: () => {
           primaryHistoryUnavailable = true;
@@ -139,10 +153,14 @@ export function createTradingViewNativeMarketDataProvider({
         onPointType: (nextPointType) => {
           pointType = nextPointType;
         },
-        primaryKLineDataUnavailable: primaryHistoryUnavailable,
+        primaryKLineDataUnavailable:
+          selectedHistorySource === 'fallback' || primaryHistoryUnavailable,
       });
       if (!data) {
         return null;
+      }
+      if (!usedFallback && data.points.length) {
+        selectHistorySource('primary');
       }
       return {
         ...data,

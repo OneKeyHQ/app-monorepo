@@ -5,6 +5,9 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 export interface IEarnExtraData {
   ethenaKycAddresses?: string[];
   firstOperationFlags?: Record<string, boolean>;
+  // OK-59196: one-time earn risk disclaimer. Device-scoped (same as the perp
+  // Hyperliquid terms flag) — once accepted, the dialog never shows again.
+  riskDisclaimerAccepted?: boolean;
 }
 
 export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> {
@@ -22,6 +25,20 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
       return data.ethenaKycAddresses[0];
     }
     return null;
+  }
+
+  @backgroundMethod()
+  async getRiskDisclaimerAccepted(): Promise<boolean> {
+    const data = await this.getRawData();
+    return data?.riskDisclaimerAccepted ?? false;
+  }
+
+  @backgroundMethod()
+  async setRiskDisclaimerAccepted(accepted: boolean) {
+    await this.setRawData((v) => ({
+      ...v,
+      riskDisclaimerAccepted: accepted,
+    }));
   }
 
   @backgroundMethod()

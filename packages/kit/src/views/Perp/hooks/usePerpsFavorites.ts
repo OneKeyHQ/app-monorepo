@@ -6,6 +6,7 @@ import {
   usePerpTokenFavoritesPersistAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   parseDexCoin,
@@ -74,16 +75,20 @@ export function usePerpsFavorites(options?: {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      // If data is missing, force refresh from API
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        universesByDex = res.universesByDex;
+      // Favorites on a missing dex silently fail to resolve, so a short cache is
+      // as unusable as an empty one.
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+          universesByDex = res.universesByDex;
+        } catch {
+          // Every existing user hits this branch on the first cold start after
+          // the release, and usePromiseResult neither retries nor re-runs — a
+          // rejection would blank the bar for the whole session. The stale
+          // universe still resolves every pre-existing favorite.
+        }
       }
 
       return { mode: 'perp', data: universesByDex ?? [] };

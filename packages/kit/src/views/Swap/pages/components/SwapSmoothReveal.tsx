@@ -1,0 +1,82 @@
+import { useCallback, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import { AnimatePresence, Stack } from '@onekeyhq/components';
+
+const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
+
+/**
+ * Expands/collapses `children` smoothly instead of letting them pop in and
+ * shove the surrounding layout (OK-58690). The wrapper permanently offsets
+ * the parent Stack gap with a negative margin and re-adds it as padding on
+ * the inner (measured) node, so the occupied space is driven purely by the
+ * animated height: margins are not animatable by the moti driver (they
+ * snap), and padding on the animated node itself would clamp its border-box
+ * height above 0. The measurement node is absolutely positioned so the
+ * wrapper's initial zero height cannot constrain its onLayout result. This
+ * keeps variable-height children (multi-line or stacked alerts) measurable.
+ */
+export function SwapSmoothReveal({
+  visible,
+  parentGap = 0,
+  gapSide = 'top',
+  children,
+}: {
+  visible: boolean;
+  /**
+   * px value of the parent Stack gap to offset ("$3" = 12, "$4" = 16).
+   * Leave 0 when the children carry their own spacing (e.g. padding), which
+   * is then simply part of the measured height.
+   */
+  parentGap?: number;
+  /**
+   * Which edge of the wrapper faces the parent gap being offset: 'top' when
+   * a sibling sits above the revealed content, 'bottom' when below.
+   */
+  gapSide?: 'top' | 'bottom';
+  children: ReactNode;
+}) {
+  const [measuredHeight, setMeasuredHeight] = useState(0);
+
+  const onContentLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      const nextHeight = event?.nativeEvent?.layout?.height;
+      if (typeof nextHeight !== 'number' || Number.isNaN(nextHeight)) {
+        return;
+      }
+      setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    },
+    [],
+  );
+
+  const isGapTop = gapSide === 'top';
+  return (
+    <AnimatePresence>
+      {visible ? (
+        <Stack
+          key="swapSmoothReveal"
+          animation="smooth"
+          animateOnly={ANIMATE_ONLY_SMOOTH_REVEAL}
+          overflow="hidden"
+          mt={isGapTop && parentGap ? -parentGap : undefined}
+          mb={!isGapTop && parentGap ? -parentGap : undefined}
+          height={measuredHeight}
+          enterStyle={{ height: 0, opacity: 0 }}
+          exitStyle={{ height: 0, opacity: 0 }}
+        >
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            pt={isGapTop && parentGap ? parentGap : undefined}
+            pb={!isGapTop && parentGap ? parentGap : undefined}
+            onLayout={onContentLayout}
+          >
+            {children}
+          </Stack>
+        </Stack>
+      ) : null}
+    </AnimatePresence>
+  );
+}

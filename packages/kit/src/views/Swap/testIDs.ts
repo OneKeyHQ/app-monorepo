@@ -36,6 +36,9 @@ export const SwapTestIDs = {
 
   // Pro
   proContainer: 'swap-pro-container',
+  proTokenSelector: 'swap-pro-token-selector',
+  proPrice: 'swap-pro-price',
+  proTransactionList: 'swap-pro-transaction-list',
   proPositionListHeader: 'Swap-Pro-Position-List-Header', // preserve existing
   proBuySellGroup: 'swap-pro-buy-sell-group',
   proSearchTokenList: 'swap-pro-search-token-list',
@@ -49,6 +52,14 @@ export const SwapTestIDs = {
   stockMarketTokenHeader: 'swap-stock-market-token-header',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
+  stockTokenDetails: 'swap-stock-token-details',
+  stockTokenIssuerOpen: 'swap-stock-token-issuer-open',
+  stockTokenContractCopy: 'swap-stock-token-contract-copy',
+  stockTokenContractOpen: 'swap-stock-token-contract-open',
+  stockTokenRatioInfo: 'swap-stock-token-ratio-info',
+  stockTokenRatioDialog: 'swap-stock-token-ratio-dialog',
+  stockTokenRatioDialogClose: 'swap-stock-token-ratio-dialog-close',
+  stockTokenDetailsLoading: 'swap-stock-token-details-loading',
   stockChartLoading: 'swap-stock-chart-loading',
   stockChartContent: 'swap-stock-chart-content',
   stockChartEmpty: 'swap-stock-chart-empty',

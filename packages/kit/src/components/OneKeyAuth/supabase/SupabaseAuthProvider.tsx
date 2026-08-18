@@ -2,6 +2,10 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppEventBusNames,
@@ -102,7 +106,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
       setAuthSessionSource(source);
     } catch (error) {
-      console.error('Error reading auth session source:', error);
+      logOneKeyIdLoginFailureReason(
+        `SupabaseAuthProvider auth session source read failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
     }
   }, []);
 
@@ -129,7 +138,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       const readClientSession = async (client: typeof legacyClient) => {
         const { data, error } = await client.auth.getSession();
         if (error) {
-          console.error('Error fetching session:', error);
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider session fetch failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
         }
         return data.session;
       };
@@ -151,7 +165,12 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           const parsed = raw ? (JSON.parse(raw) as Session) : null;
           return parsed?.access_token && parsed?.refresh_token ? parsed : null;
         } catch (error) {
-          console.error('Error reading stored session:', error);
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider stored session read failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           return null;
         }
       };
@@ -170,14 +189,23 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let isActive = true;
     void (async () => {
-      await refreshAuthSessionSource();
-      const { nextLegacySession, nextKeylessSession } =
-        await readSessionSlots();
-      if (!isActive) {
-        return;
+      try {
+        await refreshAuthSessionSource();
+        const { nextLegacySession, nextKeylessSession } =
+          await readSessionSlots();
+        if (!isActive) {
+          return;
+        }
+        setLegacySession(nextLegacySession);
+        setKeylessSession(nextKeylessSession);
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `SupabaseAuthProvider login-state projection refresh failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+        );
       }
-      setLegacySession(nextLegacySession);
-      setKeylessSession(nextKeylessSession);
     })();
     return () => {
       isActive = false;
@@ -239,6 +267,13 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           ).data.subscription;
           unsubscribes.push(() => keylessSubscription.unsubscribe());
         }
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `SupabaseAuthProvider initial session fetch failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+        );
       } finally {
         logSupabaseAuthProvider('fetchSession done');
         if (!cancelled) {
@@ -289,8 +324,10 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           setLegacySession(nextLegacySession);
           setKeylessSession(nextKeylessSession);
         } catch (error) {
-          console.error(
-            'Error refreshing session projection from storage:',
+          logOneKeyIdLoginFailureReason(
+            `SupabaseAuthProvider event projection refresh failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
             error,
           );
         }

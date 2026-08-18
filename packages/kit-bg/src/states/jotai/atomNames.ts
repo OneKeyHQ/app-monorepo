@@ -139,6 +139,7 @@ export enum EAtomNames {
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
+  marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
@@ -155,6 +156,11 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  // This state is written as a complete snapshot so legacy chart namespace
+  // fields can be removed instead of being merged back on every write.
+  [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // These Perps states are written as complete snapshots. Lodash merge keeps
   // old array tails and ignores undefined, which can resurrect stale fields.
   [EAtomNames.perpsActiveAssetAtom]: {
@@ -164,6 +170,12 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.spotActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  // A bare string value, where lodash merge is not merely lossy but destructive:
+  // it spreads the string into a character-indexed object, so every later
+  // `=== 'spot'` comparison fails and the app behaves as if it were on perp.
+  [EAtomNames.tradingModeAtom]: {
     mergeInitialValue: false,
   },
   [EAtomNames.perpsCommonConfigPersistAtom]: {

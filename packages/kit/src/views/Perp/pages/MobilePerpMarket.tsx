@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import { Dimensions, type LayoutChangeEvent } from 'react-native';
+import {
+  Dimensions,
+  type LayoutChangeEvent,
+  useWindowDimensions,
+} from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -19,6 +23,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -29,11 +34,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
@@ -238,8 +240,7 @@ function MobilePerpCandlesStatic({
 function MobilePerpMarket() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const { baseName, displayName, mode } = useActiveTradeDisplay();
-  const themeVariant = useThemeVariant();
+  const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
   const [hasInfoTabMounted, setHasInfoTabMounted] = useState(false);
@@ -312,7 +313,13 @@ function MobilePerpMarket() {
   ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
-
+  const { height: windowHeight } = useWindowDimensions();
+  // Android native tabs measure the inline SUB page by intrinsic content, so
+  // its flex-only chart needs an explicit viewport bound to avoid collapsing.
+  const splitDetailPageMinHeight =
+    isSplitDetailActive && platformEnv.isNativeAndroid
+      ? windowHeight
+      : undefined;
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
@@ -326,7 +333,7 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
-    // Match the MarketDetailV2 layout: Token + Symbol + dropdown sit
+    // Match the MarketDetailV2 layout: Symbol + badges + dropdown sit
     // in the native headerTitle slot. The system back chevron renders
     // separately on the left via HeaderScreenOptions
     // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
@@ -342,30 +349,15 @@ function MobilePerpMarket() {
         pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
         cursor="default"
       >
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
-          }
-          fallbackIcon="CryptoCoinOutline"
-        />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <SizableText size="$headingMd">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        <PerpDexBadge dexLabel={dexLabel} />
         {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}
       </XStack>
     );
-  }, [
-    baseName,
-    displayName,
-    isSplitDetailActive,
-    mode,
-    onPressTokenSelector,
-    themeVariant,
-  ]);
+  }, [dexLabel, displayName, isSplitDetailActive, mode, onPressTokenSelector]);
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
@@ -576,7 +568,7 @@ function MobilePerpMarket() {
       scrollProps={pageScrollProps}
     >
       {pageHeader}
-      <Page.Body p="$0">
+      <Page.Body p="$0" minHeight={splitDetailPageMinHeight}>
         {inlineHeader}
         <YStack
           flex={1}

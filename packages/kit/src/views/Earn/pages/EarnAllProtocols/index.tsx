@@ -16,13 +16,22 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+import { EarnListEmptyState } from '../../components/EarnListEmptyState';
+import {
+  EARN_LIST_ESTIMATED_ITEM_SIZE,
+  EARN_LIST_ROW_GAP,
+  EarnListRowSeparator,
+} from '../../components/earnListRhythm';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -48,17 +57,32 @@ type IFilteredProvider = IEarnAggregatedProvider & {
   // Reward unit of the row that produced maxApy (review P2): rendering a
   // fixed "APY" would mislabel APR protocols
   maxApyUnit: string;
+  // Server-driven highlight color of that same row (OK-59344): only boosted
+  // rows carry a highlight color, everything else renders in default text
+  maxApyColor?: string;
+  // Server copy of that same row (OK-59855). Protocols without a numeric
+  // yield (babylon returns the translated "Earn points") carry their whole
+  // value as text, so re-formatting from the parsed number would drop it.
+  maxApyText?: string;
 };
 
 function getRowApy(row: IEarnProtocolTokenRow): number {
   return parseAprPercentValue(row.item.provider.aprWithoutFee);
 }
 
+function getRowAprText(row: IEarnProtocolTokenRow): string | undefined {
+  const text =
+    row.item.aprInfo?.highlight?.text ?? row.item.aprInfo?.normal?.text;
+  return text?.trim() || undefined;
+}
+
 function EarnAllProtocolsSkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$4" pt="$4">
+    // Same box metrics and row gap as the real ListItem rows so the
+    // skeleton-to-content swap does not shift the list (OK-59904)
+    <YStack px="$pagePadding" gap={EARN_LIST_ROW_GAP}>
       {Array.from({ length: 8 }).map((_, index) => (
-        <XStack key={index} ai="center" gap="$3">
+        <XStack key={index} minHeight="$11" py="$2" ai="center" gap="$3">
           <Skeleton w="$10" h="$10" borderRadius="$full" />
           <YStack gap="$1.5" flex={1}>
             <Skeleton h="$4" w="$24" />
@@ -72,6 +96,10 @@ function EarnAllProtocolsSkeleton() {
 
 function EarnAllProtocolsContent() {
   const intl = useIntl();
+  // TVL is returned by the server already converted to the user's selected
+  // fiat, so the symbol has to follow the same setting — it used to be a
+  // hard-coded "$", which left the number changing and the symbol stuck.
+  const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const tabBarHeight = useScrollContentTabBarOffset();
   const { providers, isLoading } = useEarnAllProtocols();
@@ -119,12 +147,27 @@ function EarnAllProtocolsContent() {
       }
       let maxApy = 0;
       let maxApyUnit = 'APY';
+      let maxApyColor: string | undefined;
+      let maxApyText: string | undefined;
+      // Text-only yields parse to 0, so they can never win the numeric
+      // comparison; remember the first one as a fallback for providers whose
+      // every row is text-only (OK-59855)
+      let textOnlyRow: IEarnProtocolTokenRow | undefined;
       for (const row of rows) {
         const apy = getRowApy(row);
         if (apy > maxApy) {
           maxApy = apy;
           maxApyUnit = row.item.provider.rewardUnit || 'APY';
+          maxApyColor = row.item.aprInfo?.highlight?.color;
+          maxApyText = getRowAprText(row);
+        } else if (!textOnlyRow && apy <= 0 && getRowAprText(row)) {
+          textOnlyRow = row;
         }
+      }
+      if (maxApy <= 0 && textOnlyRow) {
+        maxApyUnit = textOnlyRow.item.provider.rewardUnit || 'APY';
+        maxApyColor = textOnlyRow.item.aprInfo?.highlight?.color;
+        maxApyText = getRowAprText(textOnlyRow);
       }
       return [
         {
@@ -132,6 +175,8 @@ function EarnAllProtocolsContent() {
           filteredTvlValue: rows.reduce((sum, row) => sum + row.tvlValue, 0),
           maxApy,
           maxApyUnit,
+          maxApyColor,
+          maxApyText,
         },
       ];
     });
@@ -207,56 +252,71 @@ function EarnAllProtocolsContent() {
   );
 
   const renderItem = useCallback(
-    ({ item: provider }: { item: IFilteredProvider }) => (
-      <ListItem
-        testID={EarnTestIDs.allProtocolsItem(provider.provider)}
-        userSelect="none"
-        onPress={() => handleProviderPress(provider)}
-        renderAvatar={
-          <Token
-            size="md"
-            tokenImageUri={provider.logoURI}
-            borderRadius="$full"
-          />
-        }
-      >
-        <ListItem.Text
-          flex={1}
-          primary={
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {provider.providerName}
-            </SizableText>
-          }
-        />
-        <YStack ai="flex-end" jc="center">
-          {provider.maxApy > 0 ? (
-            // Value + smaller APY suffix via the shared renderer instead
-            // of hard-coding the unit into the copy (review feedback)
-            <EarnAprSuffixText
-              text={`${provider.maxApy.toFixed(2)}%`}
-              fallbackUnit={provider.maxApyUnit}
-              size="$bodyMdMedium"
-              suffixSize="$bodySmMedium"
-              color="$textSuccess"
+    ({ item: provider }: { item: IFilteredProvider }) => {
+      // Prefer the server copy so text-only yields survive (OK-59855); the
+      // parsed number stays the sort key and the numeric fallback.
+      const yieldText =
+        provider.maxApyText ??
+        (provider.maxApy > 0 ? `${provider.maxApy.toFixed(2)}%` : undefined);
+      // Appending a unit only makes sense for a numeric value — "Earn points
+      // APY" would be nonsense.
+      const yieldUnit =
+        yieldText && /\d/.test(yieldText) ? provider.maxApyUnit : undefined;
+
+      return (
+        <ListItem
+          testID={EarnTestIDs.allProtocolsItem(provider.provider)}
+          userSelect="none"
+          onPress={() => handleProviderPress(provider)}
+          renderAvatar={
+            <Token
+              size="md"
+              tokenImageUri={provider.logoURI}
+              borderRadius="$full"
             />
-          ) : null}
-          <XStack ai="center" gap="$1">
-            <NumberSizeableText
-              size="$bodySm"
-              color="$textSubdued"
-              formatter="marketCap"
-              formatterOptions={{ currency: '$' }}
-            >
-              {provider.filteredTvlValue}
-            </NumberSizeableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.earn_tvl })}
-            </SizableText>
-          </XStack>
-        </YStack>
-      </ListItem>
-    ),
-    [handleProviderPress, intl],
+          }
+        >
+          <ListItem.Text
+            flex={1}
+            primary={
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {provider.providerName}
+              </SizableText>
+            }
+          />
+          <YStack ai="flex-end" jc="center">
+            {yieldText ? (
+              // Value + smaller APY suffix via the shared renderer instead
+              // of hard-coding the unit into the copy (review feedback).
+              // OK-59344: default text color — green is reserved for boosted
+              // rows and is driven by the server-side aprInfo color, so a
+              // hardcoded success color made every protocol look boosted.
+              <EarnAprSuffixText
+                text={yieldText}
+                fallbackUnit={yieldUnit}
+                size="$bodyMdMedium"
+                suffixSize="$bodySmMedium"
+                color={provider.maxApyColor ?? '$text'}
+              />
+            ) : null}
+            <XStack ai="center" gap="$1">
+              <NumberSizeableText
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="marketCap"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {provider.filteredTvlValue}
+              </NumberSizeableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_tvl })}
+              </SizableText>
+            </XStack>
+          </YStack>
+        </ListItem>
+      );
+    },
+    [handleProviderPress, intl, settings.currencyInfo.symbol],
   );
 
   const keyExtractor = useCallback(
@@ -318,11 +378,22 @@ function EarnAllProtocolsContent() {
         flex={1}
         {...earnListScrollBehaviorProps}
         data={sortedProviders}
-        estimatedItemSize={60}
+        estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={isLoading ? <EarnAllProtocolsSkeleton /> : null}
+        ListEmptyComponent={
+          isLoading ? (
+            <EarnAllProtocolsSkeleton />
+          ) : (
+            <EarnListEmptyState
+              isFiltered={
+                searchText.trim().length > 0 || selectedNetworkIds.length > 0
+              }
+            />
+          )
+        }
         contentContainerStyle={{ pb: tabBarHeight }}
       />
     </EarnPageContainer>

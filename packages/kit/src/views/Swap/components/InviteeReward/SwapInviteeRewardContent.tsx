@@ -1,61 +1,20 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Divider,
-  Empty,
-  ScrollView,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Empty, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { RewardHistoryList } from './components/RewardHistoryList';
 import { RewardSummaryCard } from './components/RewardSummaryCard';
 import { loadSwapInviteeReward } from './utils';
 
 interface ISwapInviteeRewardContentProps {
   accountId?: string;
   currentEvmAddress?: string;
-  indexedAccountId?: string;
   isMobile?: boolean;
-}
-
-function NoWalletEmptyState() {
-  const intl = useIntl();
-  const toOnBoardingPage = useToOnBoardingPage();
-
-  return (
-    <YStack flex={1} jc="center" ai="center" py="$10">
-      <Empty
-        icon="WalletOutline"
-        title={intl.formatMessage({
-          id: ETranslations.referral_apply_code_no_wallet,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_apply_code_no_wallet_desc,
-        })}
-      />
-      <Button
-        testID="swap-invitee-reward-onboarding"
-        mt="$5"
-        onPress={() => {
-          void toOnBoardingPage();
-        }}
-      >
-        {intl.formatMessage({
-          id: platformEnv.isWebDappMode
-            ? ETranslations.global_connect_wallet
-            : ETranslations.global_create_wallet,
-        })}
-      </Button>
-    </YStack>
-  );
 }
 
 function UnsupportedWalletState() {
@@ -96,10 +55,8 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 export function SwapInviteeRewardContent({
   accountId,
   currentEvmAddress,
-  indexedAccountId,
   isMobile,
 }: ISwapInviteeRewardContentProps) {
-  const intl = useIntl();
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!accountId) {
@@ -130,7 +87,7 @@ export function SwapInviteeRewardContent({
   );
 
   if (!accountId) {
-    return <NoWalletEmptyState />;
+    return <InviteeRewardNoWallet testID="swap-invitee-reward-onboarding" />;
   }
 
   if (result?.status === 'unsupported') {
@@ -148,28 +105,18 @@ export function SwapInviteeRewardContent({
   }
 
   const data = result?.status === 'success' ? result.data : undefined;
+  const distributedBonus = data
+    ? new BigNumber(data.totalBonus).minus(data.undistributed).toFixed()
+    : undefined;
   const showLoading = Boolean(isLoading || !result);
   const content = (
     <YStack gap="$5">
       <RewardSummaryCard
         isLoading={showLoading}
-        totalBonus={data?.totalBonus}
+        distributedBonus={distributedBonus}
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
       />
-      <Divider />
-      <YStack gap="$2">
-        <SizableText size="$headingSm">
-          {intl.formatMessage({
-            id: ETranslations.referral_reward_history,
-          })}
-        </SizableText>
-        <RewardHistoryList
-          key={`${accountId ?? ''}:${indexedAccountId ?? ''}`}
-          isLoading={showLoading}
-          history={data?.history}
-        />
-      </YStack>
     </YStack>
   );
 
@@ -181,9 +128,5 @@ export function SwapInviteeRewardContent({
     );
   }
 
-  return (
-    <ScrollView minHeight={350} maxHeight={500}>
-      {content}
-    </ScrollView>
-  );
+  return content;
 }

@@ -12,15 +12,24 @@ const intl = {
     if (id === ETranslations.market_candle) {
       return 'Candles';
     }
+    if (id === ETranslations.market_heikin_ashi) {
+      return 'HEIKIN_ASHI_I18N';
+    }
+    if (id === ETranslations.market_bars) {
+      return 'BARS_I18N';
+    }
     if (id === ETranslations.market_line) {
       return 'Line';
+    }
+    if (id === ETranslations.market_area) {
+      return 'AREA_I18N';
     }
     return id ?? '';
   },
 } as IntlShape;
 
 describe('NativeChartControlsShared', () => {
-  it('formats only exact candle and line chart type labels', () => {
+  it('formats all supported chart type labels', () => {
     expect(
       formatChartTypeOptionLabel(intl, { label: 'Candle', value: 1 }),
     ).toBe('Candles');
@@ -28,21 +37,27 @@ describe('NativeChartControlsShared', () => {
       'Line',
     );
     expect(
-      formatChartTypeOptionLabel(intl, { label: 'Candles HLC', value: 21 }),
-    ).toBe('Candles HLC');
-    expect(formatChartTypeOptionLabel(intl, { label: 'Area', value: 3 })).toBe(
-      'Area',
+      formatChartTypeOptionLabel(intl, { label: 'Heikin Ashi', value: 8 }),
+    ).toBe('HEIKIN_ASHI_I18N');
+    expect(formatChartTypeOptionLabel(intl, { label: 'Bars', value: 0 })).toBe(
+      'BARS_I18N',
     );
+    expect(formatChartTypeOptionLabel(intl, { label: 'Area', value: 3 })).toBe(
+      'AREA_I18N',
+    );
+    expect(
+      formatChartTypeOptionLabel(intl, { label: 'Baseline', value: 10 }),
+    ).toBe('Baseline');
   });
 
   it('uses distinct icons for supported chart type labels', () => {
     expect(getChartTypeIconName({ label: 'Candles', value: 1 })).toBe(
       'TradingViewCandlesOutline',
     );
-    expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
+    expect(getChartTypeIconName({ label: 'Heikin Ashi', value: 8 })).toBe(
       'TradingViewBarsOutline',
     );
-    expect(getChartTypeIconName({ label: 'Candles HLC', value: 21 })).toBe(
+    expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
       'TradingViewCandlesHlcOutline',
     );
     expect(getChartTypeIconName({ label: 'Line', value: 2 })).toBe(

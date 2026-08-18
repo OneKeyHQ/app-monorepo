@@ -58,6 +58,9 @@ export interface IInviteSummary {
   Onchain: IReward & {
     swap?: IRebateUserInviteSummary[];
   };
+  Perp: IReward & {
+    available: IRewardBalance[];
+  };
   rebateConfig: {
     level: number;
     emoji: string;
@@ -350,7 +353,9 @@ export interface ISwapInviteeRewardHistoryItem {
 }
 
 export interface ISwapInviteeRewardsResponse {
+  /** Cumulative reward amount, including the undistributed amount. */
   totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
   undistributed: string;
   token: IRewardToken;
   history: ISwapInviteeRewardHistoryItem[];

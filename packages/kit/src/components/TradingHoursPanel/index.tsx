@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
-import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -35,20 +34,20 @@ import {
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
-type ILiquidityLevel = 'high' | 'moderate' | 'low' | 'none';
+import type { GestureResponderEvent } from 'react-native';
+
+type ILiquidityLevel = 'high' | 'moderate' | 'low';
 
 const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
   high: ETranslations.trading_hours_liquidity_high,
   moderate: ETranslations.trading_hours_liquidity_moderate,
   low: ETranslations.trading_hours_liquidity_low,
-  none: ETranslations.trading_hours_liquidity_none,
 };
 
 const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
   high: 4,
   moderate: 2,
   low: 1,
-  none: 0,
 };
 
 const ROW_META: Array<{
@@ -91,7 +90,9 @@ const ROW_META: Array<{
     row: 'halts',
     icon: 'PauseOutline',
     titleId: ETranslations.trading_hours_trading_halts,
-    liquidity: 'none',
+    // A halt pauses the UNDERLYING stock, not token trading — on-chain
+    // liquidity thins out but does not vanish (OK-58986).
+    liquidity: 'low',
   },
 ];
 
@@ -174,6 +175,7 @@ function SessionRow({
   icon,
   title,
   isActive,
+  showNowBadge = true,
   liquidity,
   dense,
   children,
@@ -181,6 +183,8 @@ function SessionRow({
   icon: IKeyOfIcons;
   title: string;
   isActive: boolean;
+  /** Off during session gaps — "Now" would contradict the awaiting chip. */
+  showNowBadge?: boolean;
   liquidity: ILiquidityLevel;
   dense?: boolean;
   children: ReactNode;
@@ -210,7 +214,7 @@ function SessionRow({
             <SizableText size={dense ? '$bodyMdMedium' : '$bodyLgMedium'}>
               {title}
             </SizableText>
-            {isActive ? (
+            {isActive && showNowBadge ? (
               <Stack
                 bg="$iconSuccess"
                 borderRadius="$full"
@@ -271,7 +275,6 @@ function TradingHoursContent({
   dense?: boolean;
 }) {
   const intl = useIntl();
-  const marketStatus = useUSMarketStatus();
   const pagePx = dense ? '$4' : '$5';
   const detailTextSize = dense ? '$bodySm' : '$bodyMd';
 
@@ -287,14 +290,28 @@ function TradingHoursContent({
   const activeRow = resolveUSTradingHoursActiveRow({
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
-    status: marketStatus,
     tradingHours,
     now,
   });
+  // During a gap the "Now" pill would contradict the chip's "Awaiting open"
+  // — keep the upcoming session row highlighted but drop the pill. The
+  // closed/halts rows are not gap-driven, so their pill stays.
+  const showNowBadge =
+    !tradingHours.isNowInSessionGap ||
+    activeRow === 'closed' ||
+    activeRow === 'halts';
+  // Past the overnight close the timeline still describes the cycle that
+  // just ended: the now-dot pins to its far right while the highlighted
+  // (upcoming) pre-market segment sits at its far left — hide it rather than
+  // point at both ends at once.
+  const isCycleEdgeGap =
+    tradingHours.isNowInSessionGap &&
+    now.getTime() >= tradingHours.cycleEndInstant;
   const dimmed = activeRow === 'closed' || activeRow === 'halts';
-  // 7×24 instrument while the market is closed: the subtitle switches to the
-  // dedicated 24/7 copy, which also makes the generic risk notice redundant.
-  const isClosedTradable = activeRow === 'closed' && stock.isOpen === true;
+  // 7×24 instrument while the market is closed (the "24/7" chip state): the
+  // subtitle switches to the dedicated around-the-clock copy, which also
+  // makes the generic risk notice redundant.
+  const is247TradableClosed = activeRow === 'closed' && stock.isOpen === true;
 
   const weekendSpanText = useMemo(() => {
     const formatWeekendBoundary = (instant: number) =>
@@ -332,15 +349,16 @@ function TradingHoursContent({
       <YStack px={pagePx} pt="$1">
         <SizableText size={detailTextSize} color="$textSubdued">
           {intl.formatMessage({
-            id: isClosedTradable
+            id: is247TradableClosed
               ? ETranslations.trading_hours_closed_tradable_description
               : ETranslations.trading_hours_description,
           })}
         </SizableText>
       </YStack>
 
-      {/* The whole timeline is meaningless while closed/halted — hide it. */}
-      {dimmed ? null : (
+      {/* The whole timeline is meaningless while closed/halted, and lies at
+          the cycle edge — hide it. */}
+      {dimmed || isCycleEdgeGap ? null : (
         <YStack px={pagePx} pt={dense ? '$3' : '$4'} pb="$1" gap="$1.5">
           <TradingHoursTimeline
             segments={tradingHours.segments}
@@ -429,6 +447,7 @@ function TradingHoursContent({
               icon={icon}
               title={title}
               isActive={isActive}
+              showNowBadge={showNowBadge}
               liquidity={liquidity}
               dense={dense}
             >
@@ -438,7 +457,7 @@ function TradingHoursContent({
         })}
       </YStack>
 
-      {isClosedTradable ? null : (
+      {is247TradableClosed ? null : (
         <YStack px={pagePx} pt="$2">
           <SizableText size="$bodySm" color="$textDisabled">
             {intl.formatMessage({
@@ -569,6 +588,13 @@ function TradingHoursHoverPopover({
       setIsOpen(true);
     }, HOVER_OPEN_DELAY_MS);
   }, []);
+  const handleTriggerPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+    setIsOpen(true);
+  }, []);
+  const handleContentPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+  }, []);
   useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
 
   useEffect(() => {
@@ -633,15 +659,21 @@ function TradingHoursHoverPopover({
       title={<TradingHoursTitle />}
       renderTrigger={
         <Stack
+          testID="trading-hours-popover-trigger"
           {...({ ref: triggerRef } as object)}
           onHoverIn={handleHoverIn}
           onHoverOut={cancelPendingOpen}
+          onPress={handleTriggerPress}
         >
           {renderTrigger}
         </Stack>
       }
       renderContent={
-        <Stack {...({ ref: contentRef } as object)}>
+        <Stack
+          testID="trading-hours-popover-content"
+          {...({ ref: contentRef } as object)}
+          onPress={handleContentPress}
+        >
           <TradingHoursContent stock={stock} showInlineHeader dense />
         </Stack>
       }

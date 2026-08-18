@@ -50,6 +50,7 @@ import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeT
 
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   showOneKeyIdLoginSuccessToast,
   throwLocalizedOneKeyIdLoginError,
 } from '../oneKeyIdLoginToastUtils';
@@ -148,7 +149,13 @@ async function showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
   try {
     const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
     displayEmail = userInfo?.displayEmail;
-  } catch {
+  } catch (error) {
+    logOneKeyIdLoginFailureReason(
+      `OneKey ID bound-account dialog local profile read failed: ${getSanitizedAuthErrorText(
+        error,
+      )}`,
+      error,
+    );
     // keep the localized "Unknown" fallback from getDisplayEmailOrUnknown
   }
   const emailText = getDisplayEmailOrUnknown({ intl, displayEmail });
@@ -307,9 +314,11 @@ function OneKeyIdLegacyOAuthBindActions({
           return;
         } catch (error) {
           if (attempt >= PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS) {
-            console.error(
-              'OneKeyIdLegacyOAuthBindActions prepare failed:',
-              getSanitizedAuthErrorText(error),
+            logOneKeyIdLoginFailureReason(
+              `OneKeyIdLegacyOAuthBindActions preparation failed after retries: ${getSanitizedAuthErrorText(
+                error,
+              )}`,
+              error,
             );
             return;
           }
@@ -350,9 +359,11 @@ function OneKeyIdLegacyOAuthBindActions({
             await rollbackProvisionalOAuthSession({ rollbackHandle });
           } catch (rollbackError) {
             // A failed rollback must not replace the original error.
-            console.error(
-              'OAuth session rollback failed:',
-              getSanitizedAuthErrorText(rollbackError),
+            logOneKeyIdLoginFailureReason(
+              `OneKey ID OAuth session rollback failed: ${getSanitizedAuthErrorText(
+                rollbackError,
+              )}`,
+              rollbackError,
             );
           }
         }
@@ -522,9 +533,11 @@ function OneKeyIdLegacyOAuthBindActions({
           });
         });
       } catch (error) {
-        console.error(
-          'OneKeyIdLegacyOAuthBindActions bind failed:',
-          getSanitizedAuthErrorText(error),
+        logOneKeyIdLoginFailureReason(
+          `OneKeyIdLegacyOAuthBindActions bind failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
         );
       } finally {
         bindingProviderRef.current = null;
@@ -773,9 +786,11 @@ export function OneKeyIdLegacyOAuthBindPrompt({
         title: 'OneKey ID bind reminder reset. Reload to test.',
       });
     } catch (error) {
-      console.error(
-        'OneKeyIdLegacyOAuthBindPrompt reset failed:',
-        getSanitizedAuthErrorText(error),
+      logOneKeyIdLoginFailureReason(
+        `OneKeyIdLegacyOAuthBindPrompt reset failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
       );
       Toast.error({
         title: 'Failed to reset OneKey ID bind reminder',
@@ -806,18 +821,22 @@ export function OneKeyIdLegacyOAuthBindPrompt({
         if (!isCancelled) {
           setIsKeylessCredentialReady(false);
         }
-        console.error(
-          'OneKeyIdLegacyOAuthBindPrompt refresh failed:',
-          getSanitizedAuthErrorText(error),
+        logOneKeyIdLoginFailureReason(
+          `OneKeyIdLegacyOAuthBindPrompt credential readiness refresh failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
         );
         return;
       }
       try {
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       } catch (error) {
-        console.error(
-          'OneKeyIdLegacyOAuthBindPrompt profile refresh failed:',
-          getSanitizedAuthErrorText(error),
+        logOneKeyIdLoginFailureReason(
+          `OneKeyIdLegacyOAuthBindPrompt profile refresh failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
         );
       }
     };
@@ -916,9 +935,11 @@ async function prepareOneKeyIdOAuthBindDialog(
         await backgroundApiProxy.servicePrime.isLegacyOneKeyIdOAuthBindRequired(),
     };
   } catch (error) {
-    console.error(
-      'showOneKeyIdLegacyOAuthBindDialog failed:',
-      getSanitizedAuthErrorText(error),
+    logOneKeyIdLoginFailureReason(
+      `showOneKeyIdLegacyOAuthBindDialog requirement check failed: ${getSanitizedAuthErrorText(
+        error,
+      )}`,
+      error,
     );
     return { shouldShow: false };
   }
@@ -936,9 +957,11 @@ async function releaseOneKeyIdOAuthBindPromptClaim(
   try {
     await backgroundApiProxy.servicePrime.releaseOneKeyIdOAuthBindPrompt(claim);
   } catch (error) {
-    console.error(
-      'showOneKeyIdLegacyOAuthBindDialog release claim failed:',
-      getSanitizedAuthErrorText(error),
+    logOneKeyIdLoginFailureReason(
+      `showOneKeyIdLegacyOAuthBindDialog claim release failed: ${getSanitizedAuthErrorText(
+        error,
+      )}`,
+      error,
     );
   }
 }
@@ -1124,7 +1147,13 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
     if (!didPresentDialog) {
       try {
         await closePresentedDialog();
-      } catch {
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `OneKey ID bind dialog close failed after presentation rejection: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+        );
         // The claim remains unconsumed and will expire if release also fails.
       }
       return false;
@@ -1137,7 +1166,13 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       } catch (error) {
         try {
           await closePresentedDialog?.();
-        } catch {
+        } catch (closeError) {
+          logOneKeyIdLoginFailureReason(
+            `OneKey ID bind dialog close failed after claim completion error: ${getSanitizedAuthErrorText(
+              closeError,
+            )}`,
+            closeError,
+          );
           // Preserve the claim-completion error; the lease will still expire.
         }
         throw error;
@@ -1145,7 +1180,13 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       if (!completed) {
         try {
           await closePresentedDialog?.();
-        } catch {
+        } catch (error) {
+          logOneKeyIdLoginFailureReason(
+            `OneKey ID bind dialog close failed after incomplete claim: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           // The claim remains unconsumed and will expire if release also fails.
         }
         return false;

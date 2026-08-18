@@ -13,19 +13,19 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRewardSummaryCardProps {
   isLoading?: boolean;
-  totalBonus?: string;
+  distributedBonus?: string;
   undistributed?: string;
   tokenSymbol?: string;
 }
 
 export function RewardSummaryCard({
   isLoading,
-  totalBonus,
+  distributedBonus,
   undistributed,
   tokenSymbol,
 }: IRewardSummaryCardProps) {
   const intl = useIntl();
-  const displayTotalBonus = totalBonus ?? '0';
+  const displayDistributedBonus = distributedBonus ?? '0';
   const displayUndistributed = undistributed ?? '0';
   const displayTokenSymbol = tokenSymbol ?? 'USDC';
   const hasUndistributed = new BigNumber(displayUndistributed).gt(0);
@@ -53,7 +53,7 @@ export function RewardSummaryCard({
             }}
             numberOfLines={1}
           >
-            {displayTotalBonus}
+            {displayDistributedBonus}
           </NumberSizeableText>
         )}
 

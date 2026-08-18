@@ -57,10 +57,7 @@ import {
 import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
-import {
-  getSwapTokenSearchResults,
-  releaseSwapTokenListFetchEffectKey,
-} from './useSwapTokens.utils';
+import { releaseSwapTokenListFetchEffectKey } from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
 
@@ -75,7 +72,6 @@ export function useSwapTokenList(
     tokenListType?: string;
   },
   supportNetworksOverride?: ISwapNetwork[],
-  useLocalSearchFallback = false,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
@@ -411,7 +407,7 @@ export function useSwapTokenList(
       : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
     {
       shouldSort: false,
-      keys: ['symbol', 'contractAddress'],
+      keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
     },
   );
 
@@ -592,39 +588,6 @@ export function useSwapTokenList(
     tokenFetchParams,
     isSwapSupportAllAccountsReady,
   ]);
-  const searchBaseContextKey = [
-    indexedAccountId ?? otherWalletTypeAccountId ?? '',
-    currentSelectNetwork?.networkId ?? currentNetworkId ?? '',
-    selectTokenModalType,
-    from ?? '',
-    lpToken === undefined ? '' : String(lpToken),
-    requestCurrency,
-    swapSupportAllNetworks.map((network) => network.networkId).join(','),
-  ].join('__');
-  const searchBaseTokensRef = useRef<{
-    contextKey: string;
-    tokens: ISwapToken[];
-  }>({
-    contextKey: searchBaseContextKey,
-    tokens: [],
-  });
-  if (searchBaseTokensRef.current.contextKey !== searchBaseContextKey) {
-    searchBaseTokensRef.current = {
-      contextKey: searchBaseContextKey,
-      tokens: [],
-    };
-  }
-  if (!keywords && isTokenListFetchSettled) {
-    searchBaseTokensRef.current = {
-      contextKey: searchBaseContextKey,
-      tokens: unfilteredTokens,
-    };
-  }
-  const searchBaseTokens = searchBaseTokensRef.current.tokens;
-  const fuseSearchBaseTokens = useFuse(searchBaseTokens, {
-    shouldSort: false,
-    keys: ['symbol', 'contractAddress'],
-  });
   const currentTokens = useMemo(() => {
     if (!isSwapSupportAllAccountsReady) {
       return [];
@@ -632,21 +595,12 @@ export function useSwapTokenList(
     if (!keywords) {
       return unfilteredTokens;
     }
-    const remoteTokens = fuseRemoteTokensSearch.search(keywords);
-    return getSwapTokenSearchResults({
-      isTokenListFetchSettled,
-      remoteTokens,
-      searchLocalTokens: () => fuseSearchBaseTokens.search(keywords),
-      useLocalSearchFallback,
-    });
+    return fuseRemoteTokensSearch.search(keywords);
   }, [
     fuseRemoteTokensSearch,
-    fuseSearchBaseTokens,
     isSwapSupportAllAccountsReady,
-    isTokenListFetchSettled,
     keywords,
     unfilteredTokens,
-    useLocalSearchFallback,
   ]);
 
   const fetchLoading =

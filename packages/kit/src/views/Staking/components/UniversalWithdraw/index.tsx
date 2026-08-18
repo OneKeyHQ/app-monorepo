@@ -41,6 +41,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -65,7 +66,6 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -1255,6 +1255,26 @@ export function UniversalWithdraw({
   useEffect(() => {
     transactionConfirmationRequestIdRef.current += 1;
     const requestId = transactionConfirmationRequestIdRef.current;
+    // OK-59850: an empty / "0" / "0.000" field used to reach the server here.
+    // isInvalidAmount only rejects NaN and a trailing dot, and the fetch itself
+    // falls back to '0', so clearing the input still issued a request and lit
+    // the spinner (quoteLoading covers this flag too). The server resolves the
+    // withdraw path on-chain regardless of how small the amount is, so the wait
+    // was real — and nothing it returns for a non-positive amount is rendered.
+    // Cancelling a queued withdrawal is the one flow with no amount to enter,
+    // so it still has to be quoted.
+    const isQuotableAmount =
+      isCancelWithdrawal ||
+      (!isInvalidAmount(amountValue) &&
+        new BigNumber(amountValue).isGreaterThan(0));
+
+    if (!isQuotableAmount) {
+      // Bumping the id above already invalidates anything in flight; the
+      // previous run's cleanup cancelled any pending debounce.
+      setTransactionConfirmationLoading(false);
+      return undefined;
+    }
+
     setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation({
       amount: amountValue,
@@ -1271,6 +1291,7 @@ export function UniversalWithdraw({
   }, [
     amountValue,
     debouncedFetchTransactionConfirmation,
+    isCancelWithdrawal,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
   ]);
@@ -1296,6 +1317,9 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          // OK-59850 is handled by the checkAmount effect now: clearing the
+          // field re-runs it, whose cleanup cancels the pending debounce and
+          // whose non-checkable branch resets the loading state.
           setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
           setIgnoreAllowanceCheck(false);
@@ -1999,7 +2023,7 @@ export function UniversalWithdraw({
                               borderRadius="$2"
                             />
                             <SizableText size="$bodyMd">
-                              {capitalizeString(providerName || '')}
+                              {getEarnProviderDisplayName(providerName || '')}
                             </SizableText>
                           </XStack>
                           <YStack
@@ -2081,6 +2105,7 @@ export function UniversalWithdraw({
           />
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (

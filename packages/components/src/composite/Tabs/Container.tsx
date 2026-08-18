@@ -179,6 +179,11 @@ export interface ITabContainerProps {
   disableWebTabContentVisibility?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
+  /**
+   * Disables the animated pager transition when a native tab is pressed, so the
+   * new tab shows up instantly. Only used on native, ignored on web.
+   */
+  tabPressAnimationEnabled?: boolean;
 }
 
 interface ITabContainerRefProps {
@@ -204,6 +209,7 @@ export function Container({
     | 'disableScroll'
     | 'disableWebTabContentVisibility'
     | 'useNativeHeaderAnimation'
+    | 'tabPressAnimationEnabled'
     | 'renderSubHeader'
   >) {
   const getTabContentHeight = useCallback((element: Element | null) => {

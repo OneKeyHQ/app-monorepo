@@ -71,3 +71,22 @@ export const {
     spotNetworkId: '',
   },
 });
+
+export type IMarketTradingViewStorageNamespace = 'market';
+
+export interface IMarketTradingViewSubIndicatorCountPersistAtom {
+  subIndicatorCountByStorageNamespace: Partial<
+    Record<IMarketTradingViewStorageNamespace, number>
+  >;
+}
+
+export const {
+  target: marketTradingViewSubIndicatorCountPersistAtom,
+  use: useMarketTradingViewSubIndicatorCountPersistAtom,
+} = globalAtom<IMarketTradingViewSubIndicatorCountPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketTradingViewSubIndicatorCountPersistAtom,
+  initialValue: {
+    subIndicatorCountByStorageNamespace: {},
+  },
+});

@@ -266,6 +266,7 @@ function getEnabledNFTNetworkIds(): string[] {
     networkIdsMap.arbitrum,
     networkIdsMap.avalanche,
     networkIdsMap.sol,
+    networkIdsMap.hyperevm,
   ];
 }
 

@@ -6,9 +6,12 @@ import { Toast } from '@onekeyhq/components';
 import { createEmailOtpRateLimitError } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { markOneKeyIdFailureServerLogged } from '../oneKeyIdLoginToastUtils';
+
 import { PrimeLoginEmailCodeDialogV2 } from './PrimeLoginEmailCodeDialogV2';
 
 const mockCopyText = jest.fn();
+const mockOneKeyIdLoginFailedReason = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -63,13 +66,40 @@ jest.mock('@onekeyhq/components', () => {
       ),
     Dialog: {
       Description: Container,
-      Footer: () => null,
+      Footer: ({
+        confirmButtonProps,
+        onConfirm,
+      }: {
+        confirmButtonProps?: { disabled?: boolean };
+        onConfirm?: (args: { preventClose: () => void }) => void;
+      }) =>
+        React.createElement(
+          'button',
+          {
+            disabled: confirmButtonProps?.disabled,
+            onClick: () => onConfirm?.({ preventClose: jest.fn() }),
+            type: 'button',
+          },
+          'confirm',
+        ),
       Header: Container,
       Icon: () => null,
       Title: Container,
     },
     Icon: () => null,
-    OTPInput: () => null,
+    OTPInput: ({
+      onTextChange,
+      value,
+    }: {
+      onTextChange?: (value: string) => void;
+      value?: string;
+    }) =>
+      React.createElement('input', {
+        'data-testid': 'verification-code',
+        onChange: (event: import('react').ChangeEvent<HTMLInputElement>) =>
+          onTextChange?.(event.target.value),
+        value,
+      }),
     SizableText: ({
       children,
       onPress,
@@ -114,6 +144,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    prime: {
+      subscription: {
+        onekeyIdLoginFailedReason: (...args: unknown[]) => {
+          mockOneKeyIdLoginFailedReason(...args);
+        },
+      },
+    },
     referral: {
       page: {
         signupOneKeyID: jest.fn(),
@@ -158,6 +195,10 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     });
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.email_verification_rate_limit,
+    });
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason:
+        'Prime email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
     });
   });
 
@@ -243,5 +284,77 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     fireEvent.click(screen.getByTestId('prime-login-email-sender-copy'));
 
     expect(mockCopyText).toHaveBeenCalledWith('OneKey');
+  });
+
+  test('does not duplicate the background server event for an OTP login failure', async () => {
+    const error = new Error('Invalid verification code');
+    markOneKeyIdFailureServerLogged(error);
+    const loginWithCode = jest.fn().mockRejectedValue(error);
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest.fn().mockResolvedValue(undefined)}
+        loginWithCode={loginWithCode}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('verification-code'), {
+      target: { value: '123456' },
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'confirm' })
+          .hasAttribute('disabled'),
+      ).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    await waitFor(() => {
+      expect(loginWithCode).toHaveBeenCalledWith({
+        code: '123456',
+        email: 'test@example.com',
+      });
+      expect(
+        screen.getByText(ETranslations.prime_invalid_verification_code),
+      ).toBeTruthy();
+    });
+    expect(mockOneKeyIdLoginFailedReason).not.toHaveBeenCalled();
+  });
+
+  test('records an OTP failure that did not reach background diagnostics', async () => {
+    const loginWithCode = jest
+      .fn()
+      .mockRejectedValue(new Error('Background bridge disconnected'));
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest.fn().mockResolvedValue(undefined)}
+        loginWithCode={loginWithCode}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('verification-code'), {
+      target: { value: '123456' },
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'confirm' })
+          .hasAttribute('disabled'),
+      ).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    await waitFor(() => {
+      expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledTimes(1);
+    });
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: expect.stringContaining(
+        'Prime email OTP login failed before background diagnostics',
+      ),
+    });
   });
 });

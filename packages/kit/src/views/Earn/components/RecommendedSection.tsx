@@ -34,14 +34,20 @@ import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 import { ListItem } from '../../../components/ListItem';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EarnTestIDs } from '../testIDs';
+import {
+  EARN_MOBILE_RECOMMENDED_ASSET_COUNT,
+  pickMobileRecommendedAssets,
+} from '../utils/recommendedAssetsUtils';
 
 import { AprText } from './AprText';
+import { EARN_LIST_ROW_GAP } from './earnListRhythm';
 
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
 const CARD_PADDING_H = 20;
 const INITIAL_VISIBLE_COUNT = 4;
-const SKELETON_ITEM_COUNT = 4;
+const DESKTOP_SKELETON_ITEM_COUNT = 4;
 
 type IRecommendedLayoutVariant = 'mobile-list' | 'card-carousel';
 
@@ -177,6 +183,7 @@ const RecommendedItem = memo(
 
     return (
       <YStack
+        testID={EarnTestIDs.recommendedItem(token.symbol)}
         role="button"
         gap="$2"
         px="$4"
@@ -226,7 +233,17 @@ RecommendedItem.displayName = 'RecommendedItem';
 
 // Extract the number from the server-side available.text (a localized label
 // followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
-// on the client, so we do not depend on the server copy format (OK-58877)
+// on the client, so we do not depend on the server copy format (OK-58877).
+//
+// This scrape rests on an invariant the server currently guarantees: the
+// amount is produced by formatNumberWithFlag, which hard-codes '.' as the
+// decimal separator and ',' as the group separator, so the digits are always
+// ASCII regardless of locale — only the surrounding label is translated, and
+// no locale pack embeds a digit in that label. If the server ever switches to
+// locale-aware number formatting (comma decimals, non-Latin digits), this
+// silently truncates or blanks the balance. The durable fix is a structured
+// numeric field on IRecommendV2Token rather than parsing display copy
+// (PR 12791 review P2).
 const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
 function extractAvailableNumber(text?: string) {
   return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
@@ -239,6 +256,7 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
 
   return (
     <ListItem
+      testID={EarnTestIDs.recommendedItem(token.symbol)}
       userSelect="none"
       onPress={onPress}
       renderAvatar={
@@ -607,8 +625,10 @@ function RecommendedSectionSkeleton({
         variant={variant}
         disableHorizontalBleed={disableHorizontalBleed}
       >
-        <YStack>
-          {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
+        <YStack gap={EARN_LIST_ROW_GAP}>
+          {Array.from({
+            length: EARN_MOBILE_RECOMMENDED_ASSET_COUNT,
+          }).map((_, index) => (
             <RecommendedListSkeletonItem key={index} />
           ))}
         </YStack>
@@ -616,13 +636,13 @@ function RecommendedSectionSkeleton({
     );
   }
 
-  const skeletonCards = Array.from({ length: SKELETON_ITEM_COUNT }).map(
-    (_, index) => (
-      <YStack key={index} width={CARD_WIDTH} overflow="hidden">
-        <RecommendedCardSkeletonItem />
-      </YStack>
-    ),
-  );
+  const skeletonCards = Array.from({
+    length: DESKTOP_SKELETON_ITEM_COUNT,
+  }).map((_, index) => (
+    <YStack key={index} width={CARD_WIDTH} overflow="hidden">
+      <RecommendedCardSkeletonItem />
+    </YStack>
+  ));
 
   const Scroller = platformEnv.isNative
     ? NativeRecommendedScroller
@@ -634,7 +654,9 @@ function RecommendedSectionSkeleton({
       variant={variant}
       disableHorizontalBleed={disableHorizontalBleed}
     >
-      <Scroller itemCount={SKELETON_ITEM_COUNT}>{skeletonCards}</Scroller>
+      <Scroller itemCount={DESKTOP_SKELETON_ITEM_COUNT}>
+        {skeletonCards}
+      </Scroller>
     </RecommendedSectionContainer>
   );
 }
@@ -655,10 +677,18 @@ export function RecommendedSection({
   const media = useMedia();
   const [showAll, setShowAll] = useState(false);
   const variant = getRecommendedLayoutVariant(media.gtMd);
-  const visibleTokens = showAll
-    ? tokens
-    : tokens.slice(0, INITIAL_VISIBLE_COUNT);
-  const shouldShowMore = !showAll && tokens.length > INITIAL_VISIBLE_COUNT;
+  const mobileRecommendedTokens = useMemo(
+    () => pickMobileRecommendedAssets(tokens),
+    [tokens],
+  );
+  let visibleTokens = mobileRecommendedTokens;
+  if (variant === 'card-carousel') {
+    visibleTokens = showAll ? tokens : tokens.slice(0, INITIAL_VISIBLE_COUNT);
+  }
+  const shouldShowMore =
+    variant === 'card-carousel' &&
+    !showAll &&
+    tokens.length > INITIAL_VISIBLE_COUNT;
 
   if (showSkeleton) {
     return (
@@ -686,9 +716,13 @@ export function RecommendedSection({
         disableHorizontalBleed={disableHorizontalBleed}
       >
         <YStack>
-          {visibleTokens.map((token) => (
-            <RecommendedListItem key={token.symbol} token={token} />
-          ))}
+          {/* The gap wraps the rows only — the show-more button keeps its own
+              pt, so pulling it inside would stack gap + pt above it (OK-59904) */}
+          <YStack gap={EARN_LIST_ROW_GAP}>
+            {visibleTokens.map((token) => (
+              <RecommendedListItem key={token.symbol} token={token} />
+            ))}
+          </YStack>
           {showMoreButton}
         </YStack>
       </RecommendedSectionContainer>

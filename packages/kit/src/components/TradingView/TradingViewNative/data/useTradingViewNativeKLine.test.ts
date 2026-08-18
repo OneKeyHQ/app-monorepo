@@ -11,6 +11,7 @@ import type {
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
+import { emitTradingViewNativeDebugEvent } from './tradingViewNativeDebugLogger';
 import {
   readTradingViewNativeActiveInterval,
   saveTradingViewNativeActiveInterval,
@@ -73,6 +74,12 @@ jest.mock('./providers/createTradingViewNativeDataProvider', () => ({
   createTradingViewNativeDataProvider: jest.fn(),
 }));
 
+jest.mock('./tradingViewNativeDebugLogger', () => ({
+  emitTradingViewNativeDebugEvent: jest.fn(),
+  getTradingViewNativeDebugErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 jest.mock('./tradingViewNativeIntervalStorage', () => {
   const actual = jest.requireActual<
     typeof import('./tradingViewNativeIntervalStorage')
@@ -88,6 +95,9 @@ const mockCreateTradingViewNativeDataProvider =
   createTradingViewNativeDataProvider as jest.MockedFunction<
     typeof createTradingViewNativeDataProvider
   >;
+const mockEmitTradingViewNativeDebugEvent = jest.mocked(
+  emitTradingViewNativeDebugEvent,
+);
 const mockReadTradingViewNativeActiveInterval = jest.mocked(
   readTradingViewNativeActiveInterval,
 );
@@ -271,6 +281,116 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
+  it('publishes history and fallback decisions to the development event log', async () => {
+    mockFetchHistory.mockResolvedValue({
+      ...buildResponse(100, 100_000),
+      historySource: 'fallback',
+    });
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'history.request' }),
+    );
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({ historySource: 'fallback' }),
+        level: 'warning',
+        name: 'history.response',
+      }),
+    );
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'warning',
+        name: 'history.fallback.used',
+      }),
+    );
+  });
+
+  it('logs a fallback response as dropped after primary history is selected', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockResolvedValueOnce({
+        ...buildResponse(110, 100_000),
+        historySource: 'fallback',
+      });
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    mockEmitTradingViewNativeDebugEvent.mockClear();
+
+    updateVisibility(false);
+    updateVisibility(true);
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          historySource: 'fallback',
+          reason: 'source-mismatch',
+          selectedHistorySource: 'primary',
+        }),
+        level: 'warning',
+        name: 'history.response.dropped',
+      }),
+    );
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) => event.name === 'history.fallback.used',
+      ),
+    ).toBe(false);
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) =>
+          event.name === 'history.response' &&
+          event.details?.historySource === 'fallback',
+      ),
+    ).toBe(false);
+  });
+
+  it('logs a resolved response as aborted after its request is cancelled', async () => {
+    const historyRequest =
+      createDeferred<ITradingViewNativeHistoryResponse | null>();
+    mockFetchHistory.mockReturnValue(historyRequest.promise);
+
+    const { unmount } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(1));
+    const request = mockFetchHistory.mock.calls[0]?.[0];
+
+    unmount();
+    expect(request?.signal.aborted).toBe(true);
+    mockEmitTradingViewNativeDebugEvent.mockClear();
+    historyRequest.resolve({
+      ...buildResponse(100, 100_000),
+      historySource: 'fallback',
+    });
+
+    await waitFor(() =>
+      expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          details: expect.objectContaining({ historySource: 'fallback' }),
+          level: 'warning',
+          name: 'history.response.aborted',
+        }),
+      ),
+    );
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) =>
+          event.name === 'history.response' ||
+          event.name === 'history.fallback.used',
+      ),
+    ).toBe(false);
+  });
+
   it('selects a line chart from single-value history metadata', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;
@@ -340,7 +460,7 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(result.current.chartType).toBe('line');
   });
 
-  it('restores an OHLC chart when primary history replaces a transient fallback', async () => {
+  it('does not splice primary history into CoinGecko fallback history', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;
     mockFetchHistory
@@ -368,7 +488,8 @@ describe('TradingViewNative K-line data state machine', () => {
     updateVisibility(true);
 
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current.chartType).toBe('candlestick'));
+    expect(result.current.chartType).toBe('line');
+    expect(result.current.points.map((point) => point.c)).toEqual([100, 110]);
   });
 
   it('restores the saved interval before the initial history request', async () => {
@@ -1059,9 +1180,7 @@ describe('TradingViewNative K-line data state machine', () => {
         ].filter(
           ({ timestamp }) => timestamp >= timeFrom && timestamp <= timeTo,
         );
-        return timeTo === currentTimestamp
-          ? buildFallbackMultiPointResponse(filteredCandles)
-          : buildMultiPointResponse(filteredCandles);
+        return buildMultiPointResponse(filteredCandles);
       },
     );
     const { result } = renderHook(() =>
@@ -1346,7 +1465,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
-  it('uses a new realtime candle when a future latest request crosses an interval boundary', async () => {
+  it('discards realtime before history when a future request crosses an interval boundary', async () => {
     const latestHistoryRequest =
       createDeferred<ITradingViewNativeHistoryResponse | null>();
     let currentTimeMilliseconds = 2_000_000_000;
@@ -1402,16 +1521,19 @@ describe('TradingViewNative K-line data state machine', () => {
       await navigationPromise;
     });
 
-    expect(result.current.intervalConfig.activeInterval).toBe('15');
-    expect(result.current.points).toEqual([realtimePoint]);
-    expect(result.current.viewportRequest).toEqual(
-      expect.objectContaining({
-        target: {
-          kind: 'timestamp',
-          timestamp: realtimePoint.t,
-        },
-      }),
+    expect(result.current.intervalConfig.activeInterval).toBe('1');
+    expect(result.current.points).toEqual(
+      buildResponse(100, currentTimestamp - 60).points,
     );
+    expect(result.current.viewportRequest).toBeNull();
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith({
+      details: expect.objectContaining({
+        pointTimestamp: realtimePoint.t,
+        reason: 'history-not-ready',
+      }),
+      level: 'warning',
+      name: 'realtime.point.ignored',
+    });
   });
 
   it('advances the newer cursor when go-to-date crosses now after a historical jump', async () => {
@@ -2918,24 +3040,37 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
-  it('buffers realtime candles while history is loading', async () => {
+  it('discards realtime candles until initial history is ready', async () => {
     const historyRequest = createDeferred<IMarketTokenKLineResponse | null>();
     mockFetchHistory.mockReturnValue(historyRequest.promise);
+    const handleRealtimePoint = jest.fn();
     const { result } = renderHook(() =>
       useTradingViewNativeKLine({
+        onRealtimePoint: handleRealtimePoint,
         source: buildMarketSource({ realtime: 'websocket' }),
       }),
     );
 
     await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
     pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
-    expect(result.current.points.map((point) => point.c)).toEqual([105]);
+    expect(result.current.points).toEqual([]);
+    expect(handleRealtimePoint).not.toHaveBeenCalled();
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith({
+      details: expect.objectContaining({
+        reason: 'history-not-ready',
+      }),
+      level: 'warning',
+      name: 'realtime.point.ignored',
+    });
     await act(async () => {
       historyRequest.resolve(buildResponse(100));
       await historyRequest.promise;
     });
 
-    await waitFor(() => expect(result.current.points[0]?.c).toBe(105));
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
+    expect(result.current.points[0]?.c).toBe(105);
+    expect(handleRealtimePoint).toHaveBeenCalledTimes(1);
   });
 
   it('loads and prepends one older page near the left boundary', async () => {
@@ -3032,7 +3167,7 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(mockFetchHistory).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps an OHLC chart when an older page uses single-value fallback history', async () => {
+  it('does not prepend CoinGecko fallback history to Market history', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;
     mockFetchHistory
@@ -3057,7 +3192,9 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(result.current.points).toHaveLength(2));
     expect(result.current.chartType).toBe('candlestick');
     act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
-    await waitFor(() => expect(result.current.points).toHaveLength(4));
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+    expect(result.current.points).toHaveLength(2);
+    expect(result.current.points.map((point) => point.c)).toEqual([100, 110]);
     expect(result.current.chartType).toBe('candlestick');
   });
 
@@ -3282,6 +3419,75 @@ describe('TradingViewNative K-line data state machine', () => {
       expect(result.current.points.map((point) => point.c)).toEqual([120, 130]),
     );
     expect(result.current.chartType).toBe('candlestick');
+  });
+
+  it('resets history source selection when a series lifecycle restarts', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildFallbackMultiPointResponse([{ close: 100, timestamp: 1_000_000 }]),
+      )
+      .mockResolvedValueOnce(buildResponse(200, 2_000_000))
+      .mockResolvedValueOnce(buildResponse(120, 1_100_000));
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ tokenAddress }),
+        }),
+      { initialProps: { tokenAddress: '0x123' } },
+    );
+
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+
+    rerender({ tokenAddress: '0x456' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+
+    rerender({ tokenAddress: '0x123' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(120));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+  });
+
+  it('resets chart type classification when a series lifecycle restarts', async () => {
+    mockHistoryBatchSize = 2;
+    mockHistoryRequestCandleCount = 2;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 110, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 200, timestamp: 2_000_000 },
+          { close: 210, timestamp: 2_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce({
+        ...buildFallbackMultiPointResponse([
+          { close: 120, timestamp: 1_100_000 },
+          { close: 130, timestamp: 1_103_600 },
+        ]),
+        pointType: 'single',
+      });
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ tokenAddress }),
+        }),
+      { initialProps: { tokenAddress: '0x123' } },
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.chartType).toBe('candlestick');
+
+    rerender({ tokenAddress: '0x456' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+
+    rerender({ tokenAddress: '0x123' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(120));
+    expect(result.current.chartType).toBe('line');
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
   });
 
   it('resets the series when the CoinGecko fallback identity changes', async () => {

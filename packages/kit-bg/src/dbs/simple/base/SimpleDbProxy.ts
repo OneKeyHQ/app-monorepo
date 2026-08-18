@@ -51,6 +51,7 @@ import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntit
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
@@ -290,6 +291,10 @@ export class SimpleDbProxy
   chainResource = this._createProxyService(
     'chainResource',
   ) as SimpleDbEntityChainResource;
+
+  receiveArrivalConfig = this._createProxyService(
+    'receiveArrivalConfig',
+  ) as SimpleDbEntityReceiveArrivalConfig;
 
   btcFreshAddress = this._createProxyService(
     'btcFreshAddress',

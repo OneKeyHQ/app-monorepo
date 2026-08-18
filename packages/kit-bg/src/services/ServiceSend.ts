@@ -10,6 +10,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getPbkdf2KdfParamsForNonDbTxNoCache } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -814,15 +815,17 @@ class ServiceSend extends ServiceBase {
 
     // A Gas Account quote is bound to a single user tx (payloadHash + locked
     // nonce). In batch flows every iteration would otherwise reuse the same
-    // quoteId/idempotencyKey. Private Send is also explicitly excluded from
-    // Gas Account, so sponsor state must not be threaded into submit.
-    const effectiveGasAccountUiState =
-      isMultiTxs || isPrivateSend ? undefined : gasAccountUiState;
+    // quoteId/idempotencyKey. Private Send is always a single deposit
+    // transfer, so its sponsor state passes through (OK-59993).
+    const effectiveGasAccountUiState = isMultiTxs
+      ? undefined
+      : gasAccountUiState;
     // Only thread the submitId through when we're actually going to engage the
     // retry loop, to avoid registering a controller for paths that will never
     // abort it.
-    const effectiveGasAccountSubmitId =
-      isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
+    const effectiveGasAccountSubmitId = isMultiTxs
+      ? undefined
+      : gasAccountSubmitId;
 
     // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
     // Re-validate that nonce against the on-chain nonce at the last moment
@@ -1377,10 +1380,12 @@ class ServiceSend extends ServiceBase {
     unsignedMessage,
     networkId,
     accountId,
+    useNonBlockingKdf,
   }: {
     unsignedMessage?: IUnsignedMessage;
     networkId: string;
     accountId: string;
+    useNonBlockingKdf?: boolean;
   }) {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -1397,10 +1402,15 @@ class ServiceSend extends ServiceBase {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
 
+    const kdfParams = useNonBlockingKdf
+      ? getPbkdf2KdfParamsForNonDbTxNoCache()
+      : undefined;
+
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
+        kdfParams,
       });
     const signedMessage =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1409,6 +1419,7 @@ class ServiceSend extends ServiceBase {
             messages: [validUnsignedMessage],
             password,
             deviceParams,
+            ...kdfParams,
           });
           return _signedMessage;
         },

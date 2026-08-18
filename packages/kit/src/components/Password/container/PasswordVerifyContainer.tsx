@@ -15,6 +15,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -62,6 +63,7 @@ interface IPasswordVerifyProps {
   name?: 'lock';
   pageMode?: boolean;
   skipPostVerifyBackgroundTasks?: boolean;
+  kdfParams?: IPbkdf2KdfParams;
 }
 
 const PasswordVerifyContainer = ({
@@ -69,6 +71,7 @@ const PasswordVerifyContainer = ({
   name,
   pageMode,
   skipPostVerifyBackgroundTasks,
+  kdfParams,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
@@ -323,6 +326,7 @@ const PasswordVerifyContainer = ({
                   password: securePassword,
                   passwordMode,
                   skipPostVerifyBackgroundTasks,
+                  ...kdfParams,
                 });
               await callOnVerifyRes(verifiedPassword);
               setVerifiedStatus();
@@ -357,6 +361,7 @@ const PasswordVerifyContainer = ({
                 isBiologyAuth: true,
                 passwordMode,
                 skipPostVerifyBackgroundTasks,
+                ...kdfParams,
               });
           }
           if (biologyAuthRes) {
@@ -466,6 +471,7 @@ const PasswordVerifyContainer = ({
       intl,
       isBiologyAuthEnable,
       isEnable,
+      kdfParams,
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
@@ -503,12 +509,14 @@ const PasswordVerifyContainer = ({
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: finalPassword,
+            ...kdfParams,
           });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
             skipPostVerifyBackgroundTasks,
+            ...kdfParams,
           });
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
@@ -647,6 +655,7 @@ const PasswordVerifyContainer = ({
       intl,
       isLock,
       isProtectionTime,
+      kdfParams,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,

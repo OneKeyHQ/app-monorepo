@@ -27,6 +27,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useIsSplitMainActive,
   usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -39,6 +40,7 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   type ISpotAssetCtxsMap,
@@ -56,9 +58,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getTokenSubtitle,
@@ -73,10 +77,7 @@ import type {
   IPerpsUniverse,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import {
-  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-  XYZ_ASSET_ID_OFFSET,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
   usePerpActiveTabValidation,
@@ -86,6 +87,7 @@ import {
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
+import { PerpTestIDs } from '../../testIDs';
 import { tracePerpsMobileLayout } from '../../utils/mobileLayoutTrace';
 import { preloadPerpsMobileTokenSelectorPage } from '../../utils/preloadPerpsTokenSelector';
 import {
@@ -436,9 +438,7 @@ function BasePerpTokenSelectorContent({
         }
       } catch (error) {
         defaultLogger.app.error.log(
-          `Failed to load spot meta: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Failed to load spot meta: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
       if (!cancelled) {
@@ -574,9 +574,13 @@ function BasePerpTokenSelectorContent({
   );
 
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
-    usePerpsFavorites({ mode: 'perp' });
+    usePerpsFavorites({
+      mode: 'perp',
+    });
   const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
-    usePerpsFavorites({ mode: 'spot' });
+    usePerpsFavorites({
+      mode: 'spot',
+    });
   const favoriteItems = useMemo(
     () => [...perpFavoriteItems, ...spotFavoriteItems],
     [perpFavoriteItems, spotFavoriteItems],
@@ -786,11 +790,9 @@ function BasePerpTokenSelectorContent({
       (assets: IPerpsUniverse[], dexIndex: number) => {
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
-          const normalizedAssetId =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
+          const sortValues = computeSortValues(
+            ctxs?.[toCtxIndex(asset.assetId, dexIndex)],
+          );
           return { dexIndex, index, asset, assetId: asset.assetId, sortValues };
         });
       },
@@ -1028,9 +1030,9 @@ function BasePerpTokenSelectorContent({
             .map((item, index) => {
               const asset = assetsByDex?.[item.dexIndex]?.[item.index];
               const normalizedAssetId =
-                item.dexIndex === 1 && item.assetId !== undefined
-                  ? item.assetId - XYZ_ASSET_ID_OFFSET
-                  : item.assetId;
+                item.assetId === undefined
+                  ? undefined
+                  : toCtxIndex(item.assetId, item.dexIndex);
               const assetCtx =
                 normalizedAssetId !== undefined
                   ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
@@ -1350,7 +1352,13 @@ function BasePerpTokenSelector() {
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
   const isOpeningRef = useRef(false);
-  const { displayName, baseName, mode } = useActiveTradeDisplay();
+  const {
+    displayName,
+    baseName,
+    coin: activeCoin,
+    dexLabel,
+    mode,
+  } = useActiveTradeDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
@@ -1434,7 +1442,11 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(baseName)}
+              {...(mode === 'spot'
+                ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
+                : {
+                    tokenImageUris: getHyperliquidTokenImageUris(activeCoin),
+                  })}
               fallbackIcon="CryptoCoinOutline"
             />
 
@@ -1448,6 +1460,10 @@ function BasePerpTokenSelector() {
               {triggerLabel}
             </SizableText>
             <TradingModeBadge isSpot={mode === 'spot'} />
+            <PerpDexBadge
+              dexLabel={dexLabel}
+              testID={PerpTestIDs.ActiveDexBadge}
+            />
             {builderFeeRate === 0 ? (
               <Tooltip
                 placement="bottom"
@@ -1484,8 +1500,10 @@ function BasePerpTokenSelector() {
       isOpen,
       isLoading,
       triggerLabel,
+      activeCoin,
       baseName,
       mode,
+      dexLabel,
       builderFeeRate,
       intl,
       prewarmTokenSelectorImages,
@@ -1567,6 +1585,7 @@ const BasePerpTokenSelectorMobileView = memo(
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
         <XStack
+          testID={PerpTestIDs.TokenSelectorMobile}
           gap="$1"
           bg="$bgApp"
           justifyContent="center"
@@ -1586,6 +1605,7 @@ BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const isSplitMainActive = useIsSplitMainActive();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
   // Only low-frequency fields here (coin/displayName/mode change on coin
@@ -1616,12 +1636,16 @@ function BasePerpTokenSelectorMobile() {
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
       walletType: activePerpsAccount.walletType ?? 'unknown',
     });
-    navigation.pushModal(EModalRoutes.PerpModal, {
+    const openTokenSelector = isSplitMainActive
+      ? navigation.pushFullModal
+      : navigation.pushModal;
+    openTokenSelector(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
   }, [
     activePerpsAccount.walletType,
     coin,
+    isSplitMainActive,
     mode,
     navigation,
     prewarmTokenSelectorImages,

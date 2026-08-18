@@ -16,6 +16,7 @@ import {
   QRCode,
   SizableText,
   Stack,
+  Theme,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -111,6 +112,15 @@ function ReceiveToken() {
       networkId,
     });
   }, [accountId, networkId]);
+
+  // Server overrides for the arrival ETA and protocol-standard label.
+  // Resolves to undefined on fetch failure so the bundled defaults apply.
+  const { result: receiveArrivalConfig, isLoading: isArrivalConfigLoading } =
+    usePromiseResult(
+      () => backgroundApiProxy.serviceNetwork.getReceiveArrivalConfig(),
+      [],
+      { watchLoading: true },
+    );
 
   const { handleBannerOnPress } = useWalletBanner({
     account,
@@ -546,6 +556,14 @@ function ReceiveToken() {
   }, [displayAddress, handleCopyAddress]);
 
   const arrivalTimeText = useMemo(() => {
+    // Until the server override settles, render no ETA instead of the
+    // bundled default — the default may differ a lot from the override and
+    // would flash before being replaced. `isLoading` starts as undefined,
+    // so gate on `!== false`. Failure resolves undefined and falls back to
+    // the bundled defaults below.
+    if (isArrivalConfigLoading !== false) {
+      return undefined;
+    }
     // The text is formatted via appLocale inside the util; depending on
     // intl.locale recomputes it when the app language changes.
     void intl.locale;
@@ -553,8 +571,16 @@ function ReceiveToken() {
       networkId,
       isTestnet: network?.isTestnet,
       isCustomNetwork: network?.isCustomNetwork,
+      override: receiveArrivalConfig,
     });
-  }, [intl.locale, networkId, network?.isTestnet, network?.isCustomNetwork]);
+  }, [
+    isArrivalConfigLoading,
+    intl.locale,
+    networkId,
+    network?.isTestnet,
+    network?.isCustomNetwork,
+    receiveArrivalConfig,
+  ]);
 
   const pageTitleText = useMemo(
     () =>
@@ -573,8 +599,15 @@ function ReceiveToken() {
         networkId,
         isTestnet: network?.isTestnet,
         isCustomNetwork: network?.isCustomNetwork,
+        override: { byNetworkId: receiveArrivalConfig?.standardByNetworkId },
       }),
-    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+    [
+      network?.name,
+      networkId,
+      network?.isTestnet,
+      network?.isCustomNetwork,
+      receiveArrivalConfig?.standardByNetworkId,
+    ],
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
@@ -901,31 +934,37 @@ function ReceiveToken() {
               size={platformEnv.isNative ? 208 : 176}
             />
             {network.isCustomNetwork ? null : (
-              // full-bleed overlay + flex centering: percentage translate
-              // is unreliable on native, so avoid left/top 50% -50% here
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                alignItems="center"
-                justifyContent="center"
-              >
+              // The overlay sits on the QR plate, which is always light, so
+              // resolve theme tokens (the network badge ring and its icon
+              // backing use $bgApp) against the light theme the same way the
+              // QRCode component does for the plate itself.
+              <Theme name="light">
+                {/* full-bleed overlay + flex centering: percentage translate
+                    is unreliable on native, so avoid left/top 50% -50% here */}
                 <YStack
-                  borderWidth={4}
-                  borderColor="white"
-                  borderRadius="$full"
-                  bg="white"
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  alignItems="center"
+                  justifyContent="center"
                 >
-                  <Token
-                    size="lg"
-                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                    networkImageUri={network.logoURI}
-                    networkId={networkId}
-                  />
+                  <YStack
+                    borderWidth={4}
+                    borderColor="white"
+                    borderRadius="$full"
+                    bg="white"
+                  >
+                    <Token
+                      size="lg"
+                      tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
+                      networkImageUri={network.logoURI}
+                      networkId={networkId}
+                    />
+                  </YStack>
                 </YStack>
-              </YStack>
+              </Theme>
             )}
           </YStack>
         ) : (

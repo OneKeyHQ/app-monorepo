@@ -51,6 +51,7 @@ import { EarnTestIDs } from '../../testIDs';
 import {
   filterAndSortProtocols,
   getProtocolNetworkData,
+  isDisplayableMetricText,
 } from '../../utils/protocolListUtils';
 
 import type { IEarnSortOption } from '../../components/EarnMobileSortControl';
@@ -289,12 +290,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           })
             ? protocol.provider.vault
             : undefined,
+          logoURI,
         });
       } catch (_error) {
         // ignore error
       }
     },
-    [symbol, navigation],
+    [symbol, navigation, logoURI],
   );
 
   const protocolDisplayData = useMemo(() => {
@@ -554,8 +556,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           });
           // Walkthrough r3: on mobile, TVL renders under APY in the right
           // column (fixed-rate keeps its liquidity line instead)
+          // Same guard as the protocol Tokens page: the server has shipped
+          // "NaN" TVL copy, and this string is rendered verbatim
           const showMobileTvl =
-            !isFixedRateCategory && !isDesktopLayout && Boolean(item.tvl?.text);
+            !isFixedRateCategory &&
+            !isDesktopLayout &&
+            isDisplayableMetricText(item.tvl?.text);
           const mobileTvl = showMobileTvl ? (
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {`${item.tvl?.text ?? ''} ${intl.formatMessage({
