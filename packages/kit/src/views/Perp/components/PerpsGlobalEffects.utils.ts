@@ -21,6 +21,21 @@ type IInitialTradeInstrument =
   | { mode: 'perp'; coin: string }
   | { mode: 'spot'; coin: string; universe?: ISpotUniverse };
 
+// Only the claiming run may act on a deeplink intent. A mounted page has
+// already switched through the event bus, so re-applying it on a later resync
+// drags the user off a market they picked after the notification, for the
+// whole intent lifetime. Extracted so that dropping the gate fails a test
+// rather than silently reviving that.
+export function resolveAppliedDeeplinkIntent<T>({
+  claimed,
+  deeplinkIntent,
+}: {
+  claimed: boolean;
+  deeplinkIntent: T | undefined;
+}): T | undefined {
+  return claimed ? deeplinkIntent : undefined;
+}
+
 export function buildInitialTradeInstrumentSwitchParams({
   mode,
   perpAsset,

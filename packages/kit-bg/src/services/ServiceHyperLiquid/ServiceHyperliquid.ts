@@ -219,11 +219,13 @@ const SPOT_TOTAL_USD_MISSING_PRICE_FALLBACK_DELAY_MS =
     seconds: 3,
   });
 const PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS = 500;
-// Bounds how long an unconsumed intent can outlive its tap: the Perp page it
-// was meant for claims it within a cold start, so anything older belongs to a
-// navigation the user already abandoned.
+// Bounds how long an unconsumed intent can outlive its tap. Only the one
+// claiming run per process can act on it, so this guards a single case: the
+// tap never reached Perps and the user opens it much later. It has to clear
+// the whole unlock flow, which sits between the tap and the first Perp frame
+// when app lock is on and a failed biometric falls back to a password.
 const PENDING_INSTRUMENT_INTENT_TTL_MS = timerUtils.getTimeDurationMs({
-  seconds: 30,
+  minute: 5,
 });
 
 let perpsActiveAssetCtxDisplayLastSetAt = 0;
@@ -603,7 +605,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (!intent) {
       return undefined;
     }
-    if (Date.now() - intent.createdAt > PENDING_INSTRUMENT_INTENT_TTL_MS) {
+    const ageMs = Date.now() - intent.createdAt;
+    if (ageMs > PENDING_INSTRUMENT_INTENT_TTL_MS) {
+      // Expiry and "never set" both land on the restore path, and only this
+      // separates them when a report says the market did not switch.
+      markPerpsColdStartPerf('pending_instrument_intent_expired', {
+        coin: intent.coin,
+        ageMs,
+      });
       return undefined;
     }
     return { coin: intent.coin, mode: intent.mode };

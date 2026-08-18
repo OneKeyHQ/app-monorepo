@@ -89,6 +89,7 @@ import {
 
 import {
   buildInitialTradeInstrumentSwitchParams,
+  resolveAppliedDeeplinkIntent,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -982,10 +983,10 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      // Only the claiming run can act on it. A mounted page already switched
-      // via the event bus, so re-applying here would drag the user off a
-      // market they picked after the notification, for the whole TTL.
-      const appliedDeeplinkIntent = claimed ? deeplinkIntent : undefined;
+      const appliedDeeplinkIntent = resolveAppliedDeeplinkIntent({
+        claimed,
+        deeplinkIntent,
+      });
       if (deeplinkIntent?.coin) {
         markPerpsColdStartPerf('initial_symbol_deeplink_intent', {
           coin: deeplinkIntent.coin,
@@ -997,9 +998,9 @@ function useHyperliquidSymbolSelect() {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
         // on the previous coin when the event bus message was dropped.
-        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget, {
-          deeplinkIntent: appliedDeeplinkIntent,
-        });
+        // No deeplink here by construction: this branch is the non-claiming
+        // resync, and the intent is withheld from it.
+        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget);
         const ctxInstrument = activeTradeInstrumentRef.current;
         const diverged =
           !bgSwitchParams ||

@@ -1,8 +1,37 @@
 import {
   buildInitialTradeInstrumentSwitchParams,
+  resolveAppliedDeeplinkIntent,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
+
+describe('resolveAppliedDeeplinkIntent', () => {
+  const intent = { mode: 'perp' as const, coin: 'para:SMCI' };
+
+  it('hands the intent to the claiming run', () => {
+    expect(
+      resolveAppliedDeeplinkIntent({ claimed: true, deeplinkIntent: intent }),
+    ).toBe(intent);
+  });
+
+  // Dropping this gate is what turns a notification already handled by the
+  // mounted page into an override that outranks the market the user picked
+  // after it, for as long as the intent lives.
+  it('withholds it from every later run', () => {
+    expect(
+      resolveAppliedDeeplinkIntent({ claimed: false, deeplinkIntent: intent }),
+    ).toBeUndefined();
+  });
+
+  it('stays undefined when nothing is pending', () => {
+    expect(
+      resolveAppliedDeeplinkIntent({
+        claimed: true,
+        deeplinkIntent: undefined,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('buildInitialTradeInstrumentSwitchParams', () => {
   // The optimistic instrument is written synchronously when a switch starts,
