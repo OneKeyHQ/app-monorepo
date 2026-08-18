@@ -1576,8 +1576,10 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
-  // 协议 Tips (OK-58972，dashboard 配置)：数组序即展示序；
-  // 单条直显无 View All；多条外显 showDefault 那条（无则第一条）
+  // Protocol tips (OK-58972), configured in the dashboard. Array order is
+  // display order. A single tip is shown inline with no View All; with
+  // several, the one flagged showDefault is shown inline (first entry when
+  // none is flagged).
   protocolTips?: {
     tips: {
       title: IEarnText;

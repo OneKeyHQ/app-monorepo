@@ -111,7 +111,15 @@ function BasicEarnHome({
   //
   // Keeping the last result means a re-entry starts from what was already on
   // screen instead of from empty.
+  //
+  // That alone is not enough for an account that genuinely has no banners.
+  // usePromiseResult raises isLoading on every re-run, including
+  // revalidateOnFocus, and the cached list is legitimately empty — so the
+  // skeleton branch kept firing and the 248pt jump came back on each re-entry.
+  // Once a request has produced a result, "no banners" is a known answer and
+  // later revalidation must not fall back to the loading presentation.
   const earnPageBannerListRef = useRef<IEarnPageBannerListItem[]>([]);
+  const hasResolvedEarnPageBannerRef = useRef(false);
   const {
     result: earnPageBannerList,
     isLoading: isEarnPageBannerLoading = true,
@@ -119,12 +127,16 @@ function BasicEarnHome({
   } = usePromiseResult(
     async () => {
       if (!platformEnv.isNative || showContent === false) {
+        // Nothing will ever be fetched here, so this counts as resolved too —
+        // otherwise desktop and web flash the skeleton for a frame.
+        hasResolvedEarnPageBannerRef.current = true;
         return earnPageBannerListRef.current;
       }
       try {
         const list =
           await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
         earnPageBannerListRef.current = list;
+        hasResolvedEarnPageBannerRef.current = true;
         return list;
       } catch {
         return earnPageBannerListRef.current;
@@ -571,7 +583,9 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={isEarnPageBannerLoading}
+          isBannerLoading={
+            isEarnPageBannerLoading && !hasResolvedEarnPageBannerRef.current
+          }
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}

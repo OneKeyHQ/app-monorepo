@@ -202,6 +202,23 @@ function OuterTabPagerViewComponent({
     setVisitedPages(nextVisited);
   }, []);
 
+  // Publishing visible pages from the effect below alone is one commit too
+  // late: the commit that unfreezes a page still carries the host's previous
+  // visibility, so the page mounts while its body is still display:none —
+  // exactly the blank first frame OK-60300 is about, just narrower. Calling
+  // this from the same handler that unfreezes puts both state updates in one
+  // React batch, so the page appears and paints together. The effect stays as
+  // the backstop for paths that do not go through a handler; the host setter
+  // dedupes by content, so the second call is a no-op.
+  const publishVisiblePages = useCallback(
+    (indexes: number[]) => {
+      onVisiblePagesChange?.(
+        Array.from(new Set(indexes)).toSorted((a, b) => a - b),
+      );
+    },
+    [onVisiblePagesChange],
+  );
+
   // --- Atom -> PagerView sync (programmatic switching) ---
   useEffect(() => {
     const index = TAB_TO_INDEX[selectedHeaderTab];
@@ -240,20 +257,21 @@ function OuterTabPagerViewComponent({
         // runOnJS(onPageScroll) round trip is what left a blank page on screen
         // for the first frames of the swipe (OK-60300).
         const active = currentOuterIndexRef.current;
-        markPagesVisited(
-          [active - 1, active, active + 1].filter(
-            (index) => index >= 0 && index < INDEX_TO_TAB.length,
-          ),
+        const neighborhood = [active - 1, active, active + 1].filter(
+          (index) => index >= 0 && index < INDEX_TO_TAB.length,
         );
+        markPagesVisited(neighborhood);
+        publishVisiblePages(neighborhood);
       } else if (state === 'settling') {
         setTransitioning(true);
       } else if (state === 'idle') {
         wasUserDragRef.current = false;
         setTransitioning(false);
         setVisiblePair(null);
+        publishVisiblePages([currentOuterIndexRef.current]);
       }
     },
-    [markPagesVisited, setTransitioning, setVisiblePair],
+    [markPagesVisited, publishVisiblePages, setTransitioning, setVisiblePair],
   );
 
   // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
@@ -277,8 +295,9 @@ function OuterTabPagerViewComponent({
       }
       setVisiblePair([position, nextPosition]);
       markPagesVisited([position, nextPosition]);
+      publishVisiblePages([position, nextPosition]);
     },
-    [markPagesVisited, setVisiblePair],
+    [markPagesVisited, publishVisiblePages, setVisiblePair],
   );
 
   // Worklet-based onPageScroll: updates pageScrollPosition on the UI thread

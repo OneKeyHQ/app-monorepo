@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
   BlurView,
   Carousel,
@@ -33,27 +35,37 @@ const BANNER_SHADOW_ROOM = '$2';
 // reproduces exactly. Pinning it as a floor as well keeps the bar the same
 // height on an icon-less slide, so it does not jump as the carousel pages.
 const BANNER_INFO_HEIGHT = 56;
-// Thinnest frosted material on each platform. The two mobile platforms need
-// different tint names for the same result, because expo-blur's Android port
-// re-buckets the tints: every `*MaterialLight` collapses back to LIGHT, a
-// ~78% opaque near-white wash (rgba(249,249,249,0.78)) — the same legacy style
-// that made this bar render as a flat grey strip. Only the un-suffixed
-// `systemUltraThinMaterial` keeps its own value there, rgba(191,191,191,0.44),
-// which is what actually looks like glass on Android. On iOS the reverse
-// holds: the un-suffixed name is the *adaptive* material and would swing dark
-// when the phone is in dark mode, while the bar's copy is always dark, so iOS
-// takes the Light-suffixed one.
-const BANNER_INFO_GLASS_MATERIAL = platformEnv.isNativeAndroid
-  ? ('systemUltraThinMaterial' as const)
-  : ('systemUltraThinMaterialLight' as const);
+// Dark frosted material. A frosted pane is blur *plus* a tint layer, never
+// plain transparency, so the bar always has a color — the only question is
+// which. The two options are not symmetric: a Light material is "add white
+// behind the glass" and collapses to flat mid-grey over the dark ops artwork
+// shipping today, while a dark pane keeps light copy legible over both dark
+// and light artwork. So one dark material serves every banner and no
+// per-banner configuration is needed.
+// The Dark suffix is required rather than cosmetic: the un-suffixed
+// `systemUltraThinMaterial` is the *adaptive* material on iOS and would swing
+// light in light mode, and expo-blur's Android port re-buckets the tints so
+// the whole Light family collapses back to LIGHT (rgba(249,249,249,0.78)),
+// while the Dark family keeps its own values.
+const BANNER_INFO_GLASS_MATERIAL = 'systemUltraThinMaterialDark' as const;
 // How much of the material is applied. On iOS this is the effect animator's
 // fraction, on Android it scales both the blur radius and the overlay alpha —
 // on both it is the one knob that goes *thinner* than the thinnest material.
-const BANNER_INFO_GLASS_INTENSITY = 70;
-// Near-nothing veil above the material. Kept as the readability knob: the
-// bar's copy is dark by design, so artwork that is dark under the bar needs
-// this raised (0.2-0.35) at the cost of transparency.
-const BANNER_INFO_GLASS_TINT = 'rgba(255,255,255,0.08)';
+const BANNER_INFO_GLASS_INTENSITY = 55;
+// Optional veil above the material, kept as the readability escape hatch.
+// Off by default: it lands on top of the blur, so any non-zero value trades
+// the pane's transparency away. Unusually bright artwork can raise this to a
+// low-alpha black (0.1-0.2) rather than reaching for the material again.
+const BANNER_INFO_GLASS_TINT = 'transparent';
+// Specular highlight along the bar's top edge — the strongest "this is glass"
+// cue in Apple's materials. Without it the pane reads as translucent plastic
+// no matter how good the blur is.
+const BANNER_INFO_GLASS_EDGE = 'rgba(255,255,255,0.22)';
+// Half of $bodyMdMedium's extra leading (20 - 14 = 6), which iOS places
+// entirely above the glyphs. Paint-only, so no script can be clipped by it.
+const BANNER_BUTTON_LABEL_NUDGE = {
+  transform: [{ translateY: -1.5 }],
+} as const;
 // Matches the admin dashboard BannerPreview text-shadow so copy stays
 // readable on both light and dark background images. Not in Figma: the design
 // only ever shows the one hand-picked artwork, ops can upload any image.
@@ -67,8 +79,11 @@ const BANNER_IMAGE_COPY_SHADOW = {
 const BANNER_DEFAULT_COLORS = {
   imageTitle: 'rgba(0,0,0,1)',
   imageSubtitle: 'rgba(0,0,0,1)',
-  title: 'rgba(0,0,0,0.88)',
-  subtitle: 'rgba(0,0,0,0.61)',
+  // Light copy to match the dark glass pane. These are only the fallback: an
+  // admin-configured titleColor/subtitleColor still wins, so a slide whose
+  // artwork needs something else can still be hand-tuned.
+  title: 'rgba(255,255,255,0.95)',
+  subtitle: 'rgba(255,255,255,0.65)',
 } as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
@@ -137,10 +152,15 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             fallback: prefer admin-configured colors, else Figma default dark;
             a light shadow keeps it readable on light/dark images (OK-58503). */}
         {hasImageCopy ? (
-          // Figma: padding 12, gap 10. pr stays wider than the design's 12 so
-          // a long localized title breaks before it reaches the artwork's
-          // focal point — Figma only ever shows the short English copy.
-          <YStack px="$3" pb="$3" gap="$2.5" pr="$8">
+          // Figma: padding 12, gap 10. The gap prop is $0.5, not $2.5,
+          // because the prop only adds to what line-height already
+          // contributes: $headingLg is 18/24 and $bodyMd is 14/20, so the two
+          // half-leadings alone already separate the glyph boxes. Product
+          // signed off on the measured-on-device value over the annotation.
+          // pr stays wider than the design's 12 so a long localized title
+          // breaks before it reaches the artwork's focal point — Figma only
+          // ever shows the short English copy.
+          <YStack px="$3" pb="$3" gap="$0.5" pr="$8">
             {item.imageTitle ? (
               <SizableText
                 size="$headingLg"
@@ -197,19 +217,26 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             ai="center"
           >
             {item.icon ? (
+              // The bar is a fixed 56pt with $2 padding, so $10 filled the
+              // 40pt content box edge to edge with no breathing room.
               <Image
                 src={item.icon}
-                w="$10"
-                h="$10"
+                w="$8"
+                h="$8"
                 borderRadius="$2"
                 resizeMode="contain"
               />
             ) : null}
+            {/* Same shadow the image copy carries. An ultra-thin pane only
+                darkens a bright photo so far, and titleColor/subtitleColor are
+                admin-configurable, so the shadow is what keeps this copy
+                legible on artwork the design never saw. */}
             <YStack flex={1} minWidth={0} jc="center">
               <SizableText
                 size="$bodyMdMedium"
                 color={item.titleColor || BANNER_DEFAULT_COLORS.title}
                 numberOfLines={1}
+                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.title}
               </SizableText>
@@ -217,6 +244,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 size="$bodySm"
                 color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
                 numberOfLines={1}
+                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.subtitle}
               </SizableText>
@@ -229,10 +257,11 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 ai="center"
                 jc="center"
                 // Figma Button/Small/Primary: 47 x 30, padding 11 / 5 (the 5
-                // includes the component's 1px border). 8 + 14 + 8 lands on
-                // the same 30pt now that the label's line box hugs its glyphs
+                // includes the component's 1px border). Height is pinned
+                // rather than derived from padding so the label can keep its
+                // natural line box — see the label below.
                 px={11}
-                py={8}
+                h={30}
                 borderRadius="$full"
                 bg="$bgPrimary"
                 cursor="pointer"
@@ -243,18 +272,31 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                   size="$bodyMdMedium"
                   color="$textInverse"
                   numberOfLines={1}
-                  // $bodyMdMedium is 14/20. iOS puts the 6pt of extra leading
-                  // above the glyphs, so centring the line box still leaves the
-                  // text sitting low in the pill — alignItems alone cannot fix
-                  // it. Collapse the leading to the font size and let the
-                  // frame's padding do the centring instead (OK-60303).
-                  lineHeight={14}
+                  // OK-60303: iOS puts $bodyMdMedium's 6pt of extra leading
+                  // (14/20) above the glyphs, so centring the line box still
+                  // leaves the label low in the pill. Collapsing lineHeight to
+                  // the font size fixed the offset but made the line box
+                  // shorter than the glyphs' own ascent+descent, which clipped
+                  // the top of taller scripts — CJK most visibly. Keep Figma's
+                  // line box and correct the offset in paint instead:
+                  // translateY does not participate in layout, so it cannot
+                  // clip and cannot be re-centred away by alignItems.
+                  style={BANNER_BUTTON_LABEL_NUDGE}
                 >
                   {item.button}
                 </SizableText>
               </XStack>
             ) : null}
           </XStack>
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h={StyleSheet.hairlineWidth}
+            bg={BANNER_INFO_GLASS_EDGE}
+            pointerEvents="none"
+          />
         </BlurView>
       </YStack>
     </YStack>

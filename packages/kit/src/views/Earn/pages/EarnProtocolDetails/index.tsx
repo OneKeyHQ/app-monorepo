@@ -637,7 +637,8 @@ const DetailsPartComponent = ({
                 provider={provider}
                 vault={vault}
               />
-              {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
+              {/* Protocol Tips (OK-58972): dashboard-configured card that
+                  sits under the chart */}
               <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             </YStack>
             <EarnPlatformBonusSection
