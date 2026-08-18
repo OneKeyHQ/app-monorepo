@@ -5,7 +5,7 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 
 describe('shouldSkipHardwareDeviceCancel', () => {
-  it('sends cancel for Pro2 pin / confirm prompts', () => {
+  it('sends cancel for device prompts regardless of device type', () => {
     expect(
       shouldSkipHardwareDeviceCancel({
         action: EHardwareUiStateAction.REQUEST_PIN,
@@ -15,54 +15,44 @@ describe('shouldSkipHardwareDeviceCancel', () => {
     expect(
       shouldSkipHardwareDeviceCancel({
         action: EHardwareUiStateAction.REQUEST_BUTTON,
-        deviceType: EDeviceType.Neo,
-      }),
-    ).toBe(false);
-  });
-
-  it('skips cancel for Classic and Pro1', () => {
-    expect(
-      shouldSkipHardwareDeviceCancel({
-        action: EHardwareUiStateAction.REQUEST_BUTTON,
         deviceType: EDeviceType.Classic,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldSkipHardwareDeviceCancel({
         action: EHardwareUiStateAction.REQUEST_PIN,
         deviceType: EDeviceType.Pro,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it('skips cancel during Bluetooth pairing or permission UI', () => {
+  it('lets the SDK decide cancel during pairing or permission UI', () => {
     expect(
       shouldSkipHardwareDeviceCancel({
         action: EHardwareUiStateAction.DeviceChecking,
         eventType: EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING,
         deviceType: EDeviceType.Pro2,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldSkipHardwareDeviceCancel({
         action: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
         deviceType: EDeviceType.Pro2,
       }),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('still skips cancel for firmware workflow and SDK pin-window close', () => {
     expect(
       shouldSkipHardwareDeviceCancel({
-        action: EHardwareUiStateAction.DeviceChecking,
-        eventType: EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
+        action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
         deviceType: EDeviceType.Pro2,
       }),
     ).toBe(true);
-  });
-
-  it('still allows cancel when the device type is not known yet', () => {
     expect(
       shouldSkipHardwareDeviceCancel({
-        action: EHardwareUiStateAction.REQUEST_BUTTON,
+        action: EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

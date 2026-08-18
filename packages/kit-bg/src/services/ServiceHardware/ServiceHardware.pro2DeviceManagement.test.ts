@@ -1966,7 +1966,7 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
     expect(sdkCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('does not send Cancel to Classic or Pro1', async () => {
+  it('lets the SDK decide Cancel for Classic or Pro1', async () => {
     const { sdkCancel, service } = createCancelService({
       deviceType: EDeviceType.Classic,
     });
@@ -1976,11 +1976,10 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
       immediate: true,
     });
 
-    expect(sdkCancel).not.toHaveBeenCalled();
-    expect(service.getSDKInstance).not.toHaveBeenCalled();
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('does not send Cancel when the device type is unknown', async () => {
+  it('lets the SDK decide Cancel when the device type is unknown', async () => {
     const { sdkCancel, service } = createCancelService({ deviceType: null });
 
     await service.cancel({
@@ -1988,10 +1987,10 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
       immediate: true,
     });
 
-    expect(sdkCancel).not.toHaveBeenCalled();
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('looks up a stored Pro2 when the caller supplies Unknown', async () => {
+  it('still cancels when the caller supplies Unknown', async () => {
     const { sdkCancel, service } = createCancelService({
       deviceType: EDeviceType.Pro2,
     });

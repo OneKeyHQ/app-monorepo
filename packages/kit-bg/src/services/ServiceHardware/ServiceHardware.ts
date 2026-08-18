@@ -2682,7 +2682,6 @@ class ServiceHardware extends ServiceBase {
     connectId,
     walletId,
     immediate,
-    deviceType: deviceTypeFromCaller,
   }: {
     connectId?: string;
     walletId?: string;
@@ -2692,7 +2691,6 @@ class ServiceHardware extends ServiceBase {
   }) {
     // TODO skip cancel if device is canceling, save last cancel time
 
-    let resolvedDeviceType = deviceTypeFromCaller;
     try {
       if (!connectId && walletId && accountUtils.isHwWallet({ walletId })) {
         const device =
@@ -2703,30 +2701,9 @@ class ServiceHardware extends ServiceBase {
           // eslint-disable-next-line no-param-reassign
           connectId = device.connectId;
         }
-        resolvedDeviceType = resolvedDeviceType || device?.deviceType;
       }
     } catch (_error) {
       //
-    }
-
-    if (resolvedDeviceType === EDeviceType.Unknown) {
-      resolvedDeviceType = undefined;
-    }
-
-    if (!resolvedDeviceType && connectId) {
-      try {
-        const device = await localDb.getDeviceByQuery({ connectId });
-        resolvedDeviceType = device?.deviceType;
-      } catch (_error) {
-        //
-      }
-    }
-
-    // Protocol V2 Cancel is only implemented by Pro 2 / Neo. Do not emit it
-    // on Classic / Mini / Pro1, and never probe an unproven BLE link just to
-    // deliver a command the firmware does not handle.
-    if (!isProtocolV2ProductType(resolvedDeviceType)) {
-      return;
     }
 
     const fn = async () => {

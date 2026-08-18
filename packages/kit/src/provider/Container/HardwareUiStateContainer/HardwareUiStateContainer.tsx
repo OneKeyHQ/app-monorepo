@@ -649,10 +649,8 @@ function HardwareUiStateContainerCmpControlled() {
     () =>
       shouldSkipHardwareDeviceCancel({
         action,
-        eventType: state?.payload?.eventType,
-        deviceType: state?.payload?.deviceType,
       }),
-    [action, state?.payload?.deviceType, state?.payload?.eventType],
+    [action],
   );
 
   const shouldSkipCancelRef = useRef(shouldSkipCancel);
