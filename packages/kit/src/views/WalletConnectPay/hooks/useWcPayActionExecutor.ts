@@ -96,7 +96,9 @@ export function useWcPayActionExecutor() {
       completedResults?: string[];
       // reports each action result as soon as it exists and is AWAITED
       // before the sequence continues, so the caller can durably persist
-      // progress even when a later action rejects or the app dies mid-flow
+      // progress even when a later action rejects or the app dies mid-flow.
+      // Best-effort: a rejection here is logged and swallowed — the result
+      // stays in memory for confirmPayment and must never abort the flow
       onActionComplete?: (params: {
         index: number;
         result: string;
@@ -145,6 +147,21 @@ export function useWcPayActionExecutor() {
       // modal. A tagged property (not an error subclass) — the file's error
       // classes are capped at one by lint, and OneKeyError types `name`.
       const deadlineBeforeSendFlag = '$$wcPayDeadlineBeforeSend';
+
+      // Persist one produced result, awaited so the durable record normally
+      // lands before the sequence continues — but always best-effort: the
+      // write failing loses nothing that aborting would save. For
+      // eth_sendTransaction the txid is already on-chain and must still
+      // reach confirmPayment in-session, and a sign-only result is
+      // re-executable — aborting would discard a signature that
+      // confirmPayment can still use, only to make the user sign again.
+      const persistActionResult = async (index: number, result: string) => {
+        try {
+          await onActionComplete?.({ index, result });
+        } catch (persistError) {
+          console.error('wcPay persist action result failed', persistError);
+        }
+      };
 
       // resuming after a mid-sequence failure: if the last completed action
       // broadcast a tx, re-verify it is mined before continuing so the
@@ -304,17 +321,8 @@ export function useWcPayActionExecutor() {
             results.push(txid);
             // record the txid immediately: the tx is already on-chain, so a
             // failure in any later step (including the mined-wait below) must
-            // not lose it, or a retry would broadcast a duplicate payment.
-            // Persistence itself failing (a secure-storage write error) must
-            // not abort the flow either: the txid is still in memory and
-            // confirmPayment can still report it to the server, while
-            // aborting here would lose both and guarantee a duplicate
-            // broadcast on retry
-            try {
-              await onActionComplete?.({ index: i, result: txid });
-            } catch (persistError) {
-              console.error('wcPay persist txid failed', persistError);
-            }
+            // not lose it, or a retry would broadcast a duplicate payment
+            await persistActionResult(i, txid);
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
             if (i < actions.length - 1) {
@@ -365,7 +373,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
-            await onActionComplete?.({ index: i, result: signature });
+            await persistActionResult(i, signature);
             break;
           }
           case EWcPayActionMethod.PersonalSign: {
@@ -404,7 +412,7 @@ export function useWcPayActionExecutor() {
               });
             });
             results.push(signature);
-            await onActionComplete?.({ index: i, result: signature });
+            await persistActionResult(i, signature);
             break;
           }
           case EWcPayActionMethod.SolanaSignTransaction: {
@@ -459,7 +467,7 @@ export function useWcPayActionExecutor() {
             // confirmPayment expects the full signed transaction; sol
             // signedTx.rawTx is already base64, pass through unchanged
             results.push(rawTx);
-            await onActionComplete?.({ index: i, result: rawTx });
+            await persistActionResult(i, rawTx);
             break;
           }
           default:
