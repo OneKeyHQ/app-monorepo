@@ -154,6 +154,14 @@ function useOpenPerpAsset() {
           return;
         }
         try {
+          // Recorded before the atom writes so a Perp tab mounting for the
+          // first time this launch restores this pair instead of the one its
+          // cold-start cache holds; the event below has no listener yet then.
+          if (coin) {
+            await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
+              { coin, mode },
+            );
+          }
           if (coin && mode === 'perp') {
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
               coin,

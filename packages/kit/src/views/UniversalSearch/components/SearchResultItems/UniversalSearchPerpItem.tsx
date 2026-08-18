@@ -77,6 +77,13 @@ export function UniversalSearchPerpItem({
     setTimeout(async () => {
       navigation.switchTab(ETabRoutes.Perp);
       try {
+        // Recorded before the atom write so a Perp tab mounting for the first
+        // time this launch restores this coin instead of the one its cold-start
+        // cache holds; the event below has no listener yet then.
+        await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent({
+          coin,
+          mode: 'perp',
+        });
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin,
         });
