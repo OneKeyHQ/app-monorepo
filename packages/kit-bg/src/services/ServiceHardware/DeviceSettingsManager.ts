@@ -19,6 +19,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -85,6 +87,21 @@ export type ISetBrightnessParams = IBaseDeviceProcessingParams & {
 export type ISetPassphraseEnabledParams = IBaseDeviceProcessingParams & {
   passphraseEnabled: boolean;
 };
+
+// Matches hardware-js-sdk DeviceSettings when Protocol V2 already has the
+// requested passphrase/air-gap value and skips the on-device settings page.
+export const DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE =
+  'Settings already match requested value.';
+
+export function isDeviceSettingsAlreadyMatched(result: unknown): boolean {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'message' in result &&
+    (result as { message?: unknown }).message ===
+      DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE
+  );
+}
 
 export type IWipeDeviceParams = IBaseDeviceProcessingParams;
 
@@ -833,33 +850,45 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       connectId,
       featuresDeviceId,
     });
-    if (this._isTrezorDevice(device)) {
-      return this._applyTrezorSettings({
-        walletId,
-        connectId,
-        featuresDeviceId,
-        dbDevice: device,
-        debugMethodName: 'deviceSettings.setPassphraseEnabled.trezor',
-        settings: { use_passphrase: passphraseEnabled },
-        preciseUpdateFields: {
-          passphrase_protection: passphraseEnabled,
-        },
+    const result = this._isTrezorDevice(device)
+      ? await this._applyTrezorSettings({
+          walletId,
+          connectId,
+          featuresDeviceId,
+          dbDevice: device,
+          debugMethodName: 'deviceSettings.setPassphraseEnabled.trezor',
+          settings: { use_passphrase: passphraseEnabled },
+          preciseUpdateFields: {
+            passphrase_protection: passphraseEnabled,
+          },
+        })
+      : await this._withDeviceProcessing({
+          walletId,
+          connectId,
+          featuresDeviceId,
+          dbDevice: device,
+          debugMethodName: 'deviceSettings.setPassphraseEnabled',
+          preciseUpdateFields: {
+            passphrase_protection: passphraseEnabled,
+          },
+          action: async (sdk, compatibleConnectId) =>
+            sdk.deviceSettings(compatibleConnectId, {
+              usePassphrase: passphraseEnabled,
+            }),
+        });
+    // Protocol V2 returns immediately when the device already has this
+    // passphrase value (common after a Pass PIN unlock, when the app still
+    // thinks passphrase is off). There is no on-device confirm page, so surface
+    // the no-op as a success toast.
+    if (isDeviceSettingsAlreadyMatched(result)) {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'success',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
       });
     }
-    return this._withDeviceProcessing({
-      walletId,
-      connectId,
-      featuresDeviceId,
-      dbDevice: device,
-      debugMethodName: 'deviceSettings.setPassphraseEnabled',
-      preciseUpdateFields: {
-        passphrase_protection: passphraseEnabled,
-      },
-      action: async (sdk, compatibleConnectId) =>
-        sdk.deviceSettings(compatibleConnectId, {
-          usePassphrase: passphraseEnabled,
-        }),
-    });
+    return result;
   }
 
   @backgroundMethod()
