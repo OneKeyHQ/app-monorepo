@@ -25,7 +25,6 @@ import {
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
-import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
@@ -161,6 +160,13 @@ const AppStateLock = ({
       }
     }
     diagLog('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
+    // Loaded on demand: the export-logs dialog statically pulls the whole
+    // request stack (appApiClient, ipTableAdapter, Interceptor, ua-parser)
+    // into the lock screen — and therefore into the web startup graph.
+    // This diagnostic path is rare and already async, so the extra chunk
+    // load is unnoticeable.
+    const { showExportLogsDialog } =
+      await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog');
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,
