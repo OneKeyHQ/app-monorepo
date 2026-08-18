@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '../../types/device';
@@ -17,6 +20,23 @@ describe('HwWalletAvatarImages', () => {
       );
     },
   );
+});
+
+describe('ThirdPartyWalletAvatarImages neutral fallback', () => {
+  // require() resolves to a single mocked value under Jest, so compare the
+  // actual asset bytes on disk to prove the fallback keys are wired to their
+  // own neutral artwork, not aliased onto a specific-model asset.
+  const avatarDir = join(__dirname, '../assets/wallet/avatar');
+  const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
+
+  it('keeps the vendor fallback assets distinct from any specific-model asset', () => {
+    expect(readAvatar('Trezor.png').equals(readAvatar('TrezorSafe7.png'))).toBe(
+      false,
+    );
+    expect(readAvatar('Ledger.png').equals(readAvatar('LedgerNanoX.png'))).toBe(
+      false,
+    );
+  });
 });
 
 describe('getThirdPartyDeviceAvatarImage', () => {

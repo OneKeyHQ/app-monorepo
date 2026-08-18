@@ -54,8 +54,11 @@ export const OthersWalletAvatarImages = {
 };
 
 export const ThirdPartyWalletAvatarImages = {
-  ledger: require('../assets/wallet/avatar/LedgerNanoX.png'),
-  trezor: require('../assets/wallet/avatar/TrezorSafe7.png'),
+  // Neutral vendor fallback for unrecognized/metadata-less devices — kept
+  // distinct from any specific-model asset so an unknown device never
+  // presents as a particular physical model.
+  ledger: require('../assets/wallet/avatar/Ledger.png'),
+  trezor: require('../assets/wallet/avatar/Trezor.png'),
   TrezorModelOne: require('../assets/wallet/avatar/TrezorModelOne.png'),
   TrezorModelT: require('../assets/wallet/avatar/TrezorModelT.png'),
   TrezorSafe3: require('../assets/wallet/avatar/TrezorSafe3.png'),
