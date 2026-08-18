@@ -1169,6 +1169,104 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(dailyRequestCount).toBe(2);
   });
 
+  it('continues paging inside a sparse recovery batch after a full Market page', async () => {
+    const intervalSeconds = 60;
+    const currentTimestamp = 1_000_120;
+    const boundaryTimestamp = 100_000;
+    const olderActiveDayTimestamp = 200_000;
+    const newerActiveDayTimestamp = 300_000;
+    const olderBatchPoints = Array.from({ length: 6 }, (_, index) => ({
+      close: 70 + index,
+      timestamp: olderActiveDayTimestamp + 100 + index * intervalSeconds,
+    }));
+    const newerBatchPoints = Array.from({ length: 3 }, (_, index) => ({
+      close: 80 + index,
+      timestamp: newerActiveDayTimestamp + 100 + index * intervalSeconds,
+    }));
+    const historicalPoints = [...olderBatchPoints, ...newerBatchPoints];
+    mockHistoryBatchSize = 3;
+    mockHistoryRequestCandleCount = 2000;
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    jest.spyOn(Date, 'now').mockReturnValue(currentTimestamp * 1000);
+    let activeIntervalRequestCount = 0;
+    let dailyRequestCount = 0;
+    mockFetchHistory.mockImplementation(
+      async ({ interval, timeFrom, timeTo }) => {
+        if (interval.value === '1W') {
+          return buildResponse(50, boundaryTimestamp - 3600);
+        }
+        if (interval.value === '1D') {
+          dailyRequestCount += 1;
+          return dailyRequestCount === 1
+            ? buildResponse(60, boundaryTimestamp)
+            : buildMultiPointResponse([
+                { close: 70, timestamp: olderActiveDayTimestamp },
+                { close: 80, timestamp: newerActiveDayTimestamp },
+              ]);
+        }
+
+        activeIntervalRequestCount += 1;
+        if (activeIntervalRequestCount === 1) {
+          return buildMultiPointResponse(
+            Array.from({ length: 3 }, (_, index) => ({
+              close: 100 + index,
+              timestamp:
+                currentTimestamp -
+                2 * intervalSeconds +
+                index * intervalSeconds,
+            })),
+          );
+        }
+        return buildMultiPointResponse(
+          historicalPoints
+            .filter(
+              (point) =>
+                point.timestamp >= timeFrom && point.timestamp <= timeTo,
+            )
+            .slice(-mockHistoryBatchSize),
+        );
+      },
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(3));
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 3,
+        startIndex: 0,
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(6));
+
+    act(() =>
+      result.current.handleVisiblePointRangeChange({
+        endIndex: 5,
+        startIndex: 0,
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(11));
+
+    const activeIntervalRequests = mockFetchHistory.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.interval.value === '1');
+    expect(activeIntervalRequests).toHaveLength(6);
+    expect(activeIntervalRequests[4]).toEqual(
+      expect.objectContaining({
+        timeFrom: olderActiveDayTimestamp,
+        timeTo: olderActiveDayTimestamp + 24 * 60 * 60 - 1,
+      }),
+    );
+    expect(activeIntervalRequests[5]).toEqual(
+      expect.objectContaining({
+        timeFrom: olderActiveDayTimestamp,
+        timeTo: olderBatchPoints[3].timestamp - 1,
+      }),
+    );
+    expect(result.current.points[0]?.t).toBe(olderBatchPoints[1].timestamp);
+  });
+
   it('stops sparse Market pagination at the refined daily boundary', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;

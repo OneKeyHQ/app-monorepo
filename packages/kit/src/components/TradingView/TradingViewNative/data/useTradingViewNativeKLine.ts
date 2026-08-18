@@ -855,6 +855,7 @@ async function recoverOlderHistoryFromBoundary({
   let cursorTimeTo = Math.floor(timeTo);
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
+  let requestCount = 0;
   const buildResult = (): IHistoryGapRecoveryResult => {
     const hasMoreBefore = cursorTimeTo >= boundaryTimestamp;
     return {
@@ -868,53 +869,87 @@ async function recoverOlderHistoryFromBoundary({
   for (const requestRange of requestRanges) {
     if (
       cursorTimeTo < boundaryTimestamp ||
-      points.length >= normalizedTargetPointCount
+      points.length >= normalizedTargetPointCount ||
+      requestCount >= MAX_SPARSE_MARKET_HISTORY_REQUEST_COUNT
     ) {
       break;
     }
     const pageTimeFrom = requestRange.timeFrom;
-    const pageTimeTo = Math.min(cursorTimeTo, requestRange.timeTo);
-    const data = await fetchRequiredHistoryPage({
-      historyProvider,
-      request: {
-        interval,
-        signal,
-        timeFrom: pageTimeFrom,
-        timeTo: pageTimeTo,
-      },
-      unavailableMessage:
-        'No candle history response is available for sparse history recovery',
-    });
-    if (signal.aborted) {
-      return null;
-    }
+    let pageTimeTo = Math.min(cursorTimeTo, requestRange.timeTo);
+    while (
+      pageTimeTo >= pageTimeFrom &&
+      points.length < normalizedTargetPointCount &&
+      requestCount < MAX_SPARSE_MARKET_HISTORY_REQUEST_COUNT
+    ) {
+      const data = await fetchRequiredHistoryPage({
+        historyProvider,
+        request: {
+          interval,
+          signal,
+          timeFrom: pageTimeFrom,
+          timeTo: pageTimeTo,
+        },
+        unavailableMessage:
+          'No candle history response is available for sparse history recovery',
+      });
+      requestCount += 1;
+      if (signal.aborted) {
+        return null;
+      }
 
-    historySource = data.historySource;
-    if (historySource === 'fallback') {
-      return {
-        boundaryTimestamp,
-        cursorTimestamp: pageTimeFrom,
-        hasMoreBefore: false,
-        historySource,
-        points: [],
-      };
-    }
-    const mergedPoints = mergeKLinePoints(
-      points,
-      normalizeKLinePointsInRange({
+      historySource = data.historySource;
+      if (historySource === 'fallback') {
+        return {
+          boundaryTimestamp,
+          cursorTimestamp: pageTimeFrom,
+          hasMoreBefore: false,
+          historySource,
+          points: [],
+        };
+      }
+      const pagePoints = normalizeKLinePointsInRange({
         from: pageTimeFrom,
         points: data.points,
         to: pageTimeTo,
-      }),
-    );
-    if (mergedPoints.length >= normalizedTargetPointCount) {
-      points = mergedPoints.slice(-normalizedTargetPointCount);
-      cursorTimeTo = (points[0]?.t ?? pageTimeFrom) - 1;
-    } else {
+      });
+      const mergedPoints = mergeKLinePoints(points, pagePoints);
+      if (mergedPoints.length >= normalizedTargetPointCount) {
+        points = mergedPoints.slice(-normalizedTargetPointCount);
+        cursorTimeTo = (points[0]?.t ?? pageTimeFrom) - 1;
+        onProgress?.(buildResult());
+        break;
+      }
+
       points = mergedPoints;
-      cursorTimeTo = pageTimeFrom - 1;
+      const pageHasMoreHistory = historyProvider.hasMoreHistory({
+        historySource: data.historySource,
+        interval,
+        receivedPointCount: data.points.length,
+      });
+      if (!pageHasMoreHistory) {
+        cursorTimeTo = pageTimeFrom - 1;
+        onProgress?.(buildResult());
+        break;
+      }
+
+      const earliestPageTimestamp = pagePoints[0]?.t;
+      if (earliestPageTimestamp === undefined) {
+        return buildResult();
+      }
+      const nextPageTimeTo = earliestPageTimestamp - 1;
+      if (nextPageTimeTo < pageTimeFrom) {
+        cursorTimeTo = pageTimeFrom - 1;
+        onProgress?.(buildResult());
+        break;
+      }
+      if (nextPageTimeTo >= pageTimeTo) {
+        return buildResult();
+      }
+
+      cursorTimeTo = nextPageTimeTo;
+      pageTimeTo = nextPageTimeTo;
+      onProgress?.(buildResult());
     }
-    onProgress?.(buildResult());
   }
 
   return buildResult();
