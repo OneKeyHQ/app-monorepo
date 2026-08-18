@@ -191,7 +191,13 @@ describe('useFirstDepositAction', () => {
     mockShowHyperliquidTermsDialog.mockResolvedValue(true);
   });
 
-  it('refreshes status and opens deposit without invoking enable trading', async () => {
+  it('opens deposit without waiting for the background status refresh', async () => {
+    let resolveStatusRefresh: (() => void) | undefined;
+    mockCheckPerpsAccountStatus.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveStatusRefresh = resolve;
+      }),
+    );
     mockLatestPerpsAccountStatus = buildPerpsAccountStatus(false);
     const { result } = renderHook(() => useFirstDepositAction());
 
@@ -203,6 +209,11 @@ describe('useFirstDepositAction', () => {
     expect(mockShowDepositWithdrawModal).toHaveBeenCalledTimes(1);
     expect(mockShowHyperliquidTermsDialog).not.toHaveBeenCalled();
     expect(mockEnableTrading).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveStatusRefresh?.();
+      await Promise.resolve();
+    });
   });
 
   it('uses the terms-gated enable flow when the refreshed account needs setup', async () => {
