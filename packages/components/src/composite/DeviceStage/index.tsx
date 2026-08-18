@@ -205,10 +205,8 @@ const STEP_TEXT: Record<IDeviceStageStep, { title: string; sub?: string }> = {
     title: 'Enter passphrase on device',
     sub: 'Each passphrase opens its own hidden wallet.',
   },
-  passphraseOnApp: {
-    title: 'Enter passphrase',
-    sub: 'Case-sensitive; spaces count.',
-  },
+  // No sub on purpose: the form's bullets carry the character rules.
+  passphraseOnApp: { title: 'Enter passphrase' },
   // No sub: the panel's numbered steps carry the air-gap instructions.
   showQr: { title: 'Scan with your device' },
   scanQr: {
@@ -219,6 +217,15 @@ const STEP_TEXT: Record<IDeviceStageStep, { title: string; sub?: string }> = {
   processing: { title: 'Processing…', sub: 'Keep your device connected.' },
   error: ERROR_TEXT.generic,
   success: { title: '✓ Done' },
+};
+
+/**
+ * The passphrase step's other name: creating a hidden wallet titles the
+ * step after the flow it performs — the live Add-hidden-wallet dialog's
+ * title — while plain entry keeps the step's own words above.
+ */
+const PASSPHRASE_CREATE_TEXT: { title: string; sub?: string } = {
+  title: 'Add hidden wallet',
 };
 
 /**
@@ -575,7 +582,11 @@ export function DeviceStage({
   // moves, waiting for neither the arrangement nor the screen's handover.
   // Only the scene lags, and only for the geometry's sake.
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
-  const text = shownStep === 'error' ? errorCopy : STEP_TEXT[shownStep];
+  const stepText =
+    shownStep === 'passphraseOnApp' && passphraseMode === 'create'
+      ? PASSPHRASE_CREATE_TEXT
+      : STEP_TEXT[shownStep];
+  const text = shownStep === 'error' ? errorCopy : stepText;
   const sub = (shownStep === 'confirm' ? confirmContext : text.sub) ?? '';
 
   // The compact arrangement.

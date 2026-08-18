@@ -11,9 +11,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Alert } from '../../actions/Alert';
-import { IconButton } from '../../actions/IconButton';
-import { Popover } from '../../actions/Popover';
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input } from '../../forms/Input';
 import { ESwitchSize, Switch } from '../../forms/Switch';
@@ -285,60 +282,53 @@ const PASSPHRASE_MAX_LENGTH = 50;
 // eslint-disable-next-line no-control-regex
 const PASSPHRASE_CHARSET = /^[\x20-\x7E]*$/;
 
-/* The allowed-characters popover, hoisted whole: every piece is static. */
-const PASSPHRASE_INFO_PANEL_PROPS = { width: '$80' } as const;
-const PASSPHRASE_INFO_TRIGGER = (
-  <IconButton
-    testID="device-stage-passphrase-info"
-    variant="tertiary"
-    size="small"
-    icon="InfoCircleOutline"
-  />
-);
-function renderPassphraseInfoContent() {
-  return (
-    <Stack p="$5">
-      <Anchor
-        href="https://www.ascii-code.com/"
-        size="$bodyMd"
-        color="$textInfo"
-      >
-        Letters, numbers &amp; symbols (ASCII 32-126)
-      </Anchor>
-    </Stack>
-  );
-}
+/** Refusing an empty create: a prompt in place of a disabled button —
+ * the same ratified grammar as the PIN pad's empty confirm. */
+const EMPTY_PASSPHRASE_PROMPT = 'Enter your passphrase first.';
 
 export interface IPassphraseFormProps {
   /**
-   * The live form's two shapes. 'create' is the Add-hidden-wallet form:
-   * Keep-accessible switch shown, empty entry disabled. 'verify' unlocks
-   * an existing hidden wallet: no switch, and empty stays submittable —
-   * it is the standard wallet, and the SDK's passphrase-state check
-   * refuses a wrong entry.
+   * The live flow's two shapes, differing in words and in what an empty
+   * entry means. 'verify' unlocks an existing hidden wallet: empty stays
+   * submittable — it is the standard wallet, and the SDK's
+   * passphrase-state check refuses a wrong entry. 'create' is the
+   * Add-hidden-wallet flow (the stage titles it that): an empty entry is
+   * refused with the inline prompt. Defaults to 'verify', the plain
+   * entry shape the flow spec draws.
    */
   mode?: 'create' | 'verify';
-  onSubmit?: (passphrase: string, options: { keepAccessible: boolean }) => void;
-  onSwitchToDevice?: () => void;
   /**
-   * Shows the secondary "Enter Hidden Wallet PIN" action (the live
-   * form's attach-PIN path), for devices that support it.
+   * In create mode `keepAccessible` rides along: whether the new hidden
+   * wallet stays after the app closes — the Keep-accessible switch. The
+   * live flow treats it as a preference every exit shares, so the device
+   * switch and the attach-PIN path carry the same option; in verify mode
+   * (no switch, nothing being created) the options are absent everywhere.
    */
-  onAttachPin?: () => void;
-  /** One-line inline failure under the field, mirroring the PIN pad's. */
+  onSubmit?: (
+    passphrase: string,
+    options?: { keepAccessible: boolean },
+  ) => void;
+  onSwitchToDevice?: (options?: { keepAccessible: boolean }) => void;
+  /**
+   * Shows the "Enter Hidden Wallet PIN" alternative under the OR rule
+   * (the live attach-PIN path), for devices that support it. The wallet
+   * it opens obeys the same Keep-accessible choice, hence the option.
+   */
+  onAttachPin?: (options?: { keepAccessible: boolean }) => void;
+  /** One-line inline failure under the rules, mirroring the PIN pad's. */
   error?: string;
 }
 
 /**
- * The passphrase form, element-for-element the live EnterPhase: the loss
- * warning, the Enter-on-device label addon, masked entry with an eye
- * toggle, the Max-50 line with the allowed-characters popover, the
- * Keep-accessible switch (create), and the attach-PIN secondary action.
- * All copy is the live form's English, verbatim — the stage restyles the
- * container, never the furniture.
+ * The passphrase form, per the flow spec: the label row with the
+ * switch-to-device action on its trailing edge, masked entry with an eye
+ * toggle, the two character-rule bullets (the allowed-characters detail
+ * folded into an external link), then Confirm, and — when the device
+ * supports it — the attach-PIN alternative under an OR rule. All copy is
+ * the live flow's English, verbatim.
  */
 export function PassphraseForm({
-  mode = 'create',
+  mode = 'verify',
   onSubmit,
   onSwitchToDevice,
   onAttachPin,
@@ -346,16 +336,29 @@ export function PassphraseForm({
 }: IPassphraseFormProps) {
   const [value, setValue] = useState('');
   const [secure, setSecure] = useState(true);
-  const [keepAccessible, setKeepAccessible] = useState(false);
+  // The live flow's first-run default: keep the wallet. Remembering the
+  // person's previous choice is the integration layer's (it lives in a
+  // persisted setting there).
+  const [keepAccessible, setKeepAccessible] = useState(true);
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
   const toggleSecure = useCallback(() => setSecure((state) => !state), []);
+  // Only create carries the preference out — verify creates nothing, so
+  // its exits leave the options absent (the live flow's split).
+  const exitOptions = useMemo(
+    () => (mode === 'create' ? { keepAccessible } : undefined),
+    [keepAccessible, mode],
+  );
   const handleChange = useCallback((text: string) => {
     setValue(text);
     setValidationError(undefined);
   }, []);
   const handleConfirm = useCallback(() => {
+    if (mode === 'create' && !value.length) {
+      setValidationError(EMPTY_PASSPHRASE_PROMPT);
+      return;
+    }
     if (value.length > PASSPHRASE_MAX_LENGTH) {
       setValidationError('passphrase supports a maximum of 50 characters');
       return;
@@ -364,8 +367,14 @@ export function PassphraseForm({
       setValidationError('Contains unsupported characters');
       return;
     }
-    onSubmit?.(value, { keepAccessible });
-  }, [keepAccessible, onSubmit, value]);
+    onSubmit?.(value, exitOptions);
+  }, [exitOptions, mode, onSubmit, value]);
+  const handleSwitchToDevice = useCallback(() => {
+    onSwitchToDevice?.(exitOptions);
+  }, [exitOptions, onSwitchToDevice]);
+  const handleAttachPin = useCallback(() => {
+    onAttachPin?.(exitOptions);
+  }, [exitOptions, onAttachPin]);
   const addOns = useMemo(
     () => [
       {
@@ -377,61 +386,84 @@ export function PassphraseForm({
     [secure, toggleSecure],
   );
   const shownError = validationError ?? error;
-  const confirmDisabled = mode === 'create' && value.length === 0;
   return (
     <YStack gap="$5">
-      <Alert type="warning" title="Passphrase is unrecoverable if lost" />
-      <YStack gap="$2">
-        <XStack alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyMdMedium">Passphrase</SizableText>
-          {onSwitchToDevice ? (
-            <Button
-              testID="device-stage-passphrase-switch-on-device"
-              variant="tertiary"
-              size="small"
-              icon="OnekeyDeviceCustom"
-              onPress={onSwitchToDevice}
-            >
-              Enter on device
-            </Button>
-          ) : null}
-        </XStack>
-        <Input
-          testID="device-stage-passphrase-input"
-          value={value}
-          onChangeText={handleChange}
-          placeholder="Enter passphrase"
-          secureTextEntry={secure}
-          autoCapitalize="none"
-          autoCorrect={false}
-          addOns={addOns}
-        />
-        <XStack gap="$1" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            Max 50 characters
-          </SizableText>
-          <Popover
-            placement="bottom"
-            title="Allowed characters"
-            floatingPanelProps={PASSPHRASE_INFO_PANEL_PROPS}
-            renderTrigger={PASSPHRASE_INFO_TRIGGER}
-            renderContent={renderPassphraseInfoContent}
+      <YStack gap="$3">
+        <YStack gap="$2.5">
+          <XStack alignItems="center" justifyContent="space-between">
+            <SizableText size="$bodyMdMedium">Passphrase</SizableText>
+            {onSwitchToDevice ? (
+              <Button
+                testID="device-stage-passphrase-switch-on-device"
+                variant="tertiary"
+                size="small"
+                icon="SwitchHorOutline"
+                onPress={handleSwitchToDevice}
+              >
+                Enter on device
+              </Button>
+            ) : null}
+          </XStack>
+          <Input
+            testID="device-stage-passphrase-input"
+            size="large"
+            value={value}
+            onChangeText={handleChange}
+            secureTextEntry={secure}
+            autoCapitalize="none"
+            autoCorrect={false}
+            addOns={addOns}
           />
-        </XStack>
+        </YStack>
+        {/* The character rules as bullets; each dot box matches one text
+            line, so the dot centers on the first line and the text owns
+            any wrap. */}
+        <YStack gap="$1">
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              Letters, numbers &amp; symbols (
+              <Anchor
+                href="https://www.ascii-code.com/"
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                Details
+              </Anchor>
+              )
+            </SizableText>
+          </XStack>
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              Max 50 characters
+            </SizableText>
+          </XStack>
+        </YStack>
         {shownError ? (
           <SizableText size="$bodyMd" color="$textCritical">
             {shownError}
           </SizableText>
         ) : null}
       </YStack>
+      {/* The preference stands upstream of every exit on purpose: Confirm
+          and the attach-PIN alternative below both carry it out, so it
+          reads as "decide what happens to the wallet, then pick a way in".
+          Verify unlocks an existing wallet — nothing to decide, no row. */}
       {mode === 'create' ? (
         <XStack alignItems="center" justifyContent="space-between" gap="$4">
-          <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-            <SizableText size="$bodyMdMedium" color="$text">
-              Keep accessible
-            </SizableText>
-            . Hidden wallets stay after you close the app
+          <SizableText flex={1} size="$bodyMd">
+            Keep accessible after closing the app
           </SizableText>
+          {/* Native switch — relies on the @expo/ui patch that restores
+              UIKit view-touch delivery inside the sheet's hosted RN
+              content (see patches/@expo+ui): without it the system
+              UISwitch is a touch black hole there, while RN's own
+              pipeline keeps working. */}
           <Switch
             testID="device-stage-passphrase-keep-accessible"
             size={ESwitchSize.small}
@@ -440,25 +472,48 @@ export function PassphraseForm({
           />
         </XStack>
       ) : null}
-      <YStack gap="$2.5">
-        <Button
-          testID="device-stage-passphrase-confirm"
-          variant="primary"
-          disabled={confirmDisabled}
-          onPress={handleConfirm}
-        >
-          Confirm
-        </Button>
-        {onAttachPin ? (
+      <Button
+        testID="device-stage-passphrase-confirm"
+        variant="primary"
+        size="large"
+        onPress={handleConfirm}
+      >
+        Confirm
+      </Button>
+      {onAttachPin ? (
+        <YStack gap="$5">
+          {/* Each rule is a sized transparent box carrying a hairline
+              bottom border: a box of hairline height alone rounds to
+              nothing on native, while a bordered box draws reliably
+              (the PIN strip's own hairline). The box height re-centers
+              the line on the word. */}
+          <XStack gap="$5" alignItems="center">
+            <Stack
+              flex={1}
+              h={2}
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+            />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              OR
+            </SizableText>
+            <Stack
+              flex={1}
+              h={2}
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+            />
+          </XStack>
           <Button
             testID="device-stage-passphrase-attach-pin"
             variant="secondary"
-            onPress={onAttachPin}
+            size="large"
+            onPress={handleAttachPin}
           >
             Enter Hidden Wallet PIN
           </Button>
-        ) : null}
-      </YStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }
