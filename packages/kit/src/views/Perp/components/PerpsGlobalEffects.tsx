@@ -982,10 +982,15 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
+      // Only the claiming run can act on it. A mounted page already switched
+      // via the event bus, so re-applying here would drag the user off a
+      // market they picked after the notification, for the whole TTL.
+      const appliedDeeplinkIntent = claimed ? deeplinkIntent : undefined;
       if (deeplinkIntent?.coin) {
         markPerpsColdStartPerf('initial_symbol_deeplink_intent', {
           coin: deeplinkIntent.coin,
           mode: deeplinkIntent.mode,
+          applied: claimed,
         });
       }
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
@@ -993,7 +998,7 @@ function useHyperliquidSymbolSelect() {
         // remount-time resync: skipping unconditionally would strand the page
         // on the previous coin when the event bus message was dropped.
         const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget, {
-          deeplinkIntent,
+          deeplinkIntent: appliedDeeplinkIntent,
         });
         const ctxInstrument = activeTradeInstrumentRef.current;
         const diverged =
@@ -1092,7 +1097,7 @@ function useHyperliquidSymbolSelect() {
         preferredInstrument: claimed
           ? activeTradeInstrumentRef.current
           : undefined,
-        deeplinkIntent,
+        deeplinkIntent: appliedDeeplinkIntent,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,

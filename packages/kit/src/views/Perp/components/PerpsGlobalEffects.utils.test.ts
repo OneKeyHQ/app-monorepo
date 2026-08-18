@@ -189,6 +189,26 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
     ).toMatchObject({ mode: 'perp', coin: 'BTC' });
   });
 
+  // What a non-claiming remount/refocus passes: the caller withholds the
+  // intent there because a mounted page already switched via the event bus.
+  // Resyncing off the background atoms is what keeps a notification from
+  // dragging the user back after they picked another market.
+  it('resyncs from the background atoms when the intent is withheld', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'perp',
+        perpAsset: { coin: 'HYPE' },
+        preferredInstrument: undefined,
+        deeplinkIntent: undefined,
+        force: true,
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'HYPE',
+      force: true,
+    });
+  });
+
   // A consumed-but-empty intent must not shadow the restore.
   it('ignores a deeplink intent with no coin', () => {
     expect(
