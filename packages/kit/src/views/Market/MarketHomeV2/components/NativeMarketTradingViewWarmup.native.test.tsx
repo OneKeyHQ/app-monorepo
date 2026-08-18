@@ -14,8 +14,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock(
   '../../MarketDetailV2/components/NativePersistentMarketTradingView/nativeMarketTradingViewHostStore',
   () => ({
-    requestNativeMarketTradingViewWarmup: () => {
-      mockRequestWarmup();
+    getNativeMarketTradingViewWarmupGeneration: () => 7,
+    requestNativeMarketTradingViewWarmup: (warmupGeneration: number) => {
+      mockRequestWarmup(warmupGeneration);
     },
   }),
 );
@@ -57,6 +58,7 @@ describe('NativeMarketTradingViewWarmup', () => {
     });
 
     expect(mockRequestWarmup).toHaveBeenCalledTimes(1);
+    expect(mockRequestWarmup).toHaveBeenCalledWith(7);
   });
 
   it('cancels the pending warmup when the market page loses focus', async () => {

@@ -29,6 +29,37 @@ describe('ServiceMarketV2 kline by count', () => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
   });
 
+  it('treats the exact history floor as terminal', async () => {
+    const getClient = jest.fn();
+    const service = createService();
+    service.getClient = getClient;
+
+    const result = await service.fetchMarketTokenKlineByCount({
+      tokenAddress: '0xtoken',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeTo: 1000,
+      targetCount: 299,
+      stopAfterCount: 299,
+      historyStartTime: 1000,
+    });
+
+    expect(result).toEqual({
+      points: [],
+      total: 0,
+      historyMeta: {
+        noData: true,
+        isPartial: false,
+        stopReason: 'history_exhausted',
+        requestedCount: 299,
+        returnedCount: 0,
+        coveredFrom: 1000,
+        coveredTo: 1000,
+      },
+    });
+    expect(getClient).not.toHaveBeenCalled();
+  });
+
   it('preserves a terminal sparse-history response from the backend', async () => {
     const expectedResult: IMarketTokenKLineResponse = {
       points: [{ t: 999, o: 1, h: 1, l: 1, c: 1, v: 1 }],

@@ -654,7 +654,7 @@ class ServiceMarketV2 extends ServiceBase {
         : undefined;
     if (
       normalizedHistoryStartTime !== undefined &&
-      normalizedHistoryStartTime > requestTo
+      normalizedHistoryStartTime >= requestTo
     ) {
       return {
         points: [],
@@ -662,6 +662,7 @@ class ServiceMarketV2 extends ServiceBase {
         historyMeta: {
           noData: true,
           isPartial: false,
+          stopReason: 'history_exhausted',
           requestedCount: targetCount,
           returnedCount: 0,
           coveredFrom: requestTo,

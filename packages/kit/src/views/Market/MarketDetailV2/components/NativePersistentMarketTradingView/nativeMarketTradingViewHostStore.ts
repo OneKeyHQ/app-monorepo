@@ -40,6 +40,7 @@ let snapshot: INativeMarketTradingViewHostSnapshot = {
   mountRequested: false,
 };
 let releaseRequested = false;
+let warmupGeneration = 0;
 
 function emitChange() {
   listeners.forEach((listener) => listener());
@@ -75,7 +76,16 @@ export function getNativeMarketTradingViewHostSnapshot() {
   return snapshot;
 }
 
-export function requestNativeMarketTradingViewWarmup() {
+export function getNativeMarketTradingViewWarmupGeneration() {
+  return warmupGeneration;
+}
+
+export function requestNativeMarketTradingViewWarmup(
+  requestedGeneration: number,
+) {
+  if (requestedGeneration !== warmupGeneration) {
+    return;
+  }
   releaseRequested = false;
   if (snapshot.mountRequested) {
     return;
@@ -171,6 +181,7 @@ export function finalizeNativeMarketTradingViewHostReleaseIfRequested() {
 }
 
 export function releaseNativeMarketTradingViewHostIfInactive() {
+  warmupGeneration += 1;
   if (snapshot.activeSession) {
     releaseRequested = true;
     return;
@@ -187,6 +198,7 @@ export function releaseNativeMarketTradingViewHostIfInactive() {
 export function resetNativeMarketTradingViewHostForTest() {
   nextSessionId = 0;
   releaseRequested = false;
+  warmupGeneration = 0;
   snapshot = {
     mountRequested: false,
   };

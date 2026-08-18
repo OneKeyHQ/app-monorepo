@@ -37,6 +37,7 @@ import { MarketTradingViewView } from '../MarketTradingView/MarketTradingView';
 
 import {
   getNativeMarketTradingViewHostSnapshot,
+  getNativeMarketTradingViewWarmupGeneration,
   releaseNativeMarketTradingViewHostIfInactive,
   requestNativeMarketTradingViewWarmup,
   subscribeNativeMarketTradingViewHost,
@@ -194,11 +195,12 @@ export function NativePersistentMarketTradingViewHost() {
       return undefined;
     }
     let cancelled = false;
+    const warmupGeneration = getNativeMarketTradingViewWarmupGeneration();
     const preferenceHydrationPromise = hydrateMarketTradingViewPreferences();
     const timer = setTimeout(() => {
       void preferenceHydrationPromise.then(() => {
         if (!cancelled) {
-          requestNativeMarketTradingViewWarmup();
+          requestNativeMarketTradingViewWarmup(warmupGeneration);
         }
       });
     }, GLOBAL_WARMUP_DEFER_MS + preloadPolicy.delayMs);

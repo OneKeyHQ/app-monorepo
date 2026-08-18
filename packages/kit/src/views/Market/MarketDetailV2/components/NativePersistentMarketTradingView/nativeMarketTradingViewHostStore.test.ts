@@ -4,6 +4,7 @@ import {
   deactivateNativeMarketTradingViewSession,
   finalizeNativeMarketTradingViewHostReleaseIfRequested,
   getNativeMarketTradingViewHostSnapshot,
+  getNativeMarketTradingViewWarmupGeneration,
   releaseNativeMarketTradingViewHostIfInactive,
   requestNativeMarketTradingViewWarmup,
   resetNativeMarketTradingViewHostForTest,
@@ -128,7 +129,9 @@ describe('nativeMarketTradingViewHostStore', () => {
   });
 
   it('defers an active host release until the detail route is left', () => {
-    requestNativeMarketTradingViewWarmup();
+    requestNativeMarketTradingViewWarmup(
+      getNativeMarketTradingViewWarmupGeneration(),
+    );
     releaseNativeMarketTradingViewHostIfInactive();
     expect(getNativeMarketTradingViewHostSnapshot().mountRequested).toBe(false);
 
@@ -165,7 +168,22 @@ describe('nativeMarketTradingViewHostStore', () => {
     });
   });
 
-  it('clears a pending release when warmup is requested again', () => {
+  it('ignores a delayed warmup after memory pressure releases the host', () => {
+    const warmupGeneration = getNativeMarketTradingViewWarmupGeneration();
+    requestNativeMarketTradingViewWarmup(warmupGeneration);
+
+    releaseNativeMarketTradingViewHostIfInactive();
+    requestNativeMarketTradingViewWarmup(warmupGeneration);
+
+    expect(getNativeMarketTradingViewHostSnapshot()).toEqual({
+      activeSession: undefined,
+      lastProps: undefined,
+      mountRequested: false,
+    });
+  });
+
+  it('keeps a deferred release when an earlier warmup resolves', () => {
+    const warmupGeneration = getNativeMarketTradingViewWarmupGeneration();
     const id = createNativeMarketTradingViewSessionId();
     activateNativeMarketTradingViewSession({
       id,
@@ -178,15 +196,14 @@ describe('nativeMarketTradingViewHostStore', () => {
     });
     releaseNativeMarketTradingViewHostIfInactive();
 
-    requestNativeMarketTradingViewWarmup();
+    requestNativeMarketTradingViewWarmup(warmupGeneration);
     deactivateNativeMarketTradingViewSession(id);
     finalizeNativeMarketTradingViewHostReleaseIfRequested();
 
-    expect(getNativeMarketTradingViewHostSnapshot()).toMatchObject({
-      lastProps: {
-        tokenSymbol: 'ONE',
-      },
-      mountRequested: true,
+    expect(getNativeMarketTradingViewHostSnapshot()).toEqual({
+      activeSession: undefined,
+      lastProps: undefined,
+      mountRequested: false,
     });
   });
 });

@@ -2,7 +2,10 @@ import { useEffect } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { requestNativeMarketTradingViewWarmup } from '../../MarketDetailV2/components/NativePersistentMarketTradingView/nativeMarketTradingViewHostStore';
+import {
+  getNativeMarketTradingViewWarmupGeneration,
+  requestNativeMarketTradingViewWarmup,
+} from '../../MarketDetailV2/components/NativePersistentMarketTradingView/nativeMarketTradingViewHostStore';
 import { hydrateMarketTradingViewPreferences } from '../../MarketDetailV2/utils/marketTradingViewResolutionPreference';
 import { getNativeMarketTradingViewPreloadPolicy } from '../../MarketDetailV2/utils/nativeMarketTradingViewPreloadPolicy';
 
@@ -18,11 +21,12 @@ export function NativeMarketTradingViewWarmup({
     }
 
     let cancelled = false;
+    const warmupGeneration = getNativeMarketTradingViewWarmupGeneration();
     const preferenceHydrationPromise = hydrateMarketTradingViewPreferences();
     const timer = setTimeout(() => {
       void preferenceHydrationPromise.then(() => {
         if (!cancelled) {
-          requestNativeMarketTradingViewWarmup();
+          requestNativeMarketTradingViewWarmup(warmupGeneration);
         }
       });
     }, preloadPolicy.delayMs);

@@ -8,6 +8,7 @@ import {
   activateNativeMarketTradingViewSession,
   createNativeMarketTradingViewSessionId,
   deactivateNativeMarketTradingViewSession,
+  getNativeMarketTradingViewWarmupGeneration,
   requestNativeMarketTradingViewWarmup,
   resetNativeMarketTradingViewHostForTest,
 } from './nativeMarketTradingViewHostStore';
@@ -207,7 +208,9 @@ describe('NativePersistentMarketTradingViewHost', () => {
     });
 
     act(() => {
-      requestNativeMarketTradingViewWarmup();
+      requestNativeMarketTradingViewWarmup(
+        getNativeMarketTradingViewWarmupGeneration(),
+      );
     });
     expect(screen.getByTestId('persistent-chart').textContent).toBe(
       'ONEKEY_PREWARM',
