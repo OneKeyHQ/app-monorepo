@@ -62,9 +62,6 @@ const HISTORY_BOUNDARY_PREFETCH_CACHE_MAX_SIZE = 100;
 const HISTORY_BOUNDARY_PREFETCH_CACHE_TTL = 24 * 60 * 60 * 1000;
 const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1W';
-const SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE: ITradingViewNativeChartInterval =
-  '1D';
-const SPARSE_MARKET_HISTORY_REQUEST_RANGE_COUNT = 8;
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
 const MAX_VIEWPORT_HISTORY_PAGE_COUNT = 20;
 const MAX_VIEWPORT_HISTORY_BOUNDARY_SEARCH_COUNT = 32;
@@ -739,49 +736,13 @@ function prefetchHistoryBoundaryPage({
   return promise;
 }
 
-function getSparseHistoryRequestRanges({
-  activeDays,
-  boundaryTimestamp,
-  locatorIntervalSeconds,
-  timeTo,
-}: {
-  activeDays: IMarketTokenKLineDataPoint[];
-  boundaryTimestamp: number;
-  locatorIntervalSeconds: number;
-  timeTo: number;
-}) {
-  // Group locator candidates into a small fixed number of chronological
-  // ranges instead of issuing one minute-history request per active day.
-  const activeDayBatchSize = Math.max(
-    Math.ceil(activeDays.length / SPARSE_MARKET_HISTORY_REQUEST_RANGE_COUNT),
-    1,
-  );
-  const ranges: { timeFrom: number; timeTo: number }[] = [];
-  for (
-    let batchEndIndex = activeDays.length;
-    batchEndIndex > 0;
-    batchEndIndex -= activeDayBatchSize
-  ) {
-    const batchStartIndex = Math.max(batchEndIndex - activeDayBatchSize, 0);
-    const oldestActiveDay = activeDays[batchStartIndex];
-    const newestActiveDay = activeDays[batchEndIndex - 1];
-    if (!oldestActiveDay || !newestActiveDay) {
-      break;
-    }
-    ranges.push({
-      timeFrom: Math.max(oldestActiveDay.t, boundaryTimestamp),
-      timeTo: Math.min(timeTo, newestActiveDay.t + locatorIntervalSeconds - 1),
-    });
-  }
-  return ranges;
-}
-
 async function recoverOlderHistoryFromBoundary({
   historyProvider,
   interval,
   onProgress,
   seriesKey,
   signal,
+  targetPointCount,
   timeTo,
 }: {
   historyProvider: ITradingViewNativeDataProvider;
@@ -789,6 +750,7 @@ async function recoverOlderHistoryFromBoundary({
   onProgress?: (result: IHistoryGapRecoveryResult) => void;
   seriesKey: string;
   signal: AbortSignal;
+  targetPointCount: number;
   timeTo: number;
 }): Promise<IHistoryGapRecoveryResult | null> {
   const boundaryPage = await (getHistoryBoundaryPrefetchPage(seriesKey) ??
@@ -812,46 +774,10 @@ async function recoverOlderHistoryFromBoundary({
     };
   }
 
-  const locatorInterval = TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
-    (candidate) =>
-      candidate.value === SPARSE_MARKET_HISTORY_LOCATOR_INTERVAL_VALUE,
-  );
-  if (!locatorInterval) {
-    return null;
-  }
-  // A daily lookup skips empty calendar spans before minute requests are made.
-  const locatorData = await fetchRequiredHistoryPage({
-    historyProvider,
-    request: {
-      interval: locatorInterval,
-      signal,
-      timeFrom: boundaryTimestamp,
-      timeTo,
-    },
-    unavailableMessage:
-      'No daily candle history response is available for sparse history recovery',
-  });
-  if (signal.aborted) {
-    return null;
-  }
-  const activeDays = normalizeKLinePointsInRange({
-    from: boundaryTimestamp,
-    points: locatorData.points,
-    to: timeTo,
-  });
-  if (!activeDays.length) {
-    return null;
-  }
-
-  const requestRanges = getSparseHistoryRequestRanges({
-    activeDays,
-    boundaryTimestamp,
-    locatorIntervalSeconds: locatorInterval.seconds,
-    timeTo,
-  });
   let cursorTimeTo = Math.floor(timeTo);
   let historySource: 'fallback' | undefined;
   let points: IMarketTokenKLineDataPoint[] = [];
+  const normalizedTargetPointCount = Math.max(Math.floor(targetPointCount), 1);
   const buildResult = (): IHistoryGapRecoveryResult => {
     const hasMoreBefore = cursorTimeTo >= boundaryTimestamp;
     return {
@@ -862,75 +788,88 @@ async function recoverOlderHistoryFromBoundary({
       points,
     };
   };
-  for (const requestRange of requestRanges) {
-    if (cursorTimeTo < boundaryTimestamp) {
-      break;
-    }
-    const pageTimeFrom = requestRange.timeFrom;
-    let pageTimeTo = Math.min(cursorTimeTo, requestRange.timeTo);
-    // The daily locator defines the complete sparse-history range. Exhaust
-    // every capped minute page instead of stopping at a viewport-sized count.
-    while (pageTimeTo >= pageTimeFrom) {
-      const data = await fetchRequiredHistoryPage({
-        historyProvider,
-        request: {
-          interval,
-          signal,
-          timeFrom: pageTimeFrom,
-          timeTo: pageTimeTo,
-        },
-        unavailableMessage:
-          'No candle history response is available for sparse history recovery',
-      });
-      if (signal.aborted) {
-        return null;
-      }
-
-      historySource = data.historySource;
-      if (historySource === 'fallback') {
-        return {
-          boundaryTimestamp,
-          cursorTimestamp: pageTimeFrom,
-          hasMoreBefore: false,
-          historySource,
-          points: [],
-        };
-      }
-      const pagePoints = normalizeKLinePointsInRange({
-        from: pageTimeFrom,
-        points: data.points,
-        to: pageTimeTo,
-      });
-      points = mergeKLinePoints(points, pagePoints);
-      const pageHasMoreHistory = historyProvider.hasMoreHistory({
-        historySource: data.historySource,
+  const fetchTimeRange = async (
+    rangeTimeFrom: number,
+    rangeTimeTo: number,
+  ): Promise<'aborted' | 'complete' | 'fallback'> => {
+    const data = await fetchRequiredHistoryPage({
+      historyProvider,
+      request: {
         interval,
-        receivedPointCount: data.points.length,
-      });
-      if (!pageHasMoreHistory) {
-        cursorTimeTo = pageTimeFrom - 1;
-        onProgress?.(buildResult());
-        break;
-      }
-
-      const earliestPageTimestamp = pagePoints[0]?.t;
-      if (earliestPageTimestamp === undefined) {
-        return buildResult();
-      }
-      const nextPageTimeTo = earliestPageTimestamp - 1;
-      if (nextPageTimeTo < pageTimeFrom) {
-        cursorTimeTo = pageTimeFrom - 1;
-        onProgress?.(buildResult());
-        break;
-      }
-      if (nextPageTimeTo >= pageTimeTo) {
-        return buildResult();
-      }
-
-      cursorTimeTo = nextPageTimeTo;
-      pageTimeTo = nextPageTimeTo;
-      onProgress?.(buildResult());
+        signal,
+        timeFrom: rangeTimeFrom,
+        timeTo: rangeTimeTo,
+      },
+      unavailableMessage:
+        'No candle history response is available for sparse history recovery',
+    });
+    if (signal.aborted) {
+      return 'aborted';
     }
+
+    historySource = data.historySource;
+    if (historySource === 'fallback') {
+      return 'fallback';
+    }
+    const rangePoints = normalizeKLinePointsInRange({
+      from: rangeTimeFrom,
+      points: data.points,
+      to: rangeTimeTo,
+    });
+    points = mergeKLinePoints(points, rangePoints);
+    onProgress?.(buildResult());
+
+    const rangeMayBeTruncated = historyProvider.hasMoreHistory({
+      historySource: data.historySource,
+      interval,
+      receivedPointCount: rangePoints.length,
+    });
+    if (!rangeMayBeTruncated || rangeTimeFrom >= rangeTimeTo) {
+      return 'complete';
+    }
+
+    // A capped response only means this time block needs finer coverage. It
+    // must never move the cursor across chart history that was not requested.
+    const midpoint = Math.floor((rangeTimeFrom + rangeTimeTo) / 2);
+    const newerRangeResult = await fetchTimeRange(midpoint + 1, rangeTimeTo);
+    if (newerRangeResult !== 'complete') {
+      return newerRangeResult;
+    }
+    return fetchTimeRange(rangeTimeFrom, midpoint);
+  };
+  const requestCandleCount = Math.max(
+    Math.floor(historyProvider.getHistoryRequestCandleCount(interval)),
+    1,
+  );
+  while (
+    cursorTimeTo >= boundaryTimestamp &&
+    points.length < normalizedTargetPointCount
+  ) {
+    const rangeTimeTo = cursorTimeTo;
+    const rangeTimeFrom = Math.max(
+      getHistoryTimeFrom({
+        candleCount: requestCandleCount,
+        intervalSeconds: interval.seconds,
+        timeTo: rangeTimeTo,
+      }),
+      boundaryTimestamp,
+    );
+    const rangeResult = await fetchTimeRange(rangeTimeFrom, rangeTimeTo);
+    if (rangeResult === 'aborted') {
+      return null;
+    }
+    if (rangeResult === 'fallback') {
+      return {
+        boundaryTimestamp,
+        cursorTimestamp: rangeTimeFrom,
+        hasMoreBefore: false,
+        historySource,
+        points: [],
+      };
+    }
+
+    cursorTimeTo = rangeTimeFrom - 1;
+    onProgress?.(buildResult());
   }
 
   return buildResult();
@@ -3451,6 +3390,10 @@ export function useTradingViewNativeKLine({
           if (shouldRecoverSparseHistory) {
             publishOlderPoints(olderPoints);
             const recoveryTimeTo = Math.max(timeFrom - 1, 0);
+            const recoveryTargetPointCount = Math.max(
+              olderHistoryPreloadPointCount - olderPoints.length,
+              1,
+            );
             const applyRecoveryProgress =
               createHistoryGapRecoveryProgressHandler({
                 coverageState: historyCoverageRef.current,
@@ -3470,6 +3413,7 @@ export function useTradingViewNativeKLine({
               onProgress: applyRecoveryProgress,
               seriesKey,
               signal: abortController.signal,
+              targetPointCount: recoveryTargetPointCount,
               timeTo: recoveryTimeTo,
             });
             if (
@@ -4157,6 +4101,11 @@ export function useTradingViewNativeKLine({
           onProgress: applyRecoveryProgress,
           seriesKey,
           signal: abortController.signal,
+          targetPointCount: Math.max(
+            TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT -
+              receivedHistoryPointCount,
+            1,
+          ),
           timeTo: Math.max(initialEarliestTimestamp - 1, 0),
         });
         if (
