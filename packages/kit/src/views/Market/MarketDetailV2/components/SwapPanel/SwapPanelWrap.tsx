@@ -281,7 +281,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     priceRate,
     quoteResult,
     quoteList,
-    quoteFetching,
+    quoteActionLoading,
     quoteError,
     quoteReadyForReview,
     quoteNeedsRefresh,
@@ -575,11 +575,11 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       speedSwapBuildTxLoading ||
       swapApprovingMatchLoading ||
       checkTokenAllowanceLoading ||
-      quoteFetching
+      quoteActionLoading
     );
   }, [
     checkTokenAllowanceLoading,
-    quoteFetching,
+    quoteActionLoading,
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
   ]);
@@ -771,6 +771,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       balanceLoading={fetchBalanceLoading}
       paymentTokenPrice={paymentTokenPrice}
       isLoading={isActionLoading || isReviewOpening}
+      quoteLoading={quoteActionLoading}
       isActionDisabled={
         marketPresetSettings.isLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
