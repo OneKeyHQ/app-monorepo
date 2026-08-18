@@ -19,6 +19,7 @@ import type { Animated as NativeAnimated } from 'react-native';
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockChartProps = jest.fn();
+const mockHeaderScrollGestureProps = jest.fn();
 const mockEventListeners = new Map<string, () => void>();
 let mockHostWindowFrame = { x: 200, y: 0, width: 512, height: 844 };
 
@@ -87,6 +88,19 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (value: number) => ({ value }),
     withDelay: (_delay: number, animation: unknown) => animation,
     withTiming: (value: number) => value,
+  };
+});
+
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    HeaderScrollGestureWrapper: ({
+      children,
+      ...props
+    }: PropsWithChildren<Record<string, unknown>>) => {
+      mockHeaderScrollGestureProps(props);
+      return React.createElement(React.Fragment, null, children);
+    },
   };
 });
 
@@ -177,6 +191,7 @@ describe('NativePersistentMarketTradingViewHost', () => {
     mockChartMount.mockClear();
     mockChartUnmount.mockClear();
     mockChartProps.mockClear();
+    mockHeaderScrollGestureProps.mockClear();
     mockEventListeners.clear();
     mockHostWindowFrame = { x: 200, y: 0, width: 512, height: 844 };
   });
@@ -204,6 +219,13 @@ describe('NativePersistentMarketTradingViewHost', () => {
     act(() => {
       activateNativeMarketTradingViewSession({
         id: firstSessionId,
+        frame: {
+          anchorX: 0,
+          anchorY: 120,
+          width: 390,
+          height: 400,
+          clipTop: 96,
+        },
         scrollY: {
           value: 0,
         } as INativeMarketTradingViewSession['scrollY'],
@@ -218,6 +240,12 @@ describe('NativePersistentMarketTradingViewHost', () => {
     expect(screen.getByTestId('persistent-chart').dataset.active).toBe('true');
     expect(mockChartProps).toHaveBeenLastCalledWith(
       expect.objectContaining({ isVisibilityManagedExternally: true }),
+    );
+    expect(mockHeaderScrollGestureProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: false,
+        pointerEvents: 'auto',
+      }),
     );
 
     act(() => {

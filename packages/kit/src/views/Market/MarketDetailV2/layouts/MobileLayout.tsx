@@ -21,7 +21,11 @@ import {
 } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IHeaderScrollGestureWrapperProps,
+  IScrollViewRef,
+} from '@onekeyhq/components';
 import {
   EInPageDialogType,
   HeaderScrollGestureWrapper,
@@ -217,6 +221,7 @@ function MobileMarketTradingView({
   pageWidth,
   clipTop,
   isChartPageVisible,
+  scrollGestureProps,
   onNativeIndicatorQuickBarChange,
   onNativeSubIndicatorCountChange,
   onIndicatorsDialogOpenChange,
@@ -232,6 +237,10 @@ function MobileMarketTradingView({
   pageWidth?: number;
   clipTop: number;
   isChartPageVisible: boolean;
+  scrollGestureProps?: Omit<
+    IHeaderScrollGestureWrapperProps,
+    'pointerEvents' | 'style' | 'tabsContextOverride'
+  >;
   onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
   onNativeSubIndicatorCountChange: (count: number | null) => void;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
@@ -282,6 +291,7 @@ function MobileMarketTradingView({
       <NativePersistentMarketTradingViewSlot
         clipTop={clipTop}
         isChartPageVisible={isChartPageVisible}
+        scrollGestureProps={scrollGestureProps}
         tradingViewProps={tradingViewProps}
       />
     );
@@ -566,6 +576,22 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
       ? 0.16
       : 0.1;
+    const chartAreaScrollGestureProps = {
+      disabled: isTradingViewScrollLocked,
+      panActiveOffsetY: [-4, 4],
+      panFailOffsetX: chartAreaPanFailOffsetX,
+      excludeRightEdgeRatio: chartAreaExcludeRightEdgeRatio,
+      excludeBottomEdgeHeight: TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+      scrollScale: 1.2,
+      onHorizontalSwipe: chartAreaHorizontalSwipeHandler,
+      horizontalSwipeThreshold: 24,
+      horizontalSwipeVelocityThreshold: 900,
+      simultaneousWithNativeGesture: true,
+      cancelChildTouches: false,
+    } satisfies Omit<
+      IHeaderScrollGestureWrapperProps,
+      'pointerEvents' | 'style' | 'tabsContextOverride'
+    >;
 
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
@@ -581,21 +607,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
           </YStack>
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
-          <HeaderScrollGestureWrapper
-            disabled={isTradingViewScrollLocked}
-            panActiveOffsetY={[-4, 4]}
-            panFailOffsetX={chartAreaPanFailOffsetX}
-            excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
-            excludeBottomEdgeHeight={
-              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
-            }
-            scrollScale={1.2}
-            onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
-            horizontalSwipeThreshold={24}
-            horizontalSwipeVelocityThreshold={900}
-            simultaneousWithNativeGesture
-            cancelChildTouches={false}
-          >
+          <HeaderScrollGestureWrapper {...chartAreaScrollGestureProps}>
             <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
                 if (!marketTradingViewParams) {
@@ -616,6 +628,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
                       pageWidth={effectivePageWidth}
                       clipTop={headerHeight}
                       isChartPageVisible={isPersistentChartPageVisible}
+                      scrollGestureProps={chartAreaScrollGestureProps}
                       onNativeIndicatorQuickBarChange={
                         handleNativeIndicatorQuickBarChange
                       }

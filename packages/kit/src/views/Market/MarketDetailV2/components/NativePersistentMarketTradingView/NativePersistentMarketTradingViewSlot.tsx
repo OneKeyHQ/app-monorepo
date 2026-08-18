@@ -3,6 +3,7 @@ import type { IMarketTradingViewProps } from '../MarketTradingView/MarketTrading
 export function NativePersistentMarketTradingViewSlot(_props: {
   clipTop: number;
   isChartPageVisible: boolean;
+  scrollGestureProps?: unknown;
   tradingViewProps: IMarketTradingViewProps;
 }) {
   return null;

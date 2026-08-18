@@ -20,6 +20,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { HeaderScrollGestureWrapper } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -318,8 +319,13 @@ export function NativePersistentMarketTradingViewHost() {
           style={[styles.transitionLayer, navigationTransitionStyle]}
           onLayout={measureHostWindowFrame}
         >
-          <Animated.View
+          <HeaderScrollGestureWrapper
+            {...activeSession?.scrollGestureProps}
+            disabled={
+              !isActive || Boolean(activeSession?.scrollGestureProps?.disabled)
+            }
             pointerEvents={isActive ? 'auto' : 'none'}
+            tabsContextOverride={activeSession?.tabsContext}
             style={[styles.outer, outerAnimatedStyle]}
           >
             <Animated.View style={[styles.inner, innerAnimatedStyle]}>
@@ -329,7 +335,7 @@ export function NativePersistentMarketTradingViewHost() {
                 isVisibilityManagedExternally
               />
             </Animated.View>
-          </Animated.View>
+          </HeaderScrollGestureWrapper>
         </NativeAnimated.View>
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>

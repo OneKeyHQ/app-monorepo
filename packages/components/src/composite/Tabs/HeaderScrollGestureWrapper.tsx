@@ -1,5 +1,8 @@
 import type { PropsWithChildren } from 'react';
 
+import type { ICollapsibleTabContextType } from './CollapsibleTabContext';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
+
 export interface IHeaderScrollGestureWrapperProps {
   disabled?: boolean;
   disableVerticalScroll?: boolean;
@@ -16,6 +19,10 @@ export interface IHeaderScrollGestureWrapperProps {
   cancelChildTouches?: boolean;
   onGestureActiveChange?: (active: boolean) => void;
   excludeBottomEdgeHeight?: number;
+  /** Reuse the originating tabs context when rendered through a portal. */
+  tabsContextOverride?: ICollapsibleTabContextType;
+  style?: StyleProp<ViewStyle>;
+  pointerEvents?: ViewProps['pointerEvents'];
 }
 
 export function HeaderScrollGestureWrapper({

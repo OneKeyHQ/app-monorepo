@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import { View } from 'react-native';
-import { useTabsContext } from 'react-native-collapsible-tab-view';
-import { runOnUI, scrollTo } from 'react-native-reanimated';
 import { useTransitionProgress } from 'react-native-screens';
 
-import { useCurrentTabScrollY } from '@onekeyhq/components';
+import {
+  CollapsibleTabContext,
+  useCurrentTabScrollY,
+} from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
@@ -25,43 +26,26 @@ import type {
   IMarketTradingViewPriceUpdate,
   IMarketTradingViewProps,
 } from '../MarketTradingView/MarketTradingView';
-import type { RefComponent } from 'react-native-collapsible-tab-view';
-import type { AnimatedRef, SharedValue } from 'react-native-reanimated';
-
-function scrollPersistentChartTabOnUI({
-  ref,
-  scrollY,
-  offset,
-}: {
-  ref: AnimatedRef<RefComponent>;
-  scrollY: SharedValue<number>;
-  offset: number;
-}) {
-  'worklet';
-
-  const nextScrollY = Math.max(0, scrollY.value + offset);
-  scrollY.value = nextScrollY;
-  scrollTo(ref, 0, nextScrollY, false);
-}
 
 export function NativePersistentMarketTradingViewSlot({
   clipTop,
   isChartPageVisible,
+  scrollGestureProps,
   tradingViewProps,
 }: {
   clipTop: number;
   isChartPageVisible: boolean;
+  scrollGestureProps?: INativeMarketTradingViewSession['scrollGestureProps'];
   tradingViewProps: IMarketTradingViewProps;
 }) {
   const isRouteFocused = useRouteIsFocused();
   const isActive = isRouteFocused && isChartPageVisible;
   const { progress: transitionProgress } = useTransitionProgress();
   const scrollY = useCurrentTabScrollY();
-  const { focusedTab, refMap } = useTabsContext();
+  const tabsContext = useContext(CollapsibleTabContext);
   const { accountAddress } = useNetworkAccountAddress(
     tradingViewProps.networkId,
   );
-  const onTouchScroll = tradingViewProps.onTouchScroll;
   const tokenDetailActions = useTokenDetailActions();
   const slotRef = useRef<View>(null);
   const isActiveRef = useRef(isActive);
@@ -83,46 +67,30 @@ export function NativePersistentMarketTradingViewSlot({
     },
     [tokenDetailActions],
   );
-  const handleTouchScroll = useCallback(
-    (deltaY: number) => {
-      const activeTabRef = refMap[focusedTab.value];
-      if (!activeTabRef) {
-        return;
-      }
-      runOnUI(scrollPersistentChartTabOnUI)({
-        ref: activeTabRef,
-        scrollY,
-        offset: deltaY,
-      });
-      onTouchScroll?.(deltaY);
-    },
-    [focusedTab, onTouchScroll, refMap, scrollY],
-  );
   const persistentTradingViewProps = useMemo(
     () => ({
       ...tradingViewProps,
       accountAddress,
       onApplyChartPriceUpdate: handleApplyChartPriceUpdate,
-      onTouchScroll: handleTouchScroll,
+      onTouchScroll: undefined,
     }),
-    [
-      accountAddress,
-      handleApplyChartPriceUpdate,
-      handleTouchScroll,
-      tradingViewProps,
-    ],
+    [accountAddress, handleApplyChartPriceUpdate, tradingViewProps],
   );
   const sessionRef = useRef<INativeMarketTradingViewSession>({
     id: sessionId,
     props: persistentTradingViewProps,
     scrollY,
     transitionProgress,
+    tabsContext,
+    scrollGestureProps,
   });
   sessionRef.current = {
     id: sessionId,
     props: persistentTradingViewProps,
     scrollY,
     transitionProgress,
+    tabsContext,
+    scrollGestureProps,
   };
 
   const measureSlot = useCallback(() => {
@@ -185,9 +153,17 @@ export function NativePersistentMarketTradingViewSlot({
     updateNativeMarketTradingViewSessionProps({
       id: sessionId,
       props: persistentTradingViewProps,
+      tabsContext,
+      scrollGestureProps,
     });
     return undefined;
-  }, [isActive, persistentTradingViewProps, sessionId]);
+  }, [
+    isActive,
+    persistentTradingViewProps,
+    scrollGestureProps,
+    sessionId,
+    tabsContext,
+  ]);
 
   return (
     <View

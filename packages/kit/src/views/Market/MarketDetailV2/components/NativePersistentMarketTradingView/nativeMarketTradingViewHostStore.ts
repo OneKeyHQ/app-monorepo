@@ -1,3 +1,8 @@
+import type {
+  ICollapsibleTabContextType,
+  IHeaderScrollGestureWrapperProps,
+} from '@onekeyhq/components';
+
 import type { IMarketTradingViewViewProps } from '../MarketTradingView/MarketTradingView';
 import type { Animated } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -16,6 +21,11 @@ export interface INativeMarketTradingViewSession {
   props: IMarketTradingViewViewProps;
   scrollY: SharedValue<number>;
   transitionProgress?: Animated.Value;
+  tabsContext?: ICollapsibleTabContextType;
+  scrollGestureProps?: Omit<
+    IHeaderScrollGestureWrapperProps,
+    'pointerEvents' | 'style' | 'tabsContextOverride'
+  >;
 }
 
 interface INativeMarketTradingViewHostSnapshot {
@@ -111,9 +121,13 @@ export function updateNativeMarketTradingViewSessionFrame({
 export function updateNativeMarketTradingViewSessionProps({
   id,
   props,
+  tabsContext,
+  scrollGestureProps,
 }: {
   id: number;
   props: IMarketTradingViewViewProps;
+  tabsContext?: INativeMarketTradingViewSession['tabsContext'];
+  scrollGestureProps?: INativeMarketTradingViewSession['scrollGestureProps'];
 }) {
   if (snapshot.activeSession?.id !== id) {
     return;
@@ -123,6 +137,8 @@ export function updateNativeMarketTradingViewSessionProps({
     activeSession: {
       ...snapshot.activeSession,
       props,
+      ...(tabsContext ? { tabsContext } : {}),
+      ...(scrollGestureProps ? { scrollGestureProps } : {}),
     },
     lastProps: props,
   };

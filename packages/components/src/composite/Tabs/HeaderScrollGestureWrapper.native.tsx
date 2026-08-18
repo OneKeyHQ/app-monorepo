@@ -37,8 +37,12 @@ export function HeaderScrollGestureWrapper({
   cancelChildTouches = true,
   onGestureActiveChange,
   excludeBottomEdgeHeight = 0,
+  tabsContextOverride,
+  style,
+  pointerEvents,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
-  const tabsContext = useContext(CollapsibleTabContext);
+  const inheritedTabsContext = useContext(CollapsibleTabContext);
+  const tabsContext = tabsContextOverride ?? inheritedTabsContext;
   const refMap = tabsContext?.refMap;
   const focusedTab = tabsContext?.focusedTab;
   const scrollYCurrent = tabsContext?.scrollYCurrent;
@@ -282,7 +286,13 @@ export function HeaderScrollGestureWrapper({
 
   return (
     <GestureDetector gesture={panGesture}>
-      <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+      <Animated.View
+        pointerEvents={pointerEvents}
+        style={style}
+        onLayout={handleLayout}
+      >
+        {children}
+      </Animated.View>
     </GestureDetector>
   );
 }
