@@ -16,23 +16,33 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
     (coin: string) => {
       setTimeout(async () => {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
-        const { default: backgroundApiProxy } = await import(
-          '@onekeyhq/kit/src/background/instance/backgroundApiProxy'
-        );
-        // A missing intent only costs the first-mount restore, so this
-        // must not be able to abort the tap. Recorded before the navigation
-        // that mounts the Perp tab, so the claiming initial-select cannot
-        // run ahead of it; the import above is hoisted for the same reason.
+        // Recorded before the navigation that mounts the Perp tab, so the
+        // claiming initial-select cannot run ahead of it. Both this and the
+        // import it needs stay inside the catch: losing the record only costs
+        // the first-mount restore, while a chunk that fails to load must still
+        // leave the tap opening the tab, as it did before.
+        let proxy:
+          | (typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy'))['default']
+          | undefined;
         try {
-          await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
-            { coin, mode: 'perp' },
-          );
+          proxy = (
+            await import(
+              '@onekeyhq/kit/src/background/instance/backgroundApiProxy'
+            )
+          ).default;
+          await proxy.serviceHyperliquid.setPendingInitialTradeInstrument({
+            coin,
+            mode: 'perp',
+          });
         } catch {
           // ignore
         }
         navigation.switchTab(ETabRoutes.Perp);
+        if (!proxy) {
+          return;
+        }
         try {
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          await proxy.serviceHyperliquid.changeActiveAsset({
             coin,
           });
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {

@@ -89,6 +89,7 @@ import {
 
 import {
   buildInitialTradeInstrumentSwitchParams,
+  resolveInitialPreferredInstrument,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -978,17 +979,10 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      // The market a context-less caller asked for stands in for the restored
-      // instrument: both answer "what should the first frame show", and this
-      // one was chosen after the snapshot was written.
-      const preferredInstrument: IActiveTradeInstrument | undefined =
-        pendingInitialTradeInstrument
-          ? {
-              ...pendingInitialTradeInstrument,
-              assetId: undefined,
-              universe: undefined,
-            }
-          : activeTradeInstrumentRef.current;
+      const preferredInstrument = resolveInitialPreferredInstrument({
+        pendingInstrument: pendingInitialTradeInstrument,
+        restoredInstrument: activeTradeInstrumentRef.current,
+      });
       if (pendingInitialTradeInstrument) {
         markPerpsColdStartPerf('initial_symbol_pending_instrument', {
           coin: pendingInitialTradeInstrument.coin,
