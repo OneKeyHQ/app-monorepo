@@ -295,8 +295,13 @@ const desktopApi = {
       isDesktopBleConnectedOnlyScopeActive(uuid)
         ? Promise.resolve()
         : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
-    write: (uuid: string, data: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
+    write: (uuid: string, data: string, options?: { pacingDelayMs?: number }) =>
+      ipcRenderer.invoke(
+        EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
+        uuid,
+        data,
+        options,
+      ),
     cancelPairing: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING),
     onNotification: (callback: (deviceId: string, data: string) => void) => {
