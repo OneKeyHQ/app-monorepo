@@ -1117,7 +1117,7 @@ export function useTrayDataProvider() {
             // switch that mounts Perp, so the claiming initial-select cannot
             // run ahead of it.
             try {
-              await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
+              await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
                 { coin, mode: 'perp' },
               );
             } catch {

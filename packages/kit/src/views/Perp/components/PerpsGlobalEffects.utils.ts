@@ -21,21 +21,6 @@ type IInitialTradeInstrument =
   | { mode: 'perp'; coin: string }
   | { mode: 'spot'; coin: string; universe?: ISpotUniverse };
 
-// Only the claiming run may act on a deeplink intent. A mounted page has
-// already switched through the event bus, so re-applying it on a later resync
-// drags the user off a market they picked after the notification, for the
-// whole intent lifetime. Extracted so that dropping the gate fails a test
-// rather than silently reviving that.
-export function resolveAppliedDeeplinkIntent<T>({
-  claimed,
-  deeplinkIntent,
-}: {
-  claimed: boolean;
-  deeplinkIntent: T | undefined;
-}): T | undefined {
-  return claimed ? deeplinkIntent : undefined;
-}
-
 export function buildInitialTradeInstrumentSwitchParams({
   mode,
   perpAsset,
@@ -43,7 +28,6 @@ export function buildInitialTradeInstrumentSwitchParams({
   force,
   allowPerpFallback,
   preferredInstrument,
-  deeplinkIntent,
 }: {
   mode: 'perp' | 'spot';
   perpAsset?: IInitialTradeAsset;
@@ -51,31 +35,23 @@ export function buildInitialTradeInstrumentSwitchParams({
   force?: boolean;
   allowPerpFallback?: boolean;
   preferredInstrument?: IInitialTradeInstrument;
-  deeplinkIntent?: IInitialTradeInstrument;
 }) {
-  // A deeplink target outranks the restore: the restored snapshot was persisted
-  // before the tap, so the "never staler" reasoning below does not cover it —
-  // replaying it reopens the market the user just navigated away from.
-  const explicitInstrument = deeplinkIntent?.coin
-    ? deeplinkIntent
-    : preferredInstrument;
-  // preferredInstrument is written synchronously when a switch starts, while
-  // the mode and asset atoms are written near the end and can be skipped by a
-  // superseding request. It is therefore never the staler record, and it is
-  // also what the first frame already rendered — restoring anything else shows
-  // the user a pair flip.
-  if (explicitInstrument?.coin) {
-    if (explicitInstrument.mode === 'spot') {
+  // Written synchronously when a switch starts, while the mode and asset atoms
+  // are written near the end and can be skipped by a superseding request. It is
+  // therefore never the staler record, and it is also what the first frame
+  // already rendered — restoring anything else shows the user a pair flip.
+  if (preferredInstrument?.coin) {
+    if (preferredInstrument.mode === 'spot') {
       return {
         mode: 'spot' as const,
-        coin: explicitInstrument.coin,
-        spotUniverse: explicitInstrument.universe,
+        coin: preferredInstrument.coin,
+        spotUniverse: preferredInstrument.universe,
         force,
       };
     }
     return {
       mode: 'perp' as const,
-      coin: explicitInstrument.coin,
+      coin: preferredInstrument.coin,
       force,
     };
   }

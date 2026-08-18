@@ -219,14 +219,6 @@ const SPOT_TOTAL_USD_MISSING_PRICE_FALLBACK_DELAY_MS =
     seconds: 3,
   });
 const PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS = 500;
-// Bounds how long an unconsumed intent can outlive its tap. Only the one
-// claiming run per process can act on it, so this guards a single case: the
-// tap never reached Perps and the user opens it much later. It has to clear
-// the whole unlock flow, which sits between the tap and the first Perp frame
-// when app lock is on and a failed biometric falls back to a password.
-const PENDING_INSTRUMENT_INTENT_TTL_MS = timerUtils.getTimeDurationMs({
-  minute: 5,
-});
 
 let perpsActiveAssetCtxDisplayLastSetAt = 0;
 let perpsActiveAssetCtxDisplayTimer: ReturnType<typeof setTimeout> | undefined;
@@ -560,11 +552,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   // on every modal push.
   private _initialSymbolSelectClaimed = false;
 
-  // A banner/push/tray deeplink picks the coin before the Perp page mounts, so
-  // the switch event it emits has no listener yet and the cold-start restore
-  // would replay the previous session's instrument over the user's choice.
-  private _pendingInstrumentIntent:
-    | { coin: string; mode: ITradingMode; createdAt: number }
+  // A context-less caller picks the market before the Perp page mounts, so the
+  // switch event it emits has no listener yet and the cold-start restore would
+  // replay the previous session's instrument over the user's choice.
+  private _pendingInitialTradeInstrument:
+    | { coin: string; mode: ITradingMode }
     | undefined;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -581,52 +573,35 @@ export default class ServiceHyperliquid extends ServiceBase {
     return true;
   }
 
+  // Ignored once the latch is taken: from then on the Perp page is live and
+  // switches through the event bus, so a value recorded here could only
+  // override a market the user picked afterwards. That makes "first mount
+  // only" a property of the store rather than a rule every caller upholds.
   @backgroundMethod()
-  async setPendingInstrumentIntent(params: {
+  async setPendingInitialTradeInstrument(params: {
     coin: string;
     mode: ITradingMode;
   }): Promise<void> {
-    if (!params.coin) {
+    if (!params.coin || this._initialSymbolSelectClaimed) {
       return;
     }
-    this._pendingInstrumentIntent = {
+    this._pendingInitialTradeInstrument = {
       coin: params.coin,
       mode: params.mode,
-      createdAt: Date.now(),
     };
   }
 
-  @backgroundMethod()
-  async consumePendingInstrumentIntent(): Promise<
-    { coin: string; mode: ITradingMode } | undefined
-  > {
-    const intent = this._pendingInstrumentIntent;
-    this._pendingInstrumentIntent = undefined;
-    if (!intent) {
-      return undefined;
-    }
-    const ageMs = Date.now() - intent.createdAt;
-    if (ageMs > PENDING_INSTRUMENT_INTENT_TTL_MS) {
-      // Expiry and "never set" both land on the restore path, and only this
-      // separates them when a report says the market did not switch.
-      markPerpsColdStartPerf('pending_instrument_intent_expired', {
-        coin: intent.coin,
-        ageMs,
-      });
-      return undefined;
-    }
-    return { coin: intent.coin, mode: intent.mode };
-  }
-
-  // Four sequential proxy hops used to sit between the first Perp frame and the
-  // symbol it should show. Each one is cheap when the background is idle and
+  // Three sequential proxy hops used to sit between the first Perp frame and
+  // the symbol it should show. Each is cheap when the background is idle and
   // ~220ms when it is not, which is exactly the cold start the user waits on.
   // The universe read stays behind `claimed` so a non-claiming run does no more
   // work than before.
   @backgroundMethod()
   async prepareInitialSymbolSelect(): Promise<{
     claimed: boolean;
-    deeplinkIntent: { coin: string; mode: ITradingMode } | undefined;
+    pendingInitialTradeInstrument:
+      | { coin: string; mode: ITradingMode }
+      | undefined;
     instrumentTarget: Awaited<
       ReturnType<ServiceHyperliquid['getActiveTradeInstrumentTarget']>
     >;
@@ -635,12 +610,23 @@ export default class ServiceHyperliquid extends ServiceBase {
       | undefined;
   }> {
     const claimed = await this.tryClaimInitialSymbolSelect();
-    const deeplinkIntent = await this.consumePendingInstrumentIntent();
+    // Taking it here rather than in the setter keeps the two halves of "first
+    // mount only" next to each other; a call that lost the race is already
+    // a no-op by the line above.
+    const pendingInitialTradeInstrument = claimed
+      ? this._pendingInitialTradeInstrument
+      : undefined;
+    this._pendingInitialTradeInstrument = undefined;
     const instrumentTarget = await this.getActiveTradeInstrumentTarget();
     const tradingUniverse = claimed
       ? await this.getTradingUniverse()
       : undefined;
-    return { claimed, deeplinkIntent, instrumentTarget, tradingUniverse };
+    return {
+      claimed,
+      pendingInitialTradeInstrument,
+      instrumentTarget,
+      tradingUniverse,
+    };
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {

@@ -24,7 +24,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
         // that mounts the Perp tab, so the claiming initial-select cannot
         // run ahead of it; the import above is hoisted for the same reason.
         try {
-          await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
+          await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
             { coin, mode: 'perp' },
           );
         } catch {

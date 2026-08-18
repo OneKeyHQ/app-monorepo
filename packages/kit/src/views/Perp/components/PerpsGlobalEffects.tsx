@@ -89,7 +89,6 @@ import {
 
 import {
   buildInitialTradeInstrumentSwitchParams,
-  resolveAppliedDeeplinkIntent,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -126,12 +125,6 @@ type IActiveInstrumentTarget = Awaited<
   >
 >;
 
-type IPendingInstrumentIntent = Awaited<
-  ReturnType<
-    typeof backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect
-  >
->['deeplinkIntent'];
-
 // Read the authoritative side rather than this runtime's mirrors: the mirror is
 // refreshed by a broadcast whose delivery is not confirmed, and a resync that
 // reads a drifted copy switches the user off the pair they picked.
@@ -145,7 +138,6 @@ function buildSwitchParamsFromTarget(
     force?: boolean;
     allowPerpFallback?: boolean;
     preferredInstrument?: IActiveTradeInstrument;
-    deeplinkIntent?: IPendingInstrumentIntent;
   },
 ) {
   return buildInitialTradeInstrumentSwitchParams({
@@ -155,7 +147,6 @@ function buildSwitchParamsFromTarget(
     force: options?.force,
     allowPerpFallback: options?.allowPerpFallback,
     preferredInstrument: options?.preferredInstrument,
-    deeplinkIntent: options?.deeplinkIntent,
   });
 }
 
@@ -974,8 +965,12 @@ function useHyperliquidSymbolSelect() {
       // and a divergence seen only in that gap would force a switch onto the
       // current pair, wiping the order form.
       const prepareStartedAt = Date.now();
-      const { claimed, deeplinkIntent, instrumentTarget, tradingUniverse } =
-        await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
+      const {
+        claimed,
+        pendingInitialTradeInstrument,
+        instrumentTarget,
+        tradingUniverse,
+      } = await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
       markPerpsColdStartPerf('initial_symbol_prepare', {
         elapsedMs: Date.now() - prepareStartedAt,
       });
@@ -983,23 +978,27 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      const appliedDeeplinkIntent = resolveAppliedDeeplinkIntent({
-        claimed,
-        deeplinkIntent,
-      });
-      if (deeplinkIntent?.coin) {
-        markPerpsColdStartPerf('initial_symbol_deeplink_intent', {
-          coin: deeplinkIntent.coin,
-          mode: deeplinkIntent.mode,
-          applied: claimed,
+      // The market a context-less caller asked for stands in for the restored
+      // instrument: both answer "what should the first frame show", and this
+      // one was chosen after the snapshot was written.
+      const preferredInstrument: IActiveTradeInstrument | undefined =
+        pendingInitialTradeInstrument
+          ? {
+              ...pendingInitialTradeInstrument,
+              assetId: undefined,
+              universe: undefined,
+            }
+          : activeTradeInstrumentRef.current;
+      if (pendingInitialTradeInstrument) {
+        markPerpsColdStartPerf('initial_symbol_pending_instrument', {
+          coin: pendingInitialTradeInstrument.coin,
+          mode: pendingInitialTradeInstrument.mode,
         });
       }
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
         // on the previous coin when the event bus message was dropped.
-        // No deeplink here by construction: this branch is the non-claiming
-        // resync, and the intent is withheld from it.
         const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget);
         const ctxInstrument = activeTradeInstrumentRef.current;
         const diverged =
@@ -1095,10 +1094,7 @@ function useHyperliquidSymbolSelect() {
         // strands the page for good. The diverged resync falls through here
         // too, and there the fallback would abort an in-flight spot switch.
         allowPerpFallback: claimed,
-        preferredInstrument: claimed
-          ? activeTradeInstrumentRef.current
-          : undefined,
-        deeplinkIntent: appliedDeeplinkIntent,
+        preferredInstrument: claimed ? preferredInstrument : undefined,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,

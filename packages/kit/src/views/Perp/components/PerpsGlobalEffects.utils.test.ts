@@ -1,37 +1,8 @@
 import {
   buildInitialTradeInstrumentSwitchParams,
-  resolveAppliedDeeplinkIntent,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
-
-describe('resolveAppliedDeeplinkIntent', () => {
-  const intent = { mode: 'perp' as const, coin: 'para:SMCI' };
-
-  it('hands the intent to the claiming run', () => {
-    expect(
-      resolveAppliedDeeplinkIntent({ claimed: true, deeplinkIntent: intent }),
-    ).toBe(intent);
-  });
-
-  // Dropping this gate is what turns a notification already handled by the
-  // mounted page into an override that outranks the market the user picked
-  // after it, for as long as the intent lives.
-  it('withholds it from every later run', () => {
-    expect(
-      resolveAppliedDeeplinkIntent({ claimed: false, deeplinkIntent: intent }),
-    ).toBeUndefined();
-  });
-
-  it('stays undefined when nothing is pending', () => {
-    expect(
-      resolveAppliedDeeplinkIntent({
-        claimed: true,
-        deeplinkIntent: undefined,
-      }),
-    ).toBeUndefined();
-  });
-});
 
 describe('buildInitialTradeInstrumentSwitchParams', () => {
   // The optimistic instrument is written synchronously when a switch starts,
@@ -170,85 +141,6 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
         allowPerpFallback: true,
       }),
     ).toBeUndefined();
-  });
-
-  // A banner/push deeplink writes the coin during the cold start, so the
-  // restored instrument is the older record here and honouring it strands the
-  // user on the market they navigated away from.
-  it('opens the deeplink target over the restored instrument', () => {
-    expect(
-      buildInitialTradeInstrumentSwitchParams({
-        mode: 'perp',
-        perpAsset: { coin: 'para:SMCI' },
-        preferredInstrument: { mode: 'perp', coin: 'BTC' },
-        deeplinkIntent: { mode: 'perp', coin: 'para:SMCI' },
-        force: true,
-        allowPerpFallback: true,
-      }),
-    ).toEqual({
-      mode: 'perp',
-      coin: 'para:SMCI',
-      force: true,
-    });
-  });
-
-  // The deeplink lands while the restored side is mid spot switch.
-  it('leaves spot for the deeplink target', () => {
-    expect(
-      buildInitialTradeInstrumentSwitchParams({
-        mode: 'spot',
-        spotAsset: { coin: 'SOL' },
-        preferredInstrument: { mode: 'spot', coin: 'SOL' },
-        deeplinkIntent: { mode: 'perp', coin: 'HYPE' },
-        allowPerpFallback: true,
-      }),
-    ).toMatchObject({ mode: 'perp', coin: 'HYPE' });
-  });
-
-  it('still restores the rendered instrument when no deeplink is pending', () => {
-    expect(
-      buildInitialTradeInstrumentSwitchParams({
-        mode: 'perp',
-        perpAsset: { coin: 'para:SMCI' },
-        preferredInstrument: { mode: 'perp', coin: 'BTC' },
-        deeplinkIntent: undefined,
-        force: true,
-        allowPerpFallback: true,
-      }),
-    ).toMatchObject({ mode: 'perp', coin: 'BTC' });
-  });
-
-  // What a non-claiming remount/refocus passes: the caller withholds the
-  // intent there because a mounted page already switched via the event bus.
-  // Resyncing off the background atoms is what keeps a notification from
-  // dragging the user back after they picked another market.
-  it('resyncs from the background atoms when the intent is withheld', () => {
-    expect(
-      buildInitialTradeInstrumentSwitchParams({
-        mode: 'perp',
-        perpAsset: { coin: 'HYPE' },
-        preferredInstrument: undefined,
-        deeplinkIntent: undefined,
-        force: true,
-      }),
-    ).toEqual({
-      mode: 'perp',
-      coin: 'HYPE',
-      force: true,
-    });
-  });
-
-  // A consumed-but-empty intent must not shadow the restore.
-  it('ignores a deeplink intent with no coin', () => {
-    expect(
-      buildInitialTradeInstrumentSwitchParams({
-        mode: 'perp',
-        perpAsset: { coin: 'para:SMCI' },
-        preferredInstrument: { mode: 'perp', coin: 'BTC' },
-        deeplinkIntent: { mode: 'perp', coin: '' },
-        allowPerpFallback: true,
-      }),
-    ).toMatchObject({ mode: 'perp', coin: 'BTC' });
   });
 });
 

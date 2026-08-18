@@ -80,7 +80,7 @@ export function UniversalSearchPerpItem({
         // must not be able to abort the tap. Recorded before the navigation
         // that mounts the Perp tab, so the claiming initial-select cannot
         // run ahead of it.
-        await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent({
+        await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument({
           coin,
           mode: 'perp',
         });

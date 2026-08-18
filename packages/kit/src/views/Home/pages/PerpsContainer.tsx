@@ -153,18 +153,6 @@ function useOpenPerpAsset() {
         if (coin && !activePerpsAccount?.accountAddress) {
           return;
         }
-        // A missing intent only costs the first-mount restore, so it stays out
-        // of the try below, whose catch returns before the tab switch — a
-        // rejection there would leave the tap doing nothing at all.
-        if (coin) {
-          try {
-            await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
-              { coin, mode },
-            );
-          } catch {
-            // ignore
-          }
-        }
         try {
           if (coin && mode === 'perp') {
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
@@ -184,6 +172,19 @@ function useOpenPerpAsset() {
         }
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+        }
+        // After the writes above and before the navigation that mounts the tab:
+        // recording it earlier would strand a pending pair whenever those
+        // writes bail out, and later would lose the race with the first mount.
+        // Isolated because losing it only costs that first-mount restore.
+        if (coin) {
+          try {
+            await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+              { coin, mode },
+            );
+          } catch {
+            // ignore
+          }
         }
         setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
