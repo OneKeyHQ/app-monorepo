@@ -63,15 +63,20 @@ export function PerpetualTradingBanner({
     });
     setTimeout(async () => {
       setPerpPageEnterSource(EPerpPageEnterSource.MarketBanner);
-      navigation.switchTab(ETabRoutes.Perp);
       try {
-        // Recorded before the atom write so a Perp tab mounting for the first
-        // time this launch restores this coin instead of the one its cold-start
-        // cache holds; the event below has no listener yet then.
+        // A missing intent only costs the first-mount restore, so this
+        // must not be able to abort the tap. Recorded before the navigation
+        // that mounts the Perp tab, so the claiming initial-select cannot
+        // run ahead of it.
         await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent({
           coin: hlTicker,
           mode: 'perp',
         });
+      } catch {
+        // ignore
+      }
+      navigation.switchTab(ETabRoutes.Perp);
+      try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: hlTicker,
         });

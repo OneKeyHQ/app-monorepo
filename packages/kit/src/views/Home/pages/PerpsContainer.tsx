@@ -153,15 +153,19 @@ function useOpenPerpAsset() {
         if (coin && !activePerpsAccount?.accountAddress) {
           return;
         }
-        try {
-          // Recorded before the atom writes so a Perp tab mounting for the
-          // first time this launch restores this pair instead of the one its
-          // cold-start cache holds; the event below has no listener yet then.
-          if (coin) {
+        // A missing intent only costs the first-mount restore, so it stays out
+        // of the try below, whose catch returns before the tab switch — a
+        // rejection there would leave the tap doing nothing at all.
+        if (coin) {
+          try {
             await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
               { coin, mode },
             );
+          } catch {
+            // ignore
           }
+        }
+        try {
           if (coin && mode === 'perp') {
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
               coin,
