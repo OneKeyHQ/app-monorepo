@@ -1,0 +1,12 @@
+{
+  "name": "OneKey app-monorepo",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "COREPACK_ENABLE_DOWNLOAD_PROMPT=0 yarn app:web"
+    }
+  ],
+  "ports": [{ "name": "web", "port": 3000 }]
+}
