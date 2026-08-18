@@ -24,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapQuoteSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -586,6 +587,9 @@ describe('useSpeedSwapActions', () => {
     await waitFor(() => {
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
     });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ source: ESwapQuoteSource.MARKET }),
+    );
 
     rerender({ stockIsOpen: true });
 

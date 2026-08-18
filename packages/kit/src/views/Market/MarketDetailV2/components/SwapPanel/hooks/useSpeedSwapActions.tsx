@@ -120,6 +120,7 @@ import {
   ESwapFetchCancelCause,
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -730,12 +731,23 @@ export function useSpeedSwapActions(props: {
       ESwapQuoteKind.SELL,
       true,
       userAddress,
+      undefined,
+      {
+        fromToken,
+        toToken,
+        fromTokenAmount: fromTokenAmountDebounced,
+        type: ESwapTabSwitchType.SWAP,
+        source: ESwapQuoteSource.MARKET,
+      },
     );
   }, [
+    fromToken,
+    fromTokenAmountDebounced,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
     quoteAction,
     slippage,
+    toToken,
   ]);
 
   const buildReviewStepTexts = useCallback(
@@ -3268,6 +3280,14 @@ export function useSpeedSwapActions(props: {
         ESwapQuoteKind.SELL,
         undefined,
         userAddress,
+        undefined,
+        {
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+          fromTokenAmount: fromTokenAmountDebounced,
+          type: ESwapTabSwitchType.SWAP,
+          source: ESwapQuoteSource.MARKET,
+        },
       );
     } else {
       const quoteRequestId = quoteRequestIdRef.current;

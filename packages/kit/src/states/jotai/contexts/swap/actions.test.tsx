@@ -42,6 +42,7 @@ import {
   ESwapAlertLevel,
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -2040,7 +2041,7 @@ describe('useSwapActions', () => {
     );
   });
 
-  it('rearms automatic quote refresh from quote events without remounting the UI', async () => {
+  it('rearms automatic quote refresh and preserves its Market source', async () => {
     jest.useFakeTimers();
     try {
       const approvedBlockNumber = 123_456;
@@ -2057,6 +2058,7 @@ describe('useSwapActions', () => {
         wrapper: Wrapper,
       });
       const quoteParams: IFetchQuotesParams = {
+        source: ESwapQuoteSource.MARKET,
         autoSlippage: true,
         blockNumber: approvedBlockNumber,
         fromNetworkId: ethToken.networkId,
@@ -2076,6 +2078,16 @@ describe('useSwapActions', () => {
           approvedBlockNumber,
           undefined,
           ESwapQuoteKind.SELL,
+          undefined,
+          undefined,
+          undefined,
+          {
+            fromToken: ethToken,
+            toToken: bnbToken,
+            fromTokenAmount: '1',
+            type: ESwapTabSwitchType.SWAP,
+            source: ESwapQuoteSource.MARKET,
+          },
         );
         await Promise.resolve();
       });
@@ -2083,6 +2095,7 @@ describe('useSwapActions', () => {
       expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
         expect.objectContaining({
           blockNumber: approvedBlockNumber,
+          source: ESwapQuoteSource.MARKET,
         }),
       );
 
@@ -2139,6 +2152,7 @@ describe('useSwapActions', () => {
         expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
           expect.objectContaining({
             blockNumber: undefined,
+            source: ESwapQuoteSource.MARKET,
           }),
         );
         expect(store.get(swapQuoteIntervalCountAtom())).toBe(round + 1);
