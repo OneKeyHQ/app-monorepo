@@ -3418,9 +3418,7 @@ export function useTradingViewNativeKLine({
           const receivedOlderPoints = normalizeKLinePoints(data.points).filter(
             (point) => point.t < earliestTimestamp,
           );
-          let olderPoints = isMarketMinuteHistory
-            ? receivedOlderPoints.slice(-olderHistoryPreloadPointCount)
-            : receivedOlderPoints;
+          let olderPoints = receivedOlderPoints;
           let paginationCursorTimestamp = olderPoints[0]?.t;
           const pageHasMoreHistory = historyProvider.hasMoreHistory({
             historySource,

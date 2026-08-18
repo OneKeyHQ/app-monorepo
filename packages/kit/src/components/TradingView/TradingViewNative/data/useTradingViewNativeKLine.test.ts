@@ -1111,11 +1111,13 @@ describe('TradingViewNative K-line data state machine', () => {
     ['1', 60],
     ['5', 5 * 60],
   ] as const)(
-    'preloads %s-minute Market history from half a visible screen to one screen',
+    'keeps all %s-minute Market history returned beyond the preload target',
     async (activeInterval, intervalSeconds) => {
       const currentTimestamp = 2_000_000;
       const initialFirstTimestamp = currentTimestamp - 298 * intervalSeconds;
-      const olderFirstTimestamp = initialFirstTimestamp - 30 * intervalSeconds;
+      const returnedOlderPointCount = 45;
+      const olderFirstTimestamp =
+        initialFirstTimestamp - returnedOlderPointCount * intervalSeconds;
       mockHistoryBatchSize = 299;
       mockHistoryRequestCandleCount = 2000;
       mockReadTradingViewNativeActiveInterval.mockReturnValue(activeInterval);
@@ -1131,7 +1133,7 @@ describe('TradingViewNative K-line data state machine', () => {
         )
         .mockResolvedValueOnce(
           buildMultiPointResponse(
-            Array.from({ length: 30 }, (_, index) => ({
+            Array.from({ length: returnedOlderPointCount }, (_, index) => ({
               close: 70 + index,
               timestamp: olderFirstTimestamp + index * intervalSeconds,
             })),
@@ -1163,7 +1165,11 @@ describe('TradingViewNative K-line data state machine', () => {
           timeTo: initialFirstTimestamp - 1,
         }),
       );
-      await waitFor(() => expect(result.current.points).toHaveLength(329));
+      await waitFor(() =>
+        expect(result.current.points).toHaveLength(
+          299 + returnedOlderPointCount,
+        ),
+      );
       expect(result.current.points[0]?.t).toBe(olderFirstTimestamp);
     },
   );
