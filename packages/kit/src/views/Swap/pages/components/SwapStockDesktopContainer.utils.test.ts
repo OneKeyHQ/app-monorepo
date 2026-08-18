@@ -17,6 +17,7 @@ import {
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 
@@ -194,33 +195,61 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
-  it('keeps the selected localized Stock subtitle while detail loads', () => {
+  it('shows token-label skeletons while the selected Stock detail is loading', () => {
     expect(
-      getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: false,
       }),
-    ).toBe('英特尔');
+    ).toBe(true);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.MarketUnavailable,
+        hasTokenData: false,
+      }),
+    ).toBe(false);
   });
 
-  it('prefers the localized detail subtitle after detail loads', () => {
+  it('does not reuse the selected token subtitle while detail loads', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
+        tokenDetailStockSubtitle: undefined,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('prefers the detail subtitle after detail loads', () => {
+    expect(
+      getStockMarketTokenSubtitle({
         tokenDetailStockSubtitle: '英特尔公司',
       }),
     ).toBe('英特尔公司');
   });
 
-  it('keeps the selected subtitle when detail returns a blank label', () => {
+  it('uses the selected token subtitle while detail silently refreshes', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
-        tokenDetailStockSubtitle: ' ',
+        currentStockSubtitle: 'Apple',
       }),
-    ).toBe('英特尔');
+    ).toBe('Apple');
   });
 
-  it('does not expose the raw token name while Stock metadata loads', () => {
+  it('falls back to the detail underlying asset name when subtitle is missing', () => {
+    expect(
+      getStockMarketTokenSubtitle({
+        tokenDetailStockSubtitle: ' ',
+        tokenDetailStockUnderlyingAssetName: 'SK hynix Inc.',
+      }),
+    ).toBe('SK hynix Inc.');
+  });
+
+  it('does not expose a raw token name when detail metadata is missing', () => {
     expect(getStockMarketTokenSubtitle({})).toBeUndefined();
   });
 
