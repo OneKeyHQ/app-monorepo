@@ -125,6 +125,12 @@ type IActiveInstrumentTarget = Awaited<
   >
 >;
 
+type IPendingInstrumentIntent = Awaited<
+  ReturnType<
+    typeof backgroundApiProxy.serviceHyperliquid.consumePendingInstrumentIntent
+  >
+>;
+
 // Read the authoritative side rather than this runtime's mirrors: the mirror is
 // refreshed by a broadcast whose delivery is not confirmed, and a resync that
 // reads a drifted copy switches the user off the pair they picked.
@@ -138,6 +144,7 @@ function buildSwitchParamsFromTarget(
     force?: boolean;
     allowPerpFallback?: boolean;
     preferredInstrument?: IActiveTradeInstrument;
+    deeplinkIntent?: IPendingInstrumentIntent;
   },
 ) {
   return buildInitialTradeInstrumentSwitchParams({
@@ -147,6 +154,7 @@ function buildSwitchParamsFromTarget(
     force: options?.force,
     allowPerpFallback: options?.allowPerpFallback,
     preferredInstrument: options?.preferredInstrument,
+    deeplinkIntent: options?.deeplinkIntent,
   });
 }
 
@@ -963,6 +971,16 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
+      // Consumed on every run, claiming or not, so an intent left behind by a
+      // deeplink that never reached this page cannot hijack a later init.
+      const deeplinkIntent =
+        await backgroundApiProxy.serviceHyperliquid.consumePendingInstrumentIntent();
+      if (deeplinkIntent?.coin) {
+        markPerpsColdStartPerf('initial_symbol_deeplink_intent', {
+          coin: deeplinkIntent.coin,
+          mode: deeplinkIntent.mode,
+        });
+      }
       // Resolved once and reused below: two independent reads can straddle the
       // background's own two-step write, and a divergence seen only in that gap
       // would force a switch onto the current pair, wiping the order form.
@@ -971,7 +989,9 @@ function useHyperliquidSymbolSelect() {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
         // on the previous coin when the event bus message was dropped.
-        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget);
+        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget, {
+          deeplinkIntent,
+        });
         const ctxInstrument = activeTradeInstrumentRef.current;
         const diverged =
           !bgSwitchParams ||
@@ -1067,6 +1087,7 @@ function useHyperliquidSymbolSelect() {
         preferredInstrument: claimed
           ? activeTradeInstrumentRef.current
           : undefined,
+        deeplinkIntent,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,

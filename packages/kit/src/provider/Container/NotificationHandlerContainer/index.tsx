@@ -147,6 +147,15 @@ function BaseNotificationHandlerContainer() {
 
       if (perpToken) {
         try {
+          // Recorded before the atom write so no cold start can observe the
+          // coin without the intent: on that path the Perp page restores its
+          // persisted instrument, which predates this tap and would win.
+          await backgroundApiProxy.serviceHyperliquid.setPendingInstrumentIntent(
+            {
+              coin: perpToken,
+              mode: 'perp',
+            },
+          );
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });

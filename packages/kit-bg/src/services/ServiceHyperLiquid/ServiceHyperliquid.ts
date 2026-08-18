@@ -219,6 +219,12 @@ const SPOT_TOTAL_USD_MISSING_PRICE_FALLBACK_DELAY_MS =
     seconds: 3,
   });
 const PERPS_ACTIVE_ASSET_CTX_DISPLAY_THROTTLE_MS = 500;
+// Bounds how long an unconsumed intent can outlive its tap: the Perp page it
+// was meant for claims it within a cold start, so anything older belongs to a
+// navigation the user already abandoned.
+const PENDING_INSTRUMENT_INTENT_TTL_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
 
 let perpsActiveAssetCtxDisplayLastSetAt = 0;
 let perpsActiveAssetCtxDisplayTimer: ReturnType<typeof setTimeout> | undefined;
@@ -552,6 +558,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // on every modal push.
   private _initialSymbolSelectClaimed = false;
 
+  // A banner/push/tray deeplink picks the coin before the Perp page mounts, so
+  // the switch event it emits has no listener yet and the cold-start restore
+  // would replay the previous session's instrument over the user's choice.
+  private _pendingInstrumentIntent:
+    | { coin: string; mode: ITradingMode; createdAt: number }
+    | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -564,6 +577,36 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     this._initialSymbolSelectClaimed = true;
     return true;
+  }
+
+  @backgroundMethod()
+  async setPendingInstrumentIntent(params: {
+    coin: string;
+    mode: ITradingMode;
+  }): Promise<void> {
+    if (!params.coin) {
+      return;
+    }
+    this._pendingInstrumentIntent = {
+      coin: params.coin,
+      mode: params.mode,
+      createdAt: Date.now(),
+    };
+  }
+
+  @backgroundMethod()
+  async consumePendingInstrumentIntent(): Promise<
+    { coin: string; mode: ITradingMode } | undefined
+  > {
+    const intent = this._pendingInstrumentIntent;
+    this._pendingInstrumentIntent = undefined;
+    if (!intent) {
+      return undefined;
+    }
+    if (Date.now() - intent.createdAt > PENDING_INSTRUMENT_INTENT_TTL_MS) {
+      return undefined;
+    }
+    return { coin: intent.coin, mode: intent.mode };
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
