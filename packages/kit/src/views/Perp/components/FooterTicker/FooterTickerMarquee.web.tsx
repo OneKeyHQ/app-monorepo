@@ -10,7 +10,7 @@ import {
 
 import { XStack } from '@onekeyhq/components';
 
-import { FooterTickerItem } from './FooterTickerItem';
+import { FooterTickerItem } from './FooterTickerItem.web';
 import {
   getFooterTickerItemKey,
   getFooterTickerStructureKey,
