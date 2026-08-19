@@ -1,4 +1,16 @@
+import { createIntl, createIntlCache } from 'react-intl';
+
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
+
 import { formatRecipientLine, normalizeNativePrice } from './utils';
+
+const intl = createIntl(
+  {
+    locale: 'en-US',
+    messages: enUS as Record<string, string>,
+  },
+  createIntlCache(),
+);
 
 describe('formatRecipientLine', () => {
   it('formats a single external recipient', () => {
@@ -6,6 +18,7 @@ describe('formatRecipientLine', () => {
       formatRecipientLine({
         recipient: 'tb1qexample',
         extraRecipientCount: 0,
+        intl,
       }),
     ).toBe('To tb1qexample');
   });
@@ -15,6 +28,7 @@ describe('formatRecipientLine', () => {
       formatRecipientLine({
         recipient: 'tb1qexample',
         extraRecipientCount: 2,
+        intl,
       }),
     ).toBe('To tb1qexample +2');
   });
@@ -24,6 +38,7 @@ describe('formatRecipientLine', () => {
       formatRecipientLine({
         recipient: 'tb1pownaddress',
         extraRecipientCount: 0,
+        intl,
       }),
     ).toBe('To tb1pownaddress');
   });
@@ -33,6 +48,7 @@ describe('formatRecipientLine', () => {
       formatRecipientLine({
         recipient: '',
         extraRecipientCount: 0,
+        intl,
       }),
     ).toBe('To multiple outputs');
   });
