@@ -61,6 +61,8 @@ import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
 } from '../utils/mobilePerpMarketScrollState';
+import { useTabsContext } from 'react-native-collapsible-tab-view';
+
 import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
@@ -152,6 +154,30 @@ function MobilePerpMarketTabBar({
       </ScrollView>
     </XStack>
   );
+}
+
+// OK-59100: iOS refuses to start a drag when the reachable distance is zero,
+// and that is computed from numbers only the tabs context holds. They cannot be
+// reported from `dragBegin` — when the range is zero there is no dragBegin at
+// all, which is exactly the state under investigation. Rendering nothing, this
+// probe just reports them from inside the container.
+function OrderbookScrollMetricsProbe() {
+  const { headerHeight, tabBarHeight, containerHeight, contentInset } =
+    useTabsContext();
+
+  useEffect(() => {
+    const reachable =
+      (contentInset ?? 0) + (headerHeight ?? 0) - (containerHeight ?? 0);
+    perpsFieldDiagnostics('iosOrderbookTab.metrics', {
+      headerHeight: Math.round(headerHeight ?? 0),
+      tabBarHeight: Math.round(tabBarHeight ?? 0),
+      containerHeight: Math.round(containerHeight ?? 0),
+      contentInset: Math.round(contentInset ?? 0),
+      headerPlusInsetMinusContainer: Math.round(reachable),
+    });
+  }, [containerHeight, contentInset, headerHeight, tabBarHeight]);
+
+  return null;
 }
 
 function MobilePerpCandlesHeader({
@@ -699,6 +725,7 @@ function MobilePerpMarket() {
                       onScrollEndDrag={handleOrderbookScrollEndDrag}
                       onContentSizeChange={handleOrderbookContentSizeChange}
                     >
+                      <OrderbookScrollMetricsProbe />
                       <YStack
                         onLayout={(event) =>
                           handleTraceLayout('iosOrderbookTabContent', event)
