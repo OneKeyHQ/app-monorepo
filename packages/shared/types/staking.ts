@@ -1576,6 +1576,17 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
+  // Protocol tips (OK-58972), configured in the dashboard. Array order is
+  // display order. A single tip is shown inline with no View All; with
+  // several, the one flagged showDefault is shown inline (first entry when
+  // none is flagged).
+  protocolTips?: {
+    tips: {
+      title: IEarnText;
+      description: IEarnText;
+      showDefault?: boolean;
+    }[];
+  };
   extras?: {
     title: IEarnText;
     items: IEarnGridItem[];
