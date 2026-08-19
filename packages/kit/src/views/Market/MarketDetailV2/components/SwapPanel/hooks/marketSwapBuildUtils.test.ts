@@ -63,12 +63,14 @@ describe('marketSwapBuildUtils', () => {
         quoteRequestMatchesCurrentInput: true,
         quoteRequestLocked: false,
         quoteFetching: false,
+        quoteEventFetching: false,
         shouldRefreshQuote: false,
         hasQuoteError: false,
       }),
     ).toEqual({
       canRefresh: false,
       canReview: true,
+      isLoading: false,
     });
   });
 
@@ -76,6 +78,7 @@ describe('marketSwapBuildUtils', () => {
     { quoteRequestMatchesCurrentInput: false },
     { quoteRequestLocked: true },
     { quoteFetching: true },
+    { quoteEventFetching: true },
     { hasActionableQuote: false },
     { hasQuoteError: true },
   ])('blocks review when quote state is not executable: %#', (overrides) => {
@@ -85,6 +88,7 @@ describe('marketSwapBuildUtils', () => {
         quoteRequestMatchesCurrentInput: true,
         quoteRequestLocked: false,
         quoteFetching: false,
+        quoteEventFetching: false,
         shouldRefreshQuote: false,
         hasQuoteError: false,
         ...overrides,
@@ -99,12 +103,14 @@ describe('marketSwapBuildUtils', () => {
         quoteRequestMatchesCurrentInput: true,
         quoteRequestLocked: false,
         quoteFetching: false,
+        quoteEventFetching: false,
         shouldRefreshQuote: true,
         hasQuoteError: false,
       }),
     ).toEqual({
       canRefresh: true,
       canReview: false,
+      isLoading: false,
     });
   });
 

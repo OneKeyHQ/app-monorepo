@@ -37,8 +37,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   getSwapQuoteProgressState,
+  isSwapNoProviderSupportsTrade,
   isSwapQuoteEventFetching,
   isSwapQuoteRequestForCurrentInput,
+  isSwapZeroProviderQuoteCompleted,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
@@ -120,6 +122,7 @@ import {
   ESwapFetchCancelCause,
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -630,27 +633,32 @@ export function useSpeedSwapActions(props: {
       leading: true,
     },
   );
+  const quoteEventFetching = useMemo(
+    () =>
+      isSwapQuoteEventFetching({
+        quoteEventTotalCount,
+        currentEventReceivedCount,
+        quoteEventCompleted,
+      }),
+    [currentEventReceivedCount, quoteEventCompleted, quoteEventTotalCount],
+  );
   const quoteProgressState = useMemo(
     () =>
       getSwapQuoteProgressState({
         quoteLoading: quoteFetching,
-        quoteEventFetching: isSwapQuoteEventFetching({
-          quoteEventTotalCount,
-          currentEventReceivedCount,
-          quoteEventCompleted,
-        }),
+        quoteEventFetching,
         quoteCurrentSelect: selectedQuoteResult,
         quoteEventTotalCount,
         quoteEventCompleted,
         quoteEventError,
       }),
     [
-      currentEventReceivedCount,
       quoteEventCompleted,
       quoteEventError,
-      quoteEventTotalCount,
+      quoteEventFetching,
       quoteFetching,
       selectedQuoteResult,
+      quoteEventTotalCount,
     ],
   );
   const quoteRequestMatchesCurrentInput = useMemo(
@@ -676,6 +684,43 @@ export function useSpeedSwapActions(props: {
       toToken,
     ],
   );
+  const quoteResultPairNoMatch = useMemo(
+    () =>
+      Boolean(
+        selectedQuoteResult &&
+        !(
+          equalTokenNoCaseSensitive({
+            token1: selectedQuoteResult.fromTokenInfo,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: selectedQuoteResult.toTokenInfo,
+            token2: toToken,
+          })
+        ),
+      ),
+    [fromToken, selectedQuoteResult, toToken],
+  );
+  const noProviderSupportsTrade = useMemo(
+    () =>
+      isSwapNoProviderSupportsTrade({
+        zeroProviderQuoteCompleted: isSwapZeroProviderQuoteCompleted({
+          quoteEventTotalCount,
+          quoteEventCompleted,
+        }),
+        quote: selectedQuoteResult,
+        quoteResultPairNoMatch,
+        quoteEventCompleted,
+        quoteRequestMatchesCurrentInput,
+      }),
+    [
+      quoteEventCompleted,
+      quoteEventTotalCount,
+      quoteRequestMatchesCurrentInput,
+      quoteResultPairNoMatch,
+      selectedQuoteResult,
+    ],
+  );
   const quoteActionState = useMemo(
     () =>
       resolveMarketQuoteActionState({
@@ -683,15 +728,20 @@ export function useSpeedSwapActions(props: {
         quoteRequestMatchesCurrentInput,
         quoteRequestLocked: quoteActionLock.actionLock,
         quoteFetching,
+        quoteEventFetching,
         shouldRefreshQuote,
         hasQuoteError: Boolean(
-          quoteEventError?.message || selectedQuoteResult?.errorMessage,
+          quoteEventError?.message ||
+          selectedQuoteResult?.errorMessage ||
+          noProviderSupportsTrade,
         ),
       }),
     [
       quoteActionLock.actionLock,
       quoteEventError?.message,
+      quoteEventFetching,
       quoteFetching,
+      noProviderSupportsTrade,
       quoteProgressState.hasActionableQuote,
       quoteRequestMatchesCurrentInput,
       selectedQuoteResult?.errorMessage,
@@ -730,12 +780,23 @@ export function useSpeedSwapActions(props: {
       ESwapQuoteKind.SELL,
       true,
       userAddress,
+      undefined,
+      {
+        fromToken,
+        toToken,
+        fromTokenAmount: fromTokenAmountDebounced,
+        type: ESwapTabSwitchType.SWAP,
+        source: ESwapQuoteSource.MARKET,
+      },
     );
   }, [
+    fromToken,
+    fromTokenAmountDebounced,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
     quoteAction,
     slippage,
+    toToken,
   ]);
 
   const buildReviewStepTexts = useCallback(
@@ -1124,6 +1185,46 @@ export function useSpeedSwapActions(props: {
         throw new OneKeyLocalError(
           'Market swap quote changed while preparing review.',
         );
+      }
+
+      if (selectedQuote.swapShouldSignedData) {
+        const reviewBuildRes: IFetchBuildTxResponse = {
+          ...(selectedQuote.quoteId ? { orderId: selectedQuote.quoteId } : {}),
+          result: {
+            ...selectedQuote,
+            slippage: selectedQuote.slippage ?? slippage,
+          },
+        };
+        const swapInfo: ISwapTxInfo = {
+          protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
+          sender: {
+            amount: selectedQuote.fromAmount ?? amount,
+            token: fromTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: fromTokenFinal.networkId,
+            },
+          },
+          receiver: {
+            amount: selectedQuote.toAmount,
+            token: toTokenFinal,
+            accountInfo: {
+              accountId: netAccountRes.result.id,
+              networkId: toTokenFinal.networkId,
+            },
+          },
+          accountAddress: userAddress,
+          receivingAddress: userAddress,
+          swapBuildResData: reviewBuildRes,
+        };
+
+        return {
+          buildRes: reviewBuildRes,
+          encodedTx: undefined,
+          transferInfo: undefined,
+          swapInfo,
+          userAddress,
+        };
       }
 
       setSpeedSwapBuildTxLoading(true);
@@ -3268,6 +3369,14 @@ export function useSpeedSwapActions(props: {
         ESwapQuoteKind.SELL,
         undefined,
         userAddress,
+        undefined,
+        {
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+          fromTokenAmount: fromTokenAmountDebounced,
+          type: ESwapTabSwitchType.SWAP,
+          source: ESwapQuoteSource.MARKET,
+        },
       );
     } else {
       const quoteRequestId = quoteRequestIdRef.current;
@@ -3325,6 +3434,24 @@ export function useSpeedSwapActions(props: {
     syncTokensBalance,
   ]);
 
+  const marketPriceRate = (() => {
+    if (selectedQuoteResult?.instantRate) {
+      return {
+        rate: Number(selectedQuoteResult.instantRate),
+        fromTokenSymbol: selectedQuoteResult.fromTokenInfo.symbol,
+        toTokenSymbol: selectedQuoteResult.toTokenInfo.symbol,
+        loading: quoteActionState.isLoading,
+      };
+    }
+    if (priceRate) {
+      return {
+        ...priceRate,
+        loading: priceRate.loading || quoteActionState.isLoading,
+      };
+    }
+    return undefined;
+  })();
+
   return {
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
@@ -3338,19 +3465,19 @@ export function useSpeedSwapActions(props: {
     paymentTokenPrice: effectiveTradeTokenPrice.gt(0)
       ? effectiveTradeTokenPrice
       : undefined,
-    priceRate: selectedQuoteResult?.instantRate
-      ? {
-          rate: Number(selectedQuoteResult.instantRate),
-          fromTokenSymbol: selectedQuoteResult.fromTokenInfo.symbol,
-          toTokenSymbol: selectedQuoteResult.toTokenInfo.symbol,
-          loading: quoteFetching,
-        }
-      : priceRate,
+    priceRate: marketPriceRate,
     quoteResult: selectedQuoteResult,
     quoteList,
-    quoteFetching,
+    quoteActionLoading: quoteActionState.isLoading,
     isWrapped,
-    quoteError: quoteEventError?.message ?? selectedQuoteResult?.errorMessage,
+    quoteError:
+      quoteEventError?.message ??
+      selectedQuoteResult?.errorMessage ??
+      (noProviderSupportsTrade
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_alert_no_provider_supports_trade,
+          })
+        : undefined),
     quoteReadyForReview: quoteActionState.canReview,
     quoteNeedsRefresh: quoteActionState.canRefresh,
     refreshMarketQuote,

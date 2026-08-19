@@ -115,17 +115,35 @@ export function shouldShowStockMarketHeaderSkeleton({
   );
 }
 
+export function shouldShowStockMarketTokenLabelsSkeleton({
+  channelStage,
+  hasTokenData,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasTokenData: boolean;
+}) {
+  return (
+    !hasTokenData &&
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
+}
+
 export function getStockMarketTokenSubtitle({
   currentStockSubtitle,
   tokenDetailStockSubtitle,
+  tokenDetailStockUnderlyingAssetName,
 }: {
   currentStockSubtitle?: string;
   tokenDetailStockSubtitle?: string;
+  tokenDetailStockUnderlyingAssetName?: string;
 }) {
   if (tokenDetailStockSubtitle?.trim()) {
     return tokenDetailStockSubtitle;
   }
-  return currentStockSubtitle?.trim() ? currentStockSubtitle : undefined;
+  if (currentStockSubtitle?.trim()) {
+    return currentStockSubtitle;
+  }
+  return tokenDetailStockUnderlyingAssetName?.trim() || undefined;
 }
 
 export function shouldShowStockQuoteActionLoading({

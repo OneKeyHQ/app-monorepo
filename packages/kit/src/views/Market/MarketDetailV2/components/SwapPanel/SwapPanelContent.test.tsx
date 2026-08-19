@@ -267,6 +267,7 @@ describe('SwapPanelContent', () => {
     expect(actionButtonMock).toHaveBeenCalledWith(
       expect.objectContaining({
         disabled: true,
+        loading: true,
       }),
     );
   });
