@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, useDialogInstance } from '@onekeyhq/components';
+import { Dialog, useDialogInstance, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
@@ -22,7 +23,8 @@ function ActivityHubDialogContent({
   copyAsUrl,
   onOpenInviteeReward,
   campaigns,
-}: IShowActivityHubParams) {
+  isCompactPanel,
+}: IShowActivityHubParams & { isCompactPanel: boolean }) {
   const dialog = useDialogInstance();
 
   return (
@@ -30,6 +32,7 @@ function ActivityHubDialogContent({
       source={source}
       copyAsUrl={copyAsUrl}
       showTitle={false}
+      isCompactPanel={isCompactPanel}
       closePopover={() => dialog.close()}
       onOpenInviteeReward={onOpenInviteeReward}
       campaigns={campaigns}
@@ -41,26 +44,35 @@ function ActivityHubDialogContent({
 // same hub content as a dialog instead.
 export function useShowActivityHub() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   return useCallback(
     (params: IShowActivityHubParams) => {
-      const { panelWidth } = getActivityHubLayout(
-        Boolean(params.campaigns?.length),
-      );
+      const hasCampaigns = Boolean(params.campaigns?.length);
+      const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
+      const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
+      const { panelWidth } = getActivityHubLayout(hasCampaigns);
       Dialog.show({
         title: intl.formatMessage({ id: ETranslations.perps_activity_hub }),
-        floatingPanelProps: {
-          width: panelWidth,
-        },
+        floatingPanelProps: isDesktopFloatingPanel
+          ? {
+              width: panelWidth,
+            }
+          : undefined,
         showFooter: false,
         // The hub content brings the popover's own padding.
         contentContainerProps: {
           px: '$0',
           pb: '$0',
         },
-        renderContent: <ActivityHubDialogContent {...params} />,
+        renderContent: (
+          <ActivityHubDialogContent
+            {...params}
+            isCompactPanel={isCompactPanel}
+          />
+        ),
       });
     },
-    [intl],
+    [gtMd, intl],
   );
 }

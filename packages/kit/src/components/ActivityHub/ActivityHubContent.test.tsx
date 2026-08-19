@@ -70,6 +70,13 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isNative: false,
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useReferFriends', () => ({
   useReferFriends: () => ({
     shareReferRewards: mockShareReferRewards,
@@ -95,6 +102,8 @@ jest.mock(
   () => ({}),
 );
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
@@ -103,6 +112,7 @@ describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGtMd = true;
+    platformEnv.isNative = false;
   });
 
   it('opens invite share and invitee rewards after the host closes', async () => {
@@ -203,9 +213,7 @@ describe('ActivityHubContent', () => {
     ).toBe(narrowPanel.shortcutBasis);
   });
 
-  it('keeps the wide-panel tile basis on the md sheet', () => {
-    mockGtMd = false;
-
+  it('keeps the wide-panel tile basis when the host is not compact', () => {
     render(
       <ActivityHubContent
         source="Earn"
@@ -214,6 +222,40 @@ describe('ActivityHubContent', () => {
       />,
     );
 
+    expect(
+      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
+    ).toBe(getActivityHubLayout(true).shortcutBasis);
+  });
+
+  it('uses the compact tile basis only when the host marks the panel compact', () => {
+    render(
+      <ActivityHubContent
+        source="Earn"
+        closePopover={jest.fn()}
+        onOpenInviteeReward={jest.fn()}
+        isCompactPanel
+      />,
+    );
+
+    expect(
+      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
+    ).toBe(getActivityHubLayout(false).shortcutBasis);
+  });
+
+  it('does not size a native popover as a desktop floating panel', () => {
+    platformEnv.isNative = true;
+
+    render(
+      <ActivityHubAction
+        source="Earn"
+        onOpenInviteeReward={jest.fn()}
+        renderTrigger={<div />}
+      />,
+    );
+
+    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
+      width: undefined,
+    });
     expect(
       screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
     ).toBe(getActivityHubLayout(true).shortcutBasis);

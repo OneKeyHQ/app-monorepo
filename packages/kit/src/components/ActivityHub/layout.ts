@@ -19,8 +19,8 @@ const ACTIVITY_HUB_LAYOUTS = {
   },
 } as const;
 
-// A panel is wide when it has the full 4-column room: campaign cards force that
-// on desktop, and on md the hub is a screen-wide sheet that always has it.
+// Wide is the default: campaign cards, native sheets, and in-panel embeds all
+// have the 4-column room. Only the desktop 208px floating host is compact.
 export function getActivityHubLayout(isWidePanel: boolean) {
   return isWidePanel ? ACTIVITY_HUB_LAYOUTS.wide : ACTIVITY_HUB_LAYOUTS.narrow;
 }

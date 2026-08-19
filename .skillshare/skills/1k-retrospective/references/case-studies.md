@@ -116,3 +116,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The tile basis was chosen by "does the panel have campaign cards", which is only a proxy for panel width on desktop. Below md the hub is a screen-wide sheet no host sizes, so the grown basis meant for the 208px desktop panel was applied to the full screen.
 **Fix**: The basis is now chosen by "does the panel have the wide 4-column room", which the md sheet always does; only the desktop shortcut-only panel narrows and grows the basis.
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) and desktop (widest)
+
+## Case: Activity Hub inferred compact layout from gtMd
+**Date**: 2026-08-19 | **Platforms**: iPad, Android tablet, desktop web (Perps account/settings embeds)
+**Symptom**: Shortcut tiles doubled in size inside native tablet sheets (~400–480px) and inside the Perps account/settings panels whenever campaigns were empty.
+**Root Cause**: `gtMd` was used as a stand-in for "this is the 208px desktop floating panel". Native popovers always Adapt to a Sheet, and `ActivityHubContent` is also inlined into wider hosts that never set that width.
+**Fix**: Compact layout is an explicit `isCompactPanel` host flag. Only `ActivityHubAction` / `useShowActivityHub` set it for the desktop floating surface with no campaigns; native `floatingPanelProps.width` is left unset.
+**Catchable by**: Section 3: Cross-platform impact — platform-specific overlay (Popover Sheet vs floating panel) plus every inlined consumer of a shared layout

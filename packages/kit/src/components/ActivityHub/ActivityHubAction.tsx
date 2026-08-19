@@ -6,6 +6,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import { Popover, useMedia } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
@@ -43,10 +44,12 @@ export function ActivityHubAction({
   const activityCenterTitle = intl.formatMessage({
     id: ETranslations.perps_activity_hub,
   });
-  // Nothing inside the panel sets its width, so the popover has to carry the
-  // width paired with the tile basis. On md the content sits in a sheet that is
-  // already as wide as the screen.
-  const { panelWidth } = getActivityHubLayout(Boolean(campaigns?.length));
+  const hasCampaigns = Boolean(campaigns?.length);
+  // Native popovers always Adapt to a Sheet, so floatingPanelProps.width is a
+  // no-op there. Compact tiles belong only to the desktop 208px floating panel.
+  const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
+  const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
+  const { panelWidth } = getActivityHubLayout(hasCampaigns);
 
   return (
     <Popover
@@ -56,7 +59,7 @@ export function ActivityHubAction({
       showHeader={!gtMd}
       placement="bottom-end"
       floatingPanelProps={{
-        width: gtMd ? panelWidth : undefined,
+        width: isDesktopFloatingPanel ? panelWidth : undefined,
       }}
       sheetProps={
         gtMd
@@ -81,6 +84,7 @@ export function ActivityHubAction({
           source={source}
           copyAsUrl={copyAsUrl}
           closePopover={closePopover}
+          isCompactPanel={isCompactPanel}
           onOpenInviteeReward={onOpenInviteeReward}
           campaigns={campaigns}
         />

@@ -3066,7 +3066,6 @@ export enum ETranslations {
   perp_market_info_raw_source__title = 'perp_market_info_raw_source__title',
   perp_market_info_raw_source_tooltip__desc = 'perp_market_info_raw_source_tooltip__desc',
   perp_market_info_reference_note__desc = 'perp_market_info_reference_note__desc',
-  perp_holdings_hide_below_amount__action = 'perp_holdings_hide_below_amount__action',
   perp_market_info_social_media__title = 'perp_market_info_social_media__title',
   perp_market_info_total_supply_tooltip__desc = 'perp_market_info_total_supply_tooltip__desc',
   perp_market_liquidation__title = 'perp_market_liquidation__title',

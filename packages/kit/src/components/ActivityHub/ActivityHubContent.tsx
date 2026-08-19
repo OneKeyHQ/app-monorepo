@@ -160,6 +160,7 @@ export function ActivityHubContent({
   copyAsUrl = false,
   closePopover,
   showTitle = true,
+  isCompactPanel = false,
   onOpenInviteeReward,
   campaigns,
 }: {
@@ -167,6 +168,9 @@ export function ActivityHubContent({
   copyAsUrl?: boolean;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
+  // True only for the desktop 208px floating popover/dialog. Sheets, native
+  // tablets, and in-panel embeds leave this unset so tiles keep the 25% basis.
+  isCompactPanel?: boolean;
   onOpenInviteeReward: () => void;
   campaigns?: IActivityHubCampaign[];
 }) {
@@ -180,12 +184,11 @@ export function ActivityHubContent({
   });
   const campaignItems = campaigns ?? EMPTY_ACTIVITY_HUB_CAMPAIGNS;
   const hasCampaigns = campaignItems.length > 0;
-  // The tile basis is paired with the panel width, so it is derived here instead
-  // of passed in: a host that forgot it would squeeze the two shortcuts into a
-  // quarter of the row each. Below md the hub is a screen-wide sheet whose width
-  // no host controls, so the tiles keep the 4-column basis there and the row
-  // stays half empty rather than growing tiles to half the screen.
-  const { shortcutBasis } = getActivityHubLayout(hasCampaigns || !isDesktop);
+  // Campaigns still force the 4-column row. Compact is an explicit host signal,
+  // not gtMd: native popovers are sheets and Perps embeds sit in a wide panel.
+  const { shortcutBasis } = getActivityHubLayout(
+    hasCampaigns || !isCompactPanel,
+  );
 
   return (
     <YStack mb="$2">
