@@ -244,6 +244,39 @@ describe('getSwapHistoryTransactionIdRows', () => {
     ]);
   });
 
+  it('ignores a stale refund hash after the target chain succeeds', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          status: ESwapTxHistoryStatus.SUCCESS,
+          fromNetworkId: 'evm--56',
+          toNetworkId: 'evm--1',
+          crossChainStatus: ESwapCrossChainStatus.TO_SUCCESS,
+          receiverTransactionId: '0xtarget',
+          swapOrderHash: {
+            fromTxHash: '0xsource',
+            toTxHash: '0xtarget',
+            refundHash: '0xstale-refund',
+          },
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'source',
+        transactionId: '0xsource',
+        networkId: 'evm--56',
+        showExplorer: true,
+      },
+      {
+        kind: 'target',
+        transactionId: '0xtarget',
+        networkId: 'evm--1',
+        showExplorer: true,
+        showPendingNote: false,
+      },
+    ]);
+  });
+
   it('does not change private-send transaction rendering', () => {
     expect(
       getSwapHistoryTransactionIdRows(
