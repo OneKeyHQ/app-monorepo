@@ -12,7 +12,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import {
   EBatchTxSignItemStatus,
@@ -23,11 +22,13 @@ import type {
   IBatchTxSignProgress,
 } from '@onekeyhq/shared/types/batchTxSign';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { batchTxSignAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISignTransactionPrefetchedCredentials } from '../vaults/types';
 import type { networks } from 'bitcoinjs-lib';
 
 export type IBatchTxSignCreateItem = {
@@ -277,11 +278,6 @@ export default class ServiceBatchTxSign extends ServiceBase {
       throw new OneKeyLocalError('batch signing already in progress');
     }
     state.isSigning = true;
-    // Software (hd/imported) wallets with protectCreateTransaction enabled
-    // would otherwise be password-prompted once per item, while the overview
-    // screen promises "Authorize once". Hardware wallets confirm each item on
-    // the device itself, so don't widen the no-re-prompt window for them.
-    let passwordSessionOpened = false;
     try {
       // Confirm-time precheck (e.g. BTC frozen/protected inscription UTXOs)
       // over everything this loop is about to sign — signTransaction itself
@@ -300,7 +296,7 @@ export default class ServiceBatchTxSign extends ServiceBase {
       });
 
       // cancelBatch/disposeBatch may have run while the precheck (a network
-      // call) or the password-session open below was in-flight. Cancelled is
+      // call) or the password prompt below was in-flight. Cancelled is
       // terminal: without these re-checks, the status write below would
       // resurrect the batch into Signing, clear the abort observed during
       // the await, and — for a disposed batch — publish a zombie snapshot
@@ -309,13 +305,27 @@ export default class ServiceBatchTxSign extends ServiceBase {
         return;
       }
 
+      // Software (hd/imported) wallets with protectCreateTransaction enabled
+      // would otherwise be password-prompted once per item, while the
+      // overview screen promises "Authorize once". Collect the credentials a
+      // single time here and thread them through every signTransaction call —
+      // unlike a global password security session, the no-re-prompt window is
+      // bounded by this loop and can never leak to a transaction outside this
+      // batch. A prompt rejection escapes before any status mutation, leaving
+      // the batch fully re-signable. Hardware wallets confirm each item on
+      // the device itself and keep their per-item flow untouched.
+      let prefetchedCredentials:
+        | ISignTransactionPrefetchedCredentials
+        | undefined;
       if (!accountUtils.isHwAccount({ accountId: state.accountId })) {
-        // Generous window: it has to cover the user actually typing the
-        // password at the first item's prompt, not just the signing time.
-        await this.backgroundApi.servicePassword.openPasswordSecuritySession({
-          timeout: timerUtils.getTimeDurationMs({ minute: 5 }),
-        });
-        passwordSessionOpened = true;
+        const { password, deviceParams } =
+          await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
+            {
+              accountId: state.accountId,
+              reason: EReasonForNeedPassword.CreateTransaction,
+            },
+          );
+        prefetchedCredentials = { password, deviceParams };
         if (this.isCancelled(state)) {
           return;
         }
@@ -353,6 +363,7 @@ export default class ServiceBatchTxSign extends ServiceBase {
               networkId: state.networkId,
               unsignedTx: item.unsignedTx,
               signOnly: true,
+              prefetchedCredentials,
             });
             // psbtHex is optional on ISignedTxPro. A missing hex here would
             // otherwise mark the item Signed with nothing to finalize, so
@@ -409,9 +420,6 @@ export default class ServiceBatchTxSign extends ServiceBase {
       }
     } finally {
       state.isSigning = false;
-      if (passwordSessionOpened) {
-        await this.backgroundApi.servicePassword.closePasswordSecuritySession();
-      }
     }
   }
 

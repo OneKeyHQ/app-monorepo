@@ -3,8 +3,8 @@ yarn jest packages/kit-bg/src/services/ServiceBatchTxSign.test.ts
 
 Covers the background batch-sign orchestrator: sequential signing, resume
 after a stop, drill-down (markItemSigned) skip, mid-flight cancellation, the
-concurrent-call guard, the confirm-time precheck gate, the shared password
-session, and takeFinalizedResults retry-ability. All items use autoFinalized:false so
+concurrent-call guard, the confirm-time precheck gate, the once-per-batch
+password prompt, and takeFinalizedResults retry-ability. All items use autoFinalized:false so
 takeFinalizedResults never needs a real psbt network / finalizer, keeping the
 suite free of bitcoinjs-lib fixtures.
 */
@@ -124,15 +124,18 @@ function makeService(
   }));
   const addItemFromSendProcess = jest.fn(async () => undefined);
   const getNetwork = jest.fn();
-  const openPasswordSecuritySession = jest.fn(async () => undefined);
-  const closePasswordSecuritySession = jest.fn(async () => undefined);
+  const promptPasswordVerifyByAccount = jest.fn(async () => ({
+    password: 'encoded-password',
+    isHardware: false,
+    isQrWallet: false,
+    deviceParams: undefined,
+  }));
   const backgroundApi = {
     serviceSend: { signTransaction, precheckUnsignedTxs, buildDecodedTx },
     serviceSignature: { addItemFromSendProcess },
     serviceNetwork: { getNetwork },
     servicePassword: {
-      openPasswordSecuritySession,
-      closePasswordSecuritySession,
+      promptPasswordVerifyByAccount,
     },
   };
   const service = new ServiceBatchTxSign({ backgroundApi } as any);
@@ -144,8 +147,7 @@ function makeService(
     buildDecodedTx,
     addItemFromSendProcess,
     getNetwork,
-    openPasswordSecuritySession,
-    closePasswordSecuritySession,
+    promptPasswordVerifyByAccount,
   };
 }
 
@@ -391,22 +393,24 @@ describe('ServiceBatchTxSign', () => {
     );
   });
 
-  test('disposeBatch during the password-session open never signs nor publishes', async () => {
-    const {
-      service,
-      signTransaction,
-      openPasswordSecuritySession,
-      closePasswordSecuritySession,
-    } = makeService();
+  test('disposeBatch during the password prompt never signs nor publishes', async () => {
+    const { service, signTransaction, promptPasswordVerifyByAccount } =
+      makeService();
     const { batchId } = await service.createBatch({
       accountId,
       networkId,
       items: makeItems(2),
     });
     // The extension popup dies right after Sign all: the provider's finally
-    // disposes the batch while the password session is still being opened.
-    openPasswordSecuritySession.mockImplementation(async () => {
+    // disposes the batch while the password prompt is still up.
+    promptPasswordVerifyByAccount.mockImplementation(async () => {
       await service.disposeBatch({ batchId });
+      return {
+        password: 'encoded-password',
+        isHardware: false,
+        isQrWallet: false,
+        deviceParams: undefined,
+      };
     });
 
     await service.signRemaining({ batchId });
@@ -417,8 +421,6 @@ describe('ServiceBatchTxSign', () => {
     await expect(service.getBatchProgress({ batchId })).rejects.toThrow(
       'unknown batchId',
     );
-    // The finally block still releases the opened session.
-    expect(closePasswordSecuritySession).toHaveBeenCalledTimes(1);
   });
 
   test('cancelBatch after partial progress resets signed items and reports signedCount 0', async () => {
@@ -653,7 +655,7 @@ describe('ServiceBatchTxSign', () => {
     expect(params.unsignedTxs.map(getMarker)).toEqual(['psbt-1']);
   });
 
-  test('software batches share one password session; hardware batches do not', async () => {
+  test('software batches prompt once and thread the credentials; hardware batches never prompt', async () => {
     const soft = makeService();
     const { batchId: softBatchId } = await soft.service.createBatch({
       accountId,
@@ -661,8 +663,20 @@ describe('ServiceBatchTxSign', () => {
       items: makeItems(2),
     });
     await soft.service.signRemaining({ batchId: softBatchId });
-    expect(soft.openPasswordSecuritySession).toHaveBeenCalledTimes(1);
-    expect(soft.closePasswordSecuritySession).toHaveBeenCalledTimes(1);
+    // One prompt for the whole batch; every item reuses the same credentials
+    // via prefetchedCredentials, so signTransaction never re-prompts and the
+    // exemption cannot leak to transactions outside this batch (the previous
+    // global password-security-session approach could).
+    expect(soft.promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(soft.signTransaction).toHaveBeenCalledTimes(2);
+    for (const [params] of soft.signTransaction.mock.calls as unknown as [
+      { prefetchedCredentials?: { password: string } },
+    ][]) {
+      expect(params.prefetchedCredentials).toEqual({
+        password: 'encoded-password',
+        deviceParams: undefined,
+      });
+    }
 
     const hw = makeService();
     const { batchId: hwBatchId } = await hw.service.createBatch({
@@ -671,8 +685,41 @@ describe('ServiceBatchTxSign', () => {
       items: makeItems(2),
     });
     await hw.service.signRemaining({ batchId: hwBatchId });
-    expect(hw.openPasswordSecuritySession).not.toHaveBeenCalled();
-    expect(hw.closePasswordSecuritySession).not.toHaveBeenCalled();
+    // Hardware wallets confirm each item on the device; signTransaction keeps
+    // its own per-item prompt path (which resolves deviceParams, no password).
+    expect(hw.promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(hw.signTransaction).toHaveBeenCalledTimes(2);
+    for (const [params] of hw.signTransaction.mock.calls as unknown as [
+      { prefetchedCredentials?: { password: string } },
+    ][]) {
+      expect(params.prefetchedCredentials).toBeUndefined();
+    }
+  });
+
+  test('a rejected password prompt blocks signing and leaves the batch re-signable', async () => {
+    const { service, signTransaction, promptPasswordVerifyByAccount } =
+      makeService();
+    promptPasswordVerifyByAccount.mockRejectedValueOnce(
+      new OneKeyLocalError('user cancelled password'),
+    );
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    await expect(service.signRemaining({ batchId })).rejects.toThrow(
+      'user cancelled password',
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
+    // The rejection happened before any status mutation/publish, so the page
+    // still shows the untouched Overview.
+    expect(mockAtomSet).not.toHaveBeenCalled();
+
+    // A later attempt prompts again and completes normally.
+    await service.signRemaining({ batchId });
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Complete);
   });
 
   test('rejects a concurrent signRemaining call while one is in-flight', async () => {
