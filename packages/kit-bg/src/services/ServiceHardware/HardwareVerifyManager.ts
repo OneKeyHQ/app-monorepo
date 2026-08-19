@@ -53,7 +53,7 @@ export type IFirmwareAuthenticateParams = {
 };
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
-const FIRMWARE_VERIFY_CHALLENGE_LENGTH = 64;
+const FIRMWARE_VERIFY_CHALLENGE_SUFFIX_LENGTH = 12;
 
 type FirmwareVerifyPayload = {
   data: string;
@@ -68,13 +68,15 @@ function getFirmwareVerifyPayload({
   instanceId: string;
 }): FirmwareVerifyPayload {
   if (isProtocolV2ProductType(deviceType)) {
-    // V2 firmware attest uses 32-byte raw challenge bytes encoded as hex for both device and server.
-    const data = stringUtils.randomString(FIRMWARE_VERIFY_CHALLENGE_LENGTH, {
-      chars: '0123456789abcdef',
-    });
+    // Keep legacy data format for wallet service compatibility:
+    // instanceId_timestamp_randomString.
+    const challenge = stringUtils.randomString(
+      FIRMWARE_VERIFY_CHALLENGE_SUFFIX_LENGTH,
+    );
+    const data = `${instanceId}_${Date.now()}_${challenge}`;
     return {
       data,
-      dataHex: data,
+      dataHex: bufferUtils.textToHex(data, 'utf-8'),
     };
   }
 

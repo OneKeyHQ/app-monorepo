@@ -356,15 +356,26 @@ describe('ServiceHardware wallet session compatibility', () => {
     const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
       dataHex: string;
     };
-    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]{64}$/);
+    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]+$/);
     const postArg = postMock.mock.calls[0]?.[1] as {
       data: string;
     };
-    expect(postArg?.data).toMatch(/^[0-9a-f]{64}$/);
+    const data = postArg?.data ?? '';
+    const lastUnderscoreIndex = data.lastIndexOf('_');
+    const secondLastUnderscoreIndex = data.lastIndexOf(
+      '_',
+      lastUnderscoreIndex - 1,
+    );
+    expect(secondLastUnderscoreIndex).toBeGreaterThan(-1);
+    const timestamp = data.substring(secondLastUnderscoreIndex + 1, lastUnderscoreIndex);
+    const random = data.substring(lastUnderscoreIndex + 1);
+    expect(Number.isNaN(Number(timestamp))).toBe(false);
+    expect(random).toMatch(/^[0-9A-Za-z]+$/);
+    expect(random).toHaveLength(12);
     expect(postMock).toHaveBeenCalledWith(
       '/wallet/v1/hardware/verify',
       expect.objectContaining({
-        data: expect.stringMatching(/^[0-9a-f]{64}$/),
+        data: expect.stringContaining('_'),
       }),
     );
     expect(closeHardwareUiStateDialog).toHaveBeenCalled();
