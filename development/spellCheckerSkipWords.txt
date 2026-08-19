@@ -1584,3 +1584,9 @@ lookback
 
 # @rehookify/datepicker package name
 rehookify
+
+# Otsu's method (wallpaper black/white threshold algorithm)
+otsu
+Otsu
+OTSU
+binarize
