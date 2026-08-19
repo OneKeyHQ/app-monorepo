@@ -103,53 +103,38 @@ function BasicEarnHome({
   const shouldLogEnterEarnRef = useRef(false);
   // showContent is in the dependency list, so every switch onto the DeFi tab
   // re-runs this. Returning [] on the way out used to wipe the loaded banners,
-  // and usePromiseResult reports isLoading === undefined until its effect
-  // fires — so coming back rendered "no banner" (0pt), then the skeleton
-  // (248pt), then "no banner" again once the empty response landed. On an
-  // account with no banners that whole cycle is one or two frames, which is
-  // the jump QA sees on every switch (OK-60299).
+  // so coming back rendered "no banner" (0pt) before the cached response
+  // landed again — the jump QA sees on every switch (OK-60299). Keeping the
+  // last result means a re-entry starts from what was already on screen
+  // instead of from empty.
   //
-  // Keeping the last result means a re-entry starts from what was already on
-  // screen instead of from empty.
-  //
-  // That alone is not enough for an account that genuinely has no banners.
-  // usePromiseResult raises isLoading on every re-run, including
-  // revalidateOnFocus, and the cached list is legitimately empty — so the
-  // skeleton branch kept firing and the 248pt jump came back on each re-entry.
-  // Once a request has produced a result, "no banners" is a known answer and
-  // later revalidation must not fall back to the loading presentation.
+  // The first load is a separate question: nothing can know whether this
+  // account has banners before the response, so EarnHomeBanner deliberately
+  // renders nothing until then rather than reserving a placeholder it may have
+  // to take back. There is no loading flag to plumb through as a result.
   const earnPageBannerListRef = useRef<IEarnPageBannerListItem[]>([]);
-  const hasResolvedEarnPageBannerRef = useRef(false);
-  const {
-    result: earnPageBannerList,
-    isLoading: isEarnPageBannerLoading = true,
-    run: refetchEarnPageBannerList,
-  } = usePromiseResult(
-    async () => {
-      if (!platformEnv.isNative || showContent === false) {
-        // Nothing will ever be fetched here, so this counts as resolved too —
-        // otherwise desktop and web flash the skeleton for a frame.
-        hasResolvedEarnPageBannerRef.current = true;
-        return earnPageBannerListRef.current;
-      }
-      try {
-        const list =
-          await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
-        earnPageBannerListRef.current = list;
-        hasResolvedEarnPageBannerRef.current = true;
-        return list;
-      } catch {
-        return earnPageBannerListRef.current;
-      }
-    },
-    [showContent],
-    {
-      initResult: [],
-      watchLoading: true,
-      undefinedResultIfError: false,
-      revalidateOnFocus: true,
-    },
-  );
+  const { result: earnPageBannerList, run: refetchEarnPageBannerList } =
+    usePromiseResult(
+      async () => {
+        if (!platformEnv.isNative || showContent === false) {
+          return earnPageBannerListRef.current;
+        }
+        try {
+          const list =
+            await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+          earnPageBannerListRef.current = list;
+          return list;
+        } catch {
+          return earnPageBannerListRef.current;
+        }
+      },
+      [showContent],
+      {
+        initResult: [],
+        undefinedResultIfError: false,
+        revalidateOnFocus: true,
+      },
+    );
 
   useEffect(() => {
     if (!platformEnv.isNative || !tabsRef) {
@@ -527,6 +512,8 @@ function BasicEarnHome({
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
 
+  // Compensating swipe for hosts with no outer pager. Gating happens at the
+  // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (direction === 'right') {
@@ -583,9 +570,6 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={
-            isEarnPageBannerLoading && !hasResolvedEarnPageBannerRef.current
-          }
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
@@ -599,7 +583,19 @@ function BasicEarnHome({
           onOpenPortfolio={handleOpenPortfolio}
           onOpenTokens={handleOpenTokens}
           onOpenProtocols={handleOpenAllProtocols}
-          onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
+          // OK-60606: withholding the handler is what matters, not making it
+          // a no-op. HeaderScrollGestureWrapper only builds its horizontal pan
+          // when a handler exists, and that pan is Race'd rather than
+          // Simultaneous with the native gesture (simultaneousWithNativeGesture
+          // defaults to false) and cancels child touches — so it claims the
+          // drag and blocks the pager underneath. With a handler present but
+          // inert, the header swallowed swipes in both directions; with it
+          // absent, horizontal drags fall through to OuterTabPagerView, which
+          // already reaches Market and Browser on its own. Hosts without an
+          // outer pager still get the compensating switch.
+          onHeaderHorizontalSwipe={
+            useSwipePager ? undefined : handleHeaderHorizontalSwipe
+          }
         />
 
         {showHeader && showContent && (useSwipePager || media.md) ? (

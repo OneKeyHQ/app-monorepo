@@ -160,6 +160,14 @@ function OuterTabPagerViewComponent({
   const visitedPagesRef = useRef<Record<number, boolean>>({
     [initialPage]: true,
   });
+  // Pages mounted only for the duration of a drag. visitedPages is cumulative
+  // and has no cleanup path, so marking both neighbors there would permanently
+  // mount whichever one the swipe never landed on — from Earn that is the
+  // whole Browser tab, WebView containers and restored tabs included, for a
+  // user who may never open it. Kept separate so idle can drop it again.
+  const [dragNeighborPages, setDragNeighborPages] = useState<number[] | null>(
+    null,
+  );
 
   // Ref to avoid stale closure in onPageSelected
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
@@ -260,7 +268,7 @@ function OuterTabPagerViewComponent({
         const neighborhood = [active - 1, active, active + 1].filter(
           (index) => index >= 0 && index < INDEX_TO_TAB.length,
         );
-        markPagesVisited(neighborhood);
+        setDragNeighborPages(neighborhood);
         publishVisiblePages(neighborhood);
       } else if (state === 'settling') {
         setTransitioning(true);
@@ -268,6 +276,11 @@ function OuterTabPagerViewComponent({
         wasUserDragRef.current = false;
         setTransitioning(false);
         setVisiblePair(null);
+        // Pin the page the swipe actually landed on before releasing the
+        // transient pair; handlePageScrollJS and onPageSelected normally do
+        // this already, but a canceled drag must not unmount where we are.
+        markPagesVisited([currentOuterIndexRef.current]);
+        setDragNeighborPages(null);
         publishVisiblePages([currentOuterIndexRef.current]);
       }
     },
@@ -342,6 +355,15 @@ function OuterTabPagerViewComponent({
       }
     },
     [markPagesVisited, onPageSelectedBySwipe],
+  );
+
+  // A page renders when it has been properly visited, or while a drag is
+  // transiently holding it so the finger never reveals an empty page.
+  const isPageMounted = useCallback(
+    (pageIndex: number) =>
+      Boolean(visitedPages[pageIndex]) ||
+      Boolean(dragNeighborPages?.includes(pageIndex)),
+    [dragNeighborPages, visitedPages],
   );
 
   // Determine which pages should be rendered
@@ -427,7 +449,7 @@ function OuterTabPagerViewComponent({
 
   const marketPage = useMemo(
     () =>
-      visitedPages[0] ? (
+      isPageMounted(0) ? (
         <View key="market" style={styles.page}>
           <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
         </View>
@@ -436,12 +458,12 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, marketContent],
+    [isPageMounted, shouldFreezePage, marketContent],
   );
 
   const earnPage = useMemo(
     () =>
-      visitedPages[1] ? (
+      isPageMounted(1) ? (
         <View key="earn" style={styles.page}>
           <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
         </View>
@@ -450,12 +472,12 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, earnContent],
+    [isPageMounted, shouldFreezePage, earnContent],
   );
 
   const browserPage = useMemo(
     () =>
-      visitedPages[2] ? (
+      isPageMounted(2) ? (
         <View key="browser" style={styles.page}>
           <Freeze freeze={shouldFreezePage(2)}>{browserContent}</Freeze>
         </View>
@@ -464,7 +486,7 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, browserContent],
+    [isPageMounted, shouldFreezePage, browserContent],
   );
 
   return (

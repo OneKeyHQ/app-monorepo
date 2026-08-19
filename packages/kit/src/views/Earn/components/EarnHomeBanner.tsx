@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -7,7 +7,6 @@ import {
   Carousel,
   Image,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -25,6 +24,10 @@ import {
 import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
+// Upper bound on how long the outer tab pager may stay locked for a banner
+// drag. Comfortably longer than any real swipe, short enough that a cancelled
+// gesture does not strand tab switching.
+const BANNER_DRAG_RELEASE_TIMEOUT = 1500;
 // $pagePadding ($5) split into container padding + per-card margin, so the
 // card still lands on the design's 353pt width while its drop shadow has room
 // to fall inside the pager's clipping viewport. Both halves are s()-scaled
@@ -128,12 +131,27 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
       shadowOpacity={0.25}
       shadowRadius={4}
     >
+      {/* Whole card is the tap target (OK-60602), not just the CTA. Kept on a
+          plain YStack rather than a Pressable: the card lives inside three
+          nested horizontal gesture handlers (the banner Carousel, the header's
+          pan wrapper and the outer tab pager), and a component that claims
+          touches would swallow the swipe. The Responder-based onPress bows out
+          as soon as a drag starts. The CTA keeps its own onPress — the
+          innermost responder wins, so it does not fire twice. */}
       <YStack
         testID={EarnTestIDs.bannerItem(item.bannerId)}
         flex={1}
         borderRadius="$3"
         overflow="hidden"
         bg="$bgApp"
+        {...(item.href
+          ? {
+              role: 'button' as const,
+              cursor: 'pointer' as const,
+              pressStyle: { opacity: 0.9 },
+              onPress: handlePress,
+            }
+          : undefined)}
       >
         {/* Background image fills the card (OK-58503: the bottom bar floats
             over the image instead of splitting the card vertically) */}
@@ -305,10 +323,8 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
 
 export function EarnHomeBanner({
   banners,
-  isLoading,
 }: {
   banners: IEarnPageBannerListItem[];
-  isLoading: boolean;
 }) {
   const validBanners = useMemo(
     () =>
@@ -338,31 +354,52 @@ export function EarnHomeBanner({
   // drag would disable the outer pager for ~300ms every 5s even while the
   // user sits on another top tab. After the finger lifts the gesture owner
   // is already decided, so `settling` needs no gating either.
+  // Safety net for the outer-pager lock below. The lock is released by the
+  // 'settling'/'idle' that normally follows a drag, but a gesture cancelled by
+  // the OS (call, app switch, the pager being unmounted mid-swipe) can skip
+  // them, and a stuck lock means horizontal tab switching is dead until
+  // remount — one of the symptoms behind OK-60606.
+  const bannerDragReleaseTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const setOuterPagerBlocked = useCallback((dragging: boolean) => {
+    if (bannerDragReleaseTimerRef.current) {
+      clearTimeout(bannerDragReleaseTimerRef.current);
+      bannerDragReleaseTimerRef.current = null;
+    }
+    appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
+      dragging,
+    });
+    if (dragging) {
+      bannerDragReleaseTimerRef.current = setTimeout(() => {
+        bannerDragReleaseTimerRef.current = null;
+        appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
+          dragging: false,
+        });
+      }, BANNER_DRAG_RELEASE_TIMEOUT);
+    }
+  }, []);
+
   const handleBannerPageScrollStateChanged = useCallback(
     (event: { nativeEvent: { pageScrollState: string } }) => {
-      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-        dragging: event.nativeEvent.pageScrollState === 'dragging',
-      });
+      // A single banner has nothing to page to, so its pager still reports
+      // 'dragging' while consuming a gesture it cannot act on. Locking the
+      // outer pager for that leaves both frozen and the user unable to switch
+      // tabs from anywhere over the card (OK-60606).
+      if (validBanners.length <= 1) {
+        return;
+      }
+      setOuterPagerBlocked(event.nativeEvent.pageScrollState === 'dragging');
     },
-    [],
+    [setOuterPagerBlocked, validBanners.length],
   );
   useEffect(
     () => () => {
-      // Never leave the outer pager disabled if the banner unmounts mid-drag
-      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-        dragging: false,
-      });
+      // Never leave the outer pager blocked if the banner unmounts mid-drag
+      setOuterPagerBlocked(false);
     },
-    [],
+    [setOuterPagerBlocked],
   );
-
-  if (isLoading && validBanners.length === 0) {
-    return (
-      <YStack h={248} px="$pagePadding" pb="$4">
-        <Skeleton h={BANNER_HEIGHT} borderRadius="$3" />
-      </YStack>
-    );
-  }
 
   if (validBanners.length === 0) {
     return null;
