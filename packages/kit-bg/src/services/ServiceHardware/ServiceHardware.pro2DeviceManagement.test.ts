@@ -356,7 +356,8 @@ describe('ServiceHardware wallet session compatibility', () => {
     const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
       dataHex: string;
     };
-    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]+$/);
+    expect(deviceVerifyArg?.dataHex).toHaveLength(64);
+    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]{64}$/u);
     const postArg = postMock.mock.calls[0]?.[1] as {
       data: string;
     };

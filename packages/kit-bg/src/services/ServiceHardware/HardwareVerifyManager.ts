@@ -21,6 +21,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
@@ -74,9 +75,12 @@ function getFirmwareVerifyPayload({
       FIRMWARE_VERIFY_CHALLENGE_SUFFIX_LENGTH,
     );
     const data = `${instanceId}_${Date.now()}_${challenge}`;
+    const dataHash = appCrypto.hash.sha256Sync(
+      bufferUtils.toBuffer(data, 'utf8'),
+    );
     return {
       data,
-      dataHex: bufferUtils.textToHex(data, 'utf-8'),
+      dataHex: bufferUtils.bytesToHex(dataHash),
     };
   }
 
