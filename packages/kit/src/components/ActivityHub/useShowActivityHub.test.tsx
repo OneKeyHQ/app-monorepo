@@ -66,31 +66,38 @@ describe('useShowActivityHub', () => {
     mockGtMd = true;
   });
 
-  // Dialog keeps rendering a floating panel above the md breakpoint on native
-  // tablets too, so neither the width nor the basis may be gated on platform.
-  it('pairs the compact panel width with the compact tile basis', () => {
-    const compactPanel = getActivityHubLayout(false);
-    const options = showHub();
+  // Unlike a Popover, a Dialog keeps rendering a floating panel above the md
+  // breakpoint on native tablets too, so nothing here may be gated on platform.
+  it.each([
+    {
+      panel: 'compact above md without campaigns',
+      gtMd: true,
+      campaigns: undefined,
+      floatingPanelProps: { width: getActivityHubLayout(false).panelWidth },
+      isCompactPanel: true,
+    },
+    {
+      panel: 'wide above md with campaigns',
+      gtMd: true,
+      campaigns: CAMPAIGNS,
+      floatingPanelProps: { width: getActivityHubLayout(true).panelWidth },
+      isCompactPanel: false,
+    },
+    {
+      panel: 'an unsized sheet below md',
+      gtMd: false,
+      campaigns: undefined,
+      floatingPanelProps: undefined,
+      isCompactPanel: false,
+    },
+  ])('is $panel', ({ gtMd, campaigns, ...expected }) => {
+    mockGtMd = gtMd;
 
-    expect(options.floatingPanelProps).toEqual({
-      width: compactPanel.panelWidth,
-    });
-    expect(options.renderContent.props.isCompactPanel).toBe(true);
-  });
+    const options = showHub(campaigns);
 
-  it('widens the panel when campaign cards are shown', () => {
-    const widePanel = getActivityHubLayout(true);
-    const options = showHub(CAMPAIGNS);
-
-    expect(options.floatingPanelProps).toEqual({ width: widePanel.panelWidth });
-    expect(options.renderContent.props.isCompactPanel).toBe(false);
-  });
-
-  it('leaves the md sheet unsized and non-compact', () => {
-    mockGtMd = false;
-    const options = showHub();
-
-    expect(options.floatingPanelProps).toBeUndefined();
-    expect(options.renderContent.props.isCompactPanel).toBe(false);
+    expect(options.floatingPanelProps).toEqual(expected.floatingPanelProps);
+    expect(options.renderContent.props.isCompactPanel).toBe(
+      expected.isCompactPanel,
+    );
   });
 });

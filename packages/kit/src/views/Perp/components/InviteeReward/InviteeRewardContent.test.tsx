@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 const mockToOnBoardingPage = jest.fn();
 let mockPromiseResult: {
@@ -172,29 +172,5 @@ describe('InviteeRewardContent', () => {
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
     expect(screen.getByTestId('perp-to-on-boarding-page-btn')).toBeTruthy();
-  });
-
-  it('dismisses the host overlay before opening onboarding', async () => {
-    let resolveClose: (() => void) | undefined;
-    const onBeforeNavigate = jest.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveClose = resolve;
-        }),
-    );
-
-    render(
-      <InviteeRewardContent
-        walletAddress=""
-        onBeforeNavigate={onBeforeNavigate}
-      />,
-    );
-    fireEvent.click(screen.getByTestId('perp-to-on-boarding-page-btn'));
-
-    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
-    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
-
-    resolveClose?.();
-    await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
   });
 });

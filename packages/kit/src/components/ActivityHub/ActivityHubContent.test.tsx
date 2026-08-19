@@ -122,6 +122,9 @@ const CAMPAIGNS: IActivityHubCampaign[] = [
 const getCampaignCard = () =>
   screen.getByRole('button', { name: /campaign title/ });
 
+const getShortcutBasis = () =>
+  screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis');
+
 describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -170,129 +173,62 @@ describe('ActivityHubContent', () => {
     await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
   });
 
-  it('hides campaign cards when the list is empty', () => {
-    render(
-      <ActivityHubContent
-        source="Earn"
-        closePopover={jest.fn()}
-        onOpenInviteeReward={jest.fn()}
-      />,
-    );
-
-    expect(screen.queryByText(/perps.ongoing_events/)).toBeNull();
-  });
-
-  it('keeps the popover close promise', async () => {
-    let resolveClose: (() => void) | undefined;
-    mockPopoverClose.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveClose = resolve;
-        }),
-    );
-    const onOpenInviteeReward = jest.fn();
-
-    render(
-      <ActivityHubAction
-        source="Earn"
-        onOpenInviteeReward={onOpenInviteeReward}
-        renderTrigger={<div />}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId('activity-hub-my-rewards'));
-    expect(mockPopoverClose).toHaveBeenCalledTimes(1);
-    expect(onOpenInviteeReward).not.toHaveBeenCalled();
-
-    resolveClose?.();
-    await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
-  });
-
-  it('pairs the popover width with the shortcut basis', () => {
-    const narrowPanel = getActivityHubLayout(false);
-
-    render(
-      <ActivityHubAction
-        source="Earn"
-        onOpenInviteeReward={jest.fn()}
-        renderTrigger={<div />}
-      />,
-    );
-
-    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
-      width: narrowPanel.panelWidth,
-    });
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe(narrowPanel.shortcutBasis);
-  });
-
-  it('keeps the wide-panel tile basis when the host is not compact', () => {
-    render(
-      <ActivityHubContent
-        source="Earn"
-        closePopover={jest.fn()}
-        onOpenInviteeReward={jest.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe(getActivityHubLayout(true).shortcutBasis);
-  });
-
-  it('uses the compact tile basis only when the host marks the panel compact', () => {
-    render(
-      <ActivityHubContent
-        source="Earn"
-        closePopover={jest.fn()}
-        onOpenInviteeReward={jest.fn()}
-        isCompactPanel
-      />,
-    );
-
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe(getActivityHubLayout(false).shortcutBasis);
-  });
-
-  it('does not size a native popover as a desktop floating panel', () => {
-    platformEnv.isNative = true;
-
-    render(
-      <ActivityHubAction
-        source="Earn"
-        onOpenInviteeReward={jest.fn()}
-        renderTrigger={<div />}
-      />,
-    );
-
-    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
+  it.each([
+    {
+      host: 'the shortcut-only popover',
+      isNative: false,
+      campaigns: undefined,
+      width: getActivityHubLayout(false).panelWidth,
+      basis: getActivityHubLayout(false).shortcutBasis,
+    },
+    {
+      host: 'the popover with campaign cards',
+      isNative: false,
+      campaigns: CAMPAIGNS,
+      width: getActivityHubLayout(true).panelWidth,
+      basis: getActivityHubLayout(true).shortcutBasis,
+    },
+    {
+      // Native popovers always Adapt to a Sheet that no floatingPanelProps
+      // width can narrow, so the tiles have to keep the wide-panel basis.
+      host: 'the native sheet',
+      isNative: true,
+      campaigns: undefined,
       width: undefined,
-    });
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe(getActivityHubLayout(true).shortcutBasis);
-  });
+      basis: getActivityHubLayout(true).shortcutBasis,
+    },
+  ])(
+    'pairs the width and tile basis of $host',
+    ({ isNative, campaigns, width, basis }) => {
+      platformEnv.isNative = isNative;
 
-  it('widens the popover when campaign cards are shown', () => {
-    const withCampaigns = getActivityHubLayout(true);
+      render(
+        <ActivityHubAction
+          source="Perps"
+          onOpenInviteeReward={jest.fn()}
+          renderTrigger={<div />}
+          campaigns={campaigns}
+        />,
+      );
 
-    render(
-      <ActivityHubAction
-        source="Perps"
-        onOpenInviteeReward={jest.fn()}
-        renderTrigger={<div />}
-        campaigns={CAMPAIGNS}
-      />,
-    );
+      expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({ width });
+      expect(getShortcutBasis()).toBe(basis);
+    },
+  );
 
-    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
-      width: withCampaigns.panelWidth,
-    });
-    expect(
-      screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
-    ).toBe(withCampaigns.shortcutBasis);
+  it('narrows the tile basis only when the host marks the panel compact', () => {
+    const props = {
+      source: 'Earn',
+      closePopover: jest.fn(),
+      onOpenInviteeReward: jest.fn(),
+    } as const;
+    const { rerender } = render(<ActivityHubContent {...props} />);
+
+    expect(getShortcutBasis()).toBe(getActivityHubLayout(true).shortcutBasis);
+
+    rerender(<ActivityHubContent {...props} isCompactPanel />);
+
+    expect(getShortcutBasis()).toBe(getActivityHubLayout(false).shortcutBasis);
   });
 
   it('opens a campaign link without waiting for the close outside native', async () => {

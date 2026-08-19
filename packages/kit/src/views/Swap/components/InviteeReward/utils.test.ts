@@ -104,7 +104,7 @@ describe('getSwapActivityHubActionPlacement', () => {
       swapTypeSwitch: ESwapTabSwitchType.LIMIT,
     },
   ])(
-    'places the action in $expected for the current surface',
+    'places the action in $expected when desktop=$isDesktop medium=$isMediumLayout modal=$isModal type=$swapTypeSwitch pending=$pendingRouteSwapType',
     ({
       expected,
       isDesktop,

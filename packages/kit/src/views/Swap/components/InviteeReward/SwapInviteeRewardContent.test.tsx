@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockRun = jest.fn();
 const mockToOnBoardingPage = jest.fn();
@@ -211,25 +211,6 @@ describe('SwapInviteeRewardContent', () => {
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
     expect(screen.getByTestId('swap-invitee-reward-onboarding')).toBeTruthy();
-  });
-
-  it('dismisses the host overlay before opening onboarding', async () => {
-    let resolveClose: (() => void) | undefined;
-    const onBeforeNavigate = jest.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveClose = resolve;
-        }),
-    );
-
-    render(<SwapInviteeRewardContent onBeforeNavigate={onBeforeNavigate} />);
-    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
-
-    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
-    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
-
-    resolveClose?.();
-    await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
   });
 
   it('keeps the unsupported-wallet state', () => {

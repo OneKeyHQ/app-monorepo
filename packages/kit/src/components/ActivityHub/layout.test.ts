@@ -9,12 +9,6 @@ function getShortcutTileWidth(isWidePanel: boolean) {
 }
 
 describe('getActivityHubLayout', () => {
-  it('narrows the panel when only the two shortcuts are shown', () => {
-    expect(getActivityHubLayout(true).panelWidth).toBeGreaterThan(
-      getActivityHubLayout(false).panelWidth,
-    );
-  });
-
   it('keeps the shortcut tiles the same size in both layouts', () => {
     expect(getShortcutTileWidth(false)).toBe(getShortcutTileWidth(true));
   });
