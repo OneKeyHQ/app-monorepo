@@ -3032,6 +3032,7 @@
   "perp_market_info_raw_source__title": "ソース資料",
   "perp_market_info_raw_source_tooltip__desc": "サードパーティのソース資料は提供されたまま表示され、まだ翻訳されていません。",
   "perp_market_info_reference_note__desc": "市場データは第三者によりグローバル市場データとして提供され、参考情報のみを目的としています。Hyperliquid の取引価格、出来高、その他のデータとは異なる場合があります。この情報は現状有姿で提供され、いかなる表明または保証を構成するものではありません。",
+  "perp_holdings_hide_below_amount__action": "{amount}未満の保有資産を非表示",
   "perp_market_info_social_media__title": "ソーシャルメディア",
   "perp_market_info_total_supply_tooltip__desc": "現在発行されているトークンの総数。",
   "perp_market_liquidation__title": "成行清算",
