@@ -1,8 +1,8 @@
 import {
   EDeviceType,
   EFirmwareType,
-  canonicalizePro2BleAdvertisementName,
   type HardwareConnectProtocol,
+  canonicalizePro2BleAdvertisementName,
 } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
@@ -153,9 +153,7 @@ function getDeviceBleNameFromFeatures(
   ].find(
     (value): value is string => typeof value === 'string' && value.length > 0,
   );
-  return bleName
-    ? canonicalizePro2BleAdvertisementName(bleName)
-    : undefined;
+  return bleName ? canonicalizePro2BleAdvertisementName(bleName) : undefined;
 }
 
 // web sdk return KnownDevice
