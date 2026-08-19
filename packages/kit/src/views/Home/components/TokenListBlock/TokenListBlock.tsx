@@ -144,7 +144,10 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
-import { selectHardwarePortfolioTokens } from './selectHardwarePortfolioTokens';
+import {
+  countFundedHardwarePortfolioTokens,
+  selectHardwarePortfolioTokens,
+} from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -1851,11 +1854,18 @@ function TokenListBlock({
           tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
           ...cellsNonZeroInputs,
         });
+        // keepDefault includes zero-balance natives so the device matches Home.
+        // The empty-snapshot defer still needs a strict funded count, otherwise
+        // incomplete aggregation would upload those defaults too early.
+        const fundedTokenCount = countFundedHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: portfolioTokens,
+        });
 
         if (
           !shouldDeferEmptyHardwarePortfolioSync({
             aggregationComplete: assetStatusAggregationComplete,
-            totalTokenCount: portfolioTokens.length,
+            totalTokenCount: fundedTokenCount,
           })
         ) {
           void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(

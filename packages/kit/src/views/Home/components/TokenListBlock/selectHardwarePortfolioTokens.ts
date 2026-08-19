@@ -1,4 +1,7 @@
-import { computeNonZeroIds } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+import {
+  computeFundedIds,
+  computeNonZeroIds,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
   IAccountToken,
@@ -35,4 +38,17 @@ export function selectHardwarePortfolioTokens({
   return tokens.filter(
     (token) => nonZeroIds.has(token.$key) && !isTokenSelectorDappToken(token),
   );
+}
+
+export function countFundedHardwarePortfolioTokens({
+  tokens,
+  tokenMap,
+}: {
+  tokens: IAccountToken[];
+  tokenMap: Record<string, ITokenFiat>;
+}): number {
+  return computeFundedIds({
+    getFiat: (key) => tokenMap[key],
+    ids: tokens.map((token) => token.$key),
+  }).length;
 }

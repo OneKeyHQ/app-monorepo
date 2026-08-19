@@ -6,7 +6,10 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { selectHardwarePortfolioTokens } from './selectHardwarePortfolioTokens';
+import {
+  countFundedHardwarePortfolioTokens,
+  selectHardwarePortfolioTokens,
+} from './selectHardwarePortfolioTokens';
 
 function makeToken(
   key: string,
@@ -150,6 +153,47 @@ describe('selectHardwarePortfolioTokens', () => {
         tokens: [custom],
       }).map((token) => token.$key),
     ).toEqual(['custom']);
+  });
+
+  it('counts only strictly funded tokens for the empty-snapshot defer guard', () => {
+    const native = makeToken('eth', {
+      isNative: true,
+      symbol: 'ETH',
+    });
+    const funded = makeToken('usdc');
+    const tokenMap = {
+      eth: makeFiat({ balance: '0', balanceParsed: '0', fiatValue: '0' }),
+      usdc: makeFiat(),
+    };
+    const tokens = selectHardwarePortfolioTokens({
+      homeDefaultTokenMap: {
+        'evm--1_ETH': {
+          logoURI: '',
+          networkId: 'evm--1',
+          order: 0,
+          symbol: 'ETH',
+        },
+      },
+      keepDefault: true,
+      tokenMap,
+      tokens: [native, funded],
+    });
+
+    expect(tokens.map((token) => token.$key)).toEqual(['eth', 'usdc']);
+    expect(
+      countFundedHardwarePortfolioTokens({
+        tokenMap,
+        tokens,
+      }),
+    ).toBe(1);
+    expect(
+      countFundedHardwarePortfolioTokens({
+        tokenMap: {
+          eth: makeFiat({ balance: '0', balanceParsed: '0', fiatValue: '0' }),
+        },
+        tokens: [native],
+      }),
+    ).toBe(0);
   });
 
   it('does not keep a zero-balance default native when keepDefault is off', () => {

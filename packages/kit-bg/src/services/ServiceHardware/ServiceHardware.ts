@@ -53,10 +53,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
-import {
-  NEO_DEVICE_TYPE,
-  isProtocolV2ProductType,
-} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';

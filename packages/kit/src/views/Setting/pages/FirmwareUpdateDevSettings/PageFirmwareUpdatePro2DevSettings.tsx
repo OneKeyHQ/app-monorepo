@@ -9,9 +9,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { applyPro2FirmwareForceTargetChange } from '@onekeyhq/kit-bg/src/states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type { IPro2FirmwareForceTargetMode } from '@onekeyhq/kit-bg/src/states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
@@ -32,7 +32,7 @@ function Pro2FirmwareUpdateTargetRow({
 }: {
   target: (typeof PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS)[number];
 }) {
-  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
   const targets =
     devSetting.pro2ForceUpdateTargets ?? EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS;
   const onceTargets =
@@ -40,58 +40,43 @@ function Pro2FirmwareUpdateTargetRow({
   const forceEnabled = targets.includes(target.value);
   const onceEnabled = onceTargets.includes(target.value);
 
-  const toggleTarget = useCallback(
-    (mode: IPro2FirmwareForceTargetMode, enabled: boolean) => {
-      setDevSetting((previous) => ({
-        ...previous,
-        ...applyPro2FirmwareForceTargetChange({
-          enabled,
-          mode,
-          onceTargets: previous.pro2ForceUpdateOnceTargets ?? [],
-          target: target.value,
-          targets: previous.pro2ForceUpdateTargets ?? [],
-        }),
-      }));
+  const handleChange = useCallback(
+    async (mode: IPro2FirmwareForceTargetMode, enabled: boolean) => {
+      await backgroundApiProxy.serviceDevSetting.togglePro2FirmwareForceTarget({
+        enabled,
+        mode,
+        target: target.value,
+      });
     },
-    [setDevSetting, target.value],
+    [target.value],
   );
 
   return (
     <ListItem title={target.label} titleProps={{ color: '$textCritical' }}>
       <XStack gap="$4" alignItems="center">
-        <YStack
-          alignItems="center"
-          gap="$1"
-          px="$2"
-          py="$1"
-          cursor="pointer"
-          onPress={() => toggleTarget('force', !forceEnabled)}
-        >
+        <YStack alignItems="center" gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
             force
           </SizableText>
           <Switch
             size={ESwitchSize.small}
             value={forceEnabled}
-            pointerEvents="none"
+            onChange={(enabled) => {
+              void handleChange('force', enabled);
+            }}
             testID={`pro2-firmware-force-${target.value}`}
           />
         </YStack>
-        <YStack
-          alignItems="center"
-          gap="$1"
-          px="$2"
-          py="$1"
-          cursor="pointer"
-          onPress={() => toggleTarget('once', !onceEnabled)}
-        >
+        <YStack alignItems="center" gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
             once
           </SizableText>
           <Switch
             size={ESwitchSize.small}
             value={onceEnabled}
-            pointerEvents="none"
+            onChange={(enabled) => {
+              void handleChange('once', enabled);
+            }}
             testID={`pro2-firmware-force-once-${target.value}`}
           />
         </YStack>
@@ -101,15 +86,11 @@ function Pro2FirmwareUpdateTargetRow({
 }
 
 function FirmwareUpdatePro2DevSettings() {
-  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
 
-  const resetPro2ForceTargets = useCallback(() => {
-    setDevSetting((previous) => ({
-      ...previous,
-      pro2ForceUpdateOnceTargets: [],
-      pro2ForceUpdateTargets: [],
-    }));
-  }, [setDevSetting]);
+  const resetPro2ForceTargets = useCallback(async () => {
+    await backgroundApiProxy.serviceDevSetting.resetPro2FirmwareForceTargets();
+  }, []);
 
   return (
     <YStack>
@@ -124,7 +105,9 @@ function FirmwareUpdatePro2DevSettings() {
       <XStack px="$5" py="$3" gap="$2">
         <Button
           size="small"
-          onPress={resetPro2ForceTargets}
+          onPress={() => {
+            void resetPro2ForceTargets();
+          }}
           testID="pro2-firmware-force-reset"
         >
           Reset Pro2 force targets
