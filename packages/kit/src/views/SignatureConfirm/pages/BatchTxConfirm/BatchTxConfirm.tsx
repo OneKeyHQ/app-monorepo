@@ -508,11 +508,21 @@ function BatchTxConfirm() {
     [batchId, closeAndReject],
   );
 
+  // The confirmation dialogs below render into the full-window overlay
+  // portal, outside this page's React tree — each header-close / back
+  // attempt carries a fresh navigation action, so without this flag
+  // repeated attempts would stack duplicate dialogs.
+  const isCancelDialogShowingRef = useRef(false);
+
   // Shared destructive confirmation for throwing away already-collected
   // signatures — used by the footer "Cancel request" button and by the
   // prevent-remove guard below for header close / back dismissals.
   const showCancelRequestDialog = useCallback(
     (onConfirm: () => void) => {
+      if (isCancelDialogShowingRef.current) {
+        return;
+      }
+      isCancelDialogShowingRef.current = true;
       Dialog.show({
         tone: 'destructive',
         title: intl.formatMessage({
@@ -528,6 +538,9 @@ function BatchTxConfirm() {
           id: ETranslations.shortcut_go_back,
         }),
         onConfirm,
+        onClose: () => {
+          isCancelDialogShowingRef.current = false;
+        },
       });
     },
     [intl],
@@ -601,7 +614,23 @@ function BatchTxConfirm() {
         navigation.dispatch(data.action);
         return;
       }
+      // Done is mid-settle (takeFinalizedResults + resolve span two bg
+      // round-trips): swallow the dismissal instead of offering a cancel
+      // dialog that could outlive the resolve — handleDone closes the page
+      // itself once it finishes.
+      if (isDoneInFlightRef.current) {
+        return;
+      }
       const cancelBatchAndReject = () => {
+        // Re-check at confirm time: the dialog lives in the full-window
+        // overlay portal and survives this page's unmount, so the request
+        // may have settled (and the page closed) while it was open. A
+        // second reject on a settled id can hit a different still-pending
+        // request (see handlePageClose), and the captured action would be
+        // dispatched against a route that no longer exists — so do nothing.
+        if (hasSettledRef.current) {
+          return;
+        }
         void backgroundApiProxy.serviceBatchTxSign
           .cancelBatch({ batchId })
           .catch(() => {});
@@ -610,6 +639,10 @@ function BatchTxConfirm() {
         navigation.dispatch(data.action);
       };
       if (isSigningNow) {
+        if (isCancelDialogShowingRef.current) {
+          return;
+        }
+        isCancelDialogShowingRef.current = true;
         Dialog.show({
           tone: 'destructive',
           title: intl.formatMessage({
@@ -625,6 +658,9 @@ function BatchTxConfirm() {
             id: ETranslations.batch_psbt_keep_signing__action,
           }),
           onConfirm: cancelBatchAndReject,
+          onClose: () => {
+            isCancelDialogShowingRef.current = false;
+          },
         });
         return;
       }
