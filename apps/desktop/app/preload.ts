@@ -8,6 +8,7 @@ import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/auth
 
 import { ipcMessageKeys } from './config';
 
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
@@ -328,11 +329,17 @@ const desktopApi = {
       };
     },
     onDeviceDisconnected: (
-      callback: (device: { id: string; name: string }) => void,
+      callback: (device: {
+        id: string;
+        name: string;
+        reason?: EBleDisconnectReason;
+      }) => void,
     ) => {
+      // Forward the payload whole so `reason` reaches the transport; it is what
+      // separates a real drop from the main process reclaiming an idle link.
       const subscription = (
         _: unknown,
-        device: { id: string; name: string },
+        device: { id: string; name: string; reason?: EBleDisconnectReason },
       ) => {
         callback(device);
       };

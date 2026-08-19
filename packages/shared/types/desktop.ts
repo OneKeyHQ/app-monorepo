@@ -1,6 +1,7 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 
 export type IPrefType =
   | 'default'
@@ -37,8 +38,15 @@ export type INobleBleApi = {
   onNotification: (
     callback: (deviceId: string, data: string) => void,
   ) => () => void;
+  // `reason` tells a real peripheral drop apart from the main process
+  // reclaiming an idle link on its keep-alive timer. Optional: an older host
+  // bridge omits it, and consumers treat absent as a real drop.
   onDeviceDisconnected: (
-    callback: (device: { id: string; name: string }) => void,
+    callback: (device: {
+      id: string;
+      name: string;
+      reason?: EBleDisconnectReason;
+    }) => void,
   ) => () => void;
   checkAvailability: () => Promise<{
     available: boolean;
