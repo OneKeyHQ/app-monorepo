@@ -87,6 +87,7 @@ export function resolveSponsorPayerState({
   if (
     isCustomRpcEnabled ||
     sponsorDisabledForBatch ||
+    (!gasAccountQuoteEligible && serverPayer === 'gasAccount') ||
     (gasAccountDisabledByScenario && serverPayer === 'gasAccount') ||
     (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
   ) {

@@ -80,6 +80,25 @@ describe('isGasAccountQuoteEligible', () => {
       selectedPayer: 'user',
     });
   });
+
+  it('resolves to user/user when the server prefers gasAccount but the quoteId is empty', () => {
+    // Same invariant on the direct serverPayer === 'gasAccount' path: with no
+    // suppression flags set, only quote eligibility stands between an id-less
+    // quote and the sponsored display state.
+    expect(
+      resolveSponsorPayerState({
+        ...baseParams,
+        serverPayer: 'gasAccount',
+        gasAccountQuoteEligible: isGasAccountQuoteEligible({
+          gasAccountEligible: true,
+          gasAccountQuote: { ...quote, quoteId: '' },
+        }),
+      }),
+    ).toEqual({
+      effectiveFeePayer: 'user',
+      selectedPayer: 'user',
+    });
+  });
 });
 
 describe('resolveSponsorPayerState', () => {
@@ -132,7 +151,10 @@ describe('resolveSponsorPayerState', () => {
       });
     });
 
-    it('does not select gas account without an eligible quote', () => {
+    it('resets both payers to user without an eligible quote', () => {
+      // The display payer must be gated by quote eligibility as well:
+      // keeping effectiveFeePayer at 'gasAccount' here would show the
+      // sponsored UI while the submit path broadcasts user-paid.
       expect(
         resolveSponsorPayerState({
           ...baseParams,
@@ -140,7 +162,7 @@ describe('resolveSponsorPayerState', () => {
           gasAccountQuoteEligible: false,
         }),
       ).toEqual({
-        effectiveFeePayer: 'gasAccount',
+        effectiveFeePayer: 'user',
         selectedPayer: 'user',
       });
     });
