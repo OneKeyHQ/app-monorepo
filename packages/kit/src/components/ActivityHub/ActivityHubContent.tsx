@@ -23,6 +23,8 @@ import { getActivityHubLayout } from './layout';
 import type { IActivityHubShortcutBasis } from './layout';
 import type { IActivityHubCampaign, IActivityHubSource } from './types';
 
+const EMPTY_ACTIVITY_HUB_CAMPAIGNS: IActivityHubCampaign[] = [];
+
 function ActivityShortcutCard({
   title,
   iconName,
@@ -176,7 +178,7 @@ export function ActivityHubContent({
   const activityCenterTitle = intl.formatMessage({
     id: ETranslations.perps_activity_hub,
   });
-  const campaignItems = campaigns ?? [];
+  const campaignItems = campaigns ?? EMPTY_ACTIVITY_HUB_CAMPAIGNS;
   const hasCampaigns = campaignItems.length > 0;
   // The tile basis is paired with the panel width, so it is derived here instead
   // of passed in: a host that forgot it would squeeze the two shortcuts into a
