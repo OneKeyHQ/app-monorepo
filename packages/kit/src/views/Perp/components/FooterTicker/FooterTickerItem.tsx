@@ -10,7 +10,6 @@ import type { IFooterTickerItemData } from './footerTickerUtils';
 
 const CHANGE_COLUMN_WIDTH = '8ch';
 const PRICE_COLUMN_WIDTH = '10ch';
-const MIN_DISPLAY_NAME_WIDTH_PX = 32;
 const DISPLAY_NAME_CHARACTER_WIDTH_PX = 8;
 const FIXED_ITEM_CONTENT_WIDTH_PX = 156;
 
@@ -42,10 +41,8 @@ function FooterTickerItem({
   });
   // Keep live price updates from changing the item's layout width.
   const itemWidth =
-    Math.max(
-      MIN_DISPLAY_NAME_WIDTH_PX,
-      displayName.length * DISPLAY_NAME_CHARACTER_WIDTH_PX,
-    ) + FIXED_ITEM_CONTENT_WIDTH_PX;
+    displayName.length * DISPLAY_NAME_CHARACTER_WIDTH_PX +
+    FIXED_ITEM_CONTENT_WIDTH_PX;
   const handlePress = useCallback(() => {
     onPress({
       displayName,
