@@ -88,26 +88,72 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const {
-    result: earnPageBannerList,
-    isLoading: isEarnPageBannerLoading,
-    run: refetchEarnPageBannerList,
-  } = usePromiseResult(
+  // Banner list is plain state rather than usePromiseResult's result, because
+  // it has two independent writers and the later one must not be able to
+  // resurrect an older value:
+  //   1. simpleDb, read once on mount. The list a cold start paints comes from
+  //      the previous session, so the banner is already at its real height
+  //      instead of occupying 0pt and expanding when the network answers
+  //      (OK-60299). Mirrors how the wallet home seeds its own banners.
+  //   2. the network, on every switch onto the DeFi tab. Overwrites the cached
+  //      value, including with an empty list once the account genuinely has no
+  //      banners. State also survives the re-runs that showContent triggers,
+  //      so a re-entry starts from what is already on screen.
+  const [earnPageBannerList, setEarnPageBannerList] = useState<
+    IEarnPageBannerListItem[]
+  >([]);
+  const hasNetworkBannerListRef = useRef(false);
+  // usePromiseResult guards its own setResult against stale responses with a
+  // nonce, but that guard runs after the method body returns — a setState made
+  // inside the body is not covered by it. This hook has three triggers that do
+  // not cancel each other (the showContent dep, revalidateOnFocus, and the
+  // manual refetch in refreshEarnData), so two requests can be in flight at
+  // once and the result would otherwise be decided by whichever resolves last.
+  const bannerRequestSeqRef = useRef(0);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    void (async () => {
+      const cached =
+        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache();
+      // The request can win this race on a warm start; its answer is the
+      // current one and must not be replaced by what we read from disk.
+      if (hasNetworkBannerListRef.current || cached.length === 0) {
+        return;
+      }
+      setEarnPageBannerList(cached);
+    })();
+  }, []);
+
+  const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
       if (!platformEnv.isNative || showContent === false) {
-        return [];
+        return;
       }
+      const requestSeq = (bannerRequestSeqRef.current += 1);
       try {
-        return await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+        const list =
+          await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+        // Set outside the staleness check: its job is to stop the simpleDb
+        // seed from backfilling once the network has spoken at all, and a
+        // newer request is already on its way to write the real value.
+        hasNetworkBannerListRef.current = true;
+        if (requestSeq !== bannerRequestSeqRef.current) {
+          return;
+        }
+        setEarnPageBannerList(list);
       } catch {
-        return [];
+        // Keep whatever is on screen — the cached list, or the previous
+        // response. Rethrowing would take the whole Earn refresh down with it:
+        // usePromiseResult re-throws non-abort errors, and refreshEarnData
+        // awaits this inside a Promise.all with no catch, so a flaky banner
+        // request would skip the balance and portfolio refresh behind it.
       }
     },
     [showContent],
     {
-      initResult: [],
-      watchLoading: true,
-      undefinedResultIfError: false,
       revalidateOnFocus: true,
     },
   );
@@ -544,7 +590,7 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={!!isEarnPageBannerLoading}
+          isBannerLoading={false}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
