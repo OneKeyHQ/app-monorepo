@@ -358,6 +358,7 @@ export const MarketTradingViewView = memo(
     } else if (
       !platformEnv.isWeb &&
       !platformEnv.isDesktop &&
+      !platformEnv.isNativeIOS &&
       readyChartIdentity !== chartIdentity
     ) {
       chartOverlay = <MarketTradingViewLoading key={chartIdentity} overlay />;
@@ -442,7 +443,7 @@ export const MarketTradingView = memo((props: IMarketTradingViewProps) => {
   );
 
   if (!arePreferencesHydrated) {
-    if (platformEnv.isWeb || platformEnv.isDesktop) {
+    if (platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isNativeIOS) {
       return null;
     }
     return (

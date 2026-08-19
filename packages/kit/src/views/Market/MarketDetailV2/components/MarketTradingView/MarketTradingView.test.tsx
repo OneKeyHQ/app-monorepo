@@ -56,6 +56,7 @@ const mockHydrateMarketTradingViewPreferences = jest.fn(() =>
 const mockIsMarketTradingViewPreferencesHydrated = jest.fn(() => true);
 const mockPlatformEnv = {
   isNative: true,
+  isNativeIOS: true,
   isWeb: false,
   isDesktop: false,
 };
@@ -150,6 +151,7 @@ describe('MarketTradingViewView readiness', () => {
     mockIsMarketTradingViewPreferencesHydrated.mockReset();
     mockIsMarketTradingViewPreferencesHydrated.mockReturnValue(true);
     mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isNativeIOS = true;
     mockPlatformEnv.isWeb = false;
     mockPlatformEnv.isDesktop = false;
   });
@@ -158,7 +160,7 @@ describe('MarketTradingViewView readiness', () => {
     jest.useRealTimers();
   });
 
-  it('keeps the loading cover until the current K-line first paint', () => {
+  it('does not cover the iOS chart before the current K-line first paint', () => {
     const { unmount } = render(
       <MarketTradingViewView
         tokenAddress="0xabc"
@@ -169,7 +171,7 @@ describe('MarketTradingViewView readiness', () => {
 
     const tradingViewProps = mockTradingViewProps.at(-1);
     expect(tradingViewProps?.onChartReady).toBeUndefined();
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
 
     act(() => {
       (
@@ -224,7 +226,7 @@ describe('MarketTradingViewView readiness', () => {
     expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
-  it('does not treat a readiness timeout as a successful first paint', () => {
+  it('does not add an iOS loading cover after a readiness timeout', () => {
     const { unmount } = render(
       <MarketTradingViewView
         tokenAddress="0xabc"
@@ -237,11 +239,11 @@ describe('MarketTradingViewView readiness', () => {
       jest.advanceTimersByTime(30_000);
     });
 
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
     unmount();
   });
 
-  it('removes the native loading cover after current legacy history succeeds', () => {
+  it('does not cover the iOS chart while legacy history loads', () => {
     render(
       <MarketTradingViewView
         tokenAddress="0xabc"
@@ -250,7 +252,7 @@ describe('MarketTradingViewView readiness', () => {
       />,
     );
 
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
 
     act(() => {
       (
@@ -279,7 +281,7 @@ describe('MarketTradingViewView readiness', () => {
       />,
     );
 
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
 
     act(() => {
       (
@@ -300,7 +302,7 @@ describe('MarketTradingViewView readiness', () => {
     expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
-  it('keeps the native loading cover for stale legacy token readiness', () => {
+  it('does not add an iOS loading cover for stale legacy token readiness', () => {
     render(
       <MarketTradingViewView
         tokenAddress="0xabc"
@@ -324,7 +326,7 @@ describe('MarketTradingViewView readiness', () => {
       });
     });
 
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
   it('shows a retry state after failure and accepts a later successful paint', () => {
@@ -374,7 +376,7 @@ describe('MarketTradingViewView readiness', () => {
     expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
-  it('returns to loading while retrying a failed chart', () => {
+  it('retries a failed iOS chart without a loading cover', () => {
     render(
       <MarketTradingViewView
         tokenAddress="0xabc"
@@ -401,7 +403,7 @@ describe('MarketTradingViewView readiness', () => {
     fireEvent.click(screen.getByTestId(MarketTestIDs.detailChartRetry));
 
     expect(screen.queryByTestId(MarketTestIDs.detailChartError)).toBeNull();
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
     expect(mockTradingViewMountCount).toBe(2);
   });
 
@@ -425,7 +427,7 @@ describe('MarketTradingViewView readiness', () => {
     expect(mockTradingViewMountCount).toBe(1);
   });
 
-  it('waits for persisted preferences before mounting the chart', async () => {
+  it('waits for persisted preferences without an iOS loading cover', async () => {
     let resolveHydration: (() => void) | undefined;
     mockIsMarketTradingViewPreferencesHydrated.mockReturnValue(false);
     mockHydrateMarketTradingViewPreferences.mockReturnValueOnce(
@@ -443,7 +445,7 @@ describe('MarketTradingViewView readiness', () => {
     );
 
     expect(mockTradingViewProps).toHaveLength(0);
-    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
 
     await act(async () => {
       resolveHydration?.();

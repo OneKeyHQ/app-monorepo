@@ -17,6 +17,7 @@ import type {
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketStockToken } from '../utils/marketTokenClassification';
 import {
   buildMarketTradingViewBootstrap,
   isMatchingMarketTokenIdentity,
@@ -79,11 +80,7 @@ export function useTokenDetail(): IUseTokenDetailResult {
   );
 
   const isStockToken = useMemo(
-    () =>
-      Boolean(
-        (matchingTokenDetail ?? matchingTokenDetailPreview)?.stock
-          ?.underlyingAssetTicker,
-      ),
+    () => isMarketStockToken(matchingTokenDetail, matchingTokenDetailPreview),
     [matchingTokenDetail, matchingTokenDetailPreview],
   );
 

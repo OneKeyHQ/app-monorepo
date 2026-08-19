@@ -86,7 +86,6 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
-import { NativePersistentMarketTradingViewHost } from '../views/Market/MarketDetailV2/components/NativePersistentMarketTradingView/NativePersistentMarketTradingViewHost';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
 import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
@@ -1046,7 +1045,6 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <SplitViewPrompt />
-      <NativePersistentMarketTradingViewHost />
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );

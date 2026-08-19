@@ -5,6 +5,8 @@ import type {
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketStockToken } from '../utils/marketTokenClassification';
+
 import { useTokenDetail } from './useTokenDetail';
 
 function toDisplayNumber(value: number | undefined) {
@@ -56,9 +58,9 @@ export function useMarketDetailDisplayData() {
       tokenDetail: displayTokenDetail,
       fullTokenDetail: tokenDetail,
       isPreviewTokenDetail: Boolean(displayTokenDetail && !tokenDetail),
-      isStockToken: Boolean(displayTokenDetail?.stock?.underlyingAssetTicker),
+      isStockToken: isMarketStockToken(tokenDetail, tokenDetailPreview),
     }),
-    [displayTokenDetail, tokenDetail, tokenDetailData],
+    [displayTokenDetail, tokenDetail, tokenDetailData, tokenDetailPreview],
   );
 }
 

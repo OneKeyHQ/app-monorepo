@@ -32,7 +32,6 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { NativeMarketTradingViewWarmup } from '../components/NativeMarketTradingViewWarmup';
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
@@ -864,7 +863,6 @@ function MobileLayoutComponent({
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <NativeMarketTradingViewWarmup enabled={isFocused} />
       <Tabs.Container
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={currentTabsRef as any}
