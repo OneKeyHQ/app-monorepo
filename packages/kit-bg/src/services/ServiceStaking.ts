@@ -1560,7 +1560,21 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IEarnPageBannerListItem[];
     }>('/earn/v1/banner/list');
-    return response.data.data;
+    const list = response.data.data;
+    // Persist so the next cold start paints at the right height instead of
+    // expanding once this request lands (OK-60299). Best effort: a failed
+    // write must not fail the request the UI is waiting on.
+    try {
+      await this.backgroundApi.simpleDb.earnExtra.setPageBannerList(list);
+    } catch {
+      // ignore
+    }
+    return list;
+  }
+
+  @backgroundMethod()
+  async getEarnPageBannerListFromCache(): Promise<IEarnPageBannerListItem[]> {
+    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
   }
 
   @backgroundMethod()

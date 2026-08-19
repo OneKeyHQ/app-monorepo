@@ -101,40 +101,53 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  // showContent is in the dependency list, so every switch onto the DeFi tab
-  // re-runs this. Returning [] on the way out used to wipe the loaded banners,
-  // so coming back rendered "no banner" (0pt) before the cached response
-  // landed again — the jump QA sees on every switch (OK-60299). Keeping the
-  // last result means a re-entry starts from what was already on screen
-  // instead of from empty.
-  //
-  // The first load is a separate question: nothing can know whether this
-  // account has banners before the response, so EarnHomeBanner deliberately
-  // renders nothing until then rather than reserving a placeholder it may have
-  // to take back. There is no loading flag to plumb through as a result.
-  const earnPageBannerListRef = useRef<IEarnPageBannerListItem[]>([]);
-  const { result: earnPageBannerList, run: refetchEarnPageBannerList } =
-    usePromiseResult(
-      async () => {
-        if (!platformEnv.isNative || showContent === false) {
-          return earnPageBannerListRef.current;
-        }
-        try {
-          const list =
-            await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
-          earnPageBannerListRef.current = list;
-          return list;
-        } catch {
-          return earnPageBannerListRef.current;
-        }
-      },
-      [showContent],
-      {
-        initResult: [],
-        undefinedResultIfError: false,
-        revalidateOnFocus: true,
-      },
-    );
+  // Banner list is plain state rather than usePromiseResult's result, because
+  // it has two independent writers and the later one must not be able to
+  // resurrect an older value:
+  //   1. simpleDb, read once on mount. The list a cold start paints comes from
+  //      the previous session, so the banner is already at its real height
+  //      instead of occupying 0pt and expanding when the network answers
+  //      (OK-60299). Mirrors how the wallet home seeds its own banners.
+  //   2. the network, on every switch onto the DeFi tab. Overwrites the cached
+  //      value, including with an empty list once the account genuinely has no
+  //      banners. State also survives the re-runs that showContent triggers,
+  //      so a re-entry starts from what is already on screen.
+  const [earnPageBannerList, setEarnPageBannerList] = useState<
+    IEarnPageBannerListItem[]
+  >([]);
+  const hasNetworkBannerListRef = useRef(false);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    void (async () => {
+      const cached =
+        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache();
+      // The request can win this race on a warm start; its answer is the
+      // current one and must not be replaced by what we read from disk.
+      if (hasNetworkBannerListRef.current || cached.length === 0) {
+        return;
+      }
+      setEarnPageBannerList(cached);
+    })();
+  }, []);
+
+  const { run: refetchEarnPageBannerList } = usePromiseResult(
+    async () => {
+      if (!platformEnv.isNative || showContent === false) {
+        return;
+      }
+      const list =
+        await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+      hasNetworkBannerListRef.current = true;
+      setEarnPageBannerList(list);
+    },
+    [showContent],
+    {
+      revalidateOnFocus: true,
+    },
+  );
 
   useEffect(() => {
     if (!platformEnv.isNative || !tabsRef) {
