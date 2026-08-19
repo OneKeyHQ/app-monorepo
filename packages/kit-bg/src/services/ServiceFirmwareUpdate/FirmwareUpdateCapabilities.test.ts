@@ -1391,13 +1391,13 @@ describe('external firmware artifact preparation', () => {
     expect(cancel).toHaveBeenCalledWith('fwtx:test');
   });
 
-  test('materializes a ZIP without remote entry metadata and passes actual receipts to the SDK', async () => {
+  test('materializes a manifest-free Pro2 RESC ZIP and passes actual receipts to the SDK', async () => {
     const plan = {
       schemaVersion: 2,
       planDigest: 'd'.repeat(64),
-      executor: 'v2',
+      executor: 'v4',
       deviceIdentity: 'device',
-      deviceModel: 'classic',
+      deviceModel: 'pro2',
       firmwareType: EFirmwareType.Universal,
       platform: 'native',
       artifacts: [
@@ -1412,7 +1412,9 @@ describe('external firmware artifact preparation', () => {
       targetsToUpdate: ['resource'],
     } as unknown as FirmwareUpdatePlan;
     const archiveSha256 = '3'.repeat(64);
-    const entrySha256 = '4'.repeat(64);
+    const imagesSha256 = '4'.repeat(64);
+    const bootResourceSha256 = '5'.repeat(64);
+    const hashReportSha256 = '6'.repeat(64);
     const preparePlan = jest.fn(() => ({
       preparedPlanDigest: 'e'.repeat(64),
       planDigest: plan.planDigest,
@@ -1435,11 +1437,29 @@ describe('external firmware artifact preparation', () => {
       .spyOn(firmwareArtifactAdapter, 'materialize')
       .mockResolvedValue([
         {
-          entryName: 'resource.bin',
+          entryName: 'bundles/images/images-release.okpkg',
           receipt: {
-            artifactRef: `fw:${entrySha256}`,
+            artifactRef: `fw:${imagesSha256}`,
             size: 1024,
-            sha256: entrySha256,
+            sha256: imagesSha256,
+            expectedSha256Verified: false,
+          },
+        },
+        {
+          entryName: 'loaders/bootloader/boot_resource-release.okpkg',
+          receipt: {
+            artifactRef: `fw:${bootResourceSha256}`,
+            size: 512,
+            sha256: bootResourceSha256,
+            expectedSha256Verified: false,
+          },
+        },
+        {
+          entryName: 'resource_hash.txt',
+          receipt: {
+            artifactRef: `fw:${hashReportSha256}`,
+            size: 64,
+            sha256: hashReportSha256,
             expectedSha256Verified: false,
           },
         },
@@ -1455,8 +1475,16 @@ describe('external firmware artifact preparation', () => {
       selected: {
         resourceEntries: [
           {
-            entryName: 'resource.bin',
-            artifact: { sha256: entrySha256 },
+            entryName: 'bundles/images/images-release.okpkg',
+            artifact: { sha256: imagesSha256 },
+          },
+          {
+            entryName: 'loaders/bootloader/boot_resource-release.okpkg',
+            artifact: { sha256: bootResourceSha256 },
+          },
+          {
+            entryName: 'resource_hash.txt',
+            artifact: { sha256: hashReportSha256 },
           },
         ],
       },
@@ -1477,11 +1505,29 @@ describe('external firmware artifact preparation', () => {
             artifactId: 'resource:archive',
             materializedEntries: [
               {
-                entryName: 'resource.bin',
+                entryName: 'bundles/images/images-release.okpkg',
                 artifact: {
-                  artifactRef: `fw:${entrySha256}`,
+                  artifactRef: `fw:${imagesSha256}`,
                   size: 1024,
-                  sha256: entrySha256,
+                  sha256: imagesSha256,
+                  expectedSha256Verified: false,
+                },
+              },
+              {
+                entryName: 'loaders/bootloader/boot_resource-release.okpkg',
+                artifact: {
+                  artifactRef: `fw:${bootResourceSha256}`,
+                  size: 512,
+                  sha256: bootResourceSha256,
+                  expectedSha256Verified: false,
+                },
+              },
+              {
+                entryName: 'resource_hash.txt',
+                artifact: {
+                  artifactRef: `fw:${hashReportSha256}`,
+                  size: 64,
+                  sha256: hashReportSha256,
                   expectedSha256Verified: false,
                 },
               },
