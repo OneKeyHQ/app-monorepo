@@ -9,6 +9,7 @@ import {
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -52,6 +53,38 @@ export type IFirmwareAuthenticateParams = {
 };
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
+const FIRMWARE_VERIFY_CHALLENGE_LENGTH = 32;
+
+type FirmwareVerifyPayload = {
+  data: string;
+  dataHex: string;
+};
+
+function getFirmwareVerifyPayload({
+  deviceType,
+  instanceId,
+}: {
+  deviceType: IDeviceType | undefined;
+  instanceId: string;
+}): FirmwareVerifyPayload {
+  if (isProtocolV2ProductType(deviceType)) {
+    // DeviceCertificateSign expects exactly 32 bytes for V2 firmware attest.
+    const data = stringUtils.randomString(FIRMWARE_VERIFY_CHALLENGE_LENGTH, {
+      chars: '0123456789abcdef',
+    });
+    return {
+      data,
+      dataHex: bufferUtils.textToHex(data, 'utf-8'),
+    };
+  }
+
+  const ts = Date.now();
+  const data = `${instanceId}_${ts}_${stringUtils.randomString(12)}`;
+  return {
+    data,
+    dataHex: bufferUtils.textToHex(data, 'utf-8'),
+  };
+}
 
 function buildSkippedFirmwareAuthenticateResult(
   device: SearchDevice | IDBDevice,
@@ -173,12 +206,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const ts = Date.now();
         const settings = await settingsPersistAtom.get();
-        const data = `${settings.instanceId}_${ts}_${stringUtils.randomString(
-          12,
-        )}`;
-        const dataHex = bufferUtils.textToHex(data, 'utf-8');
+        const { data, dataHex } = getFirmwareVerifyPayload({
+          deviceType,
+          instanceId: settings.instanceId,
+        });
         const verifySig: DeviceVerifySignature =
           // call sdk.deviceVerify()
           await this.getDeviceCertWithSig({

@@ -79,6 +79,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getExistingDevice: jest.fn(),
     getDeviceSafe: jest.fn(),
     getDeviceByQuery: jest.fn(),
     updateDevice: jest.fn(),
@@ -114,7 +115,9 @@ jest.mock('../../states/jotai/atoms', () => {
     hardwareUiStateCompletedAtom: {
       set: jest.fn(async () => undefined),
     },
-    settingsPersistAtom: {},
+    settingsPersistAtom: {
+      get: jest.fn(async () => ({ instanceId: 'INSTANCE_ID' })),
+    },
   };
 });
 
@@ -299,12 +302,41 @@ describe('ServiceHardware SDK debug logging', () => {
 });
 
 describe('ServiceHardware wallet session compatibility', () => {
-  it('skips unavailable Pro2 firmware attestation', async () => {
+  it('runs Pro2 firmware attestation through the normal path', async () => {
+    const withHardwareProcessing = jest
+      .fn()
+      .mockImplementation(async (callback: () => Promise<unknown>) =>
+        callback(),
+      );
+    const closeHardwareUiStateDialog = jest.fn(async () => undefined);
+    const backgroundApi = {
+      serviceHardwareUI: {
+        withHardwareProcessing,
+        closeHardwareUiStateDialog,
+      },
+      serviceHardware: undefined as never as ServiceHardware,
+    };
     const service = new ServiceHardware({
-      backgroundApi: {} as IBackgroundApi,
+      backgroundApi: backgroundApi as never as IBackgroundApi,
     });
-    const getSDKInstanceSpy = jest.spyOn(service, 'getSDKInstance');
-
+    backgroundApi.serviceHardware = service;
+    const deviceVerifySpy = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        cert: 'cert',
+        signature: 'signature',
+      },
+    });
+    const postMock = jest.fn().mockResolvedValue({ data: { code: 0, message: 'OK' } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({
+      post: postMock,
+    } as never);
+    jest
+      .spyOn(service, 'getSDKInstance')
+      .mockResolvedValue({
+        deviceVerify: deviceVerifySpy,
+      } as never);
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
     await expect(
       service.firmwareAuthenticate({
         device: {
@@ -312,19 +344,37 @@ describe('ServiceHardware wallet session compatibility', () => {
           deviceType: EDeviceType.Pro2,
         } as never,
       }),
-    ).resolves.toEqual(
+    ).resolves.toMatchObject({
+        verified: true,
+        result: { code: 0, message: 'OK' },
+        payload: {
+          cert: 'cert',
+          signature: 'signature',
+        },
+      });
+    expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
+    const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
+      dataHex: string;
+    };
+    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]{64}$/);
+    const postArg = postMock.mock.calls[0]?.[1] as {
+      data: string;
+    };
+    expect(postArg?.data).toMatch(/^[0-9a-f]{32}$/);
+    expect(postMock).toHaveBeenCalledWith(
+      '/wallet/v1/hardware/verify',
       expect.objectContaining({
-        skipVerification: true,
-        verified: false,
+        data: expect.stringMatching(/^[0-9a-f]{32}$/),
       }),
     );
-    expect(getSDKInstanceSpy).not.toHaveBeenCalled();
+    expect(closeHardwareUiStateDialog).toHaveBeenCalled();
   });
 
   it('does not require unavailable Pro2 attestation before wallet creation', async () => {
     const service = new ServiceHardware({
       backgroundApi: {} as IBackgroundApi,
     });
+    jest.spyOn(localDb, 'getExistingDevice').mockResolvedValue(undefined);
 
     await expect(
       service.shouldAuthenticateFirmware({
@@ -334,7 +384,7 @@ describe('ServiceHardware wallet session compatibility', () => {
           deviceType: EDeviceType.Pro2,
         } as never,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it('uses the GetFeatures-only state scope for Classic-family firmware verification', async () => {

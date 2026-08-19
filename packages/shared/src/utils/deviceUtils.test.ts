@@ -225,10 +225,10 @@ describe('deviceUtils', () => {
     );
   });
 
-  it('temporarily skips firmware verification for Protocol V2 products', () => {
-    expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro2)).toBe(false);
+  it('supports firmware verification for Protocol V2 products', () => {
+    expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro2)).toBe(true);
     expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro)).toBe(true);
-    expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(false);
+    expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(true);
   });
 
   it('classifies Neo as a Protocol V2 product without aliasing it to Pro 2', () => {
