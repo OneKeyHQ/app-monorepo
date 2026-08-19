@@ -10,6 +10,7 @@ interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
+  enabled?: boolean;
 }
 
 function toFiniteNumber(value?: string | number) {
@@ -19,21 +20,46 @@ function toFiniteNumber(value?: string | number) {
 }
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
+  const enabled = data.enabled ?? true;
   const { current: tokenDetailActions } = useTokenDetailActions();
   const currencyInfo = useCurrency();
-  const { tokenDetail, networkId } = useTokenDetail();
+  const {
+    tokenDetail,
+    tokenAddress: activeTokenAddress,
+    networkId: activeNetworkId,
+    isNative: activeIsNative,
+  } = useTokenDetail();
   const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
+  // External atom updates must not retrigger this route's ownership effect.
+  const activeIdentityRef = useRef({
+    tokenAddress: activeTokenAddress,
+    networkId: activeNetworkId,
+    isNative: activeIsNative,
+  });
+  activeIdentityRef.current = {
+    tokenAddress: activeTokenAddress,
+    networkId: activeNetworkId,
+    isNative: activeIsNative,
+  };
 
   // Sync tokenDetail to global atom so mobile modal can read it
   useEffect(() => {
-    if (!tokenDetail || tokenDetail.address === undefined || !networkId) {
+    if (!enabled) {
+      return;
+    }
+    if (
+      activeTokenAddress !== data.tokenAddress ||
+      activeNetworkId !== data.networkId ||
+      !tokenDetail ||
+      tokenDetail.address === undefined
+    ) {
       setCurrentTokenLiveData(undefined);
       return;
     }
     const buy = toFiniteNumber(tokenDetail.buy24hCount);
     const sell = toFiniteNumber(tokenDetail.sell24hCount);
     setCurrentTokenLiveData({
-      networkId,
+      networkId: activeNetworkId,
       address: tokenDetail.address,
       price: toFiniteNumber(tokenDetail.price),
       change24h: toFiniteNumber(tokenDetail.priceChange24hPercent),
@@ -48,83 +74,107 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
           ? { buy: buy ?? 0, sell: sell ?? 0 }
           : undefined,
     });
-  }, [tokenDetail, networkId, setCurrentTokenLiveData]);
+  }, [
+    activeNetworkId,
+    activeTokenAddress,
+    data.networkId,
+    data.tokenAddress,
+    enabled,
+    setCurrentTokenLiveData,
+    tokenDetail,
+  ]);
 
-  // Clear global atom only on unmount — separate from sync effect to avoid
-  // briefly setting undefined on every poll tick (cleanup runs before re-execute).
-  useEffect(
-    () => () => {
-      setCurrentTokenLiveData(undefined);
-    },
-    [setCurrentTokenLiveData],
-  );
-
-  // Track previous price scope to avoid showing stale token or currency data.
-  const prevTokenRef = useRef<{
-    tokenAddress: string;
-    networkId: string;
-    currencyId: string;
-  }>({
-    tokenAddress: '',
-    networkId: '',
-    currencyId: '',
-  });
-
-  // Clear cached token detail when switching token or display currency.
-  // This prevents showing stale data from the previous price scope.
+  // Clear live data when the focused route relinquishes ownership.
   useEffect(() => {
-    const prevToken = prevTokenRef.current;
-    const isTokenChanged =
-      prevToken.tokenAddress !== data.tokenAddress ||
-      prevToken.networkId !== data.networkId ||
-      prevToken.currencyId !== currencyInfo.id;
+    if (!enabled) {
+      return;
+    }
+    return () => {
+      setCurrentTokenLiveData(undefined);
+    };
+  }, [enabled, setCurrentTokenLiveData]);
 
-    if (isTokenChanged && prevToken.tokenAddress !== '') {
-      // Only clear display-related atoms when switching tokens.
-      // Do NOT call clearTokenDetail() here — it resets tokenAddressAtom
-      // and networkIdAtom to '', which races with changeActiveToken's
-      // in-flight fetch and causes its stale check to discard the result.
+  const ownedPriceScopeRef = useRef<
+    | {
+        tokenAddress: string;
+        networkId: string;
+        currencyId: string;
+      }
+    | undefined
+  >(undefined);
+
+  // Restore the focused route's identity before its request effect starts.
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const previousScope = ownedPriceScopeRef.current;
+    const isRoutePriceScopeChanged = Boolean(
+      previousScope &&
+      (previousScope.tokenAddress !== data.tokenAddress ||
+        previousScope.networkId !== data.networkId ||
+        previousScope.currencyId !== currencyInfo.id),
+    );
+    const activeIdentity = activeIdentityRef.current;
+    const hasActiveIdentity = Boolean(
+      activeIdentity.tokenAddress || activeIdentity.networkId,
+    );
+    const isActiveIdentityChanged =
+      hasActiveIdentity &&
+      (activeIdentity.tokenAddress !== data.tokenAddress ||
+        activeIdentity.networkId !== data.networkId ||
+        activeIdentity.isNative !== data.isNative);
+
+    if (isRoutePriceScopeChanged || isActiveIdentityChanged) {
       tokenDetailActions.setTokenDetail(undefined);
+      tokenDetailActions.setTokenDetailPreview(undefined);
       tokenDetailActions.setTokenDetailWebsocket(undefined);
       tokenDetailActions.setPerpsInfo(undefined);
     }
 
-    // Update ref for next comparison
-    prevTokenRef.current = {
+    tokenDetailActions.setTokenAddress(data.tokenAddress);
+    tokenDetailActions.setNetworkId(data.networkId);
+    tokenDetailActions.setTokenDetailCurrencyId(currencyInfo.id);
+    tokenDetailActions.setIsNative(data.isNative);
+    ownedPriceScopeRef.current = {
       tokenAddress: data.tokenAddress,
       networkId: data.networkId,
       currencyId: currencyInfo.id,
     };
-  }, [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions]);
-
-  // Set tokenAddress/networkId/isNative synchronously on prop change,
-  // NOT inside the polling callback. This prevents stale polling responses
-  // from writing old token identifiers back into atoms after a token switch.
-  useEffect(() => {
-    tokenDetailActions.setTokenAddress(data.tokenAddress);
-    tokenDetailActions.setNetworkId(data.networkId);
-    tokenDetailActions.setIsNative(data.isNative);
-  }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
+  }, [
+    currencyInfo.id,
+    data.isNative,
+    data.networkId,
+    data.tokenAddress,
+    enabled,
+    tokenDetailActions,
+  ]);
 
   return usePromiseResult(
     async () => {
-      if (!currencyInfo.id) {
+      if (!enabled || !currencyInfo.id) {
         return;
       }
       // Only fetch token detail data; atom identity is set synchronously above
       await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
+        currencyInfo.id,
       );
     },
-    [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions],
+    [
+      currencyInfo.id,
+      enabled,
+      data.tokenAddress,
+      data.networkId,
+      tokenDetailActions,
+    ],
     {
-      pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
+      pollingInterval: enabled ? 6000 : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      // Disable focus check to allow data fetching when navigating from Modal to Tab
-      // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),
-      // the Modal may still be in the navigation stack, causing isFocused to return false
+      // The caller owns focus gating through `enabled` so placeholder screens
+      // do not start either an initial request or a polling loop.
       checkIsFocused: false,
     },
   );

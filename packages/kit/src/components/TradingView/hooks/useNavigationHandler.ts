@@ -1,31 +1,53 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IUseNavigationHandlerReturn {
   handleNavigation: (event: WebViewNavigation) => boolean;
+  originWhitelist: string[];
 }
 
-/**
- * Custom hook for handling WebView navigation in TradingView.
- *
- * Tapping the chart's TradingView logo navigates to www.tradingview.com.
- * Block that redirect entirely (instead of opening it in an external browser),
- * since the jump is annoying on mobile. All other navigation is allowed.
- */
-export const useNavigationHandler = (): IUseNavigationHandlerReturn => {
-  const handleNavigation = useCallback((event: WebViewNavigation): boolean => {
-    try {
-      const requestUrl = new URL(event.url);
-      if (requestUrl.hostname === 'www.tradingview.com') {
-        return false;
-      }
-      return true;
-    } catch (_error) {
-      // If URL parsing fails, allow the request
-      return true;
-    }
-  }, []);
+function getUrlOrigin(url: string) {
+  try {
+    return new URL(url).origin;
+  } catch (_error) {
+    return undefined;
+  }
+}
 
-  return { handleNavigation };
+export function isTradingViewNavigationAllowed({
+  requestUrl,
+  tradingViewUrl,
+}: {
+  requestUrl: string;
+  tradingViewUrl: string;
+}) {
+  if (requestUrl === 'about:blank') {
+    return true;
+  }
+  const tradingViewOrigin = getUrlOrigin(tradingViewUrl);
+  if (!tradingViewOrigin) {
+    return false;
+  }
+  return getUrlOrigin(requestUrl) === tradingViewOrigin;
+}
+
+export const useNavigationHandler = (
+  tradingViewUrl: string,
+): IUseNavigationHandlerReturn => {
+  const originWhitelist = useMemo(() => {
+    const tradingViewOrigin = getUrlOrigin(tradingViewUrl);
+    return tradingViewOrigin ? [tradingViewOrigin] : [];
+  }, [tradingViewUrl]);
+  const handleNavigation = useCallback(
+    (event: WebViewNavigation): boolean => {
+      return isTradingViewNavigationAllowed({
+        requestUrl: event.url,
+        tradingViewUrl,
+      });
+    },
+    [tradingViewUrl],
+  );
+
+  return { handleNavigation, originWhitelist };
 };

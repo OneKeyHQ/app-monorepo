@@ -26,6 +26,28 @@ jest.mock('@onekeyhq/components', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  useCurrency: jest.fn(() => ({ id: 'cny' })),
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailInFlightRequest',
+  () => ({
+    fetchMarketTokenDetailWithCache: jest.fn(() => Promise.resolve()),
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+    prefetchMarketDetailV2FirstScreenTransactions: jest.fn(() =>
+      Promise.resolve(),
+    ),
+    preloadMarketDetailV2Page: jest.fn(),
+  }),
+);
+
 const mockRootNavigationRef = rootNavigationRef as unknown as {
   current:
     | {

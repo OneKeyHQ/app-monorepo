@@ -78,5 +78,7 @@ export const Tabs = {
 export * from './hooks';
 export { startViewTransition } from './utils';
 export { CollapsibleTabContext } from './CollapsibleTabContext';
+export type { ICollapsibleTabContextType } from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
+export type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 export { useFocusedTab } from './useFocusedTab';

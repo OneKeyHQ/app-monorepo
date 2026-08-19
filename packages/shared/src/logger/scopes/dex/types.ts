@@ -176,6 +176,15 @@ export interface IDexTVTimeframeParams {
   tvTimeframeSelect: string;
 }
 
+export interface IDexTVFirstPaintParams {
+  durationMs: number;
+  tvInterval: string;
+  status: 'rendered' | 'empty' | 'failed';
+  source: 'bootstrap' | 'bridge';
+  returnedCount: number;
+  appPlatform: string;
+}
+
 export interface IDexBannerEnterParams {
   bannerId: string;
 }

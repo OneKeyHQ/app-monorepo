@@ -60,6 +60,8 @@ export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
 
+export const { atom: tokenDetailCurrencyIdAtom } = contextAtom<string>('');
+
 export const { atom: isNativeAtom, use: useIsNativeAtom } =
   contextAtom<boolean>(false);
 

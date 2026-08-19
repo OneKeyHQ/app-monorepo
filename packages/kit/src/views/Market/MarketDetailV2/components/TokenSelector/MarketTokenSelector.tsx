@@ -12,6 +12,7 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -20,6 +21,7 @@ import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -83,6 +85,7 @@ function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
   const route = useRoute();
   const tokenDetailActions = useTokenDetailActions();
+  const currencyInfo = useCurrency();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
   const routeParams = route.params as
@@ -161,12 +164,19 @@ function BaseMarketTokenSelectorContent() {
 
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
+        currencyId: currencyInfo.id,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
+    [
+      tokenDetailActions,
+      currencyInfo.id,
+      closePopover,
+      navigateToPerps,
+      showFavoriteButton,
+    ],
   );
 
   const handleSelectToken = useCallback(
@@ -291,6 +301,7 @@ function BaseMarketTokenSelector() {
         renderTrigger={
           // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
           <XStack
+            testID={MarketTestIDs.tokenSelectorTrigger}
             gap="$2"
             alignItems="center"
             cursor="pointer"

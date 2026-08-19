@@ -290,8 +290,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   } = speedSwapActions;
 
   const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
+    if (!balanceToken?.networkId) {
+      return undefined;
+    }
     const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: balanceToken?.networkId || '',
+      networkId: balanceToken.networkId,
     });
     return result?.mergeDeriveAssetsEnabled;
   }, [balanceToken?.networkId]);

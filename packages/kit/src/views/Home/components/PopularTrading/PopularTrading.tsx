@@ -16,10 +16,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { fetchMarketTokenDetailWithCache } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailInFlightRequest';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -46,6 +48,11 @@ import {
   useNavigateToMarketTab,
   usePerpsNavigation,
 } from '../../../Market/hooks';
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  prefetchMarketDetailV2FirstScreenTransactions,
+  preloadMarketDetailV2Page,
+} from '../../../Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
@@ -184,6 +191,7 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const { md } = useMedia();
   const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
@@ -844,6 +852,24 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return;
       }
 
+      void fetchMarketTokenDetailWithCache({
+        tokenAddress: record.contractAddress,
+        networkId: record.chainId,
+        currencyId: currencyInfo.id,
+      }).catch(() => undefined);
+      void prefetchMarketDetailV2FirstScreenKLine({
+        tokenAddress: record.contractAddress,
+        networkId: record.chainId,
+      }).catch(() => undefined);
+      void prefetchMarketDetailV2FirstScreenTransactions({
+        tokenAddress: record.contractAddress,
+        networkId: record.chainId,
+      }).catch(() => undefined);
+      void preloadMarketDetailV2Page({
+        includeBodyModules: true,
+        includeHeavyModules: true,
+      });
+
       navigation.switchTab(marketTab);
 
       setTimeout(() => {
@@ -860,7 +886,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }, 300);
     },
-    [marketTab, navigateToPerps, navigation],
+    [currencyInfo.id, marketTab, navigateToPerps, navigation],
   );
 
   const renderEmptyStateCards = useCallback(() => {

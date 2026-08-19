@@ -441,10 +441,14 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      void import('../views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform')
+        .then(({ fetchMarketBasicConfigForPlatform }) =>
+          fetchMarketBasicConfigForPlatform(),
+        )
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
-      const timer = setTimeout(fetchMarketBasicConfig, 6000);
+      const timer = setTimeout(fetchMarketBasicConfig, 1500);
       return () => clearTimeout(timer);
     }
     fetchMarketBasicConfig();

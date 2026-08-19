@@ -3,55 +3,58 @@ import { useMemo } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  IMarketTokenDetail,
   IMarketTokenTransaction,
   IMarketTokenTransactionToken,
 } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTransactionItemDataProps {
   item: IMarketTokenTransaction;
+  tokenAddress: string;
+  tokenSymbol?: string;
 }
 
 // Helper function to fill in missing token symbol from token detail
 function fillTokenSymbolIfMissing(
   token: IMarketTokenTransactionToken,
   tokenAddress: string | undefined,
-  tokenDetail: IMarketTokenDetail | undefined,
+  tokenSymbol: string | undefined,
 ): IMarketTokenTransactionToken {
-  // If symbol is missing and token address matches current token address, use tokenDetail symbol
+  // If symbol is missing and token address matches the current token, use the stable page symbol.
   if (
     (!token.symbol || token.symbol === '') &&
     tokenAddress &&
-    tokenDetail?.symbol &&
+    tokenSymbol &&
     token.address?.toLowerCase() === tokenAddress.toLowerCase()
   ) {
     return {
       ...token,
-      symbol: tokenDetail.symbol,
+      symbol: tokenSymbol,
     };
   }
   return token;
 }
 
-export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
+export function useTransactionItemData({
+  item,
+  tokenAddress,
+  tokenSymbol,
+}: IUseTransactionItemDataProps) {
   const intl = useIntl();
-  const { tokenDetail, tokenAddress } = useTokenDetail();
 
   const isBuy = item.type === 'buy';
 
   // Get base and quote tokens, and fill in missing symbols from tokenDetail
   const baseToken = useMemo(() => {
     const token = isBuy ? item.to : item.from;
-    return fillTokenSymbolIfMissing(token, tokenAddress, tokenDetail);
-  }, [isBuy, item.to, item.from, tokenAddress, tokenDetail]);
+    return fillTokenSymbolIfMissing(token, tokenAddress, tokenSymbol);
+  }, [isBuy, item.to, item.from, tokenAddress, tokenSymbol]);
 
   const quoteToken = useMemo(() => {
     const token = isBuy ? item.from : item.to;
-    return fillTokenSymbolIfMissing(token, tokenAddress, tokenDetail);
-  }, [isBuy, item.from, item.to, tokenAddress, tokenDetail]);
+    return fillTokenSymbolIfMissing(token, tokenAddress, tokenSymbol);
+  }, [isBuy, item.from, item.to, tokenAddress, tokenSymbol]);
 
   const baseSign = isBuy ? '+' : '-';
   const quoteSign = isBuy ? '-' : '+';

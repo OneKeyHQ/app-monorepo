@@ -21,6 +21,7 @@ type IBuildMarketTokenDetailPreviewInput = Pick<
   | 'tokenImageUris'
   | 'communityRecognized'
   | 'stock'
+  | 'firstTradeTime'
 >;
 
 type IBuildMarketSearchTokenDetailPreviewInput = IMarketSearchV2Token & {
@@ -65,6 +66,7 @@ export function buildMarketTokenDetailPreview(
     tokenImageUris: token.tokenImageUris,
     communityRecognized: token.communityRecognized,
     stock: token.stock,
+    firstTradeTime: token.firstTradeTime,
     selectedAt: Date.now(),
   };
 }

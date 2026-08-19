@@ -152,4 +152,94 @@ describe('DesktopWebView', () => {
     ).toBe(true);
     expect(getPreloadJsContent).toHaveBeenCalledTimes(2);
   });
+
+  it('reports a new main-frame document through onLoadStart', async () => {
+    const onLoadStart = jest.fn();
+    render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={onLoadStart}
+      />,
+    );
+    const webview = await screen.findByTestId('desktop-webview');
+    const event = Object.assign(new Event('did-start-navigation'), {
+      isMainFrame: true,
+      url: 'https://app.uniswap.org',
+    });
+
+    act(() => {
+      webview.dispatchEvent(event);
+    });
+
+    expect(onLoadStart).toHaveBeenCalledWith(event);
+  });
+
+  it('keeps chart readiness for same-document main-frame navigation', async () => {
+    const onLoadStart = jest.fn();
+    const onDidStartNavigation = jest.fn();
+    const onShouldStartLoadWithRequest = jest.fn(() => true);
+    render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org/#chart"
+        receiveHandler={jest.fn()}
+        onLoadStart={onLoadStart}
+        onDidStartNavigation={onDidStartNavigation}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+      />,
+    );
+    const webview = await screen.findByTestId('desktop-webview');
+    const event = Object.assign(new Event('did-start-navigation'), {
+      isMainFrame: true,
+      isInPlace: true,
+      url: 'https://app.uniswap.org/#settings',
+    });
+
+    act(() => {
+      webview.dispatchEvent(event);
+    });
+
+    expect(onShouldStartLoadWithRequest).toHaveBeenCalledWith({
+      url: 'https://app.uniswap.org/#settings',
+      isTopFrame: true,
+    });
+    expect(onDidStartNavigation).toHaveBeenCalledWith(event);
+    expect(onLoadStart).not.toHaveBeenCalled();
+  });
+
+  it('removes old navigation listeners when document reconciliation throws', async () => {
+    const firstOnLoadStart = jest.fn();
+    const secondOnLoadStart = jest.fn();
+    const { rerender } = render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={firstOnLoadStart}
+      />,
+    );
+    const webview = await screen.findByTestId('desktop-webview');
+
+    rerender(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={secondOnLoadStart}
+      />,
+    );
+
+    const event = Object.assign(new Event('did-start-navigation'), {
+      isMainFrame: true,
+      url: 'https://app.uniswap.org',
+    });
+    act(() => {
+      webview.dispatchEvent(event);
+    });
+
+    expect(firstOnLoadStart).not.toHaveBeenCalled();
+    expect(secondOnLoadStart).toHaveBeenCalledTimes(1);
+  });
 });

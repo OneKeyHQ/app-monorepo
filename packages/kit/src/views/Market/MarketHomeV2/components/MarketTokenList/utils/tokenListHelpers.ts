@@ -4,6 +4,15 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
+type IMarketTokenListApiItem = Omit<
+  IMarketTokenListItem,
+  'decimals' | 'holders'
+> & {
+  decimals: number | string;
+  holders?: number | string;
+  isNative?: boolean;
+};
+
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
 // This ensures online data with isNative field won't use fallback logic
@@ -129,7 +138,7 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   return network?.logoURI || '';
 }
 
-function safeNumber(value: string | undefined, fallback = 0): number {
+function safeNumber(value: number | string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
   try {
@@ -160,7 +169,7 @@ function safePositiveNumber(value: string | undefined): number | undefined {
 }
 
 function getMetricValueByTimeRange(
-  item: IMarketTokenListItem,
+  item: IMarketTokenListApiItem,
   timeRange: IMarketTimeRangeValue | undefined,
   baseKey: 'priceChange' | 'trade' | 'buy' | 'sell' | 'uniqueWallet' | 'volume',
   suffix: 'Percent' | 'Count' | '',
@@ -177,7 +186,7 @@ function getPriceChangeBasePriceByTimeRange({
   item,
   timeRange,
 }: {
-  item: IMarketTokenListItem;
+  item: IMarketTokenListApiItem;
   timeRange: IMarketTimeRangeValue | undefined;
 }) {
   const selectedTimeRange = timeRange ?? '24h';
@@ -212,7 +221,7 @@ export function calculateMarketTokenLivePriceChange({
  * Convert raw api item to component token shape
  */
 export function transformApiItemToToken(
-  item: IMarketTokenListItem & { isNative?: boolean },
+  item: IMarketTokenListApiItem,
   {
     chainId,
     networkLogoUri,
@@ -282,11 +291,11 @@ export function transformApiItemToToken(
     liquidity: safeNumber(item.liquidity),
     transactions,
     uniqueTraders,
-    holders: item.holders || 0,
+    holders: safeNumber(item.holders),
     turnover,
     tokenImageUri: item.logoUrl || '',
     tokenImageUris: item.logoUrls,
-    decimals: item.decimals,
+    decimals: safeNumber(item.decimals),
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
     priceChangeBasePrice,

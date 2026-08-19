@@ -33,10 +33,12 @@ import {
   showWatchlistOnlyAtom,
   tokenAddressAtom,
   tokenDetailAtom,
+  tokenDetailCurrencyIdAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { fetchMarketTokenDetailWithCache } from './marketTokenDetailInFlightRequest';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -134,6 +136,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), payload);
   });
 
+  setTokenDetailCurrencyId = contextAtomMethod((_, set, payload: string) => {
+    set(tokenDetailCurrencyIdAtom(), payload);
+  });
+
   setIsNative = contextAtomMethod((_, set, payload: boolean) => {
     set(isNativeAtom(), payload);
   });
@@ -156,6 +162,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(tokenDetailLoadingAtom(), false);
     set(tokenAddressAtom(), '');
     set(networkIdAtom(), '');
+    set(tokenDetailCurrencyIdAtom(), '');
     set(isNativeAtom(), false);
     set(tokenDetailWebsocketAtom(), undefined);
     set(perpsInfoAtom(), undefined);
@@ -240,14 +247,33 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       payload: {
         tokenAddress: string;
         networkId: string;
+        currencyId: string;
         isNative: boolean;
+        historyStartTime?: number;
         tokenDetailPreview?: IMarketTokenDetailPreview;
       },
     ) => {
-      const { tokenAddress, networkId, isNative, tokenDetailPreview } = payload;
+      const {
+        tokenAddress,
+        networkId,
+        currencyId,
+        isNative,
+        historyStartTime,
+        tokenDetailPreview,
+      } = payload;
       const nextPreview =
-        tokenDetailPreview?.address === tokenAddress &&
-        tokenDetailPreview.networkId === networkId
+        tokenDetailPreview?.networkId === networkId &&
+        ((isNative && !tokenAddress) ||
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress: tokenAddress,
+            },
+            token2: {
+              networkId,
+              contractAddress: tokenDetailPreview.address,
+            },
+          }))
           ? tokenDetailPreview
           : undefined;
       // Set atom values directly — `this.xxx.call(set)` doesn't work
@@ -258,21 +284,27 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(perpsInfoAtom(), undefined);
       set(tokenAddressAtom(), tokenAddress);
       set(networkIdAtom(), networkId);
+      set(tokenDetailCurrencyIdAtom(), currencyId);
       set(isNativeAtom(), isNative);
 
       let isStale = false;
       try {
         set(tokenDetailLoadingAtom(), true);
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-            tokenAddress,
-            networkId,
-          );
+        const response = await fetchMarketTokenDetailWithCache({
+          tokenAddress,
+          networkId,
+          currencyId,
+        });
 
         // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        const currentCurrencyId = get(tokenDetailCurrencyIdAtom());
+        if (
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId ||
+          currentCurrencyId !== currencyId
+        ) {
           isStale = true;
           return;
         }
@@ -288,7 +320,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        const tokenData = responseData.data.token;
+        const resolvedHistoryStartTime =
+          tokenData.firstTradeTime ??
+          nextPreview?.firstTradeTime ??
+          historyStartTime;
+        set(
+          tokenDetailAtom(),
+          resolvedHistoryStartTime === undefined
+            ? tokenData
+            : {
+                ...tokenData,
+                firstTradeTime: resolvedHistoryStartTime,
+              },
+        );
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -296,7 +341,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         console.error('Failed to fetch token detail:', error);
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        const currentCurrencyId = get(tokenDetailCurrencyIdAtom());
+        if (
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId ||
+          currentCurrencyId !== currencyId
+        ) {
           isStale = true;
         } else {
           set(tokenDetailAtom(), undefined);
@@ -335,27 +385,39 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   fetchTokenDetail = contextAtomMethod(
-    async (get, set, tokenAddress: string, networkId: string) => {
+    async (
+      get,
+      set,
+      tokenAddress: string,
+      networkId: string,
+      currencyId: string,
+    ) => {
       let isStale = false;
       try {
+        set(tokenDetailCurrencyIdAtom(), currencyId);
         set(tokenDetailLoadingAtom(), true);
 
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-            tokenAddress,
-            networkId,
-          );
+        const response = await fetchMarketTokenDetailWithCache({
+          tokenAddress,
+          networkId,
+          currencyId,
+        });
 
         // Stale check first: discard if user already switched to a different
         // token via changeActiveToken during this async fetch. Must run before
         // the data validity check so that early returns don't clobber loading.
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
+        const currentCurrencyId = get(tokenDetailCurrencyIdAtom());
         if (currentAddress !== tokenAddress && currentAddress !== '') {
           isStale = true;
           return;
         }
         if (currentNetworkId !== networkId && currentNetworkId !== '') {
+          isStale = true;
+          return;
+        }
+        if (currentCurrencyId !== currencyId) {
           isStale = true;
           return;
         }
@@ -410,14 +472,24 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           Number.isFinite(chartPriceUpdatedAt) &&
           Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
 
+        const resolvedHistoryStartTime =
+          tokenData.firstTradeTime ??
+          (isSameToken ? currentTokenDetail.firstTradeTime : undefined);
+        const tokenDataWithHistoryStart =
+          resolvedHistoryStartTime === undefined
+            ? tokenData
+            : {
+                ...tokenData,
+                firstTradeTime: resolvedHistoryStartTime,
+              };
         const finalTokenData = hasFreshKLinePrice
           ? {
-              ...tokenData,
+              ...tokenDataWithHistoryStart,
               price: currentTokenDetail.price,
               lastUpdated: currentTokenDetail.lastUpdated,
               chartPriceUpdatedAt,
             }
-          : tokenData;
+          : tokenDataWithHistoryStart;
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailPreviewAtom(), undefined);
@@ -430,9 +502,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Only clear atoms if we're still on the same token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
+        const currentCurrencyId = get(tokenDetailCurrencyIdAtom());
         if (
           (currentAddress === tokenAddress || currentAddress === '') &&
-          (currentNetworkId === networkId || currentNetworkId === '')
+          (currentNetworkId === networkId || currentNetworkId === '') &&
+          currentCurrencyId === currencyId
         ) {
           set(tokenDetailAtom(), undefined);
           set(tokenDetailPreviewAtom(), undefined);
@@ -772,6 +846,7 @@ export function useTokenDetailActions() {
   const clearTokenDetailPreview = actions.clearTokenDetailPreview.use();
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
+  const setTokenDetailCurrencyId = actions.setTokenDetailCurrencyId.use();
   const setIsNative = actions.setIsNative.use();
   const setTokenDetailWebsocket = actions.setTokenDetailWebsocket.use();
   const setPerpsInfo = actions.setPerpsInfo.use();
@@ -788,6 +863,7 @@ export function useTokenDetailActions() {
     clearTokenDetailPreview,
     setTokenAddress,
     setNetworkId,
+    setTokenDetailCurrencyId,
     setIsNative,
     setTokenDetailWebsocket,
     setPerpsInfo,

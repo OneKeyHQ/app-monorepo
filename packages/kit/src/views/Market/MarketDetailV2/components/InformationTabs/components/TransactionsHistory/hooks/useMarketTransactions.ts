@@ -4,9 +4,18 @@ import { useThrottledCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  MARKET_TRANSACTIONS_FIRST_PAGE_SIZE,
+  buildMarketTransactionsFirstPageRequestKey,
+  fetchMarketTransactionsFirstPageWithCache,
+  getCachedMarketTransactionsFirstPage,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTransactionsFirstPageCache';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenTransaction,
+  IMarketTokenTransactionsResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   MARKET_DETAIL_MAX_TRANSACTIONS,
@@ -20,8 +29,6 @@ interface IUseMarketTransactionsProps {
   normalMode: boolean;
   enableRealtimePause?: boolean;
 }
-
-const DEFAULT_PAGE_SIZE = 20;
 
 function canLoadMoreWithinCacheLimit({
   cursor,
@@ -41,15 +48,28 @@ export function useMarketTransactions({
   normalMode,
   enableRealtimePause = false,
 }: IUseMarketTransactionsProps) {
-  const [accumulatedTransactions, setAccumulatedTransactions] = useState<
-    IMarketTokenTransaction[]
-  >([]);
+  const firstPageRequestKey = buildMarketTransactionsFirstPageRequestKey({
+    tokenAddress,
+    networkId,
+  });
+  const prefetchedFirstPage = getCachedMarketTransactionsFirstPage({
+    tokenAddress,
+    networkId,
+  });
+  const initialTransactions =
+    prefetchedFirstPage?.list.slice(0, MARKET_DETAIL_MAX_TRANSACTIONS) ?? [];
+  const initialHasMore = canLoadMoreWithinCacheLimit({
+    cursor: prefetchedFirstPage?.cursor,
+    transactions: initialTransactions,
+  });
+  const [accumulatedTransactions, setAccumulatedTransactions] =
+    useState<IMarketTokenTransaction[]>(initialTransactions);
   const [isRealtimeHovering, setIsRealtimeHovering] = useState(false);
   const [bufferedTransactions, setBufferedTransactions] = useState<
     IMarketTokenTransaction[]
   >([]);
   const [hasBufferOverflow, setHasBufferOverflow] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadTimesRef = useRef(0);
   const accumulatedTransactionsRef = useRef(accumulatedTransactions);
@@ -59,7 +79,15 @@ export function useMarketTransactions({
   const realtimeHoverOutTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-  const cursorRef = useRef<string | undefined>(undefined);
+  const cursorRef = useRef<string | undefined>(
+    initialHasMore ? prefetchedFirstPage?.cursor : undefined,
+  );
+  const firstPageRequestKeyRef = useRef(firstPageRequestKey);
+  const didConsumeFirstPagePrefetchRef = useRef(false);
+  if (firstPageRequestKeyRef.current !== firstPageRequestKey) {
+    firstPageRequestKeyRef.current = firstPageRequestKey;
+    didConsumeFirstPagePrefetchRef.current = false;
+  }
   const getVisibleTransactions = useCallback(
     (transactions: IMarketTokenTransaction[]) =>
       transactions.slice(0, MARKET_DETAIL_MAX_TRANSACTIONS),
@@ -169,12 +197,23 @@ export function useMarketTransactions({
     run: fetchTransactions,
   } = usePromiseResult(
     async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
+      let response: IMarketTokenTransactionsResponse;
+      if (!didConsumeFirstPagePrefetchRef.current) {
+        didConsumeFirstPagePrefetchRef.current = true;
+        response = await fetchMarketTransactionsFirstPageWithCache({
           tokenAddress,
           networkId,
-          limit: DEFAULT_PAGE_SIZE,
         });
+      } else {
+        response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions(
+            {
+              tokenAddress,
+              networkId,
+              limit: MARKET_TRANSACTIONS_FIRST_PAGE_SIZE,
+            },
+          );
+      }
       return response;
     },
     [tokenAddress, networkId],
@@ -182,18 +221,25 @@ export function useMarketTransactions({
       ? {
           watchLoading: true,
           pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+          ...(prefetchedFirstPage ? { initResult: prefetchedFirstPage } : {}),
         }
       : {
           watchLoading: true,
+          ...(prefetchedFirstPage ? { initResult: prefetchedFirstPage } : {}),
         },
   );
 
   // Reset accumulated state when token address or network ID changes
   useEffect(() => {
+    const cachedFirstPage = getCachedMarketTransactionsFirstPage({
+      tokenAddress,
+      networkId,
+    });
+    const cachedTransactions =
+      cachedFirstPage?.list.slice(0, MARKET_DETAIL_MAX_TRANSACTIONS) ?? [];
     throttleSetAccumulatedTransactions.cancel();
-    setAccumulatedTransactionsImmediately([]);
-    setHasMore(true);
-    cursorRef.current = undefined;
+    cursorRef.current = cachedFirstPage?.cursor;
+    setAccumulatedTransactionsImmediately(cachedTransactions);
     loadTimesRef.current = 0;
     resetRealtimePause();
   }, [
@@ -268,7 +314,7 @@ export function useMarketTransactions({
           tokenAddress,
           networkId,
           cursor,
-          limit: DEFAULT_PAGE_SIZE,
+          limit: MARKET_TRANSACTIONS_FIRST_PAGE_SIZE,
         });
 
       if (!response?.list || response.list.length === 0) {
@@ -419,7 +465,7 @@ export function useMarketTransactions({
     transactions: accumulatedTransactions,
     transactionsData,
     fetchTransactions,
-    isRefreshing,
+    isRefreshing: isRefreshing ?? prefetchedFirstPage === undefined,
     isLoadingMore,
     hasMore,
     loadMore,

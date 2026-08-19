@@ -2,6 +2,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
+  IDexTVFirstPaintParams,
   IDexTVIndicatorParams,
   IDexTVIntervalParams,
   IDexTVLineParams,
@@ -10,6 +11,12 @@ import type {
 } from '../types';
 
 export class TradingViewScene extends BaseScene {
+  /** Track the first completed TradingView paint for a market detail view. */
+  @LogToServer()
+  public dexTVFirstPaint(params: IDexTVFirstPaintParams) {
+    return params;
+  }
+
   /**
    * Track TradingView chart time interval selection
    * Reports on click, not default selection

@@ -33,10 +33,14 @@ interface IMarketPriceUpdatePayload {
 }
 
 function normalizeMarketWsKLineInterval(interval: string | undefined): string {
-  switch (interval) {
+  const normalizedInterval = interval?.trim();
+  switch (normalizedInterval) {
     case '1':
     case '1m':
       return '1m';
+    case '3':
+    case '3m':
+      return '3m';
     case '5':
     case '5m':
       return '5m';
@@ -50,18 +54,35 @@ function normalizeMarketWsKLineInterval(interval: string | undefined): string {
     case '1h':
     case '1H':
       return '1h';
+    case '120':
+    case '2h':
+    case '2H':
+      return '2h';
     case '240':
     case '4h':
     case '4H':
       return '4h';
+    case '480':
+    case '8h':
+    case '8H':
+      return '8h';
+    case '720':
+    case '12h':
+    case '12H':
+      return '12h';
     case '1d':
     case '1D':
       return '1d';
+    case '3d':
+    case '3D':
+      return '3d';
     case '1w':
     case '1W':
       return '1w';
+    case '1M':
+      return '1M';
     default:
-      return interval || '1m';
+      return normalizedInterval || '1m';
   }
 }
 
@@ -85,6 +106,9 @@ export function useTradingViewV2WebSocket({
   symbol,
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
+  const subscriptionOperationQueueRef = useRef<Promise<void>>(
+    Promise.resolve(),
+  );
   const wsChartType = normalizeMarketWsKLineInterval(chartType);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
@@ -94,14 +118,46 @@ export function useTradingViewV2WebSocket({
     currency,
     channel: 'ohlcv',
   });
+
+  useEffect(() => {
+    lastUpdateTime.current = 0;
+  }, [currency, networkId, tokenAddress, wsChartType]);
+
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
     }
 
+    let disposed = false;
+    const enqueueSubscriptionOperation = (
+      operation: () => Promise<void>,
+    ): Promise<void> => {
+      const queuedOperation = subscriptionOperationQueueRef.current
+        .catch(() => undefined)
+        .then(operation);
+      subscriptionOperationQueueRef.current = queuedOperation;
+      return queuedOperation;
+    };
+
+    async function cleanup(): Promise<void> {
+      try {
+        await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
+          networkId,
+          tokenAddress,
+          chartType: wsChartType,
+          currency,
+        });
+      } catch (error) {
+        console.error('Failed to unsubscribe from market data:', error);
+      }
+    }
+
     async function initWebSocket(): Promise<void> {
       try {
         await backgroundApiProxy.serviceMarketWS.connect();
+        if (disposed) {
+          return;
+        }
         await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
           networkId,
           tokenAddress,
@@ -114,26 +170,16 @@ export function useTradingViewV2WebSocket({
     }
 
     if (enabled) {
-      void initWebSocket();
+      void enqueueSubscriptionOperation(initWebSocket);
     }
 
     return () => {
-      async function cleanup(): Promise<void> {
-        try {
-          await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
-            networkId,
-            tokenAddress,
-            chartType: wsChartType,
-            currency,
-          });
-        } catch (error) {
-          console.error('Failed to unsubscribe from market data:', error);
-        }
+      disposed = true;
+      if (enabled) {
+        void enqueueSubscriptionOperation(cleanup);
       }
-
-      void cleanup();
     };
-  }, [networkId, tokenAddress, enabled, wsChartType, currency]);
+  }, [currency, enabled, networkId, tokenAddress, wsChartType]);
 
   useEffect(() => {
     if (!enabled) {
@@ -201,6 +247,11 @@ export function useTradingViewV2WebSocket({
           type: 'realtime',
           kLineData: dataForWebView,
           timestamp: now,
+          subscriptionIdentity: {
+            networkId,
+            tokenAddress,
+            resolution: chartType,
+          },
         },
       });
       sendVolumeVisibilityUpdate({

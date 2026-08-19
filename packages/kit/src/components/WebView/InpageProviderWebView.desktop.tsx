@@ -36,6 +36,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      onLoadStart,
       onLoadEnd,
       onDomReady,
       onOpenWindow,
@@ -153,6 +154,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onDidStartLoading={innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
           onDidFinishLoad={onDidFinishLoad}
+          onLoadStart={onLoadStart}
           onLoadEnd={onLoadEnd}
           onDidStopLoading={innerOnStopLoading}
           onDidFailLoad={onDidFailLoad}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { rootNavigationRef } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { fetchMarketTokenDetailWithCache } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailInFlightRequest';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -9,6 +11,13 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  prefetchMarketDetailV2FirstScreenTransactions,
+  preloadMarketDetailV2Page,
+} from '../views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -140,7 +149,9 @@ function isCurrentMarketTokenDetailTarget(
 export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
+        const currencyInfo = useCurrency();
         const handledHashRef = useRef<string | undefined>(undefined);
+        const preparedHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
           undefined,
         );
@@ -152,6 +163,44 @@ export const useExtensionMarketTokenDetailHashNavigation =
             retryTimerRef.current = undefined;
           }
         }, []);
+
+        const prepareTargetFromHash = useCallback(
+          (hash: string, target: IMarketTokenDetailNavigationTarget) => {
+            if (preparedHashRef.current === hash) {
+              return;
+            }
+            preparedHashRef.current = hash;
+
+            const networkId =
+              networkUtils.getNetworkIdFromShortCode({
+                shortCode: target.params.network,
+              }) || target.params.network;
+            const tokenAddress =
+              target.screen === ETabMarketRoutes.MarketDetailV2
+                ? target.params.tokenAddress
+                : '';
+            void fetchMarketTokenDetailWithCache({
+              tokenAddress,
+              networkId,
+              currencyId: currencyInfo.id,
+            }).catch(() => undefined);
+            void prefetchMarketDetailV2FirstScreenKLine({
+              tokenAddress,
+              networkId,
+            }).catch(() => undefined);
+            if (target.screen === ETabMarketRoutes.MarketDetailV2) {
+              void prefetchMarketDetailV2FirstScreenTransactions({
+                tokenAddress,
+                networkId,
+              }).catch(() => undefined);
+            }
+            void preloadMarketDetailV2Page({
+              includeBodyModules: true,
+              includeHeavyModules: true,
+            });
+          },
+          [currencyInfo.id],
+        );
 
         const navigateFromHash = useCallback((expectedHash: string) => {
           const currentHash = globalThis.location?.hash ?? '';
@@ -199,8 +248,11 @@ export const useExtensionMarketTokenDetailHashNavigation =
           const target = getMarketTokenDetailNavigationTargetFromHash(hash);
           if (!target) {
             handledHashRef.current = undefined;
+            preparedHashRef.current = undefined;
             return;
           }
+
+          prepareTargetFromHash(hash, target);
 
           const runId = retryRunIdRef.current + 1;
           retryRunIdRef.current = runId;
@@ -225,7 +277,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
           };
 
           run();
-        }, [clearRetryTimer, navigateFromHash]);
+        }, [clearRetryTimer, navigateFromHash, prepareTargetFromHash]);
 
         useEffect(() => {
           startNavigationFromHash();

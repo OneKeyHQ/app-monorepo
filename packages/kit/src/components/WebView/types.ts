@@ -15,6 +15,7 @@ import type {
   WebViewNavigationEvent,
   WebViewSharedProps,
   WebViewSource,
+  WebViewTerminatedEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 
 type IFirstParameterOrUndefined<T> = T extends (
@@ -45,6 +46,7 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onContentProcessDidTerminate?: (event: WebViewTerminatedEvent) => void;
   onError?: (event: WebViewErrorEvent) => void;
   onHttpError?: (event: WebViewHttpErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
@@ -125,6 +127,7 @@ export type IElectronWebView = {
   getURL: () => string;
   getTitle: () => string;
   getWebContentsId: () => number;
+  isLoading?: () => boolean;
   src: string;
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;

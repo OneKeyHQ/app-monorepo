@@ -44,6 +44,7 @@ import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketTestIDs } from '../../testIDs';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -643,15 +644,17 @@ function MarketTokenListBase({
           ? (position?: { x: number; y: number }) =>
               onItemContextMenuRef.current!(item, index, position)
           : undefined,
-        rowProps:
-          showWebSocketDebugRows &&
+        rowProps: {
+          testID: MarketTestIDs.tokenListItem(item.symbol),
+          ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
           !!item.address &&
           index >= debugSubscriptionRangeStart &&
           index < debugSubscriptionRangeEnd
             ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
-            : undefined,
+            : undefined),
+        },
       };
     },
     [

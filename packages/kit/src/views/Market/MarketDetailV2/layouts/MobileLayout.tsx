@@ -14,7 +14,11 @@ import { useIntl } from 'react-intl';
 import { Dimensions, type GestureResponderEvent, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IHeaderScrollGestureWrapperProps,
+  IScrollViewRef,
+} from '@onekeyhq/components';
 import {
   EInPageDialogType,
   HeaderScrollGestureWrapper,
@@ -52,6 +56,7 @@ import { InformationPanel } from '../components/InformationPanel/InformationPane
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
+import { MarketTradingViewLoading } from '../components/MarketTradingView/MarketTradingViewLoading';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import {
   useMarketTradingViewParams,
@@ -83,7 +88,9 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
   );
 }
 
-const chartLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
+const chartLoadingFallback = platformEnv.isNativeIOS ? undefined : (
+  <MarketTradingViewLoading minHeight={240} />
+);
 const swapPanelLoadingFallback = <ModuleLoadingFallback minHeight={96} />;
 const overviewLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
 
@@ -160,7 +167,6 @@ const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
-
 function normalizeTradingViewSubIndicatorCount(count: number) {
   if (!Number.isFinite(count)) {
     return 0;
@@ -198,6 +204,9 @@ function MobileMarketTradingView({
   tokenAddress,
   networkId,
   tokenSymbol,
+  decimal,
+  marketPrice,
+  historyStartTime,
   dataSource,
   pageWidth,
   onNativeIndicatorQuickBarChange,
@@ -208,7 +217,10 @@ function MobileMarketTradingView({
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
-  dataSource: 'websocket' | 'polling';
+  decimal: number;
+  marketPrice?: string | number;
+  historyStartTime?: number;
+  dataSource?: 'websocket' | 'polling';
   pageWidth?: number;
   onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
   onNativeSubIndicatorCountChange: (count: number | null) => void;
@@ -222,22 +234,40 @@ function MobileMarketTradingView({
     };
   }, [onIndicatorsDialogOpenChange, onInteractionOverlayOpenChange]);
 
-  return (
-    <LazyMarketTradingView
-      tokenAddress={tokenAddress}
-      networkId={networkId}
-      tokenSymbol={tokenSymbol}
-      dataSource={dataSource}
-      pageWidth={pageWidth}
-      onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
-      onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
-      maxNativeSubIndicatorCount={
-        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT
-      }
-      onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
-      onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
-    />
+  const tradingViewProps = useMemo<IMarketTradingViewProps>(
+    () => ({
+      tokenAddress,
+      networkId,
+      tokenSymbol,
+      decimal,
+      marketPrice,
+      historyStartTime,
+      dataSource,
+      pageWidth,
+      onNativeIndicatorQuickBarChange,
+      onNativeSubIndicatorCountChange,
+      maxNativeSubIndicatorCount:
+        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT,
+      onIndicatorsDialogOpenChange,
+      onInteractionOverlayOpenChange,
+    }),
+    [
+      dataSource,
+      decimal,
+      historyStartTime,
+      marketPrice,
+      networkId,
+      onIndicatorsDialogOpenChange,
+      onInteractionOverlayOpenChange,
+      onNativeIndicatorQuickBarChange,
+      onNativeSubIndicatorCountChange,
+      pageWidth,
+      tokenAddress,
+      tokenSymbol,
+    ],
   );
+
+  return <LazyMarketTradingView {...tradingViewProps} />;
 }
 
 export interface IMobileLayoutProps {
@@ -249,25 +279,20 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
     isStockToken,
   } = useTokenDetail();
-  const tokenSymbol = tokenDetail?.symbol;
+  const tokenSymbol = tokenDetail?.symbol ?? tokenDetailPreview?.symbol;
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
-  const marketTradingViewKey = marketTradingViewParams
-    ? [
-        marketTradingViewParams.networkId,
-        marketTradingViewParams.tokenAddress,
-        marketTradingViewParams.tokenSymbol,
-      ].join(':')
-    : '';
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
 
@@ -329,17 +354,8 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
   ] = useState(false);
   const [nativeIndicatorQuickBar, setNativeIndicatorQuickBar] =
     useState<ReactNode | null>(null);
-  const [tradingViewSubIndicatorState, setTradingViewSubIndicatorState] =
-    useState(() => ({
-      key: marketTradingViewKey,
-      count: MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT,
-    }));
-  const activeMarketTradingViewKeyRef = useRef(marketTradingViewKey);
-  activeMarketTradingViewKeyRef.current = marketTradingViewKey;
-  const tradingViewSubIndicatorCount =
-    tradingViewSubIndicatorState.key === marketTradingViewKey
-      ? tradingViewSubIndicatorState.count
-      : MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
+  const [tradingViewSubIndicatorCount, setTradingViewSubIndicatorCount] =
+    useState(MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT);
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
@@ -349,9 +365,10 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
 
   const handleTabChange = useCallback(
     (tabName: string) => {
+      const nextTabIndex = tabNames.indexOf(tabName);
       focusedTab.value = tabName;
       scrollViewRef.current?.scrollTo({
-        x: effectivePageWidth * tabNames.indexOf(tabName),
+        x: effectivePageWidth * nextTabIndex,
         animated: true,
       });
     },
@@ -406,21 +423,15 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
   );
   const handleNativeSubIndicatorCountChange = useCallback(
     (count: number | null) => {
-      if (activeMarketTradingViewKeyRef.current !== marketTradingViewKey) {
-        return;
-      }
-
       const nextCount =
         count === null
           ? MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT
           : normalizeTradingViewSubIndicatorCount(count);
-      setTradingViewSubIndicatorState((prevState) =>
-        prevState.key === marketTradingViewKey && prevState.count === nextCount
-          ? prevState
-          : { key: marketTradingViewKey, count: nextCount },
+      setTradingViewSubIndicatorCount((prevCount) =>
+        prevCount === nextCount ? prevCount : nextCount,
       );
     },
-    [marketTradingViewKey],
+    [],
   );
 
   const handleHeaderHorizontalSwipe = useCallback(
@@ -514,6 +525,22 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
       ? 0.16
       : 0.1;
+    const chartAreaScrollGestureProps = {
+      disabled: isTradingViewScrollLocked,
+      panActiveOffsetY: [-4, 4],
+      panFailOffsetX: chartAreaPanFailOffsetX,
+      excludeRightEdgeRatio: chartAreaExcludeRightEdgeRatio,
+      excludeBottomEdgeHeight: TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+      scrollScale: 1.2,
+      onHorizontalSwipe: chartAreaHorizontalSwipeHandler,
+      horizontalSwipeThreshold: 24,
+      horizontalSwipeVelocityThreshold: 900,
+      simultaneousWithNativeGesture: true,
+      cancelChildTouches: false,
+    } satisfies Omit<
+      IHeaderScrollGestureWrapperProps,
+      'pointerEvents' | 'style' | 'tabsContextOverride'
+    >;
 
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
@@ -529,21 +556,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
           </YStack>
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
-          <HeaderScrollGestureWrapper
-            disabled={isTradingViewScrollLocked}
-            panActiveOffsetY={[-4, 4]}
-            panFailOffsetX={chartAreaPanFailOffsetX}
-            excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
-            excludeBottomEdgeHeight={
-              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
-            }
-            scrollScale={1.2}
-            onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
-            horizontalSwipeThreshold={24}
-            horizontalSwipeVelocityThreshold={900}
-            simultaneousWithNativeGesture
-            cancelChildTouches={false}
-          >
+          <HeaderScrollGestureWrapper {...chartAreaScrollGestureProps}>
             <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
                 if (!marketTradingViewParams) {
@@ -552,10 +565,14 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
                 if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
                   return (
                     <MobileMarketTradingView
-                      key={marketTradingViewKey}
                       tokenAddress={marketTradingViewParams.tokenAddress}
                       networkId={marketTradingViewParams.networkId}
                       tokenSymbol={marketTradingViewParams.tokenSymbol}
+                      decimal={marketTradingViewParams.decimal}
+                      marketPrice={marketTradingViewParams.marketPrice}
+                      historyStartTime={
+                        marketTradingViewParams.historyStartTime
+                      }
                       dataSource={marketTradingViewParams.dataSource}
                       pageWidth={effectivePageWidth}
                       onNativeIndicatorQuickBarChange={
@@ -578,6 +595,9 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
                     tokenAddress={marketTradingViewParams.tokenAddress}
                     networkId={marketTradingViewParams.networkId}
                     tokenSymbol={marketTradingViewParams.tokenSymbol}
+                    decimal={marketTradingViewParams.decimal}
+                    marketPrice={marketTradingViewParams.marketPrice}
+                    historyStartTime={marketTradingViewParams.historyStartTime}
                     dataSource={marketTradingViewParams.dataSource}
                     pageWidth={effectivePageWidth}
                   />
@@ -615,7 +635,6 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isTradingViewScrollLocked,
-    marketTradingViewKey,
     marketTradingViewParams,
     nativeIndicatorQuickBar,
     tradingViewChartHeight,
