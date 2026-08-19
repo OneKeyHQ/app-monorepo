@@ -55,6 +55,9 @@ export function useRafCoalesced<T>(
   latestRef.current = value;
 
   const isActive = RAF_COALESCE_ENABLED && enabled;
+  const wasActiveRef = useRef(isActive);
+  const cameBackOn = isActive && !wasActiveRef.current;
+  wasActiveRef.current = isActive;
 
   // Resolve the value this render returns. Default to whatever was last emitted.
   let resolved = emitted;
@@ -62,7 +65,18 @@ export function useRafCoalesced<T>(
   if (!isActive) {
     // Switched off: hand the value straight back without touching state, so no
     // frame is scheduled and no render is queued for a result nobody reads.
-    // Keep the flush key current so re-enabling never sees a stale one.
+    // Keep the flush key current so re-enabling never sees a stale one, and
+    // drop any frame still pending from before the switch.
+    prevFlushKeyRef.current = flushKey;
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    resolved = value;
+  } else if (cameBackOn) {
+    // Switched back on: `emitted` still holds whatever was current before the
+    // hook was disabled, which by now can be an entirely different coin or tick
+    // size. Seed from the live value so the first active render never shows it.
     prevFlushKeyRef.current = flushKey;
     resolved = value;
   } else if (prevFlushKeyRef.current !== flushKey) {

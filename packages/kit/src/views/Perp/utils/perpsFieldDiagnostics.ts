@@ -22,7 +22,11 @@ export function perpsFieldDiagnostics(
   label: string,
   detail?: IPerpsFieldDiagnosticsDetail,
 ) {
-  const payload = detail ?? {};
+  // Every record is stamped here rather than at the call sites: the native log
+  // sink is shared and does not prefix JS messages with a time, so without this
+  // the exported file cannot be used to order a swipe against the chart
+  // becoming ready or against a button press.
+  const payload = { at: Date.now(), ...detail };
 
   if (!platformEnv.isNative) {
     console.log(PERPS_FIELD_DIAGNOSTICS_PREFIX, label, payload);

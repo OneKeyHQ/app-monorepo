@@ -35,8 +35,18 @@ function PerpMarketFooter() {
 
   // OK-59100 reports these buttons as unresponsive alongside the stuck
   // scroller. They render in Page.Footer, outside the Tabs container, so
-  // nothing in that scroll path should reach them — logging entry separates
-  // "the tap never arrived" from "the tap ran but goBack() did nothing".
+  // nothing in that scroll path should reach them. Press-in and press are
+  // logged separately because they fail differently: no press-in at all means
+  // the touch never reached the button, press-in without press means something
+  // claimed the gesture midway, and both firing points at goBack() instead.
+  const handleLongPressIn = useCallback(() => {
+    perpsFieldDiagnostics('marketFooter.pressIn', { side: 'long' });
+  }, []);
+
+  const handleShortPressIn = useCallback(() => {
+    perpsFieldDiagnostics('marketFooter.pressIn', { side: 'short' });
+  }, []);
+
   const handleCancel = useCallback(
     (close: () => void) => {
       perpsFieldDiagnostics('marketFooter.press', { side: 'long' });
@@ -73,6 +83,7 @@ function PerpMarketFooter() {
           justifyContent="center"
           alignItems="center"
           childrenAsText={false}
+          onPressIn={handleLongPressIn}
           onCancel={handleCancel}
         >
           <SizableText
@@ -100,6 +111,7 @@ function PerpMarketFooter() {
           justifyContent="center"
           alignItems="center"
           childrenAsText={false}
+          onPressIn={handleShortPressIn}
           onConfirm={handleConfirm}
         >
           <SizableText

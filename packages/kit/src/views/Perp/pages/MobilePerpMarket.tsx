@@ -180,11 +180,21 @@ function MobilePerpCandlesHeader({
     }
   }, []);
 
+  // OK-59100: this wrapper composes its pan with the WebView's own native
+  // recognizer, and the report is that scrolling and the footer buttons die
+  // together — which a pan that goes active and never finalizes would explain,
+  // while a content-height problem would not. The wrapper already reports both
+  // edges; it just was not wired up.
+  const handleGestureActiveChange = useCallback((active: boolean) => {
+    perpsFieldDiagnostics('chartHeaderGesture.active', { active });
+  }, []);
+
   return (
     <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
       <MobilePerpMarketHeader />
       <HeaderScrollGestureWrapper
         disabled={isInteractionOverlayOpen}
+        onGestureActiveChange={handleGestureActiveChange}
         panActiveOffsetY={[-4, 4]}
         panFailOffsetX={[-40, 40]}
         excludeRightEdgeRatio={0.1}
@@ -298,27 +308,47 @@ function MobilePerpMarket() {
       ? windowHeight
       : undefined;
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
-    perpsFieldDiagnostics('interactionOverlay.change', {
-      isOpen,
-      at: Date.now(),
-    });
+    perpsFieldDiagnostics('interactionOverlay.change', { isOpen });
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
 
-  // OK-59100 instrumentation. The two failure modes look identical to the user
-  // but are opposites in the code, so each gets its own signal:
-  //   - a drag that never reaches the scroller (no `dragBegin`) means the
-  //     gesture was swallowed upstream;
-  //   - drags that arrive while `offsetY` stays pinned at 0 mean the scroller
-  //     itself has nothing to scroll, or is disabled.
+  // OK-59100 instrumentation. "No dragBegin" on its own is ambiguous — it fits
+  // a swallowed touch, a disabled scroller, AND a scroller with no scrollable
+  // range (iOS never starts a drag it cannot move). Three signals separate
+  // them: `touchStart` says the touch reached the scroll view at all,
+  // `dragBegin` says iOS agreed to start a drag, and the range logged with it
+  // says whether there was anywhere to go.
   const orderbookScrollDiagRef = useRef({ lastLoggedAt: 0, maxOffsetY: 0 });
 
-  const handleOrderbookScrollBeginDrag = useCallback(() => {
-    perpsFieldDiagnostics('iosOrderbookTab.dragBegin', {
+  const handleOrderbookTouchStart = useCallback(() => {
+    perpsFieldDiagnostics('iosOrderbookTab.touchStart', {
       scrollEnabled: !isTradingViewInteractionOverlayOpen,
-      maxOffsetY: Math.round(orderbookScrollDiagRef.current.maxOffsetY),
     });
   }, [isTradingViewInteractionOverlayOpen]);
+
+  const handleOrderbookScrollBeginDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentSize, layoutMeasurement, contentInset, contentOffset } =
+        event.nativeEvent;
+      // iOS sizes this scroller with contentInset rather than padding, so the
+      // reachable distance includes the inset the header occupies.
+      const scrollableRange =
+        contentSize.height +
+        (contentInset?.top ?? 0) +
+        (contentInset?.bottom ?? 0) -
+        layoutMeasurement.height;
+      perpsFieldDiagnostics('iosOrderbookTab.dragBegin', {
+        scrollEnabled: !isTradingViewInteractionOverlayOpen,
+        offsetY: Math.round(contentOffset.y),
+        contentHeight: Math.round(contentSize.height),
+        viewportHeight: Math.round(layoutMeasurement.height),
+        insetTop: Math.round(contentInset?.top ?? 0),
+        scrollableRange: Math.round(scrollableRange),
+        maxOffsetY: Math.round(orderbookScrollDiagRef.current.maxOffsetY),
+      });
+    },
+    [isTradingViewInteractionOverlayOpen],
+  );
 
   const handleOrderbookScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -668,6 +698,7 @@ function MobilePerpMarket() {
                       scrollEnabled={!isTradingViewInteractionOverlayOpen}
                       showsVerticalScrollIndicator={false}
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                      onTouchStart={handleOrderbookTouchStart}
                       onScrollBeginDrag={handleOrderbookScrollBeginDrag}
                       onScroll={handleOrderbookScroll}
                       // Sampling only has to answer "does the offset move at

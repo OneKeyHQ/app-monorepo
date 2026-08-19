@@ -883,8 +883,8 @@ export function OrderBook({
   // render each time, which is what made the book read as slower when the rows
   // were first bundled in. Switch it off there rather than discarding its
   // result, or the frame and the state update are still paid for. Desktop keeps
-  // it: its L2 feed has no such throttle, which is the case REACT-NATIVE-1JZ
-  // was written for.
+  // it: it has no 200ms snapshot, only the 50ms main-runtime throttle, so bursts
+  // can still land within one frame — the case REACT-NATIVE-1JZ was written for.
   const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch, !isMobileVariant);
   const askLadder = useRafCoalesced(askLadderRaw, depthEpoch, !isMobileVariant);
   const bidPercents = bidLadder.percents;
