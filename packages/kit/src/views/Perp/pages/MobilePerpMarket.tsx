@@ -324,14 +324,17 @@ function MobilePerpMarket() {
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
       const state = orderbookScrollDiagRef.current;
+      // Track the peak on every event, but gate writes on time alone. Combining
+      // the two would defeat the throttle: during a downward drag each offset
+      // beats the previous peak, so the log would fire at scrollEventThrottle
+      // rate and the diagnostic itself would load the very gesture it is meant
+      // to observe.
+      state.maxOffsetY = Math.max(state.maxOffsetY, offsetY);
       const now = Date.now();
-      // One line per 500ms is enough to tell a moving offset from a pinned one,
-      // and keeps the exported log readable.
-      if (now - state.lastLoggedAt < 500 && offsetY <= state.maxOffsetY) {
+      if (now - state.lastLoggedAt < 500) {
         return;
       }
       state.lastLoggedAt = now;
-      state.maxOffsetY = Math.max(state.maxOffsetY, offsetY);
       perpsFieldDiagnostics('iosOrderbookTab.scroll', {
         offsetY: Math.round(offsetY),
         maxOffsetY: Math.round(state.maxOffsetY),
@@ -667,7 +670,11 @@ function MobilePerpMarket() {
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
                       onScrollBeginDrag={handleOrderbookScrollBeginDrag}
                       onScroll={handleOrderbookScroll}
-                      scrollEventThrottle={16}
+                      // Sampling only has to answer "does the offset move at
+                      // all", so keep the JS callback well below frame rate —
+                      // the diagnostic must not add load to the gesture it is
+                      // measuring.
+                      scrollEventThrottle={100}
                       onContentSizeChange={handleOrderbookContentSizeChange}
                     >
                       <YStack

@@ -37,8 +37,16 @@ const RAF_COALESCE_ENABLED = true;
  * it changes, the latest value is emitted synchronously within the same render.
  * The order book passes its depth epoch (coin / tick-size / empty<->full switch)
  * so the native view never snaps to a stale previous-frame array.
+ *
+ * `enabled` (optional) turns the whole mechanism off. Callers already fed by a
+ * throttled upstream have nothing to coalesce, and leaving it on would still
+ * schedule a frame and a state update per change for a value they discard.
  */
-export function useRafCoalesced<T>(value: T, flushKey?: unknown): T {
+export function useRafCoalesced<T>(
+  value: T,
+  flushKey?: unknown,
+  enabled = true,
+): T {
   const [emitted, setEmitted] = useState<T>(value);
   const latestRef = useRef<T>(value);
   const frameRef = useRef<number | null>(null);
@@ -46,10 +54,16 @@ export function useRafCoalesced<T>(value: T, flushKey?: unknown): T {
 
   latestRef.current = value;
 
+  const isActive = RAF_COALESCE_ENABLED && enabled;
+
   // Resolve the value this render returns. Default to whatever was last emitted.
   let resolved = emitted;
 
-  if (!RAF_COALESCE_ENABLED) {
+  if (!isActive) {
+    // Switched off: hand the value straight back without touching state, so no
+    // frame is scheduled and no render is queued for a result nobody reads.
+    // Keep the flush key current so re-enabling never sees a stale one.
+    prevFlushKeyRef.current = flushKey;
     resolved = value;
   } else if (prevFlushKeyRef.current !== flushKey) {
     // flushKey changed (coin / tick / empty switch): emit the latest value
@@ -65,12 +79,12 @@ export function useRafCoalesced<T>(value: T, flushKey?: unknown): T {
   // "Adjust state during render" pattern: when the resolved value diverges from
   // committed state, request a re-render so the committed value catches up.
   // React re-runs this component immediately without painting the stale state.
-  if (resolved !== emitted) {
+  if (isActive && resolved !== emitted) {
     setEmitted(resolved);
   }
 
   useEffect(() => {
-    if (!RAF_COALESCE_ENABLED) {
+    if (!isActive) {
       return undefined;
     }
 
@@ -90,7 +104,7 @@ export function useRafCoalesced<T>(value: T, flushKey?: unknown): T {
     });
 
     return undefined;
-  }, [emitted, value]);
+  }, [emitted, isActive, value]);
 
   useEffect(
     () => () => {
