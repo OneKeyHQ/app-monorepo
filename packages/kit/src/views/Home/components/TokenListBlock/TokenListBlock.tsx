@@ -144,6 +144,10 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import {
+  countFundedHardwarePortfolioTokens,
+  selectHardwarePortfolioTokens,
+} from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -1845,19 +1849,23 @@ function TokenListBlock({
           ...snapshot.mergeTokenListMap,
           ...flattenedAggregateTokenMap,
         };
-        const portfolioTokens = [
-          ...snapshot.orderedTokens,
-          ...snapshot.smallBalanceTokens,
-        ].filter((token) =>
-          new BigNumber(
-            portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
-          ).isGreaterThan(0),
-        );
+        const portfolioTokens = selectHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
+          ...cellsNonZeroInputs,
+        });
+        // keepDefault includes zero-balance natives so the device matches Home.
+        // The empty-snapshot defer still needs a strict funded count, otherwise
+        // incomplete aggregation would upload those defaults too early.
+        const fundedTokenCount = countFundedHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: portfolioTokens,
+        });
 
         if (
           !shouldDeferEmptyHardwarePortfolioSync({
             aggregationComplete: assetStatusAggregationComplete,
-            totalTokenCount: portfolioTokens.length,
+            totalTokenCount: fundedTokenCount,
           })
         ) {
           void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
@@ -1921,6 +1929,7 @@ function TokenListBlock({
     account?.id,
     account?.indexedAccountId,
     accountName,
+    cellsNonZeroInputs,
     device?.connectId,
     device?.deviceType,
     device?.id,

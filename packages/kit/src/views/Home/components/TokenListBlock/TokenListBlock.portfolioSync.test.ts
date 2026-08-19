@@ -34,6 +34,8 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
     expect(buildIndex).toBeLessThan(sendToBackgroundIndex);
+    expect(source).toContain('countFundedHardwarePortfolioTokens');
+    expect(source).toContain('totalTokenCount: fundedTokenCount');
     expect(emptySnapshotGateIndex).toBeGreaterThan(buildIndex);
     expect(emptySnapshotGateIndex).toBeLessThan(sendToBackgroundIndex);
     expect(source).not.toContain(

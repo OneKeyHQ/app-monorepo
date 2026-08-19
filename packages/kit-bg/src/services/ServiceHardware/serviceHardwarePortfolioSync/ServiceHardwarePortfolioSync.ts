@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { debounce, uniq } from 'lodash';
 
 import {
@@ -9,6 +9,7 @@ import {
   BluetoothUnavailableWhileUsbConnectedError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -56,6 +57,7 @@ export type IPortfolioSyncStatus =
   | 'disconnected'
   | 'desktop-suspended'
   | 'ble-suspended'
+  | 'device-locked'
   | 'uploaded';
 
 export type IPortfolioSyncLastResult = {
@@ -139,6 +141,47 @@ function stringifyLogValue(value: unknown) {
   }
 }
 
+const DEVICE_LOCKED_MESSAGE = /device(?: is)? locked/i;
+const DEVICE_RESETTING_MESSAGE = /device is resetting/i;
+
+function collectErrorText(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return typeof error === 'string' ? error : '';
+  }
+  const record = error as {
+    message?: unknown;
+    payload?: { message?: unknown; firmwareMessage?: unknown };
+  };
+  return [
+    record.message,
+    record.payload?.message,
+    record.payload?.firmwareMessage,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join('\n');
+}
+
+function isSilentUploadBlockedByDevice(error: unknown): boolean {
+  if (
+    isHardwareErrorByCode({
+      error: error as never,
+      code: HardwareErrorCode.DeviceLocked,
+    })
+  ) {
+    return true;
+  }
+  const text = collectErrorText(error);
+  return (
+    DEVICE_LOCKED_MESSAGE.test(text) || DEVICE_RESETTING_MESSAGE.test(text)
+  );
+}
+
+function isDeviceStateLocked(state: {
+  status?: { unlocked?: boolean | null };
+}): boolean {
+  return state.status?.unlocked !== true;
+}
+
 function debugPortfolioSyncLog(label: string, value?: unknown) {
   if (process.env.NODE_ENV === 'production') {
     return;
@@ -188,6 +231,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   >();
 
   private pendingDisconnectedPayloadByTargetKey = new Map<
+    string,
+    IPortfolioSyncSettledPayload
+  >();
+
+  private pendingLockedPayloadByTargetKey = new Map<
     string,
     IPortfolioSyncSettledPayload
   >();
@@ -732,6 +780,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         targetKey,
       });
       this.scheduleDesktopBleIdleSync({ targetKey });
+      this.replayLockedPortfolioSnapshot(targetKey);
       return true;
     }
     if (!platformEnv.isNative) {
@@ -757,6 +806,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         targetKey,
       });
 
+      this.replayLockedPortfolioSnapshot(targetKey);
       const pendingPayload =
         this.pendingMobileBlePayloadByTargetKey.get(targetKey);
       if (!pendingPayload) {
@@ -813,7 +863,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     eventPayload: IPortfolioSyncSettledPayload;
     hardwareTransportType?: EHardwareTransportType;
     targetKey: string;
-  }): Promise<'verified' | 'unavailable' | 'mismatch'> {
+  }): Promise<'verified' | 'unavailable' | 'mismatch' | 'locked'> {
     const deviceDbId = eventPayload.deviceDbId;
     if (!deviceDbId) {
       return 'mismatch';
@@ -845,21 +895,33 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     } else if (
       this.verifiedDeviceIdByTargetKey.get(targetKey) === expectedDeviceId
     ) {
-      return 'verified';
+      return this.getSilentUploadLockStatus({
+        desktopBleExecution,
+        deviceConnectId,
+        hardwareTransportType,
+      });
     }
 
-    const state = await this.backgroundApi.serviceHardware.getDeviceState({
-      connectId: deviceConnectId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-      ...(desktopBleExecution
-        ? {
-            desktopBleReuseConnectedOnly: true,
-          }
-        : {}),
-      ...(hardwareTransportType ? { hardwareTransportType } : {}),
-      params: { scope: 'firmware' },
-      silentMode: true,
-    });
+    let state;
+    try {
+      state = await this.backgroundApi.serviceHardware.getDeviceState({
+        connectId: deviceConnectId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        ...(desktopBleExecution
+          ? {
+              desktopBleReuseConnectedOnly: true,
+            }
+          : {}),
+        ...(hardwareTransportType ? { hardwareTransportType } : {}),
+        params: { scope: 'firmware' },
+        silentMode: true,
+      });
+    } catch (error) {
+      if (isSilentUploadBlockedByDevice(error)) {
+        return 'locked';
+      }
+      throw error;
+    }
     const liveDeviceId = state.identity?.deviceId;
     const isPro2LoaderIdentityUnavailable =
       device?.deviceType === EDeviceType.Pro2 &&
@@ -883,7 +945,72 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     if (canCacheVerifiedDeviceId) {
       this.verifiedDeviceIdByTargetKey.set(targetKey, expectedDeviceId);
     }
-    return 'verified';
+    return isDeviceStateLocked(state) ? 'locked' : 'verified';
+  }
+
+  private async getSilentUploadLockStatus({
+    desktopBleExecution,
+    deviceConnectId,
+    hardwareTransportType,
+  }: {
+    desktopBleExecution?: IDesktopBleSyncExecution;
+    deviceConnectId: string;
+    hardwareTransportType?: EHardwareTransportType;
+  }): Promise<'verified' | 'locked'> {
+    try {
+      const state = await this.backgroundApi.serviceHardware.getDeviceState({
+        connectId: deviceConnectId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        ...(desktopBleExecution
+          ? {
+              desktopBleReuseConnectedOnly: true,
+            }
+          : {}),
+        ...(hardwareTransportType ? { hardwareTransportType } : {}),
+        params: { scope: 'runtime' },
+        silentMode: true,
+      });
+      return isDeviceStateLocked(state) ? 'locked' : 'verified';
+    } catch (error) {
+      if (isSilentUploadBlockedByDevice(error)) {
+        return 'locked';
+      }
+      throw error;
+    }
+  }
+
+  private handleDeviceLockedSkip({
+    eventPayload,
+    targetKey,
+  }: {
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }) {
+    if (eventPayload.deviceConnectId) {
+      this.cancelHardwareBusyRetry(eventPayload.deviceConnectId);
+    }
+    this.pendingLockedPayloadByTargetKey.set(targetKey, eventPayload);
+    debugPortfolioSyncLog('skip-device-locked', {
+      deviceConnectId: eventPayload.deviceConnectId,
+      targetKey,
+      walletId: eventPayload.walletId,
+    });
+    this.setLastResult({
+      deviceConnectId: eventPayload.deviceConnectId,
+      status: 'device-locked',
+      totalTokenCount: eventPayload.tokens.length,
+      updatedAt: Date.now(),
+      walletId: eventPayload.walletId,
+    });
+  }
+
+  private replayLockedPortfolioSnapshot(targetKey: string) {
+    const pendingPayload = this.pendingLockedPayloadByTargetKey.get(targetKey);
+    if (!pendingPayload) {
+      return;
+    }
+    this.pendingLockedPayloadByTargetKey.delete(targetKey);
+    this.handleAllNetworksTokenListSettled(pendingPayload);
   }
 
   private async isDeviceIdentityMismatchPending({
@@ -1040,6 +1167,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
         this.handleAllNetworksTokenListSettled(pendingPayload);
       }
+      this.replayLockedPortfolioSnapshot(targetKey);
     }
   }
 
@@ -1216,6 +1344,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       platformEnv.isNative
     ) {
       await this.suspendMobileBleSilentSync({ eventPayload, targetKey });
+      return;
+    }
+    if (eventPayload && isSilentUploadBlockedByDevice(error)) {
+      this.handleDeviceLockedSkip({ eventPayload, targetKey });
       return;
     }
     if (!this.isCurrentSyncGeneration(targetKey, generation)) {
@@ -1720,6 +1852,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
         if (deviceIdentityStatus === 'unavailable') {
           this.handleDeviceIdentityUnavailable({ eventPayload, targetKey });
+        } else if (deviceIdentityStatus === 'locked') {
+          this.handleDeviceLockedSkip({ eventPayload, targetKey });
         } else {
           this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
         }

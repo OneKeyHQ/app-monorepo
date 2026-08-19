@@ -24,4 +24,11 @@ describe('atomsConfig', () => {
       atomsConfig[EAtomNames.perpsDepositOrderAtom]?.mergeInitialValue,
     ).toBe(false);
   });
+
+  it('replaces firmware update dev settings instead of merging target arrays', () => {
+    expect(
+      atomsConfig[EAtomNames.firmwareUpdateDevSettingsPersistAtom]
+        ?.mergeInitialValue,
+    ).toBe(false);
+  });
 });

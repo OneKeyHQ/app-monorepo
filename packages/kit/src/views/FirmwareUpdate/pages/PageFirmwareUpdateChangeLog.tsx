@@ -6,6 +6,7 @@ import {
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
@@ -31,6 +32,7 @@ import {
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -92,7 +94,9 @@ function PageFirmwareUpdateChangeLog() {
         setStepInfo({
           step: EFirmwareUpdateSteps.checkReleaseError,
           payload: {
-            error: toPlainErrorObject(error as any),
+            error: toUserFacingFirmwareUpdateError(
+              toPlainErrorObject(error as any),
+            ),
           },
         });
       }
@@ -106,6 +110,14 @@ function PageFirmwareUpdateChangeLog() {
   const shouldShowChangeLog =
     stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
     stepInfo.step === EFirmwareUpdateSteps.showCheckList;
+  const isWorkflowError =
+    stepInfo.step === EFirmwareUpdateSteps.error ||
+    stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
+
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: () =>
+      backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow(),
+  });
 
   const content = useMemo(() => {
     if (isLoading) {
@@ -158,13 +170,7 @@ function PageFirmwareUpdateChangeLog() {
   ]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateChangeLog unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout
         headerTitle={
           shouldShowChangeLog ? (
@@ -172,8 +178,7 @@ function PageFirmwareUpdateChangeLog() {
           ) : undefined
         }
         containerStyle={{
-          p:
-            stepInfo.step === EFirmwareUpdateSteps.checkReleaseError ? '$5' : 0,
+          p: isWorkflowError ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />

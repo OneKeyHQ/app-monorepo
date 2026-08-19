@@ -76,6 +76,7 @@ import {
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
 import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
 let globalShowDeviceProgressDialogEnabled = true;
@@ -644,22 +645,13 @@ function HardwareUiStateContainerCmpControlled() {
     [],
   );
 
-  const shouldSkipCancel = useMemo(() => {
-    // TODO atom firmware is updating
-    if (
-      action &&
-      [
-        EHardwareUiStateAction.FIRMWARE_TIP,
-        EHardwareUiStateAction.FIRMWARE_PROGRESS,
-        EHardwareUiStateAction.FIRMWARE_PROCESSING,
-        EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
-      ].includes(action)
-    ) {
-      return true;
-    }
-
-    return false;
-  }, [action]);
+  const shouldSkipCancel = useMemo(
+    () =>
+      shouldSkipHardwareDeviceCancel({
+        action,
+      }),
+    [action],
+  );
 
   const shouldSkipCancelRef = useRef(shouldSkipCancel);
   shouldSkipCancelRef.current = shouldSkipCancel;
@@ -740,6 +732,7 @@ function HardwareUiStateContainerCmpControlled() {
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            deviceType: state?.payload?.deviceType,
           });
         }
       }}
@@ -781,6 +774,7 @@ function HardwareUiStateContainerCmpControlled() {
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            deviceType: state?.payload?.deviceType,
           });
         }
       }}

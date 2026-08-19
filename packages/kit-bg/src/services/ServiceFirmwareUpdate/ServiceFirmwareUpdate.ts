@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -2412,13 +2413,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     error: unknown;
   }) {
     const err = toPlainErrorObject(error as any);
+    const displayError = toUserFacingFirmwareUpdateError(err);
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
     await firmwareUpdateStepInfoAtom.set({
       step: EFirmwareUpdateSteps.error,
       payload: {
-        error: err,
+        error: displayError,
       },
     });
 
@@ -2795,7 +2797,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
       await firmwareUpdateRetryAtom.set({
         id,
-        error: toPlainErrorObject(error as any),
+        error: toUserFacingFirmwareUpdateError(
+          toPlainErrorObject(error as any),
+        ),
       });
 
       await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
