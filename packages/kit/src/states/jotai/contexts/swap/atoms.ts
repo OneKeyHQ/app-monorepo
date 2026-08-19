@@ -757,6 +757,19 @@ export const {
   use: useSwapNativeTokenReserveGasAtom,
 } = contextAtom<ISwapNativeTokenReserveGas[]>([]);
 
+// OK-55190: session-scoped markers that the user manually picked tokens in the
+// current mode. They gate the one-shot token carry-over when switching between
+// ordinary Swap and the native Pro tab, and are consumed by that switch.
+export const {
+  atom: swapUserSelectedTokensAtom,
+  use: useSwapUserSelectedTokensAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapProUserSelectedTokenAtom,
+  use: useSwapProUserSelectedTokenAtom,
+} = contextAtom<boolean>(false);
+
 // swap pro
 export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);

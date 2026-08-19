@@ -10,6 +10,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapActions,
   useSwapProSelectTokenAtom,
+  useSwapProUserSelectedTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,6 +46,7 @@ const SwapProSelectTokenPage = ({
   const intl = useIntl();
   const { setSwapProSelectToken } = useSwapActions().current;
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
+  const [, setSwapProUserSelectedToken] = useSwapProUserSelectedTokenAtom();
   const [selectedNetworkId, setSelectedNetworkId] = useState<
     string | undefined
   >(swapProTokenSelect?.networkId ?? 'evm--1');
@@ -77,6 +79,9 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
+    // OK-55190: a manual Pro target-token pick arms the Pro -> Swap
+    // carry-over marker.
+    setSwapProUserSelectedToken(true);
     void setSwapProSelectToken({
       networkId: token.networkId,
       contractAddress: token.address,
@@ -109,6 +114,8 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
+    // OK-55190: see handleTokenSelect — arm the Pro -> Swap carry marker.
+    setSwapProUserSelectedToken(true);
     void setSwapProSelectToken({
       networkId: token.network,
       contractAddress: token.address,

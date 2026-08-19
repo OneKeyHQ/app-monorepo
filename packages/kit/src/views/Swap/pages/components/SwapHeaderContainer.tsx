@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarry } from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -151,6 +152,8 @@ const SwapHeaderContainer = ({
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const { carrySwapTokenToPro, prepareProTokenCarryToSwap } =
+    useSwapProTokenCarry({ accountNetworkId: networkId });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -284,15 +287,38 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
+        if (platformEnv.isNative && newType === ESwapTabSwitchType.LIMIT) {
+          // OK-55190: seed the Pro target token from the ordinary Swap
+          // selection before the tab state flips.
+          await carrySwapTokenToPro();
+        }
         void swapTypeSwitchAction(newType, networkId);
       } else {
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+        // OK-55190: leaving the native Pro tab, carry the Pro target token
+        // back into Swap after the switch action has applied its own
+        // last-non-limit token restores. Explicitly gated to the SWAP target
+        // so a future non-swap tab leaving LIMIT never consumes the marker.
+        const proCarry =
+          platformEnv.isNative &&
+          swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+          newType === ESwapTabSwitchType.SWAP
+            ? await prepareProTokenCarryToSwap()
+            : undefined;
+        if (proCarry?.targetNetworkId) {
+          await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
+        } else if (fromToken?.networkId && fromToken?.networkId !== networkId) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
+        await swapTypeSwitchAction(
+          newType,
+          proCarry?.targetNetworkId ?? (fromToken?.networkId || networkId),
+        );
+        await proCarry?.apply();
       }
     },
     [
+      carrySwapTokenToPro,
+      prepareProTokenCarryToSwap,
       swapTypeSwitch,
       swapTypeSwitchAction,
       syncRouteTabParam,

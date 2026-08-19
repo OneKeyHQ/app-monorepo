@@ -41,6 +41,7 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapProUserSelectedTokenAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -240,6 +241,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapStepData] = useSwapStepsAtom();
   const { setSwapProSelectToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [, setSwapProUserSelectedToken] = useSwapProUserSelectedTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -1206,6 +1208,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         return;
       }
       if (focusSwapPro) {
+        // OK-55190: a manual Pro target-token pick arms the Pro -> Swap
+        // carry-over marker.
+        setSwapProUserSelectedToken(true);
         void setSwapProSelectToken(token);
       } else {
         if (
@@ -1227,6 +1232,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       focusSwapPro,
       selectFromToken,
       setSwapProSelectToken,
+      setSwapProUserSelectedToken,
       setSwapSelectToToken,
     ],
   );
