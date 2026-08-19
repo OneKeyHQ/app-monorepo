@@ -3032,6 +3032,7 @@
   "perp_market_info_raw_source__title": "原始资料",
   "perp_market_info_raw_source_tooltip__desc": "当前展示第三方原始资料，暂未接入自动翻译。",
   "perp_market_info_reference_note__desc": "基础数据由第三方提供，为全局市场数据，仅供参考，可能与 Hyperliquid 的交易价格、成交量等数据不同。此信息以“原样”呈现，不构成任何形式的陈述或保证。",
+  "perp_holdings_hide_below_amount__action": "隐藏价值低于 {amount} 的持仓",
   "perp_market_info_social_media__title": "社交媒体",
   "perp_market_info_total_supply_tooltip__desc": "当前已发行的代币总量。",
   "perp_market_liquidation__title": "市价清算",
