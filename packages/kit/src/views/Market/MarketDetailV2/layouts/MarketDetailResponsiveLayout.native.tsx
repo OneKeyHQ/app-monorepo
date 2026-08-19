@@ -4,6 +4,8 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 
 export function MarketDetailResponsiveLayout({
   disableTrade,
+  isTradingViewNative,
+  onChartSwitch,
   isNative,
   networkId,
   tokenAddress,
@@ -11,6 +13,8 @@ export function MarketDetailResponsiveLayout({
   return (
     <MobileLayout
       disableTrade={disableTrade}
+      isTradingViewNative={isTradingViewNative}
+      onChartSwitch={onChartSwitch}
       isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
