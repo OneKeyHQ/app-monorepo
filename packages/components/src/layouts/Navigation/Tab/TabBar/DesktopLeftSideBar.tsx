@@ -16,7 +16,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -644,7 +643,6 @@ export function DesktopLeftSideBar({
 }) {
   const { routes } = state;
   const { top } = useSafeAreaInsets(); // used for ipad
-  const theme = useTheme();
   const handleTabPress = useTabAction(navigation);
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
@@ -722,15 +720,6 @@ export function DesktopLeftSideBar({
     ? isRouteActive(deviceRoute, focusedRouteName, extraConfig?.name)
     : false;
 
-  const containerStyle = useMemo(
-    () => ({
-      backgroundColor: theme.bgSidebar.val,
-      paddingTop: top,
-      zIndex: 2,
-    }),
-    [theme.bgSidebar.val, top],
-  );
-
   const handleDevicePress = useCallback(() => {
     if (!deviceRoute) return;
     handleTabPress(deviceRoute, isDeviceActive);
@@ -743,7 +732,12 @@ export function DesktopLeftSideBar({
   }, [deviceRoute, isDeviceActive, handleTabPress, descriptors]);
 
   return (
-    <XStack testID="Desktop-AppSideBar-Container" style={containerStyle}>
+    <XStack
+      testID="Desktop-AppSideBar-Container"
+      bg="$bgSidebar"
+      pt={top}
+      zIndex={2}
+    >
       <YStack w={MIN_SIDEBAR_WIDTH}>
         {/* eslint-disable no-nested-ternary */}
         {platformEnv.isDesktopMac ? (

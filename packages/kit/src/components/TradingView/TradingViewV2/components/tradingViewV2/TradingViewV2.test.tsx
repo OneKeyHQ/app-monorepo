@@ -11,6 +11,8 @@ import type {
   ITradingViewNativeChartControlsConfigData,
 } from '../../types';
 
+const mockSyncTradingViewTheme = jest.fn();
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -28,6 +30,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/TradingView/hooks', () => ({
+  syncTradingViewTheme: (...args: unknown[]) => {
+    mockSyncTradingViewTheme(...args);
+  },
   useNavigationHandler: () => ({
     handleNavigation: () => true,
     originWhitelist: ['https://tradingview.onekey.so'],
@@ -228,6 +233,7 @@ describe('TradingViewV2 native source discovery', () => {
     mockWebViewProps.length = 0;
     mockUseAutoKLineUpdate.mockClear();
     mockUseAutoTokenDetailUpdate.mockClear();
+    mockSyncTradingViewTheme.mockClear();
     mockUseMarketSymbolSync.mockClear();
     mockUseMarketTradingViewFrameIdentity.mockReset();
     mockUseMarketTradingViewFrameIdentity.mockImplementation(
@@ -270,6 +276,38 @@ describe('TradingViewV2 native source discovery', () => {
     );
 
     expect(screen.getByTestId('trading-view-webview')).toBeTruthy();
+  });
+
+  it('syncs the current theme when the WebView finishes loading', () => {
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const webViewRef = { innerRef: {} };
+
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: Record<string, unknown>) => void)
+          | undefined
+      )?.(webViewRef);
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    });
+
+    expect(mockSyncTradingViewTheme).toHaveBeenLastCalledWith(
+      webViewRef,
+      'dark',
+    );
   });
 
   it('uses the minimal native chart bridge without the wallet provider', () => {

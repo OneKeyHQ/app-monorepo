@@ -11,6 +11,7 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
 import {
+  syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
@@ -301,6 +302,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isRouteFocused = useRouteIsFocused();
@@ -1142,6 +1145,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useTradingViewUrl({
       additionalParams: staticAdditionalParams,
       disabledFeatures,
+      theme,
     });
   const { handleNavigation, originWhitelist } =
     useNavigationHandler(staticTradingViewUrl);
@@ -1297,6 +1301,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     enabled: isVisible,
   });
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   useEffect(() => {
     marksTimeRange.current = null;
@@ -1635,6 +1643,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadEnd = useCallback(
     (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      syncTradingViewTheme(webRef.current, latestThemeRef.current);
       const loadGeneration = webViewLoadGeneration.current;
       if (
         capabilityHandshakeSettledGenerationRef.current !== loadGeneration &&
@@ -1749,7 +1758,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
+        key={tradingViewUrlWithParams}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
@@ -1786,13 +1795,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
-      handleLoadStart,
       handleLoadEnd,
+      handleLoadStart,
       handleContentProcessDidTerminate,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
       originWhitelist,
-      theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],
