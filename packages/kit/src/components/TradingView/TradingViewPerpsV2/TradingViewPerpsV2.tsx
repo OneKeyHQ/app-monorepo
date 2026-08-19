@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
+import { perpsFieldDiagnostics } from '@onekeyhq/kit/src/views/Perp/utils/perpsFieldDiagnostics';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -348,6 +349,18 @@ export function TradingViewPerpsV2(
       onInteractionOverlayOpenChange?.(false);
     }
   }, [isChartContentReady, onInteractionOverlayOpenChange]);
+
+  // OK-59100 is reported as "swipe while the chart has not loaded yet", so
+  // readiness is the anchor every other record is read against — without it a
+  // log cannot say whether a drag happened inside the window the report
+  // describes. The webview key moves on reload, which separates a first load
+  // from a recovery.
+  useEffect(() => {
+    perpsFieldDiagnostics('chart.readyChange', {
+      isChartContentReady,
+      webviewKey: _webviewKey,
+    });
+  }, [_webviewKey, isChartContentReady]);
 
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
