@@ -11,24 +11,30 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  StockMarketStatusAlert,
-  getStockMarketClosedDescription,
-  isStockMarketClosed,
-  resolveStockMarketStatusCase,
-} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { SwapProviderMirror } from '@onekeyhq/kit/src/views/Swap/pages/SwapProviderMirror';
+import {
+  createGasAccountReviewSession,
+  logGasAccountReviewExit,
+  markGasAccountReviewSubmitted,
+} from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import {
+  EJotaiContextStoreNames,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
+  ESwapSlippageSegmentKey,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -36,6 +42,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
   EMarketPresetTradeSide,
+  getMarketNonPresetSlippageValue,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
@@ -56,13 +63,12 @@ interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
 }
 
-export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
+function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
   const {
     networkId,
     tokenAddress,
     isNative: currentMarketTokenIsNative,
     tokenDetail,
-    perpsInfo,
     isReady,
   } = useTokenDetail();
   const intl = useIntl();
@@ -100,7 +106,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     supportSpeedSwap: originalSupportSpeedSwap,
     onlySupportCrossChain,
     defaultTokens,
-    provider,
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '', true);
   const marketPresetSettings = useMarketPresetSettings({
@@ -113,6 +118,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     speedConfig,
     speedConfigReady,
   });
+  const [
+    { swapSlippagePercentageCustomValue, swapSlippagePercentageMode },
+    setSettings,
+  ] = useSettingsAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { result: accountNetworkNotSupported } = usePromiseResult(
@@ -227,7 +236,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
-    spenderAddress: speedConfig.spenderAddress,
+    // Market status never gates quoting. A live open-state flip only refreshes
+    // the current provider quote so a server-reported closed error can recover.
+    stockIsOpen: tokenDetail?.stock?.isOpen,
     marketToken: {
       networkId: networkId || '',
       contractAddress: tokenDetail?.address || '',
@@ -248,7 +259,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       currency: paymentToken?.currency,
       isNative: paymentToken?.isNative || false,
     },
-    provider,
     tradeType: tradeType || ESwapDirection.BUY,
     fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
@@ -269,12 +279,20 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     balanceToken,
     fetchBalanceLoading,
     priceRate,
+    quoteResult,
+    quoteList,
+    quoteActionLoading,
+    quoteError,
+    quoteReadyForReview,
+    quoteNeedsRefresh,
+    refreshMarketQuote,
+    paymentTokenPrice,
     swapNativeTokenReserveGas,
     isWrapped,
-    speedCheckError,
-    speedCheckLoading,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
+    rebuildMarketSwapReview,
+    logMarketReviewGasAccountDecision,
     sendMarketApproveTx,
     sendMarketSwapTx,
     sendMarketWrappedTx,
@@ -463,16 +481,57 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   ]);
 
   useEffect(() => {
-    if (marketPresetSettings.enabled || !speedConfig?.slippage) {
+    if (marketPresetSettings.enabled) {
       return;
     }
 
-    setSlippage(speedConfig.slippage);
-  }, [marketPresetSettings.enabled, speedConfig?.slippage, setSlippage]);
+    const savedSlippage = getMarketNonPresetSlippageValue({
+      mode: swapSlippagePercentageMode,
+      customValue: swapSlippagePercentageCustomValue,
+      defaultSlippage: speedConfig?.slippage,
+    });
+    if (savedSlippage !== undefined) {
+      setSlippage(savedSlippage);
+    }
+  }, [
+    marketPresetSettings.enabled,
+    setSlippage,
+    speedConfig?.slippage,
+    swapSlippagePercentageCustomValue,
+    swapSlippagePercentageMode,
+  ]);
+
+  const saveMarketSlippageForFutureOrders = useCallback(
+    async (slippagePercentage: number) => {
+      setSlippage(slippagePercentage);
+      if (!marketPresetSettings.enabled) {
+        setSettings((prev) => ({
+          ...prev,
+          swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+          swapSlippagePercentageCustomValue: slippagePercentage,
+        }));
+        return;
+      }
+      await marketPresetSettings.onSavePresetDirectionSettings({
+        presetKey: marketPresetSettings.selectedPresetKey,
+        tradeSide: marketPresetSettings.tradeSide,
+        settings: {
+          ...marketPresetSettings.selectedDirectionSettings,
+          slippage: {
+            key: ESwapSlippageSegmentKey.CUSTOM,
+            value: slippagePercentage,
+          },
+        },
+      });
+    },
+    [marketPresetSettings, setSettings, setSlippage],
+  );
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
     () => ({
       prepareReview: prepareMarketSwapReview,
+      rebuildReview: rebuildMarketSwapReview,
+      saveSlippageForFutureOrders: saveMarketSlippageForFutureOrders,
       sendApproveTx: sendMarketApproveTx,
       sendSwapTx: sendMarketSwapTx,
       sendWrappedTx: sendMarketWrappedTx,
@@ -482,6 +541,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     [
       buildMarketApproveInfos,
       prepareMarketSwapReview,
+      rebuildMarketSwapReview,
+      saveMarketSlippageForFutureOrders,
       sendMarketApproveTx,
       sendMarketSwapTx,
       sendMarketWrappedTx,
@@ -514,11 +575,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       speedSwapBuildTxLoading ||
       swapApprovingMatchLoading ||
       checkTokenAllowanceLoading ||
-      speedCheckLoading
+      quoteActionLoading
     );
   }, [
     checkTokenAllowanceLoading,
-    speedCheckLoading,
+    quoteActionLoading,
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
   ]);
@@ -530,6 +591,12 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         isReviewOpening ||
         marketPresetSettings.isLoading
       ) {
+        return;
+      }
+      if (!isWrap && !quoteReadyForReview) {
+        if (quoteNeedsRefresh) {
+          refreshMarketQuote();
+        }
         return;
       }
 
@@ -556,6 +623,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           void previousDialog.close();
         }
         setIsReviewDialogOpen(true);
+        const gasAccountReviewSession = createGasAccountReviewSession();
         let dialog: IDialogInstance | null = null;
         dialog = inPageDialog.show({
           title: intl.formatMessage({
@@ -568,6 +636,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
             if (reviewDialogRef.current !== dialog) {
               return;
             }
+            logGasAccountReviewExit(gasAccountReviewSession);
             reviewDialogRef.current = null;
             setIsReviewDialogOpen(false);
           },
@@ -578,6 +647,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
               showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}
               reviewState={nextReviewState}
+              onConfirmStart={() =>
+                markGasAccountReviewSubmitted(gasAccountReviewSession)
+              }
               onDone={() => void dialog?.close()}
             />
           ),
@@ -588,6 +660,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           return;
         }
         reviewDialogRef.current = dialog;
+        gasAccountReviewSession.analyticsContext =
+          logMarketReviewGasAccountDecision();
       } catch (error) {
         if (reviewDialogRequestIdRef.current !== requestId) {
           return;
@@ -614,7 +688,11 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       effectiveCustomPriorityFee,
       effectiveNetworkFeeLevel,
       marketPresetSettings,
+      logMarketReviewGasAccountDecision,
       prepareMarketSwapReview,
+      quoteNeedsRefresh,
+      quoteReadyForReview,
+      refreshMarketQuote,
       reviewAdapter,
     ],
   );
@@ -628,6 +706,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     () => openReviewDialog(true),
     [openReviewDialog],
   );
+
+  const navigation = useAppNavigation();
+  const handleOpenProviderList = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName: EJotaiContextStoreNames.marketSwap,
+      },
+    });
+  }, [navigation]);
 
   useEffect(() => {
     return () => {
@@ -660,41 +749,6 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     [swapPanel, handleUserPaymentTokenChange],
   );
 
-  // Stock market-closed alert (reuses the shared StockMarketStatusAlert): when
-  // the underlying stock's market is closed, show the standard alert + optional
-  // Perps handoff and disable the trade button (handled in SwapPanelContent).
-  // Other (non-closed) backend errors keep the generic speedCheckError text.
-  const { navigateToPerps } = usePerpsNavigation(
-    EPerpPageEnterSource.MarketStockClosed,
-  );
-  const stockHlTicker = perpsInfo?.hlTicker;
-  const stockHasPerps = Boolean(stockHlTicker);
-  const stockClosedTimeText = getStockMarketClosedDescription(
-    tokenDetail?.stock?.description,
-  );
-  const stockMarketClosedAlert = isStockMarketClosed(tokenDetail?.stock) ? (
-    <StockMarketStatusAlert
-      statusCase={resolveStockMarketStatusCase({
-        isOpen: false,
-        isPaused: tokenDetail?.stock?.isPaused,
-        hasOpenTime: Boolean(stockClosedTimeText),
-        hasPerps: stockHasPerps,
-      })}
-      timeText={stockClosedTimeText}
-      onTradePerps={
-        stockHlTicker
-          ? () => {
-              // SwapPanelWrap can be hosted in an in-page dialog (mobile Market
-              // Detail). Close it first so the old swap dialog doesn't linger
-              // above the Perps tab or race with overlay cleanup.
-              onCloseDialog?.();
-              navigateToPerps(stockHlTicker);
-            }
-          : undefined
-      }
-    />
-  ) : null;
-
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -715,8 +769,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       balance={balance}
       balanceToken={balanceToken as IToken}
       balanceLoading={fetchBalanceLoading}
+      paymentTokenPrice={paymentTokenPrice}
       isLoading={isActionLoading || isReviewOpening}
-      isActionDisabled={marketPresetSettings.isLoading}
+      quoteLoading={quoteActionLoading}
+      isActionDisabled={
+        marketPresetSettings.isLoading ||
+        (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
+      }
+      isRefreshQuote={quoteNeedsRefresh}
+      onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       slippageAutoValue={speedConfig?.slippage}
@@ -724,11 +785,21 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
-      speedCheckError={speedCheckError}
-      stockMarketClosedAlert={stockMarketClosedAlert}
+      quoteResult={quoteResult}
+      quoteListLength={quoteList.length}
+      onOpenProviderList={handleOpenProviderList}
+      quoteError={quoteError}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
     />
+  );
+}
+
+export function SwapPanelWrap(props: ISwapPanelWrapProps) {
+  return (
+    <SwapProviderMirror storeName={EJotaiContextStoreNames.marketSwap}>
+      <SwapPanelWrapContent {...props} />
+    </SwapProviderMirror>
   );
 }

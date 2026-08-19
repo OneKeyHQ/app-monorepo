@@ -156,6 +156,11 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  // This state is written as a complete snapshot so legacy chart namespace
+  // fields can be removed instead of being merged back on every write.
+  [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // These Perps states are written as complete snapshots. Lodash merge keeps
   // old array tails and ignores undefined, which can resurrect stale fields.
   [EAtomNames.perpsActiveAssetAtom]: {

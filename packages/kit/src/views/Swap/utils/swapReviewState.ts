@@ -2,6 +2,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ESwapNetworkFeeLevel,
+  IFetchBuildTxResult,
   IFetchQuoteResult,
   ISwapApproveTransaction,
   ISwapGasInfo,
@@ -20,6 +21,64 @@ export type ISwapReviewState = {
   preSwapData: ISwapPreSwapData;
   quoteResult?: IFetchQuoteResult;
 };
+
+const CUSTOM_SLIPPAGE_QUOTE_CONTEXT_KEYS = [
+  'okxQuoteResultCtx',
+  'oneInchAggregateCtx',
+  'zeroXQuoteResultCtx',
+  'jupiterQuoteResultCtx',
+  'panoraQuoteResultCtx',
+  'hifiSwapQuoteResultCtx',
+] as const;
+
+export function buildCustomSlippageQuoteResultCtx(quoteResultCtx: unknown) {
+  if (!quoteResultCtx || typeof quoteResultCtx !== 'object') {
+    return quoteResultCtx;
+  }
+
+  const nextQuoteResultCtx = {
+    ...(quoteResultCtx as Record<string, unknown>),
+  };
+  CUSTOM_SLIPPAGE_QUOTE_CONTEXT_KEYS.forEach((key) => {
+    const providerContext = nextQuoteResultCtx[key];
+    if (providerContext && typeof providerContext === 'object') {
+      nextQuoteResultCtx[key] = {
+        ...(providerContext as Record<string, unknown>),
+        slippageType: 'Custom',
+      };
+    }
+  });
+
+  return nextQuoteResultCtx;
+}
+
+export function buildRebuiltSwapReviewQuoteResult({
+  quoteResult,
+  buildResult,
+  slippagePercentage,
+}: {
+  quoteResult: IFetchQuoteResult;
+  buildResult: IFetchBuildTxResult;
+  slippagePercentage: number;
+}): IFetchQuoteResult {
+  return {
+    ...quoteResult,
+    ...buildResult,
+    allowanceResult: quoteResult.allowanceResult,
+    quoteResultCtx: quoteResult.quoteResultCtx,
+    slippage: slippagePercentage,
+  };
+}
+
+export function resolveSwapReviewNeedFetchGasAfterRebuild({
+  fallbackToSeparateTxConfirm,
+  previousNeedFetchGas,
+}: {
+  fallbackToSeparateTxConfirm: boolean;
+  previousNeedFetchGas?: boolean;
+}) {
+  return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
+}
 
 export function hasInFlightSwapReviewSteps({ steps }: { steps: ISwapStep[] }) {
   return steps.some(
@@ -82,6 +141,14 @@ export type ISwapReviewAdapter = {
     networkFeeLevel?: ESwapNetworkFeeLevel;
     customPriorityFee?: ISwapReviewCustomPriorityFee;
   }) => Promise<ISwapReviewState>;
+  rebuildReview?: (params: {
+    slippagePercentage: number;
+    networkFeeLevel?: ESwapNetworkFeeLevel;
+    customPriorityFee?: ISwapReviewCustomPriorityFee;
+  }) => Promise<ISwapReviewState>;
+  saveSlippageForFutureOrders?: (
+    slippagePercentage: number,
+  ) => Promise<void> | void;
   sendApproveTx: (params: {
     amount: string;
     gasInfos?: ISwapReviewGasInfoEntry[];

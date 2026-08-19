@@ -18,6 +18,7 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -74,6 +75,10 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
+
+type IPasswordKdfParams = IPbkdf2KdfParams & {
+  debugCryptoProbeId?: string;
+};
 
 function unrefTimeout(
   timeout: ReturnType<typeof setTimeout> | null | undefined,
@@ -134,8 +139,20 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async encodeSensitiveText({ text }: { text: string }): Promise<string> {
-    return Promise.resolve(encodeSensitiveTextAsync({ text }));
+  async encodeSensitiveText({
+    text,
+    kdfBackend,
+    enablePbkdf2Cache,
+  }: {
+    text: string;
+  } & IPbkdf2KdfParams): Promise<string> {
+    return Promise.resolve(
+      encodeSensitiveTextAsync({
+        text,
+        kdfBackend,
+        enablePbkdf2Cache,
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -436,14 +453,20 @@ export default class ServicePassword extends ServiceBase {
     password,
     passwordMode,
     skipLengthCheck,
+    kdfBackend,
+    enablePbkdf2Cache,
+    debugCryptoProbeId,
   }: {
     passwordMode: EPasswordMode;
     password: string;
     skipLengthCheck?: boolean;
-  }): Promise<{ shouldFixPasscodeMode?: boolean }> {
+  } & IPasswordKdfParams): Promise<{ shouldFixPasscodeMode?: boolean }> {
     ensureSensitiveTextEncoded(password);
     const realPassword = await decodePasswordAsync({
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
     // **** length matched
     if (
@@ -510,12 +533,15 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     newPassword,
     skipDBVerify,
+    kdfBackend,
+    enablePbkdf2Cache,
+    debugCryptoProbeId,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
-  }): Promise<void> {
+  } & IPasswordKdfParams): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
@@ -530,6 +556,9 @@ export default class ServicePassword extends ServiceBase {
         password,
         passwordMode,
         skipLengthCheck: true,
+        kdfBackend,
+        enablePbkdf2Cache,
+        debugCryptoProbeId,
       });
     } else {
       await this.validatePasswordValidRules({
@@ -702,12 +731,14 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     isBiologyAuth,
     skipPostVerifyBackgroundTasks,
+    kdfBackend,
+    enablePbkdf2Cache,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
-  }): Promise<string> {
+  } & IPbkdf2KdfParams): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
@@ -716,6 +747,8 @@ export default class ServicePassword extends ServiceBase {
     await this.validatePassword({
       password: verifyingPassword,
       passwordMode,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
     await this.setCachedPassword({
       password: verifyingPassword,
@@ -797,6 +830,7 @@ export default class ServicePassword extends ServiceBase {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
     skipPostVerifyBackgroundTasks?: boolean;
+    kdfParams?: IPbkdf2KdfParams;
   }): Promise<IPasswordRes> {
     // console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
@@ -853,6 +887,7 @@ export default class ServicePassword extends ServiceBase {
             dialogProps: options?.dialogProps,
             skipPostVerifyBackgroundTasks:
               options?.skipPostVerifyBackgroundTasks,
+            kdfParams: options?.kdfParams,
           });
         });
         const result = await (res as Promise<IPasswordRes>);
@@ -872,10 +907,12 @@ export default class ServicePassword extends ServiceBase {
     walletId,
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
     hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
+    kdfParams,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
     hardwareCallContext?: EHardwareCallContext;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -908,7 +945,7 @@ export default class ServicePassword extends ServiceBase {
       // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
       defaultLogger.account.accountCreatePerf.ignoreDurationBegin();
-      ({ password } = await this.promptPasswordVerify({ reason }));
+      ({ password } = await this.promptPasswordVerify({ reason, kdfParams }));
       defaultLogger.account.accountCreatePerf.ignoreDurationEnd();
     }
     return {
@@ -923,12 +960,14 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerifyByAccount({
     accountId,
     reason,
+    kdfParams,
   }: {
     accountId: string;
     reason?: EReasonForNeedPassword;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    return this.promptPasswordVerifyByWallet({ walletId, reason });
+    return this.promptPasswordVerifyByWallet({ walletId, reason, kdfParams });
   }
 
   @backgroundMethod()
@@ -944,6 +983,7 @@ export default class ServicePassword extends ServiceBase {
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
     skipPostVerifyBackgroundTasks?: boolean;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,

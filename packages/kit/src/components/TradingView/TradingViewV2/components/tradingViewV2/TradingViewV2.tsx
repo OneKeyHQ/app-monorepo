@@ -52,9 +52,11 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
+import type { ITradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
@@ -139,7 +141,10 @@ interface IBaseTradingViewV2Props {
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   showNativeIndicatorQuickBar?: boolean;
-  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
+  onChartSwitch?: () => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
@@ -204,6 +209,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     showNativeIndicatorQuickBar = true,
+    onChartSwitch,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onKLineDataReady,
@@ -469,9 +475,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace =
-      storageNamespace?.trim() ||
-      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+    const finalStorageNamespace = storageNamespace?.trim() || 'market';
 
     return {
       decimal: decimal?.toString(),
@@ -670,6 +674,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [resetInteractionLocks, webRef],
   );
 
+  const isNativeIndicatorQuickBarAvailabilityResolved =
+    !enableNativeChartControls ||
+    !showNativeIndicatorQuickBar ||
+    nativeChartControlsConfig !== null;
+
   const nativeIndicatorQuickBar = useMemo(() => {
     if (
       !enableNativeChartControls ||
@@ -701,9 +710,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     showNativeIndicatorQuickBar,
   ]);
 
+  const nativeIndicatorQuickBarState =
+    useMemo<ITradingViewNativeIndicatorQuickBarState>(() => {
+      return resolveTradingViewNativeIndicatorQuickBarState({
+        isAvailabilityResolved: isNativeIndicatorQuickBarAvailabilityResolved,
+        quickBar: nativeIndicatorQuickBar,
+      });
+    }, [
+      isNativeIndicatorQuickBarAvailabilityResolved,
+      nativeIndicatorQuickBar,
+    ]);
+
   useEffect(() => {
-    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBar);
-  }, [nativeIndicatorQuickBar, onNativeIndicatorQuickBarChange]);
+    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBarState);
+  }, [nativeIndicatorQuickBarState, onNativeIndicatorQuickBarChange]);
 
   useEffect(() => {
     return () => {
@@ -717,7 +737,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
 
     return () => {
-      onNativeIndicatorQuickBarChange(null);
+      onNativeIndicatorQuickBarChange({
+        status: 'loading',
+        quickBar: null,
+      });
     };
   }, [onNativeIndicatorQuickBarChange]);
 
@@ -783,6 +806,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           chartTimezone={tradingViewTimezone}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
+          onChartSwitch={onChartSwitch}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}

@@ -25,6 +25,7 @@ type IMockUsePromiseResultReturn = {
   };
   isLoading: boolean;
   run: jest.Mock;
+  setStopPolling: jest.Mock;
 };
 
 type IMockUsePromiseResult = (
@@ -34,6 +35,7 @@ type IMockUsePromiseResult = (
 const mockUsePromiseResult: jest.MockedFunction<IMockUsePromiseResult> =
   jest.fn();
 const mockFetchTransactions = jest.fn();
+const mockSetStopPolling = jest.fn();
 const mockThrottledTransactionsUpdates: IThrottledTransactionsUpdate[] = [];
 
 jest.mock('use-debounce', () => {
@@ -119,6 +121,7 @@ describe('useMarketTransactions', () => {
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
     mockFetchTransactions.mockReset();
+    mockSetStopPolling.mockReset();
     mockUsePromiseResult.mockReset();
     mockThrottledTransactionsUpdates.length = 0;
     getMockMarketService().fetchMarketTokenTransactions.mockReset();
@@ -130,7 +133,29 @@ describe('useMarketTransactions', () => {
       },
       isLoading: false,
       run: mockFetchTransactions,
+      setStopPolling: mockSetStopPolling,
     });
+  });
+
+  it('keeps one REST snapshot and only enables polling in normal mode', () => {
+    const { rerender } = renderHook(
+      ({ normalMode }) =>
+        useMarketTransactions({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          normalMode,
+        }),
+      { initialProps: { normalMode: false } },
+    );
+
+    expect(mockSetStopPolling).toHaveBeenLastCalledWith(true);
+    expect(mockUsePromiseResult.mock.calls[0]?.[2]).toMatchObject({
+      pollingInterval: 5000,
+    });
+
+    rerender({ normalMode: true });
+
+    expect(mockSetStopPolling).toHaveBeenLastCalledWith(false);
   });
 
   it('cancels queued throttled writes before flushing buffered transactions', () => {
@@ -373,6 +398,7 @@ describe('useMarketTransactions', () => {
       },
       isLoading: false,
       run: mockFetchTransactions,
+      setStopPolling: mockSetStopPolling,
     });
 
     const { result } = renderHook(() =>
@@ -423,6 +449,7 @@ describe('useMarketTransactions', () => {
       },
       isLoading: false,
       run: mockFetchTransactions,
+      setStopPolling: mockSetStopPolling,
     });
     getMockMarketService().fetchMarketTokenTransactions.mockResolvedValue({
       list: Array.from({ length: 20 }, (_, index) =>
@@ -487,6 +514,7 @@ describe('useMarketTransactions', () => {
       },
       isLoading: false,
       run: mockFetchTransactions,
+      setStopPolling: mockSetStopPolling,
     });
 
     const { result } = renderHook(() =>

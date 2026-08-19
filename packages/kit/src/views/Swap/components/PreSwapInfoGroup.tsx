@@ -8,6 +8,7 @@ import {
   Icon,
   Image,
   NumberSizeableText,
+  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -26,6 +28,10 @@ import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap'
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
+import {
+  type ISwapReviewSlippageSaveScope,
+  SwapReviewSlippageEditor,
+} from './SwapReviewSlippageEditor';
 import { SwapSponsoredNetworkFee } from './SwapSponsoredNetworkFee';
 
 export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
@@ -39,6 +45,15 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
+  slippageEditor?: {
+    open: boolean;
+    savingScope?: ISwapReviewSlippageSaveScope;
+    onOpenChange: (open: boolean) => void;
+    onSave: (
+      scope: ISwapReviewSlippageSaveScope,
+      slippagePercentage: number,
+    ) => void | Promise<void>;
+  };
 }
 
 const PreSwapInfoGroup = ({
@@ -46,6 +61,7 @@ const PreSwapInfoGroup = ({
   onSelectNetworkFeeLevel,
   customNetworkFeeOptionLabel,
   networkFeeSelectValue,
+  slippageEditor,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -199,6 +215,60 @@ const PreSwapInfoGroup = ({
     preSwapData.stepBeforeActionsLoading,
   ]);
 
+  const slippageValue = useMemo(() => {
+    if (isNil(slippage)) {
+      return undefined;
+    }
+    if (!slippageEditor) {
+      return `${slippage}%`;
+    }
+
+    const trigger = (
+      <XStack
+        testID="swap-review-slippage-edit"
+        cursor="pointer"
+        alignItems="center"
+        gap="$1"
+        onPress={
+          platformEnv.isNative
+            ? () => slippageEditor.onOpenChange(true)
+            : undefined
+        }
+      >
+        <SizableText size="$bodyMd">{`${slippage}%`}</SizableText>
+        <Icon name="PencilOutline" size="$4" color="$iconSubdued" />
+      </XStack>
+    );
+
+    if (platformEnv.isNative) {
+      return trigger;
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.trade_silp_edit_slippage,
+        })}
+        open={slippageEditor.open}
+        onOpenChange={slippageEditor.onOpenChange}
+        showHeader={false}
+        placement="bottom-end"
+        floatingPanelProps={{ width: 340 }}
+        renderTrigger={trigger}
+        renderContent={() => (
+          <Stack p="$4" width={340}>
+            <SwapReviewSlippageEditor
+              initialValue={slippage}
+              savingScope={slippageEditor.savingScope}
+              showTitle={false}
+              onSave={slippageEditor.onSave}
+            />
+          </Stack>
+        )}
+      />
+    );
+  }, [intl, slippage, slippageEditor]);
+
   return (
     <YStack gap="$3">
       <PreSwapInfoItem
@@ -239,7 +309,7 @@ const PreSwapInfoGroup = ({
           title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
-          value={`${slippage}%`}
+          value={slippageValue}
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}

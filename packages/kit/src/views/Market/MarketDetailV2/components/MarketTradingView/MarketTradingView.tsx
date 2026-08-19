@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   TRADING_VIEW_DISABLED_FEATURES,
@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type {
   ITradingViewDisabledFeature,
+  ITradingViewNativeIndicatorQuickBarState,
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -93,9 +94,12 @@ export interface IMarketTradingViewProps {
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  onChartSwitch?: () => void;
   onTouchScroll?: (deltaY: number) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
-  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   onNativeSubIndicatorCountChange?: (
@@ -121,6 +125,7 @@ export const MarketTradingView = memo(
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     showNativeIndicatorQuickBar,
+    onChartSwitch,
     onTouchScroll,
     onNativeChartFullscreenChange,
     onNativeIndicatorQuickBarChange,
@@ -189,6 +194,7 @@ export const MarketTradingView = memo(
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
         isNativeChartFullscreen={isNativeChartFullscreen}
+        onChartSwitch={onChartSwitch}
         nativeChartFullscreenHeader={
           !platformEnv.isNative && nativeControlsLayoutMode === 'desktop' ? (
             <MarketChartFullscreenHeader />

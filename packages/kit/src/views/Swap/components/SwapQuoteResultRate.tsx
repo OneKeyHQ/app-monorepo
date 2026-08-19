@@ -112,9 +112,7 @@ const SwapQuoteResultRate = ({
           textAlign={shouldUseInlineSlippageLayout ? undefined : 'right'}
         >
           {`1 ${
-            isReverse
-              ? (toToken?.symbol?.toUpperCase() ?? '-')
-              : (fromToken?.symbol?.toUpperCase() ?? '-')
+            isReverse ? (toToken?.symbol ?? '-') : (fromToken?.symbol ?? '-')
           } = `}
           <NumberSizeableText
             size="$bodyMd"
