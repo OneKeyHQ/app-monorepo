@@ -16,11 +16,31 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
     (coin: string) => {
       setTimeout(async () => {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
-        navigation.switchTab(ETabRoutes.Perp);
+        // Recorded before the navigation that mounts the Perp tab, so the
+        // claiming initial-select cannot run ahead of it. Both this and the
+        // import it needs stay inside the catch: losing the record only costs
+        // the first-mount restore, while a chunk that fails to load must still
+        // leave the tap opening the tab, as it did before.
+        let proxy:
+          | (typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy'))['default']
+          | undefined;
         try {
-          const { default: backgroundApiProxy } =
-            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          proxy = (
+            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
+          ).default;
+          await proxy.serviceHyperliquid.setPendingInitialTradeInstrument({
+            coin,
+            mode: 'perp',
+          });
+        } catch {
+          // ignore
+        }
+        navigation.switchTab(ETabRoutes.Perp);
+        if (!proxy) {
+          return;
+        }
+        try {
+          await proxy.serviceHyperliquid.changeActiveAsset({
             coin,
           });
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {

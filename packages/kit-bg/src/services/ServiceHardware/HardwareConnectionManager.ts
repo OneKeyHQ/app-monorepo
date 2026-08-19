@@ -139,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -156,18 +156,13 @@ export class HardwareConnectionManager {
           dev.serialNumber.trim().length > 0;
         return isOneKey && hasSerialNumber;
       });
-      const expectedConnectId = connectId?.trim().toLowerCase();
-      return onekeyDevices.some(
-        (device) =>
-          !expectedConnectId ||
-          device.serialNumber?.trim().toLowerCase() === expectedConnectId,
-      );
+      return onekeyDevices.length > 0;
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -185,14 +180,7 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      const expectedConnectId = connectId?.trim().toLowerCase();
-      return devices.some((device) => {
-        if (!expectedConnectId) return true;
-        return (
-          typeof device.path === 'string' &&
-          device.path.trim().toLowerCase() === expectedConnectId
-        );
-      });
+      return devices.length > 0;
     } catch (_error) {
       return false;
     }

@@ -952,6 +952,7 @@ class ServiceHardware extends ServiceBase {
     // snapshot, so every clear must broadcast or the green indicator goes
     // stale after an SDK reset or transport switch.
     this.connectedDeviceIdentityKeysByConnection.clear();
+    serviceHardwareUtils.hardwareLog('cleared all tracked connected devices');
     appEventBus.emit(
       EAppEventBusNames.HardwareConnectionStateUpdate,
       undefined,
@@ -1815,6 +1816,17 @@ class ServiceHardware extends ServiceBase {
         const disconnectedIdentityKeys = this.untrackConnectedDevice(
           message.device,
         );
+        // The whole eviction path used to be silent, so a disconnect that
+        // never arrived and one that simply left no trace looked identical in
+        // collected logs (OK-60486).
+        serviceHardwareUtils.hardwareLog('device disconnected, untracked', {
+          // Persisted logs ship with user feedback, so the identifier stays
+          // masked; the suffix is enough to correlate a multi-device session.
+          connectId: serviceHardwareUtils.maskLogIdentifier(
+            message.device?.connectId,
+          ),
+          removedIdentityKeyCount: disconnectedIdentityKeys.length,
+        });
         if (disconnectedIdentityKeys.length > 0) {
           appEventBus.emit(
             EAppEventBusNames.HardwareConnectionStateUpdate,

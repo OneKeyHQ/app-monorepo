@@ -1137,7 +1137,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses USB only when the selected authorized OneKey WebUSB device is available', async () => {
+  it('uses USB when any authorized OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -1191,7 +1191,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
       await expect(
         service.connectionManager.detectWebUSBAvailability('OTHER_USB_ID'),
-      ).resolves.toBe(false);
+      ).resolves.toBe(true);
       await expect(
         service.connectionManager.detectWebUSBAvailability('PRO2_USB_ID'),
       ).resolves.toBe(true);
@@ -1335,7 +1335,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses Bridge only when the selected device is enumerated', async () => {
+  it('uses Bridge when any Bridge device is enumerated', async () => {
     mockedAxios.post.mockResolvedValue({
       data: [{ path: 'UNRELATED_USB_ID' }],
     });
@@ -1374,7 +1374,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.connectionManager.detectBridgeAvailability('OTHER_USB_ID'),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
     await expect(
       service.connectionManager.detectBridgeAvailability('UNRELATED_USB_ID'),
     ).resolves.toBe(true);
