@@ -373,6 +373,7 @@ class ServiceSend extends ServiceBase {
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
         broadcastDeadline?: IBatchSignTransactionParamsBase['broadcastDeadline'];
         beforeBroadcastAction?: IBatchSignTransactionParamsBase['beforeBroadcastAction'];
+        wcPayPreBroadcastRecord?: IBatchSignTransactionParamsBase['wcPayPreBroadcastRecord'];
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         isPrivateSend?: boolean;
       },
@@ -388,6 +389,7 @@ class ServiceSend extends ServiceBase {
       gasAccountSubmitId,
       broadcastDeadline,
       beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
       transferPayload,
       isPrivateSend,
       useDefaultRpc,
@@ -586,6 +588,28 @@ class ServiceSend extends ServiceBase {
         );
         await ensurePrimePaymentUserIsCurrent();
         ensureBroadcastDeadline();
+      }
+
+      // WalletConnect Pay duplicate-payment boundary. The durable progress
+      // store exists because the UI runtime can be reclaimed while a
+      // broadcast is confirming, yet the executor-side record only lands
+      // after the whole confirm round-trip settles in the UI. Record the
+      // txid here instead — in the background, after signing (an EVM txid is
+      // fixed by the signed bytes) and before broadcast — so a resumed
+      // attempt always knows the transfer was already sent. The write is
+      // awaited and any failure aborts the broadcast: failing closed costs
+      // one retry, broadcasting unrecorded can charge a merchant payment
+      // twice. Deliberately independent of the Prime hook above — its
+      // threat model excludes externally supplied encodedTx, which is
+      // exactly what WalletConnect Pay transactions are.
+      if (wcPayPreBroadcastRecord) {
+        ensureBroadcastDeadline();
+        await this.backgroundApi.serviceWalletConnectPay.recordPreBroadcastTxid(
+          {
+            record: wcPayPreBroadcastRecord,
+            txid: signedTx.txid,
+          },
+        );
       }
 
       const broadcastOnce = async () => {
@@ -800,6 +824,7 @@ class ServiceSend extends ServiceBase {
       gasAccountSubmitId,
       broadcastDeadline,
       beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
       useDefaultRpc,
     } = params;
 
@@ -807,6 +832,13 @@ class ServiceSend extends ServiceBase {
     if (beforeBroadcastAction && isMultiTxs) {
       throw new OneKeyLocalError({
         message: 'Infini payment supports exactly one transaction',
+        autoToast: false,
+      });
+    }
+    // one durable slot records exactly one txid; a batch cannot share it
+    if (wcPayPreBroadcastRecord && isMultiTxs) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay supports exactly one transaction',
         autoToast: false,
       });
     }
@@ -881,6 +913,7 @@ class ServiceSend extends ServiceBase {
                 gasAccountSubmitId: effectiveGasAccountSubmitId,
                 broadcastDeadline,
                 beforeBroadcastAction,
+                wcPayPreBroadcastRecord,
                 transferPayload,
                 isPrivateSend,
                 useDefaultRpc,

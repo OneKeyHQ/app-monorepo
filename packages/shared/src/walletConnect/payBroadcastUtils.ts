@@ -22,9 +22,11 @@ export function hasWcPayBroadcastAction(
 }
 
 /**
- * Broadcast-capable actions must not start (or even collect compliance
- * data) when their txid cannot be durably recorded. Used both as the
- * options-page early check and as the getRequiredPaymentActions backstop.
+ * Broadcast-capable actions must not start when their txid cannot be
+ * durably recorded. Runs in getRequiredPaymentActions on the authoritative,
+ * freshly fetched action list; the options page refuses earlier and without
+ * consulting the advisory option.actions (see
+ * shouldRefuseWcPayOptionUpfront).
  */
 export function shouldRefuseWcPayWithoutDurableProgress({
   actions,
@@ -34,4 +36,21 @@ export function shouldRefuseWcPayWithoutDurableProgress({
   supportsDurableProgress: boolean;
 }): boolean {
   return !supportsDurableProgress && hasWcPayBroadcastAction(actions);
+}
+
+/**
+ * Pre-form gate used while only the advisory per-option action list exists.
+ * `option.actions` may be empty or diverge from the authoritative list that
+ * getRequiredPaymentActions fetches AFTER compliance data is collected, so
+ * gating on it can let a user submit personal identity data and only then
+ * learn the payment cannot complete. Without durable progress the only
+ * deterministic refusal point is upfront, before any option — including
+ * apparently sign-only ones — reaches the compliance form.
+ */
+export function shouldRefuseWcPayOptionUpfront({
+  supportsDurableProgress,
+}: {
+  supportsDurableProgress: boolean;
+}): boolean {
+  return !supportsDurableProgress;
 }

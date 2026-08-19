@@ -70,6 +70,19 @@ export interface IWcPayAction {
   walletRpc: IWcPayWalletRpcAction;
 }
 
+// Identity of one durable-progress slot, handed to the send pipeline so the
+// background can record a broadcast action's txid between signing and
+// broadcast (the duplicate-payment boundary); mirrors the parameters of
+// ServiceWalletConnectPay.recordActionResult
+export interface IWcPayPreBroadcastRecord {
+  paymentId: string;
+  optionId: string;
+  // indexedAccountId ?? accountId of the signing account
+  accountKey: string;
+  action: IWcPayAction;
+  index: number;
+}
+
 export interface IWcPayInfo {
   status: EWcPayStatus;
   amount: IWcPayAmount;

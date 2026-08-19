@@ -22,7 +22,7 @@ import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
-  shouldRefuseWcPayWithoutDurableProgress,
+  shouldRefuseWcPayOptionUpfront,
 } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
   isWcPayTrustedUrl,
@@ -182,21 +182,19 @@ function PaymentOptionsPage() {
   const networkMap = result?.networkMap;
   const supportsDurableProgress = result?.supportsDurableProgress ?? false;
   const options = payResult?.options ?? [];
-  const isOptionDisabledOnPlatform = (option: IWcPayOption) =>
-    shouldRefuseWcPayWithoutDurableProgress({
-      actions: option.actions,
-      supportsDurableProgress,
-    });
-  // skip options that cannot finish on this platform so Continue never
-  // starts KYC for a payment that getRequiredPaymentActions would refuse
-  const selectedOption: IWcPayOption | undefined =
-    options.find(
-      (option) =>
-        option.id === selectedOptionId && !isOptionDisabledOnPlatform(option),
-    ) ?? options.find((option) => !isOptionDisabledOnPlatform(option));
-  const hasPayableOption = options.some(
-    (option) => !isOptionDisabledOnPlatform(option),
-  );
+  // Deterministic pre-form gate: option.actions is advisory — the server
+  // may omit it or return a list diverging from the authoritative one that
+  // getRequiredPaymentActions fetches AFTER the compliance form — so on
+  // platforms without durable progress every option is refused upfront.
+  // Gating on option.actions could collect personal identity data first and
+  // only then refuse the payment.
+  const areOptionsRefusedOnPlatform = shouldRefuseWcPayOptionUpfront({
+    supportsDurableProgress,
+  });
+  const selectedOption: IWcPayOption | undefined = areOptionsRefusedOnPlatform
+    ? undefined
+    : (options.find((option) => option.id === selectedOptionId) ?? options[0]);
+  const hasPayableOption = options.length > 0 && !areOptionsRefusedOnPlatform;
   // The effective deadline is the earliest of the payment-level and the
   // selected option's expiry; the countdown, the Continue gate and every
   // in-flow re-check below must all use this single value.
@@ -237,12 +235,13 @@ function PaymentOptionsPage() {
       const { paymentId } = payResult;
       const optionId = selectedOption.id;
 
-      // Refuse broadcast options before the compliance form: collecting KYC
-      // and then failing at getRequiredPaymentActions would submit personal
-      // data for a payment that cannot complete on this platform.
+      // Refuse before the compliance form whenever durable progress is
+      // unavailable. option.actions cannot prove the payment is sign-only
+      // (the field is advisory; the authoritative list is only fetched
+      // after the form), so collecting KYC first could hand personal data
+      // to the compliance provider for a payment that cannot complete here.
       if (
-        shouldRefuseWcPayWithoutDurableProgress({
-          actions: selectedOption.actions,
+        shouldRefuseWcPayOptionUpfront({
           supportsDurableProgress:
             await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress(),
         })
@@ -319,6 +318,15 @@ function PaymentOptionsPage() {
         accountId,
         indexedAccountId,
         completedResults,
+        // identity of the durable progress record: eth_sendTransaction
+        // confirms hand it to the background so the txid is persisted
+        // between signing and broadcast, before onActionComplete below ever
+        // gets the chance to run
+        progressContext: {
+          paymentId,
+          optionId,
+          accountKey: progressAccountKey,
+        },
         // absolute deadline checked before every action and enforced
         // before any broadcast (onBeforeSend + background broadcastDeadline);
         // it never moves during the flow, so capturing it here stays correct
@@ -465,7 +473,7 @@ function PaymentOptionsPage() {
                 const tokenImageUri = display.iconUrl || network?.logoURI;
                 const networkImageUri =
                   network?.logoURI ?? display.networkIconUrl;
-                const isDisabled = isOptionDisabledOnPlatform(option);
+                const isDisabled = areOptionsRefusedOnPlatform;
                 return (
                   <ListItem
                     key={option.id}

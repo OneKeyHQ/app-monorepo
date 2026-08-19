@@ -73,12 +73,24 @@ export function useWcPayActionExecutor() {
       indexedAccountId,
       completedResults,
       expiryMs,
+      progressContext,
       onActionComplete,
       onActionInvalidated,
     }: {
       actions: IWcPayAction[];
       accountId?: string;
       indexedAccountId?: string;
+      // identity of the durable progress record for this payment attempt.
+      // When present, every eth_sendTransaction confirm threads it to the
+      // send pipeline as wcPayPreBroadcastRecord, so the BACKGROUND persists
+      // the txid between signing and broadcast — closing the window where
+      // this UI runtime dies after the broadcast but before the confirm
+      // round-trip returns and onActionComplete below can run
+      progressContext?: {
+        paymentId: string;
+        optionId: string;
+        accountKey: string;
+      };
       // absolute payment deadline (ms epoch, the earliest of payment-level
       // and option-level expiry). Checked at the top of every action, and
       // for eth_sendTransaction additionally enforced at the confirm click
@@ -271,6 +283,18 @@ export function useWcPayActionExecutor() {
                     // (e.g. hardware) that cross the deadline after
                     // onBeforeSend already passed
                     broadcastDeadline: expiryMs,
+                    // duplicate-payment boundary: the background records the
+                    // txid after signing and before broadcast, so even if
+                    // this UI runtime dies before onSuccess (or anything
+                    // after it) runs, a resumed attempt knows the transfer
+                    // was already sent
+                    wcPayPreBroadcastRecord: progressContext
+                      ? {
+                          ...progressContext,
+                          action: actions[i],
+                          index: i,
+                        }
+                      : undefined,
                     sourceInfo: buildWcPaySourceInfo({
                       method,
                       params: parsed,
@@ -307,9 +331,11 @@ export function useWcPayActionExecutor() {
               throw error;
             }
             results.push(txid);
-            // record the txid immediately: the tx is already on-chain, so a
-            // failure in any later step (including the mined-wait below) must
-            // not lose it, or a retry would broadcast a duplicate payment
+            // the txid was already durably recorded by the background
+            // between signing and broadcast (wcPayPreBroadcastRecord above);
+            // this second write merely reaffirms it after the confirm
+            // round-trip and must still never lose it to a later-step
+            // failure (including the mined-wait below)
             await persistActionResult(i, txid);
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data

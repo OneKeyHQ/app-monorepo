@@ -1,5 +1,6 @@
 import {
   hasWcPayBroadcastAction,
+  shouldRefuseWcPayOptionUpfront,
   shouldRefuseWcPayWithoutDurableProgress,
 } from './payBroadcastUtils';
 import { EWcPayActionMethod, type IWcPayAction } from './payTypes';
@@ -70,6 +71,22 @@ describe('shouldRefuseWcPayWithoutDurableProgress', () => {
         actions: [typedData],
         supportsDurableProgress: true,
       }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldRefuseWcPayOptionUpfront', () => {
+  it('refuses every option when durable progress is unavailable', () => {
+    // option.actions is advisory and may be empty; the pre-form gate must
+    // not consult it, or KYC could be collected before the refusal
+    expect(
+      shouldRefuseWcPayOptionUpfront({ supportsDurableProgress: false }),
+    ).toBe(true);
+  });
+
+  it('allows options when durable progress is available', () => {
+    expect(
+      shouldRefuseWcPayOptionUpfront({ supportsDurableProgress: true }),
     ).toBe(false);
   });
 });

@@ -22,6 +22,7 @@ import type {
   IWcPayAction,
   IWcPayConfirmResult,
   IWcPayOptionsResult,
+  IWcPayPreBroadcastRecord,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import ServiceBase from '../ServiceBase';
@@ -360,6 +361,41 @@ class ServiceWalletConnectPay extends ServiceBase {
       index,
       fingerprint,
       result,
+    });
+  }
+
+  /**
+   * Duplicate-payment boundary for broadcast-capable actions. Called by
+   * ServiceSend in the background between signing and broadcast, so the
+   * txid is durably recorded before the transaction can reach the chain —
+   * the UI runtime dying mid-confirm can then never lose an already-sent
+   * transfer. Throws (aborting the broadcast) when the record cannot be
+   * persisted: failing closed costs one retry, broadcasting unrecorded can
+   * charge the user twice.
+   */
+  @backgroundMethod()
+  async recordPreBroadcastTxid({
+    record,
+    txid,
+  }: {
+    record: IWcPayPreBroadcastRecord;
+    txid: string;
+  }): Promise<void> {
+    if (!txid) {
+      throw new OneKeyError('Missing WalletConnect Pay transaction id');
+    }
+    if (!(await this.supportsDurableProgress())) {
+      // broadcast-capable flows are refused upfront on such platforms;
+      // reaching this means a gate was bypassed — never broadcast unrecorded
+      throw new OneKeyError(WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE);
+    }
+    await this.recordActionResult({
+      paymentId: record.paymentId,
+      optionId: record.optionId,
+      accountKey: record.accountKey,
+      action: record.action,
+      index: record.index,
+      result: txid,
     });
   }
 
