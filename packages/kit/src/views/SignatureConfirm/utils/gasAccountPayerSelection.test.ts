@@ -1,4 +1,7 @@
-import { resolveSponsorPayerState } from './gasAccountPayerSelection';
+import {
+  isGasAccountQuoteEligible,
+  resolveSponsorPayerState,
+} from './gasAccountPayerSelection';
 
 const baseParams = {
   serverPayer: 'user' as const,
@@ -10,6 +13,74 @@ const baseParams = {
   gasAccountDisabledByScenario: false,
   gasAccountTemporarilyDisabled: false,
 };
+
+describe('isGasAccountQuoteEligible', () => {
+  const quote = {
+    quoteId: 'quote-1',
+    maxFee: '1000',
+    expiresAt: '2026-01-01T00:00:00Z',
+  };
+
+  it('is eligible only with both the eligible flag and a non-empty quoteId', () => {
+    expect(
+      isGasAccountQuoteEligible({
+        gasAccountEligible: true,
+        gasAccountQuote: quote,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects a quote object whose quoteId is empty', () => {
+    expect(
+      isGasAccountQuoteEligible({
+        gasAccountEligible: true,
+        gasAccountQuote: { ...quote, quoteId: '' },
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a missing quote or a missing eligible flag', () => {
+    expect(
+      isGasAccountQuoteEligible({
+        gasAccountEligible: true,
+        gasAccountQuote: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      isGasAccountQuoteEligible({
+        gasAccountEligible: undefined,
+        gasAccountQuote: quote,
+      }),
+    ).toBe(false);
+    expect(
+      isGasAccountQuoteEligible({
+        gasAccountEligible: false,
+        gasAccountQuote: quote,
+      }),
+    ).toBe(false);
+  });
+
+  it('resolves to user/user when the quote object exists without a quoteId', () => {
+    // End-to-end invariant: an id-less quote must never surface the sponsored
+    // UI (effectiveFeePayer) nor wire the submit path (selectedPayer), even
+    // on the Private Send megafuel fallback where the window is widest.
+    expect(
+      resolveSponsorPayerState({
+        ...baseParams,
+        serverPayer: 'megafuel',
+        megafuelSponsorable: true,
+        megafuelDisabledForPrivateSend: true,
+        gasAccountQuoteEligible: isGasAccountQuoteEligible({
+          gasAccountEligible: true,
+          gasAccountQuote: { ...quote, quoteId: '' },
+        }),
+      }),
+    ).toEqual({
+      effectiveFeePayer: 'user',
+      selectedPayer: 'user',
+    });
+  });
+});
 
 describe('resolveSponsorPayerState', () => {
   describe('default flow (no suppression)', () => {

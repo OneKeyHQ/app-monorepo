@@ -1,4 +1,22 @@
-import type { IGasPayer } from '@onekeyhq/shared/types/fee';
+import type { IGasAccountQuote, IGasPayer } from '@onekeyhq/shared/types/fee';
+
+/**
+ * `IGasAccountQuote.quoteId` is typed as a required string but comes from a
+ * network response with no runtime guarantee. Every downstream consumer (fee
+ * display, balance precheck, broadcast gate) additionally requires a
+ * non-empty `quoteId`, so an id-less quote must not count as eligible here
+ * either — otherwise the UI would show the sponsored state while the
+ * broadcast silently falls back to user-paid.
+ */
+export function isGasAccountQuoteEligible({
+  gasAccountEligible,
+  gasAccountQuote,
+}: {
+  gasAccountEligible: boolean | undefined;
+  gasAccountQuote: IGasAccountQuote | undefined;
+}): boolean {
+  return !!(gasAccountEligible && gasAccountQuote?.quoteId);
+}
 
 export interface IResolveSponsorPayerStateParams {
   /** Raw `payer` returned by the fee service (defaulted to 'user'). */

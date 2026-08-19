@@ -109,7 +109,10 @@ import {
   EGasAccountErrorStrategy,
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
-import { resolveSponsorPayerState } from '../../utils/gasAccountPayerSelection';
+import {
+  isGasAccountQuoteEligible,
+  resolveSponsorPayerState,
+} from '../../utils/gasAccountPayerSelection';
 
 import { buildPresetMultiTxsFee } from './presetFeeInfoUtils';
 import { TxFeeEditor } from './TxFeeEditor';
@@ -574,9 +577,10 @@ function TxFeeInfo(props: IProps) {
         } = resolveSponsorPayerState({
           serverPayer,
           megafuelSponsorable: !!r.megafuelEligible?.sponsorable,
-          gasAccountQuoteEligible: !!(
-            r.gasAccountEligible && r.gasAccountQuote
-          ),
+          gasAccountQuoteEligible: isGasAccountQuoteEligible({
+            gasAccountEligible: r.gasAccountEligible,
+            gasAccountQuote: r.gasAccountQuote,
+          }),
           isCustomRpcEnabled,
           sponsorDisabledForBatch,
           megafuelDisabledForPrivateSend,
