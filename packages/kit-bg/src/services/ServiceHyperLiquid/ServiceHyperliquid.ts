@@ -552,6 +552,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // on every modal push.
   private _initialSymbolSelectClaimed = false;
 
+  // A context-less caller picks the market before the Perp page mounts, so the
+  // switch event it emits has no listener yet and the cold-start restore would
+  // replay the previous session's instrument over the user's choice.
+  private _pendingInitialTradeInstrument:
+    | { coin: string; mode: ITradingMode }
+    | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -564,6 +571,62 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     this._initialSymbolSelectClaimed = true;
     return true;
+  }
+
+  // Ignored once the latch is taken: from then on the Perp page is live and
+  // switches through the event bus, so a value recorded here could only
+  // override a market the user picked afterwards. That makes "first mount
+  // only" a property of the store rather than a rule every caller upholds.
+  @backgroundMethod()
+  async setPendingInitialTradeInstrument(params: {
+    coin: string;
+    mode: ITradingMode;
+  }): Promise<void> {
+    if (!params.coin || this._initialSymbolSelectClaimed) {
+      return;
+    }
+    this._pendingInitialTradeInstrument = {
+      coin: params.coin,
+      mode: params.mode,
+    };
+  }
+
+  // Three sequential proxy hops used to sit between the first Perp frame and
+  // the symbol it should show. Each is cheap when the background is idle and
+  // ~220ms when it is not, which is exactly the cold start the user waits on.
+  // The universe read stays behind `claimed` so a non-claiming run does no more
+  // work than before.
+  @backgroundMethod()
+  async prepareInitialSymbolSelect(): Promise<{
+    claimed: boolean;
+    pendingInitialTradeInstrument:
+      | { coin: string; mode: ITradingMode }
+      | undefined;
+    instrumentTarget: Awaited<
+      ReturnType<ServiceHyperliquid['getActiveTradeInstrumentTarget']>
+    >;
+    tradingUniverse:
+      | Awaited<ReturnType<ServiceHyperliquid['getTradingUniverse']>>
+      | undefined;
+  }> {
+    const claimed = await this.tryClaimInitialSymbolSelect();
+    // Taking it here rather than in the setter keeps the two halves of "first
+    // mount only" next to each other; a call that lost the race is already
+    // a no-op by the line above.
+    const pendingInitialTradeInstrument = claimed
+      ? this._pendingInitialTradeInstrument
+      : undefined;
+    this._pendingInitialTradeInstrument = undefined;
+    const instrumentTarget = await this.getActiveTradeInstrumentTarget();
+    const tradingUniverse = claimed
+      ? await this.getTradingUniverse()
+      : undefined;
+    return {
+      claimed,
+      pendingInitialTradeInstrument,
+      instrumentTarget,
+      tradingUniverse,
+    };
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
