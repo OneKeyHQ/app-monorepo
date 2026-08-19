@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
@@ -12,6 +19,7 @@ import {
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
+  CollapsibleTabContext,
   HeaderScrollGestureWrapper,
   Icon,
   Page,
@@ -61,8 +69,6 @@ import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
 } from '../utils/mobilePerpMarketScrollState';
-import { useTabsContext } from 'react-native-collapsible-tab-view';
-
 import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
@@ -156,14 +162,17 @@ function MobilePerpMarketTabBar({
   );
 }
 
-// OK-59100: iOS refuses to start a drag when the reachable distance is zero,
-// and that is computed from numbers only the tabs context holds. They cannot be
-// reported from `dragBegin` — when the range is zero there is no dragBegin at
-// all, which is exactly the state under investigation. Rendering nothing, this
-// probe just reports them from inside the container.
+// OK-59100: iOS refuses to start a drag when the reachable distance is zero.
+// `dragBegin` cannot report the inputs to that — in the failing state it never
+// fires — so they are read from the tabs context instead.
 function OrderbookScrollMetricsProbe() {
-  const { headerHeight, tabBarHeight, containerHeight, contentInset } =
-    useTabsContext();
+  // Via the platform-split context, not the library: this file has no `.native`
+  // suffix, so a value import would reach the web/desktop/ext module graphs.
+  const tabsContext = useContext(CollapsibleTabContext);
+  const headerHeight = tabsContext?.headerHeight;
+  const tabBarHeight = tabsContext?.tabBarHeight;
+  const containerHeight = tabsContext?.containerHeight;
+  const contentInset = tabsContext?.contentInset;
 
   useEffect(() => {
     const reachable =
@@ -206,11 +215,8 @@ function MobilePerpCandlesHeader({
     }
   }, []);
 
-  // OK-59100: this wrapper composes its pan with the WebView's own native
-  // recognizer, and the report is that scrolling and the footer buttons die
-  // together — which a pan that goes active and never finalizes would explain,
-  // while a content-height problem would not. The wrapper already reports both
-  // edges; it just was not wired up.
+  // Scrolling and the footer buttons die together, which a pan that goes active
+  // and never finalizes would explain and a content-height problem would not.
   const handleGestureActiveChange = useCallback((active: boolean) => {
     perpsFieldDiagnostics('chartHeaderGesture.active', { active });
   }, []);
@@ -338,18 +344,13 @@ function MobilePerpMarket() {
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
 
-  // OK-59100 instrumentation. "No dragBegin" on its own is ambiguous — it fits
-  // a swallowed touch, a disabled scroller, AND a scroller with no scrollable
-  // range (iOS never starts a drag it cannot move). Three signals separate
-  // them: `touchStart` says the touch reached the scroll view at all,
-  // `dragBegin` says iOS agreed to start a drag and carries the range that was
-  // available, and `dragEnd` says how far it actually moved.
+  // "No dragBegin" alone is ambiguous: swallowed touch, disabled scroller, or
+  // no scrollable range all look the same. touchStart / dragBegin / dragEnd
+  // separate them.
   //
-  // Deliberately not using `onScroll`: `Tabs.ScrollView` omits it from its
-  // props type and the library binds its own handler after spreading ours
-  // (react-native-collapsible-tab-view ScrollView), so an `onScroll` passed
-  // here never runs. Same for `scrollEventThrottle` and `onMomentumScrollEnd`.
-  // The begin/end pair below survives because it stays in the spread.
+  // Not `onScroll`: Tabs.ScrollView omits it and the library rebinds it after
+  // spreading ours, as it does for scrollEventThrottle and onMomentumScrollEnd.
+  // The begin/end pair survives because it stays in the spread.
   const orderbookDragDiagRef = useRef({ startOffsetY: 0 });
 
   const handleOrderbookTouchStart = useCallback(() => {
@@ -363,8 +364,7 @@ function MobilePerpMarket() {
       const { contentSize, layoutMeasurement, contentInset, contentOffset } =
         event.nativeEvent;
       orderbookDragDiagRef.current.startOffsetY = contentOffset.y;
-      // iOS sizes this scroller with contentInset rather than padding, so the
-      // reachable distance includes the inset the header occupies.
+      // iOS sizes this scroller with contentInset, not padding.
       const scrollableRange =
         contentSize.height +
         (contentInset?.top ?? 0) +

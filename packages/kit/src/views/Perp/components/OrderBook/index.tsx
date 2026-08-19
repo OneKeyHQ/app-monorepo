@@ -705,7 +705,7 @@ export function OrderBook({
     undefined,
   );
   const [containerHeight, setContainerHeight] = useState(() =>
-    horizontal ? 0 : (initialContainerHeight ?? 0),
+    horizontal ? 0 : initialContainerHeight ?? 0,
   );
   useEffect(() => {
     if (
@@ -784,13 +784,9 @@ export function OrderBook({
   const isMobileVariant =
     variant === 'mobileHorizontal' || variant === 'mobileVertical';
 
-  // OK-59102: the epoch follows `coin`, which flips the instant the user
-  // switches token, while `aggregatedData` follows the L2 subscription and
-  // arrives later. The native depth bars re-seed on every epoch change using
-  // whatever percents exist at that moment, so if the book is still the
-  // previous coin's, the bars seed to its widths and then ease across to the
-  // new ones. Top-of-book prices are logged because their magnitude identifies
-  // which coin the data actually belongs to.
+  // OK-59102: the epoch flips with `coin` while the book lags behind on the L2
+  // subscription, and the native bars re-seed from whatever percents exist at
+  // that moment. Top-of-book prices identify which coin the data really is.
   const epochProbeRef = useRef({
     symbol: _symbol,
     isEmpty,
@@ -881,12 +877,9 @@ export function OrderBook({
   // them (useRafCoalesced) so high-frequency L2 ticks collapse to ~one Nitro
   // prop write per displayed frame.
   //
-  // OK-59102: the bars and the ladder text drawn over them must come from ONE
-  // snapshot. Coalescing only the percents while the rows read `aggregatedData`
-  // live meant every update painted a stale depth block behind an
-  // already-updated row, which the native bar's CADisplayLink easing then
-  // stretches into visible flicker. They are bundled here so a single
-  // coalescing decision covers both.
+  // Bars and the rows drawn over them must come from one snapshot: coalescing
+  // only the percents left a stale depth block behind an updated row, which the
+  // native bar's CADisplayLink easing stretches into a visible skew.
   const bidLadderRaw = useMemo(
     () => ({
       percents: aggregatedData.bids.map((item) =>
@@ -914,21 +907,18 @@ export function OrderBook({
         .map((item) => calculatePercentage(item.cumSize, askDepth)),
     [aggregatedData.asks, askDepth],
   );
-  // Mobile already renders a 200ms-throttled visual snapshot
-  // (`enableVisualSnapshot` in PerpOrderBook), so coalescing to the frame here
-  // can never merge two updates — it only costs a frame of latency and an extra
-  // render each time, which is what made the book read as slower when the rows
-  // were first bundled in. Switch it off there rather than discarding its
-  // result, or the frame and the state update are still paid for. Desktop keeps
-  // it: it has no 200ms snapshot, only the 50ms main-runtime throttle, so bursts
-  // can still land within one frame — the case REACT-NATIVE-1JZ was written for.
+  // Mobile is already throttled to 200ms upstream, so coalescing to the frame
+  // can merge nothing and only adds latency. Desktop has no such snapshot —
+  // bursts still land within a frame there, which REACT-NATIVE-1JZ was about.
   const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch, !isMobileVariant);
   const askLadder = useRafCoalesced(askLadderRaw, depthEpoch, !isMobileVariant);
   const bidPercents = bidLadder.percents;
   const askPercents = askLadder.percents;
+  // Vertical-only, and vertical never renders on a mobile variant.
   const reversedAskPercents = useRafCoalesced(
     reversedAskPercentsRaw,
     depthEpoch,
+    !isMobileVariant,
   );
 
   const blockColors = useBlockColors();
@@ -1994,10 +1984,8 @@ export function OrderBookMobile({
   // prices/sizes still showed frame N-1, briefly separating the bar fill from
   // its own price/size text (PR review r3363420755). The raw arrays keep their
   // own useMemo identities so this wrapper only changes when real data changes.
-  // `levels` rides along so a row tap resolves against the same frame the user
-  // is looking at. Reading the live arrays instead meant that within one
-  // coalesced frame a tap could put a price into the order form that was never
-  // the price on the row that was pressed.
+  // `levels` rides along so a tap resolves against the frame the user sees;
+  // reading live arrays could put a price they never pressed into the form.
   const askLadderRaw = useMemo(
     () => ({
       percents: askPercentsRaw,
@@ -2016,8 +2004,10 @@ export function OrderBookMobile({
     }),
     [aggregatedData.bids, bidPercentsRaw, bidPricesRaw, bidSizesRaw],
   );
-  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
-  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
+  // Mobile-only, and mobile is already throttled to 200ms upstream
+  // (`enableVisualSnapshot`), so frame coalescing can merge nothing here.
+  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch, false);
+  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch, false);
   // Spacers reserve the height of each rendered depth column so the foreground
   // spread row stays aligned. Each side can be empty independently, and
   // DepthBarColumn falls back to its placeholder rows for that side.

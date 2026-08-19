@@ -33,12 +33,8 @@ function PerpMarketFooter() {
         : ETranslations.perp_trade_short,
   });
 
-  // OK-59100 reports these buttons as unresponsive alongside the stuck
-  // scroller. They render in Page.Footer, outside the Tabs container, so
-  // nothing in that scroll path should reach them. Press-in and press are
-  // logged separately because they fail differently: no press-in at all means
-  // the touch never reached the button, press-in without press means something
-  // claimed the gesture midway, and both firing points at goBack() instead.
+  // Press-in and press fail differently: neither firing means the touch never
+  // arrived, press-in alone means something claimed the gesture midway.
   const handleLongPressIn = useCallback(() => {
     perpsFieldDiagnostics('marketFooter.pressIn', { side: 'long' });
   }, []);
