@@ -3032,6 +3032,7 @@
   "perp_market_info_raw_source__title": "Исходный материал",
   "perp_market_info_raw_source_tooltip__desc": "Материалы сторонних источников показаны как предоставлены и пока не переведены.",
   "perp_market_info_reference_note__desc": "Рыночные данные предоставляются третьими сторонами как глобальные рыночные данные только для справки. Они могут отличаться от торговых цен, объемов и других данных Hyperliquid. Эта информация предоставляется «как есть» и не является каким-либо заявлением или гарантией.",
+  "perp_holdings_hide_below_amount__action": "Скрыть активы стоимостью менее {amount}",
   "perp_market_info_social_media__title": "Социальные сети",
   "perp_market_info_total_supply_tooltip__desc": "Общее количество токенов, в настоящее время выпущенных.",
   "perp_market_liquidation__title": "Рыночная ликвидация",
