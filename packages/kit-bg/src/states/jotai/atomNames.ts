@@ -150,6 +150,12 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  // Nested force-target arrays must replace, not lodash-merge. merge({},
+  // {targets:['boot']}, {targets:[]}) keeps ['boot'], so the Pro2 switches
+  // cannot turn off (and look like they "don't toggle").
+  [EAtomNames.firmwareUpdateDevSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // These Perps states are written as complete snapshots. Lodash merge keeps
   // old array tails and ignores undefined, which can resurrect stale fields.
   [EAtomNames.perpsActiveAssetAtom]: {

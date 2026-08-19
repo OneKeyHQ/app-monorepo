@@ -2684,6 +2684,7 @@ class ServiceHardware extends ServiceBase {
     walletId?: string;
     forceDeviceResetToHome?: boolean;
     immediate?: boolean;
+    deviceType?: string;
   }) {
     // TODO skip cancel if device is canceling, save last cancel time
 
@@ -2899,6 +2900,14 @@ class ServiceHardware extends ServiceBase {
     // todo remove: sdk guarantees not to block this method
     timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+    onTimeout: (options) => {
+      if (options.connectId) {
+        void this.cancel({
+          connectId: options.connectId,
+          immediate: true,
+        });
+      }
+    },
   });
 
   getFeaturesMutex = new Semaphore(1);
@@ -2984,6 +2993,14 @@ class ServiceHardware extends ServiceBase {
     asyncFunc: this._getDeviceStateLowLevel,
     timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+    onTimeout: (options) => {
+      if (options.connectId) {
+        void this.cancel({
+          connectId: options.connectId,
+          immediate: true,
+        });
+      }
+    },
   });
 
   _getDeviceStateWithMutex = async (

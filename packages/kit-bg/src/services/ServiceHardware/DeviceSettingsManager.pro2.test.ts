@@ -2,11 +2,20 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
-import { DeviceSettingsManager } from './DeviceSettingsManager';
+import {
+  DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE,
+  DeviceSettingsManager,
+  isDeviceSettingsAlreadyMatched,
+} from './DeviceSettingsManager';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -37,6 +46,12 @@ jest.mock('../../dbs/local/localDb', () => ({
     getDeviceByQuery: jest.fn(),
     getDevice: jest.fn(),
     updateDevice: jest.fn(),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    intl: { formatMessage: ({ id }: { id: string }) => id },
   },
 }));
 
@@ -85,6 +100,22 @@ function buildManager(device: IDBDevice, sdk: CoreApi) {
     });
   return manager;
 }
+
+describe('isDeviceSettingsAlreadyMatched', () => {
+  test('detects the Protocol V2 already-matched payload', () => {
+    expect(
+      isDeviceSettingsAlreadyMatched({
+        message: DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE,
+      }),
+    ).toBe(true);
+  });
+
+  test('ignores a real settings mutation', () => {
+    expect(isDeviceSettingsAlreadyMatched({ message: 'Success' })).toBe(false);
+    expect(isDeviceSettingsAlreadyMatched(undefined)).toBe(false);
+    expect(isDeviceSettingsAlreadyMatched(null)).toBe(false);
+  });
+});
 
 describe('DeviceSettingsManager device adapters', () => {
   test.each([
@@ -316,6 +347,52 @@ describe('DeviceSettingsManager device adapters', () => {
     expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
       usePassphrase: true,
     });
+  });
+
+  test('shows a success toast when Pro2 passphrase already matches the device', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const deviceSettings = jest.fn(async () => ({
+      success: true as const,
+      payload: { message: DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE },
+    }));
+    const manager = buildManager(buildDevice(EDeviceType.Pro2), {
+      deviceSettings,
+    } as unknown as CoreApi);
+
+    await expect(
+      manager.setPassphraseEnabled({
+        connectId: 'PRO2_CONNECT_ID',
+        passphraseEnabled: true,
+      }),
+    ).resolves.toEqual({ message: DEVICE_SETTINGS_ALREADY_MATCHED_MESSAGE });
+
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.ShowToast, {
+      method: 'success',
+      title: ETranslations.global_success,
+    });
+    emit.mockRestore();
+  });
+
+  test('does not toast when Pro2 passphrase actually changes on the device', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const deviceSettings = jest.fn(async () => ({
+      success: true as const,
+      payload: { message: 'Success' },
+    }));
+    const manager = buildManager(buildDevice(EDeviceType.Pro2), {
+      deviceSettings,
+    } as unknown as CoreApi);
+
+    await manager.setPassphraseEnabled({
+      connectId: 'PRO2_CONNECT_ID',
+      passphraseEnabled: true,
+    });
+
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.objectContaining({ method: 'success' }),
+    );
+    emit.mockRestore();
   });
 
   test.each([

@@ -206,6 +206,9 @@ function useFirmwareVerifyBase({
         case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;
+        case HardwareErrorCode.BleUnavailableWhileUsbConnected:
+          void dialogInstance.close();
+          break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
           setContentType(

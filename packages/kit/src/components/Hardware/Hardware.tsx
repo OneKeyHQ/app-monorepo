@@ -1013,6 +1013,7 @@ export function BluetoothDevicePairingContent({
       await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
         connectId: usbConnectId,
         reason: 'Bluetooth pairing success',
+        skipDeviceCancel: true,
       });
       await backgroundApiProxy.servicePromise.resolveCallback({
         id: promiseId,
@@ -1028,6 +1029,7 @@ export function BluetoothDevicePairingContent({
       await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
         connectId: usbConnectId,
         reason: 'Bluetooth pairing failed',
+        skipDeviceCancel: true,
       });
     } finally {
       isProcessingRef.current = false;

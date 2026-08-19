@@ -242,6 +242,7 @@ export function convertDeviceError(
         void globalThis.desktopApiProxy?.system?.reloadBridgeProcess?.();
       }
       return new HardwareErrors.BridgeTimeoutError({ payload });
+    case HardwareErrorCode.BleConnectedError:
     case HardwareErrorCode.PollingTimeout:
       return new HardwareErrors.ConnectTimeoutError({ payload });
     case HardwareErrorCode.PollingStop:
