@@ -70,9 +70,22 @@ jest.mock('@onekeyhq/components', () => ({
     <div>{children}</div>
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  XStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
-    <div data-testid={testID}>{children}</div>
-  ),
+  XStack: ({
+    children,
+    onPress,
+    testID,
+  }: {
+    children?: ReactNode;
+    onPress?: (event: unknown) => void;
+    testID?: string;
+  }) =>
+    onPress ? (
+      <button data-testid={testID} onClick={onPress} type="button">
+        {children}
+      </button>
+    ) : (
+      <div data-testid={testID}>{children}</div>
+    ),
 }));
 
 jest.mock('./calendarControls/CalendarPanelPopover', () => ({
@@ -148,6 +161,9 @@ describe('TradingView chart controls', () => {
     expect(
       screen.getByTestId('trading-view-chart-switch-trigger').textContent,
     ).toBe('Original');
+
+    fireEvent.click(screen.getByTestId('trading-view-chart-switch-trigger'));
+    expect(mockSelectTriggerPress).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByTestId('chart-mode-option-native'));
     expect(handleChartSwitch).not.toHaveBeenCalled();
