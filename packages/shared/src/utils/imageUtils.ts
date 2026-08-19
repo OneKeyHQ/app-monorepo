@@ -42,8 +42,12 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
+// Below this spread there's no real split to find — a near-solid color with
+// JPEG block noise — so Otsu would binarize the noise into a checkerboard.
+const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
+
 // Threshold that maximizes between-class variance, separating an image's own bright/dark clusters.
-function otsuThreshold(luminance: Uint8ClampedArray): number {
+export function otsuThreshold(luminance: Uint8ClampedArray): number {
   const histogram = new Array<number>(256).fill(0);
   for (let p = 0; p < luminance.length; p += 1) {
     histogram[luminance[p]] += 1;
@@ -137,7 +141,7 @@ function convertToBlackAndWhiteImageBase64(
       canvas.width = img.width;
       canvas.height = img.height;
 
-      // Composite over white so transparent RGBA pixels aren't read as black below.
+      // Defensive white-fill; the real caller already flattens alpha via JPEG re-encode before this runs.
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
@@ -148,35 +152,42 @@ function convertToBlackAndWhiteImageBase64(
 
       // Perceptual luminance instead of a plain RGB average, which under-weights green.
       const luminance = new Uint8ClampedArray(pixelCount);
+      let luminanceSum = 0;
+      let luminanceMin = 255;
+      let luminanceMax = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        luminance[p] = toGrayScale(data[i], data[i + 1], data[i + 2]);
+        const value = toGrayScale(data[i], data[i + 1], data[i + 2]);
+        luminance[p] = value;
+        luminanceSum += value;
+        if (value < luminanceMin) luminanceMin = value;
+        if (value > luminanceMax) luminanceMax = value;
       }
+      const meanLuminance = luminanceSum / pixelCount;
 
-      // Otsu threshold instead of a fixed 128 — adapts per image without a
-      // stretch, which a couple of outlier pixels could otherwise skew.
+      // Otsu threshold instead of a fixed 128 — adapts per image, skipped below MIN_LUMINANCE_RANGE_FOR_OTSU.
       let threshold = 128;
-      try {
-        threshold = otsuThreshold(luminance);
-      } catch (error) {
-        console.error(
-          'otsuThreshold failed, falling back to threshold 128',
-          error,
-        );
+      if (luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
+        try {
+          threshold = otsuThreshold(luminance);
+        } catch (error) {
+          console.error(
+            'otsuThreshold failed, falling back to threshold 128',
+            error,
+          );
+        }
       }
 
-      let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
         const bw = luminance[p] > threshold ? 255 : 0;
-        if (bw === 255) {
-          whiteCount += 1;
-        }
         data[i] = bw;
         data[i + 1] = bw;
         data[i + 2] = bw;
       }
 
-      // reverse color if white part is more than half
-      if (whiteCount > pixelCount / 2) {
+      // Invert by raw mean luminance, not post-threshold white ratio — Otsu's
+      // threshold tracks each image's own median, so that ratio sits at ~50%
+      // for almost any photo and made this flip essentially at random.
+      if (meanLuminance > 128) {
         for (let i = 0; i < data.length; i += 4) {
           data[i] = 255 - data[i];
           data[i + 1] = 255 - data[i + 1];
