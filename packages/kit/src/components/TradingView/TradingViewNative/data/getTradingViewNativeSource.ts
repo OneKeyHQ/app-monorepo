@@ -32,11 +32,13 @@ export function getTradingViewNativeSourceKey(
   if (source.kind === 'hyperliquid') {
     return `hyperliquid:${source.environment}:${source.coin.trim()}`;
   }
-  const marketSourceKey = `${getTradingViewNativeMarketTokenKey(
-    source,
-  )}:${normalizeMarketSymbol(source.symbol)}${
-    source.isNative ? ':native' : ''
-  }`;
+  const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
+  const hasTokenAddress = Boolean(
+    normalizeMarketTokenAddress(source.tokenAddress),
+  );
+  const marketSourceKey = `${marketTokenKey}${
+    hasTokenAddress ? '' : `:${normalizeMarketSymbol(source.symbol)}`
+  }${source.isNative ? ':native' : ''}`;
   const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();
   return normalizedFallbackCoinGeckoId
     ? `${marketSourceKey}:coingecko:${normalizedFallbackCoinGeckoId}`

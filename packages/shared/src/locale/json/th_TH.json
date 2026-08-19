@@ -3032,6 +3032,7 @@
   "perp_market_info_raw_source__title": "วัสดุต้นฉบับ",
   "perp_market_info_raw_source_tooltip__desc": "เนื้อหาจากแหล่งบุคคลที่สามแสดงตามต้นฉบับและยังไม่ได้แปล",
   "perp_market_info_reference_note__desc": "ข้อมูลตลาดจัดทำโดยบุคคลที่สามในฐานะข้อมูลตลาดทั่วโลกเพื่อใช้อ้างอิงเท่านั้น ข้อมูลนี้อาจแตกต่างจากราคาซื้อขาย ปริมาณ และข้อมูลอื่น ๆ บน Hyperliquid ข้อมูลนี้จัดทำให้ตามสภาพและไม่ถือเป็นการรับรองหรือการรับประกันใด ๆ",
+  "perp_holdings_hide_below_amount__action": "ซ่อนสินทรัพย์ที่มีมูลค่าต่ำกว่า {amount}",
   "perp_market_info_social_media__title": "โซเชียลมีเดีย",
   "perp_market_info_total_supply_tooltip__desc": "จำนวนโทเค็นทั้งหมดที่ออกแล้ว ณ ปัจจุบัน",
   "perp_market_liquidation__title": "การชำระบัญชีตามราคาตลาด",

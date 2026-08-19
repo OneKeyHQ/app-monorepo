@@ -111,7 +111,7 @@ describe('Swap K-line TradingViewNative source', () => {
       realtime: 'disabled',
     });
     expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:ETH',
+      'market:evm--1:0xabc',
     );
   });
 
