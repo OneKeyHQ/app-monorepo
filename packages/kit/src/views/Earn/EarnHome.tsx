@@ -116,6 +116,13 @@ function BasicEarnHome({
     IEarnPageBannerListItem[]
   >([]);
   const hasNetworkBannerListRef = useRef(false);
+  // usePromiseResult guards its own setResult against stale responses with a
+  // nonce, but that guard runs after the method body returns — a setState made
+  // inside the body is not covered by it. This hook has three triggers that do
+  // not cancel each other (the showContent dep, revalidateOnFocus, and the
+  // manual refetch in refreshEarnData), so two requests can be in flight at
+  // once and the result would otherwise be decided by whichever resolves last.
+  const bannerRequestSeqRef = useRef(0);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -138,10 +145,25 @@ function BasicEarnHome({
       if (!platformEnv.isNative || showContent === false) {
         return;
       }
-      const list =
-        await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
-      hasNetworkBannerListRef.current = true;
-      setEarnPageBannerList(list);
+      const requestSeq = (bannerRequestSeqRef.current += 1);
+      try {
+        const list =
+          await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+        // Set outside the staleness check: its job is to stop the simpleDb
+        // seed from backfilling once the network has spoken at all, and a
+        // newer request is already on its way to write the real value.
+        hasNetworkBannerListRef.current = true;
+        if (requestSeq !== bannerRequestSeqRef.current) {
+          return;
+        }
+        setEarnPageBannerList(list);
+      } catch {
+        // Keep whatever is on screen — the cached list, or the previous
+        // response. Rethrowing would take the whole Earn refresh down with it:
+        // usePromiseResult re-throws non-abort errors, and refreshEarnData
+        // awaits this inside a Promise.all with no catch, so a flaky banner
+        // request would skip the balance and portfolio refresh behind it.
+      }
     },
     [showContent],
     {
