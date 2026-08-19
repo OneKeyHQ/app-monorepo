@@ -123,3 +123,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `gtMd` was used as a stand-in for "this is the 208px desktop floating panel". Native popovers always Adapt to a Sheet, and `ActivityHubContent` is also inlined into wider hosts that never set that width.
 **Fix**: Compact layout is an explicit `isCompactPanel` host flag. Only `ActivityHubAction` / `useShowActivityHub` set it for the desktop floating surface with no campaigns; native `floatingPanelProps.width` is left unset.
 **Catchable by**: Section 3: Cross-platform impact — platform-specific overlay (Popover Sheet vs floating panel) plus every inlined consumer of a shared layout
+
+## Case: Popover's native-sheet rule was copied onto a Dialog host
+**Date**: 2026-08-19 | **Platforms**: iPad, Android tablet (Swap settings → Activity Hub)
+**Symptom**: On native tablets the Swap settings Activity Hub opened at the Dialog default 400px with two ~92px tiles and ~184px of dead space, instead of the 208px panel filled by two tiles.
+**Root Cause**: `gtMd && !platformEnv.isNative` was reused for the Dialog host. That exclusion only holds for Popover, which always Adapts to a Sheet on native; Dialog degrades to a sheet solely below the md breakpoint and renders `TMDialog.Content` (honouring `floatingPanelProps`) on native tablets.
+**Fix**: The Dialog host sizes its panel by `gtMd` alone, so width and tile basis stay paired on every platform above md.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition — an overlay-specific guard is not transferable to a different overlay primitive
+
+## Case: Swap and Perps reward overlays stayed above the onboarding screen
+**Date**: 2026-08-19 | **Platforms**: web dapp mode (wide layout), Swap and Perps reward dialogs
+**Symptom**: Tapping create/connect wallet in the reward dialog pushed the onboarding modal behind the still-open dialog.
+**Root Cause**: The shared `InviteeRewardNoWallet` gained an optional `onBeforeNavigate` dismiss step, but only the Earn host supplied it. Where onboarding resets the navigation root the overlay unmounts anyway, which hid the gap everywhere except web dapp mode, where onboarding is pushed as a modal and the in-tab dialog portal survives.
+**Fix**: Both dialog hosts pass a close callback through their content; the pushed modal-page hosts still pass nothing since they have no overlay to dismiss.
+**Catchable by**: Section 4: Type definitions changed → all consumers updated (a new optional prop on a shared component needs every host audited)
