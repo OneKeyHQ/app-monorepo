@@ -1,26 +1,16 @@
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { createIntl, createIntlCache } from 'react-intl';
+
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
 
 import { formatRecipientLine, normalizeNativePrice } from './utils';
 
-import type { IntlShape } from 'react-intl';
-
-const messages: Record<string, string> = {
-  [ETranslations.batch_psbt_to_address__desc]: 'To {address}',
-  [ETranslations.batch_psbt_to_address_additional_outputs__desc]:
-    'To {address} +{count}',
-  [ETranslations.batch_psbt_to_multiple_outputs__desc]: 'To multiple outputs',
-};
-const intl = {
-  formatMessage(
-    descriptor: { id?: string },
-    values?: Record<string, string | number>,
-  ) {
-    return Object.entries(values ?? {}).reduce(
-      (message, [key, value]) => message.replace(`{${key}}`, String(value)),
-      messages[descriptor.id ?? ''] ?? '',
-    );
+const intl = createIntl(
+  {
+    locale: 'en-US',
+    messages: enUS as Record<string, string>,
   },
-} as unknown as Pick<IntlShape, 'formatMessage'>;
+  createIntlCache(),
+);
 
 describe('formatRecipientLine', () => {
   it('formats a single external recipient', () => {
