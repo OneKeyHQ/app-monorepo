@@ -132,6 +132,39 @@ export function buildStockSwapTokenFromMarketToken(
   };
 }
 
+export function resolveStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}): ISwapToken | undefined {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: tokenDetail,
+    })
+  ) {
+    return undefined;
+  }
+  const isNative = tokenDetail.isNative ?? token.isNative;
+  if (
+    token.decimals === tokenDetail.decimals &&
+    token.isNative === isNative &&
+    token.isStock === true
+  ) {
+    return token;
+  }
+  return {
+    ...token,
+    decimals: tokenDetail.decimals,
+    isNative,
+    isStock: true,
+  };
+}
+
 export function buildStockSwapTokenFromMarketListToken(
   token: IMarketTokenListItem,
 ): ISwapToken | undefined {
@@ -268,6 +301,21 @@ export function shouldRenderStockTradeInputSkeleton({
     return false;
   }
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
+}
+
+export function isStockBalanceActionReady({
+  authoritativeBalance,
+  authoritativeStockToken,
+  isBuySide,
+}: {
+  authoritativeBalance?: string;
+  authoritativeStockToken?: ISwapToken;
+  isBuySide: boolean;
+}) {
+  return Boolean(
+    authoritativeBalance !== undefined &&
+    (isBuySide || authoritativeStockToken),
+  );
 }
 
 export function isStockBalanceInitializing({

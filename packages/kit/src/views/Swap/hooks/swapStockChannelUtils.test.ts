@@ -5,12 +5,14 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   resolveStockKLineToken,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
@@ -272,6 +274,62 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);
+  });
+
+  it('refreshes Stock execution metadata from an identity-matched token detail', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+    const tokenDetail = {
+      ...appleStockToken,
+      balanceParsed: '0.168058487842240859',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail,
+      }),
+    ).toEqual(appleStockToken);
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail: {
+          ...tokenDetail,
+          contractAddress: micronStockToken.contractAddress,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps balance actions unavailable until authoritative execution state is ready', () => {
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: undefined,
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {
