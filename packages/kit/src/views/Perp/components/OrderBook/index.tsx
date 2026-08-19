@@ -1078,30 +1078,26 @@ export function OrderBook({
   // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
   // change (useMemo) instead of inside JSX on every render, then frame-coalesce
   // them (useRafCoalesced) so high-frequency L2 ticks collapse to ~one Nitro
-  // prop write per displayed frame.
+  // prop write per displayed frame. Only the depth-bar *visual* data is gated
+  // here — the price/size ladder text below still reads `aggregatedData`
+  // directly, so the numbers the user reads stay maximally fresh.
   //
-  // OK-59102: percents and the ladder rows they sit behind must travel through
-  // the SAME coalesced snapshot. Coalescing only the percents while the text
-  // read `aggregatedData` directly published two different books per update —
-  // a stale depth block behind an already-updated row — which on iOS is then
-  // stretched further by the native bar's CADisplayLink easing and reads as
-  // flicker. Bundling them mirrors what the vertical mobile ladder already does.
-  const bidLadderRaw = useMemo(
-    () => ({
-      percents: aggregatedData.bids.map((item) =>
+  // OK-59102: bundling the rows into this same coalesced snapshot was tried and
+  // reverted — on device it made the book read as visibly slower without the
+  // reported flicker reproducing, so the skew is not worth that trade until a
+  // capture actually shows it.
+  const bidPercentsRaw = useMemo(
+    () =>
+      aggregatedData.bids.map((item) =>
         calculatePercentage(item.cumSize, bidDepth),
       ),
-      levels: aggregatedData.bids,
-    }),
     [aggregatedData.bids, bidDepth],
   );
-  const askLadderRaw = useMemo(
-    () => ({
-      percents: aggregatedData.asks.map((item) =>
+  const askPercentsRaw = useMemo(
+    () =>
+      aggregatedData.asks.map((item) =>
         calculatePercentage(item.cumSize, askDepth),
       ),
-      levels: aggregatedData.asks,
-    }),
     [aggregatedData.asks, askDepth],
   );
   // Vertical layout draws asks top-to-bottom reversed; keep its own derived
@@ -1113,10 +1109,8 @@ export function OrderBook({
         .map((item) => calculatePercentage(item.cumSize, askDepth)),
     [aggregatedData.asks, askDepth],
   );
-  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
-  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
-  const bidPercents = bidLadder.percents;
-  const askPercents = askLadder.percents;
+  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
+  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
   const reversedAskPercents = useRafCoalesced(
     reversedAskPercentsRaw,
     depthEpoch,
@@ -1378,7 +1372,7 @@ export function OrderBook({
               <View style={styles.absoluteContainer}>
                 <View style={styles.levelListContainer}>
                   <View style={styles.levelList}>
-                    {bidLadder.levels.map((item, index) => (
+                    {aggregatedData.bids.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('bid', item, index)}
@@ -1412,7 +1406,7 @@ export function OrderBook({
                     ))}
                   </View>
                   <View style={styles.levelList}>
-                    {askLadder.levels.map((item, index) => (
+                    {aggregatedData.asks.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('ask', item, index)}

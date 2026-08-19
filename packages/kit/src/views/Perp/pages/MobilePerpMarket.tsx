@@ -66,14 +66,12 @@ import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenS
 const MOBILE_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
 
-// OK-59100: `react-native-collapsible-tab-view` sizes its iOS scroller with
-// `contentInset` rather than padding, so its own `contentContainerStyle`
-// carries the minHeight that guarantees there is anything to scroll at all.
-// External styles are merged AFTER the library's, so the previous
-// `minHeight: 0` silently deleted that guarantee and left the order book
-// scrollable only when its intrinsic content happened to be tall enough.
-// `flexGrow: 0` is kept — it is what stops the short content from stretching.
-const IOS_ORDERBOOK_SCROLL_CONTENT_STYLE = { flexGrow: 0 };
+// `minHeight: 0` is deliberate, and dropping it was wrong: iOS scrollability
+// here comes from the header's contentInset (the 500pt chart), not from the
+// content's own height. Letting the library's minHeight through only padded
+// dead space under the order book and stretched the scroll — field log showed
+// contentHeight 574 against ~390pt of real rows at 7 levels per side.
+const IOS_ORDERBOOK_SCROLL_CONTENT_STYLE = { flexGrow: 0, minHeight: 0 };
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   key: IMobilePerpMarketTab;
