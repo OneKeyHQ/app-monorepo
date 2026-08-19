@@ -9682,14 +9682,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-segment-slider@npm:3.0.78":
-  version: 3.0.78
-  resolution: "@onekeyfe/react-native-segment-slider@npm:3.0.78"
+"@onekeyfe/react-native-segment-slider@npm:3.0.86-alpha.0":
+  version: 3.0.86-alpha.0
+  resolution: "@onekeyfe/react-native-segment-slider@npm:3.0.86-alpha.0"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
-  checksum: 10/e3edbd51e5aea368c42ea3d53e6b47ece420489f57ea01e94a27396c33cf0bab137b4b2394ce8af12d3be69b915073000fd8ffaac964009aed20b7e1dfd0fbf1
+  checksum: 10/4f617a96520823369547dfaaa1c206b373ee74d33e2a925159992b537898b718d6e3c98379a86c8fdbe7f21c7ca330a7388ff35844255e3f7f99ff9f24f76236
   languageName: node
   linkType: hard
 
@@ -10024,7 +10024,7 @@ __metadata:
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.78"
-    "@onekeyfe/react-native-segment-slider": "npm:3.0.78"
+    "@onekeyfe/react-native-segment-slider": "npm:3.0.86-alpha.0"
     "@onekeyfe/react-native-tab-view": "npm:3.0.78"
     "@react-navigation/bottom-tabs": "npm:7.10.1"
     "@react-navigation/elements": "npm:2.9.5"
@@ -10221,7 +10221,7 @@ __metadata:
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.78"
     "@onekeyfe/react-native-range-downloader": "npm:3.0.81-alpha.11"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.78"
-    "@onekeyfe/react-native-segment-slider": "npm:3.0.78"
+    "@onekeyfe/react-native-segment-slider": "npm:3.0.86-alpha.0"
     "@onekeyfe/react-native-skeleton": "npm:3.0.78"
     "@onekeyfe/react-native-sni-connect": "npm:3.0.81-alpha.9"
     "@onekeyfe/react-native-splash-screen": "npm:3.0.78"

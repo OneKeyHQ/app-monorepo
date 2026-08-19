@@ -71,6 +71,11 @@ export interface ISegmentSliderProps {
    */
   snapTapToSegment?: boolean;
   /**
+   * Align segment marks to the same half-to-even integer values emitted by the
+   * native slider. Default false.
+   */
+  alignSegmentMarksToIntegerValues?: boolean;
+  /**
    * @deprecated Not supported by the native (Nitro) renderer — marks/thumb are
    * drawn natively. Accepted for prop compatibility but ignored.
    */
@@ -117,6 +122,7 @@ function SegmentSliderComponent({
   showBubble = true,
   centerOrigin = false,
   snapTapToSegment = false,
+  alignSegmentMarksToIntegerValues = false,
 }: ISegmentSliderProps) {
   const theme = useTheme();
   // `.val` re-reads on theme change (useTheme re-runs the component), so the
@@ -224,6 +230,7 @@ function SegmentSliderComponent({
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}
+      alignSegmentMarksToIntegerValues={alignSegmentMarksToIntegerValues}
       onChange={handleChange}
       onSlideStart={handleSlideStart}
       onSlideComplete={handleSlideComplete}

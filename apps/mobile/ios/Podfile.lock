@@ -4650,7 +4650,7 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
-  - SegmentSlider (3.0.78):
+  - SegmentSlider (3.0.86-alpha.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -5586,7 +5586,7 @@ SPEC CHECKSUMS:
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  SegmentSlider: e3507345e9bf6a48fd301181765d056a70420512
+  SegmentSlider: bd59c047dec9df8b2b8dd30d22bf2e0c449c55a9
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: e04f3e3d91865cdb03ef256a095d128688acf3fb
   SniConnect: eb28a03028065e205739894cb10be4c80b8cabd5

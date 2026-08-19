@@ -48,6 +48,8 @@ export interface ISegmentSliderProps {
    * not yet honored by the web variant, which keeps its tap-on-mark snapping.
    */
   snapTapToSegment?: boolean;
+  /** Native-only mark alignment option, accepted for cross-platform parity. */
+  alignSegmentMarksToIntegerValues?: boolean;
 }
 
 interface ISegmentMarkProps {
