@@ -224,10 +224,9 @@ function isTouchDevice(deviceType: IDeviceType) {
   );
 }
 
-// Pro2 server-side firmware verification is not ready yet.
 // Keep all firmware verification capability checks centralized here.
 function isFirmwareVerifySupported(deviceType?: IDeviceType) {
-  return !isProtocolV2ProductType(deviceType);
+  return true;
 }
 
 async function getDeviceTypeFromFeatures({
