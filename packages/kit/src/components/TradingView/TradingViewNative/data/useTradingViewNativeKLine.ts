@@ -63,7 +63,8 @@ const HISTORY_BOUNDARY_PREFETCH_CACHE_TTL = 24 * 60 * 60 * 1000;
 const HISTORY_BOUNDARY_SEARCH_INTERVAL_VALUE: ITradingViewNativeChartInterval =
   '1W';
 const HISTORY_RETRY_DELAYS = [1000, 3000] as const;
-const MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT = 10;
+const MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT = 25;
+const MAX_SPARSE_HISTORY_REQUEST_ATTEMPT_COUNT = 100;
 const MAX_VIEWPORT_HISTORY_PAGE_COUNT = 20;
 const MAX_VIEWPORT_HISTORY_BOUNDARY_SEARCH_COUNT = 32;
 const MAX_REALTIME_BUFFER_CANDLES = 160;
@@ -537,17 +538,46 @@ function getHistoryBoundaryPrefetchPage(
   return historyBoundaryPrefetchRequests.get(cacheKey)?.promise ?? null;
 }
 
+interface IHistoryRequestAttemptBudget {
+  remainingAttemptCount: number;
+}
+
+class HistoryRequestAttemptBudgetExhaustedError extends OneKeyLocalError {}
+
+function createSparseHistoryRequestAttemptBudget(): IHistoryRequestAttemptBudget {
+  return {
+    remainingAttemptCount: MAX_SPARSE_HISTORY_REQUEST_ATTEMPT_COUNT,
+  };
+}
+
+function consumeHistoryRequestAttempt(
+  requestAttemptBudget?: IHistoryRequestAttemptBudget,
+) {
+  if (!requestAttemptBudget) {
+    return;
+  }
+  if (requestAttemptBudget.remainingAttemptCount <= 0) {
+    throw new HistoryRequestAttemptBudgetExhaustedError(
+      'Sparse history request attempt budget exhausted',
+    );
+  }
+  requestAttemptBudget.remainingAttemptCount -= 1;
+}
+
 async function fetchRequiredHistoryPage({
   historyProvider,
   request,
+  requestAttemptBudget,
   unavailableMessage,
 }: {
   historyProvider: ITradingViewNativeDataProvider;
   request: ITradingViewNativeHistoryRequest;
+  requestAttemptBudget?: IHistoryRequestAttemptBudget;
   unavailableMessage: string;
 }): Promise<ITradingViewNativeHistoryResponse> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= HISTORY_RETRY_DELAYS.length; attempt += 1) {
+    consumeHistoryRequestAttempt(requestAttemptBudget);
     try {
       const data = await historyProvider.fetchHistory(request);
       if (!data) {
@@ -563,6 +593,11 @@ async function fetchRequiredHistoryPage({
       if (retryDelay === undefined) {
         break;
       }
+      if (requestAttemptBudget?.remainingAttemptCount === 0) {
+        throw new HistoryRequestAttemptBudgetExhaustedError(
+          'Sparse history request attempt budget exhausted',
+        );
+      }
       await waitForHistoryRetry(retryDelay, request.signal);
       if (request.signal.aborted) {
         throw error;
@@ -575,9 +610,11 @@ async function fetchRequiredHistoryPage({
 
 function prefetchHistoryBoundaryPage({
   historyProvider,
+  requestAttemptBudget,
   seriesKey,
 }: {
   historyProvider: ITradingViewNativeDataProvider;
+  requestAttemptBudget?: IHistoryRequestAttemptBudget;
   seriesKey: string;
 }) {
   const cacheKey = getHistoryBoundaryPrefetchCacheKey(seriesKey);
@@ -613,6 +650,7 @@ function prefetchHistoryBoundaryPage({
             timeFrom,
             timeTo: oldestPageTimeTo,
           },
+          requestAttemptBudget,
           unavailableMessage:
             'No weekly candle history response is available for boundary prefetch',
         });
@@ -683,6 +721,7 @@ function prefetchHistoryBoundaryPage({
           timeFrom: dailyTimeFrom,
           timeTo: dailyTimeTo,
         },
+        requestAttemptBudget,
         unavailableMessage:
           'No daily candle history response is available for boundary refinement',
       });
@@ -716,7 +755,11 @@ function prefetchHistoryBoundaryPage({
       return page;
     })
     .catch((error: unknown) => {
-      if (!abortController.signal.aborted && !isAbortError(error)) {
+      if (
+        !abortController.signal.aborted &&
+        !isAbortError(error) &&
+        !(error instanceof HistoryRequestAttemptBudgetExhaustedError)
+      ) {
         logTradingViewNativeDataError(
           'Failed to prefetch native TradingView history boundary',
           error,
@@ -742,6 +785,7 @@ async function recoverOlderHistoryFromBoundary({
   initialConsecutiveEmptyWindowCount = 0,
   interval,
   onProgress,
+  requestAttemptBudget,
   seriesKey,
   signal,
   targetPointCount,
@@ -751,13 +795,18 @@ async function recoverOlderHistoryFromBoundary({
   initialConsecutiveEmptyWindowCount?: number;
   interval: ITradingViewNativeKLineInterval;
   onProgress?: (result: IHistoryGapRecoveryResult) => void;
+  requestAttemptBudget: IHistoryRequestAttemptBudget;
   seriesKey: string;
   signal: AbortSignal;
   targetPointCount: number;
   timeTo: number;
 }): Promise<IHistoryGapRecoveryResult | null> {
   const boundaryPage = await (getHistoryBoundaryPrefetchPage(seriesKey) ??
-    prefetchHistoryBoundaryPage({ historyProvider, seriesKey }));
+    prefetchHistoryBoundaryPage({
+      historyProvider,
+      requestAttemptBudget,
+      seriesKey,
+    }));
   if (
     signal.aborted ||
     !boundaryPage ||
@@ -802,7 +851,8 @@ async function recoverOlderHistoryFromBoundary({
     cursorTimeTo >= boundaryTimestamp &&
     points.length < normalizedTargetPointCount &&
     consecutiveEmptyWindowCount <
-      MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT
+      MAX_SPARSE_HISTORY_CONSECUTIVE_EMPTY_WINDOW_COUNT &&
+    requestAttemptBudget.remainingAttemptCount > 0
   ) {
     const rangeTimeTo = cursorTimeTo;
     const rangeTimeFrom = Math.max(
@@ -813,17 +863,26 @@ async function recoverOlderHistoryFromBoundary({
       }),
       boundaryTimestamp,
     );
-    const data = await fetchRequiredHistoryPage({
-      historyProvider,
-      request: {
-        interval,
-        signal,
-        timeFrom: rangeTimeFrom,
-        timeTo: rangeTimeTo,
-      },
-      unavailableMessage:
-        'No candle history response is available for sparse history recovery',
-    });
+    let data: ITradingViewNativeHistoryResponse;
+    try {
+      data = await fetchRequiredHistoryPage({
+        historyProvider,
+        request: {
+          interval,
+          signal,
+          timeFrom: rangeTimeFrom,
+          timeTo: rangeTimeTo,
+        },
+        requestAttemptBudget,
+        unavailableMessage:
+          'No candle history response is available for sparse history recovery',
+      });
+    } catch (error) {
+      if (error instanceof HistoryRequestAttemptBudgetExhaustedError) {
+        break;
+      }
+      throw error;
+    }
     if (signal.aborted) {
       return null;
     }
@@ -3318,6 +3377,7 @@ export function useTradingViewNativeKLine({
       pagination.isLoading = true;
 
       const loadOlderHistory = async () => {
+        const requestAttemptBudget = createSparseHistoryRequestAttemptBudget();
         try {
           const data = await fetchRequiredHistoryPage({
             historyProvider,
@@ -3327,6 +3387,7 @@ export function useTradingViewNativeKLine({
               timeFrom,
               timeTo,
             },
+            requestAttemptBudget,
             unavailableMessage: 'No older candle history response is available',
           });
           if (
@@ -3415,6 +3476,7 @@ export function useTradingViewNativeKLine({
               initialConsecutiveEmptyWindowCount: olderPoints.length ? 0 : 1,
               interval,
               onProgress: applyRecoveryProgress,
+              requestAttemptBudget,
               seriesKey,
               signal: abortController.signal,
               targetPointCount: recoveryTargetPointCount,
@@ -3927,6 +3989,7 @@ export function useTradingViewNativeKLine({
     };
 
     const fetchHistory = async () => {
+      const requestAttemptBudget = createSparseHistoryRequestAttemptBudget();
       let lastError: unknown;
       let initialData: ITradingViewNativeHistoryResponse | undefined;
       let initialPoints: IMarketTokenKLineDataPoint[] | undefined;
@@ -3936,6 +3999,7 @@ export function useTradingViewNativeKLine({
         attempt += 1
       ) {
         try {
+          consumeHistoryRequestAttempt(requestAttemptBudget);
           const data = await historyProvider.fetchHistory({
             interval: requestedInterval,
             signal: abortController.signal,
@@ -4103,6 +4167,7 @@ export function useTradingViewNativeKLine({
           historyProvider,
           interval: requestedInterval,
           onProgress: applyRecoveryProgress,
+          requestAttemptBudget,
           seriesKey,
           signal: abortController.signal,
           targetPointCount: Math.max(
