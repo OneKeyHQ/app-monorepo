@@ -72,9 +72,7 @@ describe('TradingViewNative source resolver', () => {
       symbol: 'TOKEN',
       realtime: 'websocket',
     });
-    expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:TOKEN',
-    );
+    expect(getTradingViewNativeSourceKey(source)).toBe('market:evm--1:0xabc');
   });
 
   it('keeps the native-token identity for interval persistence', () => {
@@ -96,7 +94,7 @@ describe('TradingViewNative source resolver', () => {
       realtime: 'disabled',
     });
     expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xeeee:ETH:native',
+      'market:evm--1:0xeeee:native',
     );
   });
 
@@ -116,9 +114,7 @@ describe('TradingViewNative source resolver', () => {
       tokenAddress: '0xAbC',
     });
 
-    expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:ETH',
-    );
+    expect(getTradingViewNativeSourceKey(source)).toBe('market:evm--1:0xabc');
   });
 
   it('keeps a CoinGecko fallback hint inside the Market source', () => {
