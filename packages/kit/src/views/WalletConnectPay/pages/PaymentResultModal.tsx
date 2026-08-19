@@ -29,7 +29,7 @@ import type { RouteProp } from '@react-navigation/core';
 const DEFAULT_POLL_MS = 3000;
 const MAX_POLL_COUNT = 60;
 
-export default function PaymentResultModal() {
+export function PaymentResultModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =

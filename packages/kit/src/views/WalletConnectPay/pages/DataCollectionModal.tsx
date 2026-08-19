@@ -15,7 +15,7 @@ import { DataCollectionView } from '../components/DataCollectionView';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export default function DataCollectionModal() {
+export function DataCollectionModal() {
   const route =
     useRoute<
       RouteProp<

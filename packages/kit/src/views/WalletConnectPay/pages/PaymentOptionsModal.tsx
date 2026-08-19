@@ -581,7 +581,7 @@ function PaymentOptionsPage() {
   );
 }
 
-export default function PaymentOptionsModal() {
+export function PaymentOptionsModal() {
   return (
     <AccountSelectorProviderMirror
       config={{
