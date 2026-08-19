@@ -5,6 +5,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
@@ -140,6 +141,23 @@ class ServiceWalletConnectPay extends ServiceBase {
     indexedAccountId?: string;
   }): Promise<string[]> {
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
+
+    // External accounts broadcast inside their connected wallet during the
+    // "signing" step, bypassing the local sign-then-record-then-broadcast
+    // pipeline the duplicate-payment boundary depends on; watch-only
+    // accounts cannot sign at all. Refuse both here — the service is the
+    // trust boundary, the options page renders a dedicated state, and
+    // ServiceSend asserts the same as a last line of defense.
+    if (!indexedAccountId && accountId) {
+      if (
+        accountUtils.isExternalAccount({ accountId }) ||
+        accountUtils.isWatchingAccount({ accountId })
+      ) {
+        throw new OneKeyError(
+          'WalletConnect Pay does not support this account type',
+        );
+      }
+    }
 
     // honour the user's global derive type (e.g. Ledger Live) so the offered
     // address matches the account shown in the wallet
@@ -507,6 +525,61 @@ class ServiceWalletConnectPay extends ServiceBase {
       }
       await timerUtils.wait(3000);
     }
+  }
+
+  /**
+   * Distinguish "never broadcast" from "broadcast but not yet confirmed"
+   * for a txid restored from durable progress. The pre-broadcast record is
+   * written before the broadcast attempt, so a definitive broadcast
+   * rejection leaves a phantom txid behind; a resumed attempt must
+   * re-execute that action instead of submitting the phantom result — or a
+   * single failed broadcast deadlocks the payment until expiry.
+   *
+   * eth_getTransactionByHash returning null is the only usable
+   * "not broadcast" signal (a missing receipt alone cannot tell pending
+   * from nonexistent). The conclusion is drawn only from several
+   * consistent tx+receipt null rounds, and any RPC failure or non-null
+   * result aborts to false: misreading a still-propagating transaction as
+   * never-broadcast would re-broadcast it and could pay twice, so
+   * uncertainty always keeps the stored txid.
+   */
+  @backgroundMethod()
+  async isTxNeverBroadcast({
+    networkId,
+    txid,
+  }: {
+    networkId: string;
+    txid: string;
+  }): Promise<boolean> {
+    const probe = async (
+      method: string,
+    ): Promise<'found' | 'null' | 'rpcError'> => {
+      try {
+        const [result] =
+          await this.backgroundApi.serviceDApp.proxyRPCCall<unknown>({
+            networkId,
+            request: { method, params: [txid] },
+            origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
+          });
+        return result === null || result === undefined ? 'null' : 'found';
+      } catch {
+        return 'rpcError';
+      }
+    };
+    for (let round = 0; round < 3; round += 1) {
+      if (round > 0) {
+        await timerUtils.wait(5000);
+      }
+      const tx = await probe('eth_getTransactionByHash');
+      if (tx !== 'null') {
+        return false;
+      }
+      const receipt = await probe('eth_getTransactionReceipt');
+      if (receipt !== 'null') {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

@@ -20,6 +20,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
   shouldRefuseWcPayOptionUpfront,
@@ -60,6 +61,26 @@ import type { RouteProp } from '@react-navigation/core';
 function getWcPayOptionNetworkId(option: IWcPayOption): string | undefined {
   const [namespace, reference] = option.account.split(':');
   return wcPayChainIdToNetworkId(`${namespace}:${reference}`) ?? undefined;
+}
+
+// External accounts broadcast inside their connected wallet during the
+// "signing" step, so the duplicate-payment boundary (durable pre-broadcast
+// txid record) cannot cover them; watch-only accounts cannot sign at all.
+// WalletConnect Pay refuses both — the background enforces the same in
+// buildPayAccounts and ServiceSend
+function isWcPayUnsupportedAccountType({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+}): boolean {
+  return Boolean(
+    !indexedAccountId &&
+    accountId &&
+    (accountUtils.isExternalAccount({ accountId }) ||
+      accountUtils.isWatchingAccount({ accountId })),
+  );
 }
 
 function formatPayAmount({
@@ -121,10 +142,20 @@ function PaymentOptionsPage() {
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
+  const isUnsupportedAccountType = isWcPayUnsupportedAccountType({
+    accountId,
+    indexedAccountId,
+  });
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!accountId && !indexedAccountId) {
+        return undefined;
+      }
+      // don't fetch options for account types the flow refuses anyway; the
+      // page renders a dedicated state and the background rejects the same
+      // request in buildPayAccounts
+      if (isWcPayUnsupportedAccountType({ accountId, indexedAccountId })) {
         return undefined;
       }
       // usePromiseResult swallows rejections, which would leave the page on
@@ -412,6 +443,20 @@ function PaymentOptionsPage() {
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="WalletConnect Pay" />
       <Page.Body>
+        {isUnsupportedAccountType ? (
+          <Stack
+            flex={1}
+            alignItems="center"
+            justifyContent="center"
+            py="$10"
+            px="$5"
+          >
+            <SizableText size="$bodyLgMedium" textAlign="center">
+              {/* copy pending product i18n keys */}
+              This account type is not supported by WalletConnect Pay
+            </SizableText>
+          </Stack>
+        ) : null}
         {!isLoading && loadError ? (
           <Stack
             flex={1}
@@ -436,7 +481,9 @@ function PaymentOptionsPage() {
             </Button>
           </Stack>
         ) : null}
-        {!loadError && (isLoading || !payResult) ? (
+        {!loadError &&
+        !isUnsupportedAccountType &&
+        (isLoading || !payResult) ? (
           <Stack flex={1} alignItems="center" justifyContent="center" py="$10">
             <Spinner size="large" />
           </Stack>

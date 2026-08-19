@@ -401,6 +401,21 @@ class ServiceSend extends ServiceBase {
         networkId,
       });
 
+    // The WC Pay pre-broadcast boundary requires the local
+    // sign-then-broadcast pipeline below. An external account broadcasts
+    // inside its connected wallet during the "signing" step, where no txid
+    // can be durably recorded first — fail explicitly (before that signing
+    // starts) instead of silently skipping the duplicate-payment boundary.
+    if (
+      wcPayPreBroadcastRecord &&
+      accountUtils.isExternalAccount({ accountId })
+    ) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay does not support external accounts',
+        autoToast: false,
+      });
+    }
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,

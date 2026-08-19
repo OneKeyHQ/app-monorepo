@@ -175,36 +175,67 @@ export function useWcPayActionExecutor() {
         }
       };
 
-      // resuming after a mid-sequence failure: if the last completed action
-      // broadcast a tx, re-verify it is mined before continuing so the
-      // Permit2 "approve mined before follow-up signing" ordering holds even
-      // when the original waitForTxMined was the step that failed
-      if (startIndex > 0 && startIndex < actions.length) {
-        const prevRpc = actions[startIndex - 1].walletRpc;
-        const prevTxid = results[startIndex - 1];
+      // resuming with recorded progress: re-verify the last recorded action
+      // when it broadcast a tx — including a fully completed sequence
+      // (startIndex === actions.length), or a phantom txid would be handed
+      // to confirmPayment unchecked
+      let effectiveStartIndex = startIndex;
+      if (startIndex > 0) {
+        const prevIndex = startIndex - 1;
+        const prevRpc = actions[prevIndex].walletRpc;
+        const prevTxid = results[prevIndex];
         if (
           prevRpc.method === EWcPayActionMethod.EthSendTransaction &&
           prevTxid
         ) {
           const prevNetworkId = wcPayChainIdToNetworkId(prevRpc.chainId);
           if (prevNetworkId) {
-            const { isReverted } =
-              await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined({
-                networkId: prevNetworkId,
-                txid: prevTxid,
-              });
-            if (isReverted) {
-              // the recorded txid can never confirm; drop it from stored
-              // progress so the next attempt re-executes this action instead
-              // of waiting on a dead transaction until the TTL expires
-              await onActionInvalidated?.({ index: startIndex - 1 });
-              throw new OneKeyLocalError('Transaction reverted on chain');
+            // the pre-broadcast record is written before the broadcast
+            // attempt, so a definitive broadcast rejection leaves a phantom
+            // txid behind; re-execute that action instead of resuming it —
+            // otherwise one failed broadcast deadlocks the payment until
+            // expiry (the slot is only cleared on a final server state).
+            // The check errs toward keeping the txid: only consistent
+            // "transaction does not exist" probes count as never-broadcast
+            const isNeverBroadcast =
+              await backgroundApiProxy.serviceWalletConnectPay.isTxNeverBroadcast(
+                {
+                  networkId: prevNetworkId,
+                  txid: prevTxid,
+                },
+              );
+            if (isNeverBroadcast) {
+              await onActionInvalidated?.({ index: prevIndex });
+              results.length = prevIndex;
+              effectiveStartIndex = prevIndex;
+            } else if (prevIndex < actions.length - 1) {
+              // mid-sequence resume: the broadcast tx must be mined before
+              // the follow-up signing so the Permit2 "approve mined before
+              // typed-data" ordering holds even when the original
+              // waitForTxMined was the step that failed. A fully completed
+              // sequence needs no mined-wait — confirmPayment and the
+              // server-side settling own the final state
+              const { isReverted } =
+                await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined(
+                  {
+                    networkId: prevNetworkId,
+                    txid: prevTxid,
+                  },
+                );
+              if (isReverted) {
+                // the recorded txid can never confirm; drop it from stored
+                // progress so the next attempt re-executes this action
+                // instead of waiting on a dead transaction until the TTL
+                // expires
+                await onActionInvalidated?.({ index: prevIndex });
+                throw new OneKeyLocalError('Transaction reverted on chain');
+              }
             }
           }
         }
       }
 
-      for (let i = startIndex; i < actions.length; i += 1) {
+      for (let i = effectiveStartIndex; i < actions.length; i += 1) {
         // terminate the whole sequence the moment the deadline passes;
         // progress persisted via onActionComplete keeps already-broadcast
         // transactions safe for the (server-driven) expired/failed settling
