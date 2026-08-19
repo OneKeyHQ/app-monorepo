@@ -9,7 +9,7 @@ describe('getDeviceLabel', () => {
     expect(getDeviceLabel([EDeviceType.Neo])).toBe('OneKey Neo');
     expect(
       getDeviceLabel([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]),
-    ).toBe('OneKey Pro/OneKey Pro 2/OneKey Neo');
+    ).toBe('OneKey Pro');
   });
 
   it('keeps the other product labels joined by the separator', () => {

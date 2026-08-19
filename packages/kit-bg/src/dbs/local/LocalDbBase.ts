@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  isSameOnekeyBleName,
+} from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import {
   cloneDeep,
@@ -3488,7 +3492,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               state &&
               !state.identity.label &&
               state.identity.bleName &&
-              wallet.name === state.identity.bleName,
+              isSameOnekeyBleName(wallet.name, state.identity.bleName),
             );
             const displayName = state
               ? state.identity.label ||

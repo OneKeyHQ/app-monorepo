@@ -130,6 +130,18 @@ describe('deviceUtils', () => {
     expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 2 6136');
   });
 
+  it('does not rewrite OneKey Pro BLE names whose suffix starts with 2', () => {
+    const state = {
+      identity: {
+        label: null,
+        bleName: 'Pro 22D8',
+        deviceType: EDeviceType.Pro,
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 22D8');
+  });
+
   it('prefers persisted DeviceState versions over stale legacy Features', async () => {
     await expect(
       deviceUtils.getDeviceVersion({

@@ -1996,6 +1996,77 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
       });
     },
   );
+
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'falls back to Pro homescreens when %s resources are empty',
+    async (deviceType) => {
+      const get = jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: {
+            data: [],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            data: [
+              {
+                id: 'pro-wallpaper',
+                wallpaperType: 'default',
+                resType: 'system',
+                url: 'https://example.com/pro-wallpaper.png',
+                deviceTypes: [EDeviceType.Pro],
+              },
+            ],
+          },
+        });
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      Object.defineProperty(service, 'getClient', {
+        value: jest.fn().mockResolvedValue({ get }),
+      });
+
+      await expect(
+        service.fetchHardwareHomeScreen({
+          deviceType,
+          serialNumber: 'PR9999999999',
+          firmwareVersion: '1.0.0',
+        }),
+      ).resolves.toEqual([
+        {
+          id: 'pro-wallpaper',
+          wallpaperType: 'default',
+          resType: 'system',
+          url: 'https://example.com/pro-wallpaper.png',
+          screenHex: undefined,
+          nameHex: undefined,
+        },
+      ]);
+      expect(get).toHaveBeenNthCalledWith(
+        1,
+        '/utility/v1/wallet-homescreen/list',
+        {
+          params: {
+            deviceType,
+            serialNumber: 'PR9999999999',
+            firmwareVersion: '1.0.0',
+          },
+        },
+      );
+      expect(get).toHaveBeenNthCalledWith(
+        2,
+        '/utility/v1/wallet-homescreen/list',
+        {
+          params: {
+            deviceType: EDeviceType.Pro,
+            serialNumber: 'PR9999999999',
+            firmwareVersion: '1.0.0',
+          },
+        },
+      );
+    },
+  );
 });
 
 describe('ServiceHardware.fetchFirmwareVerifyHash', () => {

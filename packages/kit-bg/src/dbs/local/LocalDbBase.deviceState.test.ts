@@ -209,6 +209,34 @@ describe('LocalDb DeviceState persistence', () => {
     expect(result.name).toBe('OneKey Pro 2');
   });
 
+  it('repairs a canonical Pro 2 wallet name polluted by a compact BLE advertisement', async () => {
+    const state = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: null,
+      bleName: 'Pro2 6136',
+      language: 'en-US',
+    });
+    const db = new DeviceStateTestLocalDb(state);
+    const wallet: IDBWallet = {
+      id: 'hw-wallet-1',
+      name: 'Pro 2 6136',
+      type: 'hw',
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      associatedDevice: db.device.id,
+      walletNo: 1,
+    };
+
+    const result = await db.refillWalletInfo({
+      wallet,
+      allDevices: [db.refillDeviceInfo({ device: db.device })],
+    });
+
+    expect(result.name).toBe('OneKey Pro 2');
+  });
+
   it('uses the legacy Features label before DeviceState persistence', async () => {
     const state = createState({
       revision: 1,

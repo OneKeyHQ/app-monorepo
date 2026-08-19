@@ -75,6 +75,12 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
   return defaultLabelsByDeviceType[deviceType] || '';
 }
 
+function canonicalizeBleNameForDevice(name: string, deviceType?: IDeviceType) {
+  return deviceType === EDeviceType.Pro2
+    ? canonicalizePro2BleAdvertisementName(name)
+    : name;
+}
+
 function getDeviceDisplayName({ state }: { state: DeviceState }): string {
   const { identity } = state;
   const defaultName = identity.deviceType
@@ -83,7 +89,7 @@ function getDeviceDisplayName({ state }: { state: DeviceState }): string {
   return (
     identity.label ||
     (identity.bleName
-      ? canonicalizePro2BleAdvertisementName(identity.bleName)
+      ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
       : undefined) ||
     defaultName ||
     identity.model ||
@@ -153,7 +159,9 @@ function getDeviceBleNameFromFeatures(
   ].find(
     (value): value is string => typeof value === 'string' && value.length > 0,
   );
-  return bleName ? canonicalizePro2BleAdvertisementName(bleName) : undefined;
+  return bleName
+    ? canonicalizeBleNameForDevice(bleName, compatibleFeatures.deviceType)
+    : undefined;
 }
 
 // web sdk return KnownDevice
@@ -225,7 +233,7 @@ function isTouchDevice(deviceType: IDeviceType) {
 }
 
 // Keep all firmware verification capability checks centralized here.
-function isFirmwareVerifySupported(deviceType?: IDeviceType) {
+function isFirmwareVerifySupported(_deviceType?: IDeviceType) {
   return true;
 }
 

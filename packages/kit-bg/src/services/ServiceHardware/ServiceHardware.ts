@@ -57,7 +57,10 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
-import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -4850,37 +4853,49 @@ class ServiceHardware extends ServiceBase {
     firmwareVersion: string;
   }): Promise<IHardwareHomeScreenData[]> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IHardwareHomeScreenResponse[];
-    }>('/utility/v1/wallet-homescreen/list', {
-      params: {
-        deviceType,
-        serialNumber,
-        firmwareVersion,
-      },
-    });
-    const { data } = response.data;
-    return data
-      .filter((item) => item.deviceTypes.includes(deviceType))
-      .filter(
-        (item) =>
-          item.resType === 'system' ||
-          item.resType === 'prebuilt' ||
-          item.resType === 'custom',
-      )
-      .filter(
-        (item) =>
-          item.wallpaperType === 'default' ||
-          item.wallpaperType === 'cobranding',
-      )
-      .map((item) => ({
-        id: item.id,
-        wallpaperType: item.wallpaperType,
-        resType: item.resType,
-        url: item.url,
-        screenHex: item.screenHex,
-        nameHex: item.nameHex,
-      }));
+    const loadHomeScreens = async (requestDeviceType: IDeviceType) => {
+      const response = await client.get<{
+        data: IHardwareHomeScreenResponse[];
+      }>('/utility/v1/wallet-homescreen/list', {
+        params: {
+          deviceType: requestDeviceType,
+          serialNumber,
+          firmwareVersion,
+        },
+      });
+      return (response.data.data ?? [])
+        .filter(
+          (item) =>
+            item.deviceTypes.includes(deviceType) ||
+            item.deviceTypes.includes(requestDeviceType),
+        )
+        .filter(
+          (item) =>
+            item.resType === 'system' ||
+            item.resType === 'prebuilt' ||
+            item.resType === 'custom',
+        )
+        .filter(
+          (item) =>
+            item.wallpaperType === 'default' ||
+            item.wallpaperType === 'cobranding',
+        )
+        .map((item) => ({
+          id: item.id,
+          wallpaperType: item.wallpaperType,
+          resType: item.resType,
+          url: item.url,
+          screenHex: item.screenHex,
+          nameHex: item.nameHex,
+        }));
+    };
+
+    const nativeHomeScreens = await loadHomeScreens(deviceType);
+    if (nativeHomeScreens.length > 0 || !isProtocolV2ProductType(deviceType)) {
+      return nativeHomeScreens;
+    }
+    // Dashboard may still tag Protocol V2 wallpapers as `pro`.
+    return loadHomeScreens(EDeviceType.Pro);
   }
 
   @backgroundMethod()
