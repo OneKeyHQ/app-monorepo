@@ -1957,21 +1957,27 @@ export function OrderBookMobile({
   // prices/sizes still showed frame N-1, briefly separating the bar fill from
   // its own price/size text (PR review r3363420755). The raw arrays keep their
   // own useMemo identities so this wrapper only changes when real data changes.
+  // `levels` rides along so a row tap resolves against the same frame the user
+  // is looking at. Reading the live arrays instead meant that within one
+  // coalesced frame a tap could put a price into the order form that was never
+  // the price on the row that was pressed.
   const askLadderRaw = useMemo(
     () => ({
       percents: askPercentsRaw,
       prices: askPricesRaw,
       sizes: askSizesRaw,
+      levels: reversedAsks,
     }),
-    [askPercentsRaw, askPricesRaw, askSizesRaw],
+    [askPercentsRaw, askPricesRaw, askSizesRaw, reversedAsks],
   );
   const bidLadderRaw = useMemo(
     () => ({
       percents: bidPercentsRaw,
       prices: bidPricesRaw,
       sizes: bidSizesRaw,
+      levels: aggregatedData.bids,
     }),
-    [bidPercentsRaw, bidPricesRaw, bidSizesRaw],
+    [aggregatedData.bids, bidPercentsRaw, bidPricesRaw, bidSizesRaw],
   );
   const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
   const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
@@ -2039,25 +2045,22 @@ export function OrderBookMobile({
   );
   const handleAskRowPress = useCallback(
     (rowIndex: number) => {
-      const item = reversedAsks[rowIndex];
+      const levels = askLadder.levels;
+      const item = levels[rowIndex];
       if (item) {
-        handleSelectLevel(
-          'ask',
-          item,
-          aggregatedData.asks.length - 1 - rowIndex,
-        );
+        handleSelectLevel('ask', item, levels.length - 1 - rowIndex);
       }
     },
-    [aggregatedData.asks.length, handleSelectLevel, reversedAsks],
+    [askLadder.levels, handleSelectLevel],
   );
   const handleBidRowPress = useCallback(
     (rowIndex: number) => {
-      const item = aggregatedData.bids[rowIndex];
+      const item = bidLadder.levels[rowIndex];
       if (item) {
         handleSelectLevel('bid', item, rowIndex);
       }
     },
-    [aggregatedData.bids, handleSelectLevel],
+    [bidLadder.levels, handleSelectLevel],
   );
 
   return (
