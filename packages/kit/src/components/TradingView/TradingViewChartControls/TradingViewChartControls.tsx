@@ -69,6 +69,7 @@ export interface ITradingViewChartControlsProps {
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
   chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
   onIntervalChange: (interval: string) => void;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
@@ -124,6 +125,7 @@ export const TradingViewChartControls = memo(
     isFullscreen,
     fullscreenHeader,
     chartMode,
+    isChartSwitchDisabled = false,
     onChartSwitch,
     onIntervalChange,
     onIndicatorPress,
@@ -296,8 +298,10 @@ export const TradingViewChartControls = memo(
           title={intl.formatMessage({ id: ETranslations.market_chart })}
           items={chartModeItems}
           value={chartMode}
+          disabled={isChartSwitchDisabled}
           onChange={(nextChartMode) => {
             if (
+              !isChartSwitchDisabled &&
               (nextChartMode === 'native' || nextChartMode === 'tradingView') &&
               nextChartMode !== chartMode
             ) {
@@ -322,6 +326,9 @@ export const TradingViewChartControls = memo(
               cursor={disabled ? 'not-allowed' : 'pointer'}
               userSelect="none"
               onPress={(event) => {
+                if (disabled) {
+                  return;
+                }
                 onControlInteraction?.();
                 onPress?.(event);
               }}
@@ -431,53 +438,58 @@ export const TradingViewChartControls = memo(
           justifyContent="center"
           zIndex={3}
         >
-          <XStack
-            alignItems="center"
-            width="100%"
-            gap="$2"
-            opacity={isControlsReady ? 1 : 0}
-            pointerEvents={isControlsReady ? 'auto' : 'none'}
-          >
+          <XStack alignItems="center" width="100%" gap="$2">
             {desktopFullscreenHeader}
 
-            <ScrollView
-              horizontal
+            <XStack
+              testID="trading-view-chart-ready-controls"
               flex={1}
               minWidth={0}
-              showsHorizontalScrollIndicator={false}
+              gap="$2"
+              alignItems="center"
+              opacity={isControlsReady ? 1 : 0}
+              pointerEvents={isControlsReady ? 'auto' : 'none'}
             >
-              <XStack alignItems="center" gap="$2" flexShrink={0}>
-                {intervalSelector}
+              <ScrollView
+                horizontal
+                flex={1}
+                minWidth={0}
+                showsHorizontalScrollIndicator={false}
+              >
+                <XStack alignItems="center" gap="$2" flexShrink={0}>
+                  {intervalSelector}
 
-                {intervalSelector && hasLeftChartTools ? (
-                  <ToolbarSeparator />
-                ) : null}
+                  {intervalSelector && hasLeftChartTools ? (
+                    <ToolbarSeparator />
+                  ) : null}
 
-                {hasLeftChartTools ? (
-                  <XStack gap="$0.5" alignItems="center" flexShrink={0}>
-                    {chartTypeControl}
-                    {indicatorControl}
-                    {calendarControl}
-                    {settingsControl}
-                  </XStack>
-                ) : null}
+                  {hasLeftChartTools ? (
+                    <XStack gap="$0.5" alignItems="center" flexShrink={0}>
+                      {chartTypeControl}
+                      {indicatorControl}
+                      {calendarControl}
+                      {settingsControl}
+                    </XStack>
+                  ) : null}
 
-                {(intervalSelector || hasLeftChartTools) && undoRedoControls ? (
-                  <ToolbarSeparator />
-                ) : null}
+                  {(intervalSelector || hasLeftChartTools) &&
+                  undoRedoControls ? (
+                    <ToolbarSeparator />
+                  ) : null}
 
-                {undoRedoControls}
-              </XStack>
-            </ScrollView>
+                  {undoRedoControls}
+                </XStack>
+              </ScrollView>
 
-            <XStack gap="$2" alignItems="center" flexShrink={0}>
               {priceMarketCapControl}
 
               {priceMarketCapControl &&
               (chartSwitchControl || fullscreenControl) ? (
                 <ToolbarSeparator />
               ) : null}
+            </XStack>
 
+            <XStack gap="$2" alignItems="center" flexShrink={0}>
               {chartSwitchControl}
 
               {chartSwitchControl && fullscreenControl ? (
@@ -498,19 +510,30 @@ export const TradingViewChartControls = memo(
           justifyContent="space-between"
           width="100%"
           gap="$2"
-          opacity={isControlsReady ? 1 : 0}
-          pointerEvents={isControlsReady ? 'auto' : 'none'}
         >
-          <XStack flex={1} minWidth={0} alignItems="center">
-            {intervalSelector}
+          <XStack
+            testID="trading-view-chart-ready-controls"
+            flex={1}
+            minWidth={0}
+            gap="$2"
+            alignItems="center"
+            opacity={isControlsReady ? 1 : 0}
+            pointerEvents={isControlsReady ? 'auto' : 'none'}
+          >
+            <XStack flex={1} minWidth={0} alignItems="center">
+              {intervalSelector}
+            </XStack>
+
+            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
+              {chartTypeControl}
+              {priceMarketCapControl}
+              {indicatorControl}
+              {calendarControl}
+              {settingsControl}
+            </XStack>
           </XStack>
 
           <XStack gap="$2" alignItems="center" justifyContent="flex-end">
-            {chartTypeControl}
-            {priceMarketCapControl}
-            {indicatorControl}
-            {calendarControl}
-            {settingsControl}
             {chartSwitchControl}
             {fullscreenControl}
           </XStack>

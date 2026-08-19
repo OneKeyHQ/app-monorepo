@@ -680,6 +680,7 @@ export function MobileLayout({
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
                       nativeControlsLayoutMode="mobile"
+                      isChartSwitchDisabled={!marketTradingViewParams}
                       onChartSwitch={onChartSwitch}
                       onNativeSubIndicatorCountChange={
                         handleNativeSubIndicatorCountChange

@@ -270,6 +270,7 @@ export function DesktopLayout({
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
+          isChartSwitchDisabled={!marketTradingViewParams}
           onChartSwitch={onChartSwitch}
           onNativeChartFullscreenChange={handleChartFullscreenChange}
         />

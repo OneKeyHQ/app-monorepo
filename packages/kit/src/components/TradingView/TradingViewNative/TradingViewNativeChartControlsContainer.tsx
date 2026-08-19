@@ -33,6 +33,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
+  isChartSwitchDisabled?: ITradingViewChartControlsProps['isChartSwitchDisabled'];
   onChartSwitch?: ITradingViewChartControlsProps['onChartSwitch'];
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
   onIndicatorChange: (
@@ -53,6 +54,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
+    isChartSwitchDisabled,
     onChartSwitch,
     onIntervalChange,
     onIndicatorChange,
@@ -170,6 +172,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
         chartMode="native"
+        isChartSwitchDisabled={isChartSwitchDisabled}
         onChartSwitch={onChartSwitch}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}

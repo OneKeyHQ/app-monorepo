@@ -141,6 +141,7 @@ describe('TradingViewNative chart controls', () => {
       <TradingViewNativeChartControlsContainer
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
+        isChartSwitchDisabled
         onChartSwitch={handleChartSwitch}
         onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
@@ -149,9 +150,11 @@ describe('TradingViewNative chart controls', () => {
 
     const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
       chartMode: string;
+      isChartSwitchDisabled: boolean;
       onChartSwitch: () => void;
     };
     expect(controlsProps.chartMode).toBe('native');
+    expect(controlsProps.isChartSwitchDisabled).toBe(true);
     controlsProps.onChartSwitch();
 
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
