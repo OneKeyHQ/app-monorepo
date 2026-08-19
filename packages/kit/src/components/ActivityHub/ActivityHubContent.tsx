@@ -16,6 +16,7 @@ import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-li
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { getActivityHubLayout } from './layout';
@@ -155,6 +156,25 @@ function closeThenRun(
   })();
 }
 
+// Campaign links are the one action that must not wait for the close: the host
+// resolves its close promise from a timer, and web popup blockers only honour
+// window.open while the tap still holds user activation. Native keeps the
+// close-first order because iOS drops an in-app browser presented on top of a
+// sheet that is still dismissing.
+function openCampaignUrl(
+  closePopover: () => void | Promise<void>,
+  url: string,
+) {
+  if (platformEnv.isNative) {
+    closeThenRun(closePopover, () => {
+      openUrlExternal(url);
+    });
+    return;
+  }
+  void closePopover();
+  openUrlExternal(url);
+}
+
 export function ActivityHubContent({
   source,
   copyAsUrl = false,
@@ -244,9 +264,7 @@ export function ActivityHubContent({
                   title={item.title}
                   subtitle={item.subtitle}
                   onPress={() => {
-                    closeThenRun(closePopover, () => {
-                      void openUrlExternal(item.url);
-                    });
+                    openCampaignUrl(closePopover, item.url);
                   }}
                 />
               ))}

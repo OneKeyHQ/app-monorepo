@@ -137,3 +137,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The shared `InviteeRewardNoWallet` gained an optional `onBeforeNavigate` dismiss step, but only the Earn host supplied it. Where onboarding resets the navigation root the overlay unmounts anyway, which hid the gap everywhere except web dapp mode, where onboarding is pushed as a modal and the in-tab dialog portal survives.
 **Fix**: Both dialog hosts pass a close callback through their content; the pushed modal-page hosts still pass nothing since they have no overlay to dismiss.
 **Catchable by**: Section 4: Type definitions changed → all consumers updated (a new optional prop on a shared component needs every host audited)
+
+## Case: Awaiting the overlay close cost the tap's user activation
+**Date**: 2026-08-19 | **Platforms**: web (Perps Activity Hub campaign cards)
+**Symptom**: Tapping a campaign card in the gift menu did nothing on web — no new tab, no error.
+**Root Cause**: A shared `closeThenRun` helper was introduced so navigation would not land behind a dismissing native sheet, and every hub action was routed through it. The host resolves its close promise from a timer, so `window.open` ran in a later task than the tap and popup blockers dropped it as unsolicited. Only web is affected: the extension uses `chrome.tabs.create` and native uses Linking / an in-app browser.
+**Fix**: Campaign links fire the close without awaiting it, keeping `openUrlExternal` in the tap's own task. Native still awaits, because iOS drops an in-app browser presented over a sheet that is still dismissing.
+**Catchable by**: NEW — not covered. Section 5 asks about race conditions but not about capability-gated browser APIs (`window.open`, clipboard, fullscreen, autoplay) that silently require the caller to still hold user activation. Awaiting anything before them forfeits it.

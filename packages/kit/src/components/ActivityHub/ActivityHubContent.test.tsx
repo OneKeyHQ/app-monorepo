@@ -108,6 +108,20 @@ import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
 
+import type { IActivityHubCampaign } from './types';
+
+const CAMPAIGNS: IActivityHubCampaign[] = [
+  {
+    id: 'campaign-1',
+    title: 'campaign title',
+    subtitle: 'campaign subtitle',
+    url: 'https://onekey.so',
+  },
+];
+
+const getCampaignCard = () =>
+  screen.getByRole('button', { name: /campaign title/ });
+
 describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -269,14 +283,7 @@ describe('ActivityHubContent', () => {
         source="Perps"
         onOpenInviteeReward={jest.fn()}
         renderTrigger={<div />}
-        campaigns={[
-          {
-            id: 'campaign-1',
-            title: 'campaign title',
-            subtitle: 'campaign subtitle',
-            url: 'https://onekey.so',
-          },
-        ]}
+        campaigns={CAMPAIGNS}
       />,
     );
 
@@ -286,5 +293,64 @@ describe('ActivityHubContent', () => {
     expect(
       screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis'),
     ).toBe(withCampaigns.shortcutBasis);
+  });
+
+  it('opens a campaign link without waiting for the close outside native', async () => {
+    let resolveClose: (() => void) | undefined;
+    const closePopover = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        }),
+    );
+
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={closePopover}
+        onOpenInviteeReward={jest.fn()}
+        campaigns={CAMPAIGNS}
+      />,
+    );
+
+    fireEvent.click(getCampaignCard());
+
+    // Popup blockers only honour window.open while the tap holds user
+    // activation, so the link must not wait for the still-pending close.
+    expect(closePopover).toHaveBeenCalledTimes(1);
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(CAMPAIGNS[0].url);
+
+    resolveClose?.();
+    await waitFor(() => expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1));
+  });
+
+  it('waits for the close before opening a campaign link on native', async () => {
+    platformEnv.isNative = true;
+    let resolveClose: (() => void) | undefined;
+    const closePopover = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        }),
+    );
+
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={closePopover}
+        onOpenInviteeReward={jest.fn()}
+        campaigns={CAMPAIGNS}
+      />,
+    );
+
+    fireEvent.click(getCampaignCard());
+
+    expect(closePopover).toHaveBeenCalledTimes(1);
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+
+    resolveClose?.();
+    await waitFor(() =>
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(CAMPAIGNS[0].url),
+    );
   });
 });
