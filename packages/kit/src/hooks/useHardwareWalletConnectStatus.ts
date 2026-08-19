@@ -50,11 +50,20 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
  */
 export function useHardwareWalletConnectStatus() {
   const prevDeviceKeysRef = useRef<Set<string>>(EMPTY_SET);
+  const requestSeqRef = useRef(0);
   const [connectedDeviceKeys, setConnectedDeviceKeys] =
     useState<Set<string>>(EMPTY_SET);
 
   const refreshDevices = async () => {
+    // A USB event and a HardwareConnectionStateUpdate can land together and
+    // both fetch concurrently. Without a sequence guard the slower (older)
+    // response can overwrite the newer one and re-light a disconnected device.
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
     const newDevices = await fetchConnectedDevices();
+    if (seq !== requestSeqRef.current) {
+      return;
+    }
     if (!areSetsEqual(prevDeviceKeysRef.current, newDevices)) {
       prevDeviceKeysRef.current = newDevices;
       setConnectedDeviceKeys(newDevices);
