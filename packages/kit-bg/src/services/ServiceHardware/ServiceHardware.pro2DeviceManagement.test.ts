@@ -16,7 +16,10 @@ import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import localDb from '../../dbs/local/localDb';
-import { hardwareUiStateAtom } from '../../states/jotai/atoms';
+import {
+  hardwareUiStateAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHardware from './ServiceHardware';
 import serviceHardwareUtils from './serviceHardwareUtils';
@@ -302,49 +305,58 @@ describe('ServiceHardware SDK debug logging', () => {
 });
 
 describe('ServiceHardware wallet session compatibility', () => {
-  it('runs Pro2 firmware attestation through the normal path', async () => {
-    const withHardwareProcessing = jest
-      .fn()
-      .mockImplementation(async (callback: () => Promise<unknown>) =>
-        callback(),
-      );
-    const closeHardwareUiStateDialog = jest.fn(async () => undefined);
-    const backgroundApi = {
-      serviceHardwareUI: {
-        withHardwareProcessing,
-        closeHardwareUiStateDialog,
-      },
-      serviceHardware: undefined as never as ServiceHardware,
-    };
-    const service = new ServiceHardware({
-      backgroundApi: backgroundApi as never as IBackgroundApi,
-    });
-    backgroundApi.serviceHardware = service;
-    const deviceVerifySpy = jest.fn().mockResolvedValue({
-      success: true,
-      payload: {
-        cert: 'cert',
-        signature: 'signature',
-      },
-    });
-    const postMock = jest.fn().mockResolvedValue({ data: { code: 0, message: 'OK' } });
-    jest.spyOn(service, 'getClient').mockResolvedValue({
-      post: postMock,
-    } as never);
-    jest
-      .spyOn(service, 'getSDKInstance')
-      .mockResolvedValue({
+  it.each([
+    { deviceType: EDeviceType.Pro2, connectId: 'PRO2_USB' },
+    { deviceType: EDeviceType.Neo, connectId: 'NEO_USB' },
+  ])(
+    'sends the same Pro-style UTF-8 challenge to the device and verify API for $deviceType',
+    async ({ deviceType, connectId }) => {
+      const instanceId = '94537ae5-32e9-4417-860a-1d37c8decb3e';
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId,
+      } as never);
+      const withHardwareProcessing = jest
+        .fn()
+        .mockImplementation(async (callback: () => Promise<unknown>) =>
+          callback(),
+        );
+      const closeHardwareUiStateDialog = jest.fn(async () => undefined);
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+          closeHardwareUiStateDialog,
+        },
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerifySpy = jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          cert: 'cert',
+          signature: 'signature',
+        },
+      });
+      const postMock = jest
+        .fn()
+        .mockResolvedValue({ data: { code: 0, message: 'OK' } });
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        post: postMock,
+      } as never);
+      jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
         deviceVerify: deviceVerifySpy,
       } as never);
-    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
-    await expect(
-      service.firmwareAuthenticate({
-        device: {
-          connectId: 'PRO2_USB',
-          deviceType: EDeviceType.Pro2,
-        } as never,
-      }),
-    ).resolves.toMatchObject({
+      service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
+      await expect(
+        service.firmwareAuthenticate({
+          device: {
+            connectId,
+            deviceType,
+          } as never,
+        }),
+      ).resolves.toMatchObject({
         verified: true,
         result: { code: 0, message: 'OK' },
         payload: {
@@ -352,35 +364,38 @@ describe('ServiceHardware wallet session compatibility', () => {
           signature: 'signature',
         },
       });
-    expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
-    const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
-      dataHex: string;
-    };
-    expect(deviceVerifyArg?.dataHex).toHaveLength(64);
-    expect(deviceVerifyArg?.dataHex).toMatch(/^[0-9a-f]{64}$/u);
-    const postArg = postMock.mock.calls[0]?.[1] as {
-      data: string;
-    };
-    const data = postArg?.data ?? '';
-    const lastUnderscoreIndex = data.lastIndexOf('_');
-    const secondLastUnderscoreIndex = data.lastIndexOf(
-      '_',
-      lastUnderscoreIndex - 1,
-    );
-    expect(secondLastUnderscoreIndex).toBeGreaterThan(-1);
-    const timestamp = data.substring(secondLastUnderscoreIndex + 1, lastUnderscoreIndex);
-    const random = data.substring(lastUnderscoreIndex + 1);
-    expect(Number.isNaN(Number(timestamp))).toBe(false);
-    expect(random).toMatch(/^[0-9A-Za-z]+$/);
-    expect(random).toHaveLength(12);
-    expect(postMock).toHaveBeenCalledWith(
-      '/wallet/v1/hardware/verify',
-      expect.objectContaining({
-        data: expect.stringContaining('_'),
-      }),
-    );
-    expect(closeHardwareUiStateDialog).toHaveBeenCalled();
-  });
+      expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
+      const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
+        dataHex: string;
+      };
+      const postArg = postMock.mock.calls[0]?.[1] as {
+        data: string;
+        deviceType: string;
+      };
+      const data = postArg?.data ?? '';
+      const [uuid, timestamp, random] = data.split('_');
+      expect(uuid).toBe(instanceId);
+      expect(uuid).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+      );
+      expect(Number.isNaN(Number(timestamp))).toBe(false);
+      expect(random).toMatch(/^[0-9A-Za-z]+$/);
+      expect(random).toHaveLength(12);
+      expect(deviceVerifyArg?.dataHex).toBe(
+        Buffer.from(data, 'utf8').toString('hex'),
+      );
+      expect(postMock).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/verify',
+        expect.objectContaining({
+          deviceType,
+          data: expect.stringMatching(
+            new RegExp(`^${instanceId}_\\d+_[0-9A-Za-z]{12}$`),
+          ),
+        }),
+      );
+      expect(closeHardwareUiStateDialog).toHaveBeenCalled();
+    },
+  );
 
   it('does not require unavailable Pro2 attestation before wallet creation', async () => {
     const service = new ServiceHardware({

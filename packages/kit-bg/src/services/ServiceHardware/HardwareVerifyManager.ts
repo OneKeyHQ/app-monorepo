@@ -9,7 +9,6 @@ import {
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,7 +20,6 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
@@ -54,7 +52,6 @@ export type IFirmwareAuthenticateParams = {
 };
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
-const FIRMWARE_VERIFY_CHALLENGE_SUFFIX_LENGTH = 12;
 
 type FirmwareVerifyPayload = {
   data: string;
@@ -62,30 +59,14 @@ type FirmwareVerifyPayload = {
 };
 
 function getFirmwareVerifyPayload({
-  deviceType,
   instanceId,
 }: {
-  deviceType: IDeviceType | undefined;
   instanceId: string;
 }): FirmwareVerifyPayload {
-  if (isProtocolV2ProductType(deviceType)) {
-    // Keep legacy data format for wallet service compatibility:
-    // instanceId_timestamp_randomString.
-    const challenge = stringUtils.randomString(
-      FIRMWARE_VERIFY_CHALLENGE_SUFFIX_LENGTH,
-    );
-    const data = `${instanceId}_${Date.now()}_${challenge}`;
-    const dataHash = appCrypto.hash.sha256Sync(
-      bufferUtils.toBuffer(data, 'utf8'),
-    );
-    return {
-      data,
-      dataHex: bufferUtils.bytesToHex(dataHash),
-    };
-  }
-
-  const ts = Date.now();
-  const data = `${instanceId}_${ts}_${stringUtils.randomString(12)}`;
+  // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
+  // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
+  // must accept this variable-length message the same way Pro does.
+  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
   return {
     data,
     dataHex: bufferUtils.textToHex(data, 'utf-8'),
@@ -214,7 +195,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       async () => {
         const settings = await settingsPersistAtom.get();
         const { data, dataHex } = getFirmwareVerifyPayload({
-          deviceType,
           instanceId: settings.instanceId,
         });
         const verifySig: DeviceVerifySignature =
