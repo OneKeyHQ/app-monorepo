@@ -17,6 +17,7 @@ export enum EGalleryRoutes {
   ComponentColorPicker = 'component-ColorPicker',
   ComponentCurrency = 'component-Currency',
   ComponentCryptoGallery = 'component-CryptoGallery',
+  ComponentBatchPsbtSigning = 'component-BatchPsbtSigning',
   ComponentCarousel = 'component-Carousel',
   ComponentDatePicker = 'component-DatePicker',
   ComponentDialog = 'component-Dialog',

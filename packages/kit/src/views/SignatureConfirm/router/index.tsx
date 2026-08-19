@@ -56,6 +56,12 @@ const TxConfirm = LazyLoadPage(
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'),
 );
 
+const BatchPsbtConfirm = LazyLoadPage(() =>
+  import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BatchPsbtSigning').then(
+    ({ BatchPsbtSigningModal }) => ({ default: BatchPsbtSigningModal }),
+  ),
+);
+
 const MessageConfirm = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'),
@@ -85,6 +91,10 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList
 >[] = [
+  {
+    name: EModalSignatureConfirmRoutes.BatchPsbtConfirm,
+    component: BatchPsbtConfirm,
+  },
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
     component: TxConfirm,

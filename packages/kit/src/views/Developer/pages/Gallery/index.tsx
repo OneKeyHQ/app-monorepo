@@ -511,6 +511,11 @@ const CryptoGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
 );
 
+const BatchPsbtSigningGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BatchPsbtSigning'),
+);
+
 const UnOrderedListGallery = LazyLoadPage(
   () => import('./Components/stories/UnOrderedListGallery'),
 );
@@ -859,6 +864,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentBatchPsbtSigning,
+    component: BatchPsbtSigningGallery,
   },
   {
     name: EGalleryRoutes.ComponentUnOrderedList,

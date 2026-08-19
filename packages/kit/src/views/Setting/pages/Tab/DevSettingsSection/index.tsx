@@ -765,7 +765,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'DesktopApiProxy Test Batch PSBT Signing Bitcoin PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
@@ -2070,6 +2070,17 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="BitcoinOutline"
+                        title="Batch PSBT Signing"
+                        subtitle="Preview software and hardware wallet flows"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevBatchPsbtSigningModal,
                           );
                         }}
                       />

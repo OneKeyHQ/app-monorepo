@@ -75,6 +75,11 @@ const DesktopApiProxyTestDevSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
 );
 
+const BatchPsbtSigningGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BatchPsbtSigning'),
+);
+
 const PerpGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'),
@@ -257,6 +262,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBatchPsbtSigningModal,
+    component: BatchPsbtSigningGallery,
   },
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,
