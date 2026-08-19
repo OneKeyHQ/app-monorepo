@@ -72,6 +72,7 @@ export interface ITradingViewNativeProps {
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
+  onChartSwitch?: () => void;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;

@@ -94,6 +94,7 @@ export interface IMarketTradingViewProps {
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  onChartSwitch?: () => void;
   onTouchScroll?: (deltaY: number) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onNativeIndicatorQuickBarChange?: (
@@ -124,6 +125,7 @@ export const MarketTradingView = memo(
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     showNativeIndicatorQuickBar,
+    onChartSwitch,
     onTouchScroll,
     onNativeChartFullscreenChange,
     onNativeIndicatorQuickBarChange,
@@ -192,6 +194,7 @@ export const MarketTradingView = memo(
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
         isNativeChartFullscreen={isNativeChartFullscreen}
+        onChartSwitch={onChartSwitch}
         nativeChartFullscreenHeader={
           !platformEnv.isNative && nativeControlsLayoutMode === 'desktop' ? (
             <MarketChartFullscreenHeader />

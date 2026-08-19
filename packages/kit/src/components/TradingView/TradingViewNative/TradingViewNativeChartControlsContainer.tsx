@@ -33,6 +33,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
+  onChartSwitch?: ITradingViewChartControlsProps['onChartSwitch'];
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
   onIndicatorChange: (
     indicator: ITradingViewNativeIndicator,
@@ -52,6 +53,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
+    onChartSwitch,
     onIntervalChange,
     onIndicatorChange,
     onCalendarPanelOpen,
@@ -167,6 +169,8 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
+        chartMode="native"
+        onChartSwitch={onChartSwitch}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}

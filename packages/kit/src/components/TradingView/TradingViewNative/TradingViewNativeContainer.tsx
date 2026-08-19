@@ -51,6 +51,7 @@ export const TradingViewNativeContainer = memo(
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
+    onChartSwitch,
     onDataStateChange,
     onIntervalChange,
     onNativeSubIndicatorCountChange,
@@ -383,6 +384,7 @@ export const TradingViewNativeContainer = memo(
           layoutMode={nativeControlsLayoutMode}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
+          onChartSwitch={onChartSwitch}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}

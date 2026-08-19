@@ -135,6 +135,28 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('forwards the chart switch action to the shared controls', () => {
+    const handleChartSwitch = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartSwitch={handleChartSwitch}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      chartMode: string;
+      onChartSwitch: () => void;
+    };
+    expect(controlsProps.chartMode).toBe('native');
+    controlsProps.onChartSwitch();
+
+    expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+  });
+
   it('toggles indicators directly from the desktop popover', () => {
     const handleIndicatorChange = jest.fn();
     render(
