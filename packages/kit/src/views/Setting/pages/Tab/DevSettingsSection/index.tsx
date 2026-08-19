@@ -2203,14 +2203,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
-                        name="useTradingViewNativeInMarketDetail"
-                        title="Use TradingViewNative in Market Detail"
-                        subtitle="关闭时继续使用 TradingViewV2"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
                       {platformEnv.isWeb ? (
                         <SearchFilterItem keywords="TradingViewNative event log debug panel 事件日志 调试窗口">
                           <ListItem
