@@ -89,6 +89,7 @@ import {
 
 import {
   buildInitialTradeInstrumentSwitchParams,
+  resolveInitialPreferredInstrument,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -957,16 +958,34 @@ function useHyperliquidSymbolSelect() {
     try {
       // OK-53208: latch lives in ServiceHyperliquid (singleton) so that
       // Perp tab detach/remount does not re-trigger this init.
-      const claimed =
-        await backgroundApiProxy.serviceHyperliquid.tryClaimInitialSymbolSelect();
+      //
+      // The intent is consumed on every run, claiming or not, so one left
+      // behind by a deeplink that never reached this page cannot hijack a
+      // later init. instrumentTarget is resolved once and reused below: two
+      // independent reads can straddle the background's own two-step write,
+      // and a divergence seen only in that gap would force a switch onto the
+      // current pair, wiping the order form.
+      const prepareStartedAt = Date.now();
+      const {
+        claimed,
+        pendingInitialTradeInstrument,
+        instrumentTarget,
+        tradingUniverse,
+      } =
+        await backgroundApiProxy.serviceHyperliquid.prepareInitialSymbolSelect();
+      markPerpsColdStartPerf('initial_symbol_prepare', {
+        elapsedMs: Date.now() - prepareStartedAt,
+      });
       markPerpsColdStartPerf('initial_symbol_claimed', {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
-      // Resolved once and reused below: two independent reads can straddle the
-      // background's own two-step write, and a divergence seen only in that gap
-      // would force a switch onto the current pair, wiping the order form.
-      const instrumentTarget = await resolveActiveInstrumentTarget();
+      if (pendingInitialTradeInstrument) {
+        markPerpsColdStartPerf('initial_symbol_pending_instrument', {
+          coin: pendingInitialTradeInstrument.coin,
+          mode: pendingInitialTradeInstrument.mode,
+        });
+      }
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
@@ -1039,13 +1058,15 @@ function useHyperliquidSymbolSelect() {
           })();
         };
 
-        const tradingUniverse =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        const hasCachedTradingUniverse =
-          hasTradingUniverseCache(tradingUniverse);
+        // Fetched in the same hop as the latch claim above; the background
+        // only reads it on a claiming run, which is the only branch that
+        // reaches here.
+        const hasCachedTradingUniverse = tradingUniverse
+          ? hasTradingUniverseCache(tradingUniverse)
+          : false;
         markPerpsColdStartPerf('initial_symbol_trading_universe_cache', {
           hasCachedTradingUniverse,
-          universeCounts: tradingUniverse.universesByDex?.map(
+          universeCounts: tradingUniverse?.universesByDex?.map(
             (items) => items?.length ?? 0,
           ),
         });
@@ -1064,8 +1085,14 @@ function useHyperliquidSymbolSelect() {
         // strands the page for good. The diverged resync falls through here
         // too, and there the fallback would abort an in-flight spot switch.
         allowPerpFallback: claimed,
+        // Resolved here rather than earlier: the claiming run can await a
+        // trading-meta fetch above, and a pair the user picks during that wait
+        // has to be the one restored, not the pair that was open before it.
         preferredInstrument: claimed
-          ? activeTradeInstrumentRef.current
+          ? resolveInitialPreferredInstrument({
+              pendingInstrument: pendingInitialTradeInstrument,
+              restoredInstrument: activeTradeInstrumentRef.current,
+            })
           : undefined,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {

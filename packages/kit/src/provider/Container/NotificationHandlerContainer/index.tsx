@@ -147,6 +147,18 @@ function BaseNotificationHandlerContainer() {
 
       if (perpToken) {
         try {
+          // Recorded before the atom write so no cold start can observe the
+          // coin without it: on that path the Perp page restores its persisted
+          // instrument, which predates this tap and would win. Isolated because
+          // losing it only costs that restore — it must not skip the writes and
+          // the event below.
+          await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+            { coin: perpToken, mode: 'perp' },
+          );
+        } catch {
+          // ignore
+        }
+        try {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
