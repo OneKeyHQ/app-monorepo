@@ -3,10 +3,10 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { getDeviceLabel } from './deviceLabel';
 
 describe('getDeviceLabel', () => {
-  it('uses a native label for each product type', () => {
+  it('hides unpublished Protocol V2 products behind OneKey Pro', () => {
     expect(getDeviceLabel([EDeviceType.Pro])).toBe('OneKey Pro');
-    expect(getDeviceLabel([EDeviceType.Pro2])).toBe('OneKey Pro 2');
-    expect(getDeviceLabel([EDeviceType.Neo])).toBe('OneKey Neo');
+    expect(getDeviceLabel([EDeviceType.Pro2])).toBe('OneKey Pro');
+    expect(getDeviceLabel([EDeviceType.Neo])).toBe('OneKey Pro');
     expect(
       getDeviceLabel([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]),
     ).toBe('OneKey Pro');
