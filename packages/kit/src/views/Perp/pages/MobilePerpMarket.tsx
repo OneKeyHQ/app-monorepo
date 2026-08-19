@@ -316,9 +316,15 @@ function MobilePerpMarket() {
   // a swallowed touch, a disabled scroller, AND a scroller with no scrollable
   // range (iOS never starts a drag it cannot move). Three signals separate
   // them: `touchStart` says the touch reached the scroll view at all,
-  // `dragBegin` says iOS agreed to start a drag, and the range logged with it
-  // says whether there was anywhere to go.
-  const orderbookScrollDiagRef = useRef({ lastLoggedAt: 0, maxOffsetY: 0 });
+  // `dragBegin` says iOS agreed to start a drag and carries the range that was
+  // available, and `dragEnd` says how far it actually moved.
+  //
+  // Deliberately not using `onScroll`: `Tabs.ScrollView` omits it from its
+  // props type and the library binds its own handler after spreading ours
+  // (react-native-collapsible-tab-view ScrollView), so an `onScroll` passed
+  // here never runs. Same for `scrollEventThrottle` and `onMomentumScrollEnd`.
+  // The begin/end pair below survives because it stays in the spread.
+  const orderbookDragDiagRef = useRef({ startOffsetY: 0 });
 
   const handleOrderbookTouchStart = useCallback(() => {
     perpsFieldDiagnostics('iosOrderbookTab.touchStart', {
@@ -330,6 +336,7 @@ function MobilePerpMarket() {
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentSize, layoutMeasurement, contentInset, contentOffset } =
         event.nativeEvent;
+      orderbookDragDiagRef.current.startOffsetY = contentOffset.y;
       // iOS sizes this scroller with contentInset rather than padding, so the
       // reachable distance includes the inset the header occupies.
       const scrollableRange =
@@ -344,30 +351,19 @@ function MobilePerpMarket() {
         viewportHeight: Math.round(layoutMeasurement.height),
         insetTop: Math.round(contentInset?.top ?? 0),
         scrollableRange: Math.round(scrollableRange),
-        maxOffsetY: Math.round(orderbookScrollDiagRef.current.maxOffsetY),
       });
     },
     [isTradingViewInteractionOverlayOpen],
   );
 
-  const handleOrderbookScroll = useCallback(
+  const handleOrderbookScrollEndDrag = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
-      const state = orderbookScrollDiagRef.current;
-      // Track the peak on every event, but gate writes on time alone. Combining
-      // the two would defeat the throttle: during a downward drag each offset
-      // beats the previous peak, so the log would fire at scrollEventThrottle
-      // rate and the diagnostic itself would load the very gesture it is meant
-      // to observe.
-      state.maxOffsetY = Math.max(state.maxOffsetY, offsetY);
-      const now = Date.now();
-      if (now - state.lastLoggedAt < 500) {
-        return;
-      }
-      state.lastLoggedAt = now;
-      perpsFieldDiagnostics('iosOrderbookTab.scroll', {
+      perpsFieldDiagnostics('iosOrderbookTab.dragEnd', {
         offsetY: Math.round(offsetY),
-        maxOffsetY: Math.round(state.maxOffsetY),
+        movedBy: Math.round(
+          offsetY - orderbookDragDiagRef.current.startOffsetY,
+        ),
       });
     },
     [],
@@ -700,12 +696,7 @@ function MobilePerpMarket() {
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
                       onTouchStart={handleOrderbookTouchStart}
                       onScrollBeginDrag={handleOrderbookScrollBeginDrag}
-                      onScroll={handleOrderbookScroll}
-                      // Sampling only has to answer "does the offset move at
-                      // all", so keep the JS callback well below frame rate —
-                      // the diagnostic must not add load to the gesture it is
-                      // measuring.
-                      scrollEventThrottle={100}
+                      onScrollEndDrag={handleOrderbookScrollEndDrag}
                       onContentSizeChange={handleOrderbookContentSizeChange}
                     >
                       <YStack
