@@ -508,8 +508,11 @@ function BatchTxConfirm() {
     [batchId, closeAndReject],
   );
 
-  const handleCancelRequest = useCallback(
-    (closePageStack: () => void) => {
+  // Shared destructive confirmation for throwing away already-collected
+  // signatures — used by the footer "Cancel request" button and by the
+  // prevent-remove guard below for header close / back dismissals.
+  const showCancelRequestDialog = useCallback(
+    (onConfirm: () => void) => {
       Dialog.show({
         tone: 'destructive',
         title: intl.formatMessage({
@@ -524,15 +527,22 @@ function BatchTxConfirm() {
         onCancelText: intl.formatMessage({
           id: ETranslations.shortcut_go_back,
         }),
-        onConfirm: () => {
-          void backgroundApiProxy.serviceBatchTxSign
-            .cancelBatch({ batchId })
-            .catch(() => {});
-          closeAndReject(closePageStack);
-        },
+        onConfirm,
       });
     },
-    [batchId, closeAndReject, intl],
+    [intl],
+  );
+
+  const handleCancelRequest = useCallback(
+    (closePageStack: () => void) => {
+      showCancelRequestDialog(() => {
+        void backgroundApiProxy.serviceBatchTxSign
+          .cancelBatch({ batchId })
+          .catch(() => {});
+        closeAndReject(closePageStack);
+      });
+    },
+    [batchId, closeAndReject, showCancelRequestDialog],
   );
 
   // Page.FooterActions does not await onConfirm or auto-disable the button
@@ -584,33 +594,58 @@ function BatchTxConfirm() {
 
   const handlePreventRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
-      Dialog.show({
-        tone: 'destructive',
-        title: intl.formatMessage({
-          id: ETranslations.batch_psbt_stop_signing_and_cancel_request__title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.batch_psbt_discard_signatures_and_reject_request__desc,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.batch_psbt_stop_and_cancel__action,
-        }),
-        onCancelText: intl.formatMessage({
-          id: ETranslations.batch_psbt_keep_signing__action,
-        }),
-        onConfirm: () => {
-          void backgroundApiProxy.serviceBatchTxSign
-            .cancelBatch({ batchId })
-            .catch(() => {});
-          hasSettledRef.current = true;
-          dappApprove.reject();
-          navigation.dispatch(data.action);
-        },
-      });
+      // Done / footer Cancel / Reject settle the dapp request themselves and
+      // then close via closePageStack while this guard is still armed — let
+      // those removals through instead of stacking a second confirmation.
+      if (hasSettledRef.current) {
+        navigation.dispatch(data.action);
+        return;
+      }
+      const cancelBatchAndReject = () => {
+        void backgroundApiProxy.serviceBatchTxSign
+          .cancelBatch({ batchId })
+          .catch(() => {});
+        hasSettledRef.current = true;
+        dappApprove.reject();
+        navigation.dispatch(data.action);
+      };
+      if (isSigningNow) {
+        Dialog.show({
+          tone: 'destructive',
+          title: intl.formatMessage({
+            id: ETranslations.batch_psbt_stop_signing_and_cancel_request__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.batch_psbt_discard_signatures_and_reject_request__desc,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.batch_psbt_stop_and_cancel__action,
+          }),
+          onCancelText: intl.formatMessage({
+            id: ETranslations.batch_psbt_keep_signing__action,
+          }),
+          onConfirm: cancelBatchAndReject,
+        });
+        return;
+      }
+      // Idle dismissal (header close / back gesture) with signatures already
+      // collected: require the same discard confirmation as the footer
+      // "Cancel request" button instead of rejecting silently.
+      showCancelRequestDialog(cancelBatchAndReject);
     },
-    [batchId, dappApprove, intl, navigation],
+    [
+      batchId,
+      dappApprove,
+      intl,
+      isSigningNow,
+      navigation,
+      showCancelRequestDialog,
+    ],
   );
-  usePreventRemove(isSigningNow, handlePreventRemove);
+  // Armed while actively signing AND whenever any signature has been
+  // collected: dismissing this page discards collected signatures, so every
+  // non-Done exit must go through an explicit destructive confirmation.
+  usePreventRemove(isSigningNow || hasSignedAny, handlePreventRemove);
 
   // Shared by the overview and progress/complete footers so a flagged origin
   // requires the same explicit acknowledgement on every exit — including a
