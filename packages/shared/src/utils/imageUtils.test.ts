@@ -50,11 +50,10 @@ describe('otsuThreshold', () => {
 });
 
 describe('shouldInvertForMajorityWhite', () => {
-  it('does not invert when white is a clear minority (regression: skewed cartoon art)', () => {
-    // A handful of bright accent-color pixels can pull the raw mean above
-    // mid-gray even though most pixels land on the black side of the Otsu
-    // threshold — deciding inversion from the raw mean flipped this case.
-    // Post-threshold white ratio (the correct signal) stays a clear ~39%.
+  it('does not invert when white is a clear minority (skewed cartoon art)', () => {
+    // A handful of bright accent-color pixels can pull the image's overall
+    // look brighter even though most pixels land on the black side of the
+    // Otsu threshold. White stays a clear ~39% minority, so this must not invert.
     expect(shouldInvertForMajorityWhite(386, 1000)).toBe(false);
   });
 
@@ -71,5 +70,14 @@ describe('shouldInvertForMajorityWhite', () => {
   it('never inverts a fully black image and always inverts a fully white one', () => {
     expect(shouldInvertForMajorityWhite(0, 1000)).toBe(false);
     expect(shouldInvertForMajorityWhite(1000, 1000)).toBe(true);
+  });
+
+  it('keeps the (50%, 55%] band un-inverted, unlike the old plain >50% rule', () => {
+    // The pre-fix code inverted as soon as post-threshold white passed 50%.
+    // This dead zone is the actual behavior change: values here now stay
+    // un-inverted where they used to flip.
+    expect(shouldInvertForMajorityWhite(501, 1000)).toBe(false);
+    expect(shouldInvertForMajorityWhite(550, 1000)).toBe(false);
+    expect(shouldInvertForMajorityWhite(551, 1000)).toBe(true);
   });
 });
