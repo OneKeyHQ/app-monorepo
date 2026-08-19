@@ -244,7 +244,6 @@ function extractAvailableNumber(text?: string) {
 }
 
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
-  const intl = useIntl();
   const onPress = useRecommendedItemPress(token);
   const availableNumber = extractAvailableNumber(token.available?.text);
 
@@ -273,13 +272,12 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
           </XStack>
         }
         secondary={
-          // "Balance {number}" subtitle (OK-58877): copy assembled on the
-          // client, number taken from available.text
+          // Balance subtitle (OK-58877): number taken from available.text. The
+          // "Balance:" caption was dropped — the row already sits under the
+          // holdings section, so the label only cost width in longer locales.
           availableNumber ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {`${intl.formatMessage({
-                id: ETranslations.global_balance,
-              })}: ${availableNumber}`}
+              {availableNumber}
             </SizableText>
           ) : undefined
         }

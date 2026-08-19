@@ -87,6 +87,7 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -636,6 +637,9 @@ const DetailsPartComponent = ({
                 provider={provider}
                 vault={vault}
               />
+              {/* Protocol Tips (OK-58972): dashboard-configured card that
+                  sits under the chart */}
+              <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             </YStack>
             <EarnPlatformBonusSection
               appearance="alert"

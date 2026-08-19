@@ -175,6 +175,37 @@ export function HyperlinkText({
                   {string}
                 </SizableText>
               ),
+              // Semantic color tags. Deliberately no per-color
+              // `*TextProps` escape hatch: five more ISizableTextProps would
+              // bloat an already-wide prop type and drag five more entries
+              // into the memo deps, while `<text>` + textProps already covers
+              // a caller that needs an arbitrary color. The tokens are
+              // theme-aware, so these follow light/dark on their own.
+              red: ([string]) => (
+                <SizableText {...basicTextProps} color="$textCritical">
+                  {string}
+                </SizableText>
+              ),
+              green: ([string]) => (
+                <SizableText {...basicTextProps} color="$textSuccess">
+                  {string}
+                </SizableText>
+              ),
+              yellow: ([string]) => (
+                <SizableText {...basicTextProps} color="$textCaution">
+                  {string}
+                </SizableText>
+              ),
+              blue: ([string]) => (
+                <SizableText {...basicTextProps} color="$textInfo">
+                  {string}
+                </SizableText>
+              ),
+              grey: ([string]) => (
+                <SizableText {...basicTextProps} color="$textSubdued">
+                  {string}
+                </SizableText>
+              ),
               text: (chunks) => (
                 <>
                   {chunks.map((chunk, index) =>
