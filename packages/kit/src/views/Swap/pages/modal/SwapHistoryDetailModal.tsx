@@ -80,6 +80,7 @@ import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
   getSwapHistoryTransactionIdRows,
+  isSwapHistoryRefundStatus,
 } from '../../utils/swapHistoryTransactionIds';
 import {
   type ISwapOrderProgressStepLabel,
@@ -1301,7 +1302,8 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory?.swapOrderHash?.refundHash &&
+        {isSwapHistoryRefundStatus(txHistory?.crossChainStatus) &&
+        txHistory?.swapOrderHash?.refundHash &&
         !transactionIdRows.some((row) => row.kind === 'refund') ? (
           <XStack
             onPress={async () => {

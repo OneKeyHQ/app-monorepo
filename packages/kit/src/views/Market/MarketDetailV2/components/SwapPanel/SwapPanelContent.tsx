@@ -41,6 +41,7 @@ import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings
 export type ISwapPanelContentProps = {
   swapPanel: ReturnType<typeof useSwapPanel>;
   isLoading: boolean;
+  quoteLoading?: boolean;
   isActionDisabled?: boolean;
   isRefreshQuote?: boolean;
   onRefreshQuote?: () => void;
@@ -89,6 +90,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     enableAddressTypeSelector,
     swapPanel,
     isLoading,
+    quoteLoading = false,
     isActionDisabled,
     isRefreshQuote,
     onRefreshQuote,
@@ -158,6 +160,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
   const showMarketPresetSelector =
     !isWrapped && !!marketPresetSettings?.enabled;
+  const shouldReduceSellForPresetGap =
+    tradeType === ESwapDirection.SELL &&
+    !quoteError &&
+    showMarketPresetSelector &&
+    !!marketPresetSettings?.presets.length;
   const suppressStandaloneSlippage =
     isWrapped || showMarketPresetSelector || !!marketPresetSettings?.isLoading;
   let actionButtonOnPress = onSwap;
@@ -334,29 +341,36 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           toTokenSymbol={priceRate?.toTokenSymbol}
           loading={priceRate?.loading}
         />
-        {quoteResult?.info.provider ? (
+        {quoteLoading || quoteResult?.info.provider ? (
           <SwapProviderInfoItem
-            providerIcon={quoteResult.info.providerLogo ?? ''}
-            providerName={quoteResult.info.providerName ?? ''}
-            isBest={quoteResult.isBest}
-            fromToken={quoteResult.fromTokenInfo}
-            toToken={quoteResult.toTokenInfo}
-            showLock={!!quoteResult.allowanceResult}
-            percentageFee={quoteResult.fee?.percentageFee}
-            percentOriginFee={quoteResult.fee?.percentOriginFee}
-            onPress={quoteListLength > 1 ? onOpenProviderList : undefined}
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
+            isBest={quoteResult?.isBest}
+            fromToken={quoteResult?.fromTokenInfo}
+            toToken={quoteResult?.toTokenInfo}
+            showLock={!!quoteResult?.allowanceResult}
+            percentageFee={quoteResult?.fee?.percentageFee}
+            percentOriginFee={quoteResult?.fee?.percentOriginFee}
+            onPress={
+              quoteLoading || quoteListLength <= 1
+                ? undefined
+                : onOpenProviderList
+            }
+            isLoading={quoteLoading}
           />
         ) : null}
 
         {/* Balance display */}
         {tradeType === ESwapDirection.SELL ? (
-          <SellForSelector
-            defaultTokens={defaultTokens}
-            currentSelectToken={balanceToken as ISwapTokenBase}
-            onTokenSelect={(token) => setPaymentToken(token as IToken)}
-            symbol={paymentToken?.symbol ?? '-'}
-            isLoading={!hasInitialReady}
-          />
+          <YStack mb={shouldReduceSellForPresetGap ? '$-1' : undefined}>
+            <SellForSelector
+              defaultTokens={defaultTokens}
+              currentSelectToken={balanceToken as ISwapTokenBase}
+              onTokenSelect={(token) => setPaymentToken(token as IToken)}
+              symbol={paymentToken?.symbol ?? '-'}
+              isLoading={!hasInitialReady}
+            />
+          </YStack>
         ) : null}
       </YStack>
 
