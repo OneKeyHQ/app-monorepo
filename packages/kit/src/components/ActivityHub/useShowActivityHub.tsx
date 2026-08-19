@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, useDialogInstance, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
@@ -49,12 +48,14 @@ export function useShowActivityHub() {
   return useCallback(
     (params: IShowActivityHubParams) => {
       const hasCampaigns = Boolean(params.campaigns?.length);
-      const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
-      const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
+      // Unlike Popover, Dialog only degrades to a sheet below the md
+      // breakpoint. Above it every platform (native tablets included) renders a
+      // floating panel that honours floatingPanelProps.
+      const isCompactPanel = gtMd && !hasCampaigns;
       const { panelWidth } = getActivityHubLayout(hasCampaigns);
       Dialog.show({
         title: intl.formatMessage({ id: ETranslations.perps_activity_hub }),
-        floatingPanelProps: isDesktopFloatingPanel
+        floatingPanelProps: gtMd
           ? {
               width: panelWidth,
             }

@@ -168,8 +168,8 @@ export function ActivityHubContent({
   copyAsUrl?: boolean;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
-  // True only for the desktop 208px floating popover/dialog. Sheets, native
-  // tablets, and in-panel embeds leave this unset so tiles keep the 25% basis.
+  // True only for a 208px floating popover/dialog. Sheets and in-panel embeds
+  // leave this unset so tiles keep the 25% basis.
   isCompactPanel?: boolean;
   onOpenInviteeReward: () => void;
   campaigns?: IActivityHubCampaign[];
