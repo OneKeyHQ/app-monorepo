@@ -38,9 +38,10 @@ export type INobleBleApi = {
   onNotification: (
     callback: (deviceId: string, data: string) => void,
   ) => () => void;
-  // `reason` tells a real peripheral drop apart from the main process
-  // reclaiming an idle link on its keep-alive timer. Optional: an older host
-  // bridge omits it, and consumers treat absent as a real drop.
+  // Diagnostics only: `reason` records whether the link dropped on its own or
+  // the main process reclaimed an idle one, but every drop is reported the
+  // same way — a link we closed ourselves is still a closed link. Optional,
+  // since an older host bridge omits it.
   onDeviceDisconnected: (
     callback: (device: {
       id: string;

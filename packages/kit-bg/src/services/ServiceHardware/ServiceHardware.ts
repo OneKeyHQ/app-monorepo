@@ -1813,7 +1813,11 @@ class ServiceHardware extends ServiceBase {
         // never arrived and one that simply left no trace looked identical in
         // collected logs (OK-60486).
         serviceHardwareUtils.hardwareLog('device disconnected, untracked', {
-          connectId: message.device?.connectId,
+          // Persisted logs ship with user feedback, so the identifier stays
+          // masked; the suffix is enough to correlate a multi-device session.
+          connectId: serviceHardwareUtils.maskLogIdentifier(
+            message.device?.connectId,
+          ),
           removedIdentityKeyCount: disconnectedIdentityKeys.length,
         });
         if (disconnectedIdentityKeys.length > 0) {

@@ -335,8 +335,8 @@ const desktopApi = {
         reason?: EBleDisconnectReason;
       }) => void,
     ) => {
-      // Forward the payload whole so `reason` reaches the transport; it is what
-      // separates a real drop from the main process reclaiming an idle link.
+      // Forward the payload whole so `reason` reaches the transport, which
+      // logs it. It does not gate what happens: every link drop is reported.
       const subscription = (
         _: unknown,
         device: { id: string; name: string; reason?: EBleDisconnectReason },
