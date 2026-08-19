@@ -105,6 +105,7 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleTimeoutError,
   HardwareErrorCode.BleForceCleanRunPromise,
   HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
