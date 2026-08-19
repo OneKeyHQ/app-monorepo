@@ -18,8 +18,10 @@ import {
   EAppSyncStorageKeys,
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { applyPro2FirmwareForceTargetChange } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import {
   devSettingsPersistAtom,
   firmwareUpdateDevSettingsPersistAtom,
@@ -29,6 +31,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
   IDevSettings,
   IDevSettingsKeys,
@@ -323,13 +326,59 @@ class ServiceDevSetting extends ServiceBase {
     return firmwareUpdateDevSettingsPersistAtom.get();
   }
 
+  private firmwareUpdateDevSettingsWrite: Promise<void> = Promise.resolve();
+
+  private enqueueFirmwareUpdateDevSettingsWrite(
+    updater: (prev: IFirmwareUpdateDevSettings) => IFirmwareUpdateDevSettings,
+  ) {
+    const run = this.firmwareUpdateDevSettingsWrite
+      .catch(() => undefined)
+      .then(() => firmwareUpdateDevSettingsPersistAtom.set(updater));
+    this.firmwareUpdateDevSettingsWrite = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   @backgroundMethod()
   public async updateFirmwareUpdateDevSettings(
     values: Partial<IFirmwareUpdateDevSettings>,
   ) {
-    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
       ...prev,
       ...values,
+    }));
+  }
+
+  @backgroundMethod()
+  public async togglePro2FirmwareForceTarget({
+    enabled,
+    mode,
+    target,
+  }: {
+    enabled: boolean;
+    mode: IPro2FirmwareForceTargetMode;
+    target: IPro2FirmwareUpdateTarget;
+  }) {
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+      ...prev,
+      ...applyPro2FirmwareForceTargetChange({
+        enabled,
+        mode,
+        onceTargets: prev.pro2ForceUpdateOnceTargets ?? [],
+        target,
+        targets: prev.pro2ForceUpdateTargets ?? [],
+      }),
+    }));
+  }
+
+  @backgroundMethod()
+  public async resetPro2FirmwareForceTargets() {
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+      ...prev,
+      pro2ForceUpdateOnceTargets: [],
+      pro2ForceUpdateTargets: [],
     }));
   }
 

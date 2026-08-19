@@ -1912,7 +1912,11 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
 });
 
 describe('ServiceHardware.cancel Pro2 operation', () => {
-  const createCancelService = () => {
+  const createCancelService = ({
+    deviceType = EDeviceType.Pro2,
+  }: {
+    deviceType?: EDeviceType | null;
+  } = {}) => {
     const sdkCancel = jest.fn();
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
@@ -1923,6 +1927,14 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
     service.getCompatibleConnectId = jest
       .fn()
       .mockResolvedValue('PRO2_BLE_CONNECT_ID');
+    jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(
+      deviceType
+        ? ({
+            connectId: 'PRO2_SERIAL',
+            deviceType,
+          } as never)
+        : undefined,
+    );
     return { sdkCancel, service };
   };
 
@@ -1936,6 +1948,58 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
 
     clearTimeout(service.cancelTimer);
     await cancelPromise;
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+    expect(sdkCancel).toHaveBeenCalledWith('PRO2_BLE_CONNECT_ID');
+  });
+
+  it('sends Cancel for Neo as well', async () => {
+    const { sdkCancel, service } = createCancelService({
+      deviceType: EDeviceType.Neo,
+    });
+
+    await service.cancel({
+      connectId: 'NEO_SERIAL',
+      immediate: true,
+    });
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the SDK decide Cancel for Classic or Pro1', async () => {
+    const { sdkCancel, service } = createCancelService({
+      deviceType: EDeviceType.Classic,
+    });
+
+    await service.cancel({
+      connectId: 'CLASSIC_SERIAL',
+      immediate: true,
+    });
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the SDK decide Cancel when the device type is unknown', async () => {
+    const { sdkCancel, service } = createCancelService({ deviceType: null });
+
+    await service.cancel({
+      connectId: 'UNKNOWN_SERIAL',
+      immediate: true,
+    });
+
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('still cancels when the caller supplies Unknown', async () => {
+    const { sdkCancel, service } = createCancelService({
+      deviceType: EDeviceType.Pro2,
+    });
+
+    await service.cancel({
+      connectId: 'PRO2_SERIAL',
+      immediate: true,
+      deviceType: EDeviceType.Unknown,
+    });
 
     expect(sdkCancel).toHaveBeenCalledTimes(1);
     expect(sdkCancel).toHaveBeenCalledWith('PRO2_BLE_CONNECT_ID');

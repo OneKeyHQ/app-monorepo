@@ -83,7 +83,34 @@ export type ICloseHardwareUiStateDialogParams = {
   deviceResetToHome?: boolean;
   hardClose?: boolean; // hard close dialog by event bus
   skipDelayClose?: boolean;
+  deviceType?: string;
 };
+
+const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
+  HardwareErrorCode.DeviceNotFound,
+  HardwareErrorCode.BleScanError,
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleRequiredUUID,
+  HardwareErrorCode.BleConnectedError,
+  HardwareErrorCode.PollingTimeout,
+  HardwareErrorCode.BleDeviceNotBonded,
+  HardwareErrorCode.BleServiceNotFound,
+  HardwareErrorCode.BleCharacteristicNotFound,
+  HardwareErrorCode.BleMonitorError,
+  HardwareErrorCode.BleCharacteristicNotifyError,
+  HardwareErrorCode.BleWriteCharacteristicError,
+  HardwareErrorCode.BleAlreadyConnected,
+  HardwareErrorCode.BleLocationServicesDisabled,
+  HardwareErrorCode.BleTimeoutError,
+  HardwareErrorCode.BleForceCleanRunPromise,
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BleUnavailableWhileUsbConnected,
+  HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
+  HardwareErrorCode.BleDeviceDisconnected,
+  HardwareErrorCode.BlePoweredOff,
+  HardwareErrorCode.BleUnsupported,
+];
 
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
@@ -465,6 +492,7 @@ class ServiceHardwareUI extends ServiceBase {
       reason,
       deviceResetToHome = true,
       hardClose,
+      deviceType,
     } = params;
     /* eslint-enable prefer-const */
 
@@ -492,6 +520,7 @@ class ServiceHardwareUI extends ServiceBase {
           connectId,
           forceDeviceResetToHome: deviceResetToHome,
           immediate: immediateDeviceCancel,
+          deviceType,
         });
       }
     } catch (_error) {
@@ -706,6 +735,7 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let skipDeviceCancelAfterError = false;
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
@@ -854,36 +884,26 @@ class ServiceHardwareUI extends ServiceBase {
           }, 300);
         }
       }
-      // skip reset to home if user cancel
       if (
+        isHardwareErrorByCode({
+          error: error as any,
+          code: HARDWARE_CONNECTION_CANCEL_SKIP_CODES,
+        })
+      ) {
+        // Pairing / link-setup failures never have an acquired session.
+        // Sending Cancel here can re-enter BLE and raise the OS pairing prompt.
+        skipDeviceCancelAfterError = true;
+        deviceResetToHome = false;
+      } else if (
         isHardwareErrorByCode({
           error: error as any,
           code: [
             HardwareErrorCode.ActionCancelled,
             HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home
             HardwareErrorCode.DeviceInterruptedFromUser,
             HardwareErrorCode.DeviceInterruptedFromOutside,
-            // ble connect error, skip reset to home
-            HardwareErrorCode.BleScanError,
-            HardwareErrorCode.BlePermissionError,
-            HardwareErrorCode.BleLocationError,
-            HardwareErrorCode.BleRequiredUUID,
-            HardwareErrorCode.BleConnectedError,
-            HardwareErrorCode.BleDeviceNotBonded,
-            HardwareErrorCode.BleServiceNotFound,
-            HardwareErrorCode.BleCharacteristicNotFound,
-            HardwareErrorCode.BleMonitorError,
-            HardwareErrorCode.BleCharacteristicNotifyError,
-            HardwareErrorCode.BleWriteCharacteristicError,
-            HardwareErrorCode.BleAlreadyConnected,
-            HardwareErrorCode.BleLocationServicesDisabled,
-            HardwareErrorCode.BleTimeoutError,
-            HardwareErrorCode.BleForceCleanRunPromise,
-            HardwareErrorCode.BleDeviceBondError,
-            HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
           ],
         })
       ) {
@@ -909,8 +929,7 @@ class ServiceHardwareUI extends ServiceBase {
         } else if (connectId) {
           if (!skipCloseHardwareUiStateDialog) {
             const closeDialogParams = {
-              // skipDeviceCancel: true,
-              skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
+              skipDeviceCancel: skipDeviceCancel || skipDeviceCancelAfterError,
               deviceResetToHome,
             };
             if (isBusy) {
@@ -921,6 +940,7 @@ class ServiceHardwareUI extends ServiceBase {
               connectId,
               skipDeviceCancel: closeDialogParams.skipDeviceCancel,
               deviceResetToHome: closeDialogParams.deviceResetToHome,
+              deviceType: device?.deviceType,
             });
             void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
               wallet: deviceParams?.dbWallet,
