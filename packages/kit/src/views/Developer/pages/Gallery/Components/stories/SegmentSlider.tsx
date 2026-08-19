@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { DeviceBrightnessSlider } from '@onekeyhq/kit/src/views/DeviceManagement/pages/DeviceDetailsModal/DeviceBrightnessSlider';
 
 import { Layout } from './utils/Layout';
 
@@ -39,6 +40,23 @@ const ValuePill = ({
     </SizableText>
   </Stack>
 );
+
+const DeviceBrightnessDemo = () => {
+  const [value, setValue] = useState(77);
+
+  return (
+    <YStack gap="$2" borderWidth={1} borderColor="$borderSubdued">
+      <DeviceBrightnessSlider
+        value={value}
+        onCommit={async (nextValue) => setValue(nextValue)}
+      />
+      <Label>
+        OK-60436 — exact Pro2 brightness component. Tap each visible dot and
+        verify the value changes to that dot.
+      </Label>
+    </YStack>
+  );
+};
 
 // -----------------------------------------------------------------------------
 // 1. Default — 4 segments, value bubble on drag (matches Perp page tap targets)
@@ -426,6 +444,10 @@ const SegmentSliderGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="SegmentSlider"
     elements={[
+      {
+        title: 'Pro2 brightness (OK-60436)',
+        element: <DeviceBrightnessDemo />,
+      },
       {
         title: 'Default (4 segments, bubble on drag)',
         element: <DefaultDemo />,

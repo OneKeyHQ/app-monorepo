@@ -139,6 +139,7 @@ export function DeviceBrightnessSlider({
         max={MAX_BRIGHTNESS}
         segments={4}
         sliderHeight={4}
+        snapTapToSegment
         showBubble
         disabled={disabled}
         onChange={handleChange}
