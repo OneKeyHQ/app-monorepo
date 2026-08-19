@@ -360,11 +360,11 @@ describe('ServiceHardware wallet session compatibility', () => {
     const postArg = postMock.mock.calls[0]?.[1] as {
       data: string;
     };
-    expect(postArg?.data).toMatch(/^[0-9a-f]{32}$/);
+    expect(postArg?.data).toMatch(/^[0-9a-f]{64}$/);
     expect(postMock).toHaveBeenCalledWith(
       '/wallet/v1/hardware/verify',
       expect.objectContaining({
-        data: expect.stringMatching(/^[0-9a-f]{32}$/),
+        data: expect.stringMatching(/^[0-9a-f]{64}$/),
       }),
     );
     expect(closeHardwareUiStateDialog).toHaveBeenCalled();
