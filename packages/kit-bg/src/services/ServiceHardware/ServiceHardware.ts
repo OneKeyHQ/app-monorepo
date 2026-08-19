@@ -4850,20 +4850,18 @@ class ServiceHardware extends ServiceBase {
     firmwareVersion: string;
   }): Promise<IHardwareHomeScreenData[]> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const serverDeviceType =
-      serviceHardwareUtils.getHomeScreenServerDeviceType(deviceType);
     const response = await client.get<{
       data: IHardwareHomeScreenResponse[];
     }>('/utility/v1/wallet-homescreen/list', {
       params: {
-        deviceType: serverDeviceType,
+        deviceType,
         serialNumber,
         firmwareVersion,
       },
     });
     const { data } = response.data;
     return data
-      .filter((item) => item.deviceTypes.includes(serverDeviceType))
+      .filter((item) => item.deviceTypes.includes(deviceType))
       .filter(
         (item) =>
           item.resType === 'system' ||

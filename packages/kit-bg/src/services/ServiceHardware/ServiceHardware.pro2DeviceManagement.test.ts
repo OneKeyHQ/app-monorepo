@@ -1941,51 +1941,61 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {
-  it('uses Pro as the server device type for Pro 2', async () => {
-    const get = jest.fn().mockResolvedValue({
-      data: {
-        data: [
-          {
-            id: 'pro-wallpaper',
-            wallpaperType: 'default',
-            resType: 'system',
-            url: 'https://example.com/pro-wallpaper.png',
-            deviceTypes: [EDeviceType.Pro],
-          },
-        ],
-      },
-    });
-    const service = new ServiceHardware({
-      backgroundApi: {} as unknown as IBackgroundApi,
-    });
-    Object.defineProperty(service, 'getClient', {
-      value: jest.fn().mockResolvedValue({ get }),
-    });
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'requests %s homescreens with the native device type',
+    async (deviceType) => {
+      const get = jest.fn().mockResolvedValue({
+        data: {
+          data: [
+            {
+              id: `${deviceType}-wallpaper`,
+              wallpaperType: 'default',
+              resType: 'system',
+              url: `https://example.com/${deviceType}-wallpaper.png`,
+              deviceTypes: [deviceType],
+            },
+            {
+              id: 'pro-wallpaper',
+              wallpaperType: 'default',
+              resType: 'system',
+              url: 'https://example.com/pro-wallpaper.png',
+              deviceTypes: [EDeviceType.Pro],
+            },
+          ],
+        },
+      });
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      Object.defineProperty(service, 'getClient', {
+        value: jest.fn().mockResolvedValue({ get }),
+      });
 
-    await expect(
-      service.fetchHardwareHomeScreen({
-        deviceType: EDeviceType.Pro2,
-        serialNumber: 'PR9999999999',
-        firmwareVersion: '1.0.0',
-      }),
-    ).resolves.toEqual([
-      {
-        id: 'pro-wallpaper',
-        wallpaperType: 'default',
-        resType: 'system',
-        url: 'https://example.com/pro-wallpaper.png',
-        screenHex: undefined,
-        nameHex: undefined,
-      },
-    ]);
-    expect(get).toHaveBeenCalledWith('/utility/v1/wallet-homescreen/list', {
-      params: {
-        deviceType: EDeviceType.Pro,
-        serialNumber: 'PR9999999999',
-        firmwareVersion: '1.0.0',
-      },
-    });
-  });
+      await expect(
+        service.fetchHardwareHomeScreen({
+          deviceType,
+          serialNumber: 'PR9999999999',
+          firmwareVersion: '1.0.0',
+        }),
+      ).resolves.toEqual([
+        {
+          id: `${deviceType}-wallpaper`,
+          wallpaperType: 'default',
+          resType: 'system',
+          url: `https://example.com/${deviceType}-wallpaper.png`,
+          screenHex: undefined,
+          nameHex: undefined,
+        },
+      ]);
+      expect(get).toHaveBeenCalledWith('/utility/v1/wallet-homescreen/list', {
+        params: {
+          deviceType,
+          serialNumber: 'PR9999999999',
+          firmwareVersion: '1.0.0',
+        },
+      });
+    },
+  );
 });
 
 describe('ServiceHardware.cancel Pro2 operation', () => {

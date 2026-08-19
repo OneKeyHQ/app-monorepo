@@ -1,17 +1,10 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import serviceHardwareUtils from './serviceHardwareUtils';
 
-describe('serviceHardwareUtils.getHomeScreenServerDeviceType', () => {
-  it('maps Pro 2 to Pro for the homescreen service', () => {
-    expect(
-      serviceHardwareUtils.getHomeScreenServerDeviceType(EDeviceType.Pro2),
-    ).toBe(EDeviceType.Pro);
-  });
-
-  it('keeps other device types unchanged', () => {
-    expect(
-      serviceHardwareUtils.getHomeScreenServerDeviceType(EDeviceType.Touch),
-    ).toBe(EDeviceType.Touch);
+describe('serviceHardwareUtils', () => {
+  it('keeps identifier suffixes for logs', () => {
+    expect(serviceHardwareUtils.maskLogIdentifier('PR1234567890')).toBe(
+      '***7890',
+    );
+    expect(serviceHardwareUtils.maskLogIdentifier(undefined)).toBeUndefined();
   });
 });
