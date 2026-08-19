@@ -6,11 +6,12 @@ export const getDeviceLabel = (
 ) => {
   const labels = deviceTypeItems.map((deviceType) => {
     switch (deviceType) {
-      // Protocol V2 variants share the OneKey Pro connection entry.
       case EDeviceType.Pro:
-      case EDeviceType.Pro2:
-      case EDeviceType.Neo:
         return 'OneKey Pro';
+      case EDeviceType.Pro2:
+        return 'OneKey Pro 2';
+      case EDeviceType.Neo:
+        return 'OneKey Neo';
       case EDeviceType.Classic:
         return 'OneKey Classic';
       case EDeviceType.Classic1s:

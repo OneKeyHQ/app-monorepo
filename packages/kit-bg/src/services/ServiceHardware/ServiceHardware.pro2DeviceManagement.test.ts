@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { DEVICE, LOG_EVENT, UI_EVENT, UI_REQUEST } from '@onekeyfe/hd-core';
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -1992,6 +1992,49 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
           deviceType,
           serialNumber: 'PR9999999999',
           firmwareVersion: '1.0.0',
+        },
+      });
+    },
+  );
+});
+
+describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'requests firmware/detail with the native %s device type',
+    async (deviceType) => {
+      const get = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            firmwares: [],
+          },
+        },
+      });
+      const backgroundApi = {
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        get,
+      } as never);
+
+      await service.hardwareVerifyManager.fetchFirmwareVerifyHash({
+        deviceType,
+        firmwareVersion: '1.0.0',
+        bluetoothVersion: '1.0.0',
+        bootloaderVersion: '1.0.0',
+        firmwareType: EFirmwareType.Universal,
+      });
+
+      expect(get).toHaveBeenCalledWith('/utility/v1/firmware/detail', {
+        params: {
+          deviceType,
+          system: '1.0.0',
+          bluetooth: '1.0.0',
+          bootloader: '1.0.0',
+          firmwareType: 'universal',
         },
       });
     },
