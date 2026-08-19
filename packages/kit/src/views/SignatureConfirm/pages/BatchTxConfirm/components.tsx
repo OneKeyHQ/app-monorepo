@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   Progress,
@@ -6,6 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { formatRecipientLine } from './utils';
 
@@ -44,6 +47,7 @@ export function TransactionRow({
   disabled?: boolean;
   onPress?: () => void;
 }) {
+  const intl = useIntl();
   const subtitleColor = failed ? '$textCritical' : '$textSubdued';
 
   return (
@@ -86,21 +90,26 @@ export function TransactionRow({
       <YStack flex={1} minWidth={0}>
         <XStack alignItems="center" gap="$1.5">
           <SizableText size="$bodyMdMedium">
-            {`Transaction ${index + 1}`}
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_transaction_number__title },
+              { number: index + 1 },
+            )}
           </SizableText>
           {signed ? (
             <SizableText size="$bodySmMedium" color="$textSuccess">
-              Signed
+              {intl.formatMessage({
+                id: ETranslations.batch_psbt_signed__title,
+              })}
             </SizableText>
           ) : null}
           {failed ? (
             <SizableText size="$bodySmMedium" color="$textCritical">
-              Failed
+              {intl.formatMessage({ id: ETranslations.global_failed })}
             </SizableText>
           ) : null}
         </XStack>
         <SizableText size="$bodySm" color={subtitleColor} numberOfLines={1}>
-          {formatRecipientLine({ recipient, extraRecipientCount })}
+          {formatRecipientLine({ recipient, extraRecipientCount, intl })}
         </SizableText>
       </YStack>
 
@@ -134,13 +143,18 @@ export function BatchSigningProgress({
   // prefix.
   currentRow?: { title: string; recipient: string; amountText: string };
 }) {
+  const intl = useIntl();
   const remainingCount = totalCount - signedCount;
   const isComplete = remainingCount === 0;
   const progressValue = totalCount > 0 ? (signedCount / totalCount) * 100 : 0;
-  let progressDescription =
-    'Review and approve this transaction on your hardware wallet';
+  let progressDescription = intl.formatMessage({
+    id: ETranslations.batch_psbt_review_on_hardware_wallet__desc,
+  });
   if (isComplete) {
-    progressDescription = `${totalCount} signatures are ready to return to the DApp`;
+    progressDescription = intl.formatMessage(
+      { id: ETranslations.batch_psbt_signatures_ready__desc },
+      { count: totalCount },
+    );
   }
 
   return (
@@ -169,8 +183,15 @@ export function BatchSigningProgress({
         </Stack>
         <SizableText size="$headingLg" textAlign="center">
           {isComplete
-            ? 'All transactions signed'
-            : `Signing transaction ${currentTransactionNumber} of ${totalCount}`}
+            ? intl.formatMessage({
+                id: ETranslations.batch_psbt_all_transactions_signed__title,
+              })
+            : intl.formatMessage(
+                {
+                  id: ETranslations.batch_psbt_signing_transaction_progress__title,
+                },
+                { current: currentTransactionNumber, total: totalCount },
+              )}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {progressDescription}
@@ -181,10 +202,16 @@ export function BatchSigningProgress({
         <Progress animated size="medium" value={progressValue} />
         <XStack alignItems="center">
           <SizableText flex={1} size="$bodySm" color="$textSubdued">
-            {`${signedCount} signed`}
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_signed_count__desc },
+              { count: signedCount },
+            )}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            {`${remainingCount} remaining`}
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_remaining_count__desc },
+              { count: remainingCount },
+            )}
           </SizableText>
         </XStack>
       </YStack>
@@ -200,7 +227,9 @@ export function BatchSigningProgress({
           bg="$bgSubdued"
         >
           <SizableText size="$bodySmMedium" color="$textSubdued">
-            Current transaction
+            {intl.formatMessage({
+              id: ETranslations.batch_psbt_current_transaction__title,
+            })}
           </SizableText>
           <XStack alignItems="center" gap="$4">
             <YStack flex={1} minWidth={0}>
@@ -231,8 +260,9 @@ export function BatchSigningProgress({
         >
           <Icon name="LaptopOutline" size="$5" color="$iconSubdued" />
           <SizableText flex={1} size="$bodySm" color="$textSubdued">
-            Keep your device connected. You will confirm every transaction
-            separately.
+            {intl.formatMessage({
+              id: ETranslations.batch_psbt_keep_device_connected__desc,
+            })}
           </SizableText>
         </XStack>
       ) : null}
