@@ -1,45 +1,50 @@
-import { memo, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { XStack } from '@onekeyhq/components';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsFooterTickerModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsFooterTickerModePersistAtom,
+  useSpotAssetCtxsMapAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import perpsUtils, {
+  formatSpotPriceEntry,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsFavorites } from '../../hooks/usePerpsFavorites';
 import { usePopularTickers } from '../../hooks/usePopularTickers';
 
-import { FooterTickerItem } from './FooterTickerItem';
 import { FooterTickerMarquee } from './FooterTickerMarquee.web';
 import { FooterTickerSettings } from './FooterTickerSettings';
+
+import type { IFooterTickerItemData } from './footerTickerUtils';
 
 // Ticker list for Popular mode
 const PopularTickerList = memo(() => {
   const popularTickers = usePopularTickers();
   const actions = useHyperliquidActions();
+  const handleItemPress = useCallback(
+    (item: IFooterTickerItemData) => {
+      void actions.current.switchTradeInstrument({
+        coin: item.coinName,
+        mode: item.mode,
+      });
+    },
+    [actions],
+  );
 
   if (!popularTickers.length) return null;
 
   return (
-    <>
-      {popularTickers.map((item) => (
-        <FooterTickerItem
-          key={`${item.dexIndex}-${item.assetId}`}
-          displayName={item.displayName}
-          coinName={item.coinName}
-          dexIndex={item.dexIndex}
-          assetId={item.assetId}
-          mode={item.mode}
-          onPress={() =>
-            void actions.current.switchTradeInstrument({
-              coin: item.coinName,
-              mode: item.mode,
-            })
-          }
-        />
-      ))}
-    </>
+    <FooterTickerMarquee
+      items={popularTickers}
+      deferStructureUpdates
+      onItemPress={handleItemPress}
+    />
   );
 });
 PopularTickerList.displayName = 'PopularTickerList';
@@ -47,29 +52,42 @@ PopularTickerList.displayName = 'PopularTickerList';
 // Ticker list for Favorites mode
 const FavoritesTickerList = memo(() => {
   const { favoriteItems } = usePerpsFavorites({ mode: 'current' });
+  const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+  const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
+  const tickerItems = useMemo<IFooterTickerItemData[]>(
+    () =>
+      favoriteItems.map((item) => {
+        const displayCtx =
+          item.mode === 'spot'
+            ? formatSpotPriceEntry(spotPriceMap[item.coinName])
+            : perpsUtils.formatAssetCtx(
+                allAssetCtxs.assetCtxsByDex[item.dexIndex]?.[
+                  toCtxIndex(item.assetId, item.dexIndex)
+                ] ?? null,
+              );
+        return {
+          ...item,
+          change24hPercent: displayCtx?.change24hPercent ?? 0,
+          markPrice: displayCtx?.markPrice,
+        };
+      }),
+    [allAssetCtxs.assetCtxsByDex, favoriteItems, spotPriceMap],
+  );
+  const handleItemPress = useCallback(
+    (item: IFooterTickerItemData) => {
+      void actions.current.switchTradeInstrument({
+        coin: item.coinName,
+        mode: item.mode,
+      });
+    },
+    [actions],
+  );
 
-  if (!favoriteItems.length) return null;
+  if (!tickerItems.length) return null;
 
   return (
-    <>
-      {favoriteItems.map((item) => (
-        <FooterTickerItem
-          key={`${item.dexIndex}-${item.assetId}`}
-          displayName={item.displayName}
-          coinName={item.coinName}
-          dexIndex={item.dexIndex}
-          assetId={item.assetId}
-          mode={item.mode}
-          onPress={() =>
-            void actions.current.switchTradeInstrument({
-              coin: item.coinName,
-              mode: item.mode,
-            })
-          }
-        />
-      ))}
-    </>
+    <FooterTickerMarquee items={tickerItems} onItemPress={handleItemPress} />
   );
 });
 FavoritesTickerList.displayName = 'FavoritesTickerList';
@@ -101,15 +119,13 @@ function PerpFooterTicker() {
   }
 
   return (
-    <XStack flex={1} alignItems="center" gap="$2" overflow="hidden">
+    <XStack flex={1} alignItems="center" gap="$4" overflow="hidden">
       <FooterTickerSettings />
-      <FooterTickerMarquee>
-        {footerMode.mode === 'popular' ? (
-          <PopularTickerList />
-        ) : (
-          <FavoritesTickerList />
-        )}
-      </FooterTickerMarquee>
+      {footerMode.mode === 'popular' ? (
+        <PopularTickerList />
+      ) : (
+        <FavoritesTickerList />
+      )}
     </XStack>
   );
 }
