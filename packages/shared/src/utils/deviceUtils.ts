@@ -1,6 +1,7 @@
 import {
   EDeviceType,
   EFirmwareType,
+  canonicalizePro2BleAdvertisementName,
   type HardwareConnectProtocol,
 } from '@onekeyfe/hd-shared';
 import semver from 'semver';
@@ -81,7 +82,9 @@ function getDeviceDisplayName({ state }: { state: DeviceState }): string {
     : undefined;
   return (
     identity.label ||
-    identity.bleName ||
+    (identity.bleName
+      ? canonicalizePro2BleAdvertisementName(identity.bleName)
+      : undefined) ||
     defaultName ||
     identity.model ||
     'OneKey'
@@ -143,13 +146,16 @@ function getDeviceBleNameFromFeatures(
     ble_name?: string;
     onekey_ble_name?: string;
   };
-  return [
+  const bleName = [
     compatibleFeatures.bleName,
     compatibleFeatures.onekey_ble_name,
     compatibleFeatures.ble_name,
   ].find(
     (value): value is string => typeof value === 'string' && value.length > 0,
   );
+  return bleName
+    ? canonicalizePro2BleAdvertisementName(bleName)
+    : undefined;
 }
 
 // web sdk return KnownDevice

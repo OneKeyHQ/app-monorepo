@@ -1,4 +1,8 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  isSameOnekeyBleName,
+} from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -4297,7 +4301,7 @@ class ServiceHardware extends ServiceBase {
         (device) =>
           Boolean(device.connectId) &&
           deviceUtils.isBluetoothSearchDevice(device) &&
-          device.name === expectedDeviceName,
+          isSameOnekeyBleName(device.name, expectedDeviceName),
       );
 
       if (!matchingDevice) {

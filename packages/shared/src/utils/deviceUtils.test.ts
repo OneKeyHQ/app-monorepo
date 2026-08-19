@@ -118,6 +118,18 @@ describe('deviceUtils', () => {
     });
   });
 
+  it('canonicalizes compact Pro2 BLE names for display', () => {
+    const state = {
+      identity: {
+        label: null,
+        bleName: 'Pro2 6136',
+        deviceType: EDeviceType.Pro2,
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 2 6136');
+  });
+
   it('prefers persisted DeviceState versions over stale legacy Features', async () => {
     await expect(
       deviceUtils.getDeviceVersion({
