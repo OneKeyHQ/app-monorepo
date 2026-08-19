@@ -224,8 +224,8 @@ function FooterTickerMarquee({
         }
         aria-hidden={isDuplicate || undefined}
         alignItems="center"
-        gap="$3"
-        pr="$3"
+        gap="$1"
+        pr="$1"
         flexShrink={0}
         style={{ width: 'max-content' }}
       >

@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 
@@ -8,10 +8,8 @@ import { getFooterTickerDisplayText } from './footerTickerUtils';
 
 import type { IFooterTickerItemData } from './footerTickerUtils';
 
-const CHANGE_COLUMN_WIDTH = '8ch';
-const PRICE_COLUMN_WIDTH = '10ch';
-const DISPLAY_NAME_CHARACTER_WIDTH_PX = 8;
-const FIXED_ITEM_CONTENT_WIDTH_PX = 156;
+const ITEM_CHARACTER_WIDTH_PX = 7.75;
+const ITEM_INTERNAL_GAPS_WIDTH_PX = 12;
 
 interface IFooterTickerItemProps extends IFooterTickerItemData {
   isDuplicate?: boolean;
@@ -39,10 +37,13 @@ function FooterTickerItem({
     change24hPercent,
     markPrice,
   });
-  // Keep live price updates from changing the item's layout width.
-  const itemWidth =
-    displayName.length * DISPLAY_NAME_CHARACTER_WIDTH_PX +
-    FIXED_ITEM_CONTENT_WIDTH_PX;
+  // Freeze the initial text budget so live prices do not resize the item.
+  const [itemWidth] = useState(
+    () =>
+      (displayName.length + changeText.length + priceText.length) *
+        ITEM_CHARACTER_WIDTH_PX +
+      ITEM_INTERNAL_GAPS_WIDTH_PX,
+  );
   const handlePress = useCallback(() => {
     onPress({
       displayName,
@@ -89,9 +90,7 @@ function FooterTickerItem({
         size="$bodySmMedium"
         color={color}
         style={TABULAR_NUMS_STYLE}
-        width={CHANGE_COLUMN_WIDTH}
         flexShrink={0}
-        overflow="hidden"
         whiteSpace="nowrap"
       >
         {changeText}
@@ -101,9 +100,7 @@ function FooterTickerItem({
         color="$textSubdued"
         $group-hover={{ color: '$text' }}
         style={TABULAR_NUMS_STYLE}
-        width={PRICE_COLUMN_WIDTH}
         flexShrink={0}
-        overflow="hidden"
         whiteSpace="nowrap"
       >
         {priceText}
