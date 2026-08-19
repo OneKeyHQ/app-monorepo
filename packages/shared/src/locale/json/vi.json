@@ -3061,6 +3061,7 @@
   "perp_market_info_raw_source__title": "Tài liệu nguồn",
   "perp_market_info_raw_source_tooltip__desc": "Tài liệu từ nguồn bên thứ ba được hiển thị nguyên bản và chưa được dịch.",
   "perp_market_info_reference_note__desc": "Dữ liệu thị trường do bên thứ ba cung cấp dưới dạng dữ liệu thị trường toàn cầu và chỉ dùng để tham khảo. Dữ liệu này có thể khác với giá giao dịch, khối lượng và các dữ liệu khác trên Hyperliquid. Thông tin này được cung cấp nguyên trạng và không cấu thành bất kỳ tuyên bố hay bảo đảm nào.",
+  "perp_holdings_hide_below_amount__action": "Ẩn tài sản nắm giữ có giá trị dưới {amount}",
   "perp_market_info_social_media__title": "Mạng xã hội",
   "perp_market_info_total_supply_tooltip__desc": "Tổng số token hiện đang phát hành.",
   "perp_market_liquidation__title": "Thanh lý theo giá thị trường",

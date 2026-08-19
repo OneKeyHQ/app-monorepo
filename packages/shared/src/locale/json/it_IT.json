@@ -3061,6 +3061,7 @@
   "perp_market_info_raw_source__title": "Materiale di origine",
   "perp_market_info_raw_source_tooltip__desc": "Il materiale proveniente da fonti di terze parti è mostrato come fornito e non è ancora tradotto.",
   "perp_market_info_reference_note__desc": "I dati di mercato sono forniti da terze parti come dati di mercato globali solo a scopo di riferimento. Possono differire dai prezzi di trading, dai volumi e da altri dati di Hyperliquid. Queste informazioni sono fornite così come sono e non costituiscono alcuna dichiarazione o garanzia.",
+  "perp_holdings_hide_below_amount__action": "Nascondi le posizioni di valore inferiore a {amount}",
   "perp_market_info_social_media__title": "Social media",
   "perp_market_info_total_supply_tooltip__desc": "Numero totale di token attualmente emessi.",
   "perp_market_liquidation__title": "Liquidazione a mercato",

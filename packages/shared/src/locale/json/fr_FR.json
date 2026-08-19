@@ -3061,6 +3061,7 @@
   "perp_market_info_raw_source__title": "Matériel source",
   "perp_market_info_raw_source_tooltip__desc": "Le matériel provenant de sources tierces est affiché tel que fourni et n'est pas encore traduit.",
   "perp_market_info_reference_note__desc": "Les données de marché sont fournies par des tiers en tant que données de marché mondiales à titre indicatif uniquement. Elles peuvent différer des prix de trading, volumes et autres données de Hyperliquid. Ces informations sont fournies en l’état et ne constituent aucune déclaration ni garantie.",
+  "perp_holdings_hide_below_amount__action": "Masquer les avoirs d’une valeur inférieure à {amount}",
   "perp_market_info_social_media__title": "Réseaux sociaux",
   "perp_market_info_total_supply_tooltip__desc": "Nombre total de jetons actuellement émis.",
   "perp_market_liquidation__title": "Liquidation au marche",
