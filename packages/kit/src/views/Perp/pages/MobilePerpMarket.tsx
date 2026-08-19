@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import {
   Dimensions,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   useWindowDimensions,
 } from 'react-native';
 
@@ -59,6 +61,7 @@ import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
 } from '../utils/mobilePerpMarketScrollState';
+import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const IOS_CHART_HEIGHT = 500;
@@ -295,8 +298,60 @@ function MobilePerpMarket() {
       ? windowHeight
       : undefined;
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
+    perpsFieldDiagnostics('interactionOverlay.change', {
+      isOpen,
+      at: Date.now(),
+    });
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
+
+  // OK-59100 instrumentation. The two failure modes look identical to the user
+  // but are opposites in the code, so each gets its own signal:
+  //   - a drag that never reaches the scroller (no `dragBegin`) means the
+  //     gesture was swallowed upstream;
+  //   - drags that arrive while `offsetY` stays pinned at 0 mean the scroller
+  //     itself has nothing to scroll, or is disabled.
+  const orderbookScrollDiagRef = useRef({ lastLoggedAt: 0, maxOffsetY: 0 });
+
+  const handleOrderbookScrollBeginDrag = useCallback(() => {
+    perpsFieldDiagnostics('iosOrderbookTab.dragBegin', {
+      scrollEnabled: !isTradingViewInteractionOverlayOpen,
+      maxOffsetY: Math.round(orderbookScrollDiagRef.current.maxOffsetY),
+    });
+  }, [isTradingViewInteractionOverlayOpen]);
+
+  const handleOrderbookScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const state = orderbookScrollDiagRef.current;
+      const now = Date.now();
+      // One line per 500ms is enough to tell a moving offset from a pinned one,
+      // and keeps the exported log readable.
+      if (now - state.lastLoggedAt < 500 && offsetY <= state.maxOffsetY) {
+        return;
+      }
+      state.lastLoggedAt = now;
+      state.maxOffsetY = Math.max(state.maxOffsetY, offsetY);
+      perpsFieldDiagnostics('iosOrderbookTab.scroll', {
+        offsetY: Math.round(offsetY),
+        maxOffsetY: Math.round(state.maxOffsetY),
+      });
+    },
+    [],
+  );
+
+  const handleOrderbookContentSizeChange = useCallback(
+    (contentWidth: number, contentHeight: number) => {
+      perpsFieldDiagnostics('iosOrderbookTab.contentSize', {
+        contentWidth: Math.round(contentWidth),
+        contentHeight: Math.round(contentHeight),
+        windowHeight: Math.round(Dimensions.get('window').height),
+        chartHeight: IOS_CHART_HEIGHT,
+        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
+      });
+    },
+    [],
+  );
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -610,6 +665,10 @@ function MobilePerpMarket() {
                       scrollEnabled={!isTradingViewInteractionOverlayOpen}
                       showsVerticalScrollIndicator={false}
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
+                      onScrollBeginDrag={handleOrderbookScrollBeginDrag}
+                      onScroll={handleOrderbookScroll}
+                      scrollEventThrottle={16}
+                      onContentSizeChange={handleOrderbookContentSizeChange}
                     >
                       <YStack
                         onLayout={(event) =>

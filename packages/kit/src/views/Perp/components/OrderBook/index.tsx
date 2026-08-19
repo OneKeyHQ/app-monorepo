@@ -842,21 +842,30 @@ export function OrderBook({
   // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
   // change (useMemo) instead of inside JSX on every render, then frame-coalesce
   // them (useRafCoalesced) so high-frequency L2 ticks collapse to ~one Nitro
-  // prop write per displayed frame. Only the depth-bar *visual* data is gated
-  // here — the price/size ladder text below still reads `aggregatedData`
-  // directly, so the numbers the user reads stay maximally fresh.
-  const bidPercentsRaw = useMemo(
-    () =>
-      aggregatedData.bids.map((item) =>
+  // prop write per displayed frame.
+  //
+  // OK-59102: the bars and the ladder text drawn over them must come from ONE
+  // snapshot. Coalescing only the percents while the rows read `aggregatedData`
+  // live meant every update painted a stale depth block behind an
+  // already-updated row, which the native bar's CADisplayLink easing then
+  // stretches into visible flicker. They are bundled here so a single
+  // coalescing decision covers both.
+  const bidLadderRaw = useMemo(
+    () => ({
+      percents: aggregatedData.bids.map((item) =>
         calculatePercentage(item.cumSize, bidDepth),
       ),
+      levels: aggregatedData.bids,
+    }),
     [aggregatedData.bids, bidDepth],
   );
-  const askPercentsRaw = useMemo(
-    () =>
-      aggregatedData.asks.map((item) =>
+  const askLadderRaw = useMemo(
+    () => ({
+      percents: aggregatedData.asks.map((item) =>
         calculatePercentage(item.cumSize, askDepth),
       ),
+      levels: aggregatedData.asks,
+    }),
     [aggregatedData.asks, askDepth],
   );
   // Vertical layout draws asks top-to-bottom reversed; keep its own derived
@@ -868,8 +877,18 @@ export function OrderBook({
         .map((item) => calculatePercentage(item.cumSize, askDepth)),
     [aggregatedData.asks, askDepth],
   );
-  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
-  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
+  const bidLadderCoalesced = useRafCoalesced(bidLadderRaw, depthEpoch);
+  const askLadderCoalesced = useRafCoalesced(askLadderRaw, depthEpoch);
+  // Mobile already renders a 200ms-throttled visual snapshot
+  // (`enableVisualSnapshot` in PerpOrderBook), so coalescing to the frame here
+  // can never merge two updates — it only costs a frame of latency and an extra
+  // render each time, which is what made the book read as slower when the rows
+  // were first bundled in. Desktop keeps it: its L2 feed has no such throttle,
+  // which is the case REACT-NATIVE-1JZ was written for.
+  const bidLadder = isMobileVariant ? bidLadderRaw : bidLadderCoalesced;
+  const askLadder = isMobileVariant ? askLadderRaw : askLadderCoalesced;
+  const bidPercents = bidLadder.percents;
+  const askPercents = askLadder.percents;
   const reversedAskPercents = useRafCoalesced(
     reversedAskPercentsRaw,
     depthEpoch,
@@ -1031,7 +1050,7 @@ export function OrderBook({
               <View style={styles.absoluteContainer}>
                 <View style={styles.levelListContainer}>
                   <View style={styles.levelList}>
-                    {aggregatedData.bids.map((item, index) => (
+                    {bidLadder.levels.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('bid', item, index)}
@@ -1072,7 +1091,7 @@ export function OrderBook({
                     ))}
                   </View>
                   <View style={styles.levelList}>
-                    {aggregatedData.asks.map((item, index) => (
+                    {askLadder.levels.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('ask', item, index)}
