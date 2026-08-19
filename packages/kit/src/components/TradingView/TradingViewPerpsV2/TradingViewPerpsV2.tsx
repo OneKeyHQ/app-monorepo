@@ -24,7 +24,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import {
+  syncTradingViewTheme,
+  useNavigationHandler,
+  useTradingViewUrl,
+} from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -286,6 +290,10 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
+  const onLoadEndRef = useRef(onLoadEnd);
+  onLoadEndRef.current = onLoadEnd;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
@@ -302,7 +310,9 @@ export function TradingViewPerpsV2(
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}${
+    const themeKey =
+      platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
+    return `${themeKey}${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
@@ -416,6 +426,7 @@ export function TradingViewPerpsV2(
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
+    theme,
   });
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
@@ -517,12 +528,14 @@ export function TradingViewPerpsV2(
   }, [restoreNonce]);
 
   const onChartLinesReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
   const onChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     setChartContentReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
@@ -675,6 +688,15 @@ export function TradingViewPerpsV2(
     webRef.current = ref;
   }, []);
 
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
+
+  const handleLoadEnd = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+    onLoadEndRef.current?.();
+  }, []);
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
@@ -692,7 +714,7 @@ export function TradingViewPerpsV2(
         customReceiveHandler={customReceiveHandler}
         skipBackgroundBridge
         onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
+        onLoadEnd={handleLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid

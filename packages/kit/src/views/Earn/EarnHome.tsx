@@ -18,7 +18,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnPageBannerListItem,
+} from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -64,12 +67,22 @@ type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 function BasicEarnHome({
   showHeader,
   showContent,
+  isVisible,
   overrideDefaultTab,
   tabsRef,
   useSwipePager,
 }: {
   showHeader?: boolean;
+  /** Owns data fetching: only the committed tab requests. */
   showContent?: boolean;
+  /**
+   * Owns painting. The outer pager reveals the neighboring page as soon as the
+   * finger moves, but showContent only flips once the swipe commits, so the
+   * body stayed display:none for the whole gesture and the user swiped onto a
+   * blank page (OK-60300). Deliberately separate from showContent so following
+   * the swipe never triggers a request for a tab the user is only passing over.
+   */
+  isVisible?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -88,29 +101,40 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
-  const {
-    result: earnPageBannerList,
-    isLoading: isEarnPageBannerLoading,
-    run: refetchEarnPageBannerList,
-  } = usePromiseResult(
-    async () => {
-      if (!platformEnv.isNative || showContent === false) {
-        return [];
-      }
-      try {
-        return await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
-      } catch {
-        return [];
-      }
-    },
-    [showContent],
-    {
-      initResult: [],
-      watchLoading: true,
-      undefinedResultIfError: false,
-      revalidateOnFocus: true,
-    },
-  );
+  // showContent is in the dependency list, so every switch onto the DeFi tab
+  // re-runs this. Returning [] on the way out used to wipe the loaded banners,
+  // so coming back rendered "no banner" (0pt) before the cached response
+  // landed again — the jump QA sees on every switch (OK-60299). Keeping the
+  // last result means a re-entry starts from what was already on screen
+  // instead of from empty.
+  //
+  // The first load is a separate question: nothing can know whether this
+  // account has banners before the response, so EarnHomeBanner deliberately
+  // renders nothing until then rather than reserving a placeholder it may have
+  // to take back. There is no loading flag to plumb through as a result.
+  const earnPageBannerListRef = useRef<IEarnPageBannerListItem[]>([]);
+  const { result: earnPageBannerList, run: refetchEarnPageBannerList } =
+    usePromiseResult(
+      async () => {
+        if (!platformEnv.isNative || showContent === false) {
+          return earnPageBannerListRef.current;
+        }
+        try {
+          const list =
+            await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+          earnPageBannerListRef.current = list;
+          return list;
+        } catch {
+          return earnPageBannerListRef.current;
+        }
+      },
+      [showContent],
+      {
+        initResult: [],
+        undefinedResultIfError: false,
+        revalidateOnFocus: true,
+      },
+    );
 
   useEffect(() => {
     if (!platformEnv.isNative || !tabsRef) {
@@ -488,6 +512,8 @@ function BasicEarnHome({
 
   useListenTabFocusState(earnFocusTabRoutes, handleListenTabFocusState);
 
+  // Compensating swipe for hosts with no outer pager. Gating happens at the
+  // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (direction === 'right') {
@@ -544,11 +570,10 @@ function BasicEarnHome({
       <YStack flex={1}>
         <EarnMobileHomeContent
           bannerList={earnPageBannerList}
-          isBannerLoading={!!isEarnPageBannerLoading}
           faqList={faqList || []}
           isFaqLoading={isFaqLoading}
           isActive={isEarnContentActive}
-          showContent={showContent !== false}
+          showContent={(isVisible ?? showContent) !== false}
           isRefreshing={isOverviewRefreshing}
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
@@ -558,7 +583,19 @@ function BasicEarnHome({
           onOpenPortfolio={handleOpenPortfolio}
           onOpenTokens={handleOpenTokens}
           onOpenProtocols={handleOpenAllProtocols}
-          onHeaderHorizontalSwipe={handleHeaderHorizontalSwipe}
+          // OK-60606: withholding the handler is what matters, not making it
+          // a no-op. HeaderScrollGestureWrapper only builds its horizontal pan
+          // when a handler exists, and that pan is Race'd rather than
+          // Simultaneous with the native gesture (simultaneousWithNativeGesture
+          // defaults to false) and cancels child touches — so it claims the
+          // drag and blocks the pager underneath. With a handler present but
+          // inert, the header swallowed swipes in both directions; with it
+          // absent, horizontal drags fall through to OuterTabPagerView, which
+          // already reaches Market and Browser on its own. Hosts without an
+          // outer pager still get the compensating switch.
+          onHeaderHorizontalSwipe={
+            useSwipePager ? undefined : handleHeaderHorizontalSwipe
+          }
         />
 
         {showHeader && showContent && (useSwipePager || media.md) ? (
@@ -640,6 +677,7 @@ function BasicEarnHome({
 export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
+  isVisible,
   defaultTab,
   tabsRef,
   useSwipePager,
@@ -647,6 +685,7 @@ export function EarnHomeWithProvider({
 }: {
   showHeader?: boolean;
   showContent?: boolean;
+  isVisible?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   useSwipePager?: boolean;
@@ -664,6 +703,7 @@ export function EarnHomeWithProvider({
         <BasicEarnHome
           showHeader={showHeader}
           showContent={showContent}
+          isVisible={isVisible}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
           useSwipePager={useSwipePager}
