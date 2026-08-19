@@ -10,21 +10,6 @@ export interface IFooterTickerItemData {
   markPrice?: string;
 }
 
-export interface IFooterTickerTextWidthBudget {
-  itemWidth: number;
-  changeText: string;
-  changeWidth: number;
-  priceText: string;
-  priceWidth: number;
-}
-
-export type IFooterTickerTextWidthBudgetMap = Record<
-  string,
-  IFooterTickerTextWidthBudget
->;
-
-export type IFooterTickerTextMeasure = (text: string) => number;
-
 export function getFooterTickerItemKey(item: IFooterTickerItemData) {
   return `${item.mode}:${item.dexIndex}:${item.assetId}:${item.coinName}`;
 }
@@ -45,116 +30,21 @@ export function getFooterTickerDisplayText(item: IFooterTickerItemData) {
   };
 }
 
-export function getFooterTickerSnapshotKey(items: IFooterTickerItemData[]) {
-  return items
-    .map(
-      (item) =>
-        `${getFooterTickerItemKey(item)}:${item.displayName}:${
-          item.change24hPercent
-        }:${item.markPrice ?? ''}`,
-    )
-    .join('|');
-}
-
-export function isFooterTickerTextWithinBudget({
-  text,
-  baseText,
-  width,
-  measureText,
-  tolerance = 1,
-}: {
-  text: string;
-  baseText: string;
-  width: number;
-  measureText: IFooterTickerTextMeasure;
-  tolerance?: number;
-}) {
-  return (
-    text.length <= baseText.length || measureText(text) <= width + tolerance
-  );
-}
-
-export function isFooterTickerValueWidthSafe({
-  item,
-  widthBudget,
-  measureText,
-}: {
-  item: IFooterTickerItemData;
-  widthBudget: IFooterTickerTextWidthBudget;
-  measureText: IFooterTickerTextMeasure;
-}) {
-  const { changeText, priceText } = getFooterTickerDisplayText(item);
-  return (
-    isFooterTickerTextWithinBudget({
-      text: changeText,
-      baseText: widthBudget.changeText,
-      width: widthBudget.changeWidth,
-      measureText,
-    }) &&
-    isFooterTickerTextWithinBudget({
-      text: priceText,
-      baseText: widthBudget.priceText,
-      width: widthBudget.priceWidth,
-      measureText,
-    })
-  );
-}
-
-function isSameFooterTickerStructure(
-  first: IFooterTickerItemData,
-  second: IFooterTickerItemData,
-) {
-  return (
-    getFooterTickerItemKey(first) === getFooterTickerItemKey(second) &&
-    first.displayName === second.displayName
-  );
-}
-
 export function mergeFooterTickerLiveValues({
   displayItems,
   latestItems,
-  previousLiveItems = [],
-  widthBudgets,
-  measureText,
 }: {
   displayItems: IFooterTickerItemData[];
   latestItems: IFooterTickerItemData[];
-  previousLiveItems?: IFooterTickerItemData[];
-  widthBudgets: IFooterTickerTextWidthBudgetMap;
-  measureText: IFooterTickerTextMeasure;
 }) {
   const latestByKey = new Map(
     latestItems.map((item) => [getFooterTickerItemKey(item), item]),
   );
-  const previousByKey = new Map(
-    previousLiveItems.map((item) => [getFooterTickerItemKey(item), item]),
-  );
 
   return displayItems.map((displayItem) => {
-    const itemKey = getFooterTickerItemKey(displayItem);
-    const latestItem = latestByKey.get(itemKey);
-    const widthBudget = widthBudgets[itemKey];
-    if (
-      latestItem &&
-      widthBudget &&
-      isSameFooterTickerStructure(displayItem, latestItem) &&
-      isFooterTickerValueWidthSafe({
-        item: latestItem,
-        widthBudget,
-        measureText,
-      })
-    ) {
-      return {
-        ...displayItem,
-        change24hPercent: latestItem.change24hPercent,
-        markPrice: latestItem.markPrice,
-      };
-    }
-
-    const previousItem = previousByKey.get(itemKey);
-    return previousItem &&
-      isSameFooterTickerStructure(displayItem, previousItem)
-      ? previousItem
+    const latestItem = latestByKey.get(getFooterTickerItemKey(displayItem));
+    return latestItem?.displayName === displayItem.displayName
+      ? latestItem
       : displayItem;
   });
 }

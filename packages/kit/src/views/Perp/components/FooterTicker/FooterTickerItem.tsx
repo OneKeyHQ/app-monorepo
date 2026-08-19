@@ -6,15 +6,13 @@ import { TABULAR_NUMS_STYLE } from '../FavoritesBar/FavoriteTokenItem';
 
 import { getFooterTickerDisplayText } from './footerTickerUtils';
 
-import type {
-  IFooterTickerItemData,
-  IFooterTickerTextWidthBudget,
-} from './footerTickerUtils';
+import type { IFooterTickerItemData } from './footerTickerUtils';
+
+const CHANGE_COLUMN_WIDTH = '8ch';
+const PRICE_COLUMN_WIDTH = '10ch';
 
 interface IFooterTickerItemProps extends IFooterTickerItemData {
   isDuplicate?: boolean;
-  isMeasure?: boolean;
-  widthBudget?: IFooterTickerTextWidthBudget;
   onPress: (item: IFooterTickerItemData) => void;
 }
 
@@ -27,8 +25,6 @@ function FooterTickerItem({
   change24hPercent,
   markPrice,
   isDuplicate,
-  isMeasure,
-  widthBudget,
   onPress,
 }: IFooterTickerItemProps) {
   const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
@@ -64,18 +60,15 @@ function FooterTickerItem({
 
   return (
     <XStack
-      aria-hidden={isDuplicate || isMeasure || undefined}
-      tabIndex={isDuplicate || isMeasure ? -1 : undefined}
-      onPress={isMeasure ? undefined : handlePress}
+      aria-hidden={isDuplicate || undefined}
+      tabIndex={isDuplicate ? -1 : undefined}
+      onPress={handlePress}
       group
       userSelect="none"
       alignItems="center"
       gap="$1.5"
-      cursor={isMeasure ? 'default' : 'pointer'}
+      cursor="pointer"
       flexShrink={0}
-      style={{
-        width: isMeasure ? 'max-content' : widthBudget?.itemWidth,
-      }}
     >
       <SizableText
         size="$bodySmMedium"
@@ -89,7 +82,7 @@ function FooterTickerItem({
         size="$bodySmMedium"
         color={color}
         style={TABULAR_NUMS_STYLE}
-        width={isMeasure ? undefined : widthBudget?.changeWidth}
+        width={CHANGE_COLUMN_WIDTH}
         flexShrink={0}
         overflow="hidden"
         whiteSpace="nowrap"
@@ -101,7 +94,7 @@ function FooterTickerItem({
         color="$textSubdued"
         $group-hover={{ color: '$text' }}
         style={TABULAR_NUMS_STYLE}
-        width={isMeasure ? undefined : widthBudget?.priceWidth}
+        width={PRICE_COLUMN_WIDTH}
         flexShrink={0}
         overflow="hidden"
         whiteSpace="nowrap"
