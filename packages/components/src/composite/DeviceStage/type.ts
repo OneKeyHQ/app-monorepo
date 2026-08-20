@@ -33,6 +33,16 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * recovery action. `success` is the landing beat — under a second, closed
  * by the driver — and it holds the arrangement it arrives in rather than
  * moving the stage.
+ *
+ * `genuineCheck`, `authVerifying`, `authSuccess` and `authFailure` are
+ * the device-authenticity flow (the live Genuine check): the ask — the
+ * person confirms the check on the device — then the wait while the
+ * certificate (and, on capable firmware, each component hash: the
+ * `authChecklist`) is verified, then a landing. The three staged steps
+ * keep the replica on stage as the confirm miniature, screens per the
+ * scene map; `authFailure` fronts an icon instead of the replica, worded
+ * by `authFailureReason`, and its recoverable shapes gate "Continue
+ * anyway" behind an in-card NOTE beat with its own Back.
  */
 export type IDeviceStageStep =
   | 'off'
@@ -45,6 +55,10 @@ export type IDeviceStageStep =
   | 'showQr'
   | 'scanQr'
   | 'confirm'
+  | 'genuineCheck'
+  | 'authVerifying'
+  | 'authSuccess'
+  | 'authFailure'
   | 'processing'
   | 'error'
   | 'success';
@@ -59,6 +73,37 @@ export type IDeviceStageErrorReason =
   | 'pinInvalid'
   | 'disconnected'
   | 'busy';
+
+/**
+ * What ended the authenticity check, in stage vocabulary. The first
+ * three are terminal — the device (or its firmware) is the problem, and
+ * Support is the only exit. The last three are recoverable — Retry plus
+ * the Continue-anyway gate. Mapping concrete SDK/server errors onto
+ * these is the integration layer's.
+ */
+export type IAuthFailureReason =
+  | 'unofficialDevice'
+  | 'unofficialFirmware'
+  | 'defective'
+  | 'network'
+  | 'unknown'
+  | 'unavailable';
+
+/**
+ * One row of the authenticity checklist — the per-component verification
+ * the new-firmware flow plays out line by line (certificate first, then
+ * each firmware hash). The driver owns the rows and their progress; the
+ * stage only renders them.
+ */
+export interface IAuthChecklistItem {
+  /** The component under check — Certificate, Firmware, Bluetooth, … */
+  label: string;
+  status: 'pending' | 'loading' | 'ok' | 'failed';
+  /** The verified result — serial or version string — shown on ok. */
+  value?: string;
+  /** Release page for a verified component; the value becomes a link. */
+  url?: string;
+}
 
 export interface IDeviceStageProps {
   /** Controlled visibility, passed straight through to the dialog. */
@@ -108,6 +153,28 @@ export interface IDeviceStageProps {
   onQrBack?: () => void;
   /** Words the error step speaks. Omitted, it falls back to a generic line. */
   errorReason?: IDeviceStageErrorReason;
+  /**
+   * The authenticity checklist, shown under the words on `authVerifying`
+   * (its presence also retires that step's "Please wait..." line — the
+   * legacy single-check shape keeps it), on `authSuccess` when the
+   * checklist flow is what succeeded, and inside `authFailure` for the
+   * unofficial-firmware reason, failed row marked. Omitted, the steps
+   * play their checklist-less shapes.
+   */
+  authChecklist?: IAuthChecklistItem[];
+  /** Words and furniture the authFailure step wears. Defaults to 'unknown'. */
+  authFailureReason?: IAuthFailureReason;
+  /** The terminal failures' single exit — Support (the live flow raises
+   * Intercom). Omitted, those cards render no button. */
+  onAuthSupport?: () => void;
+  /** The recoverable failures' first action — run the check again. */
+  onAuthRetry?: () => void;
+  /**
+   * Continuing unverified, confirmed through the NOTE beat ("I
+   * understand") — the recoverable failures' gated second exit. The
+   * card's own Back returns to the failure without leaving the step.
+   */
+  onAuthContinueAnyway?: () => void;
   /**
    * The error step's single recovery action — retry, reconnect. Without it
    * the step renders no button and the sheet's dismissal is the only exit.
