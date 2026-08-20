@@ -81,6 +81,7 @@ function MobileInformationTabsHeader({
 }
 
 export function MobileInformationTabs({
+  containerWidth,
   renderHeader,
   onScrollEnd,
   portfolioData,
@@ -88,6 +89,7 @@ export function MobileInformationTabs({
   tokenLogoUrl,
   scrollEnabled = true,
 }: {
+  containerWidth?: number;
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
@@ -117,6 +119,8 @@ export function MobileInformationTabs({
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const tabContainerWidth = useTabContainerWidth();
+  const resolvedContainerWidth =
+    containerWidth ?? (tabContainerWidth as number);
 
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
@@ -225,7 +229,7 @@ export function MobileInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
-      width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+      width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       headerContainerStyle={{
         width: '100%',
         shadowColor: 'transparent',

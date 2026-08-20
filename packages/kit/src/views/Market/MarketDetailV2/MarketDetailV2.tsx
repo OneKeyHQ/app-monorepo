@@ -147,19 +147,24 @@ function MarketDetailV2(
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
-  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
+  const supportsChartFullscreen = Boolean(
+    isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),
+  );
+  const effectiveIsChartFullscreen =
+    supportsChartFullscreen && isChartFullscreen;
   const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
     setIsChartFullscreen(isFullscreen);
   }, []);
   const handleChartSwitch = useCallback(() => {
+    setIsChartFullscreen(false);
     setIsTradingViewNative((currentValue) => !currentValue);
   }, []);
 
   useEffect(() => {
-    if (!isDesktopChartLayout && isChartFullscreen) {
+    if (!supportsChartFullscreen && isChartFullscreen) {
       setIsChartFullscreen(false);
     }
-  }, [isChartFullscreen, isDesktopChartLayout]);
+  }, [isChartFullscreen, supportsChartFullscreen]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
