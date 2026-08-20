@@ -30,12 +30,6 @@ export interface IReferenceTickOptionsData {
   priceDecimals: number;
 }
 
-type IOrderBookTickOptionState = {
-  value: string;
-  nSigFigs?: INSig;
-  mantissa?: IMantissa | null;
-};
-
 export function getTickOptionsDataDuringTransition<
   T extends { symbol: string },
 >({
@@ -56,26 +50,6 @@ export function getTickOptionsDataDuringTransition<
     return cached;
   }
   return reference?.symbol === symbol ? reference : null;
-}
-
-export function shouldPersistOrderBookTickOption({
-  isReady,
-  persisted,
-  next,
-}: {
-  isReady: boolean;
-  persisted: IOrderBookTickOptionState | undefined;
-  next: IOrderBookTickOptionState;
-}) {
-  if (!isReady) {
-    return false;
-  }
-
-  return (
-    persisted?.value !== next.value ||
-    (persisted?.nSigFigs ?? null) !== (next.nSigFigs ?? null) ||
-    (persisted?.mantissa ?? null) !== (next.mantissa ?? null)
-  );
 }
 
 function floorLog10(x: number): number {
