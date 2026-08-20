@@ -23,6 +23,7 @@ import { Button, SizableText, Spinner, XStack, YStack } from '../../primitives';
 import { DialogV2 } from '../DialogV2';
 
 import { PassphraseForm, PinPad } from './AppInputs';
+import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { CardValue } from './CardValue';
 import {
   COMPACT_PORT_HEIGHT,
@@ -34,6 +35,7 @@ import { PassphraseIntro } from './PassphraseIntro';
 import { QrPresent, QrScanFrame } from './QrPanels';
 import { ReplicaPort } from './ReplicaPort';
 import {
+  COMPACT_STAGED_STEPS,
   ERROR_TEXT,
   PASSPHRASE_CREATE_TEXT,
   SCENE_ANIMATION,
@@ -118,6 +120,7 @@ function stagePanelOf(step: IDeviceStageStep): IDeviceStageStep | 'stage' {
     step === 'passphraseOnApp' ||
     step === 'showQr' ||
     step === 'scanQr' ||
+    step === 'authFailure' ||
     step === 'processing'
     ? step
     : 'stage';
@@ -181,6 +184,11 @@ export function DeviceStage({
   onQrNext,
   onQrBack,
   errorReason,
+  authChecklist,
+  authFailureReason,
+  onAuthSupport,
+  onAuthRetry,
+  onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
   onPassphraseIntroContinue,
@@ -277,7 +285,7 @@ export function DeviceStage({
   // never moves the stage geometry. Written during render on purpose: the
   // read below is in the same pass and the write is idempotent.
   const arrangeHoldRef = useRef(false);
-  if (shownStep === 'confirm') {
+  if (COMPACT_STAGED_STEPS.includes(shownStep)) {
     arrangeHoldRef.current = true;
   } else if (shownStep !== 'success' && shownStep !== 'error') {
     arrangeHoldRef.current = false;
@@ -358,7 +366,36 @@ export function DeviceStage({
       ? PASSPHRASE_CREATE_TEXT
       : STEP_TEXT[shownStep];
   const text = shownStep === 'error' ? errorCopy : stepText;
-  const sub = (shownStep === 'confirm' ? confirmContext : text.sub) ?? '';
+  let sub = (shownStep === 'confirm' ? confirmContext : text.sub) ?? '';
+  // A checklist on show carries the progress itself; the legacy
+  // "Please wait..." line belongs to the single-check shape only.
+  if (shownStep === 'authVerifying' && authChecklist?.length) {
+    sub = '';
+  }
+
+  // The tail's checklist rides the words' own beat: on a live staged
+  // change the words land at the end of StepText's out phase, while a
+  // mounting checklist would grow the measured content on the very next
+  // frame — two height moves where the contract wants one. Flipping it
+  // on the words' clock lands both in one piece; non-animated paths
+  // snap in sync already.
+  const wantAuthChecklist =
+    (shownStep === 'authVerifying' || shownStep === 'authSuccess') &&
+    Boolean(authChecklist?.length);
+  const [authChecklistShown, setAuthChecklistShown] =
+    useState(wantAuthChecklist);
+  useEffect(() => {
+    if (authChecklistShown === wantAuthChecklist) return undefined;
+    if (!animated) {
+      setAuthChecklistShown(wantAuthChecklist);
+      return undefined;
+    }
+    const id = setTimeout(
+      () => setAuthChecklistShown(wantAuthChecklist),
+      TEXT_OUT_MS,
+    );
+    return () => clearTimeout(id);
+  }, [animated, authChecklistShown, wantAuthChecklist]);
 
   // The compact arrangement.
   const compact = useSharedValue(compactTarget ? 1 : 0);
@@ -479,7 +516,20 @@ export function DeviceStage({
               // StepText included, so the words arrive with the panel's
               // fade instead of replaying their own swap on top of it.
               <YStack key={shownStep} gap="$4">
-                <StepText title={text.title} sub={sub} animated={animated} />
+                {/* The failure card fronts its icon above its own words,
+                    so the panel's shared StepText stands down there. */}
+                {shownStep !== 'authFailure' ? (
+                  <StepText title={text.title} sub={sub} animated={animated} />
+                ) : null}
+                {shownStep === 'authFailure' ? (
+                  <AuthFailureCard
+                    reason={authFailureReason}
+                    checklist={authChecklist}
+                    onSupport={onAuthSupport}
+                    onRetry={onAuthRetry}
+                    onContinueAnyway={onAuthContinueAnyway}
+                  />
+                ) : null}
                 {shownStep === 'pinOnApp' ? (
                   <PinPad
                     onSubmit={onPinSubmit}
@@ -542,6 +592,16 @@ export function DeviceStage({
                   animated={animated && !replicaOffStage && !stageAppearing}
                 />
               </Animated.View>
+              {/* The authenticity checklist rides the staged words the
+                  way confirm's payload card does — under them, on the
+                  same surface, its rows advanced by the driver; its
+                  presence flips on the words' beat (see
+                  authChecklistShown). */}
+              {authChecklistShown && authChecklist?.length ? (
+                <YStack mt="$6">
+                  <AuthChecklist items={authChecklist} />
+                </YStack>
+              ) : null}
               {shownStep === 'error' && onErrorAction ? (
                 <YStack mt="$5">
                   <Button
