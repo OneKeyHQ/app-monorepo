@@ -207,10 +207,13 @@ describe('SwapInviteeRewardContent', () => {
   });
 
   it('keeps the no-wallet state', () => {
-    render(<SwapInviteeRewardContent />);
+    const onBeforeNavigate = jest.fn();
+
+    render(<SwapInviteeRewardContent onBeforeNavigate={onBeforeNavigate} />);
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    expect(screen.getByTestId('swap-invitee-reward-onboarding')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
+    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the unsupported-wallet state', () => {
