@@ -1,9 +1,6 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 function hardwareLog(name: string, ...args: any[]) {
   try {
@@ -33,14 +30,7 @@ function maskLogIdentifier(value?: string | null): string | undefined {
   return `***${value.slice(-4)}`;
 }
 
-function getHomeScreenServerDeviceType(deviceType: EDeviceType): EDeviceType {
-  // TODO: Remove this compatibility mapping after Dashboard supports
-  // deviceType=pro2 for wallet homescreen resources.
-  return isProtocolV2ProductType(deviceType) ? EDeviceType.Pro : deviceType;
-}
-
 export default {
-  getHomeScreenServerDeviceType,
   hardwareLog,
   maskLogIdentifier,
 };

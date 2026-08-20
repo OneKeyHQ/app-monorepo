@@ -53,6 +53,26 @@ export type IFirmwareAuthenticateParams = {
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
 
+type FirmwareVerifyPayload = {
+  data: string;
+  dataHex: string;
+};
+
+function getFirmwareVerifyPayload({
+  instanceId,
+}: {
+  instanceId: string;
+}): FirmwareVerifyPayload {
+  // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
+  // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
+  // must accept this variable-length message the same way Pro does.
+  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
+  return {
+    data,
+    dataHex: bufferUtils.textToHex(data, 'utf-8'),
+  };
+}
+
 function buildSkippedFirmwareAuthenticateResult(
   device: SearchDevice | IDBDevice,
 ): IFirmwareVerifyResult {
@@ -173,12 +193,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const ts = Date.now();
         const settings = await settingsPersistAtom.get();
-        const data = `${settings.instanceId}_${ts}_${stringUtils.randomString(
-          12,
-        )}`;
-        const dataHex = bufferUtils.textToHex(data, 'utf-8');
+        const { data, dataHex } = getFirmwareVerifyPayload({
+          instanceId: settings.instanceId,
+        });
         const verifySig: DeviceVerifySignature =
           // call sdk.deviceVerify()
           await this.getDeviceCertWithSig({

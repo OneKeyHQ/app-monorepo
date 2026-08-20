@@ -2468,6 +2468,53 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
+  it('matches compact and spaced Pro2 BLE names when repairing bleConnectId', async () => {
+    const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const bleDevice = {
+      connectId: bleConnectId,
+      uuid: bleConnectId,
+      deviceId: null,
+      deviceType: 'pro2',
+      name: 'Pro 2 0088',
+      commType: 'electron-ble',
+    } as SearchDevice;
+    jest.spyOn(service, 'searchDevices').mockResolvedValue({
+      success: true,
+      payload: [bleDevice],
+    });
+    const connect = jest.spyOn(service, 'connect').mockResolvedValue({
+      deviceId: 'PRO2_DEVICE_ID',
+    } as never);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro2-device',
+    } as IDBDevice);
+
+    await expect(
+      service.repairBleConnectIdWithProgress({
+        connectId: 'PRB09B0088A',
+        featuresDeviceId: 'PRO2_DEVICE_ID',
+        features: {
+          bleName: 'Pro2 0088',
+          deviceId: 'PRO2_DEVICE_ID',
+        } as IOneKeyDeviceFeaturesWithAppParams,
+      }),
+    ).resolves.toBe(bleConnectId);
+
+    expect(connect).toHaveBeenCalledWith({
+      device: {
+        ...bleDevice,
+        connectId: bleConnectId,
+        deviceId: 'PRO2_DEVICE_ID',
+      },
+      forceProtocolDetection: true,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+  });
+
   it('waits for the desktop Noble scan-stop callback', async () => {
     let resolveStopScan: () => void = () => undefined;
     const stopScan = jest.fn(

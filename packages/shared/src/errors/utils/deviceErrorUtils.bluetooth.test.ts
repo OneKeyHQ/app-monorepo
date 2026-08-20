@@ -89,15 +89,21 @@ describe('convertDeviceError BLE connection timeout', () => {
 });
 
 describe('convertDeviceError invalid Bluetooth bond', () => {
-  it('tells the user to re-pair the device in system settings', () => {
-    const error = convertDeviceError({
-      code: HardwareErrorCode.BleDeviceBondError,
-    });
+  it.each([
+    HardwareErrorCode.BleDeviceBondError,
+    HardwareErrorCode.BlePeerRemovedPairingInformation,
+  ])(
+    'tells the user to re-pair the device in system settings for code %s',
+    (code) => {
+      const error = convertDeviceError({
+        code,
+      });
 
-    expect(error).toBeInstanceOf(DeviceBondError);
-    expect(error).toMatchObject({
-      code: HardwareErrorCode.BleDeviceBondError,
-      key: 'feedback.try_repairing_device_in_settings',
-    });
-  });
+      expect(error).toBeInstanceOf(DeviceBondError);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.BleDeviceBondError,
+        key: 'feedback.try_repairing_device_in_settings',
+      });
+    },
+  );
 });
