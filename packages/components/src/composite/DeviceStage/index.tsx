@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -14,31 +13,35 @@ import Animated, {
 
 import { useThemeName } from '@onekeyhq/components/src/hooks/useStyle';
 import { TamaguiTheme as Theme } from '@onekeyhq/components/src/shared/tamagui';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import {
   HardwareDevice,
   hardwareDeviceSwapMs,
 } from '../../content/HardwareDevice';
-import { Button, SizableText, YStack } from '../../primitives';
+import { Button, SizableText, Spinner, XStack, YStack } from '../../primitives';
 import { DialogV2 } from '../DialogV2';
 
 import { PassphraseForm, PinPad } from './AppInputs';
+import { CardValue } from './CardValue';
 import {
   COMPACT_PORT_HEIGHT,
   COMPACT_SCALE,
   PORT_HEIGHT,
   REPLICA_WIDTH,
 } from './consts';
+import { PassphraseIntro } from './PassphraseIntro';
 import { QrPresent, QrScanFrame } from './QrPanels';
 import { ReplicaPort } from './ReplicaPort';
+import {
+  ERROR_TEXT,
+  PASSPHRASE_CREATE_TEXT,
+  SCENE_ANIMATION,
+  STEP_TEXT,
+} from './stepCopy';
+import { StepText, TEXT_IN_MS, TEXT_OUT_MS } from './StepText';
 
-import type {
-  IDeviceStageErrorReason,
-  IDeviceStageProps,
-  IDeviceStageStep,
-} from './type';
+import type { IDeviceStageProps, IDeviceStageStep } from './type';
 
 /**
  * A dark theater in both app themes, built two ways. Over a light app the
@@ -52,8 +55,13 @@ import type {
  * gesture — the one exception is the error beat's single recovery button.
  *
  * Some steps leave the replica out entirely: the app-side inputs, where
- * the person types here while the device waits, and the air-gap QR pair,
- * where the person is holding the device itself. Their panels swap on the
+ * the person types here while the device waits, the hidden-wallet intro
+ * — reading material before the create flow asks for a passphrase — the
+ * air-gap QR pair,
+ * where the person is holding the device itself, and `processing`, whose
+ * whole arrangement is one spinner line — the sheet, sizing to content,
+ * closes down to a short strip around it and springs back open on the
+ * next step. Their panels swap on the
  * words' own two-phase beat: the outgoing side fades out, the content and
  * the sheet's height change on the empty beat — in one piece, honouring
  * the height contract — and the incoming side fades in whole. The stage
@@ -95,10 +103,8 @@ const CARD_OUTDENT = 8;
 const ARRANGE_MS = 560;
 const arrangeEase = Easing.bezierFn(0.4, 0, 0.2, 1);
 
-const TEXT_OUT_MS = 200;
-const TEXT_IN_MS = 280;
-const TEXT_OUT_RISE = 14;
-const TEXT_IN_DROP = 18;
+// The words' swap grammar (and its timings, which the crossing fades
+// below share) lives in ./StepText, shared with the overlay engine.
 
 /**
  * Which arrangement a step belongs to: its own panel when it plays without
@@ -108,9 +114,11 @@ const TEXT_IN_DROP = 18;
  */
 function stagePanelOf(step: IDeviceStageStep): IDeviceStageStep | 'stage' {
   return step === 'pinOnApp' ||
+    step === 'passphraseIntro' ||
     step === 'passphraseOnApp' ||
     step === 'showQr' ||
-    step === 'scanQr'
+    step === 'scanQr' ||
+    step === 'processing'
     ? step
     : 'stage';
 }
@@ -118,16 +126,6 @@ function stagePanelOf(step: IDeviceStageStep): IDeviceStageStep | 'stage' {
 /** Gap between the screen handover ending and the payload card starting. */
 const CARD_IN_GAP_MS = 80;
 const CARD_IN_MS = 320;
-
-/* The receive page's address grammar, redrawn for the stage card: mono,
- * grouped by four, the first and last six characters highlighted. */
-const CARD_GROUP_SIZE = 4;
-const CARD_HIGHLIGHT_ENDS = 6;
-const CARD_MONO = {
-  fontSize: 16,
-  lineHeight: 24,
-  fontFamily: '$monoMedium',
-} as const;
 
 /** Words tucked into the device foot (large) vs clear below (compact). */
 const TEXT_TUCK_MARGIN = -60;
@@ -148,110 +146,8 @@ const STAGE_PARKED = {
   pointerEvents: 'none',
 } as const;
 
-// `off` has no words of its own: searching is part of connecting, so the
-// copy is in place from the first frame and holds still while the screen
-// renders its content in — one literal, shared, so they cannot drift.
-const CONNECTING_TEXT = {
-  title: 'Connecting…',
-  sub: 'Keep your device nearby.',
-};
-
-/**
- * Failure copy by reason, each with its single recovery action. The stage
- * ends on the surface it played on: no toast, no second dialog.
- */
-const ERROR_TEXT: Record<
-  IDeviceStageErrorReason | 'generic',
-  { title: string; sub: string; action: string }
-> = {
-  rejected: {
-    title: 'Canceled on device',
-    sub: 'The request was declined on the device.',
-    action: 'Try again',
-  },
-  pinInvalid: {
-    title: 'Wrong PIN',
-    sub: 'The PIN did not match the device.',
-    action: 'Re-enter PIN',
-  },
-  disconnected: {
-    title: 'Device disconnected',
-    sub: 'Check the connection, then try again.',
-    action: 'Reconnect',
-  },
-  busy: {
-    title: 'Device is busy',
-    sub: 'Another operation is still running.',
-    action: 'Try again',
-  },
-  generic: {
-    title: 'Something went wrong',
-    sub: 'Try again in a moment.',
-    action: 'Try again',
-  },
-};
-
-/** Wallet grammar: an instruction-first title, one informative line under. */
-const STEP_TEXT: Record<IDeviceStageStep, { title: string; sub?: string }> = {
-  off: CONNECTING_TEXT,
-  connecting: CONNECTING_TEXT,
-  // Titles name the place only when it is not here: the app is where the
-  // person already is, so app-side steps stay bare and device-side steps
-  // carry "on device" — the one fact that changes when a step hops sides.
-  enterPin: { title: 'Enter PIN on device', sub: 'Unlock your device.' },
-  // No sub on purpose: the pad's strip carries the teaching line.
-  pinOnApp: { title: 'Enter PIN' },
-  enterPassphrase: {
-    title: 'Enter passphrase on device',
-    sub: 'Each passphrase opens its own hidden wallet.',
-  },
-  // No sub on purpose: the form's bullets carry the character rules.
-  passphraseOnApp: { title: 'Enter passphrase' },
-  // No sub: the panel's numbered steps carry the air-gap instructions.
-  showQr: { title: 'Scan with your device' },
-  scanQr: {
-    title: 'Scan your device screen',
-    sub: 'Aim at the code your device is showing.',
-  },
-  confirm: { title: 'Confirm on device' },
-  processing: { title: 'Processing…', sub: 'Keep your device connected.' },
-  error: ERROR_TEXT.generic,
-  success: { title: '✓ Done' },
-};
-
-/**
- * The passphrase step's other name: creating a hidden wallet titles the
- * step after the flow it performs — the live Add-hidden-wallet dialog's
- * title — while plain entry keeps the step's own words above.
- */
-const PASSPHRASE_CREATE_TEXT: { title: string; sub?: string } = {
-  title: 'Add hidden wallet',
-};
-
-/**
- * What the replica's screen plays per step. `processing` keeps the
- * connecting scene's living wallpaper — the device is genuinely at work —
- * while the endings go dark: the stage mirrors state, it does not invent
- * what the physical screen shows. The app-side inputs and the air-gap
- * pair have no replica on stage at all (the off-stage branch below).
- */
-const SCENE_ANIMATION: Record<
-  IDeviceStageStep,
-  ComponentProps<typeof HardwareDevice>['animation']
-> = {
-  off: undefined,
-  connecting: 'connecting',
-  enterPin: 'enterPin',
-  pinOnApp: undefined,
-  enterPassphrase: 'enterPassphrase',
-  passphraseOnApp: undefined,
-  showQr: undefined,
-  scanQr: undefined,
-  confirm: 'confirm',
-  processing: 'connecting',
-  error: undefined,
-  success: undefined,
-};
+// The step copy and the scene map live in ./stepCopy, shared with the
+// overlay engine so the two surfaces can never drift while they coexist.
 
 const styles = StyleSheet.create({
   device: {
@@ -261,9 +157,6 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     zIndex: 1,
-  },
-  textBlock: {
-    gap: 6,
   },
   cardBox: {
     marginHorizontal: -CARD_OUTDENT,
@@ -276,129 +169,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-
-/**
- * The step's words, swapped as one block: the outgoing pair lifts out and
- * fades, then the incoming pair rises in from below — strictly in that
- * order, so the two never share the stage. The swap starts the moment the
- * step changes: the words wait for nothing else on the stage. With
- * `animated` off (the sheet is closed, or motion is reduced) they snap,
- * so a reopened stage never replays a stale swap.
- */
-function StepText({
-  title,
-  sub,
-  animated,
-}: {
-  title: string;
-  sub: string;
-  animated: boolean;
-}) {
-  const [shown, setShown] = useState({ title, sub });
-  const targetRef = useRef({ title, sub });
-  targetRef.current = { title, sub };
-  const opacity = useSharedValue(1);
-  const shift = useSharedValue(0);
-  const enter = useCallback(() => {
-    setShown(targetRef.current);
-    shift.value = TEXT_IN_DROP;
-    opacity.value = withTiming(1, { duration: TEXT_IN_MS, easing: easeOutFn });
-    shift.value = withTiming(0, { duration: TEXT_IN_MS, easing: easeOutFn });
-  }, [opacity, shift]);
-  useEffect(() => {
-    if (shown.title === title && shown.sub === sub) return;
-    if (!animated) {
-      cancelAnimation(opacity);
-      cancelAnimation(shift);
-      opacity.value = 1;
-      shift.value = 0;
-      setShown({ title, sub });
-      return;
-    }
-    cancelAnimation(opacity);
-    cancelAnimation(shift);
-    shift.value = withTiming(-TEXT_OUT_RISE, {
-      duration: TEXT_OUT_MS,
-      easing: easeInFn,
-    });
-    opacity.value = withTiming(
-      0,
-      { duration: TEXT_OUT_MS, easing: easeInFn },
-      (finished) => {
-        if (finished) runOnJS(enter)();
-      },
-    );
-  }, [animated, enter, opacity, shift, shown, sub, title]);
-  const motionStyle = useAnimatedStyle(
-    () => ({
-      opacity: opacity.value,
-      transform: [{ translateY: shift.value }],
-    }),
-    [opacity, shift],
-  );
-  const style = useMemo(() => [styles.textBlock, motionStyle], [motionStyle]);
-  return (
-    <Animated.View style={style}>
-      <SizableText size="$heading2xl">{shown.title}</SizableText>
-      {shown.sub ? (
-        <SizableText fontSize={15} lineHeight={21} color="$textSubdued">
-          {shown.sub}
-        </SizableText>
-      ) : null}
-    </Animated.View>
-  );
-}
-
-/**
- * A card row's value. With `highlightEnds` it takes the receive page's
- * address grammar: mono, grouped by four, the first and last six
- * characters highlighted — what the person compares against the device.
- */
-function CardValue({
-  value,
-  highlightEnds,
-}: {
-  value: string;
-  highlightEnds?: boolean;
-}) {
-  const parts = useMemo(() => {
-    if (!highlightEnds || value.length <= CARD_HIGHLIGHT_ENDS * 2) {
-      return null;
-    }
-    const grouped = stringUtils.addSeparatorToString({
-      str: value,
-      groupSize: CARD_GROUP_SIZE,
-      separator: ' ',
-    });
-    // Original char position -> grouped position (one space per group).
-    const pos = (index: number) => index + Math.floor(index / CARD_GROUP_SIZE);
-    const leadEnd = pos(CARD_HIGHLIGHT_ENDS);
-    const trailStart = pos(value.length - CARD_HIGHLIGHT_ENDS);
-    return {
-      leading: grouped.slice(0, leadEnd),
-      middle: grouped.slice(leadEnd, trailStart),
-      trailing: grouped.slice(trailStart),
-    };
-  }, [highlightEnds, value]);
-  if (!parts) {
-    return (
-      <SizableText fontSize={15} lineHeight={24}>
-        {value}
-      </SizableText>
-    );
-  }
-  return (
-    <SizableText {...CARD_MONO} color="$text">
-      <SizableText {...CARD_MONO} color="$textInteractive">
-        {parts.leading}
-      </SizableText>
-      {parts.middle}
-      <SizableText {...CARD_MONO} color="$textInteractive">
-        {parts.trailing}
-      </SizableText>
-    </SizableText>
-  );
-}
 
 export function DeviceStage({
   open,
@@ -413,6 +183,7 @@ export function DeviceStage({
   errorReason,
   onErrorAction,
   onPinSubmit,
+  onPassphraseIntroContinue,
   passphraseMode,
   onPassphraseSubmit,
   onPassphraseAttachPin,
@@ -687,7 +458,23 @@ export function DeviceStage({
       >
         <YStack pt="$4">
           <Animated.View style={swapFadeStyle}>
-            {replicaOffStage ? (
+            {replicaOffStage && shownStep === 'processing' ? (
+              // The strip: one centered spinner line and nothing else in
+              // the measured height, so the sheet — sizing to content —
+              // closes down to a short bar and reopens on whatever step
+              // follows. The crossing is the ordinary two-phase swap; the
+              // height change rides the sheet's own detent animation.
+              <XStack
+                py="$2"
+                gap="$3"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Spinner size="small" />
+                <SizableText size="$headingMd">{text.title}</SizableText>
+              </XStack>
+            ) : null}
+            {replicaOffStage && shownStep !== 'processing' ? (
               // Keyed: a panel-to-panel move remounts the whole panel,
               // StepText included, so the words arrive with the panel's
               // fade instead of replaying their own swap on top of it.
@@ -699,6 +486,9 @@ export function DeviceStage({
                     onSwitchToDevice={onSwitchToDevice}
                     error={inputError}
                   />
+                ) : null}
+                {shownStep === 'passphraseIntro' ? (
+                  <PassphraseIntro onContinue={onPassphraseIntroContinue} />
                 ) : null}
                 {shownStep === 'passphraseOnApp' ? (
                   <PassphraseForm
@@ -730,9 +520,8 @@ export function DeviceStage({
               <Animated.View style={portWindowStyle}>
                 <ReplicaPort>
                   {/* What the screen plays comes off the scene map: most steps
-                are also the scene the replica plays of them, the endings
-                and `off` sit dark, and `processing` borrows the connecting
-                wallpaper. */}
+                are also the scene the replica plays of them; the endings
+                and `off` sit dark. */}
                   <Animated.View style={deviceStyle}>
                     <HardwareDevice
                       deviceType={deviceType}
