@@ -12,7 +12,6 @@ import {
   resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   type ITickParam,
@@ -20,6 +19,7 @@ import {
   buildTickOptions,
   getDefaultTickOption,
   getTickOptionsDataDuringTransition,
+  shouldSeedOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -233,34 +233,36 @@ export function useTickOptions({
 
   useEffect(() => {
     if (!symbol) return;
-    if (!tickOptionsData) return;
-    if (!hasLoadedPersistedTickOptions) return;
-    // Only derive a tick option from a list built with szDecimals: without it
-    // buildReferenceTickOptions bails and the fallback builder labels the same
-    // tick with a different nSigFigs, which is what the two books disagreed on.
-    if (!Number.isInteger(szDecimals)) return;
 
     // Seed-only writer. The persisted tick option is a user preference, so an
     // order book adopts it and never writes a derived correction back: two
     // books whose instance-local lists disagree on nSigFigs for the same value
     // would otherwise overwrite each other without ever converging (OK-59102).
-    const persisted = persistedTickOptionsForRender[symbol];
-    const currentPersist: IPerpOrderBookTickOptionPersist = {
-      value: selectedTickOption.value,
-      nSigFigs: selectedTickOption.nSigFigs ?? null,
-      mantissa: selectedTickOption.mantissa ?? null,
-    };
-
-    if (!persisted) {
-      void actions.current.setOrderBookTickOption({
-        symbol,
-        option: currentPersist,
-        source: 'seed',
-      });
+    if (
+      !shouldSeedOrderBookTickOption({
+        isReady: Boolean(tickOptionsData),
+        // Read off the data rather than inferred from szDecimals: the
+        // transition branch can hand back a cached fallback list after
+        // szDecimals has arrived.
+        isFallbackList: Boolean(tickOptionsData?.isFallback),
+        hasLoadedPersistedOptions: hasLoadedPersistedTickOptions,
+        hasPersistedOption: Boolean(persistedTickOptionsForRender[symbol]),
+      })
+    ) {
+      return;
     }
+
+    void actions.current.setOrderBookTickOption({
+      symbol,
+      option: {
+        value: selectedTickOption.value,
+        nSigFigs: selectedTickOption.nSigFigs ?? null,
+        mantissa: selectedTickOption.mantissa ?? null,
+      },
+      source: 'seed',
+    });
   }, [
     symbol,
-    szDecimals,
     hasLoadedPersistedTickOptions,
     persistedTickOptionsForRender,
     selectedTickOption,

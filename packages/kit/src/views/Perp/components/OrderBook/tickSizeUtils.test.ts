@@ -6,6 +6,7 @@ import {
   buildReferenceTickOptions,
   buildTickOptions,
   getTickOptionsDataDuringTransition,
+  shouldSeedOrderBookTickOption,
 } from './tickSizeUtils';
 
 describe('getTickOptionsDataDuringTransition', () => {
@@ -145,6 +146,55 @@ describe('buildReferenceTickOptions', () => {
         (option) => !option.label.includes('e') && !option.value.includes('e'),
       ),
     ).toBe(true);
+  });
+});
+
+describe('shouldSeedOrderBookTickOption', () => {
+  const readyToSeed = {
+    isReady: true,
+    isFallbackList: false,
+    hasLoadedPersistedOptions: true,
+    hasPersistedOption: false,
+  };
+
+  it('seeds a symbol that has no stored option yet', () => {
+    expect(shouldSeedOrderBookTickOption(readyToSeed)).toBe(true);
+  });
+
+  it('adopts an existing option instead of overwriting it', () => {
+    // The whole point of seed-only: a second order book with its own derived
+    // list must not fight the value the first one established.
+    expect(
+      shouldSeedOrderBookTickOption({
+        ...readyToSeed,
+        hasPersistedOption: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('refuses a fallback-derived list', () => {
+    // The fallback builder labels the same tick with a different nSigFigs, and
+    // the transition branch can hand one back after szDecimals has arrived.
+    expect(
+      shouldSeedOrderBookTickOption({ ...readyToSeed, isFallbackList: true }),
+    ).toBe(false);
+  });
+
+  it('waits for the stored options to load', () => {
+    // Seeding is first-write-wins, so a seed that beats the load would replace
+    // the user's own choice permanently rather than shadow it.
+    expect(
+      shouldSeedOrderBookTickOption({
+        ...readyToSeed,
+        hasLoadedPersistedOptions: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('waits for tick options to be derived at all', () => {
+    expect(
+      shouldSeedOrderBookTickOption({ ...readyToSeed, isReady: false }),
+    ).toBe(false);
   });
 });
 
