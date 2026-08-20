@@ -37,10 +37,18 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..3e8df39 100644
+index 1c44762..2771e08 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -49,6 +49,25 @@
+@@ -9,6 +9,7 @@
+ #ifdef RCT_NEW_ARCH_ENABLED
+ #import <React/RCTConversions.h>
+ #import <React/RCTFabricComponentsPlugins.h>
++#import <React/RCTMountingTransactionObserving.h>
+ #import <React/RCTRootComponentView.h>
+ #import <React/RCTScrollViewComponentView.h>
+ #import <React/RCTSurfaceTouchHandler.h>
+@@ -49,6 +50,20 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -58,153 +66,129 @@ index 1c44762..3e8df39 100644
 +// completion decrements. Flag is cleared only on the last decrement.
 +static NSInteger RNSScreenTransitionDepth = 0;
 +
-+// OneKey patch: a screen can render a loading state before its content scroll
-+// view mounts.
-+static const NSUInteger RNSHiddenTopScrollEdgeEffectRetryCount = 30;
-+static const NSTimeInterval RNSHiddenTopScrollEdgeEffectRetryInterval = 0.1;
-+
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -66,6 +85,11 @@ @interface RNSScreenView () <
+@@ -61,11 +76,16 @@ @interface RNSScreenView () <
+ #endif
+ #ifdef RCT_NEW_ARCH_ENABLED
+     RCTRNSScreenViewProtocol,
+-    CAAnimationDelegate>
++    CAAnimationDelegate,
++    RCTMountingTransactionObserving>
+ #else
      RCTInvalidating>
  #endif
  
++- (BOOL)hasCustomScrollEdgeEffects;
 +- (nullable UIScrollView *)contentScrollViewForEdgeEffects;
-+- (void)scheduleHiddenTopScrollEdgeEffectApplication;
-+- (void)applyHiddenTopScrollEdgeEffectForGeneration:(NSUInteger)generation
-+                                  remainingAttempts:(NSUInteger)remainingAttempts;
++- (void)resetLastContentScrollViewEdgeEffects;
 +
  @end
  
  @implementation RNSScreenView {
-@@ -76,6 +100,7 @@ @implementation RNSScreenView {
+@@ -76,6 +96,7 @@ @implementation RNSScreenView {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
-+  NSUInteger _hiddenTopScrollEdgeEffectRetryGeneration;
++  __weak UIScrollView *_lastContentScrollViewForEdgeEffects;
  #ifdef RCT_NEW_ARCH_ENABLED
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -137,6 +162,7 @@ - (void)initCommonProps
+@@ -137,6 +158,7 @@ - (void)initCommonProps
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
-+  _hiddenTopScrollEdgeEffectRetryGeneration = 0;
++  _lastContentScrollViewForEdgeEffects = nil;
  #if !TARGET_OS_TV
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -766,6 +792,66 @@ - (void)didMoveToWindow
+@@ -766,6 +788,20 @@ - (void)didMoveToWindow
    } else {
      [_touchHandler detachFromView:self];
    }
 +
-+  // OneKey patch: only the iOS 26 screens that explicitly hide the top edge effect need a re-apply after attachment.
-+#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-+  if (@available(iOS 26.0, *)) {
-+    if (self.window != nil && self.topScrollEdgeEffect == RNSScrollEdgeEffectHidden) {
-+      [self updateContentScrollViewEdgeEffectsIfExists];
-+      [self scheduleHiddenTopScrollEdgeEffectApplication];
-+    }
++  if (self.window == nil) {
++    [self resetLastContentScrollViewEdgeEffects];
++  } else if ([self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
 +  }
-+#endif
 +}
 +
-+- (void)scheduleHiddenTopScrollEdgeEffectApplication
++- (void)layoutSubviews
 +{
-+#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-+  if (@available(iOS 26.0, *)) {
-+    if (self.window == nil || self.topScrollEdgeEffect != RNSScrollEdgeEffectHidden) {
-+      return;
-+    }
-+
-+    _hiddenTopScrollEdgeEffectRetryGeneration += 1;
-+    [self applyHiddenTopScrollEdgeEffectForGeneration:_hiddenTopScrollEdgeEffectRetryGeneration
-+                                    remainingAttempts:RNSHiddenTopScrollEdgeEffectRetryCount];
++  [super layoutSubviews];
++  if (self.window != nil && [self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
 +  }
-+#endif
-+}
-+
-+- (void)applyHiddenTopScrollEdgeEffectForGeneration:(NSUInteger)generation
-+                                  remainingAttempts:(NSUInteger)remainingAttempts
-+{
-+#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-+  if (@available(iOS 26.0, *)) {
-+    if (generation != _hiddenTopScrollEdgeEffectRetryGeneration || self.window == nil ||
-+        self.topScrollEdgeEffect != RNSScrollEdgeEffectHidden) {
-+      return;
-+    }
-+
-+    UIScrollView *scrollView = [self contentScrollViewForEdgeEffects];
-+    if (scrollView != nil) {
-+      [RNSScrollEdgeEffectApplicator applyToScrollView:scrollView withProvider:self];
-+      return;
-+    }
-+
-+    if (remainingAttempts == 0) {
-+      return;
-+    }
-+
-+    __weak RNSScreenView *weakSelf = self;
-+    dispatch_after(
-+        dispatch_time(
-+            DISPATCH_TIME_NOW,
-+            (int64_t)(RNSHiddenTopScrollEdgeEffectRetryInterval * NSEC_PER_SEC)),
-+        dispatch_get_main_queue(),
-+        ^{
-+          RNSScreenView *strongSelf = weakSelf;
-+          [strongSelf applyHiddenTopScrollEdgeEffectForGeneration:generation
-+                                                remainingAttempts:remainingAttempts - 1];
-+        });
-+  }
-+#endif
  }
  
  - (nullable RNS_TOUCH_HANDLER_ARCH_TYPE *)touchHandler
-@@ -1298,9 +1384,25 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+@@ -1298,10 +1334,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
    }
  }
  
++- (BOOL)hasCustomScrollEdgeEffects
++{
++  return self.bottomScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.leftScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.rightScrollEdgeEffect != RNSScrollEdgeEffectAutomatic ||
++      self.topScrollEdgeEffect != RNSScrollEdgeEffectAutomatic;
++}
++
 +- (nullable UIScrollView *)contentScrollViewForEdgeEffects
 +{
-+  UIScrollView *scrollView = [RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self];
-+
-+  // OneKey patch: keep the default heuristic for every screen except an iOS 26 screen explicitly opting out at the top.
-+#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-+  if (@available(iOS 26.0, *)) {
-+    if (scrollView == nil && self.topScrollEdgeEffect == RNSScrollEdgeEffectHidden) {
-+      scrollView = [RNSScrollViewFinder findFirstScrollViewInSubtreeOf:self];
-+    }
++  if ([self hasCustomScrollEdgeEffects]) {
++    return [RNSScrollViewFinder findBestScrollViewInSubtreeOf:self];
 +  }
-+#endif
 +
-+  return scrollView;
++  return [RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self];
++}
++
++- (void)resetLastContentScrollViewEdgeEffects
++{
++  if (_lastContentScrollViewForEdgeEffects != nil) {
++    if ([_lastContentScrollViewForEdgeEffects isDescendantOfView:self]) {
++      [RNSScrollEdgeEffectApplicator resetScrollView:_lastContentScrollViewForEdgeEffects];
++    }
++    _lastContentScrollViewForEdgeEffects = nil;
++  }
 +}
 +
  - (void)updateContentScrollViewEdgeEffectsIfExists
  {
 -  [RNSScrollEdgeEffectApplicator applyToScrollView:[RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self]
-+  [RNSScrollEdgeEffectApplicator applyToScrollView:[self contentScrollViewForEdgeEffects]
-                                       withProvider:self];
+-                                      withProvider:self];
++  UIScrollView *contentScrollView = [self contentScrollViewForEdgeEffects];
++
++  if (_lastContentScrollViewForEdgeEffects != nil && _lastContentScrollViewForEdgeEffects != contentScrollView) {
++    [self resetLastContentScrollViewEdgeEffects];
++  }
++
++  if (contentScrollView != nil) {
++    [RNSScrollEdgeEffectApplicator applyToScrollView:contentScrollView withProvider:self];
++  }
++
++  _lastContentScrollViewForEdgeEffects = [self hasCustomScrollEdgeEffects] ? contentScrollView : nil;
  }
  
-@@ -1533,6 +1635,7 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
-   [super finalizeUpdates:updateMask];
-   if (_shouldUpdateScrollEdgeEffects) {
-     [self updateContentScrollViewEdgeEffectsIfExists];
-+    [self scheduleHiddenTopScrollEdgeEffectApplication];
-     _shouldUpdateScrollEdgeEffects = NO;
-   }
+ #pragma mark - RNSSafeAreaProviding
+@@ -1543,6 +1615,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+ #endif // !TARGET_OS_TV && !TARGET_OS_VISION
+ }
  
-@@ -1564,6 +1667,7 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
-   if (_shouldUpdateScrollEdgeEffects) {
-     // see finalizeUpdates() for Fabric
-     [self updateContentScrollViewEdgeEffectsIfExists];
-+    [self scheduleHiddenTopScrollEdgeEffectApplication];
-     _shouldUpdateScrollEdgeEffects = NO;
-   }
++- (void)mountingTransactionDidMount:(const facebook::react::MountingTransaction &)transaction
++               withSurfaceTelemetry:(const facebook::react::SurfaceTelemetry &)surfaceTelemetry
++{
++  if (self.window != nil && [self hasCustomScrollEdgeEffects]) {
++    [self updateContentScrollViewEdgeEffectsIfExists];
++  }
++}
++
+ #pragma mark - Paper specific
+ #else
  
-@@ -1643,6 +1747,28 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1723,28 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -990,58 +974,176 @@ index 3e21388..e4f4785 100644
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
+index 20abb7c..66a74aa 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
+@@ -11,4 +11,5 @@
+ 
+ @interface RNSScrollEdgeEffectApplicator : NSObject
+ + (void)applyToScrollView:(UIScrollView *)scrollView withProvider:(id<RNSScrollEdgeEffectProviding>)provider;
+++ (void)resetScrollView:(UIScrollView *)scrollView;
+ @end
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
+index 0723b64..90dafd2 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
+@@ -19,6 +19,22 @@ + (void)applyToScrollView:(UIScrollView *)scrollView withProvider:(id<RNSScrollE
+ #endif
+ }
+ 
+++ (void)resetScrollView:(UIScrollView *)scrollView
++{
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26, *)) {
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.bottomEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.leftEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.rightEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++    [RNSScrollEdgeEffectApplicator configureEffect:scrollView.topEdgeEffect
++                                          withEnum:RNSScrollEdgeEffectAutomatic];
++  }
++#endif
++}
++
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
+ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+                withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
+@@ -26,20 +42,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+   if (@available(iOS 26, *)) {
+     switch (effectEnum) {
+       case RNSScrollEdgeEffectAutomatic:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.automaticStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectHard:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.hardStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.hardStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.hardStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectSoft:
+-        edgeEffect.hidden = false;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.softStyle;
++        if (edgeEffect.hidden) {
++          edgeEffect.hidden = false;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.softStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.softStyle;
++        }
+         break;
+       case RNSScrollEdgeEffectHidden:
+-        edgeEffect.hidden = true;
+-        edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        if (!edgeEffect.hidden) {
++          edgeEffect.hidden = true;
++        }
++        if (edgeEffect.style != UIScrollEdgeEffectStyle.automaticStyle) {
++          edgeEffect.style = UIScrollEdgeEffectStyle.automaticStyle;
++        }
+         break;
+       default:
+         RCTLogError(@"[RNScreens] unsupported edge effect");
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
-index 04d40b3..fbfb436 100644
+index 04d40b3..1cbeecf 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
-@@ -25,4 +25,10 @@
+@@ -25,4 +25,11 @@
   */
  + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullable UIView *)view;
  
 +/**
-+ * OneKey patch: searches the full subtree when an explicitly configured iOS 26 edge effect cannot use the
-+ * first-descendant-chain heuristic. Nested screens and header configs are excluded so their scroll views are not used.
++ * Searches the complete subtree for the content ScrollView. Explicit content providers take precedence; otherwise
++ * the ScrollView with the largest intersection with the root view is returned. Nested screens and header
++ * configuration views are excluded.
 + */
-++ (nullable UIScrollView *)findFirstScrollViewInSubtreeOf:(nullable UIView *)view;
+++ (nullable UIScrollView *)findBestScrollViewInSubtreeOf:(nullable UIView *)view;
 +
  @end
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
-index 2434c61..8131f5d 100644
+index 2434c61..e24018e 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
-@@ -1,4 +1,9 @@
+@@ -1,4 +1,26 @@
  #import "RNSScrollViewFinder.h"
 +#import "RNSScreen.h"
 +#import "RNSScreenStackHeaderConfig.h"
 +
-+// OneKey patch: guard the fallback search against degenerate native view hierarchies.
-+static const NSUInteger kRNSScrollViewSearchVisitLimit = 250;
++static CGFloat RNSScrollViewVisibleAreaWithinRoot(UIScrollView *scrollView, UIView *rootView)
++{
++  CGRect frameInRoot = [scrollView convertRect:scrollView.bounds toView:rootView];
++  CGRect intersection = CGRectIntersection(rootView.bounds, frameInRoot);
++
++  if (!CGRectIsNull(intersection) && !CGRectIsInfinite(intersection)) {
++    CGFloat area = CGRectGetWidth(intersection) * CGRectGetHeight(intersection);
++    if (area > 0) {
++      return area;
++    }
++  }
++
++  return 0;
++}
++
++static CGFloat RNSScrollViewBoundsArea(UIScrollView *scrollView)
++{
++  return CGRectGetWidth(scrollView.bounds) * CGRectGetHeight(scrollView.bounds);
++}
  
  @implementation RNSScrollViewFinder
  
-@@ -41,4 +46,35 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
+@@ -41,4 +63,53 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
    return nil;
  }
  
-++ (nullable UIScrollView *)findFirstScrollViewInSubtreeOf:(nullable UIView *)view
+++ (nullable UIScrollView *)findBestScrollViewInSubtreeOf:(nullable UIView *)view
 +{
 +  if (view == nil) {
 +    return nil;
 +  }
 +
 +  NSMutableArray<UIView *> *stack = [NSMutableArray arrayWithObject:view];
-+  NSUInteger visitedCount = 0;
++  UIScrollView *bestScrollView = nil;
++  CGFloat bestVisibleArea = -1;
++  CGFloat bestBoundsArea = -1;
 +
-+  while (stack.count > 0 && visitedCount < kRNSScrollViewSearchVisitLimit) {
++  while (stack.count > 0) {
 +    UIView *currentView = stack.lastObject;
 +    [stack removeLastObject];
-+    visitedCount += 1;
 +
-+    if ([currentView isKindOfClass:UIScrollView.class]) {
-+      return static_cast<UIScrollView *>(currentView);
++    if (currentView != view && [currentView respondsToSelector:@selector(findContentScrollView)]) {
++      UIScrollView *providedScrollView =
++          [static_cast<id<RNSContentScrollViewProviding>>(currentView) findContentScrollView];
++      if (providedScrollView != nil) {
++        return providedScrollView;
++      }
 +    }
 +
-+    // Push in reverse so subviews are visited in document order.
++    if ([currentView isKindOfClass:UIScrollView.class]) {
++      UIScrollView *candidate = static_cast<UIScrollView *>(currentView);
++      CGFloat candidateVisibleArea = RNSScrollViewVisibleAreaWithinRoot(candidate, view);
++      CGFloat candidateBoundsArea = RNSScrollViewBoundsArea(candidate);
++      if (candidateVisibleArea > bestVisibleArea ||
++          (candidateVisibleArea == bestVisibleArea && candidateBoundsArea > bestBoundsArea)) {
++        bestScrollView = candidate;
++        bestVisibleArea = candidateVisibleArea;
++        bestBoundsArea = candidateBoundsArea;
++      }
++      continue;
++    }
++
++    // Push in reverse so equal-sized candidates preserve document order.
 +    for (UIView *subview in [currentView.subviews reverseObjectEnumerator]) {
 +      if ([subview isKindOfClass:RNSScreenView.class] ||
 +          [subview isKindOfClass:RNSScreenStackHeaderConfig.class]) {
@@ -1051,7 +1153,70 @@ index 2434c61..8131f5d 100644
 +    }
 +  }
 +
-+  return nil;
++  return bestScrollView;
 +}
 +
  @end
+diff --git a/node_modules/react-native-screens/src/components/ScreenStackItem.tsx b/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
+index 43db4ae..0ea0dc8 100644
+--- a/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
++++ b/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
+@@ -44,6 +44,7 @@ function ScreenStackItem(
+     style,
+     screenId,
+     onHeaderHeightChange,
++    scrollEdgeEffects,
+     // eslint-disable-next-line camelcase
+     unstable_sheetFooter,
+     ...rest
+@@ -78,8 +79,8 @@ function ScreenStackItem(
+   }, [headerConfigHiddenWithDefault, stackPresentationWithDefault]);
+ 
+   const hasEdgeEffects =
+-    rest?.scrollEdgeEffects === undefined ||
+-    Object.values(rest.scrollEdgeEffects).some(
++    scrollEdgeEffects === undefined ||
++    Object.values(scrollEdgeEffects).some(
+       propValue => propValue !== 'hidden',
+     );
+   const hasBlurEffect =
+@@ -180,6 +181,7 @@ function ScreenStackItem(
+       hasLargeHeader={headerConfig?.largeTitle ?? false}
+       sheetAllowedDetents={sheetAllowedDetents}
+       style={[style, internalScreenStyle]}
++      scrollEdgeEffects={isHeaderInModal ? undefined : scrollEdgeEffects}
+       onHeaderHeightChange={isHeaderInModal ? undefined : onHeaderHeightChange}
+       {...rest}>
+       {isHeaderInModal ? (
+@@ -190,6 +192,7 @@ function ScreenStackItem(
+             activityState={activityState}
+             shouldFreeze={shouldFreeze}
+             hasLargeHeader={headerConfig?.largeTitle ?? false}
++            scrollEdgeEffects={scrollEdgeEffects}
+             style={StyleSheet.absoluteFill}
+             onHeaderHeightChange={onHeaderHeightChange}>
+             {content}
+diff --git a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+index 9005280..98fc9bb 100644
+--- a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+@@ -59,6 +59,8 @@ type SwipeDirection = 'vertical' | 'horizontal';
+ 
+ type ReplaceAnimation = 'pop' | 'push';
+ 
++type ScrollEdgeEffect = 'automatic' | 'hard' | 'soft' | 'hidden';
++
+ type OptionalBoolean = 'undefined' | 'false' | 'true';
+ 
+ export interface NativeProps extends ViewProps {
+@@ -107,6 +109,10 @@ export interface NativeProps extends ViewProps {
+   navigationBarTranslucent?: boolean;
+   navigationBarHidden?: boolean;
+   nativeBackButtonDismissalEnabled?: boolean;
++  bottomScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
++  leftScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
++  rightScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
++  topScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
+   synchronousShadowStateUpdatesEnabled?: CT.WithDefault<boolean, false>;
+ }
+ 
