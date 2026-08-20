@@ -41,6 +41,7 @@ import { useSafeAreaInsets } from '../../hooks';
 import { Button, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import { PassphraseForm, PinPad } from './AppInputs';
+import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { CardValue } from './CardValue';
 import {
   COMPACT_PORT_HEIGHT,
@@ -52,6 +53,7 @@ import { PassphraseIntro } from './PassphraseIntro';
 import { QrPresent, QrScanFrame } from './QrPanels';
 import { ShimmerTitle } from './ShimmerTitle';
 import {
+  COMPACT_STAGED_STEPS,
   CONNECTING_TEXT,
   ERROR_TEXT,
   PASSPHRASE_CREATE_TEXT,
@@ -220,6 +222,7 @@ const CARD_ARRANGEMENTS = [
   'passphraseOnApp',
   'showQr',
   'scanQr',
+  'authFailure',
   'error',
 ] as const;
 type ICardArrangement = (typeof CARD_ARRANGEMENTS)[number];
@@ -286,6 +289,11 @@ const REPLICA_PORT: Partial<Record<IDeviceStageOverlayStep, number>> = {
   enterPin: PORT_HEIGHT,
   enterPassphrase: PORT_HEIGHT,
   confirm: COMPACT_PORT_HEIGHT,
+  // The authenticity flow's staged steps keep the whole device in view
+  // as the confirm miniature (COMPACT_STAGED_STEPS, shared grammar).
+  genuineCheck: COMPACT_PORT_HEIGHT,
+  authVerifying: COMPACT_PORT_HEIGHT,
+  authSuccess: COMPACT_PORT_HEIGHT,
 };
 
 /** The sheet's own grouping: the staged steps share one arrangement,
@@ -449,6 +457,11 @@ export function DeviceStageOverlaySpike({
   onQrNext,
   onQrBack,
   errorReason,
+  authChecklist,
+  authFailureReason,
+  onAuthSupport,
+  onAuthRetry,
+  onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
   onPassphraseIntroContinue,
@@ -468,6 +481,11 @@ export function DeviceStageOverlaySpike({
   onQrNext?: () => void;
   onQrBack?: () => void;
   errorReason?: IDeviceStageErrorReason;
+  authChecklist?: IDeviceStageProps['authChecklist'];
+  authFailureReason?: IDeviceStageProps['authFailureReason'];
+  onAuthSupport?: () => void;
+  onAuthRetry?: () => void;
+  onAuthContinueAnyway?: () => void;
   onErrorAction?: () => void;
   onPinSubmit?: (pin: string) => void;
   onPassphraseIntroContinue?: IDeviceStageProps['onPassphraseIntroContinue'];
@@ -632,6 +650,7 @@ export function DeviceStageOverlaySpike({
   const pinEpoch = panelEpochsRef.current.pinOnApp ?? 0;
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
   const passphraseEpoch = panelEpochsRef.current.passphraseOnApp ?? 0;
+  const authFailureEpoch = panelEpochsRef.current.authFailure ?? 0;
 
   // Both rest poses hug their content: the capsule row (paddings of its
   // own, so its box IS the capsule) and the active card column each
@@ -857,7 +876,7 @@ export function DeviceStageOverlaySpike({
   const replicaShown = useSharedValue(shownPort ? 1 : 0);
   const portHeight = useSharedValue(shownPort ?? PORT_HEIGHT);
   const deviceScale = useSharedValue(
-    shownStep === 'confirm' ? COMPACT_SCALE : 1,
+    COMPACT_STAGED_STEPS.includes(shownStep) ? COMPACT_SCALE : 1,
   );
   const spacerHeight = useSharedValue(spacerTarget);
   const wordsMargin = useSharedValue(wordsMarginTarget);
@@ -906,7 +925,9 @@ export function DeviceStageOverlaySpike({
       wordsMargin.value = wordsMarginTarget;
       if (shownPort) {
         portHeight.value = shownPort;
-        deviceScale.value = shownStep === 'confirm' ? COMPACT_SCALE : 1;
+        deviceScale.value = COMPACT_STAGED_STEPS.includes(shownStep)
+          ? COMPACT_SCALE
+          : 1;
       }
       presence.value = reducedMotion ? 1 : withSpring(1, MORPH_SPRING);
       return;
@@ -954,7 +975,9 @@ export function DeviceStageOverlaySpike({
     // miniature grows to full size under the reveal); only a live stage
     // move — the confirm shrink and back, on show — runs on the clock.
     if (shownPort) {
-      const scaleTarget = shownStep === 'confirm' ? COMPACT_SCALE : 1;
+      const scaleTarget = COMPACT_STAGED_STEPS.includes(shownStep)
+        ? COMPACT_SCALE
+        : 1;
       if (prevPose !== 'card' || prevArrangement !== shownArrangement) {
         portHeight.value = shownPort;
         deviceScale.value = scaleTarget;
@@ -1213,8 +1236,13 @@ export function DeviceStageOverlaySpike({
   }
   const stageWordsStep = stageWordsRef.current;
   const stageText = STEP_TEXT[stageWordsStep];
-  const stageSub =
+  let stageSub =
     (stageWordsStep === 'confirm' ? confirmContext : stageText.sub) ?? '';
+  // A checklist on show carries the progress itself; the legacy
+  // "Please wait..." line belongs to the single-check shape only.
+  if (stageWordsStep === 'authVerifying' && authChecklist?.length) {
+    stageSub = '';
+  }
   const passphraseText =
     passphraseMode === 'create'
       ? PASSPHRASE_CREATE_TEXT
@@ -1223,6 +1251,31 @@ export function DeviceStageOverlaySpike({
   const passphraseAnimated =
     activeArrangement === 'passphraseOnApp' && !reducedMotion;
   const errorAnimated = activeArrangement === 'error' && !reducedMotion;
+  // The tail's checklist rides the words' own beat. On a live in-stage
+  // change the words land at the end of StepText's out phase, while a
+  // mounting tail would report its height on the very next frame — two
+  // re-aims, and the box visibly heads for the interim target before
+  // doubling back. Flipping the checklist on the words' clock lands
+  // both measures together, so the height re-aims once, straight at
+  // the final height. Non-animated paths (a parked seat, reduced
+  // motion) snap in sync already.
+  const wantStageChecklist =
+    (stageWordsStep === 'authVerifying' || stageWordsStep === 'authSuccess') &&
+    Boolean(authChecklist?.length);
+  const [stageChecklistShown, setStageChecklistShown] =
+    useState(wantStageChecklist);
+  useEffect(() => {
+    if (stageChecklistShown === wantStageChecklist) return undefined;
+    if (!stageAnimated) {
+      setStageChecklistShown(wantStageChecklist);
+      return undefined;
+    }
+    const id = setTimeout(
+      () => setStageChecklistShown(wantStageChecklist),
+      TEXT_OUT_MS,
+    );
+    return () => clearTimeout(id);
+  }, [stageAnimated, stageChecklistShown, wantStageChecklist]);
   // The capsule keeps its own last words while another pose plays, so
   // the (invisible) row never re-measures against a card title and the
   // size springs always aim at true capsule content. Connecting wears
@@ -1260,6 +1313,15 @@ export function DeviceStageOverlaySpike({
           </Stack>
         </Animated.View>
         <Stack onLayout={panelMeasureHandlers.stage.tail}>
+          {/* The authenticity checklist rides the staged words the way
+              confirm's payload card does — under them, on the same
+              surface, its rows advanced by the driver; its presence
+              flips on the words' beat (see stageChecklistShown). */}
+          {stageChecklistShown && authChecklist?.length ? (
+            <YStack mt="$6">
+              <AuthChecklist items={authChecklist} />
+            </YStack>
+          ) : null}
           {confirmCardShown ? (
             <Animated.View style={confirmCardStyle}>
               <YStack
@@ -1293,12 +1355,14 @@ export function DeviceStageOverlaySpike({
       </YStack>
     ),
     [
+      authChecklist,
       confirmCardShown,
       confirmCardStyle,
       confirmDetails,
       panelMeasureHandlers,
       spacerFlowStyle,
       stageAnimated,
+      stageChecklistShown,
       stageSub,
       stageText,
       wordsStyle,
@@ -1416,6 +1480,35 @@ export function DeviceStageOverlaySpike({
     ),
     [onQrBack, panelMeasureHandlers],
   );
+  const authFailurePanel = useMemo(
+    () => (
+      <YStack pt={CARD.padTop} px={CARD.pad}>
+        {/* The card fronts its icon above its own words, NOTE beat
+            included, so the whole column is the words block; the tail
+            stands empty. */}
+        <Stack onLayout={panelMeasureHandlers.authFailure.words}>
+          <AuthFailureCard
+            reason={authFailureReason}
+            checklist={authChecklist}
+            onSupport={onAuthSupport}
+            onRetry={onAuthRetry}
+            onContinueAnyway={onAuthContinueAnyway}
+            resetSignal={authFailureEpoch}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.authFailure.tail} />
+      </YStack>
+    ),
+    [
+      authChecklist,
+      authFailureEpoch,
+      authFailureReason,
+      onAuthContinueAnyway,
+      onAuthRetry,
+      onAuthSupport,
+      panelMeasureHandlers,
+    ],
+  );
   const errorPanel = useMemo(
     () => (
       <YStack pt={CARD.padTop} px={CARD.pad}>
@@ -1450,6 +1543,7 @@ export function DeviceStageOverlaySpike({
     passphraseOnApp: passphrasePanel,
     showQr: showQrPanel,
     scanQr: scanQrPanel,
+    authFailure: authFailurePanel,
     error: errorPanel,
   };
 
