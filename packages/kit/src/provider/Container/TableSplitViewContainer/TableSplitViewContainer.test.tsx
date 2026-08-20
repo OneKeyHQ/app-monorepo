@@ -5,6 +5,7 @@
 import type { ReactNode } from 'react';
 
 import { TableSplitViewContainer, useSetSplitViewDetailFullscreen } from '.';
+
 import { fireEvent, render, screen } from '@testing-library/react';
 
 let mockIsSplitView = true;
