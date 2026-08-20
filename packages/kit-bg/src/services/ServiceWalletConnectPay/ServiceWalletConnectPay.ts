@@ -127,6 +127,13 @@ class ServiceWalletConnectPay extends ServiceBase {
       if (!validateWcPayLinkDomain(uri)) {
         return false;
       }
+      // without durable progress no payment (sign-only included) can pass
+      // the deterministic pre-form gate (shouldRefuseWcPayOptionUpfront), so
+      // recognizing the link (deeplink entry) would only dead-end at a fully
+      // refused options page — treat it as not a payment link there
+      if (!(await this.supportsDurableProgress())) {
+        return false;
+      }
       const { isPaymentLink } = await import('@reown/walletkit');
       return isPaymentLink(uri);
     } catch {

@@ -165,3 +165,38 @@ describe('isTxNeverBroadcast', () => {
     ).resolves.toBe(false);
   });
 });
+
+describe('isPaymentLink', () => {
+  function buildCapabilityService(supportsDurableProgress: boolean) {
+    const supportsDurableProgressFn = jest.fn(
+      async () => supportsDurableProgress,
+    );
+    const service = new ServiceWalletConnectPay({
+      backgroundApi: {
+        simpleDb: {
+          walletConnectPay: {
+            supportsDurableProgress: supportsDurableProgressFn,
+          },
+        },
+      },
+    });
+    return { service, supportsDurableProgressFn };
+  }
+
+  it('refuses even a valid payment link on platforms without durable progress', async () => {
+    const { service, supportsDurableProgressFn } =
+      buildCapabilityService(false);
+    await expect(
+      service.isPaymentLink({ uri: 'https://pay.walletconnect.com/pay_123' }),
+    ).resolves.toBe(false);
+    expect(supportsDurableProgressFn).toHaveBeenCalled();
+  });
+
+  it('rejects non-pay inputs before consulting platform capability', async () => {
+    const { service, supportsDurableProgressFn } = buildCapabilityService(true);
+    await expect(
+      service.isPaymentLink({ uri: 'https://evil.com/?pid=pay_x' }),
+    ).resolves.toBe(false);
+    expect(supportsDurableProgressFn).not.toHaveBeenCalled();
+  });
+});
