@@ -1,23 +1,29 @@
 import {
   getTradingViewNativeFullscreenButtonBottom,
-  getTradingViewNativeLandscapeFullscreenLayout,
+  getTradingViewNativeFullscreenLayout,
 } from './fullscreenLayout';
 
 describe('TradingView native fullscreen layout', () => {
-  it('uses the long screen edge as landscape width', () => {
-    const portraitLayout = getTradingViewNativeLandscapeFullscreenLayout({
+  it('uses the current window bounds and matching safe-area insets', () => {
+    const portraitLayout = getTradingViewNativeFullscreenLayout({
       height: 844,
-      insets: { bottom: 21, left: 47, right: 47, top: 0 },
+      insets: { bottom: 34, left: 0, right: 0, top: 47 },
       width: 390,
     });
-    const landscapeLayout = getTradingViewNativeLandscapeFullscreenLayout({
+    const landscapeLayout = getTradingViewNativeFullscreenLayout({
       height: 390,
       insets: { bottom: 21, left: 47, right: 47, top: 0 },
       width: 844,
     });
 
-    expect(portraitLayout).toEqual(landscapeLayout);
     expect(portraitLayout).toEqual({
+      contentHeight: 763,
+      contentWidth: 390,
+      fullscreenHeight: 844,
+      fullscreenWidth: 390,
+      insets: { bottom: 34, left: 0, right: 0, top: 47 },
+    });
+    expect(landscapeLayout).toEqual({
       contentHeight: 369,
       contentWidth: 750,
       fullscreenHeight: 390,
@@ -28,7 +34,7 @@ describe('TradingView native fullscreen layout', () => {
 
   it('clamps invalid dimensions and safe-area values', () => {
     expect(
-      getTradingViewNativeLandscapeFullscreenLayout({
+      getTradingViewNativeFullscreenLayout({
         height: Number.NaN,
         insets: {
           bottom: -1,

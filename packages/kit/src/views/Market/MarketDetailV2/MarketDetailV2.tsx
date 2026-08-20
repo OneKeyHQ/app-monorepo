@@ -4,7 +4,12 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useIsModalPage, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  useIsModalPage,
+  useMedia,
+  usePreventRemove,
+} from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -159,6 +164,11 @@ function MarketDetailV2(
     setIsChartFullscreen(false);
     setIsTradingViewNative((currentValue) => !currentValue);
   }, []);
+  const handleFullscreenRemove = useCallback(() => {
+    setIsChartFullscreen(false);
+  }, []);
+
+  usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
 
   useEffect(() => {
     if (!supportsChartFullscreen && isChartFullscreen) {
@@ -178,6 +188,14 @@ function MarketDetailV2(
       },
     });
   }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setIsChartFullscreen(false);
+      };
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {

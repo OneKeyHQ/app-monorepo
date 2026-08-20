@@ -13,7 +13,7 @@ function normalizeLayoutValue(value: number) {
   return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
-export function getTradingViewNativeLandscapeFullscreenLayout({
+export function getTradingViewNativeFullscreenLayout({
   height,
   insets,
   width,
@@ -24,8 +24,8 @@ export function getTradingViewNativeLandscapeFullscreenLayout({
 }) {
   const normalizedWidth = normalizeLayoutValue(width);
   const normalizedHeight = normalizeLayoutValue(height);
-  const fullscreenWidth = Math.max(normalizedWidth, normalizedHeight);
-  const fullscreenHeight = Math.min(normalizedWidth, normalizedHeight);
+  const fullscreenWidth = normalizedWidth;
+  const fullscreenHeight = normalizedHeight;
   const normalizedInsets = {
     bottom: normalizeLayoutValue(insets.bottom),
     left: normalizeLayoutValue(insets.left),

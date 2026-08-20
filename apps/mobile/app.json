@@ -22,6 +22,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.onekey.wallet",
       "infoPlist": {
+        "EXDefaultScreenOrientationMask~ipad": "UIInterfaceOrientationMaskAll",
         "UISupportedInterfaceOrientations": [
           "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight",

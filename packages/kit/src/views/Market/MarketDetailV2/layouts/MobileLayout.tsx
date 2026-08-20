@@ -12,7 +12,6 @@ import type { ComponentProps, ReactNode } from 'react';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import {
-  Dimensions,
   type GestureResponderEvent,
   View,
   useWindowDimensions,
@@ -36,7 +35,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
-import { getTradingViewNativeLandscapeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
+import { getTradingViewNativeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -410,16 +409,15 @@ export function MobileLayout({
   const dialogRef = useRef<IDialogInstance>(null);
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
-  const { height: screenHeight, width: screenWidth } = Dimensions.get('screen');
   const { top, right, bottom, left } = useSafeAreaInsets();
   const fullscreenLayout = useMemo(
     () =>
-      getTradingViewNativeLandscapeFullscreenLayout({
-        height: screenHeight,
+      getTradingViewNativeFullscreenLayout({
+        height: windowHeight,
         insets: { top, right, bottom, left },
-        width: screenWidth,
+        width: windowWidth,
       }),
-    [bottom, left, right, screenHeight, screenWidth, top],
+    [bottom, left, right, top, windowHeight, windowWidth],
   );
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
