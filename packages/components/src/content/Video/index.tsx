@@ -14,6 +14,7 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
       rate,
       muted,
       paused,
+      autoPlay,
       onEnd,
       onProgress,
       ...props
@@ -48,6 +49,9 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
   }, [rate]);
 
   useEffect(() => {
+    // Sync playback only when the caller controls `paused`; otherwise
+    // `autoPlay` alone decides whether the video starts.
+    if (paused === undefined) return;
     const video = videoRef.current;
     if (!video) return;
     if (paused && !video.paused) {
@@ -90,7 +94,7 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
     // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative UI video, no captions needed
     <video
       ref={videoRef}
-      autoPlay
+      autoPlay={autoPlay ?? true}
       muted={muted}
       style={style as any}
       {...(props as any)}
