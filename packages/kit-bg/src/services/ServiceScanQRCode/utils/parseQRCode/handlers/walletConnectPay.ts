@@ -15,7 +15,6 @@ restricted to the pay.walletconnect.com host. Must be registered BEFORE the
 */
 const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   value,
-  options,
 ) => {
   if (!value || typeof value !== 'string') {
     return null;
@@ -25,6 +24,11 @@ const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   if (platformEnv.isExtension) {
     return null;
   }
+  // Recognition only — platform capability (durable progress) is NOT
+  // checked here: a wc: pay URI falling through to the pairing handler
+  // would silently fail pair(), so an unsupported platform must still
+  // recognize the link and surface an explicit refusal at the entry
+  // decision point (useParseQRCode / deeplink) instead
   let matched = false;
   try {
     // cheap shape/domain filter first so unrelated QR codes (bare addresses,
@@ -32,17 +36,6 @@ const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
     // the whole @walletconnect/pay stack and must stay out of the background
     // startup graph; load it on demand only for plausible payment links
     if (validateWcPayLinkDomain(value)) {
-      // without durable progress no payment (sign-only included) can pass
-      // the deterministic pre-form gate (shouldRefuseWcPayOptionUpfront), so
-      // recognizing the link would only dead-end at a fully refused options
-      // page; let it fall through to the regular handlers instead.
-      // Fail-closed: parse() always supplies backgroundApi
-      const supportsDurableProgress =
-        (await options?.backgroundApi?.serviceWalletConnectPay?.supportsDurableProgress?.()) ??
-        false;
-      if (!supportsDurableProgress) {
-        return null;
-      }
       const { isPaymentLink } = await import('@reown/walletkit');
       matched = isPaymentLink(value);
     }

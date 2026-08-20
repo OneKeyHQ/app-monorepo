@@ -36,7 +36,10 @@ import {
   extractWcPayTypedDataMessage,
 } from './evmPayUtils';
 import { getWcPayActionFingerprint } from './payFingerprintUtils';
-import { extractWcPaySolanaTransaction } from './solPayUtils';
+import {
+  extractWcPaySolanaTransaction,
+  wcPaySolanaTxToEncodedTx,
+} from './solPayUtils';
 
 import type { IWcPayBroadcastMeta } from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 
@@ -47,7 +50,7 @@ import type { IWcPayBroadcastMeta } from '../../dbs/simple/entity/SimpleDbEntity
  * param shape) must fail the flow here — before any signing starts — instead
  * of midway through, where the payment would be stranded partially completed.
  */
-function validateWcPayActions(actions: IWcPayAction[]) {
+export function validateWcPayActions(actions: IWcPayAction[]) {
   for (const action of actions) {
     const { chainId, method, params } = action.walletRpc;
     const targetNetworkId = wcPayChainIdToNetworkId(chainId);
@@ -84,8 +87,11 @@ function validateWcPayActions(actions: IWcPayAction[]) {
         break;
       }
       case EWcPayActionMethod.SolanaSignTransaction: {
-        // throws when no transaction payload can be extracted
-        extractWcPaySolanaTransaction(parsed);
+        // throws when no transaction payload can be extracted, or when it
+        // is not decodable / size-sane base64 — the executor calls this
+        // exact pair before pushing the confirm modal, so passing here
+        // guarantees the executor resolves the same payload later
+        wcPaySolanaTxToEncodedTx(extractWcPaySolanaTransaction(parsed));
         break;
       }
       default:
@@ -123,15 +129,12 @@ class ServiceWalletConnectPay extends ServiceBase {
       // cheap shape/domain filter first so unrelated inputs never pay the
       // cost of loading walletkit — which bundles the whole
       // @walletconnect/pay stack and must stay out of the background startup
-      // graph; load it on demand only for plausible payment links
+      // graph; load it on demand only for plausible payment links.
+      // Recognition only: this method doubles as getPaymentOptions' trust
+      // gate, so platform capability must NOT be folded in here — entry
+      // points surface an explicit refusal instead (useParseQRCode /
+      // deeplink), and the options page's upfront refusal is the backstop
       if (!validateWcPayLinkDomain(uri)) {
-        return false;
-      }
-      // without durable progress no payment (sign-only included) can pass
-      // the deterministic pre-form gate (shouldRefuseWcPayOptionUpfront), so
-      // recognizing the link (deeplink entry) would only dead-end at a fully
-      // refused options page — treat it as not a payment link there
-      if (!(await this.supportsDurableProgress())) {
         return false;
       }
       const { isPaymentLink } = await import('@reown/walletkit');

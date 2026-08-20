@@ -1,4 +1,8 @@
-import ServiceWalletConnectPay from './ServiceWalletConnectPay';
+import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
+
+import ServiceWalletConnectPay, {
+  validateWcPayActions,
+} from './ServiceWalletConnectPay';
 
 import type { IWcPayBroadcastMeta } from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 
@@ -205,36 +209,37 @@ describe('isTxNeverBroadcast', () => {
 });
 
 describe('isPaymentLink', () => {
-  function buildCapabilityService(supportsDurableProgress: boolean) {
-    const supportsDurableProgressFn = jest.fn(
-      async () => supportsDurableProgress,
-    );
-    const service = new ServiceWalletConnectPay({
-      backgroundApi: {
-        simpleDb: {
-          walletConnectPay: {
-            supportsDurableProgress: supportsDurableProgressFn,
-          },
-        },
-      },
-    });
-    return { service, supportsDurableProgressFn };
-  }
-
-  it('refuses even a valid payment link on platforms without durable progress', async () => {
-    const { service, supportsDurableProgressFn } =
-      buildCapabilityService(false);
-    await expect(
-      service.isPaymentLink({ uri: 'https://pay.walletconnect.com/pay_123' }),
-    ).resolves.toBe(false);
-    expect(supportsDurableProgressFn).toHaveBeenCalled();
-  });
-
-  it('rejects non-pay inputs before consulting platform capability', async () => {
-    const { service, supportsDurableProgressFn } = buildCapabilityService(true);
+  it('rejects non-pay inputs by the cheap domain filter', async () => {
+    // recognition is platform-independent: no capability stubs required
+    const service = new ServiceWalletConnectPay({ backgroundApi: {} });
     await expect(
       service.isPaymentLink({ uri: 'https://evil.com/?pid=pay_x' }),
     ).resolves.toBe(false);
-    expect(supportsDurableProgressFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('validateWcPayActions solana', () => {
+  const SOLANA_CHAIN_ID = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+
+  function buildSolanaAction(transaction: string) {
+    return {
+      walletRpc: {
+        chainId: SOLANA_CHAIN_ID,
+        method: EWcPayActionMethod.SolanaSignTransaction,
+        params: JSON.stringify([{ transaction }]),
+      },
+    };
+  }
+
+  it('rejects a payload the executor could not encode — same pair of functions', async () => {
+    // '!!!!' base64-decodes to zero bytes: extractWcPaySolanaTransaction
+    // alone accepts it, wcPaySolanaTxToEncodedTx throws
+    expect(() => validateWcPayActions([buildSolanaAction('!!!!')])).toThrow();
+  });
+
+  it('accepts a decodable size-sane payload', async () => {
+    expect(() =>
+      validateWcPayActions([buildSolanaAction('AQID')]),
+    ).not.toThrow();
   });
 });

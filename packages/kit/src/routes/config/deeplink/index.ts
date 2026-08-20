@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
+import { Toast } from '@onekeyhq/components';
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -42,6 +43,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -585,6 +587,21 @@ async function processDeepLinkWalletConnect({
         uri: payLinkCandidate,
       }))
     ) {
+      // entry decision point: without durable progress no payment can
+      // complete, so refuse explicitly. The link was recognized as a
+      // payment link, so it must still be consumed here — falling through
+      // would hand a pay URI to dapp pairing, which fails silently
+      if (
+        !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
+      ) {
+        // copy pending product i18n keys
+        Toast.error({ title: WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE });
+        return {
+          type: 'walletConnectPay',
+          url,
+          urlExtracted: payLinkCandidate,
+        };
+      }
       openWalletConnectPayModal({ paymentLink: payLinkCandidate });
       return {
         type: 'walletConnectPay',

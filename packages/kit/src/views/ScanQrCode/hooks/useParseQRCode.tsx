@@ -44,6 +44,7 @@ import {
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -335,6 +336,18 @@ export async function parseQRCodeWithDeps(
       {
         await closeScanPage();
         const wcPayValue = result.data as IWalletConnectPayValue;
+        // entry decision point: without durable progress no payment can
+        // complete (the options page would refuse every option upfront), so
+        // refuse explicitly here instead of opening a dead-end flow. The
+        // handler still recognized the link, so a wc: pay URI never
+        // degrades into a silently failing dapp pairing attempt
+        if (
+          !(await backgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress())
+        ) {
+          // copy pending product i18n keys
+          Toast.error({ title: WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE });
+          break;
+        }
         navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
           screen: EModalWalletConnectPayRoutes.PaymentOptions,
           params: {
