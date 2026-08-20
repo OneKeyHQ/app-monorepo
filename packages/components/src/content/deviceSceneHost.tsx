@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -74,7 +75,79 @@ const styles = StyleSheet.create({
   slot: {
     flex: 1,
   },
+  // Troupe seats stack every resident scene over the same glass; each
+  // seat's own opacity plays the handover.
+  troupeSeat: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
 });
+
+/** Troupe scenes skip the entry gate — the seat owns their reveal. */
+function noopReady() {}
+
+/**
+ * One troupe seat: a resident scene's place on the glass, its opacity
+ * playing the single-scene screen's handover grammar without ever
+ * building anything. Deactivation fades the scene off the glass;
+ * activation waits out that fade, then wakes the scene from black on
+ * the content-in ramp — by which time its clock (restarted from 0 by
+ * the paused flip) is exactly at the choreography's light-start. An
+ * activation granted `instantEntry` lands already lit instead: its
+ * presenter's own fade carries the entrance, and a wake ramp under
+ * that fade would play as dead black. A reactivation caught mid-fade
+ * skips the wait and ramps up from wherever the fade stopped.
+ */
+function TroupeSeat({
+  active,
+  instantEntry,
+  children,
+}: {
+  active: boolean;
+  instantEntry?: boolean;
+  children: ReactNode;
+}) {
+  const reducedMotion = useReducedMotion();
+  // Read at the activation moment, never re-triggering it: the grant is
+  // per arrival, and later renders may retire it while the seat holds.
+  const instantRef = useRef(instantEntry);
+  instantRef.current = instantEntry;
+  const shown = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    cancelAnimation(shown);
+    if (reducedMotion) {
+      shown.value = active ? 1 : 0;
+      return;
+    }
+    if (!active) {
+      shown.value = withTiming(0, {
+        duration: SCREEN_SWAP_OUT_MS,
+        easing: easeInFn,
+      });
+      return;
+    }
+    if (instantRef.current) {
+      shown.value = 1;
+      return;
+    }
+    const foldBack = shown.value > 0.02;
+    const wake = withTiming(1, {
+      duration: CONTENT_IN_MS,
+      easing: contentInEase,
+    });
+    shown.value = foldBack ? wake : withDelay(SCREEN_SWAP_OUT_MS, wake);
+  }, [active, reducedMotion, shown]);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: shown.value }), [shown]);
+  const style = useMemo(() => [styles.troupeSeat, fadeStyle], [fadeStyle]);
+  return (
+    <Animated.View style={style} pointerEvents="none">
+      {children}
+    </Animated.View>
+  );
+}
 
 /**
  * A layer following keyframe tracks of the scene clock: `track` drives
@@ -231,10 +304,12 @@ export function GlassSweep({
 function SceneHost<TScene extends string>({
   scene,
   scenes,
+  paused,
   onReady,
 }: {
   scene: TScene;
   scenes: Record<TScene, IDeviceSceneSpec>;
+  paused?: boolean;
   onReady: () => void;
 }) {
   const spec = scenes[scene];
@@ -242,10 +317,60 @@ function SceneHost<TScene extends string>({
     spec.loop?.loopMs ?? 0,
     spec.loop?.restMs ?? 0,
     CONTENT_IN_MS,
+    paused,
   );
   const Content = spec.content;
   if (!Content) return null;
   return <Content clock={clock} onReady={onReady} />;
+}
+
+/**
+ * The troupe screen: every resident scene stays built on the glass,
+ * stacked, and `target` names the one on show. A scene change never
+ * builds — the crossing plays the single-scene screen's own handover on
+ * opacity alone (the outgoing scene fades off the glass, the incoming
+ * one wakes from black on the content-in ramp, its clock running from 0
+ * so the choreography lands as the wake completes; see TroupeSeat).
+ * `instantEntry` is consulted at each arrival, for presenters whose own
+ * fade carries the entrance. The returned contract holds the shell's
+ * screen-content opacity at 1 — the seats own the show. `slot` is
+ * undefined until the troupe has a member; a `target` outside the
+ * troupe (or undefined) fades to dark glass.
+ */
+export function useSceneTroupe<TScene extends string>(
+  target: TScene | undefined,
+  resident: readonly TScene[] | undefined,
+  scenes: Record<TScene, IDeviceSceneSpec>,
+  instantEntry?: boolean,
+  paused?: boolean,
+): { slot: ReactNode | undefined; animation: IDeviceScreenAnimation } {
+  const lit = useSharedValue(1);
+  const animation: IDeviceScreenAnimation = useMemo(
+    () => ({ screenContent: lit }),
+    [lit],
+  );
+  const slot = useMemo(() => {
+    if (!resident?.length) return undefined;
+    return (
+      <View style={styles.slot} pointerEvents="none">
+        {resident.map((name) => (
+          <TroupeSeat
+            key={name}
+            active={name === target}
+            instantEntry={instantEntry}
+          >
+            <SceneHost
+              scene={name}
+              scenes={scenes}
+              paused={paused || name !== target}
+              onReady={noopReady}
+            />
+          </TroupeSeat>
+        ))}
+      </View>
+    );
+  }, [instantEntry, paused, resident, scenes, target]);
+  return useMemo(() => ({ slot, animation }), [animation, slot]);
 }
 
 /**
@@ -261,11 +386,16 @@ function SceneHost<TScene extends string>({
  * stage fading the whole replica in would only stack the ramp under its
  * fade as dead black time. The presenter grants it per arrival; entries
  * with it unset keep the ramp.
+ *
+ * `paused` stands the scene's clock down at its opening still, for
+ * instances a presenter keeps mounted but hidden; clearing it starts the
+ * loop schedule from 0 (see useSceneClock).
  */
 export function useSceneScreen<TScene extends string>(
   target: TScene | undefined,
   scenes: Record<TScene, IDeviceSceneSpec>,
   instantEntry?: boolean,
+  paused?: boolean,
 ): {
   displayed: TScene | undefined;
   slot: ReactNode | undefined;
@@ -382,11 +512,12 @@ export function useSceneScreen<TScene extends string>(
         <SceneHost
           scene={displayed}
           scenes={scenes}
+          paused={paused}
           onReady={handleSceneReady}
         />
       </View>
     );
-  }, [displayed, handleSceneLayout, handleSceneReady, scenes]);
+  }, [displayed, handleSceneLayout, handleSceneReady, paused, scenes]);
   const animation: IDeviceScreenAnimation = useMemo(
     () => ({ screenContent: screenIn }),
     [screenIn],

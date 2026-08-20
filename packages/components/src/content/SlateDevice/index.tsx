@@ -1,4 +1,4 @@
-import { useSceneScreen } from '../deviceSceneHost';
+import { useSceneScreen, useSceneTroupe } from '../deviceSceneHost';
 
 import { SCENES } from './scenes';
 import { SlateDeviceShell } from './shell';
@@ -47,6 +47,20 @@ export interface ISlateDeviceProps extends Omit<
    * that carry the entrance themselves (see ../deviceSceneHost).
    */
   instantEntry?: boolean;
+  /**
+   * The scene's clock stands down at its opening still, and clearing the
+   * flag restarts the loop from 0 — for instances a presenter keeps
+   * mounted but hidden (see ../deviceSceneHost).
+   */
+  paused?: boolean;
+  /**
+   * The troupe grant: every listed scene stays built on the glass, parked
+   * hidden, and `animation` names the visible one — a crossing is an
+   * opacity flip, never a build. Presenters grow the list over idle beats
+   * and carry the fades themselves; while the list is non-empty it
+   * replaces the single-scene swap grammar (see ../deviceSceneHost).
+   */
+  warmScenes?: readonly ISlateDeviceScene[];
 }
 
 export function SlateDevice({
@@ -54,13 +68,36 @@ export function SlateDevice({
   animation,
   screenContent,
   instantEntry,
+  paused,
+  warmScenes,
 }: ISlateDeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
     slot,
     animation: sceneAnimation,
-  } = useSceneScreen(target, SCENES, instantEntry);
+  } = useSceneScreen(
+    warmScenes?.length ? undefined : target,
+    SCENES,
+    instantEntry,
+    paused,
+  );
+  const troupe = useSceneTroupe(
+    target,
+    warmScenes,
+    SCENES,
+    instantEntry,
+    paused,
+  );
+  if (troupe.slot) {
+    return (
+      <SlateDeviceShell
+        width={width}
+        animation={troupe.animation}
+        screenContent={troupe.slot}
+      />
+    );
+  }
   if (displayed) {
     return (
       <SlateDeviceShell
