@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const TRADING_VIEW_CHART_READY_METHOD = 'tradingview_chartReady';
+const TRADING_VIEW_VISUAL_READY_METHOD = 'tradingview_visualReady';
 const TRADING_VIEW_CHART_ERROR_METHOD = 'tradingview_chartError';
 
 interface ITradingViewEmbedReadyMonitor {
@@ -18,6 +19,14 @@ export function isTradingViewChartReadyPayload(payload: unknown): boolean {
     isRecord(payload) &&
     payload.scope === '$private' &&
     payload.method === TRADING_VIEW_CHART_READY_METHOD
+  );
+}
+
+export function isTradingViewVisualReadyPayload(payload: unknown): boolean {
+  return (
+    isRecord(payload) &&
+    payload.scope === '$private' &&
+    payload.method === TRADING_VIEW_VISUAL_READY_METHOD
   );
 }
 

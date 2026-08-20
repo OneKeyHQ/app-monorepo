@@ -14,13 +14,15 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
-import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web';
+import {
+  createTradingViewEmbedReadyMonitor,
+  isTradingViewChartReadyPayload,
+  isTradingViewVisualReadyPayload,
+} from './tradingViewEmbedReady.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
+import type { ITradingViewRuntimeViewProps } from './TradingViewRuntimeView.types';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
-
-const TRADING_VIEW_EMBED_FAILURE_KEY_PREFIX =
-  'onekey_tradingview_embed_failed:';
 
 type ILoadedTradingViewEmbed = Awaited<
   ReturnType<typeof loadTradingViewEmbedModule>
@@ -35,6 +37,8 @@ interface ITradingViewRuntimeRefs {
     current: ILoadedTradingViewEmbed['module'] | null;
   };
   onLoadStart: { current: IWebViewProps['onLoadStart'] };
+  onChartReady: { current: ITradingViewRuntimeViewProps['onChartReady'] };
+  onVisualReady: { current: ITradingViewRuntimeViewProps['onVisualReady'] };
 }
 
 interface ITradingViewRuntimeContext {
@@ -47,40 +51,9 @@ interface ITradingViewRuntimeContext {
 interface ITradingViewRuntimeLifecycle {
   cancelled: boolean;
   failed: boolean;
+  ready: boolean;
+  visualReady: boolean;
   monitor: ReturnType<typeof createTradingViewEmbedReadyMonitor>;
-}
-
-function getRuntimeFailureKey(runtimeUrl: string): string | undefined {
-  try {
-    const origin = new URL(runtimeUrl, globalThis.location.href).origin;
-    return `${TRADING_VIEW_EMBED_FAILURE_KEY_PREFIX}${origin}`;
-  } catch {
-    return undefined;
-  }
-}
-
-function hasRuntimeFailedInSession(runtimeUrl: string): boolean {
-  const key = getRuntimeFailureKey(runtimeUrl);
-  if (!key) {
-    return false;
-  }
-  try {
-    return globalThis.sessionStorage.getItem(key) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function rememberRuntimeFailure(runtimeUrl: string): void {
-  const key = getRuntimeFailureKey(runtimeUrl);
-  if (!key) {
-    return;
-  }
-  try {
-    globalThis.sessionStorage.setItem(key, '1');
-  } catch {
-    // Session storage is optional; fallback still applies to this mount.
-  }
 }
 
 function createLoadStartEvent(url: string): WebViewNavigationEvent {
@@ -111,7 +84,6 @@ function switchToIframeFallback(
     return;
   }
   lifecycle.failed = true;
-  rememberRuntimeFailure(context.runtimeUrl);
   lifecycle.monitor.cancel();
   if (lifecycle.cancelled) {
     return;
@@ -130,6 +102,14 @@ function forwardTradingViewEmbedMessage(
   context: ITradingViewRuntimeContext,
   lifecycle: ITradingViewRuntimeLifecycle,
 ): void {
+  if (!lifecycle.ready && isTradingViewChartReadyPayload(payload)) {
+    lifecycle.ready = true;
+    context.refs.onChartReady.current?.();
+  }
+  if (!lifecycle.visualReady && isTradingViewVisualReadyPayload(payload)) {
+    lifecycle.visualReady = true;
+    context.refs.onVisualReady.current?.();
+  }
   lifecycle.monitor.notify(payload);
   void Promise.resolve(
     context.refs.customReceiveHandler.current?.({ data: payload }),
@@ -182,6 +162,8 @@ function startTradingViewRuntime(
   const lifecycle: ITradingViewRuntimeLifecycle = {
     cancelled: false,
     failed: false,
+    ready: false,
+    visualReady: false,
     monitor: createTradingViewEmbedReadyMonitor(),
   };
   const handleFailure = (error: unknown) =>
@@ -200,25 +182,32 @@ export default function TradingViewRuntimeView({
   src = '',
   containerProps,
   customReceiveHandler,
+  onChartError,
+  onChartReady,
+  onVisualReady,
   onLoadStart,
   onWebViewRef,
   ...fallbackProps
-}: IWebViewProps) {
+}: ITradingViewRuntimeViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ITradingViewEmbedHandle | null>(null);
   const mountingModuleRef = useRef<
     Awaited<ReturnType<typeof loadTradingViewEmbedModule>>['module'] | null
   >(null);
   const customReceiveHandlerRef = useRef(customReceiveHandler);
+  const onChartErrorRef = useRef(onChartError);
+  const onChartReadyRef = useRef(onChartReady);
+  const onVisualReadyRef = useRef(onVisualReady);
   const onLoadStartRef = useRef(onLoadStart);
   const fallbackWebViewRef = useRef<IWebViewRef | null>(null);
-  const [fallback, setFallback] = useState(() =>
-    hasRuntimeFailedInSession(src),
-  );
+  const [fallback, setFallback] = useState(false);
   const [runtimeUrl, setRuntimeUrl] = useState(src);
   const [reloadRevision, setReloadRevision] = useState(0);
 
   customReceiveHandlerRef.current = customReceiveHandler;
+  onChartErrorRef.current = onChartError;
+  onChartReadyRef.current = onChartReady;
+  onVisualReadyRef.current = onVisualReady;
   onLoadStartRef.current = onLoadStart;
 
   const webViewRef = useMemo<IWebViewRef>(
@@ -270,15 +259,17 @@ export default function TradingViewRuntimeView({
   );
 
   useEffect(() => {
-    setFallback(hasRuntimeFailedInSession(runtimeUrl));
+    setFallback(false);
   }, [reloadRevision, runtimeUrl]);
 
   useEffect(() => {
     if (fallback) {
-      return undefined;
+      onChartErrorRef.current?.();
     }
-    if (hasRuntimeFailedInSession(runtimeUrl)) {
-      setFallback(true);
+  }, [fallback]);
+
+  useEffect(() => {
+    if (fallback) {
       return undefined;
     }
     const container = containerRef.current;
@@ -291,6 +282,8 @@ export default function TradingViewRuntimeView({
         customReceiveHandler: customReceiveHandlerRef,
         handle: handleRef,
         mountingModule: mountingModuleRef,
+        onChartReady: onChartReadyRef,
+        onVisualReady: onVisualReadyRef,
         onLoadStart: onLoadStartRef,
       },
       runtimeUrl,

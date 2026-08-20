@@ -148,6 +148,9 @@ interface IBaseTradingViewV2Props {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -213,6 +216,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    onChartError,
+    onChartReady,
+    onVisualReady,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -455,9 +461,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLinePeriodChange,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isHyperLiquidSourceLoading,
+  } = useHyperLiquidKlineSource(networkId, tokenAddress);
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const shouldDeferWebRuntime = platformEnv.isWeb && isHyperLiquidSourceLoading;
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
@@ -750,36 +760,44 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   }, []);
 
   const webView = useMemo(
-    () => (
-      <TradingViewRuntimeView
-        key={`${theme}:${tradingViewUrlWithParams}`}
-        containerProps={{ bg: '$bgApp' }}
-        containerStyle={tradingViewWebViewStyleProps.containerStyle}
-        style={tradingViewWebViewStyleProps.style}
-        customReceiveHandler={async (data) => {
-          const receiveData = data as ICustomReceiveHandlerData;
-          await customReceiveHandler(receiveData);
-        }}
-        onWebViewRef={handleWebViewRef}
-        allowsBackForwardNavigationGestures={false}
-        onLoadStart={handleLoadStart}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-        src={tradingViewUrlWithParams}
-      />
-    ),
+    () =>
+      shouldDeferWebRuntime ? null : (
+        <TradingViewRuntimeView
+          key={`${theme}:${tradingViewUrlWithParams}`}
+          containerProps={{ bg: '$bgApp' }}
+          containerStyle={tradingViewWebViewStyleProps.containerStyle}
+          style={tradingViewWebViewStyleProps.style}
+          customReceiveHandler={async (data) => {
+            const receiveData = data as ICustomReceiveHandlerData;
+            await customReceiveHandler(receiveData);
+          }}
+          onChartError={onChartError}
+          onChartReady={onChartReady}
+          onVisualReady={onVisualReady}
+          onWebViewRef={handleWebViewRef}
+          allowsBackForwardNavigationGestures={false}
+          onLoadStart={handleLoadStart}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+          src={tradingViewUrlWithParams}
+        />
+      ),
     [
       customReceiveHandler,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
+      onChartError,
+      onChartReady,
+      onVisualReady,
+      shouldDeferWebRuntime,
       theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
