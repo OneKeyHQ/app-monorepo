@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -172,7 +173,6 @@ const LazyStockTokenOverview = LazyLoad<Record<string, never>>(
 
 const MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT = 1;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
-const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
 const MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS = 500;
@@ -568,11 +568,11 @@ export function MobileLayout({
         baseChartHeight +
         TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT +
         TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT -
-        MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT;
+        TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
       return (
         fixedMainChartHeight +
         tradingViewSubIndicatorCount *
-          MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT
+          TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
       );
     }
     return 'calc(100vh - 96px - 74px - 250px)';
@@ -679,6 +679,9 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      maxNativeSubIndicatorCount={
+                        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT
+                      }
                       nativeControlsLayoutMode="mobile"
                       isChartSwitchDisabled={!marketTradingViewParams}
                       onChartSwitch={onChartSwitch}

@@ -4,8 +4,13 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { TRADING_VIEW_NATIVE_ALL_INDICATORS } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/chartIndicators/indicatorCatalog';
+
 import {
+  canToggleTradingViewNativeIndicatorOn,
+  getAppNativeIndicators,
   getNativeIndicatorSelectionUpdates,
+  getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
   useNativeIndicatorControls,
@@ -32,6 +37,42 @@ const nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData = {
 };
 
 describe('native indicator controls', () => {
+  it('projects controller options directly from canonical catalog order', () => {
+    expect(
+      getAppNativeIndicators(new Set()).map(({ label, value }) => ({
+        label,
+        value,
+      })),
+    ).toEqual(
+      TRADING_VIEW_NATIVE_ALL_INDICATORS.map((indicator) => ({
+        label: indicator,
+        value: indicator,
+      })),
+    );
+  });
+
+  it('does not count or cap unknown values as sub-indicators', () => {
+    const activeIndicatorValues = new Set(['VOL', 'UNKNOWN']);
+
+    expect(getTradingViewNativeSubIndicatorCount(activeIndicatorValues)).toBe(
+      1,
+    );
+    expect(
+      canToggleTradingViewNativeIndicatorOn({
+        activeIndicatorValues,
+        indicatorValue: 'UNKNOWN',
+        maxSubIndicatorCount: 1,
+      }),
+    ).toBe(true);
+    expect(
+      canToggleTradingViewNativeIndicatorOn({
+        activeIndicatorValues,
+        indicatorValue: 'MACD',
+        maxSubIndicatorCount: 1,
+      }),
+    ).toBe(false);
+  });
+
   it('uses the count from a new config until app state syncs to that snapshot', () => {
     const provisionalIndicators = indicators.map((indicator, index) => ({
       ...indicator,
@@ -74,6 +115,16 @@ describe('native indicator controls', () => {
       ['StochRSI', true],
       ['OBV', true],
     ]);
+  });
+
+  it('projects bridge values to canonical ids in selection updates', () => {
+    expect(
+      getNativeIndicatorSelectionUpdates({
+        indicators: [{ label: 'RSI', value: 'bridge-rsi' }],
+        nextActiveIndicatorValues: new Set(),
+        originalActiveIndicatorValues: new Set(['bridge-rsi']),
+      }),
+    ).toEqual([['RSI', false]]);
   });
 
   it('rejects back-to-back QuickBar additions after reaching the sub-indicator cap', async () => {
