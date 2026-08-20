@@ -131,10 +131,13 @@ export function getSwapHistoryTransactionIdRows(
     shouldShowRefundTransaction;
 
   if (!shouldUseDualTransactionIdLayout) {
+    // Same-chain single-hash swaps link to the explorer from the hash row,
+    // matching the cross-chain layout; the modal then hides the explorer
+    // entry next to the order status automatically.
     return buildSingleTransactionIdRow({
       transactionId: sourceTransactionId,
       networkId: fromNetworkId,
-      showExplorer: false,
+      showExplorer: true,
     });
   }
 
