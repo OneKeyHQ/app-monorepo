@@ -118,6 +118,30 @@ describe('deviceUtils', () => {
     });
   });
 
+  it('canonicalizes compact Pro2 BLE names for display', () => {
+    const state = {
+      identity: {
+        label: null,
+        bleName: 'Pro2 6136',
+        deviceType: EDeviceType.Pro2,
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 2 6136');
+  });
+
+  it('does not rewrite OneKey Pro BLE names whose suffix starts with 2', () => {
+    const state = {
+      identity: {
+        label: null,
+        bleName: 'Pro 22D8',
+        deviceType: EDeviceType.Pro,
+      },
+    } as never;
+
+    expect(deviceUtils.getDeviceDisplayName({ state })).toBe('Pro 22D8');
+  });
+
   it('prefers persisted DeviceState versions over stale legacy Features', async () => {
     await expect(
       deviceUtils.getDeviceVersion({
@@ -213,10 +237,10 @@ describe('deviceUtils', () => {
     );
   });
 
-  it('temporarily skips firmware verification for Protocol V2 products', () => {
-    expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro2)).toBe(false);
+  it('supports firmware verification for Protocol V2 products', () => {
+    expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro2)).toBe(true);
     expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro)).toBe(true);
-    expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(false);
+    expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(true);
   });
 
   it('classifies Neo as a Protocol V2 product without aliasing it to Pro 2', () => {

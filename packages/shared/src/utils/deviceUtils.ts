@@ -2,6 +2,7 @@ import {
   EDeviceType,
   EFirmwareType,
   type HardwareConnectProtocol,
+  canonicalizePro2BleAdvertisementName,
 } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
@@ -74,6 +75,12 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
   return defaultLabelsByDeviceType[deviceType] || '';
 }
 
+function canonicalizeBleNameForDevice(name: string, deviceType?: IDeviceType) {
+  return deviceType === EDeviceType.Pro2
+    ? canonicalizePro2BleAdvertisementName(name)
+    : name;
+}
+
 function getDeviceDisplayName({ state }: { state: DeviceState }): string {
   const { identity } = state;
   const defaultName = identity.deviceType
@@ -81,7 +88,9 @@ function getDeviceDisplayName({ state }: { state: DeviceState }): string {
     : undefined;
   return (
     identity.label ||
-    identity.bleName ||
+    (identity.bleName
+      ? canonicalizeBleNameForDevice(identity.bleName, identity.deviceType)
+      : undefined) ||
     defaultName ||
     identity.model ||
     'OneKey'
@@ -143,13 +152,16 @@ function getDeviceBleNameFromFeatures(
     ble_name?: string;
     onekey_ble_name?: string;
   };
-  return [
+  const bleName = [
     compatibleFeatures.bleName,
     compatibleFeatures.onekey_ble_name,
     compatibleFeatures.ble_name,
   ].find(
     (value): value is string => typeof value === 'string' && value.length > 0,
   );
+  return bleName
+    ? canonicalizeBleNameForDevice(bleName, compatibleFeatures.deviceType)
+    : undefined;
 }
 
 // web sdk return KnownDevice
@@ -220,10 +232,9 @@ function isTouchDevice(deviceType: IDeviceType) {
   );
 }
 
-// Pro2 server-side firmware verification is not ready yet.
 // Keep all firmware verification capability checks centralized here.
-function isFirmwareVerifySupported(deviceType?: IDeviceType) {
-  return !isProtocolV2ProductType(deviceType);
+function isFirmwareVerifySupported(_deviceType?: IDeviceType) {
+  return true;
 }
 
 async function getDeviceTypeFromFeatures({

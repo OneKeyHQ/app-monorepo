@@ -1,4 +1,8 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  isSameOnekeyBleName,
+} from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -4365,7 +4369,7 @@ class ServiceHardware extends ServiceBase {
         (device) =>
           Boolean(device.connectId) &&
           deviceUtils.isBluetoothSearchDevice(device) &&
-          device.name === expectedDeviceName,
+          isSameOnekeyBleName(device.name, expectedDeviceName),
       );
 
       if (!matchingDevice) {
@@ -4918,20 +4922,18 @@ class ServiceHardware extends ServiceBase {
     firmwareVersion: string;
   }): Promise<IHardwareHomeScreenData[]> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const serverDeviceType =
-      serviceHardwareUtils.getHomeScreenServerDeviceType(deviceType);
     const response = await client.get<{
       data: IHardwareHomeScreenResponse[];
     }>('/utility/v1/wallet-homescreen/list', {
       params: {
-        deviceType: serverDeviceType,
+        deviceType,
         serialNumber,
         firmwareVersion,
       },
     });
     const { data } = response.data;
     return data
-      .filter((item) => item.deviceTypes.includes(serverDeviceType))
+      .filter((item) => item.deviceTypes.includes(deviceType))
       .filter(
         (item) =>
           item.resType === 'system' ||
