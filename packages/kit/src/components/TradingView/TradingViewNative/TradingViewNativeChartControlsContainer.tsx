@@ -20,16 +20,17 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 import {
-  type ITradingViewNativeIndicator,
-  TRADING_VIEW_NATIVE_INDICATORS,
-  isTradingViewNativeIndicator,
-} from './utils/chartIndicators';
+  type ITradingViewNativeAnyIndicator,
+  TRADING_VIEW_NATIVE_INDICATOR_CATALOG,
+  isTradingViewNativeAnyIndicator,
+} from './utils/chartIndicators/indicatorCatalog';
 
 interface ITradingViewNativeChartControlsContainerProps {
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
+  maxNativeSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -37,7 +38,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   onChartSwitch?: ITradingViewChartControlsProps['onChartSwitch'];
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
   onIndicatorChange: (
-    indicator: ITradingViewNativeIndicator,
+    indicator: ITradingViewNativeAnyIndicator,
     desiredActive: boolean,
   ) => void;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
@@ -51,6 +52,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     calendarAvailableTimeRange,
     enableNativeChartSettings = false,
     intervalConfig,
+    maxNativeSubIndicatorCount,
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
@@ -70,10 +72,10 @@ export const TradingViewNativeChartControlsContainer = memo(
     const settingsEnabled = enableNativeChartSettings;
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
-        TRADING_VIEW_NATIVE_INDICATORS.map((indicator) => ({
-          active: activeIndicatorValues.has(indicator),
-          label: indicator,
-          value: indicator,
+        TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
+          active: activeIndicatorValues.has(id),
+          label,
+          value: id,
         })),
       [activeIndicatorValues],
     );
@@ -107,7 +109,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     }, [isFullscreen, onFullscreenChange]);
     const handleIndicatorPress = useCallback(
       (indicator: ITradingViewIndicatorOption) => {
-        if (!isTradingViewNativeIndicator(indicator.value)) {
+        if (!isTradingViewNativeAnyIndicator(indicator.value)) {
           return;
         }
         onIndicatorChange(
@@ -119,7 +121,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     );
     const handleIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
-        if (isTradingViewNativeIndicator(indicatorName)) {
+        if (isTradingViewNativeAnyIndicator(indicatorName)) {
           onIndicatorChange(indicatorName, desiredActive);
         }
       },
@@ -133,12 +135,18 @@ export const TradingViewNativeChartControlsContainer = memo(
         renderContent: (
           <IndicatorListDialogContent
             indicators={indicators}
+            maxSubIndicatorCount={maxNativeSubIndicatorCount}
             onSelect={handleIndicatorSelect}
             onResetLayout={noop}
           />
         ),
       });
-    }, [handleIndicatorSelect, indicators, indicatorsTitle]);
+    }, [
+      handleIndicatorSelect,
+      indicators,
+      indicatorsTitle,
+      maxNativeSubIndicatorCount,
+    ]);
 
     return (
       <TradingViewChartControls
@@ -158,6 +166,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
+        maxSubIndicatorCount={maxNativeSubIndicatorCount}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}

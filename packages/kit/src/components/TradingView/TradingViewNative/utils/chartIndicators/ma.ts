@@ -1,10 +1,14 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  isTradingViewNativeFiniteValue,
+  toTradingViewNativeFiniteValue,
+} from './indicatorMath';
 import { buildTradingViewNativeMovingAverageSeries } from './movingAverage';
 import { normalizeTradingViewNativeIndicatorPeriod } from './normalizePeriod';
 
 export function calculateTradingViewNativeSimpleMovingAverage(
-  values: readonly number[],
+  values: readonly (number | null | undefined)[],
   period: number,
 ): Array<number | null> {
   const normalizedPeriod = normalizeTradingViewNativeIndicatorPeriod(period);
@@ -14,7 +18,7 @@ export function calculateTradingViewNativeSimpleMovingAverage(
 
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index];
-    if (Number.isFinite(value)) {
+    if (isTradingViewNativeFiniteValue(value)) {
       sum += value;
       validValueCount += 1;
     }
@@ -22,14 +26,14 @@ export function calculateTradingViewNativeSimpleMovingAverage(
     const expiredIndex = index - normalizedPeriod;
     if (expiredIndex >= 0) {
       const expiredValue = values[expiredIndex];
-      if (Number.isFinite(expiredValue)) {
+      if (isTradingViewNativeFiniteValue(expiredValue)) {
         sum -= expiredValue;
         validValueCount -= 1;
       }
     }
 
     if (index >= normalizedPeriod - 1 && validValueCount === normalizedPeriod) {
-      result[index] = sum / normalizedPeriod;
+      result[index] = toTradingViewNativeFiniteValue(sum / normalizedPeriod);
     }
   }
 
