@@ -63,6 +63,23 @@ const preview: Preview = {
           <ShowToastProvider />
           <Toaster />
         </OverlayContainer>
+        {/* The hardware stage's mount point — deliberately OFF the
+            FullWindowOverlay window, matching the app's own container
+            order (FullWindowOverlayContainer mounts it beside, not
+            inside): the stage sits at the main window's dialog level, so
+            presentations opened over it — the in-app browser, system
+            sheets — actually cover it. Canvas-wide and box-none: the
+            stage positions itself, the UI behind stays live. */}
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          pointerEvents="box-none"
+        >
+          <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+        </Stack>
       </ShellProvider>
     ),
   ],

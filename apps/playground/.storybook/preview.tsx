@@ -124,6 +124,21 @@ const preview: Preview = {
           <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
           <ShowToastProvider />
           <Toaster />
+          {/* The hardware stage's mount point, mirroring the native
+              shell's: the web canvas has no presentation layering to
+              dodge, the target just has to exist. Canvas-wide and
+              box-none so the stage positions itself and the story
+              behind stays live. */}
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            pointerEvents="box-none"
+          >
+            <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+          </Stack>
         </ConfigProvider>
       );
     },

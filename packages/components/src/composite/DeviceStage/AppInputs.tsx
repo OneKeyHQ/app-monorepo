@@ -60,10 +60,6 @@ const KEY_FOCUS = {
   outlineStyle: 'solid',
 } as const;
 
-/** The strip's resting face: the spec's fixed black-alpha overlay — the
- * one surface here darker than the stage, marking it as output. */
-const STRIP_BG = 'rgba(0,0,0,0.3)';
-
 /** The refusal beat: a quick sideways shake of the strip's content. */
 const SHAKE_DISTANCE = 5;
 const SHAKE_STEP_MS = 50;
@@ -125,9 +121,21 @@ export interface IPinPadProps {
    * consumed and refused. It steps aside again on the first new keypress.
    */
   error?: string;
+  /**
+   * Fresh-visit signal for presenters that keep the pad mounted between
+   * visits (the overlay's parked panel seats): each change clears the
+   * entry and its strip states — the clean slate a remount used to
+   * provide. Presenters that remount per visit just leave it unset.
+   */
+  resetSignal?: number;
 }
 
-export function PinPad({ onSubmit, onSwitchToDevice, error }: IPinPadProps) {
+export function PinPad({
+  onSubmit,
+  onSwitchToDevice,
+  error,
+  resetSignal,
+}: IPinPadProps) {
   const [value, setValue] = useState('');
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -143,6 +151,11 @@ export function PinPad({ onSubmit, onSwitchToDevice, error }: IPinPadProps) {
       setEmptyPrompt(false);
     }
   }, [error]);
+  useEffect(() => {
+    setValue('');
+    setErrorRetired(false);
+    setEmptyPrompt(false);
+  }, [resetSignal]);
 
   const shakeX = useSharedValue(0);
   const shake = useCallback(() => {
@@ -200,13 +213,13 @@ export function PinPad({ onSubmit, onSwitchToDevice, error }: IPinPadProps) {
   return (
     <YStack gap="$2">
       <YStack
-        px="$4"
+        px="$2"
         py="$4"
         borderRadius="$4"
         borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor={shownError ? '$borderCritical' : '$borderSubdued'}
-        bg={shownError ? '$bgCriticalSubdued' : STRIP_BG}
+        bg={shownError ? '$bgCriticalSubdued' : '$bgSubdued'}
       >
         <Animated.View style={shakeStyle}>
           <XStack
@@ -239,7 +252,7 @@ export function PinPad({ onSubmit, onSwitchToDevice, error }: IPinPadProps) {
                 color="$textSubdued"
                 textAlign="center"
               >
-                Match the number positions on your device
+                Match number positions on your device
               </SizableText>
             ) : null}
           </XStack>
@@ -317,6 +330,9 @@ export interface IPassphraseFormProps {
   onAttachPin?: (options?: { keepAccessible: boolean }) => void;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
   error?: string;
+  /** Fresh-visit signal, the PIN pad's own: parked presenters bump it
+   * per activation to stand in for a remount's clean slate. */
+  resetSignal?: number;
 }
 
 /**
@@ -333,6 +349,7 @@ export function PassphraseForm({
   onSwitchToDevice,
   onAttachPin,
   error,
+  resetSignal,
 }: IPassphraseFormProps) {
   const [value, setValue] = useState('');
   const [secure, setSecure] = useState(true);
@@ -343,6 +360,12 @@ export function PassphraseForm({
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
+  useEffect(() => {
+    setValue('');
+    setSecure(true);
+    setKeepAccessible(true);
+    setValidationError(undefined);
+  }, [resetSignal]);
   const toggleSecure = useCallback(() => setSecure((state) => !state), []);
   // Only create carries the preference out — verify creates nothing, so
   // its exits leave the options absent (the live flow's split).
@@ -455,9 +478,23 @@ export function PassphraseForm({
           reads as "decide what happens to the wallet, then pick a way in".
           Verify unlocks an existing wallet — nothing to decide, no row. */}
       {mode === 'create' ? (
-        <XStack alignItems="center" justifyContent="space-between" gap="$4">
-          <SizableText flex={1} size="$bodyMd">
-            Keep accessible after closing the app
+        // The preference capsule, the stage's ratified grammar: a
+        // full-pill container on $neutral2 under a $neutral4 hairline,
+        // subdued label riding the wider start padding, switch tight to
+        // the end.
+        <XStack
+          alignItems="center"
+          gap="$5"
+          pl="$6"
+          pr="$4"
+          py="$3"
+          borderRadius="$full"
+          bg="$neutral2"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$neutral4"
+        >
+          <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+            Keep wallet after closing app
           </SizableText>
           {/* Native switch — relies on the @expo/ui patch that restores
               UIKit view-touch delivery inside the sheet's hosted RN

@@ -54,11 +54,15 @@ export function trackAt(t: number, kfs: IKeyframe[]): number {
  * at 0 before the first pass, for scenes whose entrance (the content-in)
  * must finish before the loop begins. A `loopMs` of 0 means no loop
  * at all: the clock rests at 0, so still scenes share the machinery.
+ * `paused` rests the clock at 0 too — the scene's opening still — and
+ * clearing it starts the whole schedule over, so a parked scene neither
+ * animates unseen nor gets caught mid-loop by its reveal.
  */
 export function useSceneClock(
   loopMs: number,
   restMs: number,
   startDelayMs = 0,
+  paused = false,
 ): SharedValue<number> {
   const clock = useSharedValue(0);
   const reducedMotion = useReducedMotion();
@@ -68,6 +72,9 @@ export function useSceneClock(
       return undefined;
     }
     clock.value = 0;
+    if (paused) {
+      return undefined;
+    }
     const loop = withRepeat(
       withTiming(loopMs, { duration: loopMs, easing: Easing.linear }),
       -1,
@@ -75,7 +82,7 @@ export function useSceneClock(
     );
     clock.value = startDelayMs > 0 ? withDelay(startDelayMs, loop) : loop;
     return () => cancelAnimation(clock);
-  }, [clock, loopMs, restMs, reducedMotion, startDelayMs]);
+  }, [clock, loopMs, paused, restMs, reducedMotion, startDelayMs]);
   return clock;
 }
 

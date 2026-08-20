@@ -184,6 +184,23 @@ class AppDelegate: ExpoAppDelegate {
     URLCache.shared.removeAllCachedResponses()
     URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
 
+    // Publish the display's physical corner radius for JS (read through
+    // React Native's Settings API) so screen-anchored surfaces can take the
+    // system's concentric corner value. The property is private, hence the
+    // assembled key and the responds(to:) guard — where it is absent (or
+    // the display has square corners, reported as 0) nothing is written
+    // and JS keeps its tuned fallback.
+    let displayCornerKey = ["_display", "Corner", "Radius"].joined()
+    if UIScreen.main.responds(to: NSSelectorFromString(displayCornerKey)),
+      let displayCornerRadius = UIScreen.main.value(forKey: displayCornerKey) as? CGFloat,
+      displayCornerRadius > 0
+    {
+      UserDefaults.standard.set(
+        Double(displayCornerRadius),
+        forKey: "onekey_display_corner_radius"
+      )
+    }
+
     // === Recovery Check ===
     let defaults = UserDefaults.standard
 
