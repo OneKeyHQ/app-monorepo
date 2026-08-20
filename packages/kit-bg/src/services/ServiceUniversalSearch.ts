@@ -56,6 +56,11 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 const PERPS_ASSET_TYPE_VERSION = 2;
+// The search index also matches collateral and description text, so `usdc`
+// pulls in every USDC settled market. Only short, ticker shaped queries are
+// held to a literal match; a longer query is where description hits such as
+// `nasdaq` or `japan` are the point.
+const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -1292,41 +1297,51 @@ class ServiceUniversalSearch extends ServiceBase {
             ? await this.readTradablePerpMaxLeverageMap()
             : cachedPerpMaxLeverage;
 
+        const normalizedQuery = input.trim().toLowerCase();
+        const requiresLiteralMatch =
+          normalizedQuery.length > 0 &&
+          normalizedQuery.length <= PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH;
+
         const items: IUniversalSearchPerpResult['items'] =
           rawAssets
-            ?.filter((asset) => {
+            ?.map((asset) => ({
+              asset,
+              coin: buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              }),
+            }))
+            .filter(({ asset, coin }) => {
+              if (
+                requiresLiteralMatch &&
+                ![asset.name, asset.subtitle, coin].some((field) =>
+                  field?.toLowerCase().includes(normalizedQuery),
+                )
+              ) {
+                return false;
+              }
               // The search index still carries delisted assets — `xyz:UNITREE`
               // survives there after moving to `para`, so the same ticker would
               // appear twice with one dead row.
               if (!tradablePerpMaxLeverage) {
                 return true;
               }
-              const coin = buildCoinFromSearchAssetType({
-                assetType: asset.type,
-                name: asset.name,
-              });
               return Boolean(coin && tradablePerpMaxLeverage.has(coin));
             })
-            .map((asset) => {
-              const coin = buildCoinFromSearchAssetType({
+            .map(({ asset, coin }) => ({
+              type: EUniversalSearchType.Perp,
+              payload: {
                 assetType: asset.type,
+                logoUrl: asset.logoUrl,
                 name: asset.name,
-              });
-              return {
-                type: EUniversalSearchType.Perp,
-                payload: {
-                  assetType: asset.type,
-                  logoUrl: asset.logoUrl,
-                  name: asset.name,
-                  maxLeverage:
-                    (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
-                    asset.maxLeverage,
-                  midPx: asset.midPx,
-                  dayNtlVlm: asset.dayNtlVlm,
-                  subtitle: asset.subtitle,
-                },
-              };
-            }) ?? [];
+                maxLeverage:
+                  (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
+                  asset.maxLeverage,
+                midPx: asset.midPx,
+                dayNtlVlm: asset.dayNtlVlm,
+                subtitle: asset.subtitle,
+              },
+            })) ?? [];
 
         return { items };
       } catch (error) {
