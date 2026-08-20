@@ -94,7 +94,9 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
     // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative UI video, no captions needed
     <video
       ref={videoRef}
-      autoPlay={autoPlay ?? true}
+      // Match native's "paused wins" semantics: an initial paused={true}
+      // must suppress browser autoplay even when autoPlay is not passed.
+      autoPlay={autoPlay ?? paused !== true}
       muted={muted}
       style={style as any}
       {...(props as any)}
