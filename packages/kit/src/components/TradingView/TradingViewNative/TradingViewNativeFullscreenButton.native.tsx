@@ -27,8 +27,7 @@ export function TradingViewNativeFullscreenButton({
         getTradingViewNativeFullscreenButtonBottom({
           chartHeight,
           paneCount: visibleSubIndicatorCount,
-        }) +
-        (isFullscreen ? safeAreaBottom : 0)
+        }) + (isFullscreen ? safeAreaBottom : 0)
       }
       zIndex={2}
       size="small"

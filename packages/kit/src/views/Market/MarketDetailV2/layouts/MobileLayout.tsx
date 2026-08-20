@@ -531,9 +531,7 @@ export function MobileLayout({
   );
 
   const handleContainerLayout = useCallback(
-    (event: {
-      nativeEvent: { layout: { height: number; width: number } };
-    }) => {
+    (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       const { height: nextLayoutHeight, width: nextLayoutWidth } =
         event.nativeEvent.layout;
       const nextHeight = Math.round(nextLayoutHeight);
