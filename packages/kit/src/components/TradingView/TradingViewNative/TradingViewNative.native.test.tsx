@@ -10,6 +10,7 @@ import type { ITradingViewNativeSource } from './types';
 
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
+const mockIsNativeTablet = jest.fn(() => false);
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
   | undefined;
@@ -17,6 +18,7 @@ let mockAppStateChangeHandler:
 jest.mock('expo-screen-orientation', () => ({
   OrientationLock: {
     ALL: 'ALL',
+    DEFAULT: 'DEFAULT',
     LANDSCAPE: 'LANDSCAPE',
     PORTRAIT_UP: 'PORTRAIT_UP',
   },
@@ -35,9 +37,14 @@ jest.mock('react-native', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/components', () => ({
+  isNativeTablet: () => mockIsNativeTablet(),
+}));
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isNativeAndroid: true,
     isNativeIOSPad: false,
   },
 }));
@@ -57,6 +64,7 @@ const source: ITradingViewNativeSource = {
 describe('TradingViewNative screen orientation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsNativeTablet.mockReturnValue(false);
     mockAppStateChangeHandler = undefined;
     mockLockAsync.mockResolvedValue(undefined);
   });
@@ -131,5 +139,25 @@ describe('TradingViewNative screen orientation', () => {
     await waitFor(() => {
       expect(handleFullscreenChange).toHaveBeenCalledWith(false);
     });
+  });
+
+  it('uses the current Android tablet window without requesting rotation', () => {
+    const handleFullscreenChange = jest.fn();
+    mockIsNativeTablet.mockReturnValue(true);
+
+    const { unmount } = render(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(mockLockAsync).toHaveBeenLastCalledWith('DEFAULT');
   });
 });

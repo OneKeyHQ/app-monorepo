@@ -4,15 +4,26 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
 import { AppState } from 'react-native';
 
+import { isNativeTablet } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 
 import type { ITradingViewNativeProps } from './types';
 
-const DEFAULT_ORIENTATION_LOCK = platformEnv.isNativeIOSPad
-  ? ScreenOrientation.OrientationLock.ALL
-  : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+function isAndroidTablet() {
+  return platformEnv.isNativeAndroid && isNativeTablet();
+}
+
+function getDefaultOrientationLock() {
+  if (platformEnv.isNativeIOSPad) {
+    return ScreenOrientation.OrientationLock.ALL;
+  }
+  if (isAndroidTablet()) {
+    return ScreenOrientation.OrientationLock.DEFAULT;
+  }
+  return ScreenOrientation.OrientationLock.PORTRAIT_UP;
+}
 
 function lockScreenOrientation(
   orientationLock: ScreenOrientation.OrientationLock,
@@ -30,13 +41,15 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     }
 
     let isActive = true;
-    void ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.LANDSCAPE,
-    ).catch(() => {
-      if (isActive) {
-        onNativeChartFullscreenChange?.(false);
-      }
-    });
+    if (!isAndroidTablet()) {
+      void ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.LANDSCAPE,
+      ).catch(() => {
+        if (isActive) {
+          onNativeChartFullscreenChange?.(false);
+        }
+      });
+    }
 
     const appStateSubscription = AppState.addEventListener(
       'change',
@@ -50,7 +63,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     return () => {
       isActive = false;
       appStateSubscription.remove();
-      lockScreenOrientation(DEFAULT_ORIENTATION_LOCK);
+      lockScreenOrientation(getDefaultOrientationLock());
     };
   }, [isFullscreen, onNativeChartFullscreenChange]);
 

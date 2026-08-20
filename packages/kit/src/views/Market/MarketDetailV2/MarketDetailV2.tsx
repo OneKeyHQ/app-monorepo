@@ -10,6 +10,7 @@ import {
   useMedia,
   usePreventRemove,
 } from '@onekeyhq/components';
+import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -149,6 +150,7 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const media = useMedia();
+  const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
@@ -157,24 +159,35 @@ function MarketDetailV2(
   );
   const effectiveIsChartFullscreen =
     supportsChartFullscreen && isChartFullscreen;
-  const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
-    setIsChartFullscreen(isFullscreen);
-  }, []);
+  const handleChartFullscreenChange = useCallback(
+    (isFullscreen: boolean) => {
+      setIsChartFullscreen(isFullscreen);
+      setSplitViewDetailFullscreen(isFullscreen);
+    },
+    [setSplitViewDetailFullscreen],
+  );
   const handleChartSwitch = useCallback(() => {
-    setIsChartFullscreen(false);
+    handleChartFullscreenChange(false);
     setIsTradingViewNative((currentValue) => !currentValue);
-  }, []);
+  }, [handleChartFullscreenChange]);
   const handleFullscreenRemove = useCallback(() => {
-    setIsChartFullscreen(false);
-  }, []);
+    handleChartFullscreenChange(false);
+  }, [handleChartFullscreenChange]);
 
   usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
 
+  useLayoutEffect(() => {
+    setSplitViewDetailFullscreen(effectiveIsChartFullscreen);
+    return () => {
+      setSplitViewDetailFullscreen(false);
+    };
+  }, [effectiveIsChartFullscreen, setSplitViewDetailFullscreen]);
+
   useEffect(() => {
     if (!supportsChartFullscreen && isChartFullscreen) {
-      setIsChartFullscreen(false);
+      handleChartFullscreenChange(false);
     }
-  }, [isChartFullscreen, supportsChartFullscreen]);
+  }, [handleChartFullscreenChange, isChartFullscreen, supportsChartFullscreen]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -192,9 +205,9 @@ function MarketDetailV2(
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setIsChartFullscreen(false);
+        handleChartFullscreenChange(false);
       };
-    }, []),
+    }, [handleChartFullscreenChange]),
   );
 
   useFocusEffect(
