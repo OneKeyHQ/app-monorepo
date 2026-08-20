@@ -1471,9 +1471,9 @@ function BulkSendAmountsInputContent({
           ...prev,
           isRefreshing: true,
         }));
-        const [checkInscriptionProtectionEnabled, vaultSettings] =
+        const [effectiveInscriptionProtection, vaultSettings] =
           await Promise.all([
-            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
               {
                 networkId,
                 accountId,
@@ -1484,7 +1484,7 @@ function BulkSendAmountsInputContent({
             }),
           ]);
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+          effectiveInscriptionProtection && vaultSettings.hasFrozenBalance;
 
         try {
           const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
@@ -1569,7 +1569,7 @@ function BulkSendAmountsInputContent({
               try {
                 const withCheckInscription =
                   vaultSettings.hasFrozenBalance &&
-                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  (await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                     {
                       networkId,
                       accountId: sender.accountId,

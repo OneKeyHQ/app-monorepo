@@ -315,9 +315,9 @@ function BaseBulkSendAddressesInput() {
         tokenDetailsRequestIdRef.current = requestId;
         console.log('addresses input fetchSelectedTokenFiatInfo');
 
-        const [checkInscriptionProtectionEnabled, vaultSettings] =
+        const [effectiveInscriptionProtection, vaultSettings] =
           await Promise.all([
-            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
               {
                 networkId: selectedNetworkId,
                 accountId: selectedAccountId,
@@ -328,7 +328,7 @@ function BaseBulkSendAddressesInput() {
             }),
           ]);
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+          effectiveInscriptionProtection && vaultSettings.hasFrozenBalance;
 
         try {
           const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(

@@ -133,6 +133,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
         ),
+        timedDeferred('serviceSetting.fetchInscriptionProtectionControl', () =>
+          this.backgroundApi.serviceSetting.fetchInscriptionProtectionControl(),
+        ),
         timedDeferred(
           'servicePassword.addExtIntervalCheckLockStatusListener',
           () =>

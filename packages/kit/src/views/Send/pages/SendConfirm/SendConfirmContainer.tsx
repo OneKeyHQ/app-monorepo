@@ -95,7 +95,7 @@ function SendConfirmContainer() {
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
       ]);
-      const checkInscriptionProtectionEnabled =
+      const accountEligibleForInscriptionProtection =
         await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
           {
             networkId,
@@ -103,7 +103,9 @@ function SendConfirmContainer() {
           },
         );
       const withCheckInscription =
-        checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+        accountEligibleForInscriptionProtection &&
+        settings.inscriptionProtection &&
+        (settings.inscriptionProtectionServerEnabled ?? true);
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
         networkId,
         accountId,
@@ -126,6 +128,7 @@ function SendConfirmContainer() {
       updateNativeTokenInfo,
       updateUnsignedTxs,
       settings.inscriptionProtection,
+      settings.inscriptionProtectionServerEnabled,
     ]).result ?? {};
 
   usePromiseResult(async () => {

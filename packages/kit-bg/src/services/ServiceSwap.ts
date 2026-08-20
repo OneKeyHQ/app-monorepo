@@ -815,17 +815,13 @@ export default class ServiceSwap extends ServiceBase {
       }
 
       if (requestProtocol !== EProtocolOfExchange.STOCK) {
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
     }
@@ -1037,17 +1033,13 @@ export default class ServiceSwap extends ServiceBase {
         } catch (e) {
           console.error(e);
         }
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
       let fetchSignal: AbortSignal | undefined;

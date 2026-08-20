@@ -17,4 +17,6 @@ export const ChainSelectorTestIDs = {
   // --- UnifiedNetworkSelector ---
   unifiedAddNetworkBtn: 'chain-selector-unified-add-network-btn',
   unifiedPortfolioConfirmBtn: 'page-footer-confirm', // preserve existing
+  unifiedAllNetworksTab: 'chain-selector-unified-all-networks-tab',
+  unifiedSingleNetworkTab: 'chain-selector-unified-single-network-tab',
 } as const;

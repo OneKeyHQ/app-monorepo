@@ -97,6 +97,19 @@ export type IAccountDerivationConfigItem = {
   defaultNetworkId: string;
 };
 
+const INSCRIPTION_PROTECTION_SETTING_KEY = 'BTC_INSCRIPTION_PROTECTION_ENABLED';
+
+function parseInscriptionProtectionServerEnabled(
+  value: string,
+): boolean | undefined {
+  try {
+    const parsed = JSON.parse(value) as { value?: unknown };
+    return typeof parsed?.value === 'boolean' ? parsed.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -506,6 +519,45 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private _fetchInscriptionProtectionControl = memoizee(
+    async () => {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Utility);
+        const response = await client.get<{
+          data: { value: string; key: string }[];
+        }>('/utility/v1/setting', {
+          params: {
+            key: INSCRIPTION_PROTECTION_SETTING_KEY,
+          },
+        });
+        const matched = response.data.data.find(
+          (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+        );
+        const serverEnabled = matched
+          ? parseInscriptionProtectionServerEnabled(matched.value)
+          : undefined;
+        if (serverEnabled === undefined) {
+          return;
+        }
+        await settingsPersistAtom.set((prev) => ({
+          ...prev,
+          inscriptionProtectionServerEnabled: serverEnabled,
+        }));
+      } catch (e) {
+        console.error('fetchInscriptionProtectionControl error', e);
+      }
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async fetchInscriptionProtectionControl() {
+    await this._fetchInscriptionProtectionControl();
+  }
+
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
@@ -602,6 +654,31 @@ class ServiceSetting extends ServiceBase {
   public async getInscriptionProtection() {
     const { inscriptionProtection } = await settingsPersistAtom.get();
     return inscriptionProtection;
+  }
+
+  @backgroundMethod()
+  public async getEffectiveInscriptionProtection({
+    networkId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+  }: {
+    networkId: string;
+    accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
+  }) {
+    const [settings, accountEligible] = await Promise.all([
+      settingsPersistAtom.get(),
+      this.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+        mergeDeriveAssetsEnabled,
+      }),
+    ]);
+    return (
+      accountEligible &&
+      settings.inscriptionProtection &&
+      (settings.inscriptionProtectionServerEnabled ?? true)
+    );
   }
 
   @backgroundMethod()

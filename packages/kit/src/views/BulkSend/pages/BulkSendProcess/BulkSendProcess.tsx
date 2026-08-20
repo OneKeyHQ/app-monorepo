@@ -574,13 +574,13 @@ function BulkSendProcessContent({
             try {
               const [
                 nativeTokenAddress,
-                checkInscriptionProtectionEnabled,
+                effectiveInscriptionProtection,
                 vaultSettings,
               ] = await Promise.all([
                 backgroundApiProxy.serviceToken.getNativeTokenAddress({
                   networkId,
                 }),
-                backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                   {
                     networkId,
                     accountId: txAccountId,
@@ -591,7 +591,7 @@ function BulkSendProcessContent({
                 }),
               ]);
               const withCheckInscription =
-                checkInscriptionProtectionEnabled &&
+                effectiveInscriptionProtection &&
                 vaultSettings.hasFrozenBalance;
               const resp =
                 await backgroundApiProxy.serviceToken.fetchTokensDetails({

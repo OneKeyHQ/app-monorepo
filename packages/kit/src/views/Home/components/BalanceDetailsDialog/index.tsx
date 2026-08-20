@@ -137,7 +137,9 @@ function BalanceDetailsContent({
         accountId,
       });
       const withCheckInscription =
-        inscriptionEnabled && settings.inscriptionProtection;
+        inscriptionEnabled &&
+        settings.inscriptionProtection &&
+        (settings.inscriptionProtectionServerEnabled ?? true);
       let r: Partial<IFetchAccountDetailsResp> & {
         deriveItems?: {
           deriveType: string;
@@ -222,6 +224,7 @@ function BalanceDetailsContent({
       inscriptionEnabled,
       showDeriveItems,
       settings.inscriptionProtection,
+      settings.inscriptionProtectionServerEnabled,
       networkAccounts,
     ],
     {
@@ -315,7 +318,8 @@ function BalanceDetailsContent({
             })}
           </YStack>
         ) : null}
-        {inscriptionEnabled ? (
+        {inscriptionEnabled &&
+        (settings.inscriptionProtectionServerEnabled ?? true) ? (
           <>
             <Divider my="$3" />
             <XStack justifyContent="space-between" alignItems="center">
@@ -380,6 +384,7 @@ function BalanceDetailsContent({
     overview?.frozenBalanceParsed,
     setSettings,
     settings.inscriptionProtection,
+    settings.inscriptionProtectionServerEnabled,
     showDeriveItems,
     whatIsFrozenBalanceUrl,
     intl,

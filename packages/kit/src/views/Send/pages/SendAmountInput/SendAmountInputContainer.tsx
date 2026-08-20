@@ -919,7 +919,7 @@ function SendAmountInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
+        const accountEligibleForInscriptionProtection =
           await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
             {
               networkId: network.id,
@@ -927,7 +927,9 @@ function SendAmountInputContainer() {
             },
           );
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+          accountEligibleForInscriptionProtection &&
+          settings.inscriptionProtection &&
+          (settings.inscriptionProtectionServerEnabled ?? true);
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -957,6 +959,7 @@ function SendAmountInputContainer() {
       token,
       tokenInfo,
       settings.inscriptionProtection,
+      settings.inscriptionProtectionServerEnabled,
     ],
     {
       watchLoading: true,
@@ -2186,7 +2189,9 @@ function SendAmountInputContainer() {
     // Spendable balance depends on this setting; feeding it in (and keying the
     // sibling cache on it) keeps siblings on the same balance contract as the
     // current page and invalidates the cache when the user toggles it mid-flow.
-    inscriptionProtection: !!settings.inscriptionProtection,
+    inscriptionProtection:
+      !!settings.inscriptionProtection &&
+      (settings.inscriptionProtectionServerEnabled ?? true),
   });
 
   const performAutoSwitchToAccount = useCallback(

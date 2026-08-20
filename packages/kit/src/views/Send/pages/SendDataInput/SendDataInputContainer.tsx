@@ -266,7 +266,7 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
+        const accountEligibleForInscriptionProtection =
           await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
             {
               networkId: network.id,
@@ -274,7 +274,9 @@ function SendDataInputContainer() {
             },
           );
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+          accountEligibleForInscriptionProtection &&
+          settings.inscriptionProtection &&
+          (settings.inscriptionProtectionServerEnabled ?? true);
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -302,6 +304,7 @@ function SendDataInputContainer() {
       token,
       tokenInfo,
       settings.inscriptionProtection,
+      settings.inscriptionProtectionServerEnabled,
     ],
     { watchLoading: true, alwaysSetState: true },
   );

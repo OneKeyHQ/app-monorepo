@@ -211,7 +211,7 @@ function TxConfirm() {
         networkId,
       });
 
-    const checkInscriptionProtectionEnabled =
+    const accountEligibleForInscriptionProtection =
       await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
         {
           networkId,
@@ -219,7 +219,9 @@ function TxConfirm() {
         },
       );
     const withCheckInscription =
-      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+      accountEligibleForInscriptionProtection &&
+      settings.inscriptionProtection &&
+      (settings.inscriptionProtectionServerEnabled ?? true);
     const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountId,
@@ -245,6 +247,7 @@ function TxConfirm() {
     accountId,
     networkId,
     settings.inscriptionProtection,
+    settings.inscriptionProtectionServerEnabled,
     transferPayload?.selectedUtxoTotalAmount,
   ]);
 
