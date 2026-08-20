@@ -29,6 +29,9 @@ export interface ITrayWatchlistItem {
   isNative?: boolean;
   perpsCoin?: string;
   maxLeverage?: number;
+  // Perp dex venue label parsed from the prefixed coin name
+  // (e.g. "xyz:UNITREE" -> "xyz"); distinguishes same-symbol contracts.
+  dexLabel?: string;
   subtitle?: string;
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
