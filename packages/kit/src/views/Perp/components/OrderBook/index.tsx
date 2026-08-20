@@ -766,14 +766,6 @@ export function OrderBook({
         : [],
     [horizontal, isEmpty, resolvedMaxLevelsPerSide],
   );
-  let verticalAsks: IFormattedOBLevel[] = [];
-  let verticalBids: IFormattedOBLevel[] = [];
-  if (!horizontal) {
-    verticalAsks = isEmpty
-      ? verticalEmptyLevels
-      : aggregatedData.asks.toReversed();
-    verticalBids = isEmpty ? verticalEmptyLevels : aggregatedData.bids;
-  }
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
@@ -867,14 +859,19 @@ export function OrderBook({
     [aggregatedData.asks, askDepth],
   );
   // Vertical layout draws asks top-to-bottom reversed; keep its own derived
-  // array so the reversal isn't recomputed in JSX each render.
-  const reversedAskPercentsRaw = useMemo(
-    () =>
-      aggregatedData.asks
-        .toReversed()
-        .map((item) => calculatePercentage(item.cumSize, askDepth)),
-    [aggregatedData.asks, askDepth],
-  );
+  // arrays so the reversal isn't recomputed in JSX each render. `levels` rides
+  // along for the same reason the horizontal ladders carry it: the rows drawn
+  // over these bars, and the tap that resolves against them, have to come from
+  // the frame the user is looking at.
+  const reversedAskLadderRaw = useMemo(() => {
+    const levels = aggregatedData.asks.toReversed();
+    return {
+      percents: levels.map((item) =>
+        calculatePercentage(item.cumSize, askDepth),
+      ),
+      levels,
+    };
+  }, [aggregatedData.asks, askDepth]);
   // Mobile is already throttled to 200ms upstream, so coalescing to the frame
   // can merge nothing and only adds latency. Desktop has no such snapshot —
   // bursts still land within a frame there, which REACT-NATIVE-1JZ was about.
@@ -883,11 +880,21 @@ export function OrderBook({
   const bidPercents = bidLadder.percents;
   const askPercents = askLadder.percents;
   // Vertical-only, and vertical never renders on a mobile variant.
-  const reversedAskPercents = useRafCoalesced(
-    reversedAskPercentsRaw,
+  const reversedAskLadder = useRafCoalesced(
+    reversedAskLadderRaw,
     depthEpoch,
     !isMobileVariant,
   );
+  const reversedAskPercents = reversedAskLadder.percents;
+  // Drawn from the same snapshot as the bars behind them: reading the live
+  // arrays here let a row show a price whose bar had not caught up, and could
+  // put a level the user never pressed into the order form.
+  let verticalAsks: IFormattedOBLevel[] = [];
+  let verticalBids: IFormattedOBLevel[] = [];
+  if (!horizontal) {
+    verticalAsks = isEmpty ? verticalEmptyLevels : reversedAskLadder.levels;
+    verticalBids = isEmpty ? verticalEmptyLevels : bidLadder.levels;
+  }
 
   const blockColors = useBlockColors();
   const textColor = useTextColor();
@@ -1212,7 +1219,7 @@ export function OrderBook({
         </View>
         <View style={styles.absoluteContainer}>
           {verticalAsks.map((itemData, index) => {
-            const originalIndex = aggregatedData.asks.length - 1 - index;
+            const originalIndex = verticalAsks.length - 1 - index;
             return (
               <Pressable
                 key={index}
