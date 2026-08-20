@@ -130,6 +130,8 @@ describe('ServiceUniversalSearch perps asset capability', () => {
     // An exact dex prefix browses that sub-dex, a fragment of one does not.
     ['xyz', ['AMAT', 'EWJ']],
     ['ar', []],
+    // Only the row's description carries this one.
+    ['etf', ['EWJ']],
     // Longer and non-ASCII queries stay on the endpoint's own ranking.
     ['japan', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
     ['比特币', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
