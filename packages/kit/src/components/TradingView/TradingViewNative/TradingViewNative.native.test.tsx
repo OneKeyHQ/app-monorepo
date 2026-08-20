@@ -10,7 +10,8 @@ import type { ITradingViewNativeSource } from './types';
 
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
-const mockIsNativeTablet = jest.fn(() => false);
+const mockIsSpanning = jest.fn(() => false);
+const mockWindowDimensions = { height: 844, width: 390 };
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
   | undefined;
@@ -35,10 +36,13 @@ jest.mock('react-native', () => ({
       return { remove: mockAppStateSubscriptionRemove };
     },
   },
+  Dimensions: {
+    get: () => mockWindowDimensions,
+  },
 }));
 
-jest.mock('@onekeyhq/components', () => ({
-  isNativeTablet: () => mockIsNativeTablet(),
+jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
+  isSpanning: () => mockIsSpanning(),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -64,7 +68,9 @@ const source: ITradingViewNativeSource = {
 describe('TradingViewNative screen orientation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsNativeTablet.mockReturnValue(false);
+    mockIsSpanning.mockReturnValue(false);
+    mockWindowDimensions.height = 844;
+    mockWindowDimensions.width = 390;
     mockAppStateChangeHandler = undefined;
     mockLockAsync.mockResolvedValue(undefined);
   });
@@ -158,9 +164,9 @@ describe('TradingViewNative screen orientation', () => {
     });
   });
 
-  it('uses the current Android tablet window without requesting rotation', () => {
+  it('uses the current unfolded Android window without requesting rotation', () => {
     const handleFullscreenChange = jest.fn();
-    mockIsNativeTablet.mockReturnValue(true);
+    mockIsSpanning.mockReturnValue(true);
 
     const { unmount } = render(
       <TradingViewNative
@@ -176,5 +182,39 @@ describe('TradingViewNative screen orientation', () => {
     unmount();
 
     expect(mockLockAsync).toHaveBeenLastCalledWith('DEFAULT');
+  });
+
+  it('uses the current Android landscape window without requesting rotation', () => {
+    mockWindowDimensions.height = 390;
+    mockWindowDimensions.width = 844;
+
+    const { unmount } = render(
+      <TradingViewNative source={source} isNativeChartFullscreen />,
+    );
+
+    expect(mockLockAsync).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(mockLockAsync).toHaveBeenLastCalledWith('DEFAULT');
+  });
+
+  it('locks a folded Android portrait window to landscape', async () => {
+    const handleFullscreenChange = jest.fn();
+    mockIsSpanning.mockReturnValue(false);
+    mockWindowDimensions.height = 844;
+    mockWindowDimensions.width = 390;
+
+    render(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+    });
   });
 });

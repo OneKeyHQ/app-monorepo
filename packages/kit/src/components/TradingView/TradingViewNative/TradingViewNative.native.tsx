@@ -2,24 +2,31 @@ import { useEffect } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
-import { AppState } from 'react-native';
+import { AppState, Dimensions } from 'react-native';
 
-import { isNativeTablet } from '@onekeyhq/components';
+import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 
 import type { ITradingViewNativeProps } from './types';
 
-function isAndroidTablet() {
-  return platformEnv.isNativeAndroid && isNativeTablet();
+function shouldUseCurrentAndroidWindowForFullscreen() {
+  if (!platformEnv.isNativeAndroid) {
+    return false;
+  }
+  if (isSpanning()) {
+    return true;
+  }
+  const { height, width } = Dimensions.get('window');
+  return width > height;
 }
 
-function getDefaultOrientationLock() {
+function getDefaultOrientationLock(shouldUseCurrentAndroidWindow: boolean) {
   if (platformEnv.isNativeIOSPad) {
     return ScreenOrientation.OrientationLock.ALL;
   }
-  if (isAndroidTablet()) {
+  if (shouldUseCurrentAndroidWindow) {
     return ScreenOrientation.OrientationLock.DEFAULT;
   }
   return ScreenOrientation.OrientationLock.PORTRAIT_UP;
@@ -41,7 +48,9 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     }
 
     let isActive = true;
-    if (!isAndroidTablet()) {
+    const shouldUseCurrentAndroidWindow =
+      shouldUseCurrentAndroidWindowForFullscreen();
+    if (!shouldUseCurrentAndroidWindow) {
       void ScreenOrientation.lockAsync(
         ScreenOrientation.OrientationLock.LANDSCAPE,
       ).catch(() => {
@@ -63,7 +72,9 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     return () => {
       isActive = false;
       appStateSubscription.remove();
-      lockScreenOrientation(getDefaultOrientationLock());
+      lockScreenOrientation(
+        getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
+      );
     };
   }, [isFullscreen, onNativeChartFullscreenChange]);
 
