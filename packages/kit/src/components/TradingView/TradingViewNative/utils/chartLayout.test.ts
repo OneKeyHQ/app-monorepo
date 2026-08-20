@@ -384,6 +384,59 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
   });
 
+  it('reserves pane space above the single shared time axis', () => {
+    const points = buildPoints({
+      count: 5,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      contentBottomInset: 56,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout).toMatchObject({
+      mainChartBottom: 220,
+      timeAxisY: 276,
+      volumeBottom: 220,
+    });
+  });
+
+  it('reduces price ticks when the main pane is compressed', () => {
+    const points = buildPoints({
+      count: 5,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    }).map((point, index) => ({
+      ...point,
+      c: index + 1,
+      h: index + 2,
+      l: index,
+      o: index + 0.5,
+    }));
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      contentBottomInset: 180,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout?.priceChartHeight).toBe(64);
+    expect(layout?.priceTicks).toHaveLength(5);
+  });
+
   it('derives max volume from the currently visible candles', () => {
     const points = buildPoints({
       count: 4,

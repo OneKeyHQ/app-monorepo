@@ -2,19 +2,38 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/indicatorCatalog';
+import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subIndicatorTypes';
+
+type IMockIndicatorListProps = {
+  maxSubIndicatorCount?: number;
+  onSelect: (indicatorName: string, desiredActive: boolean) => void;
+};
+
+type IMockDialogConfig = {
+  renderContent: ReactElement<IMockIndicatorListProps>;
+  testID?: string;
+};
 
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
+const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
+}));
+
+jest.mock('@onekeyhq/components', () => ({
+  Dialog: {
+    show: (config: IMockDialogConfig) => mockDialogShow(config),
+  },
 }));
 
 jest.mock(
@@ -45,17 +64,31 @@ describe('TradingViewNative chart controls', () => {
       />,
     );
 
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      indicators: { active: boolean; label: string; value: string }[];
+    };
+
+    expect(controlsProps.indicators).toEqual(
+      TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
+        active: id === 'MA',
+        label,
+        value: id,
+      })),
+    );
+    expect(
+      controlsProps.indicators
+        .filter(({ value }) =>
+          TRADING_VIEW_NATIVE_SUB_INDICATORS.some(
+            (indicator) => indicator === value,
+          ),
+        )
+        .map(({ value }) => value),
+    ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
         backgroundColor: '$transparent',
         hasVisibleIndicators: true,
         hasVisibleIntervalSelector: true,
-        indicators: [
-          { active: true, label: 'MA', value: 'MA' },
-          { active: false, label: 'EMA', value: 'EMA' },
-          { active: false, label: 'BOLL', value: 'BOLL' },
-          { active: false, label: 'SAR', value: 'SAR' },
-        ],
         settingsEnabled: false,
         showIndicatorPopover: false,
         showChartTypeToggle: false,
@@ -135,6 +168,31 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('forwards the chart switch action to the shared controls', () => {
+    const handleChartSwitch = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        isChartSwitchDisabled
+        onChartSwitch={handleChartSwitch}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      chartMode: string;
+      isChartSwitchDisabled: boolean;
+      onChartSwitch: () => void;
+    };
+    expect(controlsProps.chartMode).toBe('native');
+    expect(controlsProps.isChartSwitchDisabled).toBe(true);
+    controlsProps.onChartSwitch();
+
+    expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+  });
+
   it('toggles indicators directly from the desktop popover', () => {
     const handleIndicatorChange = jest.fn();
     render(
@@ -153,8 +211,58 @@ describe('TradingViewNative chart controls', () => {
     };
     expect(controlsProps.showIndicatorPopover).toBe(true);
 
-    controlsProps.onIndicatorPress({ label: 'EMA', value: 'EMA' });
-    expect(handleIndicatorChange).toHaveBeenCalledWith('EMA', true);
+    controlsProps.onIndicatorPress({ label: 'RSI', value: 'RSI' });
+    expect(handleIndicatorChange).toHaveBeenCalledWith('RSI', true);
+  });
+
+  it('selects subpane indicators from the mobile dialog', () => {
+    const handleIndicatorChange = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={handleIndicatorChange}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      onShowIndicatorsDialog: () => void;
+    };
+    controlsProps.onShowIndicatorsDialog();
+
+    expect(mockDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        testID: 'trading-view-native-indicators-dialog',
+      }),
+    );
+    const dialogConfig = mockDialogShow.mock.calls[0][0];
+    dialogConfig.renderContent.props.onSelect('RSI', true);
+
+    expect(handleIndicatorChange).toHaveBeenCalledWith('RSI', true);
+  });
+
+  it('forwards the sub-indicator cap to the dialog and popover controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        maxNativeSubIndicatorCount={4}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      maxSubIndicatorCount?: number;
+      onShowIndicatorsDialog: () => void;
+    };
+    expect(controlsProps.maxSubIndicatorCount).toBe(4);
+
+    controlsProps.onShowIndicatorsDialog();
+    expect(
+      mockDialogShow.mock.calls[0][0].renderContent.props.maxSubIndicatorCount,
+    ).toBe(4);
   });
 
   it('reports fullscreen state changes through the shared chart controls', () => {
