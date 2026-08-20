@@ -8,6 +8,7 @@ import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/auth
 
 import { ipcMessageKeys } from './config';
 
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
@@ -41,6 +42,7 @@ export interface IVerifyUpdateParams {
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
+  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;
@@ -328,11 +330,17 @@ const desktopApi = {
       };
     },
     onDeviceDisconnected: (
-      callback: (device: { id: string; name: string }) => void,
+      callback: (device: {
+        id: string;
+        name: string;
+        reason?: EBleDisconnectReason;
+      }) => void,
     ) => {
+      // Forward the payload whole so `reason` reaches the transport, which
+      // logs it. It does not gate what happens: every link drop is reported.
       const subscription = (
         _: unknown,
-        device: { id: string; name: string },
+        device: { id: string; name: string; reason?: EBleDisconnectReason },
       ) => {
         callback(device);
       };

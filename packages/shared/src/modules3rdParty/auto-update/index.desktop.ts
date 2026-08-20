@@ -8,19 +8,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { defaultLogger } from '../../logger/logger';
 
 import { electronUpdateListeners } from './electronUpdateListeners';
-
-import type {
-  IAppUpdate,
-  IBundleUpdate,
-  IClearPackage,
-  IDownloadASC,
-  IDownloadPackage,
-  IInstallPackage,
-  IManualInstallPackage,
-  IUpdateDownloadedEvent,
-  IUseDownloadProgress,
-  IVerifyASC,
-  IVerifyPackage,
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+  type IAppUpdate,
+  type IBundleUpdate,
+  type ICheckPackageAvailability,
+  type IClearPackage,
+  type IDownloadASC,
+  type IDownloadPackage,
+  type IInstallPackage,
+  type IManualInstallPackage,
+  type IUpdateDownloadedEvent,
+  type IUseDownloadProgress,
+  type IVerifyASC,
+  type IVerifyPackage,
 } from './type';
 
 const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
@@ -88,33 +90,73 @@ const downloadPackage: IDownloadPackage = async ({
 };
 
 const downloadASC: IDownloadASC = async (params) => {
-  await globalThis.desktopApiProxy.appUpdate.downloadASC({
+  const verified = await globalThis.desktopApiProxy.appUpdate.downloadASC({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
+  if (!verified) {
+    throw new OneKeyLocalError('APP_UPDATE_ASC_DOWNLOAD_FAILED');
+  }
 };
 
 const verifyASC: IVerifyASC = async (params) => {
-  await globalThis.desktopApiProxy.appUpdate.verifyASC({
+  const verified = await globalThis.desktopApiProxy.appUpdate.verifyASC({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
+  if (!verified) {
+    throw new OneKeyLocalError('APP_UPDATE_ASC_VERIFICATION_FAILED');
+  }
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  await globalThis.desktopApiProxy.appUpdate.verifyPackage({
+  const verified = await globalThis.desktopApiProxy.appUpdate.verifyPackage({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
+  if (!verified) {
+    throw new OneKeyLocalError('APP_UPDATE_PACKAGE_VERIFICATION_FAILED');
+  }
 };
 
-const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
+const checkPackageAvailability: ICheckPackageAvailability = async ({
+  downloadedEvent,
+}) =>
+  globalThis.desktopApiProxy.appUpdate.getDownloadedFileAvailability(
+    downloadedEvent?.downloadedFile,
+  );
+
+const installPackage: IInstallPackage = async (params) => {
+  const { downloadedEvent } = params;
   if (!downloadedEvent?.downloadedFile || !downloadedEvent?.downloadUrl) {
-    throw new OneKeyLocalError('NOT_FOUND_PACKAGE');
+    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
   }
-  await globalThis.desktopApiProxy.appUpdate.installPackage({
-    ...downloadedEvent,
-    buildNumber: String(platformEnv.buildNumber || 1),
+  const availability = await checkPackageAvailability(params);
+  if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
+    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+  }
+  if (availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared) {
+    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+  }
+  if (availability.status === EAppUpdatePackageAvailabilityStatus.unavailable) {
+    throw new OneKeyLocalError(
+      `${EAppUpdatePackageErrorCode.packageUnavailable}:${
+        availability.errorCode || 'IO_ERROR'
+      }`,
+    );
+  }
+  return withUpdateError(async () => {
+    const [installStarted] = await Promise.all([
+      globalThis.desktopApiProxy.appUpdate.installPackage({
+        ...downloadedEvent,
+        latestVersion: params.latestVersion,
+        buildNumber: String(platformEnv.buildNumber || 1),
+      }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 3500);
+      }),
+    ]);
+    return installStarted;
   });
 };
 
@@ -162,19 +204,21 @@ const clearPackage: IClearPackage = async () => {
 // Desktop has no standalone APK artifacts (Android-only concept) — no-op.
 const clearApkCache = async (): Promise<void> => {};
 
-const manualInstallPackage: IManualInstallPackage = async (params) =>
-  new Promise((resolve) => {
-    void globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params);
-    setTimeout(() => {
-      resolve();
-    }, 3500);
-  });
+const manualInstallPackage: IManualInstallPackage = async (params) => {
+  await Promise.all([
+    globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 3500);
+    }),
+  ]);
+};
 
 export const AppUpdate: IAppUpdate = {
   downloadPackage,
   verifyPackage,
   verifyASC,
   downloadASC,
+  checkPackageAvailability,
   installPackage,
   manualInstallPackage,
   clearPackage,

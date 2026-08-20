@@ -1,6 +1,7 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 
 export type IPrefType =
   | 'default'
@@ -37,8 +38,16 @@ export type INobleBleApi = {
   onNotification: (
     callback: (deviceId: string, data: string) => void,
   ) => () => void;
+  // Diagnostics only: `reason` records whether the link dropped on its own or
+  // the main process reclaimed an idle one, but every drop is reported the
+  // same way — a link we closed ourselves is still a closed link. Optional,
+  // since an older host bridge omits it.
   onDeviceDisconnected: (
-    callback: (device: { id: string; name: string }) => void,
+    callback: (device: {
+      id: string;
+      name: string;
+      reason?: EBleDisconnectReason;
+    }) => void,
   ) => () => void;
   checkAvailability: () => Promise<{
     available: boolean;

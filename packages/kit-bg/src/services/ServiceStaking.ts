@@ -20,6 +20,7 @@ import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -1560,7 +1561,43 @@ class ServiceStaking extends ServiceBase {
     const response = await client.get<{
       data: IEarnPageBannerListItem[];
     }>('/earn/v1/banner/list');
-    return response.data.data;
+    const list = response.data.data;
+    // Persist so the next cold start paints at the right height instead of
+    // expanding once this request lands (OK-60299).
+    //
+    // Deliberately not awaited. earnExtra runs with enableCache = false, so
+    // setRawData is a full read-modify-write — getItem + JSON.parse of the
+    // whole record, then stringify + setItem, all under the entity's shared
+    // mutex — which on native is real AsyncStorage IO. Awaiting it put that on
+    // the return path of a request the UI is blocked on, once per tab switch
+    // and once per pull-to-refresh. Skipping an unchanged write keeps the
+    // common case off the disk entirely, and off the mutex that
+    // setEthenaKycAddresses and markFirstOperation also queue on.
+    //
+    // Concurrent requests can still land out of order here, so the record may
+    // trail the newest response by one round. That only costs the next cold
+    // start a stale first paint, which the request behind it corrects.
+    void (async () => {
+      try {
+        const previous =
+          await this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
+        if (
+          stringUtils.stableStringify(previous) ===
+          stringUtils.stableStringify(list)
+        ) {
+          return;
+        }
+        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList(list);
+      } catch {
+        // A cache write must never surface to the caller.
+      }
+    })();
+    return list;
+  }
+
+  @backgroundMethod()
+  async getEarnPageBannerListFromCache(): Promise<IEarnPageBannerListItem[]> {
+    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
   }
 
   @backgroundMethod()
