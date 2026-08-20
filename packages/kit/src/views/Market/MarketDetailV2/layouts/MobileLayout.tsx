@@ -409,15 +409,33 @@ export function MobileLayout({
   const dialogRef = useRef<IDialogInstance>(null);
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const { top, right, bottom, left } = useSafeAreaInsets();
   const fullscreenLayout = useMemo(
     () =>
       getTradingViewNativeFullscreenLayout({
-        height: windowHeight,
+        height:
+          isChartFullscreen && containerHeight > 0
+            ? containerHeight
+            : windowHeight,
         insets: { top, right, bottom, left },
-        width: windowWidth,
+        width:
+          isChartFullscreen && containerWidth > 0
+            ? containerWidth
+            : windowWidth,
       }),
-    [bottom, left, right, top, windowHeight, windowWidth],
+    [
+      bottom,
+      containerHeight,
+      containerWidth,
+      isChartFullscreen,
+      left,
+      right,
+      top,
+      windowHeight,
+      windowWidth,
+    ],
   );
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
@@ -432,7 +450,6 @@ export function MobileLayout({
   }, [bottom, top, isIOSModalPage, windowHeight]);
 
   const width = usePageWidth();
-  const [containerWidth, setContainerWidth] = useState<number>(0);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -514,8 +531,18 @@ export function MobileLayout({
   );
 
   const handleContainerLayout = useCallback(
-    (event: { nativeEvent: { layout: { width: number } } }) => {
-      const nextWidth = Math.round(event.nativeEvent.layout.width);
+    (event: {
+      nativeEvent: { layout: { height: number; width: number } };
+    }) => {
+      const { height: nextLayoutHeight, width: nextLayoutWidth } =
+        event.nativeEvent.layout;
+      const nextHeight = Math.round(nextLayoutHeight);
+      const nextWidth = Math.round(nextLayoutWidth);
+      if (nextHeight > 0) {
+        setContainerHeight((prevHeight) =>
+          prevHeight === nextHeight ? prevHeight : nextHeight,
+        );
+      }
       if (nextWidth > 0) {
         setContainerWidth((prevWidth) =>
           prevWidth === nextWidth ? prevWidth : nextWidth,
@@ -965,9 +992,9 @@ export function MobileLayout({
       flex={1}
       position={isChartFullscreen ? 'absolute' : 'relative'}
       top={isChartFullscreen ? 0 : undefined}
+      right={isChartFullscreen ? 0 : undefined}
+      bottom={isChartFullscreen ? 0 : undefined}
       left={isChartFullscreen ? 0 : undefined}
-      w={isChartFullscreen ? fullscreenLayout.fullscreenWidth : undefined}
-      h={isChartFullscreen ? fullscreenLayout.fullscreenHeight : undefined}
       pt={isChartFullscreen ? fullscreenLayout.insets.top : undefined}
       pr={isChartFullscreen ? fullscreenLayout.insets.right : undefined}
       pb={isChartFullscreen ? fullscreenLayout.insets.bottom : undefined}
