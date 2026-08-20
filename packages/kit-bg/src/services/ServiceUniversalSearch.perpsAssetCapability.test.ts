@@ -19,38 +19,6 @@ jest.mock('./ServiceBase', () => ({
 // eslint-disable-next-line import/first
 import ServiceUniversalSearch from './ServiceUniversalSearch';
 
-function buildService(assets: any[]) {
-  const client = {
-    get: jest.fn().mockResolvedValue({ data: { data: assets } }),
-  };
-  const backgroundApi = {
-    simpleDb: {
-      perp: {
-        getTradingUniverse: jest.fn().mockResolvedValue({
-          universesByDex: [
-            [{ name: 'BTC', maxLeverage: 40 }],
-            [
-              { name: 'xyz:AMAT', maxLeverage: 10 },
-              { name: 'xyz:EWJ', maxLeverage: 10 },
-            ],
-            [{ name: 'para:UNITREE', maxLeverage: 5 }],
-          ],
-          updatedAt: Date.now(),
-        }),
-      },
-    },
-    serviceHyperliquid: {
-      refreshTradingMeta: jest.fn(),
-    },
-  };
-  const Ctor = ServiceUniversalSearch as unknown as new (args: {
-    backgroundApi: unknown;
-  }) => ServiceUniversalSearch;
-  const service = new Ctor({ backgroundApi });
-  (service as any).getClient = jest.fn().mockResolvedValue(client);
-  return { service, client };
-}
-
 describe('ServiceUniversalSearch perps asset capability', () => {
   test('requests the dex-aware asset type contract', async () => {
     const client = {
@@ -112,75 +80,66 @@ describe('ServiceUniversalSearch perps asset capability', () => {
       }),
     ]);
   });
+  // Rows the endpoint returns for `usdc` because they are USDC settled, not
+  // because the query matches anything the row displays.
+  const searchAssets = [
+    { type: 'perps', name: 'BTC', subtitle: 'Bitcoin' },
+    { type: 'xyz', name: 'AMAT', subtitle: 'Applied Materials' },
+    { type: 'xyz', name: 'EWJ', subtitle: 'Japan ETF' },
+    { type: 'para', name: 'UNITREE', subtitle: 'Unitree' },
+  ].map((asset) => ({
+    ...asset,
+    logoUrl: 'https://example.com/logo.png',
+    maxLeverage: null,
+    midPx: '1',
+    dayNtlVlm: null,
+  }));
 
-  test('drops rows a short query does not literally match', async () => {
-    const { service } = buildService([
-      {
-        type: 'xyz',
-        logoUrl: 'https://example.com/xyzAMAT.png',
-        name: 'AMAT',
-        maxLeverage: null,
-        midPx: '491',
-        dayNtlVlm: null,
-        subtitle: 'Applied Materials',
+  function buildSearchService() {
+    const backgroundApi = {
+      simpleDb: {
+        perp: {
+          getTradingUniverse: jest.fn().mockResolvedValue({
+            universesByDex: [
+              [{ name: 'BTC', maxLeverage: 40 }],
+              [
+                { name: 'xyz:AMAT', maxLeverage: 10 },
+                { name: 'xyz:EWJ', maxLeverage: 10 },
+              ],
+              [{ name: 'para:UNITREE', maxLeverage: 5 }],
+            ],
+            updatedAt: Date.now(),
+          }),
+        },
       },
-      {
-        type: 'perps',
-        logoUrl: 'https://example.com/BTC.png',
-        name: 'BTC',
-        maxLeverage: 40,
-        midPx: '90000',
-        dayNtlVlm: '1',
-        subtitle: 'Bitcoin',
-      },
-    ]);
+      serviceHyperliquid: { refreshTradingMeta: jest.fn() },
+    };
+    const Ctor = ServiceUniversalSearch as unknown as new (args: {
+      backgroundApi: unknown;
+    }) => ServiceUniversalSearch;
+    const service = new Ctor({ backgroundApi });
+    (service as any).getClient = jest.fn().mockResolvedValue({
+      get: jest.fn().mockResolvedValue({ data: { data: searchAssets } }),
+    });
+    return service;
+  }
 
-    const result = await service.universalSearchOfPerp({ input: 'usdc' });
+  test.each<[string, string[]]>([
+    ['usdc', []],
+    ['btc', ['BTC']],
+    // An exact dex prefix browses that sub-dex, a fragment of one does not.
+    ['xyz', ['AMAT', 'EWJ']],
+    ['ar', []],
+    // Longer and non-ASCII queries stay on the endpoint's own ranking.
+    ['japan', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
+    ['比特币', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
+  ])('keeps the rows a %p query can match', async (input, expected) => {
+    const service = buildSearchService();
 
-    expect(result.items).toEqual([]);
-  });
+    const result = await service.universalSearchOfPerp({ input });
 
-  test('keeps a dex prefix match for a short query', async () => {
-    const { service } = buildService([
-      {
-        type: 'xyz',
-        logoUrl: 'https://example.com/xyzAMAT.png',
-        name: 'AMAT',
-        maxLeverage: null,
-        midPx: '491',
-        dayNtlVlm: null,
-        subtitle: 'Applied Materials',
-      },
-    ]);
-
-    const result = await service.universalSearchOfPerp({ input: 'xyz' });
-
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        payload: expect.objectContaining({ name: 'AMAT', maxLeverage: 10 }),
-      }),
-    ]);
-  });
-
-  test('keeps description matches for a longer query', async () => {
-    const { service } = buildService([
-      {
-        type: 'xyz',
-        logoUrl: 'https://example.com/xyzEWJ.png',
-        name: 'EWJ',
-        maxLeverage: null,
-        midPx: '322',
-        dayNtlVlm: null,
-        subtitle: 'Japan ETF',
-      },
-    ]);
-
-    const result = await service.universalSearchOfPerp({ input: 'japan' });
-
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        payload: expect.objectContaining({ name: 'EWJ' }),
-      }),
-    ]);
+    expect(
+      result.items.map((item) => (item.payload as { name: string }).name),
+    ).toEqual(expected);
   });
 });

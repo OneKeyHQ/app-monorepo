@@ -56,10 +56,10 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 const PERPS_ASSET_TYPE_VERSION = 2;
-// The search index also matches collateral and description text, so `usdc`
-// pulls in every USDC settled market. Only short, ticker shaped queries are
-// held to a literal match; a longer query is where description hits such as
-// `nasdaq` or `japan` are the point.
+// The search index also matches collateral text, so `usdc` returns every
+// USDC settled market. Only short ASCII tickers are held to a literal match:
+// a longer query is where the index's description hits such as `nasdaq` are
+// the point, and a non-ASCII one is where its localized aliases are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
 
 @backgroundClass()
@@ -1299,22 +1299,19 @@ class ServiceUniversalSearch extends ServiceBase {
 
         const normalizedQuery = input.trim().toLowerCase();
         const requiresLiteralMatch =
-          normalizedQuery.length > 0 &&
+          /^[a-z0-9]+$/.test(normalizedQuery) &&
           normalizedQuery.length <= PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH;
 
         const items: IUniversalSearchPerpResult['items'] =
           rawAssets
-            ?.map((asset) => ({
-              asset,
-              coin: buildCoinFromSearchAssetType({
-                assetType: asset.type,
-                name: asset.name,
-              }),
-            }))
-            .filter(({ asset, coin }) => {
+            ?.filter((asset) => {
+              // `asset.type` is the dex prefix, so matching it exactly keeps
+              // `xyz` browsing that sub-dex without a fragment such as `ar`
+              // waving through every `para` row.
               if (
                 requiresLiteralMatch &&
-                ![asset.name, asset.subtitle, coin].some((field) =>
+                asset.type?.toLowerCase() !== normalizedQuery &&
+                ![asset.name, asset.subtitle].some((field) =>
                   field?.toLowerCase().includes(normalizedQuery),
                 )
               ) {
@@ -1326,22 +1323,32 @@ class ServiceUniversalSearch extends ServiceBase {
               if (!tradablePerpMaxLeverage) {
                 return true;
               }
+              const coin = buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              });
               return Boolean(coin && tradablePerpMaxLeverage.has(coin));
             })
-            .map(({ asset, coin }) => ({
-              type: EUniversalSearchType.Perp,
-              payload: {
+            .map((asset) => {
+              const coin = buildCoinFromSearchAssetType({
                 assetType: asset.type,
-                logoUrl: asset.logoUrl,
                 name: asset.name,
-                maxLeverage:
-                  (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
-                  asset.maxLeverage,
-                midPx: asset.midPx,
-                dayNtlVlm: asset.dayNtlVlm,
-                subtitle: asset.subtitle,
-              },
-            })) ?? [];
+              });
+              return {
+                type: EUniversalSearchType.Perp,
+                payload: {
+                  assetType: asset.type,
+                  logoUrl: asset.logoUrl,
+                  name: asset.name,
+                  maxLeverage:
+                    (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
+                    asset.maxLeverage,
+                  midPx: asset.midPx,
+                  dayNtlVlm: asset.dayNtlVlm,
+                  subtitle: asset.subtitle,
+                },
+              };
+            }) ?? [];
 
         return { items };
       } catch (error) {
