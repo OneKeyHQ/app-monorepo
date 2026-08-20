@@ -42,7 +42,16 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
     },
     serviceWalletConnectPay: {
       isPaymentLink: jest.fn(async () => false),
+      supportsDurableProgress: jest.fn(async () => true),
     },
+  },
+}));
+
+// keep the components package out of this suite's import graph; only Toast
+// is consumed by the deeplink module (explicit pay refusal)
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: jest.fn(),
   },
 }));
 
@@ -353,13 +362,23 @@ describe('walletconnect pay deep links', () => {
   // oxlint-disable-next-line @cspell/spellchecker
   const payUrl = 'wc:pay-1@2?relay-protocol=irn&symKey=abc';
   const originalRootAppNavigation = appGlobals.$rootAppNavigation;
-  const mockedIsPaymentLink = (
+  const mockedBackgroundApiProxy = (
     jest.requireMock('../../../../background/instance/backgroundApiProxy') as {
       default: {
-        serviceWalletConnectPay: { isPaymentLink: jest.Mock };
+        walletConnect: { connectToDapp: jest.Mock };
+        serviceWalletConnectPay: {
+          isPaymentLink: jest.Mock;
+          supportsDurableProgress: jest.Mock;
+        };
       };
     }
-  ).default.serviceWalletConnectPay.isPaymentLink;
+  ).default;
+  const mockedIsPaymentLink =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.isPaymentLink;
+  const mockedSupportsDurableProgress =
+    mockedBackgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress;
+  const mockedConnectToDapp =
+    mockedBackgroundApiProxy.walletConnect.connectToDapp;
 
   // deep chains of awaits need more microtask turns than flushAsyncTasks runs
   async function flushDeepAsyncTasks() {
@@ -371,6 +390,7 @@ describe('walletconnect pay deep links', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedIsPaymentLink.mockResolvedValue(true);
+    mockedSupportsDurableProgress.mockResolvedValue(true);
     appGlobals.$rootAppNavigation = undefined;
   });
 
@@ -392,6 +412,26 @@ describe('walletconnect pay deep links', () => {
       screen: EModalWalletConnectPayRoutes.PaymentOptions,
       params: { paymentLink: payUrl },
     });
+  });
+
+  it('refuses the pay link with an explicit toast when durable progress is unsupported', async () => {
+    const pushModal = jest.fn();
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    mockedSupportsDurableProgress.mockResolvedValue(false);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(pushModal).not.toHaveBeenCalled();
+    // the recognized pay URI must be consumed here, never handed to dapp
+    // pairing (pair() rejects pay URIs silently)
+    expect(mockedConnectToDapp).not.toHaveBeenCalled();
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
   });
 
   it('retries a cold-start pay link until root navigation is ready', async () => {
