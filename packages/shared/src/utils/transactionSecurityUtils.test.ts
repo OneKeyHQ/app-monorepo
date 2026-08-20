@@ -6,7 +6,6 @@ import {
   mergeTransactionSecurityResults,
   normalizeTransactionSecurityLevel,
   normalizeTransactionSecurityResult,
-  shouldShowTransactionSecurityFinding,
   sortTransactionSecurityFeatures,
 } from './transactionSecurityUtils';
 
@@ -127,11 +126,7 @@ describe('transactionSecurityUtils', () => {
         level: 'unknown',
         detail: { code: 'unable_to_assess', features: [] },
       });
-      expect(
-        [benign, warning, malicious, unknown].every((result) =>
-          shouldShowTransactionSecurityFinding(result),
-        ),
-      ).toBe(true);
+      expect([benign, warning, malicious, unknown].every(Boolean)).toBe(true);
       expect(hasTransactionSecurityFeatures(benign)).toBe(false);
       expect(hasTransactionSecurityFeatures(malicious)).toBe(true);
     });
@@ -176,6 +171,35 @@ describe('transactionSecurityUtils', () => {
         EHostSecurityLevel.High,
       );
       expect(mergeTransactionSecurityResults([undefined])).toBeUndefined();
+    });
+
+    it('keeps a secondary risk summary when it has no feature rows', () => {
+      const malicious = normalizeTransactionSecurityResult({
+        level: 'high',
+        detail: {
+          code: 'known_malicious_interaction',
+          title: 'Malicious interaction',
+          features: [],
+        },
+      });
+      const warning = normalizeTransactionSecurityResult({
+        level: 'medium',
+        detail: {
+          code: 'untrusted_target_interaction',
+          content: 'Review this transaction before continuing.',
+          features: [],
+        },
+      });
+
+      expect(
+        mergeTransactionSecurityResults([malicious, warning])?.detail.features,
+      ).toEqual([
+        {
+          level: EHostSecurityLevel.Medium,
+          code: 'untrusted_target_interaction',
+          content: 'Review this transaction before continuing.',
+        },
+      ]);
     });
   });
 

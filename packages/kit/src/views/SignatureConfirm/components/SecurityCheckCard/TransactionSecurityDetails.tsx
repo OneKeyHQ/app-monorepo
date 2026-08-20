@@ -27,24 +27,24 @@ function getLevelStyle(level: EHostSecurityLevel): {
   }
   if (level === EHostSecurityLevel.Medium) {
     return {
-      icon: 'InfoSquareSolid',
+      icon: 'InfoSquareOutline',
       iconColor: '$iconCaution',
     };
   }
   if (level === EHostSecurityLevel.Security) {
     return {
-      icon: 'BadgeVerifiedSolid',
+      icon: 'CheckRadioOutline',
       iconColor: '$iconSuccess',
     };
   }
   return {
-    icon: 'InfoCircleOutline',
-    iconColor: '$iconInfo',
+    icon: 'QuestionmarkOutline',
+    iconColor: '$iconSubdued',
   };
 }
 
 function FeatureRow({ feature }: { feature: ITransactionSecurityFeature }) {
-  const title = feature.title?.trim() || feature.address;
+  const title = feature.title?.trim() || feature.address || feature.code;
   if (!title) {
     return null;
   }
@@ -95,7 +95,7 @@ function TransactionSecurityDetails({
           h="$8"
           borderRadius="$full"
           borderWidth={1}
-          borderColor="$caution7"
+          borderColor="$borderSubdued"
           alignItems="center"
           justifyContent="center"
           flexShrink={0}

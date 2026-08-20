@@ -129,12 +129,6 @@ export function sortTransactionSecurityFeatures(
     .map(({ feature }) => feature);
 }
 
-export function shouldShowTransactionSecurityFinding(
-  result?: ITransactionSecurityCheckResult,
-): result is ITransactionSecurityCheckResult {
-  return Boolean(result);
-}
-
 export function hasTransactionSecurityFeatures(
   result?: ITransactionSecurityCheckResult,
 ) {
@@ -168,6 +162,29 @@ export function mergeTransactionSecurityResults(
       seen.add(key);
       features.push(feature);
     });
+
+    if (
+      result !== primary &&
+      result.level !== EHostSecurityLevel.Security &&
+      result.detail.features.length === 0
+    ) {
+      const key = [
+        'summary',
+        result.level,
+        result.detail.code,
+        result.detail.title,
+        result.detail.content ?? '',
+      ].join(':');
+      if (!seen.has(key)) {
+        seen.add(key);
+        features.push({
+          level: result.level,
+          code: result.detail.code,
+          title: result.detail.title,
+          content: result.detail.content,
+        });
+      }
+    }
   });
 
   return {

@@ -59,14 +59,24 @@ export function shouldShowNoIssueSection({
   );
 }
 
-export function shouldShowGenericConfirmationFinding({
-  isConfirmationRequired,
-  hasSpecificConfirmationWarning,
+export function shouldHideGenericPermitAlert({
+  alert,
+  genericPermitAlert,
+  isPermitSignMethod,
+  isSiteVerified,
 }: {
-  isConfirmationRequired?: boolean;
-  hasSpecificConfirmationWarning: boolean;
+  alert: string;
+  genericPermitAlert: string;
+  isPermitSignMethod: boolean;
+  isSiteVerified: boolean;
 }) {
-  return Boolean(isConfirmationRequired && !hasSpecificConfirmationWarning);
+  const normalize = (value: string) =>
+    value.trim().replace(/\s+/g, ' ').toLowerCase();
+  return (
+    isPermitSignMethod &&
+    isSiteVerified &&
+    normalize(alert) === normalize(genericPermitAlert)
+  );
 }
 
 export function getParserAlertDisplay(alert: string) {
@@ -90,38 +100,6 @@ export function getParserAlertDisplay(alert: string) {
   return {
     title: normalizedAlert,
   };
-}
-
-export function isTrustedPermitSign({
-  isPermitSignMethod,
-  isSiteVerified,
-}: {
-  isPermitSignMethod: boolean;
-  isSiteVerified: boolean;
-}) {
-  return isPermitSignMethod && isSiteVerified;
-}
-
-export function shouldHideGenericPermitAlert({
-  alert,
-  genericPermitAlert,
-  isPermitSignMethod,
-  isSiteVerified,
-}: {
-  alert: string;
-  genericPermitAlert: string;
-  isPermitSignMethod: boolean;
-  isSiteVerified: boolean;
-}) {
-  const normalize = (text: string) =>
-    text.trim().replace(/\s+/g, ' ').toLowerCase();
-  const normalizedAlert = normalize(alert);
-
-  return (
-    isTrustedPermitSign({ isPermitSignMethod, isSiteVerified }) &&
-    Boolean(normalizedAlert) &&
-    normalizedAlert === normalize(genericPermitAlert)
-  );
 }
 
 export const SIMULATION_GROUP_FALLBACK_ID = 'asset-changes';

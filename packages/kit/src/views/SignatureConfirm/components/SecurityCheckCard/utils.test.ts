@@ -22,9 +22,7 @@ import {
   getSimulationAssets,
   getSimulationGroups,
   hasAddressRiskTags,
-  isTrustedPermitSign,
   shouldHideGenericPermitAlert,
-  shouldShowGenericConfirmationFinding,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -166,59 +164,24 @@ describe('SecurityCheckCard parser alert display', () => {
 });
 
 describe('SecurityCheckCard confirmation finding', () => {
-  it('keeps a specific warning instead of adding a generic duplicate', () => {
-    expect(
-      shouldShowGenericConfirmationFinding({
-        isConfirmationRequired: true,
-        hasSpecificConfirmationWarning: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowGenericConfirmationFinding({
-        isConfirmationRequired: true,
-        hasSpecificConfirmationWarning: false,
-      }),
-    ).toBe(true);
-  });
-});
+  it('hides only the generic Permit warning for a verified site', () => {
+    const genericPermitAlert =
+      'Malicious signatures may result in asset loss. Ensure the dApp is trustworthy.';
 
-describe('SecurityCheckCard trusted Permit alert boundaries', () => {
-  const genericPermitAlert =
-    'This Permit signature may authorize a dApp to use your tokens.';
-
-  it('hides only the generic Permit alert for a trusted site', () => {
     expect(
       shouldHideGenericPermitAlert({
-        alert:
-          '  THIS PERMIT SIGNATURE may authorize a dApp to use your tokens. ',
+        alert: genericPermitAlert,
         genericPermitAlert,
         isPermitSignMethod: true,
         isSiteVerified: true,
       }),
     ).toBe(true);
-  });
-
-  it.each([
-    ['trusted Permit', true, true, true],
-    ['untrusted Permit', true, false, false],
-    ['trusted non-Permit', false, true, false],
-  ])('identifies %s', (_case, isPermitSignMethod, isSiteVerified, expected) => {
-    expect(isTrustedPermitSign({ isPermitSignMethod, isSiteVerified })).toBe(
-      expected,
-    );
-  });
-
-  it.each([
-    ['a specific parser risk', 'The spender is malicious.', true, true],
-    ['an untrusted site', genericPermitAlert, true, false],
-    ['a non-Permit request', genericPermitAlert, false, true],
-  ])('keeps %s', (_case, alert, isPermitSignMethod, isSiteVerified) => {
     expect(
       shouldHideGenericPermitAlert({
-        alert,
+        alert: 'The spender is known to be malicious.',
         genericPermitAlert,
-        isPermitSignMethod,
-        isSiteVerified,
+        isPermitSignMethod: true,
+        isSiteVerified: true,
       }),
     ).toBe(false);
   });

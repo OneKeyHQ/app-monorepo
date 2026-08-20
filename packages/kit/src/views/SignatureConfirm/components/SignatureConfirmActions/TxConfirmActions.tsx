@@ -87,6 +87,8 @@ import { isGasSponsoredAnalyticsContext } from '../../utils/gasAccountAnalytics'
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
+import type { ISecurityCheckConfirmation } from '../SecurityCheckCard';
+
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
   if (e) {
@@ -118,10 +120,7 @@ type IProps = {
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
-  // External risk signal (e.g. WalletConnect verify-api downgrade). Forces
-  // the take-risk checkbox on top of the decodedTx-level signal so a spoofed
-  // peer can't push through an `eth_sendTransaction` without acknowledgement.
-  forceTakeRiskAlert?: boolean;
+  securityCheckConfirmation: ISecurityCheckConfirmation;
 };
 
 type IGasAccountActionDetails = Omit<
@@ -150,7 +149,7 @@ function TxConfirmActions(props: IProps) {
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
-    forceTakeRiskAlert,
+    securityCheckConfirmation,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -932,11 +931,9 @@ function TxConfirmActions(props: IProps) {
     ],
   );
 
-  const showTakeRiskAlert = useMemo(() => {
-    if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
-    if (forceTakeRiskAlert) return true;
-    return false;
-  }, [decodedTxs, forceTakeRiskAlert]);
+  const isSecurityCheckPending = securityCheckConfirmation === 'pending';
+  const showTakeRiskAlert =
+    !isSecurityCheckPending && securityCheckConfirmation !== 'none';
 
   const isGasAccountQuoteExpired = useMemo(() => {
     if (gasAccountUiState.selectedPayer !== 'gasAccount') {
@@ -1077,6 +1074,8 @@ function TxConfirmActions(props: IProps) {
   const isSubmitDisabled = useMemo(() => {
     if (!txFeeInfoInit || !decodedTxsInit) return true;
 
+    if (isSecurityCheckPending) return true;
+
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
@@ -1102,6 +1101,7 @@ function TxConfirmActions(props: IProps) {
   }, [
     txFeeInfoInit,
     decodedTxsInit,
+    isSecurityCheckPending,
     showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,

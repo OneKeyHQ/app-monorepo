@@ -48,7 +48,10 @@ import {
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import DeFiActionInfo from '../../components/DeFiActionInfo';
-import { SecurityCheckCard } from '../../components/SecurityCheckCard';
+import {
+  SecurityCheckCard,
+  buildSecurityCheckModel,
+} from '../../components/SecurityCheckCard';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
@@ -118,7 +121,7 @@ function TxConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const { urlSecurityInfo, showContinueOperate } = useRiskDetection({
+  const { urlSecurityInfo } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
@@ -444,6 +447,27 @@ function TxConfirm() {
     (!isCurrentTransactionSecurityCheck ||
       isCheckingTransactionSecurity !== false);
 
+  const securityCheckModel = useMemo(
+    () =>
+      buildSecurityCheckModel({
+        kind: 'transaction',
+        origin: sourceInfo?.origin,
+        urlSecurityInfo,
+        decodedTxs,
+        transactionSecurityInfo,
+        isTransactionSecurityPending,
+        intl,
+      }),
+    [
+      decodedTxs,
+      intl,
+      isTransactionSecurityPending,
+      sourceInfo?.origin,
+      transactionSecurityInfo,
+      urlSecurityInfo,
+    ],
+  );
+
   const handleOnClose = (extra?: { flag?: string }) => {
     if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
       dappApprove.reject();
@@ -534,15 +558,10 @@ function TxConfirm() {
           />
         ) : null}
         <SecurityCheckCard
-          kind="transaction"
           requestKey={securityCheckRequestKey}
           requestIdentity={reactiveUnsignedTxs}
-          origin={sourceInfo?.origin}
-          urlSecurityInfo={urlSecurityInfo}
-          decodedTxs={decodedTxs}
           simulationComponents={visibleSimulationComponents}
-          transactionSecurityInfo={transactionSecurityInfo}
-          isTransactionSecurityPending={isTransactionSecurityPending}
+          model={securityCheckModel}
         />
         <TxConfirmDetails
           accountId={accountId}
@@ -572,8 +591,7 @@ function TxConfirm() {
     securityCheckRequestKey,
     reactiveUnsignedTxs,
     visibleSimulationComponents,
-    transactionSecurityInfo,
-    isTransactionSecurityPending,
+    securityCheckModel,
     shouldHideSimulationInDetails,
     unsignedTxs,
     swapInfo,
@@ -642,7 +660,7 @@ function TxConfirm() {
         {...route.params}
         accountId={accountId}
         networkId={networkId}
-        forceTakeRiskAlert={showContinueOperate}
+        securityCheckConfirmation={securityCheckModel.confirmation}
       />
     </Page>
   );

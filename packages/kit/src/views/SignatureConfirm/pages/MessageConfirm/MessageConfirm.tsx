@@ -36,7 +36,10 @@ import {
   shouldHideDAppSiteRiskStyle,
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
-import { SecurityCheckCard } from '../../components/SecurityCheckCard';
+import {
+  SecurityCheckCard,
+  buildSecurityCheckModel,
+} from '../../components/SecurityCheckCard';
 import { MessageConfirmActions } from '../../components/SignatureConfirmActions';
 import { MessageAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
@@ -95,7 +98,6 @@ function MessageConfirm() {
   });
 
   const {
-    showContinueOperate,
     continueOperate,
     setContinueOperate,
     urlSecurityInfo,
@@ -285,6 +287,35 @@ function MessageConfirm() {
     (!isCurrentTransactionSecurityCheck ||
       isCheckingTransactionSecurity !== false);
 
+  const securityCheckModel = useMemo(
+    () =>
+      buildSecurityCheckModel({
+        kind: 'message',
+        origin: sourceInfo?.origin,
+        urlSecurityInfo,
+        messageDisplay: parsedMessage,
+        unsignedMessage,
+        isRiskSignMethod,
+        isConfirmationRequired,
+        isMessageParseFallback,
+        transactionSecurityInfo,
+        isTransactionSecurityPending,
+        intl,
+      }),
+    [
+      intl,
+      isConfirmationRequired,
+      isMessageParseFallback,
+      isRiskSignMethod,
+      isTransactionSecurityPending,
+      parsedMessage,
+      sourceInfo?.origin,
+      transactionSecurityInfo,
+      unsignedMessage,
+      urlSecurityInfo,
+    ],
+  );
+
   const renderMessageConfirmContent = useCallback(() => {
     if (isLoading) {
       return <SignatureConfirmLoading />;
@@ -306,17 +337,8 @@ function MessageConfirm() {
               />
             ) : null}
             <SecurityCheckCard
-              kind="message"
               requestKey={securityCheckRequestKey}
-              origin={sourceInfo?.origin}
-              urlSecurityInfo={urlSecurityInfo}
-              messageDisplay={parsedMessage}
-              unsignedMessage={unsignedMessage}
-              isRiskSignMethod={isRiskSignMethod}
-              isConfirmationRequired={isConfirmationRequired}
-              isMessageParseFallback={isMessageParseFallback}
-              transactionSecurityInfo={transactionSecurityInfo}
-              isTransactionSecurityPending={isTransactionSecurityPending}
+              model={securityCheckModel}
             />
           </>
         ) : null}
@@ -344,15 +366,11 @@ function MessageConfirm() {
     urlSecurityInfo,
     securityCheckRequestKey,
     unsignedMessage,
-    isRiskSignMethod,
     showDAppSiteMark,
     accountId,
     networkId,
     swapInfo,
-    isConfirmationRequired,
-    isMessageParseFallback,
-    transactionSecurityInfo,
-    isTransactionSecurityPending,
+    securityCheckModel,
   ]);
 
   const handleOnClose = useCallback(
@@ -416,12 +434,9 @@ function MessageConfirm() {
         accountId={accountId}
         networkId={networkId}
         unsignedMessage={unsignedMessage}
-        messageDisplay={parsedMessage}
-        showContinueOperate={showContinueOperate}
         continueOperate={continueOperate}
         setContinueOperate={setContinueOperate}
-        urlSecurityInfo={urlSecurityInfo}
-        isConfirmationRequired={isConfirmationRequired}
+        securityCheckConfirmation={securityCheckModel.confirmation}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
         skipBackupCheck={skipBackupCheck}

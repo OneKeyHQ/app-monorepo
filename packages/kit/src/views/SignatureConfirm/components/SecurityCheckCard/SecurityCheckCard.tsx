@@ -1,26 +1,7 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, StyleSheet } from 'react-native';
-import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { StyleSheet } from 'react-native';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -28,156 +9,51 @@ import {
   Badge,
   Button,
   Icon,
-  LinearGradient,
   SizableText,
-  Stack,
+  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  isPrimaryTypeOrderSign,
-  isPrimaryTypePermitSign,
-} from '@onekeyhq/shared/src/signMessage';
-import {
-  hasTransactionSecurityFeatures,
-  shouldShowTransactionSecurityFinding,
-} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
-import {
-  EHostSecurityLevel,
-  type IHostSecurity,
-} from '@onekeyhq/shared/types/discovery';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import {
-  type IDisplayComponentSimulation,
-  type ISignatureConfirmDisplay,
-} from '@onekeyhq/shared/types/signatureConfirm';
-import type { ITransactionSecurityCheckResult } from '@onekeyhq/shared/types/transactionSecurity';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type { IDisplayComponentSimulation } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { showDAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout';
-import { PrimeBadge } from '../../../Prime/components/PrimeUserBadge';
 import { SignatureConfirmTestIDs } from '../../testIDs';
-import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 import { LaserBorder } from '../SignatureConfirmComponents/LaserBorder';
 import { ShimmerSignGuard } from '../SignatureConfirmComponents/ShimmerSignGuard';
 
+import { SECURITY_CHECK_STATUS_WEIGHT } from './securityCheckModel';
 import TransactionPreview from './TransactionPreview';
 import { showTransactionSecurityDetails } from './TransactionSecurityDetails';
-import {
-  getParserAlertDisplay,
-  hasAddressRiskTags,
-  isTrustedPermitSign,
-  shouldHideGenericPermitAlert,
-  shouldShowGenericConfirmationFinding,
-  shouldShowNoIssueSection,
-} from './utils';
 
-type ISecurityCheckKind = 'transaction' | 'message';
-
-type ISecurityCheckCategory = 'site' | 'operation';
-
-type ISecurityCheckStatus =
-  | 'critical'
-  | 'warning'
-  | 'unknown'
-  | 'info'
-  | 'success'
-  | 'loading';
-
-type ISecurityCheckFinding = {
-  id: string;
-  category: ISecurityCheckCategory;
-  status: ISecurityCheckStatus;
-  title: string;
-  description?: string;
-  isPrimeSecurityCheck?: boolean;
-  isPending?: boolean;
-  action?: {
-    label: string;
-    onPress: () => void;
-  };
-};
+import type {
+  ISecurityCheckCategory,
+  ISecurityCheckFinding,
+  ISecurityCheckStatus,
+  ISecurityCheckViewModel,
+} from './securityCheckModel';
 
 type IProps = {
-  kind: ISecurityCheckKind;
   requestKey?: string;
   requestIdentity?: object;
-  origin?: string;
-  urlSecurityInfo?: IHostSecurity;
-  decodedTxs?: IDecodedTx[];
   simulationComponents?: IDisplayComponentSimulation[];
-  messageDisplay?: ISignatureConfirmDisplay;
-  unsignedMessage?: IUnsignedMessage;
-  isRiskSignMethod?: boolean;
-  isConfirmationRequired?: boolean;
-  isMessageParseFallback?: boolean;
-  transactionSecurityInfo?: ITransactionSecurityCheckResult;
-  isTransactionSecurityPending?: boolean;
+  model: ISecurityCheckViewModel;
 };
 
-const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
-
-const STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
-  critical: 5,
-  warning: 4,
-  unknown: 3,
-  info: 2,
-  success: 1,
-  loading: 0,
-};
-
-const STATUS_LABEL_ID: Record<
-  Exclude<ISecurityCheckStatus, 'info'>,
-  ETranslations
-> = {
+const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
   critical: ETranslations.global_risk,
   warning:
     ETranslations.dapp_connect_security_checks_risk_review_required__title,
   unknown: ETranslations.global_unverified,
+  info: ETranslations.global_info,
   success: ETranslations.dapp_connect_security_checks_no_issues_detected__text,
   loading: ETranslations.global_checking,
 };
 
 const SECURITY_CHECK_ACCORDION_VALUE = 'security-check';
 
-const SITE_RISK_FINDING_CONFIG: Partial<
-  Record<
-    EHostSecurityLevel,
-    {
-      id: string;
-      status: ISecurityCheckStatus;
-      titleId: ETranslations;
-    }
-  >
-> = {
-  [EHostSecurityLevel.High]: {
-    id: 'site-high',
-    status: 'critical',
-    titleId: ETranslations.dapp_connect_malicious_site_warning,
-  },
-  [EHostSecurityLevel.Medium]: {
-    id: 'site-medium',
-    status: 'warning',
-    titleId: ETranslations.dapp_connect_suspected_malicious_behavior,
-  },
-};
-
-function shouldExpandByDefault(findings: ISecurityCheckFinding[]) {
-  return findings.some(
-    (finding) =>
-      finding.isPrimeSecurityCheck ||
-      finding.status === 'critical' ||
-      finding.status === 'warning' ||
-      (finding.status === 'unknown' && finding.category !== 'site'),
-  );
-}
-
-function getDefaultAccordionValue(findings: ISecurityCheckFinding[]) {
-  return shouldExpandByDefault(findings)
-    ? [SECURITY_CHECK_ACCORDION_VALUE]
-    : [];
+function getDefaultAccordionValue(defaultExpanded: boolean) {
+  return defaultExpanded ? [SECURITY_CHECK_ACCORDION_VALUE] : [];
 }
 
 function isAccordionValueEqual(a: string[], b: string[]) {
@@ -198,19 +74,25 @@ function getFindingStyle(status: ISecurityCheckStatus): {
   }
   if (status === 'warning') {
     return {
-      icon: 'InfoSquareSolid',
+      icon: 'InfoSquareOutline',
       iconColor: '$iconCaution',
       badgeType: 'warning',
     };
   }
+  if (status === 'unknown') {
+    return {
+      icon: 'QuestionmarkOutline',
+      iconColor: '$iconSubdued',
+      badgeType: 'default',
+    };
+  }
   if (status === 'success') {
     return {
-      icon: 'ScanOutline',
+      icon: 'CheckRadioOutline',
       iconColor: '$iconSuccess',
       badgeType: 'success',
     };
   }
-  // 'unknown' and any other status fall through to the neutral info style.
   return {
     icon: 'InfoCircleOutline',
     iconColor: '$iconInfo',
@@ -218,682 +100,30 @@ function getFindingStyle(status: ISecurityCheckStatus): {
   };
 }
 
-function getSiteFinding({
-  origin,
-  urlSecurityInfo,
-  intl,
-}: {
-  origin?: string;
-  urlSecurityInfo?: IHostSecurity;
-  intl: ReturnType<typeof useIntl>;
-}): ISecurityCheckFinding | undefined {
-  if (!origin || !urlSecurityInfo?.level) {
-    return undefined;
-  }
-
-  const riskFindingConfig = SITE_RISK_FINDING_CONFIG[urlSecurityInfo.level];
-  if (riskFindingConfig) {
-    return {
-      id: riskFindingConfig.id,
-      category: 'site',
-      status: riskFindingConfig.status,
-      title:
-        urlSecurityInfo.alert ||
-        intl.formatMessage({
-          id: riskFindingConfig.titleId,
-        }),
-      action: urlSecurityInfo.detail
-        ? {
-            label: intl.formatMessage({ id: ETranslations.global_details }),
-            onPress: () => {
-              showDAppRiskyAlertDetail({ origin, urlSecurityInfo });
-            },
-          }
-        : undefined,
-    };
-  }
-
-  if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
-    return undefined;
-  }
-
-  return {
-    id: 'site-unknown',
-    category: 'site',
-    status: 'unknown',
-    title: intl.formatMessage({ id: ETranslations.global_unverified }),
-  };
-}
-
-function getDisplayComponents({
-  decodedTxs,
-  messageDisplay,
-}: {
-  decodedTxs?: IDecodedTx[];
-  messageDisplay?: ISignatureConfirmDisplay;
-}) {
-  const txComponents =
-    decodedTxs?.flatMap((decodedTx) => decodedTx.txDisplay?.components ?? []) ??
-    [];
-  return txComponents.concat(messageDisplay?.components ?? []);
-}
-
-function getCoverageTitle({
-  kind,
-  origin,
-  urlSecurityInfo,
-  decodedTxs,
-  messageDisplay,
-  intl,
-}: {
-  kind: ISecurityCheckKind;
-  origin?: string;
-  urlSecurityInfo?: IHostSecurity;
-  decodedTxs?: IDecodedTx[];
-  messageDisplay?: ISignatureConfirmDisplay;
-  intl: ReturnType<typeof useIntl>;
-}) {
-  const labels: string[] = [];
-  if (origin && urlSecurityInfo?.level) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_site_security__title,
-      }),
-    );
-  }
-  if (kind === 'transaction' && decodedTxs?.length) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_transaction_analysis__title,
-      }),
-    );
-  }
-  if (kind === 'message' && messageDisplay) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_signature_analysis__title,
-      }),
-    );
-  }
-  return labels.join(' · ');
-}
-
-function mapHostSecurityLevelToCheckStatus(
-  level: EHostSecurityLevel,
-): ISecurityCheckStatus {
-  if (level === EHostSecurityLevel.High) {
-    return 'critical';
-  }
-  if (level === EHostSecurityLevel.Medium) {
-    return 'warning';
-  }
-  if (level === EHostSecurityLevel.Security) {
-    return 'success';
-  }
-  return 'unknown';
-}
-
-function getTransactionSecurityFinding({
-  kind,
-  transactionSecurityInfo,
-  isPending,
-  intl,
-}: {
-  kind: ISecurityCheckKind;
-  transactionSecurityInfo?: ITransactionSecurityCheckResult;
-  isPending?: boolean;
-  intl: ReturnType<typeof useIntl>;
-}): ISecurityCheckFinding | undefined {
-  if (isPending && !transactionSecurityInfo) {
-    return {
-      id: 'tx-security-loading',
-      category: 'operation',
-      status: 'loading',
-      title: intl.formatMessage({ id: ETranslations.global_checking }),
-      isPrimeSecurityCheck: true,
-      isPending: true,
-    };
-  }
-
-  if (!shouldShowTransactionSecurityFinding(transactionSecurityInfo)) {
-    return undefined;
-  }
-
-  const result = transactionSecurityInfo;
-  let fallbackTitleId =
-    ETranslations.dapp_connect_security_checks_risk_review_required__title;
-  if (result.level === EHostSecurityLevel.Security) {
-    fallbackTitleId =
-      ETranslations.dapp_connect_security_checks_no_issues_detected__text;
-  } else if (result.level === EHostSecurityLevel.Unknown) {
-    fallbackTitleId = ETranslations.global_unverified;
-  }
-  const title =
-    result.detail.title?.trim() || intl.formatMessage({ id: fallbackTitleId });
-  const description =
-    result.level === EHostSecurityLevel.Security
-      ? undefined
-      : result.detail.content?.trim() ||
-        (result.level === EHostSecurityLevel.Unknown
-          ? undefined
-          : intl.formatMessage({
-              id:
-                kind === 'message'
-                  ? ETranslations.dapp_connect_security_checks_signature_review_required__desc
-                  : ETranslations.dapp_connect_security_checks_tx_review_required__desc,
-            }));
-
-  return {
-    id: `tx-security-${result.detail.code}`,
-    category: 'operation',
-    status: mapHostSecurityLevelToCheckStatus(result.level),
-    title,
-    description,
-    isPrimeSecurityCheck: true,
-    action: hasTransactionSecurityFeatures(result)
-      ? {
-          label: intl.formatMessage({ id: ETranslations.global_details }),
-          onPress: () => {
-            showTransactionSecurityDetails({
-              result,
-              title: intl.formatMessage({
-                id: ETranslations.global_details,
-              }),
-            });
-          },
-        }
-      : undefined,
-  };
-}
-
-function getCustomHexFindings({
-  decodedTxs,
-  intl,
-}: {
-  decodedTxs?: IDecodedTx[];
-  intl: ReturnType<typeof useIntl>;
-}): ISecurityCheckFinding[] {
-  const findings: ISecurityCheckFinding[] = [];
-  const seenTitleIds = new Set<ETranslations>();
-  decodedTxs
-    ?.filter((decodedTx) => decodedTx.isCustomHexData)
-    .forEach((decodedTx) => {
-      getCustomHexDataAlertTitleIds(decodedTx).forEach((titleId) => {
-        // These are generic operation warnings, not tx-specific — collapse the
-        // same warning across a batch of custom-hex txs into a single row.
-        if (seenTitleIds.has(titleId)) {
-          return;
-        }
-        seenTitleIds.add(titleId);
-        findings.push({
-          id: `custom-hex-${titleId}`,
-          category: 'operation' as const,
-          status: 'warning' as const,
-          title: intl.formatMessage({ id: titleId }),
-        });
-      });
-    });
-  return findings;
-}
-
-function normalizeAlertText(text?: string) {
-  return text?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
-}
-
-function isEquivalentParserAlert(
-  alert: string,
-  finding: ISecurityCheckFinding,
-) {
-  const normalizedAlert = normalizeAlertText(alert);
-  if (!normalizedAlert) {
-    return false;
-  }
-
-  return [finding.title, finding.description].some((text) => {
-    const normalizedText = normalizeAlertText(text);
-    return normalizedText && normalizedAlert === normalizedText;
-  });
-}
-
-function dedupeAlertTexts(alerts: string[]) {
-  const seen = new Set<string>();
-  return alerts.filter((alert) => {
-    const key = normalizeAlertText(alert);
-    if (!key || seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
-function getOperationFindings({
-  kind,
-  origin,
-  urlSecurityInfo,
-  decodedTxs,
-  messageDisplay,
-  unsignedMessage,
-  isRiskSignMethod,
-  isConfirmationRequired,
-  isMessageParseFallback,
-  isSiteVerified,
-  intl,
-}: {
-  kind: ISecurityCheckKind;
-  origin?: string;
-  urlSecurityInfo?: IHostSecurity;
-  decodedTxs?: IDecodedTx[];
-  messageDisplay?: ISignatureConfirmDisplay;
-  unsignedMessage?: IUnsignedMessage;
-  isRiskSignMethod?: boolean;
-  isConfirmationRequired?: boolean;
-  isMessageParseFallback?: boolean;
-  isSiteVerified: boolean;
-  intl: ReturnType<typeof useIntl>;
-}): ISecurityCheckFinding[] {
-  const findings: ISecurityCheckFinding[] = [];
-  const isPermitSignMethod = Boolean(
-    kind === 'message' &&
-    unsignedMessage &&
-    isPrimaryTypePermitSign({ unsignedMessage }),
-  );
-  const genericPermitAlert = intl.formatMessage({
-    id: ETranslations.dapp_connect_permit_sign_alert,
-  });
-  const shouldHidePermitWarning = isTrustedPermitSign({
-    isPermitSignMethod,
-    isSiteVerified,
-  });
-
-  const parserAlerts =
-    kind === 'transaction'
-      ? (decodedTxs?.flatMap(
-          (decodedTx) => decodedTx.txDisplay?.alerts ?? [],
-        ) ?? [])
-      : (messageDisplay?.alerts ?? []);
-  const validParserAlerts = dedupeAlertTexts(
-    parserAlerts.filter(Boolean),
-  ).filter(
-    (alert) =>
-      !shouldHideGenericPermitAlert({
-        alert,
-        genericPermitAlert,
-        isPermitSignMethod,
-        isSiteVerified,
-      }),
-  );
-  const localMessageFindings: ISecurityCheckFinding[] = [];
-
-  if (kind === 'message' && unsignedMessage) {
-    const isTypedData =
-      unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
-      unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-    const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
-
-    if (isTypedData) {
-      if (isPermitSignMethod && !shouldHidePermitWarning) {
-        localMessageFindings.push({
-          id: 'message-permit',
-          category: 'operation',
-          status: 'warning',
-          title: intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks_permit_signature_request__title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.dapp_connect_permit_sign_alert,
-          }),
-        });
-      } else if (isOrderSignMethod) {
-        localMessageFindings.push({
-          id: 'message-order',
-          category: 'operation',
-          status: 'warning',
-          title: intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks_order_signature_request__title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
-          }),
-        });
-      } else if (!isPermitSignMethod) {
-        localMessageFindings.push({
-          id: 'message-typed-data',
-          category: 'operation',
-          status: isRiskSignMethod ? 'warning' : 'info',
-          title: intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks_typed_data_signature_request__title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks_typed_data_signature_request__desc,
-          }),
-        });
-      }
-    }
-
-    if (isRiskSignMethod && !isTypedData) {
-      localMessageFindings.push({
-        id: 'message-risk-sign-method',
-        category: 'operation',
-        status: 'critical',
-        title: intl.formatMessage({
-          id: ETranslations.dapp_connect_security_checks_risky_signature_method__title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.dapp_connect_risk_sign,
-        }),
-      });
-    }
-  }
-
-  // Locally-derived operation findings that a server parser alert may restate;
-  // used to drop duplicate parser alerts, and appended to `findings` below.
-  const customHexFindings = getCustomHexFindings({ decodedTxs, intl });
-  const localOperationFindings = [
-    ...localMessageFindings,
-    ...customHexFindings,
-  ];
-
-  validParserAlerts
-    .filter(
-      (alert) =>
-        !localOperationFindings.some((finding) =>
-          isEquivalentParserAlert(alert, finding),
-        ),
-    )
-    .forEach((alert, index) => {
-      const { title, description } = getParserAlertDisplay(alert);
-      findings.push({
-        id: `parser-alert-${index}-${alert}`,
-        category: 'operation',
-        status: 'warning',
-        title,
-        description,
-      });
-    });
-
-  if (
-    kind === 'transaction' &&
-    decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
-  ) {
-    findings.push({
-      id: 'tx-confirmation-required',
-      category: 'operation',
-      status: 'warning',
-      title: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_tx_review_required__desc,
-      }),
-    });
-  }
-
-  const hasSpecificConfirmationWarning =
-    isPermitSignMethod ||
-    localMessageFindings.some(
-      (finding) =>
-        finding.status === 'critical' || finding.status === 'warning',
-    );
-  if (
-    kind === 'message' &&
-    !shouldHidePermitWarning &&
-    shouldShowGenericConfirmationFinding({
-      isConfirmationRequired,
-      hasSpecificConfirmationWarning,
-    })
-  ) {
-    findings.push({
-      id: 'message-confirmation-required',
-      category: 'operation',
-      status: 'warning',
-      title: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_signature_review_required__desc,
-      }),
-    });
-  }
-
-  findings.push(...localMessageFindings);
-
-  if (kind === 'message' && isMessageParseFallback) {
-    findings.push({
-      id: 'message-parse-fallback',
-      category: 'operation',
-      status: 'unknown',
-      title: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_review_raw_message_data__title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.dapp_connect_security_checks_review_raw_message_data__desc,
-      }),
-    });
-  }
-
-  // Locally parsed txs carry no server-side analysis (alerts are hard-coded
-  // empty), so surface an explicit "Unverified" row instead of silently
-  // rendering nothing. Scoped to dApp requests (`origin`): wallet-built flows
-  // (batch swaps, custom networks) always local-parse by design and never
-  // showed a security verdict, so an unverified row there would be pure noise.
-  // Exception: `hasServerSecurityAnalysis` (scaled-UI forced-local path) —
-  // the server parse DID run and its alerts were retained, so it is not
-  // actually unverified.
-  if (
-    kind === 'transaction' &&
-    origin &&
-    decodedTxs?.some(
-      (decodedTx) =>
-        decodedTx.isLocalParsed && !decodedTx.hasServerSecurityAnalysis,
-    )
-  ) {
-    findings.push({
-      id: 'tx-parse-fallback',
-      category: 'operation',
-      status: 'unknown',
-      title: intl.formatMessage({ id: ETranslations.global_unverified }),
-    });
-  }
-
-  findings.push(...customHexFindings);
-
-  return findings;
-}
-
-function dedupeFindings(findings: ISecurityCheckFinding[]) {
-  const seen = new Set<string>();
-  return findings.filter((finding) => {
-    const key = finding.id;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
-function sortFindingsByStatus(findings: ISecurityCheckFinding[]) {
-  return [...findings].toSorted((a, b) => {
-    if (a.isPrimeSecurityCheck !== b.isPrimeSecurityCheck) {
-      return a.isPrimeSecurityCheck ? -1 : 1;
-    }
-    return STATUS_WEIGHT[b.status] - STATUS_WEIGHT[a.status];
-  });
-}
-
-function getHighestStatusWeight(findings: ISecurityCheckFinding[]) {
-  return findings.reduce(
-    (weight, finding) => Math.max(weight, STATUS_WEIGHT[finding.status]),
-    0,
-  );
-}
-
-function getCategoryLabel({
-  category,
-  kind,
-  intl,
-}: {
-  category: ISecurityCheckCategory;
-  kind: ISecurityCheckKind;
-  intl: ReturnType<typeof useIntl>;
-}) {
-  if (category === 'site') {
-    return intl.formatMessage({ id: ETranslations.global_website });
-  }
-  return intl.formatMessage({
-    id:
-      kind === 'message'
-        ? ETranslations.dapp_connect_signature_analysis__title
-        : ETranslations.dapp_connect_transaction_analysis__title,
-  });
-}
-
-function getCategorySourceLabel({
-  category,
-  kind,
-  intl,
-}: {
-  category: ISecurityCheckCategory;
-  kind: ISecurityCheckKind;
-  intl: ReturnType<typeof useIntl>;
-}) {
-  let id = ETranslations.dapp_connect_transaction_analysis__title;
-  if (category === 'site') {
-    id = ETranslations.dapp_connect_site_security__title;
-  } else if (kind === 'message') {
-    id = ETranslations.dapp_connect_signature_analysis__title;
-  }
-  return intl.formatMessage({ id });
-}
-
-const PRIME_SCAN_BAND = 48;
-const PRIME_SCAN_SWEEP_MS = 1000;
-const PRIME_SCAN_PAUSE_MS = 1400;
-const PRIME_SCAN_START = -PRIME_SCAN_BAND;
-
-function PrimeSecurityCheckLoading() {
-  const intl = useIntl();
-  const reducedMotion = useReducedMotion();
-  const [width, setWidth] = useState(0);
-  const translateX = useSharedValue(PRIME_SCAN_START);
-
-  useEffect(() => {
-    if (reducedMotion || width <= 0) {
-      cancelAnimation(translateX);
-      translateX.value = PRIME_SCAN_START;
-      return undefined;
-    }
-    translateX.value = PRIME_SCAN_START;
-    translateX.value = withRepeat(
-      withSequence(
-        withTiming(width + PRIME_SCAN_BAND, {
-          duration: PRIME_SCAN_SWEEP_MS,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withDelay(
-          PRIME_SCAN_PAUSE_MS,
-          withTiming(PRIME_SCAN_START, { duration: 0 }),
-        ),
-      ),
-      -1,
-      false,
-    );
-    return () => cancelAnimation(translateX);
-  }, [reducedMotion, translateX, width]);
-
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextWidth = Math.round(event.nativeEvent.layout.width);
-    setWidth((currentWidth) =>
-      currentWidth === nextWidth ? currentWidth : nextWidth,
-    );
-  }, []);
-
-  const scanStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  return (
-    <XStack
-      testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-prime-loading`}
-      gap="$2.5"
-      alignItems="flex-start"
-    >
-      <YStack
-        w="$5"
-        h="$5"
-        alignItems="center"
-        justifyContent="center"
-        flexShrink={0}
-      >
-        <Icon name="ScanOutline" size="$5" color="$iconSubdued" />
-      </YStack>
-      <YStack gap="$1" flex={1} minWidth={0}>
-        <XStack gap="$2" alignItems="center">
-          <SizableText size="$bodyMdMedium" flexShrink={1}>
-            {intl.formatMessage({
-              id: ETranslations.prime_feature_transaction_security_check__title,
-            })}
-          </SizableText>
-          <PrimeBadge />
-        </XStack>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
-          {intl.formatMessage({
-            id: ETranslations.prime_feature_transaction_security_check__desc,
-          })}
-        </SizableText>
-        <XStack
-          position="relative"
-          overflow="hidden"
-          h="$1.5"
-          gap="$2"
-          mt="$0.5"
-          onLayout={handleLayout}
-        >
-          <Stack h="$1.5" w="38%" borderRadius="$full" bg="$neutral4" />
-          <Stack h="$1.5" flex={1} borderRadius="$full" bg="$neutral4" />
-          {reducedMotion ? null : (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: 'absolute',
-                  top: 0,
-                  bottom: 0,
-                  width: PRIME_SCAN_BAND,
-                },
-                scanStyle,
-              ]}
-            >
-              <LinearGradient
-                colors={[
-                  'transparent',
-                  'rgba(128,128,128,0.18)',
-                  'transparent',
-                ]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={{ flex: 1 }}
-              />
-            </Animated.View>
-          )}
-        </XStack>
-      </YStack>
-    </XStack>
-  );
-}
-
 function SecurityCheckFindingRow({
   finding,
 }: {
   finding: ISecurityCheckFinding;
 }) {
-  if (finding.isPrimeSecurityCheck && finding.isPending) {
-    return <PrimeSecurityCheckLoading />;
-  }
-
+  const intl = useIntl();
   const style = getFindingStyle(finding.status);
-  const findingRow = (
+  const handleDetails = useCallback(() => {
+    if (finding.action?.type === 'site') {
+      showDAppRiskyAlertDetail({
+        origin: finding.action.origin,
+        urlSecurityInfo: finding.action.urlSecurityInfo,
+      });
+      return;
+    }
+    if (finding.action?.type === 'transactionSecurity') {
+      showTransactionSecurityDetails({
+        result: finding.action.result,
+        title: intl.formatMessage({ id: ETranslations.global_details }),
+      });
+    }
+  }, [finding.action, intl]);
+
+  return (
     <XStack gap="$2.5" alignItems="flex-start">
       <YStack
         w="$5"
@@ -906,23 +136,18 @@ function SecurityCheckFindingRow({
       </YStack>
       <YStack gap="$1" flex={1} minWidth={0}>
         <XStack gap="$2" alignItems="flex-start" justifyContent="space-between">
-          <XStack flex={1} minWidth={0} gap="$2" alignItems="center">
-            <SizableText size="$bodyMdMedium" flexShrink={1}>
-              {finding.title}
-            </SizableText>
-            {finding.isPrimeSecurityCheck ? (
-              <PrimeBadge showIcon={false} />
-            ) : null}
-          </XStack>
+          <SizableText size="$bodyMdMedium" flex={1} flexShrink={1}>
+            {finding.title}
+          </SizableText>
           {finding.action ? (
             <Button
               testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-details`}
               size="small"
               variant="tertiary"
               flexShrink={0}
-              onPress={finding.action.onPress}
+              onPress={handleDetails}
             >
-              {finding.action.label}
+              {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
           ) : null}
         </XStack>
@@ -934,31 +159,37 @@ function SecurityCheckFindingRow({
       </YStack>
     </XStack>
   );
-
-  return findingRow;
 }
 
 function SecurityCheckCategoryGroup({
   category,
-  kind,
-  findings,
-  intl,
+  model,
   showLabel,
 }: {
   category: ISecurityCheckCategory;
-  kind: ISecurityCheckKind;
-  findings: ISecurityCheckFinding[];
-  intl: ReturnType<typeof useIntl>;
+  model: ISecurityCheckViewModel;
   showLabel: boolean;
 }) {
+  const intl = useIntl();
+  const findings = model.groupedFindings[category];
   if (!findings.length) {
     return null;
   }
+  const label =
+    category === 'site'
+      ? intl.formatMessage({ id: ETranslations.global_website })
+      : intl.formatMessage({
+          id:
+            model.kind === 'message'
+              ? ETranslations.dapp_connect_signature_analysis__title
+              : ETranslations.dapp_connect_transaction_analysis__title,
+        });
+
   return (
     <YStack gap="$2.5">
       {showLabel ? (
         <SizableText size="$bodySmMedium" color="$textSubdued">
-          {getCategoryLabel({ category, kind, intl })}
+          {label}
         </SizableText>
       ) : null}
       <YStack gap="$3">
@@ -970,143 +201,25 @@ function SecurityCheckCategoryGroup({
   );
 }
 
-function SecurityCheckCard(props: IProps) {
-  const {
-    kind,
-    requestKey,
-    requestIdentity,
-    origin,
-    urlSecurityInfo,
-    decodedTxs,
-    simulationComponents,
-    messageDisplay,
-    unsignedMessage,
-    isRiskSignMethod,
-    isConfirmationRequired,
-    isMessageParseFallback,
-    transactionSecurityInfo,
-    isTransactionSecurityPending,
-  } = props;
+function SecurityCheckCard({
+  requestKey,
+  requestIdentity,
+  simulationComponents,
+  model,
+}: IProps) {
   const intl = useIntl();
-
-  const hasAddressRisk = useMemo(
-    () =>
-      hasAddressRiskTags(
-        getDisplayComponents({
-          decodedTxs,
-          messageDisplay,
-        }),
-      ),
-    [decodedTxs, messageDisplay],
-  );
-
-  const findings = useMemo(
-    () =>
-      dedupeFindings([
-        ...[
-          getSiteFinding({
-            origin,
-            urlSecurityInfo,
-            intl,
-          }),
-        ].filter(Boolean),
-        ...[
-          getTransactionSecurityFinding({
-            kind,
-            transactionSecurityInfo,
-            isPending: isTransactionSecurityPending,
-            intl,
-          }),
-        ].filter(Boolean),
-        ...getOperationFindings({
-          kind,
-          origin,
-          urlSecurityInfo,
-          decodedTxs,
-          messageDisplay,
-          unsignedMessage,
-          isRiskSignMethod,
-          isConfirmationRequired,
-          isMessageParseFallback,
-          isSiteVerified:
-            urlSecurityInfo?.level === EHostSecurityLevel.Security,
-          intl,
-        }),
-      ] as ISecurityCheckFinding[]),
-    [
-      decodedTxs,
-      intl,
-      isConfirmationRequired,
-      isMessageParseFallback,
-      isRiskSignMethod,
-      isTransactionSecurityPending,
-      kind,
-      messageDisplay,
-      origin,
-      transactionSecurityInfo,
-      unsignedMessage,
-      urlSecurityInfo,
-    ],
-  );
-
-  const hasResolvedRequiredChecks = useMemo(() => {
-    if (!origin) {
-      return false;
-    }
-    const siteResolved = Boolean(urlSecurityInfo?.level);
-    // A locally parsed tx only proves the local decoder ran — the server-side
-    // security analysis (parser alerts, address risk) never happened, so it
-    // must not count as a resolved check (would show a false "No issues").
-    // Exception: `hasServerSecurityAnalysis` (scaled-UI forced-local path) —
-    // the server parse DID run, so that tx counts as resolved.
-    const operationResolved =
-      kind === 'transaction'
-        ? Boolean(decodedTxs?.length) &&
-          !decodedTxs?.some(
-            (decodedTx) =>
-              decodedTx.isLocalParsed && !decodedTx.hasServerSecurityAnalysis,
-          )
-        : Boolean(messageDisplay) && !isMessageParseFallback;
-    return siteResolved && operationResolved;
-  }, [
-    decodedTxs,
-    isMessageParseFallback,
-    kind,
-    messageDisplay,
-    origin,
-    urlSecurityInfo?.level,
-  ]);
-
-  const highestStatus = useMemo(() => {
-    if (!findings.length) {
-      return undefined;
-    }
-    return findings
-      .slice(1)
-      .reduce<ISecurityCheckStatus>(
-        (status, finding) =>
-          STATUS_WEIGHT[finding.status] > STATUS_WEIGHT[status]
-            ? finding.status
-            : status,
-        findings[0].status,
-      );
-  }, [findings]);
-
   const [accordionValue, setAccordionValue] = useState<string[]>(() =>
-    getDefaultAccordionValue(findings),
+    getDefaultAccordionValue(model.defaultExpanded),
   );
-  // Keep the render key compact while tracking transaction revisions by
-  // reference. Some cross-chain encoded payloads are too large to stringify
-  // synchronously just to detect an updated review request.
   const effectiveRequestIdentity = requestIdentity ?? requestKey;
   const hasUserChangedAccordionRef = useRef(false);
   const previousRequestIdentityRef = useRef(effectiveRequestIdentity);
   const previousHighestStatusWeightRef = useRef(0);
+  const highestStatusWeight = model.status
+    ? SECURITY_CHECK_STATUS_WEIGHT[model.status]
+    : 0;
 
   useLayoutEffect(() => {
-    const highestStatusWeight = highestStatus
-      ? STATUS_WEIGHT[highestStatus]
-      : 0;
     const didRequestChange = !Object.is(
       previousRequestIdentityRef.current,
       effectiveRequestIdentity,
@@ -1116,7 +229,6 @@ function SecurityCheckCard(props: IProps) {
       hasUserChangedAccordionRef.current = false;
       previousHighestStatusWeightRef.current = 0;
     }
-
     const didRiskUpgrade =
       highestStatusWeight > previousHighestStatusWeightRef.current;
 
@@ -1125,7 +237,7 @@ function SecurityCheckCard(props: IProps) {
       !hasUserChangedAccordionRef.current ||
       didRiskUpgrade
     ) {
-      const nextValue = getDefaultAccordionValue(findings);
+      const nextValue = getDefaultAccordionValue(model.defaultExpanded);
       setAccordionValue((currentValue) =>
         isAccordionValueEqual(currentValue, nextValue)
           ? currentValue
@@ -1133,105 +245,62 @@ function SecurityCheckCard(props: IProps) {
       );
     }
 
-    // Track the high-water mark so a transient dip-and-recover of the same
-    // finding (e.g. a re-decode momentarily clearing findings) doesn't read as
-    // a risk upgrade and re-open a card the user deliberately collapsed.
     previousHighestStatusWeightRef.current = Math.max(
       previousHighestStatusWeightRef.current,
       highestStatusWeight,
     );
-  }, [effectiveRequestIdentity, findings, highestStatus]);
+  }, [effectiveRequestIdentity, highestStatusWeight, model.defaultExpanded]);
 
   const handleAccordionValueChange = useCallback((value: string[]) => {
     hasUserChangedAccordionRef.current = true;
     setAccordionValue(value);
   }, []);
 
-  const groupedFindings = useMemo(
-    () => ({
-      site: sortFindingsByStatus(
-        findings.filter((finding) => finding.category === 'site'),
-      ),
-      operation: sortFindingsByStatus(
-        findings.filter((finding) => finding.category === 'operation'),
-      ),
-    }),
-    [findings],
-  );
-
-  const orderedCategories = useMemo(
-    () =>
-      CATEGORY_ORDER.filter(
-        (category) => groupedFindings[category].length > 0,
-      ).toSorted((a, b) => {
-        const weightDiff =
-          getHighestStatusWeight(groupedFindings[b]) -
-          getHighestStatusWeight(groupedFindings[a]);
-        if (weightDiff !== 0) {
-          return weightDiff;
-        }
-        return CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b);
-      }),
-    [groupedFindings],
-  );
-
-  const coverageTitle = useMemo(
-    () =>
-      getCoverageTitle({
-        kind,
-        origin,
-        urlSecurityInfo,
-        decodedTxs,
-        messageDisplay,
-        intl,
-      }),
-    [decodedTxs, intl, kind, messageDisplay, origin, urlSecurityInfo],
-  );
-
-  const highestStatusSourceTitle = useMemo(() => {
-    if (!highestStatus) {
-      return '';
-    }
-    // Risk-state subtitles name only the categories contributing to the
-    // visible badge. The success state keeps the full resolved coverage.
-    return CATEGORY_ORDER.filter((category) =>
-      findings.some(
-        (finding) =>
-          finding.category === category && finding.status === highestStatus,
-      ),
-    )
-      .map((category) => getCategorySourceLabel({ category, kind, intl }))
-      .join(' · ');
-  }, [findings, highestStatus, intl, kind]);
-
-  const hasNoCardFindings = findings.length === 0;
-
-  const renderSummary = useCallback(() => {
-    if (!highestStatus || highestStatus === 'info') {
-      return null;
-    }
-    const style = getFindingStyle(highestStatus);
-    const title = intl.formatMessage({
-      id: STATUS_LABEL_ID[highestStatus],
-    });
-    return (
-      <XStack gap="$2" alignItems="center" flexShrink={0}>
-        <Badge badgeType={style.badgeType} badgeSize="sm">
-          {title}
-        </Badge>
-      </XStack>
-    );
-  }, [highestStatus, intl]);
-
   const hasAssets = (simulationComponents ?? []).some(
     (component) => component.assets.length > 0,
   );
-
+  const hasFindings = model.findings.length > 0;
   const headerTitle = intl.formatMessage({
     id: ETranslations.dapp_connect_security_checks__title,
   });
 
-  const findingsSection = !hasNoCardFindings ? (
+  const renderHeaderTitle = () => (
+    <SizableText size="$bodyMdMedium" numberOfLines={2} textAlign="left">
+      {headerTitle}
+    </SizableText>
+  );
+
+  const renderSummary = () => {
+    if (!model.status) {
+      return null;
+    }
+    if (model.status === 'loading') {
+      return (
+        <XStack
+          testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-loading`}
+          alignItems="center"
+          gap="$1.5"
+          flexShrink={0}
+        >
+          <Spinner size="small" color="$iconSubdued" />
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_checking })}
+          </SizableText>
+        </XStack>
+      );
+    }
+    const style = getFindingStyle(model.status);
+    return (
+      <XStack gap="$2" alignItems="center" flexShrink={0}>
+        {model.isPending ? <Spinner size="small" color="$iconSubdued" /> : null}
+        <Badge badgeType={style.badgeType} badgeSize="sm">
+          {intl.formatMessage({ id: STATUS_LABEL_ID[model.status] })}
+        </Badge>
+      </XStack>
+    );
+  };
+
+  const findingsSection = hasFindings ? (
     <Accordion
       type="multiple"
       collapsable
@@ -1250,12 +319,8 @@ function SecurityCheckCard(props: IProps) {
           py="$2.5"
           borderWidth={0}
           bg="$transparent"
-          hoverStyle={{
-            bg: '$neutral3',
-          }}
-          pressStyle={{
-            bg: '$neutral3',
-          }}
+          hoverStyle={{ bg: '$neutral3' }}
+          pressStyle={{ bg: '$neutral3' }}
           focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,
@@ -1266,21 +331,15 @@ function SecurityCheckCard(props: IProps) {
           {({ open }: { open: boolean }) => (
             <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
               <YStack flex={1} minWidth={0} gap="$0.5">
-                <SizableText
-                  size="$bodyMdMedium"
-                  numberOfLines={2}
-                  textAlign="left"
-                >
-                  {headerTitle}
-                </SizableText>
-                {highestStatusSourceTitle ? (
+                {renderHeaderTitle()}
+                {model.statusSourceTitle ? (
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
                     numberOfLines={2}
                     textAlign="left"
                   >
-                    {highestStatusSourceTitle}
+                    {model.statusSourceTitle}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -1299,14 +358,12 @@ function SecurityCheckCard(props: IProps) {
         </Accordion.Trigger>
         <Accordion.Content unstyled px="$3" pb="$3" pt="$0" bg="$transparent">
           <YStack gap="$3.5" pt="$3">
-            {orderedCategories.map((category) => (
+            {model.orderedCategories.map((category) => (
               <SecurityCheckCategoryGroup
                 key={category}
                 category={category}
-                kind={kind}
-                findings={groupedFindings[category]}
-                intl={intl}
-                showLabel={orderedCategories.length > 1}
+                model={model}
+                showLabel={model.orderedCategories.length > 1}
               />
             ))}
           </YStack>
@@ -1315,53 +372,34 @@ function SecurityCheckCard(props: IProps) {
     </Accordion>
   ) : null;
 
-  // Address risk stays next to the relevant address instead of becoming a card
-  // finding. Suppress the global success row when such a tag exists so the
-  // card cannot claim "No issues" above a risky address.
-  const shouldShowNoIssue = shouldShowNoIssueSection({
-    hasCardFindings: !hasNoCardFindings,
-    hasAddressRisk,
-    hasResolvedRequiredChecks,
-    hasCoverageTitle: Boolean(coverageTitle),
-    isTransactionSecurityPending,
-  });
-  const noIssueSection = shouldShowNoIssue ? (
-    <XStack alignItems="center" gap="$2" px="$3" py="$2.5">
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyMdMedium" numberOfLines={2}>
-          {headerTitle}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
-          {coverageTitle}
-        </SizableText>
-      </YStack>
-      <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
-        {intl.formatMessage({
-          id: ETranslations.dapp_connect_security_checks_no_issues_detected__text,
-        })}
-      </Badge>
-    </XStack>
-  ) : null;
+  const staticSection =
+    !hasFindings && (model.status === 'loading' || model.shouldShowNoIssue) ? (
+      <XStack alignItems="center" gap="$2" px="$3" py="$2.5">
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          {renderHeaderTitle()}
+          {model.statusSourceTitle ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
+              {model.statusSourceTitle}
+            </SizableText>
+          ) : null}
+        </YStack>
+        {renderSummary()}
+      </XStack>
+    ) : null;
 
-  const securitySection = findingsSection ?? noIssueSection;
+  const securitySection = findingsSection ?? staticSection;
   const showSignGuardFooter =
-    hasNoCardFindings ||
-    accordionValue.includes(SECURITY_CHECK_ACCORDION_VALUE);
-  const hasPrimeSecurityCheck = findings.some(
-    (finding) => finding.isPrimeSecurityCheck,
-  );
+    !hasFindings || accordionValue.includes(SECURITY_CHECK_ACCORDION_VALUE);
 
   if (!hasAssets && !securitySection) {
     return null;
   }
 
-  // Keep one motion focal point: when Prime owns the security feedback, the
-  // simulation border and provider mark stay static.
   return (
     <LaserBorder
       key={requestKey}
       borderRadius={12}
-      glow={hasAssets && !hasPrimeSecurityCheck}
+      glow={hasAssets}
       borderColor="$neutral4"
     >
       <YStack testID={SignatureConfirmTestIDs.SecurityCheckCard}>
@@ -1382,10 +420,6 @@ function SecurityCheckCard(props: IProps) {
             />
           </YStack>
         ) : null}
-        {/* SignGuard signs the whole report from a fixed footer slot so the
-            header rows stay free for the title and the risk summary badge.
-            No divider on purpose: a full-width hairline over a lone mark reads
-            as an empty compartment — the powered-by prefix gives it context. */}
         {showSignGuardFooter ? (
           <XStack
             justifyContent="flex-end"
@@ -1397,7 +431,7 @@ function SecurityCheckCard(props: IProps) {
             <SizableText size="$bodySmMedium" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_power_by })}
             </SizableText>
-            <ShimmerSignGuard animate={!hasPrimeSecurityCheck} />
+            <ShimmerSignGuard />
           </XStack>
         ) : null}
       </YStack>

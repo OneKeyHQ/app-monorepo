@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import Animated, {
   Easing,
-  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -18,7 +17,7 @@ import SignGuardIcon from '../SimilarAddressDialog/SignGuardIcon';
 const ICON_WIDTH = 80;
 const SHIMMER_BAND = 24;
 
-function ShimmerSignGuard({ animate = true }: { animate?: boolean }) {
+function ShimmerSignGuard() {
   const reducedMotion = useReducedMotion();
   const translate = useSharedValue(-SHIMMER_BAND);
   const END = ICON_WIDTH + SHIMMER_BAND;
@@ -27,10 +26,8 @@ function ShimmerSignGuard({ animate = true }: { animate?: boolean }) {
   const SLOW = 1500;
 
   useEffect(() => {
-    if (reducedMotion || !animate) {
-      cancelAnimation(translate);
-      translate.value = START;
-      return undefined;
+    if (reducedMotion) {
+      return;
     }
     const sweep = (v: number, d: number) =>
       withTiming(v, { duration: d, easing: Easing.inOut(Easing.sin) });
@@ -46,8 +43,7 @@ function ShimmerSignGuard({ animate = true }: { animate?: boolean }) {
         withDelay(200, sweep(END, SLOW)),
       ),
     );
-    return () => cancelAnimation(translate);
-  }, [translate, END, START, FAST, SLOW, reducedMotion, animate]);
+  }, [translate, END, START, FAST, SLOW, reducedMotion]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translate.value }],
@@ -56,7 +52,7 @@ function ShimmerSignGuard({ animate = true }: { animate?: boolean }) {
   return (
     <Stack style={{ width: ICON_WIDTH, height: 14, overflow: 'hidden' }}>
       <SignGuardIcon width={ICON_WIDTH} height={14} />
-      {reducedMotion || !animate ? null : (
+      {reducedMotion ? null : (
         <Animated.View
           style={[
             {
