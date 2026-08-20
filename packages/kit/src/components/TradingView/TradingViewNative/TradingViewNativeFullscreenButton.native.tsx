@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { IconButton, useSafeAreaInsets } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../TradingViewChartControls/utils/NativeChartControlsShared';
@@ -16,19 +16,16 @@ export function TradingViewNativeFullscreenButton({
   visibleSubIndicatorCount,
 }: ITradingViewNativeFullscreenButtonProps) {
   const intl = useIntl();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
 
   return (
     <IconButton
       testID="trading-view-native-fullscreen-toggle"
       position="absolute"
       left="$8"
-      bottom={
-        getTradingViewNativeFullscreenButtonBottom({
-          chartHeight,
-          paneCount: visibleSubIndicatorCount,
-        }) + (isFullscreen ? safeAreaBottom : 0)
-      }
+      bottom={getTradingViewNativeFullscreenButtonBottom({
+        chartHeight,
+        paneCount: visibleSubIndicatorCount,
+      })}
       zIndex={2}
       size="small"
       variant="tertiary"
