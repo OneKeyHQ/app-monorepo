@@ -1571,7 +1571,13 @@ export function useSwapInit(params?: ISwapInitParams) {
             if (swapFromMarketJumpTokenRef.current.otherToken) {
               void setToToken(swapFromMarketJumpTokenRef.current.otherToken);
             }
-            void selectFromToken(swapFromMarketJumpTokenRef.current.token);
+            void selectFromToken(
+              swapFromMarketJumpTokenRef.current.token,
+              undefined,
+              undefined,
+              undefined,
+              false,
+            );
             if (swapFromMarketJumpTokenRef.current.amount) {
               void setFromTokenAmount({
                 value: swapFromMarketJumpTokenRef.current.amount,
@@ -1592,7 +1598,12 @@ export function useSwapInit(params?: ISwapInitParams) {
                 swapFromMarketJumpTokenRef.current.otherToken,
               );
             }
-            void selectToToken(swapFromMarketJumpTokenRef.current.token);
+            void selectToToken(
+              swapFromMarketJumpTokenRef.current.token,
+              undefined,
+              undefined,
+              false,
+            );
             if (swapFromMarketJumpTokenRef.current.amount) {
               void setFromTokenAmount({
                 value: swapFromMarketJumpTokenRef.current.amount,

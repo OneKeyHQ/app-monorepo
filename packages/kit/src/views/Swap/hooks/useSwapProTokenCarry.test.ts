@@ -1,9 +1,12 @@
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapStableTokenLookupKey,
   checkProSupportsNetwork,
   fetchSwapStableTokenKeys,
+  getSwapStableTokenKeysForCarry,
   resolveProToSwapCarryToken,
+  resolveSwapContextNetworkId,
   resolveSwapToProCarryToken,
 } from './useSwapProTokenCarry';
 
@@ -283,6 +286,64 @@ describe('resolveProToSwapCarryToken', () => {
   });
 });
 
+describe('stable-token lookup snapshot', () => {
+  const token = buildToken({
+    networkId: 'evm--1',
+    contractAddress: '0xusdt',
+  });
+
+  it('uses only a settled snapshot for the current token identity', () => {
+    const key = buildSwapStableTokenLookupKey([token]);
+    const stableTokenKeys = new Set([stableKey('evm--1', '0xusdt')]);
+
+    expect(
+      getSwapStableTokenKeysForCarry({
+        tokens: [token],
+        cache: { key, stableTokenKeys },
+      }),
+    ).toBe(stableTokenKeys);
+  });
+
+  it('falls back immediately while prewarming is pending or stale', () => {
+    const key = buildSwapStableTokenLookupKey([token]);
+
+    expect(
+      getSwapStableTokenKeysForCarry({
+        tokens: [token],
+        cache: { key },
+      }),
+    ).toEqual(new Set<string>());
+    expect(
+      getSwapStableTokenKeysForCarry({
+        tokens: [token],
+        cache: {
+          key: 'evm--56:0xusdt',
+          stableTokenKeys: new Set([stableKey('evm--56', '0xusdt')]),
+        },
+      }),
+    ).toEqual(new Set<string>());
+  });
+});
+
+describe('resolveSwapContextNetworkId', () => {
+  it('prefers the account network over a restored FromToken network', () => {
+    expect(
+      resolveSwapContextNetworkId({
+        accountNetworkId: 'evm--56',
+        fromTokenNetworkId: 'evm--1',
+      }),
+    ).toBe('evm--56');
+  });
+
+  it('falls back to the FromToken only when the account network is unknown', () => {
+    expect(
+      resolveSwapContextNetworkId({
+        fromTokenNetworkId: 'evm--1',
+      }),
+    ).toBe('evm--1');
+  });
+});
+
 describe('fetchSwapStableTokenKeys', () => {
   beforeEach(() => {
     mockCheckStableCoinsList.mockReset();
@@ -320,6 +381,16 @@ describe('fetchSwapStableTokenKeys', () => {
       fetchSwapStableTokenKeys([
         undefined,
         buildToken({ networkId: 'evm--1', contractAddress: '', isStock: true }),
+      ]),
+    ).resolves.toEqual(new Set<string>());
+    expect(mockCheckStableCoinsList).not.toHaveBeenCalled();
+  });
+
+  it('skips the request when every candidate is a native token', async () => {
+    await expect(
+      fetchSwapStableTokenKeys([
+        buildToken({ networkId: 'evm--1', contractAddress: '' }),
+        buildToken({ networkId: 'sol--101', contractAddress: '' }),
       ]),
     ).resolves.toEqual(new Set<string>());
     expect(mockCheckStableCoinsList).not.toHaveBeenCalled();

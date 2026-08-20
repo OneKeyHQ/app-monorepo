@@ -10,6 +10,7 @@ import {
   useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
+  useSwapProUserSelectedTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -53,6 +54,7 @@ const SwapProPayTokenSelector = ({
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [, setSwapProUserSelectedToken] = useSwapProUserSelectedTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const isBuy = swapProDirection === ESwapDirection.BUY;
@@ -211,6 +213,7 @@ const SwapProPayTokenSelector = ({
             tokens={defaultTokensFromType as IToken[]}
             onTokenPress={handleTokenSelect}
             onTradePress={() => {
+              setSwapProUserSelectedToken(false);
               setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
             }}
             disabledOnSwitchToTrade

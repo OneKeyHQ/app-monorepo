@@ -129,6 +129,7 @@ import {
   swapProTokenMarketDetailInfoLoadingAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
+  swapProUserSelectedTokenAtom,
   swapProviderSupportReceiveAddressAtom,
   swapQuoteActionLockAtom,
   swapQuoteAutoRefreshTimerAtom,
@@ -924,6 +925,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       disableCheckToToken?: boolean,
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
+      markUserSelection = true,
     ) => {
       const toToken = get(swapSelectToTokenAtom());
       if (
@@ -936,11 +938,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
-      // OK-55190: a real token change here means the user made a selection in
-      // ordinary Swap; network/default resets write the atoms directly and
-      // must not arm the Swap -> Pro carry-over. The marker is also armed on
-      // desktop/web, where it is inert: only the native Pro tab consumes it.
-      set(swapUserSelectedTokensAtom(), true);
+      // Only an explicit selection made while the ordinary Swap surface owns
+      // the pair may arm Swap -> Pro carry. Shared programmatic callers opt out.
+      if (markUserSelection && isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
+        set(swapUserSelectedTokensAtom(), true);
+      }
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
       }
@@ -966,6 +968,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       token: ISwapToken,
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
+      markUserSelection = true,
     ) => {
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
@@ -980,8 +983,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      // OK-55190: see selectFromToken — arm the Swap -> Pro carry-over marker.
-      set(swapUserSelectedTokensAtom(), true);
+      const swapTypeSwitchValue = get(swapTypeSwitchAtom());
+      if (markUserSelection && isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
+        set(swapUserSelectedTokensAtom(), true);
+      }
       await this.syncNetworksSort.call(set, token.networkId);
       set(swapSelectToTokenAtom(), token);
     },
@@ -3291,6 +3296,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
+      if (oldVisibleType !== normalizedType) {
+        if (
+          isSwapOrBridgeQuoteType(oldType) &&
+          normalizedType !== ESwapTabSwitchType.SWAP
+        ) {
+          set(swapUserSelectedTokensAtom(), false);
+        }
+        if (
+          oldType === ESwapTabSwitchType.LIMIT &&
+          normalizedType !== ESwapTabSwitchType.LIMIT
+        ) {
+          set(swapProUserSelectedTokenAtom(), false);
+        }
+      }
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
       const shouldHandleInputAmountDraft =

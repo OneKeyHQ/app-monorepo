@@ -19,6 +19,7 @@ import {
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapProUserSelectedTokenAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
@@ -160,6 +161,7 @@ const SwapProActionButton = ({
   }, [inputToken?.price, inputAmount]);
 
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [, setSwapProUserSelectedToken] = useSwapProUserSelectedTokenAtom();
   const { selectToToken, selectFromToken } = useSwapActions().current;
   const [swapSelectToken, setSwapSelectFromToken] =
     useSwapSelectFromTokenAtom();
@@ -179,6 +181,9 @@ const SwapProActionButton = ({
   const canExecuteInPro = supportSpeedSwap || isWrapped;
 
   const handleJumpToSwapAction = useCallback(() => {
+    // This path transfers the complete Pro pair directly, so it must discard
+    // the one-shot Pro -> Swap tab carry intent instead of leaving it stale.
+    setSwapProUserSelectedToken(false);
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
@@ -194,7 +199,7 @@ const SwapProActionButton = ({
         void setSwapSelectFromToken(inputToken);
       }
       if (swapProSelectToken) {
-        void selectToToken(swapProSelectToken);
+        void selectToToken(swapProSelectToken, undefined, undefined, false);
       }
     } else {
       if (
@@ -210,7 +215,13 @@ const SwapProActionButton = ({
         void setSwapSelectToToken(toToken);
       }
       if (swapProSelectToken) {
-        void selectFromToken(swapProSelectToken);
+        void selectFromToken(
+          swapProSelectToken,
+          undefined,
+          undefined,
+          undefined,
+          false,
+        );
       }
     }
     if (swapProInputAmount) {
@@ -222,6 +233,7 @@ const SwapProActionButton = ({
   }, [
     swapProDirection,
     swapProInputAmount,
+    setSwapProUserSelectedToken,
     setSwapTypeSwitch,
     swapSelectToken,
     swapProSelectToken,

@@ -68,6 +68,7 @@ import {
   swapProSupportNetworksTokenListAtom,
   swapProTokenBalanceLoadingAtom,
   swapProUseSelectBuyTokenAtom,
+  swapProUserSelectedTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteAutoRefreshTimerAtom,
   swapQuoteCurrentEventProviderKeysAtom,
@@ -90,6 +91,7 @@ import {
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
+  swapUserSelectedTokensAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -450,6 +452,62 @@ describe('useSwapActions', () => {
 
   afterEach(() => {
     platformEnv.isNative = false;
+  });
+
+  it.each([
+    [ESwapTabSwitchType.SWAP, true],
+    [ESwapTabSwitchType.BRIDGE, true],
+    [ESwapTabSwitchType.STOCK, false],
+    [ESwapTabSwitchType.LIMIT, false],
+  ])(
+    'arms carry markers only for manual selections in ordinary Swap: %s',
+    async (swapType, expectedArmed) => {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), swapType);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.selectFromToken(bnbToken, true, true);
+      });
+      expect(store.get(swapUserSelectedTokensAtom())).toBe(expectedArmed);
+
+      store.set(swapUserSelectedTokensAtom(), false);
+      await act(async () => {
+        await result.current.selectToToken(usdtToken, true);
+      });
+      expect(store.get(swapUserSelectedTokensAtom())).toBe(expectedArmed);
+    },
+  );
+
+  it('invalidates carry markers at the owning tab transition', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapUserSelectedTokensAtom(), true);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--1',
+      );
+    });
+    expect(store.get(swapUserSelectedTokensAtom())).toBe(false);
+
+    store.set(swapProUserSelectedTokenAtom(), true);
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        'evm--1',
+      );
+    });
+    expect(store.get(swapProUserSelectedTokenAtom())).toBe(false);
   });
 
   it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {

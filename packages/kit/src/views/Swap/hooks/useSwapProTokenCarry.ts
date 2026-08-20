@@ -1,4 +1,5 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import type { MutableRefObject } from 'react';
 
 import {
   useSwapActions,
@@ -24,8 +25,15 @@ type ISwapCarryTokenCandidate = Pick<
   'networkId' | 'contractAddress' | 'isStock'
 >;
 
-// Caps how long a tab switch may wait on the stable-coin lookup; a timeout
-// resolves as "unknown", which OK-55190 defines as treat-as-non-stable.
+type ISwapStableTokenLookupCache = {
+  key: string;
+  stableTokenKeys?: Set<string>;
+};
+
+const EMPTY_STABLE_TOKEN_KEYS = new Set<string>();
+
+// Bounds background prewarming. Tab transitions never wait for this request;
+// an unresolved lookup uses OK-55190's treat-as-non-stable fallback.
 const SWAP_STABLE_CHECK_TIMEOUT_MS = 2000;
 
 function buildStableTokenKey({
@@ -33,6 +41,43 @@ function buildStableTokenKey({
   contractAddress,
 }: Pick<ISwapToken, 'networkId' | 'contractAddress'>) {
   return `${networkId}:${(contractAddress ?? '').toLowerCase()}`;
+}
+
+export function buildSwapStableTokenLookupKey(
+  tokens: Array<ISwapCarryTokenCandidate | undefined>,
+) {
+  return tokens
+    .filter(
+      (token): token is ISwapCarryTokenCandidate =>
+        Boolean(token?.networkId) && !token?.isStock,
+    )
+    .map(buildStableTokenKey)
+    .toSorted()
+    .join('|');
+}
+
+export function getSwapStableTokenKeysForCarry({
+  tokens,
+  cache,
+}: {
+  tokens: Array<ISwapCarryTokenCandidate | undefined>;
+  cache?: ISwapStableTokenLookupCache;
+}) {
+  const key = buildSwapStableTokenLookupKey(tokens);
+  if (cache?.key === key && cache.stableTokenKeys) {
+    return cache.stableTokenKeys;
+  }
+  return EMPTY_STABLE_TOKEN_KEYS;
+}
+
+export function resolveSwapContextNetworkId({
+  accountNetworkId,
+  fromTokenNetworkId,
+}: {
+  accountNetworkId?: string;
+  fromTokenNetworkId?: string;
+}) {
+  return accountNetworkId ?? fromTokenNetworkId;
 }
 
 /**
@@ -61,10 +106,13 @@ export async function fetchSwapStableTokenKeys(
         return map;
       }, new Map<string, string[]>())
       .entries(),
-  ).map(([networkId, contractAddressList]) => ({
-    networkId,
-    contractAddressList,
-  }));
+  )
+    .filter(([, contractAddressList]) => contractAddressList.length > 0)
+    .map(([networkId, contractAddressList]) => ({
+      networkId,
+      contractAddressList,
+    }));
+  if (list.length === 0) return new Set<string>();
 
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -100,6 +148,24 @@ export async function fetchSwapStableTokenKeys(
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
+}
+
+function warmSwapStableTokenKeys(
+  tokens: Array<ISwapCarryTokenCandidate | undefined>,
+  cacheRef: MutableRefObject<ISwapStableTokenLookupCache | undefined>,
+) {
+  const key = buildSwapStableTokenLookupKey(tokens);
+  if (cacheRef.current?.key === key) return;
+  if (!key) {
+    cacheRef.current = { key, stableTokenKeys: EMPTY_STABLE_TOKEN_KEYS };
+    return;
+  }
+  cacheRef.current = { key };
+  void fetchSwapStableTokenKeys(tokens).then((stableTokenKeys) => {
+    if (cacheRef.current?.key === key) {
+      cacheRef.current = { key, stableTokenKeys };
+    }
+  });
 }
 
 /**
@@ -215,18 +281,27 @@ export function useSwapProTokenCarry({
   const [swapProUserSelectedToken, setSwapProUserSelectedToken] =
     useSwapProUserSelectedTokenAtom();
   const { setSwapProSelectToken, selectToToken } = useSwapActions().current;
+  const swapStableTokenLookupRef = useRef<
+    ISwapStableTokenLookupCache | undefined
+  >(undefined);
+  const swapProStableTokenLookupRef = useRef<
+    ISwapStableTokenLookupCache | undefined
+  >(undefined);
 
-  // Warm the memoized stable-coin lookup whenever a marker arms or the pair
-  // changes under an armed marker, so the later tab switch resolves from the
-  // background cache instead of blocking on a live request.
+  // Warm stable-coin classification while the user is still on the source tab.
+  // The transition itself reads only a settled matching snapshot and never
+  // waits for background I/O.
   useEffect(() => {
     if (!platformEnv.isNative) return;
     if (swapNetworks.length === 0) return;
     if (swapUserSelectedTokens) {
-      void fetchSwapStableTokenKeys([toToken, fromToken]);
+      warmSwapStableTokenKeys([toToken, fromToken], swapStableTokenLookupRef);
     }
     if (swapProUserSelectedToken) {
-      void fetchSwapStableTokenKeys([swapProSelectToken]);
+      warmSwapStableTokenKeys(
+        [swapProSelectToken],
+        swapProStableTokenLookupRef,
+      );
     }
   }, [
     fromToken,
@@ -237,7 +312,7 @@ export function useSwapProTokenCarry({
     toToken,
   ]);
 
-  const carrySwapTokenToPro = useCallback(async () => {
+  const carrySwapTokenToPro = useCallback(() => {
     if (!swapUserSelectedTokens) return;
     // Networks not loaded yet (cold-start race): leave the marker armed so
     // the next switch can still carry instead of silently dropping it.
@@ -245,10 +320,10 @@ export function useSwapProTokenCarry({
     // Consume the marker regardless of outcome: a carry that resolves to
     // "bring nothing" must not retrigger on the next tab switch.
     setSwapUserSelectedTokens(false);
-    const stableTokenKeys = await fetchSwapStableTokenKeys([
-      toToken,
-      fromToken,
-    ]);
+    const stableTokenKeys = getSwapStableTokenKeysForCarry({
+      tokens: [toToken, fromToken],
+      cache: swapStableTokenLookupRef.current,
+    });
     const token = resolveSwapToProCarryToken({
       toToken,
       fromToken,
@@ -273,22 +348,25 @@ export function useSwapProTokenCarry({
     toToken,
   ]);
 
-  const prepareProTokenCarryToSwap = useCallback(async (): Promise<
+  const prepareProTokenCarryToSwap = useCallback(():
     | {
         targetNetworkId?: string;
         apply: () => Promise<void>;
       }
-    | undefined
-  > => {
+    | undefined => {
     if (!swapProUserSelectedToken) return undefined;
     if (swapNetworks.length === 0) return undefined;
     setSwapProUserSelectedToken(false);
-    const stableTokenKeys = await fetchSwapStableTokenKeys([
-      swapProSelectToken,
-    ]);
+    const stableTokenKeys = getSwapStableTokenKeysForCarry({
+      tokens: [swapProSelectToken],
+      cache: swapProStableTokenLookupRef.current,
+    });
     // The Swap context network is the account network; fall back to the
     // FromToken network only when the account network is unknown.
-    const swapContextNetworkId = fromToken?.networkId ?? accountNetworkId;
+    const swapContextNetworkId = resolveSwapContextNetworkId({
+      accountNetworkId,
+      fromTokenNetworkId: fromToken?.networkId,
+    });
     const token = resolveProToSwapCarryToken({
       proToken: swapProSelectToken,
       swapFromToken: fromToken,
@@ -310,16 +388,13 @@ export function useSwapProTokenCarry({
           setSwapSelectFromToken(nativeFromToken);
         }
       }
-      await selectToToken(token);
+      // Carried tokens are not a manual Swap pick, so selectToToken opts out
+      // of arming the opposite-direction carry marker.
+      await selectToToken(token, undefined, undefined, false);
       // The switch action restores the previous pair's amount drafts; the
       // carried pair must not inherit those amounts or quote with them.
       setSwapFromTokenAmount({ value: '', isInput: false });
       setSwapToTokenAmount({ value: '', isInput: false });
-      // Carried tokens are not a manual Swap pick; keep the marker off so
-      // flipping back to Pro does not echo the same token. selectToToken
-      // re-arms it first — that transient window is harmless because any
-      // quick flip-back hits the equal-token guard.
-      setSwapUserSelectedTokens(false);
     };
     return {
       targetNetworkId: isCrossNetwork ? token.networkId : undefined,
@@ -333,7 +408,6 @@ export function useSwapProTokenCarry({
     setSwapProUserSelectedToken,
     setSwapSelectFromToken,
     setSwapToTokenAmount,
-    setSwapUserSelectedTokens,
     swapNetworks,
     swapProSelectToken,
     swapProUserSelectedToken,

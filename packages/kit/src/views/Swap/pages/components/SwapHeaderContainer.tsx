@@ -31,6 +31,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   ESwapDirectionType,
   ESwapProAnalyticsEnterFrom,
@@ -149,11 +150,19 @@ const SwapHeaderContainer = ({
   const [swapProEntryIntent] = useSwapProJumpTokenAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
-  const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const { networkId, activeAccount } = useSwapAddressInfo(
+    ESwapDirectionType.FROM,
+  );
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const selectedAccountNetworkId = activeAccount?.network?.id;
+  const swapContextNetworkId =
+    selectedAccountNetworkId &&
+    !networkUtils.isAllNetwork({ networkId: selectedAccountNetworkId })
+      ? selectedAccountNetworkId
+      : fromToken?.networkId;
   const { carrySwapTokenToPro, prepareProTokenCarryToSwap } =
-    useSwapProTokenCarry({ accountNetworkId: networkId });
+    useSwapProTokenCarry({ accountNetworkId: swapContextNetworkId });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -290,7 +299,7 @@ const SwapHeaderContainer = ({
         if (platformEnv.isNative && newType === ESwapTabSwitchType.LIMIT) {
           // OK-55190: seed the Pro target token from the ordinary Swap
           // selection before the tab state flips.
-          await carrySwapTokenToPro();
+          carrySwapTokenToPro();
         }
         void swapTypeSwitchAction(newType, networkId);
       } else {
@@ -302,16 +311,20 @@ const SwapHeaderContainer = ({
           platformEnv.isNative &&
           swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
           newType === ESwapTabSwitchType.SWAP
-            ? await prepareProTokenCarryToSwap()
+            ? prepareProTokenCarryToSwap()
             : undefined;
         if (proCarry?.targetNetworkId) {
           await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
-        } else if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+        } else if (
+          fromToken?.networkId &&
+          fromToken.networkId !== selectedAccountNetworkId
+        ) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
         }
         await swapTypeSwitchAction(
           newType,
-          proCarry?.targetNetworkId ?? (fromToken?.networkId || networkId),
+          proCarry?.targetNetworkId ??
+            (fromToken?.networkId || swapContextNetworkId || networkId),
         );
         await proCarry?.apply();
       }
@@ -324,6 +337,8 @@ const SwapHeaderContainer = ({
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
+      selectedAccountNetworkId,
+      swapContextNetworkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
       isSwapProCategory,
