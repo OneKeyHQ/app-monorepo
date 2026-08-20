@@ -854,18 +854,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return;
       }
 
-      if (platformEnv.isNative) {
-        navigateToMarketTab({
-          tabToSelect:
-            resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
-              ? EMarketHomeTab.Watchlist
-              : undefined,
-        });
-      } else {
-        navigation.switchTab(marketTab);
-      }
-
-      setTimeout(() => {
+      const navigateToTokenDetail = () => {
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
@@ -877,7 +866,21 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             },
           },
         });
-      }, 300);
+      };
+
+      if (platformEnv.isNative) {
+        navigateToMarketTab({
+          tabToSelect:
+            resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
+              ? EMarketHomeTab.Watchlist
+              : undefined,
+          onNavigationComplete: navigateToTokenDetail,
+        });
+        return;
+      }
+      navigation.switchTab(marketTab);
+
+      setTimeout(navigateToTokenDetail, 300);
     },
     [
       marketTab,

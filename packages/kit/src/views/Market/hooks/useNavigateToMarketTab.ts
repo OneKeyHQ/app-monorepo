@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import {
   type IMarketSelectedTab,
   useMarketSelectedTabAtom,
@@ -28,15 +28,21 @@ interface INavigateToMarketTabOptions {
   tabToSelect?: IMarketSelectedTab;
   spotCategoryToSelect?: string;
   perpsCategoryToSelect?: string;
+  onNavigationComplete?: () => void;
+}
+
+interface IPendingMarketNavigation {
+  target: IMarketNavigationTarget;
+  onNavigationComplete?: () => void;
 }
 
 export function useNavigateToMarketTab() {
   const [marketSelectedTab, setMarketSelectedTab] = useMarketSelectedTabAtom();
   const marketSelectedTabRef = useRef(marketSelectedTab);
   marketSelectedTabRef.current = marketSelectedTab;
-  const pendingNavigationTargetRef = useRef<
-    IMarketNavigationTarget | undefined
-  >(undefined);
+  const pendingNavigationRef = useRef<IPendingMarketNavigation | undefined>(
+    undefined,
+  );
 
   const applyNavigationTarget = useCallback(
     (target: IMarketNavigationTarget) => {
@@ -58,7 +64,10 @@ export function useNavigateToMarketTab() {
   );
 
   const performNavigation = useCallback(
-    (target?: IMarketNavigationTarget) => {
+    async (
+      target?: IMarketNavigationTarget,
+      onNavigationComplete?: () => void,
+    ) => {
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
@@ -76,6 +85,11 @@ export function useNavigateToMarketTab() {
       const marketTabScreen = platformEnv.isNative
         ? ETabDiscoveryRoutes.TabDiscovery
         : ETabMarketRoutes.TabMarket;
+
+      if (platformEnv.isNative) {
+        // Keep the primary and detail navigation containers aligned in split view.
+        await switchTabAsync(marketTab);
+      }
 
       rootNavigationRef.current?.navigate(ERootRoutes.Main, {
         screen: marketTab,
@@ -98,16 +112,23 @@ export function useNavigateToMarketTab() {
           if (target) {
             applyNavigationTarget(target);
           }
+          onNavigationComplete?.();
         }, 150);
-      } else if (target) {
-        requestAnimationFrame(() => applyNavigationTarget(target));
+      } else if (target || onNavigationComplete) {
+        requestAnimationFrame(() => {
+          if (target) {
+            applyNavigationTarget(target);
+          }
+          onNavigationComplete?.();
+        });
       }
     },
     [applyNavigationTarget],
   );
 
   useEffect(() => {
-    const target = pendingNavigationTargetRef.current;
+    const pendingNavigation = pendingNavigationRef.current;
+    const target = pendingNavigation?.target;
     if (
       !target ||
       !isMarketNavigationTargetApplied(marketSelectedTab, target)
@@ -115,14 +136,18 @@ export function useNavigateToMarketTab() {
       return;
     }
 
-    pendingNavigationTargetRef.current = undefined;
-    performNavigation(target);
+    pendingNavigationRef.current = undefined;
+    void performNavigation(target, pendingNavigation?.onNavigationComplete);
   }, [marketSelectedTab, performNavigation]);
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
-      const { tabToSelect, spotCategoryToSelect, perpsCategoryToSelect } =
-        options ?? {};
+      const {
+        tabToSelect,
+        spotCategoryToSelect,
+        perpsCategoryToSelect,
+        onNavigationComplete,
+      } = options ?? {};
       let targetTab = tabToSelect;
       if (spotCategoryToSelect) {
         targetTab = 'trending';
@@ -144,7 +169,10 @@ export function useNavigateToMarketTab() {
 
       // Switch to specific tab inside Market (watchlist or trending)
       if (shouldWaitForSelection) {
-        pendingNavigationTargetRef.current = navigationTarget;
+        pendingNavigationRef.current = {
+          target: navigationTarget,
+          onNavigationComplete,
+        };
         applyNavigationTarget(navigationTarget);
 
         if (
@@ -153,13 +181,13 @@ export function useNavigateToMarketTab() {
             navigationTarget,
           )
         ) {
-          pendingNavigationTargetRef.current = undefined;
-          performNavigation(navigationTarget);
+          pendingNavigationRef.current = undefined;
+          void performNavigation(navigationTarget, onNavigationComplete);
         }
         return;
       }
 
-      performNavigation();
+      void performNavigation(undefined, onNavigationComplete);
     },
     [applyNavigationTarget, performNavigation],
   );
