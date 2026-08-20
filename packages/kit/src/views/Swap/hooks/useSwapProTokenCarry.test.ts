@@ -304,7 +304,7 @@ describe('stable-token lookup snapshot', () => {
     ).toBe(stableTokenKeys);
   });
 
-  it('falls back immediately while prewarming is pending or stale', () => {
+  it('skips carry while prewarming is pending or stale', () => {
     const key = buildSwapStableTokenLookupKey([token]);
 
     expect(
@@ -312,7 +312,7 @@ describe('stable-token lookup snapshot', () => {
         tokens: [token],
         cache: { key },
       }),
-    ).toEqual(new Set<string>());
+    ).toBeUndefined();
     expect(
       getSwapStableTokenKeysForCarry({
         tokens: [token],
@@ -321,7 +321,7 @@ describe('stable-token lookup snapshot', () => {
           stableTokenKeys: new Set([stableKey('evm--56', '0xusdt')]),
         },
       }),
-    ).toEqual(new Set<string>());
+    ).toBeUndefined();
   });
 });
 
@@ -339,6 +339,16 @@ describe('resolveSwapContextNetworkId', () => {
     expect(
       resolveSwapContextNetworkId({
         fromTokenNetworkId: 'evm--1',
+      }),
+    ).toBe('evm--1');
+  });
+
+  it('keeps all-network selection by using the FromToken as carry context', () => {
+    expect(
+      resolveSwapContextNetworkId({
+        accountNetworkId: 'all--0',
+        fromTokenNetworkId: 'evm--1',
+        isAllNetwork: true,
       }),
     ).toBe('evm--1');
   });

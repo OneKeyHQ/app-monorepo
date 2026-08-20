@@ -80,6 +80,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
+  useSwapUserSelectedTokensAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '../../Market/hooks';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
@@ -151,6 +152,7 @@ export function isSwapProTokenBalanceRequestCurrent({
 
 export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
+  const [, setSwapUserSelectedTokens] = useSwapUserSelectedTokensAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
   const { basicConfig, networkList } = useMarketBasicConfig();
   const { setSwapProSelectToken } = useSwapActions().current;
@@ -158,10 +160,13 @@ export function useSwapProInit() {
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
+      // A Market jump owns the Pro target explicitly and bypasses the shared
+      // tab action, so discard any older ordinary-Swap carry intent first.
+      setSwapUserSelectedTokens(false);
       setSwapSwitchType(ESwapTabSwitchType.LIMIT);
       void setSwapProSelectToken(payload.token);
     },
-    [setSwapSwitchType, setSwapProSelectToken],
+    [setSwapSwitchType, setSwapProSelectToken, setSwapUserSelectedTokens],
   );
   const swapProSelectTokenRef = useRef<ISwapToken | undefined>(
     swapProSelectToken,

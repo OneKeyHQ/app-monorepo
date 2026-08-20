@@ -33,7 +33,8 @@ type ISwapStableTokenLookupCache = {
 const EMPTY_STABLE_TOKEN_KEYS = new Set<string>();
 
 // Bounds background prewarming. Tab transitions never wait for this request;
-// an unresolved lookup uses OK-55190's treat-as-non-stable fallback.
+// a pending lookup skips the one-shot carry, while a settled failure keeps
+// OK-55190's treat-as-non-stable fallback.
 const SWAP_STABLE_CHECK_TIMEOUT_MS = 2000;
 
 function buildStableTokenKey({
@@ -67,17 +68,21 @@ export function getSwapStableTokenKeysForCarry({
   if (cache?.key === key && cache.stableTokenKeys) {
     return cache.stableTokenKeys;
   }
-  return EMPTY_STABLE_TOKEN_KEYS;
+  return undefined;
 }
 
 export function resolveSwapContextNetworkId({
   accountNetworkId,
   fromTokenNetworkId,
+  isAllNetwork = false,
 }: {
   accountNetworkId?: string;
   fromTokenNetworkId?: string;
+  isAllNetwork?: boolean;
 }) {
-  return accountNetworkId ?? fromTokenNetworkId;
+  return !isAllNetwork && accountNetworkId
+    ? accountNetworkId
+    : fromTokenNetworkId;
 }
 
 /**
@@ -324,6 +329,9 @@ export function useSwapProTokenCarry({
       tokens: [toToken, fromToken],
       cache: swapStableTokenLookupRef.current,
     });
+    // Never guess while the matching lookup is still pending. The marker is
+    // already consumed so this abandoned carry cannot replay on a later tab.
+    if (!stableTokenKeys) return;
     const token = resolveSwapToProCarryToken({
       toToken,
       fromToken,
@@ -361,6 +369,7 @@ export function useSwapProTokenCarry({
       tokens: [swapProSelectToken],
       cache: swapProStableTokenLookupRef.current,
     });
+    if (!stableTokenKeys) return undefined;
     // The Swap context network is the account network; fall back to the
     // FromToken network only when the account network is unknown.
     const swapContextNetworkId = resolveSwapContextNetworkId({

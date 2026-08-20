@@ -40,7 +40,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { useSwapProTokenCarry } from '../../hooks/useSwapProTokenCarry';
+import {
+  resolveSwapContextNetworkId,
+  useSwapProTokenCarry,
+} from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -156,11 +159,13 @@ const SwapHeaderContainer = ({
   );
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const selectedAccountNetworkId = activeAccount?.network?.id;
-  const swapContextNetworkId =
-    selectedAccountNetworkId &&
-    !networkUtils.isAllNetwork({ networkId: selectedAccountNetworkId })
-      ? selectedAccountNetworkId
-      : fromToken?.networkId;
+  const swapContextNetworkId = resolveSwapContextNetworkId({
+    accountNetworkId: selectedAccountNetworkId,
+    fromTokenNetworkId: fromToken?.networkId,
+    isAllNetwork: networkUtils.isAllNetwork({
+      networkId: selectedAccountNetworkId,
+    }),
+  });
   const { carrySwapTokenToPro, prepareProTokenCarryToSwap } =
     useSwapProTokenCarry({ accountNetworkId: swapContextNetworkId });
   const networkIdRef = useRef(networkId);
@@ -317,7 +322,7 @@ const SwapHeaderContainer = ({
           await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
         } else if (
           fromToken?.networkId &&
-          fromToken.networkId !== selectedAccountNetworkId
+          fromToken.networkId !== swapContextNetworkId
         ) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
         }
@@ -337,7 +342,6 @@ const SwapHeaderContainer = ({
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
-      selectedAccountNetworkId,
       swapContextNetworkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
