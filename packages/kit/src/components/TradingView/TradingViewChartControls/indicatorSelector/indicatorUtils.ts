@@ -1,6 +1,25 @@
+import {
+  isTradingViewNativeIndicator,
+  isTradingViewNativeSubIndicator,
+  resolveTradingViewNativeIndicatorId,
+} from '../../TradingViewNative/utils/chartIndicators/indicatorCatalog';
+
 import type { ITradingViewIndicatorOption } from '../types';
 
-const MAIN_CHART_INDICATOR_LABEL_SET = new Set(['MA', 'EMA', 'BOLL', 'SAR']);
+function getCanonicalIndicatorId(indicator: ITradingViewIndicatorOption) {
+  return resolveTradingViewNativeIndicatorId(indicator.value, indicator.label);
+}
+
+function hasActiveIndicatorValue(
+  activeIndicatorValues: ReadonlySet<string>,
+  indicator: ITradingViewIndicatorOption,
+  canonicalIndicatorId: string,
+) {
+  return (
+    activeIndicatorValues.has(canonicalIndicatorId) ||
+    activeIndicatorValues.has(indicator.value)
+  );
+}
 
 export function getIndicatorSections(
   indicators: ITradingViewIndicatorOption[],
@@ -9,9 +28,10 @@ export function getIndicatorSections(
   const subIndicators: ITradingViewIndicatorOption[] = [];
 
   indicators.forEach((indicator) => {
-    if (MAIN_CHART_INDICATOR_LABEL_SET.has(indicator.label)) {
+    const indicatorId = getCanonicalIndicatorId(indicator);
+    if (indicatorId && isTradingViewNativeIndicator(indicatorId)) {
       mainIndicators.push(indicator);
-    } else {
+    } else if (indicatorId && isTradingViewNativeSubIndicator(indicatorId)) {
       subIndicators.push(indicator);
     }
   });
@@ -19,16 +39,12 @@ export function getIndicatorSections(
   return { mainIndicators, subIndicators };
 }
 
-function isSubIndicator(indicatorValue: string) {
-  return !MAIN_CHART_INDICATOR_LABEL_SET.has(indicatorValue);
-}
-
 export function getTradingViewNativeSubIndicatorCount(
   activeIndicatorValues: ReadonlySet<string>,
 ) {
   let count = 0;
   activeIndicatorValues.forEach((indicatorValue) => {
-    if (isSubIndicator(indicatorValue)) {
+    if (isTradingViewNativeSubIndicator(indicatorValue)) {
       count += 1;
     }
   });
@@ -52,7 +68,7 @@ export function canToggleTradingViewNativeIndicatorOn({
 
   if (
     normalizedMaxSubIndicatorCount === undefined ||
-    !isSubIndicator(indicatorValue) ||
+    !isTradingViewNativeSubIndicator(indicatorValue) ||
     activeIndicatorValues.has(indicatorValue)
   ) {
     return true;
@@ -72,26 +88,37 @@ export function getNativeIndicatorSelectionUpdates({
   indicators: ITradingViewIndicatorOption[];
   originalActiveIndicatorValues: ReadonlySet<string>;
   nextActiveIndicatorValues: ReadonlySet<string>;
-}): Array<[indicatorName: string, desiredActive: boolean]> {
-  const removedIndicators = indicators.filter(
-    (indicator) =>
-      originalActiveIndicatorValues.has(indicator.value) &&
-      !nextActiveIndicatorValues.has(indicator.value),
+}): Array<[indicatorId: string, desiredActive: boolean]> {
+  const removedIndicators = indicators.flatMap<[string, boolean]>(
+    (indicator) => {
+      const indicatorId = getCanonicalIndicatorId(indicator);
+      return indicatorId !== null &&
+        hasActiveIndicatorValue(
+          originalActiveIndicatorValues,
+          indicator,
+          indicatorId,
+        ) &&
+        !hasActiveIndicatorValue(
+          nextActiveIndicatorValues,
+          indicator,
+          indicatorId,
+        )
+        ? [[indicatorId, false]]
+        : [];
+    },
   );
-  const addedIndicators = indicators.filter(
-    (indicator) =>
-      !originalActiveIndicatorValues.has(indicator.value) &&
-      nextActiveIndicatorValues.has(indicator.value),
-  );
+  const addedIndicators = indicators.flatMap<[string, boolean]>((indicator) => {
+    const indicatorId = getCanonicalIndicatorId(indicator);
+    return indicatorId !== null &&
+      !hasActiveIndicatorValue(
+        originalActiveIndicatorValues,
+        indicator,
+        indicatorId,
+      ) &&
+      hasActiveIndicatorValue(nextActiveIndicatorValues, indicator, indicatorId)
+      ? [[indicatorId, true]]
+      : [];
+  });
 
-  return [
-    ...removedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      false,
-    ]),
-    ...addedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      true,
-    ]),
-  ];
+  return [...removedIndicators, ...addedIndicators];
 }

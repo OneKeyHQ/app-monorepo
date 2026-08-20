@@ -69,9 +69,12 @@ export interface ITradingViewNativeProps {
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  maxNativeSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
+  isChartSwitchDisabled?: boolean;
+  onChartSwitch?: () => void;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;

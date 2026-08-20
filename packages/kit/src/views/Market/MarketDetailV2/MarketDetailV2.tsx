@@ -41,6 +41,8 @@ function normalizeRouteBooleanParam(
 
 function MarketDetail({
   isChartFullscreen,
+  isTradingViewNative,
+  onChartSwitch,
   onChartFullscreenChange,
   route,
 }: IPageScreenProps<
@@ -48,6 +50,8 @@ function MarketDetail({
   ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
 > & {
   isChartFullscreen: boolean;
+  isTradingViewNative: boolean;
+  onChartSwitch: () => void;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
 }) {
   const params = route.params as
@@ -118,6 +122,8 @@ function MarketDetail({
           <MarketDetailResponsiveLayout
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={onChartSwitch}
             onChartFullscreenChange={onChartFullscreenChange}
             isNative={isNativeBoolean}
             networkId={networkId}
@@ -140,10 +146,14 @@ function MarketDetailV2(
   const { navigation } = props;
   const media = useMedia();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
   const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
     setIsChartFullscreen(isFullscreen);
+  }, []);
+  const handleChartSwitch = useCallback(() => {
+    setIsTradingViewNative((currentValue) => !currentValue);
   }, []);
 
   useEffect(() => {
@@ -200,6 +210,8 @@ function MarketDetailV2(
           <MarketDetail
             {...props}
             isChartFullscreen={effectiveIsChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={handleChartSwitch}
             onChartFullscreenChange={handleChartFullscreenChange}
           />
         </MarketWatchListProviderMirrorV2>

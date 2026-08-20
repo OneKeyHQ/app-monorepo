@@ -537,6 +537,44 @@ export function isSwapQuoteFromCurrentEvent({
   return !quoteLoading && !quoteEventFetching;
 }
 
+/**
+ * Proof that the selected quote belongs to the active quote round for the
+ * current inputs. Pair equality alone cannot provide this, and neither can
+ * event membership plus a lock match on their own: quoteAction's starting
+ * interval clears the event id and writes the new lock BEFORE runQuoteEvent
+ * flips the loading flags, so a retained previous quote would pass the
+ * no-event-id fallback while the freshly written lock matches the current
+ * input. That interval is identified by actionLock with no event id yet and
+ * counts as unproven.
+ */
+export function isSwapQuoteProvenForCurrentRequest({
+  quote,
+  quoteEventTotalCount,
+  quoteLoading,
+  quoteEventFetching,
+  quoteActionLocked,
+  requestMatchesCurrentInput,
+}: {
+  quote?: IFetchQuoteResult;
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+  quoteActionLocked: boolean;
+  requestMatchesCurrentInput: boolean;
+}) {
+  if (quoteActionLocked && !quoteEventTotalCount.eventId) {
+    return false;
+  }
+  return (
+    isSwapQuoteFromCurrentEvent({
+      quote,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+    }) && requestMatchesCurrentInput
+  );
+}
+
 export function selectSwapPreviousActionableQuote({
   quotes,
   quoteEventTotalCount,

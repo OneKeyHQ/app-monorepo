@@ -141,6 +141,7 @@ interface IBaseTradingViewV2Props {
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   showNativeIndicatorQuickBar?: boolean;
+  onChartSwitch?: () => void;
   onNativeIndicatorQuickBarChange?: (
     state: ITradingViewNativeIndicatorQuickBarState,
   ) => void;
@@ -211,6 +212,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     showNativeIndicatorQuickBar = true,
+    onChartSwitch,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onKLineDataReady,
@@ -822,6 +824,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           chartTimezone={tradingViewTimezone}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
+          onChartSwitch={onChartSwitch}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}
