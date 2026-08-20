@@ -37,10 +37,10 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..582527c 100644
+index 1c44762..3e8df39 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -49,6 +49,20 @@
+@@ -49,6 +49,25 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -58,10 +58,153 @@ index 1c44762..582527c 100644
 +// completion decrements. Flag is cleared only on the last decrement.
 +static NSInteger RNSScreenTransitionDepth = 0;
 +
++// OneKey patch: a screen can render a loading state before its content scroll
++// view mounts.
++static const NSUInteger RNSHiddenTopScrollEdgeEffectRetryCount = 30;
++static const NSTimeInterval RNSHiddenTopScrollEdgeEffectRetryInterval = 0.1;
++
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -1643,6 +1657,28 @@ - (instancetype)initWithView:(UIView *)view
+@@ -66,6 +85,11 @@ @interface RNSScreenView () <
+     RCTInvalidating>
+ #endif
+ 
++- (nullable UIScrollView *)contentScrollViewForEdgeEffects;
++- (void)scheduleHiddenTopScrollEdgeEffectApplication;
++- (void)applyHiddenTopScrollEdgeEffectForGeneration:(NSUInteger)generation
++                                  remainingAttempts:(NSUInteger)remainingAttempts;
++
+ @end
+ 
+ @implementation RNSScreenView {
+@@ -76,6 +100,7 @@ @implementation RNSScreenView {
+   ContentWrapperBox _contentWrapperBox;
+   bool _sheetHasInitialDetentSet;
+   BOOL _shouldUpdateScrollEdgeEffects;
++  NSUInteger _hiddenTopScrollEdgeEffectRetryGeneration;
+ #ifdef RCT_NEW_ARCH_ENABLED
+   RCTSurfaceTouchHandler *_touchHandler;
+   react::RNSScreenShadowNode::ConcreteState::Shared _state;
+@@ -137,6 +162,7 @@ - (void)initCommonProps
+   _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
+   _fullScreenSwipeShadowEnabled = YES;
+   _shouldUpdateScrollEdgeEffects = NO;
++  _hiddenTopScrollEdgeEffectRetryGeneration = 0;
+ #if !TARGET_OS_TV
+   _sheetExpandsWhenScrolledToEdge = YES;
+ #endif // !TARGET_OS_TV
+@@ -766,6 +792,66 @@ - (void)didMoveToWindow
+   } else {
+     [_touchHandler detachFromView:self];
+   }
++
++  // OneKey patch: only the iOS 26 screens that explicitly hide the top edge effect need a re-apply after attachment.
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    if (self.window != nil && self.topScrollEdgeEffect == RNSScrollEdgeEffectHidden) {
++      [self updateContentScrollViewEdgeEffectsIfExists];
++      [self scheduleHiddenTopScrollEdgeEffectApplication];
++    }
++  }
++#endif
++}
++
++- (void)scheduleHiddenTopScrollEdgeEffectApplication
++{
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    if (self.window == nil || self.topScrollEdgeEffect != RNSScrollEdgeEffectHidden) {
++      return;
++    }
++
++    _hiddenTopScrollEdgeEffectRetryGeneration += 1;
++    [self applyHiddenTopScrollEdgeEffectForGeneration:_hiddenTopScrollEdgeEffectRetryGeneration
++                                    remainingAttempts:RNSHiddenTopScrollEdgeEffectRetryCount];
++  }
++#endif
++}
++
++- (void)applyHiddenTopScrollEdgeEffectForGeneration:(NSUInteger)generation
++                                  remainingAttempts:(NSUInteger)remainingAttempts
++{
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    if (generation != _hiddenTopScrollEdgeEffectRetryGeneration || self.window == nil ||
++        self.topScrollEdgeEffect != RNSScrollEdgeEffectHidden) {
++      return;
++    }
++
++    UIScrollView *scrollView = [self contentScrollViewForEdgeEffects];
++    if (scrollView != nil) {
++      [RNSScrollEdgeEffectApplicator applyToScrollView:scrollView withProvider:self];
++      return;
++    }
++
++    if (remainingAttempts == 0) {
++      return;
++    }
++
++    __weak RNSScreenView *weakSelf = self;
++    dispatch_after(
++        dispatch_time(
++            DISPATCH_TIME_NOW,
++            (int64_t)(RNSHiddenTopScrollEdgeEffectRetryInterval * NSEC_PER_SEC)),
++        dispatch_get_main_queue(),
++        ^{
++          RNSScreenView *strongSelf = weakSelf;
++          [strongSelf applyHiddenTopScrollEdgeEffectForGeneration:generation
++                                                remainingAttempts:remainingAttempts - 1];
++        });
++  }
++#endif
+ }
+ 
+ - (nullable RNS_TOUCH_HANDLER_ARCH_TYPE *)touchHandler
+@@ -1298,9 +1384,25 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+   }
+ }
+ 
++- (nullable UIScrollView *)contentScrollViewForEdgeEffects
++{
++  UIScrollView *scrollView = [RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self];
++
++  // OneKey patch: keep the default heuristic for every screen except an iOS 26 screen explicitly opting out at the top.
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    if (scrollView == nil && self.topScrollEdgeEffect == RNSScrollEdgeEffectHidden) {
++      scrollView = [RNSScrollViewFinder findFirstScrollViewInSubtreeOf:self];
++    }
++  }
++#endif
++
++  return scrollView;
++}
++
+ - (void)updateContentScrollViewEdgeEffectsIfExists
+ {
+-  [RNSScrollEdgeEffectApplicator applyToScrollView:[RNSScrollViewFinder findScrollViewInFirstDescendantChainFrom:self]
++  [RNSScrollEdgeEffectApplicator applyToScrollView:[self contentScrollViewForEdgeEffects]
+                                       withProvider:self];
+ }
+ 
+@@ -1533,6 +1635,7 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+   [super finalizeUpdates:updateMask];
+   if (_shouldUpdateScrollEdgeEffects) {
+     [self updateContentScrollViewEdgeEffectsIfExists];
++    [self scheduleHiddenTopScrollEdgeEffectApplication];
+     _shouldUpdateScrollEdgeEffects = NO;
+   }
+ 
+@@ -1564,6 +1667,7 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+   if (_shouldUpdateScrollEdgeEffects) {
+     // see finalizeUpdates() for Fabric
+     [self updateContentScrollViewEdgeEffectsIfExists];
++    [self scheduleHiddenTopScrollEdgeEffectApplication];
+     _shouldUpdateScrollEdgeEffects = NO;
+   }
+ 
+@@ -1643,6 +1747,28 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -650,6 +793,48 @@ index e37e40a..1e95f36 100644
    [self removeGestureRecognizer:_sinkEventsPanGestureRecognizer];
  }
  
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 3270127..3df3e65 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -451,7 +451,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+       appearance.shadowImage = shadowImage;
+     }
+   } else {
+-    [appearance configureWithOpaqueBackground];
++    // OneKey: when caller did not pass an explicit backgroundColor on iOS 26+, use
++    // configureWithDefaultBackground so UIKit applies the system Liquid Glass material.
++    // configureWithOpaqueBackground would forcibly opaque-fill the bar and suppress glass.
++    if (@available(iOS 26.0, *)) {
++      if (config.backgroundColor == nil) {
++        [appearance configureWithDefaultBackground];
++      } else {
++        [appearance configureWithOpaqueBackground];
++      }
++    } else {
++      [appearance configureWithOpaqueBackground];
++    }
+   }
+ 
+   // set background color if specified
+@@ -461,7 +472,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+ 
+   switch (config.blurEffect) {
+     case RNSBlurEffectStyleNone:
+-      appearance.backgroundEffect = nil;
++      // OneKey: on iOS 26+ with no caller-supplied backgroundColor, preserve the system
++      // Liquid Glass effect installed by configureWithDefaultBackground above. Clearing
++      // backgroundEffect here would defeat the whole point of opting in.
++      if (@available(iOS 26.0, *)) {
++        if (config.backgroundColor != nil) {
++          appearance.backgroundEffect = nil;
++        }
++      } else {
++        appearance.backgroundEffect = nil;
++      }
+       break;
+ 
+     case RNSBlurEffectStyleSystemDefault:
 diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
 index fc6257e..37067c0 100644
 --- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
@@ -805,45 +990,68 @@ index 3e21388..e4f4785 100644
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
-diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 3270127..3df3e65 100644
---- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-+++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -451,7 +451,18 @@
-       appearance.shadowImage = shadowImage;
-     }
-   } else {
--    [appearance configureWithOpaqueBackground];
-+    // OneKey: when caller did not pass an explicit backgroundColor on iOS 26+, use
-+    // configureWithDefaultBackground so UIKit applies the system Liquid Glass material.
-+    // configureWithOpaqueBackground would forcibly opaque-fill the bar and suppress glass.
-+    if (@available(iOS 26.0, *)) {
-+      if (config.backgroundColor == nil) {
-+        [appearance configureWithDefaultBackground];
-+      } else {
-+        [appearance configureWithOpaqueBackground];
-+      }
-+    } else {
-+      [appearance configureWithOpaqueBackground];
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
+index 04d40b3..fbfb436 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.h
+@@ -25,4 +25,10 @@
+  */
+ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullable UIView *)view;
+ 
++/**
++ * OneKey patch: searches the full subtree when an explicitly configured iOS 26 edge effect cannot use the
++ * first-descendant-chain heuristic. Nested screens and header configs are excluded so their scroll views are not used.
++ */
+++ (nullable UIScrollView *)findFirstScrollViewInSubtreeOf:(nullable UIView *)view;
++
+ @end
+diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
+index 2434c61..8131f5d 100644
+--- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
++++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollViewFinder.mm
+@@ -1,4 +1,9 @@
+ #import "RNSScrollViewFinder.h"
++#import "RNSScreen.h"
++#import "RNSScreenStackHeaderConfig.h"
++
++// OneKey patch: guard the fallback search against degenerate native view hierarchies.
++static const NSUInteger kRNSScrollViewSearchVisitLimit = 250;
+ 
+ @implementation RNSScrollViewFinder
+ 
+@@ -41,4 +46,35 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
+   return nil;
+ }
+ 
+++ (nullable UIScrollView *)findFirstScrollViewInSubtreeOf:(nullable UIView *)view
++{
++  if (view == nil) {
++    return nil;
++  }
++
++  NSMutableArray<UIView *> *stack = [NSMutableArray arrayWithObject:view];
++  NSUInteger visitedCount = 0;
++
++  while (stack.count > 0 && visitedCount < kRNSScrollViewSearchVisitLimit) {
++    UIView *currentView = stack.lastObject;
++    [stack removeLastObject];
++    visitedCount += 1;
++
++    if ([currentView isKindOfClass:UIScrollView.class]) {
++      return static_cast<UIScrollView *>(currentView);
 +    }
-   }
- 
-   // set background color if specified
-@@ -461,7 +472,16 @@
- 
-   switch (config.blurEffect) {
-     case RNSBlurEffectStyleNone:
--      appearance.backgroundEffect = nil;
-+      // OneKey: on iOS 26+ with no caller-supplied backgroundColor, preserve the system
-+      // Liquid Glass effect installed by configureWithDefaultBackground above. Clearing
-+      // backgroundEffect here would defeat the whole point of opting in.
-+      if (@available(iOS 26.0, *)) {
-+        if (config.backgroundColor != nil) {
-+          appearance.backgroundEffect = nil;
-+        }
-+      } else {
-+        appearance.backgroundEffect = nil;
++
++    // Push in reverse so subviews are visited in document order.
++    for (UIView *subview in [currentView.subviews reverseObjectEnumerator]) {
++      if ([subview isKindOfClass:RNSScreenView.class] ||
++          [subview isKindOfClass:RNSScreenStackHeaderConfig.class]) {
++        continue;
 +      }
-       break;
- 
-     case RNSBlurEffectStyleSystemDefault:
++      [stack addObject:subview];
++    }
++  }
++
++  return nil;
++}
++
+ @end
