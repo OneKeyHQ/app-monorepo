@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -57,9 +58,13 @@ import {
 import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
-import { releaseSwapTokenListFetchEffectKey } from './useSwapTokens.utils';
+import {
+  buildSwapFuseResultList,
+  releaseSwapTokenListFetchEffectKey,
+} from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
+const EMPTY_SWAP_TOKEN_LIST: ISwapToken[] = [];
 
 export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
@@ -379,7 +384,14 @@ export function useSwapTokenList(
                 walletToken?.networkId === token?.networkId,
             );
             if (balanceToken) {
-              return balanceToken;
+              // OK-60609: the balance-list copy lacks search-only display
+              // fields (e.g. localized stock subtitles); replacing the
+              // search token wholesale would strip them and make the local
+              // keyword fuse drop the held token from the results.
+              return {
+                ...balanceToken,
+                subtitles: token.subtitles ?? balanceToken.subtitles,
+              };
             }
 
             return token;
@@ -397,24 +409,35 @@ export function useSwapTokenList(
     ],
   );
 
-  const fuseRemoteTokensSearch = useFuse(
-    networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-      keywords
-      ? mergedAllNetworkTokenList({
-          swapSearchTokens:
-            tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-        })
-      : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-    {
-      shouldSort: false,
-      keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
-    },
+  // Server keyword-search results for the current fetch key.
+  const remoteKeywordSearchTokens = useMemo(
+    () =>
+      tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data ??
+      EMPTY_SWAP_TOKEN_LIST,
+    [tokenCatch, tokenFetchParams],
   );
 
-  const fuseRemoteTokensSearchRef = useRef(fuseRemoteTokensSearch);
-  if (fuseRemoteTokensSearchRef.current !== fuseRemoteTokensSearch) {
-    fuseRemoteTokensSearchRef.current = fuseRemoteTokensSearch;
-  }
+  // All-network keyword searches run the fuse over the balance-merged and
+  // network-filtered list; every other network feeds the server list as-is.
+  const keywordFuseInputTokens = useMemo(
+    () =>
+      isTokenFetchAllNetworks && keywords
+        ? mergedAllNetworkTokenList({
+            swapSearchTokens: remoteKeywordSearchTokens,
+          })
+        : remoteKeywordSearchTokens,
+    [
+      isTokenFetchAllNetworks,
+      keywords,
+      mergedAllNetworkTokenList,
+      remoteKeywordSearchTokens,
+    ],
+  );
+
+  const fuseRemoteTokensSearch = useFuse(keywordFuseInputTokens, {
+    shouldSort: false,
+    keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
+  });
 
   useEffect(() => {
     if (!isSwapSupportAllAccountsReady) {
@@ -492,6 +515,11 @@ export function useSwapTokenList(
     requestCurrency,
   ]);
 
+  // Keeps the displayed keyword results reachable from the long-lived
+  // search analytics effect below without re-subscribing it to every token
+  // list change.
+  const currentTokensRef = useRef<ISwapToken[] | IFuseResult<ISwapToken>[]>([]);
+
   useEffect(() => {
     if (!keywords) {
       searchLogStateRef.current = null;
@@ -529,8 +557,9 @@ export function useSwapTokenList(
     }
 
     if (state.phase === 'fetching') {
-      const resultCount =
-        fuseRemoteTokensSearchRef.current?.search(keywords)?.length ?? 0;
+      // Count what the selector actually displays (OK-60609 fallback
+      // included) instead of only the local fuse's subset.
+      const resultCount = currentTokensRef.current?.length ?? 0;
 
       defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
         query: keywords,
@@ -595,13 +624,29 @@ export function useSwapTokenList(
     if (!keywords) {
       return unfilteredTokens;
     }
-    return fuseRemoteTokensSearch.search(keywords);
+    // OK-60609: the server keyword search is the matching authority — it
+    // also matches stock company-name tags that never appear verbatim in
+    // symbol/name — so its list is displayed as-is (single network: raw
+    // server result; all networks: network-filtered, balance-decorated
+    // merge). The local fuse only enriches rows with symbol-keyword
+    // highlights; it must not subtract tag-matched tokens.
+    const matchesByToken = new Map(
+      fuseRemoteTokensSearch
+        .search(keywords)
+        .map((result) => [result.item, result.matches]),
+    );
+    return buildSwapFuseResultList(keywordFuseInputTokens, matchesByToken);
   }, [
     fuseRemoteTokensSearch,
     isSwapSupportAllAccountsReady,
+    keywordFuseInputTokens,
     keywords,
     unfilteredTokens,
   ]);
+
+  if (currentTokensRef.current !== currentTokens) {
+    currentTokensRef.current = currentTokens;
+  }
 
   const fetchLoading =
     !isSwapSupportAllAccountsReady ||
