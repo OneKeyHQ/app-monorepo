@@ -740,18 +740,39 @@ export function useDeviceConnect({
           });
 
         if (shouldAuthenticateFirmware) {
-          void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: latestDevice.connectId ?? '',
-            hardClose: false,
-            skipDelayClose: true,
-            deviceResetToHome: false,
-          });
+          const closeCheckingDialogForVerify = async () =>
+            backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId: latestDevice.connectId ?? '',
+              hardClose: false,
+              skipDelayClose: true,
+              deviceResetToHome: false,
+            });
+          // Same handoff rule as the bootloader dialog above: wait until the
+          // hardware checking dialog has fully left the global iOS overlay
+          // before mounting the firmware verify dialog. Mounting while the old
+          // Sheet is still exiting can strand its overlay above the new dialog,
+          // and after a few genuine-check retries every tap gets swallowed.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(
+              closeCheckingDialogForVerify,
+            );
+          } else {
+            void closeCheckingDialogForVerify();
+          }
           let isVerified: boolean | undefined;
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
                 device: latestDevice,
                 features,
+                // iOS only, matching the closeAndWait gate above: the page
+                // portal sits below the global overlay on every platform, so
+                // without the awaited close an in-page dialog would sit under
+                // the exiting checking sheet on Android/desktop. Those
+                // platforms keep the global host (pre-existing behavior).
+                dialogHost: platformEnv.isNativeIOS
+                  ? getBootloaderDialogHost?.()
+                  : undefined,
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
                   setTimeout(() => {
