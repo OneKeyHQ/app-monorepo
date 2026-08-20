@@ -159,15 +159,19 @@ const SwapHeaderContainer = ({
   );
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const selectedAccountNetworkId = activeAccount?.network?.id;
+  const isAllNetworkSelected = networkUtils.isAllNetwork({
+    networkId: selectedAccountNetworkId,
+  });
   const swapContextNetworkId = resolveSwapContextNetworkId({
     accountNetworkId: selectedAccountNetworkId,
     fromTokenNetworkId: fromToken?.networkId,
-    isAllNetwork: networkUtils.isAllNetwork({
-      networkId: selectedAccountNetworkId,
-    }),
+    isAllNetwork: isAllNetworkSelected,
   });
   const { carrySwapTokenToPro, prepareProTokenCarryToSwap } =
-    useSwapProTokenCarry({ accountNetworkId: swapContextNetworkId });
+    useSwapProTokenCarry({
+      accountNetworkId: selectedAccountNetworkId,
+      isAllNetworkSelected,
+    });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -312,17 +316,19 @@ const SwapHeaderContainer = ({
         // back into Swap after the switch action has applied its own
         // last-non-limit token restores. Explicitly gated to the SWAP target
         // so a future non-swap tab leaving LIMIT never consumes the marker.
-        const proCarry =
+        const preparedProCarry =
           platformEnv.isNative &&
           swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
           newType === ESwapTabSwitchType.SWAP
             ? prepareProTokenCarryToSwap()
             : undefined;
-        if (proCarry?.targetNetworkId) {
+        const proCarry = preparedProCarry?.immediate;
+        if (!isAllNetworkSelected && proCarry?.targetNetworkId) {
           await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
         } else if (
+          !isAllNetworkSelected &&
           fromToken?.networkId &&
-          fromToken.networkId !== swapContextNetworkId
+          fromToken.networkId !== selectedAccountNetworkId
         ) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
         }
@@ -332,6 +338,18 @@ const SwapHeaderContainer = ({
             (fromToken?.networkId || swapContextNetworkId || networkId),
         );
         await proCarry?.apply();
+        if (preparedProCarry?.pending) {
+          void preparedProCarry.pending.then(async (pendingCarry) => {
+            if (!pendingCarry?.isValid()) return;
+            if (!isAllNetworkSelected && pendingCarry.targetNetworkId) {
+              await updateSelectedAccountNetworkAction(
+                pendingCarry.targetNetworkId,
+              );
+            }
+            if (!pendingCarry.isValid()) return;
+            await pendingCarry.apply();
+          });
+        }
       }
     },
     [
@@ -342,6 +360,8 @@ const SwapHeaderContainer = ({
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
+      isAllNetworkSelected,
+      selectedAccountNetworkId,
       swapContextNetworkId,
       updateSelectedAccountNetworkAction,
       enterFrom,

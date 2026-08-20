@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { MutableRefObject } from 'react';
 
 import {
   useSwapActions,
@@ -10,6 +9,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
   useSwapUserSelectedTokensAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,23 +19,46 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 type ISwapCarryTokenCandidate = Pick<
   ISwapToken,
   'networkId' | 'contractAddress' | 'isStock'
 >;
 
-type ISwapStableTokenLookupCache = {
-  key: string;
-  stableTokenKeys?: Set<string>;
+export type ISwapStableTokenStatusCacheEntry = {
+  isStableCoin?: boolean;
+  promise?: Promise<boolean>;
+};
+
+type ISwapStableTokenStatusCache = Map<
+  string,
+  ISwapStableTokenStatusCacheEntry
+>;
+
+export type ISwapProToSwapCarryPlan = {
+  targetNetworkId?: string;
+  isValid: () => boolean;
+  apply: () => Promise<void>;
+};
+
+export type IPreparedSwapProToSwapCarry = {
+  immediate?: ISwapProToSwapCarryPlan;
+  pending?: Promise<ISwapProToSwapCarryPlan | undefined>;
 };
 
 const EMPTY_STABLE_TOKEN_KEYS = new Set<string>();
 
-// Bounds background prewarming. Tab transitions never wait for this request;
-// a pending lookup skips the one-shot carry, while a settled failure keeps
-// OK-55190's treat-as-non-stable fallback.
+// Bounds background classification. Tab transitions never wait for this
+// request; pending work is guarded by the target tab and target-side manual
+// selection before it can apply. A settled failure keeps OK-55190's
+// treat-as-non-stable fallback.
 const SWAP_STABLE_CHECK_TIMEOUT_MS = 2000;
+
+// Stable status is cached by token identity rather than by pair identity.
+// This mirrors the server contract and lets common tokens reuse a settled
+// classification across different Swap pairs and both carry directions.
+const swapStableTokenStatusCache: ISwapStableTokenStatusCache = new Map();
 
 function buildStableTokenKey({
   networkId,
@@ -44,31 +67,26 @@ function buildStableTokenKey({
   return `${networkId}:${(contractAddress ?? '').toLowerCase()}`;
 }
 
-export function buildSwapStableTokenLookupKey(
-  tokens: Array<ISwapCarryTokenCandidate | undefined>,
-) {
-  return tokens
-    .filter(
-      (token): token is ISwapCarryTokenCandidate =>
-        Boolean(token?.networkId) && !token?.isStock,
-    )
-    .map(buildStableTokenKey)
-    .toSorted()
-    .join('|');
-}
-
 export function getSwapStableTokenKeysForCarry({
   tokens,
   cache,
 }: {
   tokens: Array<ISwapCarryTokenCandidate | undefined>;
-  cache?: ISwapStableTokenLookupCache;
+  cache: ReadonlyMap<string, ISwapStableTokenStatusCacheEntry>;
 }) {
-  const key = buildSwapStableTokenLookupKey(tokens);
-  if (cache?.key === key && cache.stableTokenKeys) {
-    return cache.stableTokenKeys;
+  const stableTokenKeys = new Set<string>();
+  const tokenKeys = tokens
+    .filter(
+      (token): token is ISwapCarryTokenCandidate =>
+        Boolean(token?.networkId && token.contractAddress) && !token?.isStock,
+    )
+    .map(buildStableTokenKey);
+  for (const key of new Set(tokenKeys)) {
+    const status = cache.get(key)?.isStableCoin;
+    if (status === undefined) return undefined;
+    if (status) stableTokenKeys.add(key);
   }
-  return undefined;
+  return stableTokenKeys;
 }
 
 export function resolveSwapContextNetworkId({
@@ -83,6 +101,25 @@ export function resolveSwapContextNetworkId({
   return !isAllNetwork && accountNetworkId
     ? accountNetworkId
     : fromTokenNetworkId;
+}
+
+export function resolveSwapProCarryIntentStatus({
+  currentType,
+  sourceType,
+  targetType,
+  enteredTarget,
+  targetUserSelected,
+}: {
+  currentType: ESwapTabSwitchType;
+  sourceType: ESwapTabSwitchType;
+  targetType: ESwapTabSwitchType;
+  enteredTarget: boolean;
+  targetUserSelected: boolean;
+}): 'waiting' | 'ready' | 'cancel' {
+  if (targetUserSelected) return 'cancel';
+  if (currentType === targetType) return 'ready';
+  if (enteredTarget || currentType !== sourceType) return 'cancel';
+  return 'waiting';
 }
 
 /**
@@ -155,22 +192,51 @@ export async function fetchSwapStableTokenKeys(
   }
 }
 
-function warmSwapStableTokenKeys(
+export function warmSwapStableTokenKeys(
   tokens: Array<ISwapCarryTokenCandidate | undefined>,
-  cacheRef: MutableRefObject<ISwapStableTokenLookupCache | undefined>,
-) {
-  const key = buildSwapStableTokenLookupKey(tokens);
-  if (cacheRef.current?.key === key) return;
-  if (!key) {
-    cacheRef.current = { key, stableTokenKeys: EMPTY_STABLE_TOKEN_KEYS };
-    return;
-  }
-  cacheRef.current = { key };
-  void fetchSwapStableTokenKeys(tokens).then((stableTokenKeys) => {
-    if (cacheRef.current?.key === key) {
-      cacheRef.current = { key, stableTokenKeys };
+  cache: ISwapStableTokenStatusCache,
+): Promise<Set<string>> {
+  const candidates = Array.from(
+    new Map(
+      tokens
+        .filter(
+          (token): token is ISwapCarryTokenCandidate =>
+            Boolean(token?.networkId && token.contractAddress) &&
+            !token?.isStock,
+        )
+        .map((token) => [buildStableTokenKey(token), token]),
+    ).entries(),
+  );
+  const pending = candidates.map(([key, token]) => {
+    const cached = cache.get(key);
+    if (cached?.isStableCoin !== undefined) {
+      return Promise.resolve(cached.isStableCoin);
     }
+    if (cached?.promise) return cached.promise;
+    // Deliberately use one token per request so the background 12-hour memo
+    // is reusable across pair combinations instead of being pair-keyed.
+    const promise = fetchSwapStableTokenKeys([token]).then(
+      (stableTokenKeys) => {
+        const isStableCoin = stableTokenKeys.has(key);
+        cache.set(key, { isStableCoin });
+        return isStableCoin;
+      },
+      () => {
+        cache.set(key, { isStableCoin: false });
+        return false;
+      },
+    );
+    cache.set(key, { promise });
+    return promise;
   });
+  if (pending.length === 0) {
+    return Promise.resolve(EMPTY_STABLE_TOKEN_KEYS);
+  }
+  return Promise.all(pending).then(
+    () =>
+      getSwapStableTokenKeysForCarry({ tokens, cache }) ??
+      EMPTY_STABLE_TOKEN_KEYS,
+  );
 }
 
 /**
@@ -272,13 +338,16 @@ export function resolveProToSwapCarryToken<T extends ISwapCarryTokenCandidate>({
  */
 export function useSwapProTokenCarry({
   accountNetworkId,
+  isAllNetworkSelected = false,
 }: {
   accountNetworkId?: string;
+  isAllNetworkSelected?: boolean;
 }) {
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapNetworks] = useSwapNetworksAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapUserSelectedTokens, setSwapUserSelectedTokens] =
@@ -286,140 +355,374 @@ export function useSwapProTokenCarry({
   const [swapProUserSelectedToken, setSwapProUserSelectedToken] =
     useSwapProUserSelectedTokenAtom();
   const { setSwapProSelectToken, selectToToken } = useSwapActions().current;
-  const swapStableTokenLookupRef = useRef<
-    ISwapStableTokenLookupCache | undefined
+  const swapNetworksRef = useRef(swapNetworks);
+  const swapTypeSwitchRef = useRef(swapTypeSwitch);
+  const swapUserSelectedTokensRef = useRef(swapUserSelectedTokens);
+  const swapProUserSelectedTokenRef = useRef(swapProUserSelectedToken);
+  const accountNetworkIdRef = useRef(accountNetworkId);
+  const isAllNetworkSelectedRef = useRef(isAllNetworkSelected);
+  swapNetworksRef.current = swapNetworks;
+  swapTypeSwitchRef.current = swapTypeSwitch;
+  swapUserSelectedTokensRef.current = swapUserSelectedTokens;
+  swapProUserSelectedTokenRef.current = swapProUserSelectedToken;
+  accountNetworkIdRef.current = accountNetworkId;
+  isAllNetworkSelectedRef.current = isAllNetworkSelected;
+
+  const swapToProCarryGenerationRef = useRef(0);
+  const proToSwapCarryGenerationRef = useRef(0);
+  const pendingSwapToProCarryRef = useRef<
+    | {
+        id: number;
+        sourceType: ESwapTabSwitchType;
+        enteredTarget: boolean;
+        fromToken?: ISwapToken;
+        toToken?: ISwapToken;
+      }
+    | undefined
   >(undefined);
-  const swapProStableTokenLookupRef = useRef<
-    ISwapStableTokenLookupCache | undefined
+  const pendingProToSwapCarryRef = useRef<
+    | {
+        id: number;
+        enteredTarget: boolean;
+        proToken?: ISwapToken;
+        swapFromToken?: ISwapToken;
+        accountNetworkId?: string;
+        isAllNetworkSelected: boolean;
+        resolve: (plan: ISwapProToSwapCarryPlan | undefined) => void;
+      }
+    | undefined
   >(undefined);
 
-  // Warm stable-coin classification while the user is still on the source tab.
-  // The transition itself reads only a settled matching snapshot and never
-  // waits for background I/O.
+  // Warm the current tokens even before a carry marker is armed. Classification
+  // is cached per token, so common stable coins can be reused across pairs.
   useEffect(() => {
     if (!platformEnv.isNative) return;
-    if (swapNetworks.length === 0) return;
-    if (swapUserSelectedTokens) {
-      warmSwapStableTokenKeys([toToken, fromToken], swapStableTokenLookupRef);
+    void warmSwapStableTokenKeys(
+      [toToken, fromToken, swapProSelectToken],
+      swapStableTokenStatusCache,
+    );
+  }, [fromToken, swapProSelectToken, toToken]);
+
+  const cancelPendingSwapToProCarry = useCallback(() => {
+    if (!pendingSwapToProCarryRef.current) return;
+    pendingSwapToProCarryRef.current = undefined;
+    swapToProCarryGenerationRef.current += 1;
+  }, []);
+
+  const cancelPendingProToSwapCarry = useCallback(() => {
+    const pending = pendingProToSwapCarryRef.current;
+    if (!pending) return;
+    pendingProToSwapCarryRef.current = undefined;
+    proToSwapCarryGenerationRef.current += 1;
+    pending.resolve(undefined);
+  }, []);
+
+  const tryApplyPendingSwapToProCarry = useCallback(() => {
+    const pending = pendingSwapToProCarryRef.current;
+    if (!pending) return;
+    const status = resolveSwapProCarryIntentStatus({
+      currentType: swapTypeSwitchRef.current,
+      sourceType: pending.sourceType,
+      targetType: ESwapTabSwitchType.LIMIT,
+      enteredTarget: pending.enteredTarget,
+      targetUserSelected: swapProUserSelectedTokenRef.current,
+    });
+    if (status === 'ready') {
+      pending.enteredTarget = true;
+    } else if (status === 'cancel') {
+      cancelPendingSwapToProCarry();
+      return;
     }
-    if (swapProUserSelectedToken) {
-      warmSwapStableTokenKeys(
-        [swapProSelectToken],
-        swapProStableTokenLookupRef,
+    if (!pending.enteredTarget) return;
+    const currentNetworks = swapNetworksRef.current;
+    if (currentNetworks.length === 0) return;
+    const stableTokenKeys = getSwapStableTokenKeysForCarry({
+      tokens: [pending.toToken, pending.fromToken],
+      cache: swapStableTokenStatusCache,
+    });
+    if (!stableTokenKeys) return;
+    pendingSwapToProCarryRef.current = undefined;
+    const token = resolveSwapToProCarryToken({
+      toToken: pending.toToken,
+      fromToken: pending.fromToken,
+      stableTokenKeys,
+    });
+    if (
+      token &&
+      checkProSupportsNetwork({
+        swapNetworks: currentNetworks,
+        networkId: token.networkId,
+      }) &&
+      pending.id === swapToProCarryGenerationRef.current
+    ) {
+      void setSwapProSelectToken(token);
+    }
+  }, [cancelPendingSwapToProCarry, setSwapProSelectToken]);
+
+  const buildProToSwapCarryPlan = useCallback(
+    ({
+      id,
+      proToken,
+      swapFromToken,
+      sourceAccountNetworkId,
+      sourceIsAllNetworkSelected,
+      stableTokenKeys,
+      currentNetworks,
+    }: {
+      id: number;
+      proToken?: ISwapToken;
+      swapFromToken?: ISwapToken;
+      sourceAccountNetworkId?: string;
+      sourceIsAllNetworkSelected: boolean;
+      stableTokenKeys: Set<string>;
+      currentNetworks: ISwapNetwork[];
+    }): ISwapProToSwapCarryPlan | undefined => {
+      const swapContextNetworkId = resolveSwapContextNetworkId({
+        accountNetworkId: sourceAccountNetworkId,
+        fromTokenNetworkId: swapFromToken?.networkId,
+        isAllNetwork: sourceIsAllNetworkSelected,
+      });
+      const token = resolveProToSwapCarryToken({
+        proToken,
+        swapFromToken,
+        swapNetworkId: swapContextNetworkId,
+        stableTokenKeys,
+        swapNetworks: currentNetworks,
+      });
+      if (!token) return undefined;
+      const isCrossNetwork = Boolean(
+        swapContextNetworkId && token.networkId !== swapContextNetworkId,
       );
+      const allowedAccountNetworkIds = new Set(
+        [
+          sourceAccountNetworkId,
+          swapFromToken?.networkId,
+          isCrossNetwork ? token.networkId : undefined,
+        ].filter((networkId): networkId is string => Boolean(networkId)),
+      );
+      const isValid = () => {
+        const currentAccountNetworkId = accountNetworkIdRef.current;
+        const hasCompatibleAccountContext = sourceIsAllNetworkSelected
+          ? isAllNetworkSelectedRef.current
+          : !isAllNetworkSelectedRef.current &&
+            (!currentAccountNetworkId ||
+              allowedAccountNetworkIds.has(currentAccountNetworkId));
+        return (
+          id === proToSwapCarryGenerationRef.current &&
+          swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP &&
+          !swapUserSelectedTokensRef.current &&
+          hasCompatibleAccountContext
+        );
+      };
+      const apply = async () => {
+        if (!isValid()) return;
+        if (isCrossNetwork && token.networkId) {
+          // Cross-network carry: Swap lands on the token's network with the
+          // native coin as FromToken (OK-55190 example: BSC -> SOL-JUP).
+          const nativeFromToken =
+            swapDefaultSetTokens[token.networkId]?.fromToken;
+          if (nativeFromToken?.isNative) {
+            setSwapSelectFromToken(nativeFromToken);
+          }
+        }
+        if (!isValid()) return;
+        // Carried tokens are not a manual Swap pick, so selectToToken opts out
+        // of arming the opposite-direction carry marker.
+        await selectToToken(token, undefined, undefined, false);
+        if (!isValid()) return;
+        // The switch action restores the previous pair's amount drafts; the
+        // carried pair must not inherit those amounts or quote with them.
+        setSwapFromTokenAmount({ value: '', isInput: false });
+        setSwapToTokenAmount({ value: '', isInput: false });
+      };
+      return {
+        targetNetworkId: isCrossNetwork ? token.networkId : undefined,
+        isValid,
+        apply,
+      };
+    },
+    [
+      selectToToken,
+      setSwapFromTokenAmount,
+      setSwapSelectFromToken,
+      setSwapToTokenAmount,
+    ],
+  );
+
+  const tryResolvePendingProToSwapCarry = useCallback(() => {
+    const pending = pendingProToSwapCarryRef.current;
+    if (!pending) return;
+    const status = resolveSwapProCarryIntentStatus({
+      currentType: swapTypeSwitchRef.current,
+      sourceType: ESwapTabSwitchType.LIMIT,
+      targetType: ESwapTabSwitchType.SWAP,
+      enteredTarget: pending.enteredTarget,
+      targetUserSelected: swapUserSelectedTokensRef.current,
+    });
+    if (status === 'ready') {
+      pending.enteredTarget = true;
+    } else if (status === 'cancel') {
+      cancelPendingProToSwapCarry();
+      return;
     }
+    if (!pending.enteredTarget) return;
+    const currentNetworks = swapNetworksRef.current;
+    if (currentNetworks.length === 0) return;
+    const stableTokenKeys = getSwapStableTokenKeysForCarry({
+      tokens: [pending.proToken],
+      cache: swapStableTokenStatusCache,
+    });
+    if (!stableTokenKeys) return;
+    pendingProToSwapCarryRef.current = undefined;
+    pending.resolve(
+      buildProToSwapCarryPlan({
+        id: pending.id,
+        proToken: pending.proToken,
+        swapFromToken: pending.swapFromToken,
+        sourceAccountNetworkId: pending.accountNetworkId,
+        sourceIsAllNetworkSelected: pending.isAllNetworkSelected,
+        stableTokenKeys,
+        currentNetworks,
+      }),
+    );
+  }, [buildProToSwapCarryPlan, cancelPendingProToSwapCarry]);
+
+  useEffect(() => {
+    tryApplyPendingSwapToProCarry();
+    tryResolvePendingProToSwapCarry();
   }, [
-    fromToken,
-    swapNetworks.length,
-    swapProSelectToken,
+    swapNetworks,
     swapProUserSelectedToken,
+    swapTypeSwitch,
     swapUserSelectedTokens,
-    toToken,
+    tryApplyPendingSwapToProCarry,
+    tryResolvePendingProToSwapCarry,
   ]);
+
+  useEffect(
+    () => () => {
+      cancelPendingSwapToProCarry();
+      cancelPendingProToSwapCarry();
+    },
+    [cancelPendingProToSwapCarry, cancelPendingSwapToProCarry],
+  );
 
   const carrySwapTokenToPro = useCallback(() => {
     if (!swapUserSelectedTokens) return;
-    // Networks not loaded yet (cold-start race): leave the marker armed so
-    // the next switch can still carry instead of silently dropping it.
-    if (swapNetworks.length === 0) return;
-    // Consume the marker regardless of outcome: a carry that resolves to
-    // "bring nothing" must not retrigger on the next tab switch.
+    // Transfer the one-shot marker into a guarded intent before the shared tab
+    // action invalidates it. Pending network/classification work may finish
+    // later, but only while the user remains on Pro without a manual Pro pick.
     setSwapUserSelectedTokens(false);
+    swapUserSelectedTokensRef.current = false;
+    cancelPendingSwapToProCarry();
+    const id = swapToProCarryGenerationRef.current + 1;
+    swapToProCarryGenerationRef.current = id;
+    const sourceType = swapTypeSwitchRef.current;
+    const capturedTokens = [toToken, fromToken];
+    const lookupPromise = warmSwapStableTokenKeys(
+      capturedTokens,
+      swapStableTokenStatusCache,
+    );
     const stableTokenKeys = getSwapStableTokenKeysForCarry({
-      tokens: [toToken, fromToken],
-      cache: swapStableTokenLookupRef.current,
+      tokens: capturedTokens,
+      cache: swapStableTokenStatusCache,
     });
-    // Never guess while the matching lookup is still pending. The marker is
-    // already consumed so this abandoned carry cannot replay on a later tab.
-    if (!stableTokenKeys) return;
-    const token = resolveSwapToProCarryToken({
-      toToken,
-      fromToken,
-      stableTokenKeys,
-    });
-    if (!token) return;
-    if (
-      !checkProSupportsNetwork({
-        swapNetworks,
-        networkId: token.networkId,
-      })
-    ) {
+    if (stableTokenKeys && swapNetworks.length > 0) {
+      const token = resolveSwapToProCarryToken({
+        toToken,
+        fromToken,
+        stableTokenKeys,
+      });
+      if (
+        token &&
+        checkProSupportsNetwork({
+          swapNetworks,
+          networkId: token.networkId,
+        })
+      ) {
+        void setSwapProSelectToken(token);
+      }
       return;
     }
-    void setSwapProSelectToken(token);
+    pendingSwapToProCarryRef.current = {
+      id,
+      sourceType,
+      enteredTarget: false,
+      fromToken,
+      toToken,
+    };
+    void lookupPromise.then(tryApplyPendingSwapToProCarry);
   }, [
+    cancelPendingSwapToProCarry,
     fromToken,
     setSwapProSelectToken,
     setSwapUserSelectedTokens,
     swapNetworks,
     swapUserSelectedTokens,
     toToken,
+    tryApplyPendingSwapToProCarry,
   ]);
 
   const prepareProTokenCarryToSwap = useCallback(():
-    | {
-        targetNetworkId?: string;
-        apply: () => Promise<void>;
-      }
+    | IPreparedSwapProToSwapCarry
     | undefined => {
     if (!swapProUserSelectedToken) return undefined;
-    if (swapNetworks.length === 0) return undefined;
     setSwapProUserSelectedToken(false);
+    swapProUserSelectedTokenRef.current = false;
+    cancelPendingProToSwapCarry();
+    const id = proToSwapCarryGenerationRef.current + 1;
+    proToSwapCarryGenerationRef.current = id;
+    const lookupPromise = warmSwapStableTokenKeys(
+      [swapProSelectToken],
+      swapStableTokenStatusCache,
+    );
     const stableTokenKeys = getSwapStableTokenKeysForCarry({
       tokens: [swapProSelectToken],
-      cache: swapProStableTokenLookupRef.current,
+      cache: swapStableTokenStatusCache,
     });
-    if (!stableTokenKeys) return undefined;
-    // The Swap context network is the account network; fall back to the
-    // FromToken network only when the account network is unknown.
-    const swapContextNetworkId = resolveSwapContextNetworkId({
-      accountNetworkId,
-      fromTokenNetworkId: fromToken?.networkId,
-    });
-    const token = resolveProToSwapCarryToken({
+    if (stableTokenKeys && swapNetworks.length > 0) {
+      return {
+        immediate: buildProToSwapCarryPlan({
+          id,
+          proToken: swapProSelectToken,
+          swapFromToken: fromToken,
+          sourceAccountNetworkId: accountNetworkId,
+          sourceIsAllNetworkSelected: isAllNetworkSelected,
+          stableTokenKeys,
+          currentNetworks: swapNetworks,
+        }),
+      };
+    }
+    let resolvePending: (
+      plan: ISwapProToSwapCarryPlan | undefined,
+    ) => void = () => undefined;
+    const pending = new Promise<ISwapProToSwapCarryPlan | undefined>(
+      (resolve) => {
+        resolvePending = resolve;
+      },
+    );
+    pendingProToSwapCarryRef.current = {
+      id,
+      enteredTarget: false,
       proToken: swapProSelectToken,
       swapFromToken: fromToken,
-      swapNetworkId: swapContextNetworkId,
-      stableTokenKeys,
-      swapNetworks,
-    });
-    if (!token) return undefined;
-    const isCrossNetwork = Boolean(
-      swapContextNetworkId && token.networkId !== swapContextNetworkId,
-    );
-    const apply = async () => {
-      if (isCrossNetwork && token.networkId) {
-        // Cross-network carry: Swap lands on the token's network with the
-        // native coin as FromToken (OK-55190 example: BSC -> SOL-JUP).
-        const nativeFromToken =
-          swapDefaultSetTokens[token.networkId]?.fromToken;
-        if (nativeFromToken?.isNative) {
-          setSwapSelectFromToken(nativeFromToken);
-        }
-      }
-      // Carried tokens are not a manual Swap pick, so selectToToken opts out
-      // of arming the opposite-direction carry marker.
-      await selectToToken(token, undefined, undefined, false);
-      // The switch action restores the previous pair's amount drafts; the
-      // carried pair must not inherit those amounts or quote with them.
-      setSwapFromTokenAmount({ value: '', isInput: false });
-      setSwapToTokenAmount({ value: '', isInput: false });
+      accountNetworkId,
+      isAllNetworkSelected,
+      resolve: resolvePending,
     };
-    return {
-      targetNetworkId: isCrossNetwork ? token.networkId : undefined,
-      apply,
-    };
+    void lookupPromise.then(tryResolvePendingProToSwapCarry);
+    return { pending };
   }, [
     accountNetworkId,
+    buildProToSwapCarryPlan,
+    cancelPendingProToSwapCarry,
     fromToken,
-    selectToToken,
-    setSwapFromTokenAmount,
+    isAllNetworkSelected,
     setSwapProUserSelectedToken,
-    setSwapSelectFromToken,
-    setSwapToTokenAmount,
     swapNetworks,
     swapProSelectToken,
     swapProUserSelectedToken,
+    tryResolvePendingProToSwapCarry,
   ]);
 
   return { carrySwapTokenToPro, prepareProTokenCarryToSwap };

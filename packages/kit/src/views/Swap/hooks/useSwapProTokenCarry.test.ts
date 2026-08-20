@@ -1,13 +1,15 @@
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  buildSwapStableTokenLookupKey,
   checkProSupportsNetwork,
   fetchSwapStableTokenKeys,
   getSwapStableTokenKeysForCarry,
   resolveProToSwapCarryToken,
   resolveSwapContextNetworkId,
+  resolveSwapProCarryIntentStatus,
   resolveSwapToProCarryToken,
+  warmSwapStableTokenKeys,
 } from './useSwapProTokenCarry';
 
 type IMockCheckStableCoinsList = (params: unknown) => Promise<
@@ -292,36 +294,48 @@ describe('stable-token lookup snapshot', () => {
     contractAddress: '0xusdt',
   });
 
-  it('uses only a settled snapshot for the current token identity', () => {
-    const key = buildSwapStableTokenLookupKey([token]);
+  it('uses settled status by token identity across pair combinations', () => {
     const stableTokenKeys = new Set([stableKey('evm--1', '0xusdt')]);
+    const cache = new Map([
+      [stableKey('evm--1', '0xusdt'), { isStableCoin: true }],
+      [stableKey('evm--1', '0xuni'), { isStableCoin: false }],
+    ]);
 
     expect(
       getSwapStableTokenKeysForCarry({
-        tokens: [token],
-        cache: { key, stableTokenKeys },
+        tokens: [
+          token,
+          buildToken({ networkId: 'evm--1', contractAddress: '0xuni' }),
+        ],
+        cache,
       }),
-    ).toBe(stableTokenKeys);
+    ).toEqual(stableTokenKeys);
   });
 
-  it('skips carry while prewarming is pending or stale', () => {
-    const key = buildSwapStableTokenLookupKey([token]);
+  it('keeps carry pending until every non-native token is settled', () => {
+    expect(
+      getSwapStableTokenKeysForCarry({
+        tokens: [token],
+        cache: new Map([
+          [stableKey('evm--1', '0xusdt'), { promise: Promise.resolve(true) }],
+        ]),
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapStableTokenKeysForCarry({
+        tokens: [token],
+        cache: new Map(),
+      }),
+    ).toBeUndefined();
+  });
 
+  it('treats native-only candidates as synchronously settled non-stable', () => {
     expect(
       getSwapStableTokenKeysForCarry({
-        tokens: [token],
-        cache: { key },
+        tokens: [buildToken({ networkId: 'evm--1', contractAddress: '' })],
+        cache: new Map(),
       }),
-    ).toBeUndefined();
-    expect(
-      getSwapStableTokenKeysForCarry({
-        tokens: [token],
-        cache: {
-          key: 'evm--56:0xusdt',
-          stableTokenKeys: new Set([stableKey('evm--56', '0xusdt')]),
-        },
-      }),
-    ).toBeUndefined();
+    ).toEqual(new Set());
   });
 });
 
@@ -354,6 +368,50 @@ describe('resolveSwapContextNetworkId', () => {
   });
 });
 
+describe('resolveSwapProCarryIntentStatus', () => {
+  it('waits on the source tab and becomes ready on the intended target', () => {
+    expect(
+      resolveSwapProCarryIntentStatus({
+        currentType: ESwapTabSwitchType.SWAP,
+        sourceType: ESwapTabSwitchType.SWAP,
+        targetType: ESwapTabSwitchType.LIMIT,
+        enteredTarget: false,
+        targetUserSelected: false,
+      }),
+    ).toBe('waiting');
+    expect(
+      resolveSwapProCarryIntentStatus({
+        currentType: ESwapTabSwitchType.LIMIT,
+        sourceType: ESwapTabSwitchType.SWAP,
+        targetType: ESwapTabSwitchType.LIMIT,
+        enteredTarget: false,
+        targetUserSelected: false,
+      }),
+    ).toBe('ready');
+  });
+
+  it('cancels after leaving the target or when the target is manually changed', () => {
+    expect(
+      resolveSwapProCarryIntentStatus({
+        currentType: ESwapTabSwitchType.STOCK,
+        sourceType: ESwapTabSwitchType.SWAP,
+        targetType: ESwapTabSwitchType.LIMIT,
+        enteredTarget: true,
+        targetUserSelected: false,
+      }),
+    ).toBe('cancel');
+    expect(
+      resolveSwapProCarryIntentStatus({
+        currentType: ESwapTabSwitchType.LIMIT,
+        sourceType: ESwapTabSwitchType.SWAP,
+        targetType: ESwapTabSwitchType.LIMIT,
+        enteredTarget: true,
+        targetUserSelected: true,
+      }),
+    ).toBe('cancel');
+  });
+});
+
 describe('fetchSwapStableTokenKeys', () => {
   beforeEach(() => {
     mockCheckStableCoinsList.mockReset();
@@ -375,6 +433,61 @@ describe('fetchSwapStableTokenKeys', () => {
         buildToken({ networkId: 'evm--1', contractAddress: '0xuni' }),
       ]),
     ).resolves.toEqual(new Set([stableKey('evm--1', '0xusdt')]));
+  });
+
+  it('warms and reuses classification at single-token granularity', async () => {
+    const usdt = buildToken({
+      networkId: 'evm--1',
+      contractAddress: '0xusdt',
+    });
+    const uni = buildToken({
+      networkId: 'evm--1',
+      contractAddress: '0xuni',
+    });
+    mockCheckStableCoinsList
+      .mockResolvedValueOnce([
+        {
+          networkId: 'evm--1',
+          results: [{ contractAddress: '0xusdt', isStableCoin: true }],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          networkId: 'evm--1',
+          results: [{ contractAddress: '0xuni', isStableCoin: false }],
+        },
+      ]);
+    const cache = new Map();
+
+    await expect(warmSwapStableTokenKeys([usdt, uni], cache)).resolves.toEqual(
+      new Set([stableKey('evm--1', '0xusdt')]),
+    );
+    expect(mockCheckStableCoinsList).toHaveBeenCalledTimes(2);
+    expect(mockCheckStableCoinsList.mock.calls).toEqual([
+      [
+        {
+          list: [
+            {
+              networkId: 'evm--1',
+              contractAddressList: ['0xusdt'],
+            },
+          ],
+        },
+      ],
+      [
+        {
+          list: [
+            {
+              networkId: 'evm--1',
+              contractAddressList: ['0xuni'],
+            },
+          ],
+        },
+      ],
+    ]);
+
+    await warmSwapStableTokenKeys([uni, usdt], cache);
+    expect(mockCheckStableCoinsList).toHaveBeenCalledTimes(2);
   });
 
   it('resolves to an empty set when the request fails (treat as non-stable)', async () => {
