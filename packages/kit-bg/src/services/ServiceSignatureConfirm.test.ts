@@ -143,6 +143,35 @@ function buildService(parsedTx: IParseTransactionResp) {
   return service;
 }
 
+function buildTransactionSecurityService(post: jest.Mock) {
+  const backgroundApi = {
+    servicePrime: {
+      isPrimeSubscriptionActive: jest.fn().mockResolvedValue(true),
+    },
+    serviceNetwork: {
+      isCustomNetwork: jest.fn().mockResolvedValue(false),
+    },
+    serviceAccount: {
+      getAccountAddressForApi: jest.fn().mockResolvedValue(accountAddress),
+    },
+    simpleDb: {
+      prime: {
+        getActiveAuthToken: jest.fn().mockResolvedValue('prime-token'),
+      },
+    },
+    serviceAccountProfile: {
+      _getWalletTypeHeader: jest
+        .fn()
+        .mockResolvedValue({ 'X-Wallet-Type': 'hd' }),
+    },
+  };
+  const service = new ServiceSignatureConfirm({ backgroundApi });
+  Object.assign(service, {
+    getClient: jest.fn().mockResolvedValue({ post }),
+  });
+  return service;
+}
+
 describe('ServiceSignatureConfirm.buildDecodedTx', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -209,5 +238,106 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
 
     expect(decodedTx.isLocalParsed).toBeUndefined();
     expect(decodedTx.txDisplay).toBe(parsedTx.display);
+  });
+});
+
+describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('sends eth_signTypedData_v4 as jsonRpc without building an encoded tx', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          level: 'medium',
+          detail: {
+            code: 'permit_risk',
+            features: [],
+          },
+        },
+      },
+    });
+    const service = buildTransactionSecurityService(post);
+    const jsonRpc = {
+      method: 'eth_signTypedData_v4',
+      params: ['0xsigner', '{"primaryType":"Permit"}'],
+    };
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc,
+      }),
+    ).resolves.toEqual({
+      level: 'medium',
+      detail: {
+        code: 'permit_risk',
+        features: [],
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/utility/v1/transaction/check',
+      {
+        networkId,
+        accountAddress,
+        jsonRpc,
+      },
+      {
+        timeout: 5000,
+        headers: {
+          'X-Wallet-Type': 'hd',
+          'X-Onekey-Request-Token': 'prime-token',
+        },
+      },
+    );
+    expect(vaultFactory.getVault).not.toHaveBeenCalled();
+  });
+
+  it('returns an unassessed result when the request fails', async () => {
+    const service = buildTransactionSecurityService(
+      jest.fn().mockRejectedValue(new Error('timeout')),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'unable_to_assess',
+        features: [],
+      },
+    });
+  });
+
+  it('returns an unassessed result when the response is empty', async () => {
+    const service = buildTransactionSecurityService(
+      jest.fn().mockResolvedValue({ data: { data: {} } }),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'unable_to_assess',
+        features: [],
+      },
+    });
   });
 });

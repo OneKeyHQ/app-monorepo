@@ -19,6 +19,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { buildTransactionSecurityJsonRpc } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertNetworkToSignatureConfirmNetwork,
@@ -203,6 +204,7 @@ function MessageConfirm() {
   const securityCheckRequestKey = useMemo(
     () =>
       [
+        sourceInfo?.id ?? '',
         accountId,
         networkId,
         sourceInfo?.origin ?? '',
@@ -212,11 +214,76 @@ function MessageConfirm() {
     [
       accountId,
       networkId,
+      sourceInfo?.id,
       sourceInfo?.origin,
       unsignedMessage.message,
       unsignedMessage.type,
     ],
   );
+
+  const transactionSecurityJsonRpc = useMemo(
+    () =>
+      networkUtils.isEvmNetwork({ networkId })
+        ? buildTransactionSecurityJsonRpc({
+            jsonRpcRequest: sourceInfo?.data,
+          })
+        : undefined,
+    [networkId, sourceInfo?.data],
+  );
+
+  const {
+    result: transactionSecurityCheck,
+    isLoading: isCheckingTransactionSecurity,
+  } = usePromiseResult(
+    async () => {
+      if (
+        !sourceInfo?.origin ||
+        !accountId ||
+        !networkId ||
+        !transactionSecurityJsonRpc
+      ) {
+        return {
+          requestKey: securityCheckRequestKey,
+          result: undefined,
+        };
+      }
+      const transactionSecurityResult =
+        await backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
+          {
+            accountId,
+            networkId,
+            jsonRpc: transactionSecurityJsonRpc,
+          },
+        );
+      return {
+        requestKey: securityCheckRequestKey,
+        result: transactionSecurityResult,
+      };
+    },
+    [
+      accountId,
+      networkId,
+      securityCheckRequestKey,
+      sourceInfo?.origin,
+      transactionSecurityJsonRpc,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const shouldCheckTransactionSecurity = Boolean(
+    sourceInfo?.origin && transactionSecurityJsonRpc,
+  );
+  const isCurrentTransactionSecurityCheck =
+    transactionSecurityCheck?.requestKey === securityCheckRequestKey;
+  const transactionSecurityInfo = isCurrentTransactionSecurityCheck
+    ? transactionSecurityCheck.result
+    : undefined;
+  const isTransactionSecurityPending =
+    shouldCheckTransactionSecurity &&
+    (!isCurrentTransactionSecurityCheck ||
+      isCheckingTransactionSecurity !== false);
 
   const renderMessageConfirmContent = useCallback(() => {
     if (isLoading) {
@@ -248,6 +315,8 @@ function MessageConfirm() {
               isRiskSignMethod={isRiskSignMethod}
               isConfirmationRequired={isConfirmationRequired}
               isMessageParseFallback={isMessageParseFallback}
+              transactionSecurityInfo={transactionSecurityInfo}
+              isTransactionSecurityPending={isTransactionSecurityPending}
             />
           </>
         ) : null}
@@ -282,6 +351,8 @@ function MessageConfirm() {
     swapInfo,
     isConfirmationRequired,
     isMessageParseFallback,
+    transactionSecurityInfo,
+    isTransactionSecurityPending,
   ]);
 
   const handleOnClose = useCallback(

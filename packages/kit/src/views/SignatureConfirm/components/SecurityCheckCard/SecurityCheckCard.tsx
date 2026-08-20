@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -8,7 +9,18 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -16,7 +28,9 @@ import {
   Badge,
   Button,
   Icon,
+  LinearGradient,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -27,6 +41,10 @@ import {
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
 import {
+  hasTransactionSecurityFeatures,
+  shouldShowTransactionSecurityFinding,
+} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
+import {
   EHostSecurityLevel,
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
@@ -35,20 +53,24 @@ import {
   type IDisplayComponentSimulation,
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import type { ITransactionSecurityCheckResult } from '@onekeyhq/shared/types/transactionSecurity';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { showDAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout';
+import { PrimeBadge } from '../../../Prime/components/PrimeUserBadge';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 import { LaserBorder } from '../SignatureConfirmComponents/LaserBorder';
 import { ShimmerSignGuard } from '../SignatureConfirmComponents/ShimmerSignGuard';
 
 import TransactionPreview from './TransactionPreview';
+import { showTransactionSecurityDetails } from './TransactionSecurityDetails';
 import {
   getParserAlertDisplay,
   hasAddressRiskTags,
   isTrustedPermitSign,
   shouldHideGenericPermitAlert,
+  shouldShowGenericConfirmationFinding,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -56,7 +78,13 @@ type ISecurityCheckKind = 'transaction' | 'message';
 
 type ISecurityCheckCategory = 'site' | 'operation';
 
-type ISecurityCheckStatus = 'critical' | 'warning' | 'unknown' | 'info';
+type ISecurityCheckStatus =
+  | 'critical'
+  | 'warning'
+  | 'unknown'
+  | 'info'
+  | 'success'
+  | 'loading';
 
 type ISecurityCheckFinding = {
   id: string;
@@ -64,6 +92,8 @@ type ISecurityCheckFinding = {
   status: ISecurityCheckStatus;
   title: string;
   description?: string;
+  isPrimeSecurityCheck?: boolean;
+  isPending?: boolean;
   action?: {
     label: string;
     onPress: () => void;
@@ -83,6 +113,8 @@ type IProps = {
   isRiskSignMethod?: boolean;
   isConfirmationRequired?: boolean;
   isMessageParseFallback?: boolean;
+  transactionSecurityInfo?: ITransactionSecurityCheckResult;
+  isTransactionSecurityPending?: boolean;
 };
 
 const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
@@ -91,7 +123,9 @@ const STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
   critical: 5,
   warning: 4,
   unknown: 3,
-  info: 1,
+  info: 2,
+  success: 1,
+  loading: 0,
 };
 
 const STATUS_LABEL_ID: Record<
@@ -99,8 +133,11 @@ const STATUS_LABEL_ID: Record<
   ETranslations
 > = {
   critical: ETranslations.global_risk,
-  warning: ETranslations.global_warning,
+  warning:
+    ETranslations.dapp_connect_security_checks_risk_review_required__title,
   unknown: ETranslations.global_unverified,
+  success: ETranslations.dapp_connect_security_checks_no_issues_detected__text,
+  loading: ETranslations.global_checking,
 };
 
 const SECURITY_CHECK_ACCORDION_VALUE = 'security-check';
@@ -130,6 +167,7 @@ const SITE_RISK_FINDING_CONFIG: Partial<
 function shouldExpandByDefault(findings: ISecurityCheckFinding[]) {
   return findings.some(
     (finding) =>
+      finding.isPrimeSecurityCheck ||
       finding.status === 'critical' ||
       finding.status === 'warning' ||
       (finding.status === 'unknown' && finding.category !== 'site'),
@@ -163,6 +201,13 @@ function getFindingStyle(status: ISecurityCheckStatus): {
       icon: 'InfoSquareSolid',
       iconColor: '$iconCaution',
       badgeType: 'warning',
+    };
+  }
+  if (status === 'success') {
+    return {
+      icon: 'ScanOutline',
+      iconColor: '$iconSuccess',
+      badgeType: 'success',
     };
   }
   // 'unknown' and any other status fall through to the neutral info style.
@@ -273,6 +318,94 @@ function getCoverageTitle({
   return labels.join(' · ');
 }
 
+function mapHostSecurityLevelToCheckStatus(
+  level: EHostSecurityLevel,
+): ISecurityCheckStatus {
+  if (level === EHostSecurityLevel.High) {
+    return 'critical';
+  }
+  if (level === EHostSecurityLevel.Medium) {
+    return 'warning';
+  }
+  if (level === EHostSecurityLevel.Security) {
+    return 'success';
+  }
+  return 'unknown';
+}
+
+function getTransactionSecurityFinding({
+  kind,
+  transactionSecurityInfo,
+  isPending,
+  intl,
+}: {
+  kind: ISecurityCheckKind;
+  transactionSecurityInfo?: ITransactionSecurityCheckResult;
+  isPending?: boolean;
+  intl: ReturnType<typeof useIntl>;
+}): ISecurityCheckFinding | undefined {
+  if (isPending && !transactionSecurityInfo) {
+    return {
+      id: 'tx-security-loading',
+      category: 'operation',
+      status: 'loading',
+      title: intl.formatMessage({ id: ETranslations.global_checking }),
+      isPrimeSecurityCheck: true,
+      isPending: true,
+    };
+  }
+
+  if (!shouldShowTransactionSecurityFinding(transactionSecurityInfo)) {
+    return undefined;
+  }
+
+  const result = transactionSecurityInfo;
+  let fallbackTitleId =
+    ETranslations.dapp_connect_security_checks_risk_review_required__title;
+  if (result.level === EHostSecurityLevel.Security) {
+    fallbackTitleId =
+      ETranslations.dapp_connect_security_checks_no_issues_detected__text;
+  } else if (result.level === EHostSecurityLevel.Unknown) {
+    fallbackTitleId = ETranslations.global_unverified;
+  }
+  const title =
+    result.detail.title?.trim() || intl.formatMessage({ id: fallbackTitleId });
+  const description =
+    result.level === EHostSecurityLevel.Security
+      ? undefined
+      : result.detail.content?.trim() ||
+        (result.level === EHostSecurityLevel.Unknown
+          ? undefined
+          : intl.formatMessage({
+              id:
+                kind === 'message'
+                  ? ETranslations.dapp_connect_security_checks_signature_review_required__desc
+                  : ETranslations.dapp_connect_security_checks_tx_review_required__desc,
+            }));
+
+  return {
+    id: `tx-security-${result.detail.code}`,
+    category: 'operation',
+    status: mapHostSecurityLevelToCheckStatus(result.level),
+    title,
+    description,
+    isPrimeSecurityCheck: true,
+    action: hasTransactionSecurityFeatures(result)
+      ? {
+          label: intl.formatMessage({ id: ETranslations.global_details }),
+          onPress: () => {
+            showTransactionSecurityDetails({
+              result,
+              title: intl.formatMessage({
+                id: ETranslations.global_details,
+              }),
+            });
+          },
+        }
+      : undefined,
+  };
+}
+
 function getCustomHexFindings({
   decodedTxs,
   intl,
@@ -344,6 +477,7 @@ function getOperationFindings({
   isRiskSignMethod,
   isConfirmationRequired,
   isMessageParseFallback,
+  isSiteVerified,
   intl,
 }: {
   kind: ISecurityCheckKind;
@@ -355,6 +489,7 @@ function getOperationFindings({
   isRiskSignMethod?: boolean;
   isConfirmationRequired?: boolean;
   isMessageParseFallback?: boolean;
+  isSiteVerified: boolean;
   intl: ReturnType<typeof useIntl>;
 }): ISecurityCheckFinding[] {
   const findings: ISecurityCheckFinding[] = [];
@@ -368,7 +503,7 @@ function getOperationFindings({
   });
   const shouldHidePermitWarning = isTrustedPermitSign({
     isPermitSignMethod,
-    isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
+    isSiteVerified,
   });
 
   const parserAlerts =
@@ -385,7 +520,7 @@ function getOperationFindings({
         alert,
         genericPermitAlert,
         isPermitSignMethod,
-        isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
+        isSiteVerified,
       }),
   );
   const localMessageFindings: ISecurityCheckFinding[] = [];
@@ -421,7 +556,7 @@ function getOperationFindings({
             id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
           }),
         });
-      } else {
+      } else if (!isPermitSignMethod) {
         localMessageFindings.push({
           id: 'message-typed-data',
           category: 'operation',
@@ -494,10 +629,19 @@ function getOperationFindings({
     });
   }
 
+  const hasSpecificConfirmationWarning =
+    isPermitSignMethod ||
+    localMessageFindings.some(
+      (finding) =>
+        finding.status === 'critical' || finding.status === 'warning',
+    );
   if (
     kind === 'message' &&
-    isConfirmationRequired &&
-    !shouldHidePermitWarning
+    !shouldHidePermitWarning &&
+    shouldShowGenericConfirmationFinding({
+      isConfirmationRequired,
+      hasSpecificConfirmationWarning,
+    })
   ) {
     findings.push({
       id: 'message-confirmation-required',
@@ -570,9 +714,12 @@ function dedupeFindings(findings: ISecurityCheckFinding[]) {
 }
 
 function sortFindingsByStatus(findings: ISecurityCheckFinding[]) {
-  return [...findings].toSorted(
-    (a, b) => STATUS_WEIGHT[b.status] - STATUS_WEIGHT[a.status],
-  );
+  return [...findings].toSorted((a, b) => {
+    if (a.isPrimeSecurityCheck !== b.isPrimeSecurityCheck) {
+      return a.isPrimeSecurityCheck ? -1 : 1;
+    }
+    return STATUS_WEIGHT[b.status] - STATUS_WEIGHT[a.status];
+  });
 }
 
 function getHighestStatusWeight(findings: ISecurityCheckFinding[]) {
@@ -620,13 +767,133 @@ function getCategorySourceLabel({
   return intl.formatMessage({ id });
 }
 
+const PRIME_SCAN_BAND = 48;
+const PRIME_SCAN_SWEEP_MS = 1000;
+const PRIME_SCAN_PAUSE_MS = 1400;
+const PRIME_SCAN_START = -PRIME_SCAN_BAND;
+
+function PrimeSecurityCheckLoading() {
+  const intl = useIntl();
+  const reducedMotion = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const translateX = useSharedValue(PRIME_SCAN_START);
+
+  useEffect(() => {
+    if (reducedMotion || width <= 0) {
+      cancelAnimation(translateX);
+      translateX.value = PRIME_SCAN_START;
+      return undefined;
+    }
+    translateX.value = PRIME_SCAN_START;
+    translateX.value = withRepeat(
+      withSequence(
+        withTiming(width + PRIME_SCAN_BAND, {
+          duration: PRIME_SCAN_SWEEP_MS,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        withDelay(
+          PRIME_SCAN_PAUSE_MS,
+          withTiming(PRIME_SCAN_START, { duration: 0 }),
+        ),
+      ),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(translateX);
+  }, [reducedMotion, translateX, width]);
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    setWidth((currentWidth) =>
+      currentWidth === nextWidth ? currentWidth : nextWidth,
+    );
+  }, []);
+
+  const scanStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <XStack
+      testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-prime-loading`}
+      gap="$2.5"
+      alignItems="flex-start"
+    >
+      <YStack
+        w="$5"
+        h="$5"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        <Icon name="ScanOutline" size="$5" color="$iconSubdued" />
+      </YStack>
+      <YStack gap="$1" flex={1} minWidth={0}>
+        <XStack gap="$2" alignItems="center">
+          <SizableText size="$bodyMdMedium" flexShrink={1}>
+            {intl.formatMessage({
+              id: ETranslations.prime_feature_transaction_security_check__title,
+            })}
+          </SizableText>
+          <PrimeBadge />
+        </XStack>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
+          {intl.formatMessage({
+            id: ETranslations.prime_feature_transaction_security_check__desc,
+          })}
+        </SizableText>
+        <XStack
+          position="relative"
+          overflow="hidden"
+          h="$1.5"
+          gap="$2"
+          mt="$0.5"
+          onLayout={handleLayout}
+        >
+          <Stack h="$1.5" w="38%" borderRadius="$full" bg="$neutral4" />
+          <Stack h="$1.5" flex={1} borderRadius="$full" bg="$neutral4" />
+          {reducedMotion ? null : (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  width: PRIME_SCAN_BAND,
+                },
+                scanStyle,
+              ]}
+            >
+              <LinearGradient
+                colors={[
+                  'transparent',
+                  'rgba(128,128,128,0.18)',
+                  'transparent',
+                ]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{ flex: 1 }}
+              />
+            </Animated.View>
+          )}
+        </XStack>
+      </YStack>
+    </XStack>
+  );
+}
+
 function SecurityCheckFindingRow({
   finding,
 }: {
   finding: ISecurityCheckFinding;
 }) {
+  if (finding.isPrimeSecurityCheck && finding.isPending) {
+    return <PrimeSecurityCheckLoading />;
+  }
+
   const style = getFindingStyle(finding.status);
-  return (
+  const findingRow = (
     <XStack gap="$2.5" alignItems="flex-start">
       <YStack
         w="$5"
@@ -638,30 +905,37 @@ function SecurityCheckFindingRow({
         <Icon name={style.icon} size="$5" color={style.iconColor} />
       </YStack>
       <YStack gap="$1" flex={1} minWidth={0}>
-        <XStack gap="$2" alignItems="center" flexWrap="wrap">
-          <SizableText size="$bodyMdMedium" flexShrink={1}>
-            {finding.title}
-          </SizableText>
+        <XStack gap="$2" alignItems="flex-start" justifyContent="space-between">
+          <XStack flex={1} minWidth={0} gap="$2" alignItems="center">
+            <SizableText size="$bodyMdMedium" flexShrink={1}>
+              {finding.title}
+            </SizableText>
+            {finding.isPrimeSecurityCheck ? (
+              <PrimeBadge showIcon={false} />
+            ) : null}
+          </XStack>
+          {finding.action ? (
+            <Button
+              testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-details`}
+              size="small"
+              variant="tertiary"
+              flexShrink={0}
+              onPress={finding.action.onPress}
+            >
+              {finding.action.label}
+            </Button>
+          ) : null}
         </XStack>
         {finding.description ? (
           <SizableText size="$bodySm" color="$textSubdued">
             {finding.description}
           </SizableText>
         ) : null}
-        {finding.action ? (
-          <Button
-            testID={`${SignatureConfirmTestIDs.SecurityCheckCard}-details`}
-            size="small"
-            variant="tertiary"
-            alignSelf="flex-start"
-            onPress={finding.action.onPress}
-          >
-            {finding.action.label}
-          </Button>
-        ) : null}
       </YStack>
     </XStack>
   );
+
+  return findingRow;
 }
 
 function SecurityCheckCategoryGroup({
@@ -669,20 +943,24 @@ function SecurityCheckCategoryGroup({
   kind,
   findings,
   intl,
+  showLabel,
 }: {
   category: ISecurityCheckCategory;
   kind: ISecurityCheckKind;
   findings: ISecurityCheckFinding[];
   intl: ReturnType<typeof useIntl>;
+  showLabel: boolean;
 }) {
   if (!findings.length) {
     return null;
   }
   return (
     <YStack gap="$2.5">
-      <SizableText size="$bodySmMedium" color="$textSubdued">
-        {getCategoryLabel({ category, kind, intl })}
-      </SizableText>
+      {showLabel ? (
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          {getCategoryLabel({ category, kind, intl })}
+        </SizableText>
+      ) : null}
       <YStack gap="$3">
         {findings.map((finding) => (
           <SecurityCheckFindingRow key={finding.id} finding={finding} />
@@ -706,6 +984,8 @@ function SecurityCheckCard(props: IProps) {
     isRiskSignMethod,
     isConfirmationRequired,
     isMessageParseFallback,
+    transactionSecurityInfo,
+    isTransactionSecurityPending,
   } = props;
   const intl = useIntl();
 
@@ -730,6 +1010,14 @@ function SecurityCheckCard(props: IProps) {
             intl,
           }),
         ].filter(Boolean),
+        ...[
+          getTransactionSecurityFinding({
+            kind,
+            transactionSecurityInfo,
+            isPending: isTransactionSecurityPending,
+            intl,
+          }),
+        ].filter(Boolean),
         ...getOperationFindings({
           kind,
           origin,
@@ -740,6 +1028,8 @@ function SecurityCheckCard(props: IProps) {
           isRiskSignMethod,
           isConfirmationRequired,
           isMessageParseFallback,
+          isSiteVerified:
+            urlSecurityInfo?.level === EHostSecurityLevel.Security,
           intl,
         }),
       ] as ISecurityCheckFinding[]),
@@ -749,9 +1039,11 @@ function SecurityCheckCard(props: IProps) {
       isConfirmationRequired,
       isMessageParseFallback,
       isRiskSignMethod,
+      isTransactionSecurityPending,
       kind,
       messageDisplay,
       origin,
+      transactionSecurityInfo,
       unsignedMessage,
       urlSecurityInfo,
     ],
@@ -789,13 +1081,15 @@ function SecurityCheckCard(props: IProps) {
     if (!findings.length) {
       return undefined;
     }
-    return findings.reduce<ISecurityCheckStatus>(
-      (status, finding) =>
-        STATUS_WEIGHT[finding.status] > STATUS_WEIGHT[status]
-          ? finding.status
-          : status,
-      'info',
-    );
+    return findings
+      .slice(1)
+      .reduce<ISecurityCheckStatus>(
+        (status, finding) =>
+          STATUS_WEIGHT[finding.status] > STATUS_WEIGHT[status]
+            ? finding.status
+            : status,
+        findings[0].status,
+      );
   }, [findings]);
 
   const [accordionValue, setAccordionValue] = useState<string[]>(() =>
@@ -1012,6 +1306,7 @@ function SecurityCheckCard(props: IProps) {
                 kind={kind}
                 findings={groupedFindings[category]}
                 intl={intl}
+                showLabel={orderedCategories.length > 1}
               />
             ))}
           </YStack>
@@ -1028,6 +1323,7 @@ function SecurityCheckCard(props: IProps) {
     hasAddressRisk,
     hasResolvedRequiredChecks,
     hasCoverageTitle: Boolean(coverageTitle),
+    isTransactionSecurityPending,
   });
   const noIssueSection = shouldShowNoIssue ? (
     <XStack alignItems="center" gap="$2" px="$3" py="$2.5">
@@ -1051,18 +1347,21 @@ function SecurityCheckCard(props: IProps) {
   const showSignGuardFooter =
     hasNoCardFindings ||
     accordionValue.includes(SECURITY_CHECK_ACCORDION_VALUE);
+  const hasPrimeSecurityCheck = findings.some(
+    (finding) => finding.isPrimeSecurityCheck,
+  );
 
   if (!hasAssets && !securitySection) {
     return null;
   }
 
-  // The glow identifies a visible transaction simulation, not a safety
-  // verdict; finding styles and the summary badge carry the risk signal.
+  // Keep one motion focal point: when Prime owns the security feedback, the
+  // simulation border and provider mark stay static.
   return (
     <LaserBorder
       key={requestKey}
       borderRadius={12}
-      glow={hasAssets}
+      glow={hasAssets && !hasPrimeSecurityCheck}
       borderColor="$neutral4"
     >
       <YStack testID={SignatureConfirmTestIDs.SecurityCheckCard}>
@@ -1098,7 +1397,7 @@ function SecurityCheckCard(props: IProps) {
             <SizableText size="$bodySmMedium" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_power_by })}
             </SizableText>
-            <ShimmerSignGuard />
+            <ShimmerSignGuard animate={!hasPrimeSecurityCheck} />
           </XStack>
         ) : null}
       </YStack>

@@ -42,18 +42,31 @@ export function shouldShowNoIssueSection({
   hasAddressRisk,
   hasResolvedRequiredChecks,
   hasCoverageTitle,
+  isTransactionSecurityPending,
 }: {
   hasCardFindings: boolean;
   hasAddressRisk: boolean;
   hasResolvedRequiredChecks: boolean;
   hasCoverageTitle: boolean;
+  isTransactionSecurityPending?: boolean;
 }) {
   return (
     !hasCardFindings &&
     !hasAddressRisk &&
     hasResolvedRequiredChecks &&
-    hasCoverageTitle
+    hasCoverageTitle &&
+    !isTransactionSecurityPending
   );
+}
+
+export function shouldShowGenericConfirmationFinding({
+  isConfirmationRequired,
+  hasSpecificConfirmationWarning,
+}: {
+  isConfirmationRequired?: boolean;
+  hasSpecificConfirmationWarning: boolean;
+}) {
+  return Boolean(isConfirmationRequired && !hasSpecificConfirmationWarning);
 }
 
 export function getParserAlertDisplay(alert: string) {

@@ -24,6 +24,7 @@ import {
   hasAddressRiskTags,
   isTrustedPermitSign,
   shouldHideGenericPermitAlert,
+  shouldShowGenericConfirmationFinding,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -164,6 +165,23 @@ describe('SecurityCheckCard parser alert display', () => {
   });
 });
 
+describe('SecurityCheckCard confirmation finding', () => {
+  it('keeps a specific warning instead of adding a generic duplicate', () => {
+    expect(
+      shouldShowGenericConfirmationFinding({
+        isConfirmationRequired: true,
+        hasSpecificConfirmationWarning: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowGenericConfirmationFinding({
+        isConfirmationRequired: true,
+        hasSpecificConfirmationWarning: false,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('SecurityCheckCard trusted Permit alert boundaries', () => {
   const genericPermitAlert =
     'This Permit signature may authorize a dApp to use your tokens.';
@@ -271,6 +289,15 @@ describe('SecurityCheckCard address risk boundaries', () => {
         hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
         hasCoverageTitle: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoIssueSection({
+        hasCardFindings: false,
+        hasAddressRisk: false,
+        hasResolvedRequiredChecks: true,
+        hasCoverageTitle: true,
+        isTransactionSecurityPending: true,
       }),
     ).toBe(false);
   });

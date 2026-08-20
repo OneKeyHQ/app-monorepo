@@ -31,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
+import { mergeTransactionSecurityResults } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -387,6 +388,62 @@ function TxConfirm() {
     [reactiveUnsignedTxs],
   );
 
+  const {
+    result: transactionSecurityCheck,
+    isLoading: isCheckingTransactionSecurity,
+  } = usePromiseResult(
+    async () => {
+      const requestKey = (reactiveUnsignedTxs ?? [])
+        .map(
+          (tx, index) =>
+            tx.uuid ?? `${tx.accountId ?? ''}:${tx.networkId ?? ''}:${index}`,
+        )
+        .join('|');
+      const unsignedTxsToCheck = (reactiveUnsignedTxs ?? []).filter(
+        (unsignedTx) => Boolean(unsignedTx.encodedTx),
+      );
+      if (
+        !sourceInfo?.origin ||
+        !accountId ||
+        !networkId ||
+        unsignedTxsToCheck.length === 0
+      ) {
+        return {
+          requestKey,
+          result: undefined,
+        };
+      }
+      const results = await Promise.all(
+        unsignedTxsToCheck.map((unsignedTx) =>
+          backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity({
+            accountId: unsignedTx.accountId ?? accountId,
+            networkId: unsignedTx.networkId ?? networkId,
+            encodedTx: unsignedTx.encodedTx,
+          }),
+        ),
+      );
+      return {
+        requestKey,
+        result: mergeTransactionSecurityResults(results),
+      };
+    },
+    [accountId, networkId, reactiveUnsignedTxs, sourceInfo?.origin],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const shouldCheckTransactionSecurity = Boolean(sourceInfo?.origin);
+  const isCurrentTransactionSecurityCheck =
+    transactionSecurityCheck?.requestKey === securityCheckRequestKey;
+  const transactionSecurityInfo = isCurrentTransactionSecurityCheck
+    ? transactionSecurityCheck.result
+    : undefined;
+  const isTransactionSecurityPending =
+    shouldCheckTransactionSecurity &&
+    (!isCurrentTransactionSecurityCheck ||
+      isCheckingTransactionSecurity !== false);
+
   const handleOnClose = (extra?: { flag?: string }) => {
     if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
       dappApprove.reject();
@@ -484,6 +541,8 @@ function TxConfirm() {
           urlSecurityInfo={urlSecurityInfo}
           decodedTxs={decodedTxs}
           simulationComponents={visibleSimulationComponents}
+          transactionSecurityInfo={transactionSecurityInfo}
+          isTransactionSecurityPending={isTransactionSecurityPending}
         />
         <TxConfirmDetails
           accountId={accountId}
@@ -513,6 +572,8 @@ function TxConfirm() {
     securityCheckRequestKey,
     reactiveUnsignedTxs,
     visibleSimulationComponents,
+    transactionSecurityInfo,
+    isTransactionSecurityPending,
     shouldHideSimulationInDetails,
     unsignedTxs,
     swapInfo,

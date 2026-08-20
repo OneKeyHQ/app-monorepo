@@ -1,4 +1,4 @@
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { normalizeTransactionSecurityResult } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
@@ -16,6 +17,7 @@ import {
   convertNetworkToSignatureConfirmNetwork,
   mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
@@ -34,6 +36,11 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ITransactionSecurityCheckResult,
+  ITransactionSecurityCheckResultRaw,
+  ITransactionSecurityJsonRpc,
+} from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
   type IDecodedTx,
@@ -53,6 +60,24 @@ import {
 } from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
+
+type ICheckTransactionSecurityParamsBase = {
+  networkId: string;
+  accountId: string;
+  accountAddress?: string;
+};
+
+type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
+  (
+    | {
+        encodedTx: IEncodedTx;
+        jsonRpc?: never;
+      }
+    | {
+        encodedTx?: never;
+        jsonRpc: ITransactionSecurityJsonRpc;
+      }
+  );
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -654,6 +679,100 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
     return base;
+  }
+
+  @backgroundMethod()
+  async checkTransactionSecurity(
+    params: ICheckTransactionSecurityParams,
+  ): Promise<ITransactionSecurityCheckResult | undefined> {
+    const { accountId, networkId, encodedTx, jsonRpc } = params;
+    if ((!encodedTx && !jsonRpc) || (encodedTx && jsonRpc)) {
+      return undefined;
+    }
+
+    const unableToAssessResult: ITransactionSecurityCheckResult = {
+      level: EHostSecurityLevel.Unknown,
+      detail: {
+        code: 'unable_to_assess',
+        features: [],
+      },
+    };
+
+    try {
+      const isPrimeSubscriptionActive =
+        await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
+      if (!isPrimeSubscriptionActive) {
+        return undefined;
+      }
+
+      if (
+        await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
+      ) {
+        return undefined;
+      }
+
+      let accountAddress = params.accountAddress;
+      if (!accountAddress) {
+        accountAddress =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
+      }
+
+      const body: {
+        networkId: string;
+        accountAddress: string;
+        encodedTx?: unknown;
+        jsonRpc?: ITransactionSecurityJsonRpc;
+      } = {
+        networkId,
+        accountAddress,
+      };
+
+      if (encodedTx) {
+        const vault = await vaultFactory.getVault({
+          networkId,
+          accountId,
+        });
+        const { encodedTx: encodedTxToCheck } =
+          await vault.buildParseTransactionParams({
+            encodedTx,
+          });
+        body.encodedTx = encodedTxToCheck;
+      } else if (jsonRpc) {
+        body.jsonRpc = jsonRpc;
+      }
+
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      let authToken = '';
+      try {
+        authToken =
+          await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+      } catch {
+        // i18n still works without Prime; token only unlocks extra copy.
+      }
+      const walletTypeHeaders =
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        });
+
+      const resp = await client.post<{
+        data: ITransactionSecurityCheckResultRaw;
+      }>('/utility/v1/transaction/check', body, {
+        timeout: 5000,
+        headers: {
+          ...walletTypeHeaders,
+          ...(authToken ? { 'X-Onekey-Request-Token': authToken } : {}),
+        },
+      });
+      return (
+        normalizeTransactionSecurityResult(resp.data.data) ??
+        unableToAssessResult
+      );
+    } catch {
+      return unableToAssessResult;
+    }
   }
 
   @backgroundMethod()
