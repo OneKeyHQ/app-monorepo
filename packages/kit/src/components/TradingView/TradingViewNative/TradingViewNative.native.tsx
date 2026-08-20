@@ -54,7 +54,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     const appStateSubscription = AppState.addEventListener(
       'change',
       (nextState) => {
-        if (nextState !== 'active') {
+        if (nextState === 'background') {
           onNativeChartFullscreenChange?.(false);
         }
       },
