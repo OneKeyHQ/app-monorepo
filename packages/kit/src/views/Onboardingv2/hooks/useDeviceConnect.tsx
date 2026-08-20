@@ -765,10 +765,14 @@ export function useDeviceConnect({
               void showFirmwareVerifyDialog({
                 device: latestDevice,
                 features,
-                // Render into the page-owned portal (when the page provides
-                // one) so retry rounds never interleave this dialog with the
-                // checking Sheet inside the render-order-only global overlay.
-                dialogHost: getBootloaderDialogHost?.(),
+                // iOS only, matching the closeAndWait gate above: the page
+                // portal sits below the global overlay on every platform, so
+                // without the awaited close an in-page dialog would sit under
+                // the exiting checking sheet on Android/desktop. Those
+                // platforms keep the global host (pre-existing behavior).
+                dialogHost: platformEnv.isNativeIOS
+                  ? getBootloaderDialogHost?.()
+                  : undefined,
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
                   setTimeout(() => {
