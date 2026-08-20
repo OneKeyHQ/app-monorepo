@@ -1,10 +1,17 @@
 import { useCallback } from 'react';
 
+import {
+  type EDeviceType,
+  type EFirmwareType,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Dialog, resetToRoute, rootNavigationRef } from '@onekeyhq/components';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -24,7 +31,6 @@ import { getTargetFirmwareTypeLabel } from '../utils';
 import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
-import type { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 export type IBootloaderModeDialogHost = Pick<typeof Dialog, 'show'>;
 
@@ -111,8 +117,15 @@ export function useFirmwareUpdateActions() {
             await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
               { connectId: resolvedConnectId },
             );
-        } catch {
-          return;
+        } catch (error) {
+          if (
+            !isHardwareErrorByCode({
+              error: error as IOneKeyError,
+              code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+            })
+          ) {
+            return;
+          }
         }
       }
 
