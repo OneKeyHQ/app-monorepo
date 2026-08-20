@@ -68,15 +68,6 @@ export function DataCollectionView({
   const srcDoc = useMemo(() => buildWrapperSrcDoc(url), [url]);
 
   useEffect(() => {
-    // bind acceptance to the exact origin the iframe was loaded from, not
-    // just any trusted hostname
-    let expectedOrigin: string | null = null;
-    try {
-      expectedOrigin = new URL(url).origin;
-    } catch {
-      expectedOrigin = null;
-    }
-
     const wrapper = wrapperRef.current;
     let disposed = false;
     const cleanups: Array<() => void> = [];
@@ -95,18 +86,18 @@ export function DataCollectionView({
         // shares a trusted hostname must not be able to finish this form.
         // `parent` is a cross-origin-accessible property, so this identity
         // check works without reaching into the wrapper document and keeps
-        // message reception independent of attach() succeeding
+        // message reception independent of attach() succeeding.
+        // The origin is bound to the trusted host set (same as the native
+        // variant and the wrapper CSP's frame-src) rather than the initial
+        // url's exact origin: the hosted form may legitimately navigate
+        // between trusted subdomains, and pinning the initial origin would
+        // silently drop its completion message after such a hop
         if (
-          !expectedOrigin ||
-          event.origin !== expectedOrigin ||
           !event.source ||
-          (event.source as Window).parent !== wrapper?.contentWindow
+          (event.source as Window).parent !== wrapper?.contentWindow ||
+          !event.origin.startsWith('https://') ||
+          !isWcPayTrustedHost(new URL(event.origin).hostname)
         ) {
-          return;
-        }
-        // defense-in-depth: the loaded url is validated before mount, so
-        // its origin's hostname is expected to always pass this check
-        if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
           return;
         }
         const data =
@@ -208,7 +199,7 @@ export function DataCollectionView({
       disposed = true;
       cleanups.forEach((fn) => fn());
     };
-  }, [url, srcDoc, onComplete, onError]);
+  }, [srcDoc, onComplete, onError]);
 
   return (
     <Stack flex={1}>

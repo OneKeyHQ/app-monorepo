@@ -5,6 +5,16 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+// Recorded at the pre-broadcast boundary for eth_sendTransaction actions so
+// the phantom-txid recovery check has a propagation-independent criterion:
+// "never broadcast" additionally requires the sender's confirmed on-chain tx
+// count to not exceed this nonce (a higher count means a transaction with
+// this nonce already landed — quite possibly this very one)
+export interface IWcPayBroadcastMeta {
+  sender: string;
+  nonce: number;
+}
+
 export interface IWcPayStoredActionEntry {
   // sha256 hex of the action's normalized walletRpc (chainId + method
   // + JSON-parsed params, see getWcPayActionFingerprint); proves a stored
@@ -12,6 +22,7 @@ export interface IWcPayStoredActionEntry {
   // recomputed action list on a later attempt
   fingerprint: string;
   result: string;
+  broadcastMeta?: IWcPayBroadcastMeta;
 }
 
 // Plaintext SimpleDb keeps only this expiry/lookup index. The sensitive
@@ -159,6 +170,35 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     return { ...meta, entries };
   }
 
+  /**
+   * Look up the pre-broadcast metadata recorded for a txid. Keyed by txid
+   * (unique per transaction) so the recovery check does not need the
+   * payment/option/account identity threaded through the executor. The
+   * progress map only ever holds a handful of in-flight payments, so the
+   * scan is cheap.
+   */
+  async findBroadcastMetaByTxid({
+    txid,
+  }: {
+    txid: string;
+  }): Promise<IWcPayBroadcastMeta | undefined> {
+    if (!txid) {
+      return undefined;
+    }
+    const data = await this.getRawData();
+    const now = Date.now();
+    for (const [key, meta] of Object.entries(data?.progress ?? {})) {
+      if (now - meta.updatedAt <= PROGRESS_TTL_MS) {
+        const entries = await this.readSecureEntries(key);
+        const entry = entries?.find((item) => item?.result === txid);
+        if (entry?.broadcastMeta) {
+          return entry.broadcastMeta;
+        }
+      }
+    }
+    return undefined;
+  }
+
   async saveActionResult({
     paymentId,
     optionId,
@@ -166,6 +206,7 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     index,
     fingerprint,
     result,
+    broadcastMeta,
   }: {
     paymentId: string;
     optionId: string;
@@ -173,6 +214,7 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     index: number;
     fingerprint: string;
     result: string;
+    broadcastMeta?: IWcPayBroadcastMeta;
   }): Promise<void> {
     // never fall back to plaintext: without secure storage the progress is
     // simply not persisted and a retry starts from the first action.
@@ -193,7 +235,9 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
 
     const key = buildProgressKey({ paymentId, optionId, accountKey });
     const entries = [...((await this.readSecureEntries(key)) ?? [])];
-    entries[index] = { fingerprint, result };
+    entries[index] = broadcastMeta
+      ? { fingerprint, result, broadcastMeta }
+      : { fingerprint, result };
     // payload first: an index entry must never exist without its ciphertext
     await appStorage.secureStorage.setSecureItem(
       buildSecurePayloadKey(key),

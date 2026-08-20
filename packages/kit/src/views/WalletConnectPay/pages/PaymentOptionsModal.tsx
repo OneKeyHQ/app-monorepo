@@ -55,6 +55,9 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 
+// stable fallback so render never fabricates a fresh array identity
+const EMPTY_OPTIONS: IWcPayOption[] = [];
+
 // option.account is CAIP-10 ("namespace:reference:address"); its chain part
 // maps to a wallet networkId so icons/names can be resolved locally instead
 // of relying on the server-provided (often missing) icon urls
@@ -212,7 +215,7 @@ function PaymentOptionsPage() {
   const payResult = result?.pay;
   const networkMap = result?.networkMap;
   const supportsDurableProgress = result?.supportsDurableProgress ?? false;
-  const options = payResult?.options ?? [];
+  const options = payResult?.options ?? EMPTY_OPTIONS;
   // Deterministic pre-form gate: option.actions is advisory — the server
   // may omit it or return a list diverging from the authoritative one that
   // getRequiredPaymentActions fetches AFTER the compliance form — so on

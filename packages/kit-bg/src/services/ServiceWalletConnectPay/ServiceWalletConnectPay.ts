@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -35,6 +37,8 @@ import {
 } from './evmPayUtils';
 import { getWcPayActionFingerprint } from './payFingerprintUtils';
 import { extractWcPaySolanaTransaction } from './solPayUtils';
+
+import type { IWcPayBroadcastMeta } from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 
 /**
  * Validate the whole action list before it reaches the executor. Actions run
@@ -116,10 +120,15 @@ class ServiceWalletConnectPay extends ServiceBase {
       return false;
     }
     try {
-      // walletkit (which bundles the whole @walletconnect/pay stack) must stay
-      // out of the background startup graph; load it on demand
+      // cheap shape/domain filter first so unrelated inputs never pay the
+      // cost of loading walletkit — which bundles the whole
+      // @walletconnect/pay stack and must stay out of the background startup
+      // graph; load it on demand only for plausible payment links
+      if (!validateWcPayLinkDomain(uri)) {
+        return false;
+      }
       const { isPaymentLink } = await import('@reown/walletkit');
-      return isPaymentLink(uri) && validateWcPayLinkDomain(uri);
+      return isPaymentLink(uri);
     } catch {
       return false;
     }
@@ -358,6 +367,7 @@ class ServiceWalletConnectPay extends ServiceBase {
     action,
     index,
     result,
+    broadcastMeta,
   }: {
     paymentId: string;
     optionId: string;
@@ -365,6 +375,7 @@ class ServiceWalletConnectPay extends ServiceBase {
     action: IWcPayAction;
     index: number;
     result: string;
+    broadcastMeta?: IWcPayBroadcastMeta;
   }): Promise<void> {
     const fingerprint = getWcPayActionFingerprint(action);
     if (fingerprint === null) {
@@ -379,6 +390,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       index,
       fingerprint,
       result,
+      broadcastMeta,
     });
   }
 
@@ -395,9 +407,11 @@ class ServiceWalletConnectPay extends ServiceBase {
   async recordPreBroadcastTxid({
     record,
     txid,
+    broadcastMeta,
   }: {
     record: IWcPayPreBroadcastRecord;
     txid: string;
+    broadcastMeta?: IWcPayBroadcastMeta;
   }): Promise<void> {
     if (!txid) {
       throw new OneKeyError('Missing WalletConnect Pay transaction id');
@@ -414,6 +428,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       action: record.action,
       index: record.index,
       result: txid,
+      broadcastMeta,
     });
   }
 
@@ -537,11 +552,16 @@ class ServiceWalletConnectPay extends ServiceBase {
    *
    * eth_getTransactionByHash returning null is the only usable
    * "not broadcast" signal (a missing receipt alone cannot tell pending
-   * from nonexistent). The conclusion is drawn only from several
-   * consistent tx+receipt null rounds, and any RPC failure or non-null
-   * result aborts to false: misreading a still-propagating transaction as
-   * never-broadcast would re-broadcast it and could pay twice, so
-   * uncertainty always keeps the stored txid.
+   * from nonexistent). The conclusion needs two independent criteria to
+   * hold — several consistent tx+receipt null rounds, AND the phantom
+   * tx's nonce still unconsumed by the sender's confirmed on-chain tx
+   * count (the probes may read a different load-balanced RPC pool than
+   * the broadcast path used, so a really-broadcast tx can answer null for
+   * every round; a consumed nonce means a transaction with this nonce
+   * already landed — quite possibly this very one, and re-executing could
+   * pay twice). Any RPC failure, non-null probe result, or missing
+   * broadcast metadata aborts to false: uncertainty always keeps the
+   * stored txid.
    */
   @backgroundMethod()
   async isTxNeverBroadcast({
@@ -551,16 +571,30 @@ class ServiceWalletConnectPay extends ServiceBase {
     networkId: string;
     txid: string;
   }): Promise<boolean> {
+    const rpcCall = async <T>(
+      method: string,
+      params: unknown[],
+    ): Promise<T> => {
+      const items = await this.backgroundApi.serviceDApp.proxyRPCCall<T>({
+        networkId,
+        request: { method, params },
+        origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
+      });
+      if (!items.length) {
+        // an empty response envelope is transport-level noise, never a
+        // "not found" answer
+        throw new OneKeyError('Empty RPC response');
+      }
+      // on preset networks proxyRPCCall returns the parseRPCResponse
+      // promises unresolved inside the array, so each element must be
+      // awaited before it can be inspected
+      return (await items[0]) as T;
+    };
     const probe = async (
       method: string,
     ): Promise<'found' | 'null' | 'rpcError'> => {
       try {
-        const [result] =
-          await this.backgroundApi.serviceDApp.proxyRPCCall<unknown>({
-            networkId,
-            request: { method, params: [txid] },
-            origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
-          });
+        const result = await rpcCall<unknown>(method, [txid]);
         return result === null || result === undefined ? 'null' : 'found';
       } catch {
         return 'rpcError';
@@ -578,6 +612,28 @@ class ServiceWalletConnectPay extends ServiceBase {
       if (receipt !== 'null') {
         return false;
       }
+    }
+    try {
+      const meta =
+        await this.backgroundApi.simpleDb.walletConnectPay.findBroadcastMetaByTxid(
+          { txid },
+        );
+      if (!meta) {
+        return false;
+      }
+      // 'latest', not the wallet API account nonce — that one is
+      // pending-inclusive on some chains while only confirmed nonce
+      // consumption matters here
+      const countHex = await rpcCall<string>('eth_getTransactionCount', [
+        meta.sender,
+        'latest',
+      ]);
+      const confirmedCount = new BigNumber(countHex);
+      if (!confirmedCount.isInteger() || confirmedCount.gt(meta.nonce)) {
+        return false;
+      }
+    } catch {
+      return false;
     }
     return true;
   }

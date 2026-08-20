@@ -619,10 +619,28 @@ class ServiceSend extends ServiceBase {
       // exactly what WalletConnect Pay transactions are.
       if (wcPayPreBroadcastRecord) {
         ensureBroadcastDeadline();
+        // sender + nonce give the phantom-txid recovery check a
+        // propagation-independent criterion (confirmed on-chain tx count vs
+        // this nonce); EVM signing guarantees both on the signed encodedTx,
+        // and WC Pay broadcast actions are EVM-only
+        const wcPayEvmTxFields = signedTx.encodedTx as {
+          from?: string;
+          nonce?: number | string;
+        } | null;
+        const wcPayBroadcastNonce = new BigNumber(
+          wcPayEvmTxFields?.nonce ?? NaN,
+        );
         await this.backgroundApi.serviceWalletConnectPay.recordPreBroadcastTxid(
           {
             record: wcPayPreBroadcastRecord,
             txid: signedTx.txid,
+            broadcastMeta:
+              wcPayEvmTxFields?.from && wcPayBroadcastNonce.isInteger()
+                ? {
+                    sender: wcPayEvmTxFields.from,
+                    nonce: wcPayBroadcastNonce.toNumber(),
+                  }
+                : undefined,
           },
         );
       }

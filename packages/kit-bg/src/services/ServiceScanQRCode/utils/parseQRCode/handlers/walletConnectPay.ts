@@ -26,10 +26,14 @@ const walletConnectPay: IQRCodeHandler<IWalletConnectPayValue> = async (
   }
   let matched = false;
   try {
-    // walletkit (which bundles the whole @walletconnect/pay stack) must stay
-    // out of the background startup graph; load it on demand
-    const { isPaymentLink } = await import('@reown/walletkit');
-    matched = isPaymentLink(value) && validateWcPayLinkDomain(value);
+    // cheap shape/domain filter first so unrelated QR codes (bare addresses,
+    // plain URLs) never pay the cost of loading walletkit — which bundles
+    // the whole @walletconnect/pay stack and must stay out of the background
+    // startup graph; load it on demand only for plausible payment links
+    if (validateWcPayLinkDomain(value)) {
+      const { isPaymentLink } = await import('@reown/walletkit');
+      matched = isPaymentLink(value);
+    }
   } catch {
     matched = false;
   }

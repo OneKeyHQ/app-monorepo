@@ -196,7 +196,8 @@ export function useWcPayActionExecutor() {
             // otherwise one failed broadcast deadlocks the payment until
             // expiry (the slot is only cleared on a final server state).
             // The check errs toward keeping the txid: only consistent
-            // "transaction does not exist" probes count as never-broadcast
+            // "transaction does not exist" probes plus a still-unconsumed
+            // sender nonce count as never-broadcast
             const isNeverBroadcast =
               await backgroundApiProxy.serviceWalletConnectPay.isTxNeverBroadcast(
                 {
