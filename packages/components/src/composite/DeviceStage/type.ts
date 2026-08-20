@@ -17,12 +17,18 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * with its screen dark, and whichever step follows enters by waking it.
  * `pinOnApp` and `passphraseOnApp` are the app-side inputs — the person
  * types here while the device waits, so the replica leaves the stage and
- * the input panel takes its place. `showQr` and `scanQr` are the air-gap
+ * the input panel takes its place. `passphraseIntro` is the teach-first
+ * beat before a hidden wallet is created: what a passphrase is and the
+ * facts to hold before one exists to lose, with Continue as its single
+ * action — reading material, so the replica stays off stage there too;
+ * drivers route through it only when creating, never for plain entry.
+ * `showQr` and `scanQr` are the air-gap
  * pair — the app presents a code for the device to scan, then the app's
  * camera scans the code the device shows back; the person is holding the
  * device in both, so the replica stays off stage there too. `processing`
- * is the wait after an input round-trips: the device is working and
- * nothing is asked of the person.
+ * is the wait after an input round-trips: nothing is asked of the person,
+ * so the stage empties to one spinner line and the sheet closes down to a
+ * short strip until the device answers.
  * `error` is the terminal failure beat, worded by `errorReason`, with one
  * recovery action. `success` is the landing beat — under a second, closed
  * by the driver — and it holds the arrangement it arrives in rather than
@@ -33,6 +39,7 @@ export type IDeviceStageStep =
   | 'connecting'
   | 'enterPin'
   | 'pinOnApp'
+  | 'passphraseIntro'
   | 'enterPassphrase'
   | 'passphraseOnApp'
   | 'showQr'
@@ -108,6 +115,16 @@ export interface IDeviceStageProps {
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */
   onPinSubmit?: (pin: string) => void;
+  /**
+   * The passphraseIntro step's single action — the person has read what
+   * a passphrase is and moves on; the driver decides what follows
+   * (typically the create-mode entry). `keepShortcut` rides along: the
+   * live dialog's wallet-list setting — whether the list keeps an
+   * Add-hidden-wallet shortcut — carried out through the one exit, the
+   * passphrase form's preference-upstream pattern. Omitted, the step
+   * renders no button and the surface's own dismissal is the only exit.
+   */
+  onPassphraseIntroContinue?: (options: { keepShortcut: boolean }) => void;
   /**
    * Which shape the passphrase step takes — the live flow's two:
    * 'verify' (unlock an existing hidden wallet: the step's own title,
