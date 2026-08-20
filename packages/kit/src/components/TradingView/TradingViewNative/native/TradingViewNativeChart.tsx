@@ -61,6 +61,10 @@ import {
   getTradingViewNativeRelativePinchScale,
   getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
+import {
+  type ITradingViewNativeSubIndicatorRenderPane,
+  getTradingViewNativeSubIndicatorAxisLabel,
+} from '../utils/subIndicatorRender';
 
 import {
   createTradingViewNativeSkiaPicture,
@@ -83,6 +87,216 @@ const PRICE_AXIS_FONT_SOURCE =
   require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
+const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
+  [];
+
+export interface ITradingViewNativeSubIndicatorLatestSeriesValue {
+  key: string;
+  paletteIndex?: number | null;
+  value: number | null;
+}
+
+export interface ITradingViewNativeSubIndicatorLatestPaneValues {
+  key: string;
+  series: ITradingViewNativeSubIndicatorLatestSeriesValue[];
+}
+
+interface ITradingViewNativeSubIndicatorPanesPictureInput {
+  chartPictureVersion: number;
+  pointCount: number;
+  structureKey: string;
+}
+
+export interface ITradingViewNativeSubIndicatorPanesUpdate {
+  latestPaneValues: ITradingViewNativeSubIndicatorLatestPaneValues[];
+  replacementPanes: readonly ITradingViewNativeSubIndicatorRenderPane[] | null;
+  structureKey: string;
+}
+
+function stableSerializeTradingViewNativeStructure(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `array:[${value
+      .map((item) => stableSerializeTradingViewNativeStructure(item))
+      .join(',')}]`;
+  }
+  switch (typeof value) {
+    case 'boolean':
+      return value ? 'boolean:true' : 'boolean:false';
+    case 'number':
+      return `number:${value.toString()}`;
+    case 'object': {
+      const record = value as Record<string, unknown>;
+      const keys = Object.keys(record);
+      for (let index = 1; index < keys.length; index += 1) {
+        const current = keys[index];
+        if (current !== undefined) {
+          let insertIndex = index;
+          while (insertIndex > 0 && (keys[insertIndex - 1] ?? '') > current) {
+            keys[insertIndex] = keys[insertIndex - 1] ?? '';
+            insertIndex -= 1;
+          }
+          keys[insertIndex] = current;
+        }
+      }
+      return `object:{${keys
+        .map(
+          (key) =>
+            `${stableSerializeTradingViewNativeStructure(
+              key,
+            )}:${stableSerializeTradingViewNativeStructure(record[key])}`,
+        )
+        .join(',')}}`;
+    }
+    case 'string':
+      return `string:${value.length.toString()}:${value}`;
+    case 'undefined':
+      return 'undefined';
+    default:
+      return `${typeof value}:${String(value)}`;
+  }
+}
+
+export function getTradingViewNativeSubIndicatorPanesStructureKey(
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
+): string {
+  return stableSerializeTradingViewNativeStructure(
+    panes.map((pane) => ({
+      bands: pane.bands,
+      fills: pane.fills,
+      format: pane.format,
+      indicator: pane.indicator,
+      inputValues: pane.inputValues,
+      instanceId: pane.instanceId,
+      isVisible: pane.isVisible,
+      key: pane.key,
+      scale: pane.scale,
+      series: pane.series.map((series) => ({
+        id: series.id,
+        key: series.key,
+        paletteColors: series.palette?.colors ?? null,
+        style: series.style,
+        title: series.title,
+        zOrder: series.zOrder,
+      })),
+      shortTitle: pane.shortTitle,
+      title: pane.title,
+    })),
+  );
+}
+
+function getTradingViewNativeSubIndicatorLatestPaneValues(
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
+): ITradingViewNativeSubIndicatorLatestPaneValues[] {
+  return panes.map((pane) => ({
+    key: pane.key,
+    series: pane.series.map((series) => ({
+      key: series.key,
+      paletteIndex: series.palette
+        ? (series.palette.indexes[series.palette.indexes.length - 1] ?? null)
+        : undefined,
+      value: series.values[series.values.length - 1] ?? null,
+    })),
+  }));
+}
+
+export function getTradingViewNativeSubIndicatorPanesUpdate({
+  current,
+  panes,
+  previous,
+}: {
+  current: ITradingViewNativeSubIndicatorPanesPictureInput;
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  previous: ITradingViewNativeSubIndicatorPanesPictureInput;
+}): ITradingViewNativeSubIndicatorPanesUpdate {
+  const shouldReplaceAllPanes =
+    previous.chartPictureVersion !== current.chartPictureVersion ||
+    previous.pointCount !== current.pointCount ||
+    previous.structureKey !== current.structureKey;
+  return {
+    latestPaneValues: shouldReplaceAllPanes
+      ? []
+      : getTradingViewNativeSubIndicatorLatestPaneValues(panes),
+    replacementPanes: shouldReplaceAllPanes ? panes : null,
+    structureKey: current.structureKey,
+  };
+}
+
+export function applyTradingViewNativeSubIndicatorLatestPaneValues({
+  hasLatestPoint,
+  latestPaneValues,
+  panes,
+}: {
+  hasLatestPoint: boolean;
+  latestPaneValues: readonly ITradingViewNativeSubIndicatorLatestPaneValues[];
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+}): readonly ITradingViewNativeSubIndicatorRenderPane[] {
+  'worklet';
+
+  if (panes.length !== latestPaneValues.length) {
+    return panes;
+  }
+  for (let paneIndex = 0; paneIndex < panes.length; paneIndex += 1) {
+    const pane = panes[paneIndex];
+    const latestPane = latestPaneValues[paneIndex];
+    if (
+      pane.key !== latestPane?.key ||
+      pane.series.length !== latestPane.series.length
+    ) {
+      return panes;
+    }
+    for (
+      let seriesIndex = 0;
+      seriesIndex < pane.series.length;
+      seriesIndex += 1
+    ) {
+      const series = pane.series[seriesIndex];
+      const latestSeries = latestPane.series[seriesIndex];
+      if (
+        series.key !== latestSeries?.key ||
+        Boolean(series.palette) !== (latestSeries.paletteIndex !== undefined)
+      ) {
+        return panes;
+      }
+    }
+  }
+
+  // These arrays are UI-runtime-owned buffers. Updating their last slots keeps
+  // same-candle realtime work constant instead of cloning full history.
+  for (let paneIndex = 0; paneIndex < panes.length; paneIndex += 1) {
+    const pane = panes[paneIndex];
+    const latestPane = latestPaneValues[paneIndex];
+    for (
+      let seriesIndex = 0;
+      seriesIndex < pane.series.length;
+      seriesIndex += 1
+    ) {
+      const series = pane.series[seriesIndex];
+      const latestSeries = latestPane.series[seriesIndex];
+      if (hasLatestPoint) {
+        const latestValueIndex = series.values.length - 1;
+        if (latestValueIndex >= 0) {
+          series.values[latestValueIndex] = latestSeries.value;
+        }
+        if (series.palette) {
+          const latestPaletteIndex = series.palette.indexes.length - 1;
+          if (latestPaletteIndex >= 0) {
+            series.palette.indexes[latestPaletteIndex] =
+              latestSeries.paletteIndex ?? null;
+          }
+        }
+      } else {
+        series.values.length = 0;
+        if (series.palette) {
+          series.palette.indexes.length = 0;
+        }
+      }
+    }
+  }
+  return panes;
+}
 
 interface IChartSize {
   height: number;
@@ -108,6 +322,7 @@ interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeS
   };
   points: IMarketTokenKLineDataPoint[];
   size: IChartSize;
+  subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
 }
 
 interface ITradingViewNativeChartProps {
@@ -125,6 +340,7 @@ interface ITradingViewNativeChartProps {
   ) => void;
   candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
+  subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
   testID?: string;
   viewportRequest?: ITradingViewNativeViewportRequest | null;
 }
@@ -136,6 +352,7 @@ function getInitialRuntime({
   indicatorSeries,
   initialRightOffset,
   points,
+  subIndicatorPanes,
 }: {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
@@ -143,6 +360,7 @@ function getInitialRuntime({
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   points: IMarketTokenKLineDataPoint[];
+  subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
 }): ITradingViewNativeChartRuntime {
   return {
     ...createTradingViewNativeChartRuntimeState({
@@ -166,6 +384,7 @@ function getInitialRuntime({
     },
     points,
     size: { height: 0, width: 0 },
+    subIndicatorPanes,
   };
 }
 
@@ -183,6 +402,7 @@ export const TradingViewNativeChart = memo(
     onVisiblePointRangeChange,
     candleLabels,
     points,
+    subIndicatorPanes = EMPTY_SUB_INDICATOR_PANES,
     testID,
     viewportRequest,
   }: ITradingViewNativeChartProps) => {
@@ -191,6 +411,8 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const [chartWidth, setChartWidth] = useState(0);
+    const subIndicatorPanesStructureKey =
+      getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
     const chartRuntime = useSharedValue(
       getInitialRuntime({
         candleIntervalSeconds,
@@ -199,6 +421,7 @@ export const TradingViewNativeChart = memo(
         indicatorSeries,
         initialRightOffset,
         points,
+        subIndicatorPanes,
       }),
     );
     const decayOffset = useSharedValue(0);
@@ -209,6 +432,7 @@ export const TradingViewNativeChart = memo(
       chartPictureVersion,
       indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
       pointCount: points.length,
+      subIndicatorPanesStructureKey,
     });
     const appliedViewportRequestRef = useRef({
       chartWidth: 0,
@@ -239,8 +463,12 @@ export const TradingViewNativeChart = memo(
       [indicatorSeries],
     );
     const widestVolumeLabel = useMemo(
-      () => getTradingViewNativeVolumeAxisLabel(points),
-      [points],
+      () => (hasVolume ? getTradingViewNativeVolumeAxisLabel(points) : ''),
+      [hasVolume, points],
+    );
+    const widestSubIndicatorLabel = useMemo(
+      () => getTradingViewNativeSubIndicatorAxisLabel(subIndicatorPanes),
+      [subIndicatorPanes],
     );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
@@ -272,6 +500,9 @@ export const TradingViewNativeChart = memo(
       );
       const widestVolumeLabelBounds =
         measuredPriceAxisFont.measureText(widestVolumeLabel);
+      const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
+        widestSubIndicatorLabel,
+      );
       return getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: Math.max(
           currentPriceLabelBounds.x + currentPriceLabelBounds.width,
@@ -281,6 +512,7 @@ export const TradingViewNativeChart = memo(
           widestPriceLabelBounds.x + widestPriceLabelBounds.width,
           widestIndicatorPriceLabelBounds.x +
             widestIndicatorPriceLabelBounds.width,
+          widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
           0,
         ),
         widestVolumeLabelWidth: Math.max(
@@ -293,6 +525,7 @@ export const TradingViewNativeChart = memo(
       resources,
       widestIndicatorPriceLabel,
       widestPriceLabel,
+      widestSubIndicatorLabel,
       widestVolumeLabel,
     ]);
 
@@ -309,6 +542,7 @@ export const TradingViewNativeChart = memo(
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
         resources: resources.value,
+        subIndicatorPanes: runtime.subIndicatorPanes,
         viewport: runtime.viewport,
         watermarkOpacity,
         width: runtime.size.width,
@@ -412,17 +646,36 @@ export const TradingViewNativeChart = memo(
       const shouldReplaceAllIndicatorSeries =
         shouldReplaceAllPoints ||
         previousPictureInput.indicatorSeriesKey !== indicatorSeriesKey;
+      const subIndicatorPanesUpdate =
+        getTradingViewNativeSubIndicatorPanesUpdate({
+          current: {
+            chartPictureVersion,
+            pointCount: points.length,
+            structureKey: subIndicatorPanesStructureKey,
+          },
+          panes: subIndicatorPanes,
+          previous: {
+            chartPictureVersion: previousPictureInput.chartPictureVersion,
+            pointCount: previousPictureInput.pointCount,
+            structureKey: previousPictureInput.subIndicatorPanesStructureKey,
+          },
+        });
       previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
       previousPictureInputRef.current = {
         chartPictureVersion,
         indicatorSeriesKey,
         pointCount: points.length,
+        subIndicatorPanesStructureKey: subIndicatorPanesUpdate.structureKey,
       };
       const nextSize = chartSize;
       const replacementPoints = shouldReplaceAllPoints ? points : null;
       const replacementIndicatorSeries = shouldReplaceAllIndicatorSeries
         ? indicatorSeries
         : null;
+      const replacementSubIndicatorPanes =
+        subIndicatorPanesUpdate.replacementPanes;
+      const latestSubIndicatorPaneValues =
+        subIndicatorPanesUpdate.latestPaneValues;
       const latestPoint = points[points.length - 1] ?? null;
       const latestIndicatorSeriesValues = indicatorSeries.map((series) => ({
         key: series.key,
@@ -456,6 +709,13 @@ export const TradingViewNativeChart = memo(
                 ? [...series.values.slice(0, -1), latestValue.value]
                 : [],
             };
+          });
+        const nextSubIndicatorPanes =
+          replacementSubIndicatorPanes ??
+          applyTradingViewNativeSubIndicatorLatestPaneValues({
+            hasLatestPoint: Boolean(latestPoint),
+            latestPaneValues: latestSubIndicatorPaneValues,
+            panes: runtime.subIndicatorPanes,
           });
         const nextChartWidth = getTradingViewNativeChartWidth(
           nextSize.width,
@@ -500,6 +760,7 @@ export const TradingViewNativeChart = memo(
           },
           points: nextPoints,
           size: nextSize,
+          subIndicatorPanes: nextSubIndicatorPanes,
         };
       });
     }, [
@@ -513,6 +774,8 @@ export const TradingViewNativeChart = memo(
       indicatorSeries,
       points,
       priceAxisWidth,
+      subIndicatorPanes,
+      subIndicatorPanesStructureKey,
     ]);
 
     useLayoutEffect(() => {

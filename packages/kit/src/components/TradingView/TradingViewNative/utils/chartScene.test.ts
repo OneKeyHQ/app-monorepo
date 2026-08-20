@@ -12,6 +12,7 @@ import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
+import { createTradingViewNativeSubIndicatorRenderSnapshots } from './subIndicatorRender';
 
 const POINTS: IMarketTokenKLineDataPoint[] = [
   { c: 101, h: 103, l: 98, o: 100, t: 1_700_000_000, v: 10 },
@@ -521,5 +522,69 @@ describe('TradingViewNative shared chart scene', () => {
     expect(longScene.commands.length).toBeLessThanOrEqual(
       shortScene.commands.length + 10,
     );
+  });
+
+  it('renders selected volume in its own pane without main-chart volume', () => {
+    const points = buildLinearPoints(80).map((point, index) => ({
+      ...point,
+      v: 1000 + index * 10,
+    }));
+    const subIndicatorPanes =
+      createTradingViewNativeSubIndicatorRenderSnapshots({
+        configs: [
+          { id: 'VOL', indicator: 'VOL' },
+          { id: 'MACD', indicator: 'MACD' },
+          { id: 'RSI', indicator: 'RSI' },
+          { id: 'MFI', indicator: 'MFI' },
+        ],
+        points,
+      }).map(({ pane }) => pane);
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: true, x: 260, y: 300 },
+      hasVolume: false,
+      height: 360,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points,
+      subIndicatorPanes,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.08,
+      width: 320,
+    });
+
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.includes(':series:volume'),
+      ),
+    ).toBe(true);
+    expect(
+      scene.commands.some(
+        (command) =>
+          'paint' in command &&
+          (command.paint === 'upVolume' || command.paint === 'downVolume'),
+      ),
+    ).toBe(false);
+    expect(
+      scene.commands.some(
+        (command) => command.kind === 'text' && command.text === 'VOL',
+      ),
+    ).toBe(true);
+    expect(
+      Object.keys(scene.customPaintStyles).some((key) =>
+        key.includes(':series:volume:palette:'),
+      ),
+    ).toBe(true);
+    const watermark = scene.commands.find(
+      (command) => command.kind === 'watermark',
+    );
+    if (watermark?.kind === 'watermark') {
+      expect(watermark.rect.y + watermark.rect.height).toBeLessThanOrEqual(
+        360 - 24 - 4 * 56,
+      );
+    }
   });
 });
