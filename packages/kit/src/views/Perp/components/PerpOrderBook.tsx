@@ -54,7 +54,6 @@ import {
   PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS,
   getPerpsOrderBookVisualSnapshotDelayMs,
 } from '../utils/orderBookVisualScheduler';
-import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 
 import {
   type IOrderBookSelection,
@@ -807,23 +806,6 @@ export function PerpOrderBook({
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
-    shouldShowEnableTradingButton,
-  ]);
-
-  // OK-59100: the level count sets how tall the book renders, which is what the
-  // iOS tab scroller must exceed before the page can scroll at all. Logged with
-  // the flags that select it so a report ties to the branch it actually took.
-  useEffect(() => {
-    perpsFieldDiagnostics('orderbook.levelCount', {
-      mobileMaxLevelsPerSide,
-      mode: activeTradeInstrument.mode,
-      showEnableTradingButton: shouldShowEnableTradingButton,
-      hasTpsl: formData.hasTpsl,
-    });
-  }, [
-    activeTradeInstrument.mode,
-    formData.hasTpsl,
-    mobileMaxLevelsPerSide,
     shouldShowEnableTradingButton,
   ]);
 

@@ -7,7 +7,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
-import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
@@ -33,19 +32,8 @@ function PerpMarketFooter() {
         : ETranslations.perp_trade_short,
   });
 
-  // Press-in and press fail differently: neither firing means the touch never
-  // arrived, press-in alone means something claimed the gesture midway.
-  const handleLongPressIn = useCallback(() => {
-    perpsFieldDiagnostics('marketFooter.pressIn', { side: 'long' });
-  }, []);
-
-  const handleShortPressIn = useCallback(() => {
-    perpsFieldDiagnostics('marketFooter.pressIn', { side: 'short' });
-  }, []);
-
   const handleCancel = useCallback(
     (close: () => void) => {
-      perpsFieldDiagnostics('marketFooter.press', { side: 'long' });
       actionsRef.current.updateTradingForm({ side: 'long' });
       close();
     },
@@ -54,7 +42,6 @@ function PerpMarketFooter() {
 
   const handleConfirm = useCallback(
     (close: () => void) => {
-      perpsFieldDiagnostics('marketFooter.press', { side: 'short' });
       actionsRef.current.updateTradingForm({ side: 'short' });
       close();
     },
@@ -79,7 +66,6 @@ function PerpMarketFooter() {
           justifyContent="center"
           alignItems="center"
           childrenAsText={false}
-          onPressIn={handleLongPressIn}
           onCancel={handleCancel}
         >
           <SizableText
@@ -107,7 +93,6 @@ function PerpMarketFooter() {
           justifyContent="center"
           alignItems="center"
           childrenAsText={false}
-          onPressIn={handleShortPressIn}
           onConfirm={handleConfirm}
         >
           <SizableText

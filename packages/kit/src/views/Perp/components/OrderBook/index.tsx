@@ -48,7 +48,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
-import { perpsFieldDiagnostics } from '../../utils/perpsFieldDiagnostics';
 
 import {
   DepthBar,
@@ -705,7 +704,7 @@ export function OrderBook({
     undefined,
   );
   const [containerHeight, setContainerHeight] = useState(() =>
-    horizontal ? 0 : initialContainerHeight ?? 0,
+    horizontal ? 0 : (initialContainerHeight ?? 0),
   );
   useEffect(() => {
     if (
@@ -784,37 +783,6 @@ export function OrderBook({
   const isMobileVariant =
     variant === 'mobileHorizontal' || variant === 'mobileVertical';
 
-  // OK-59102: the epoch flips with `coin` while the book lags behind on the L2
-  // subscription, and the native bars re-seed from whatever percents exist at
-  // that moment. Top-of-book prices identify which coin the data really is.
-  const epochProbeRef = useRef({
-    symbol: _symbol,
-    isEmpty,
-    bids: aggregatedData.bids,
-    asks: aggregatedData.asks,
-  });
-  epochProbeRef.current = {
-    symbol: _symbol,
-    isEmpty,
-    bids: aggregatedData.bids,
-    asks: aggregatedData.asks,
-  };
-  useEffect(() => {
-    const probe = epochProbeRef.current;
-    perpsFieldDiagnostics('orderbook.epochChange', {
-      epoch: depthEpoch,
-      variant,
-      symbol: probe.symbol,
-      isEmpty: probe.isEmpty,
-      bidCount: probe.bids.length,
-      askCount: probe.asks.length,
-      topBid: probe.bids[0]?.price,
-      topAsk: probe.asks[0]?.price,
-    });
-    // Intentionally epoch-only: this records the state at the moment the epoch
-    // flips, not on every data tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depthEpoch]);
   const traceInnerLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
       if (!isMobileVariant) {

@@ -1,25 +1,15 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import {
   Dimensions,
   type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   useWindowDimensions,
 } from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
-  CollapsibleTabContext,
   HeaderScrollGestureWrapper,
   Icon,
   Page,
@@ -69,7 +59,6 @@ import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
 } from '../utils/mobilePerpMarketScrollState';
-import { perpsFieldDiagnostics } from '../utils/perpsFieldDiagnostics';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const IOS_CHART_HEIGHT = 500;
@@ -162,33 +151,6 @@ function MobilePerpMarketTabBar({
   );
 }
 
-// OK-59100: iOS refuses to start a drag when the reachable distance is zero.
-// `dragBegin` cannot report the inputs to that — in the failing state it never
-// fires — so they are read from the tabs context instead.
-function OrderbookScrollMetricsProbe() {
-  // Via the platform-split context, not the library: this file has no `.native`
-  // suffix, so a value import would reach the web/desktop/ext module graphs.
-  const tabsContext = useContext(CollapsibleTabContext);
-  const headerHeight = tabsContext?.headerHeight;
-  const tabBarHeight = tabsContext?.tabBarHeight;
-  const containerHeight = tabsContext?.containerHeight;
-  const contentInset = tabsContext?.contentInset;
-
-  useEffect(() => {
-    const reachable =
-      (contentInset ?? 0) + (headerHeight ?? 0) - (containerHeight ?? 0);
-    perpsFieldDiagnostics('iosOrderbookTab.metrics', {
-      headerHeight: Math.round(headerHeight ?? 0),
-      tabBarHeight: Math.round(tabBarHeight ?? 0),
-      containerHeight: Math.round(containerHeight ?? 0),
-      contentInset: Math.round(contentInset ?? 0),
-      headerPlusInsetMinusContainer: Math.round(reachable),
-    });
-  }, [containerHeight, contentInset, headerHeight, tabBarHeight]);
-
-  return null;
-}
-
 function MobilePerpCandlesHeader({
   isInteractionOverlayOpen,
   onInteractionOverlayOpenChange,
@@ -215,18 +177,11 @@ function MobilePerpCandlesHeader({
     }
   }, []);
 
-  // Scrolling and the footer buttons die together, which a pan that goes active
-  // and never finalizes would explain and a content-height problem would not.
-  const handleGestureActiveChange = useCallback((active: boolean) => {
-    perpsFieldDiagnostics('chartHeaderGesture.active', { active });
-  }, []);
-
   return (
     <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
       <MobilePerpMarketHeader />
       <HeaderScrollGestureWrapper
         disabled={isInteractionOverlayOpen}
-        onGestureActiveChange={handleGestureActiveChange}
         panActiveOffsetY={[-4, 4]}
         panFailOffsetX={[-40, 40]}
         excludeRightEdgeRatio={0.1}
@@ -340,7 +295,6 @@ function MobilePerpMarket() {
       ? windowHeight
       : undefined;
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
-    perpsFieldDiagnostics('interactionOverlay.change', { isOpen });
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
 
@@ -351,62 +305,6 @@ function MobilePerpMarket() {
   // Not `onScroll`: Tabs.ScrollView omits it and the library rebinds it after
   // spreading ours, as it does for scrollEventThrottle and onMomentumScrollEnd.
   // The begin/end pair survives because it stays in the spread.
-  const orderbookDragDiagRef = useRef({ startOffsetY: 0 });
-
-  const handleOrderbookTouchStart = useCallback(() => {
-    perpsFieldDiagnostics('iosOrderbookTab.touchStart', {
-      scrollEnabled: !isTradingViewInteractionOverlayOpen,
-    });
-  }, [isTradingViewInteractionOverlayOpen]);
-
-  const handleOrderbookScrollBeginDrag = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentSize, layoutMeasurement, contentInset, contentOffset } =
-        event.nativeEvent;
-      orderbookDragDiagRef.current.startOffsetY = contentOffset.y;
-      // iOS sizes this scroller with contentInset, not padding.
-      const scrollableRange =
-        contentSize.height +
-        (contentInset?.top ?? 0) +
-        (contentInset?.bottom ?? 0) -
-        layoutMeasurement.height;
-      perpsFieldDiagnostics('iosOrderbookTab.dragBegin', {
-        scrollEnabled: !isTradingViewInteractionOverlayOpen,
-        offsetY: Math.round(contentOffset.y),
-        contentHeight: Math.round(contentSize.height),
-        viewportHeight: Math.round(layoutMeasurement.height),
-        insetTop: Math.round(contentInset?.top ?? 0),
-        scrollableRange: Math.round(scrollableRange),
-      });
-    },
-    [isTradingViewInteractionOverlayOpen],
-  );
-
-  const handleOrderbookScrollEndDrag = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
-      perpsFieldDiagnostics('iosOrderbookTab.dragEnd', {
-        offsetY: Math.round(offsetY),
-        movedBy: Math.round(
-          offsetY - orderbookDragDiagRef.current.startOffsetY,
-        ),
-      });
-    },
-    [],
-  );
-
-  const handleOrderbookContentSizeChange = useCallback(
-    (contentWidth: number, contentHeight: number) => {
-      perpsFieldDiagnostics('iosOrderbookTab.contentSize', {
-        contentWidth: Math.round(contentWidth),
-        contentHeight: Math.round(contentHeight),
-        windowHeight: Math.round(Dimensions.get('window').height),
-        chartHeight: IOS_CHART_HEIGHT,
-        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
-      });
-    },
-    [],
-  );
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -720,12 +618,7 @@ function MobilePerpMarket() {
                       scrollEnabled={!isTradingViewInteractionOverlayOpen}
                       showsVerticalScrollIndicator={false}
                       contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
-                      onTouchStart={handleOrderbookTouchStart}
-                      onScrollBeginDrag={handleOrderbookScrollBeginDrag}
-                      onScrollEndDrag={handleOrderbookScrollEndDrag}
-                      onContentSizeChange={handleOrderbookContentSizeChange}
                     >
-                      <OrderbookScrollMetricsProbe />
                       <YStack
                         onLayout={(event) =>
                           handleTraceLayout('iosOrderbookTabContent', event)

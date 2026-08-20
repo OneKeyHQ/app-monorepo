@@ -2,6 +2,8 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { useRafCoalesced } from './useRafCoalesced';
 
+type ITestValue = { id: string };
+
 // The hook emits on the next animation frame, so drive rAF manually instead of
 // waiting on real frames.
 let pendingFrames: Array<() => void> = [];
@@ -42,7 +44,7 @@ describe('useRafCoalesced', () => {
     const first = { id: 'first' };
     const second = { id: 'second' };
     const { result, rerender } = renderHook(
-      ({ value }) => useRafCoalesced(value, 'epoch'),
+      ({ value }: { value: ITestValue }) => useRafCoalesced(value, 'epoch'),
       { initialProps: { value: first } },
     );
 
@@ -61,7 +63,8 @@ describe('useRafCoalesced', () => {
     const first = { id: 'first' };
     const second = { id: 'second' };
     const { result, rerender } = renderHook(
-      ({ value, flushKey }) => useRafCoalesced(value, flushKey),
+      ({ value, flushKey }: { value: ITestValue; flushKey: string }) =>
+        useRafCoalesced(value, flushKey),
       { initialProps: { value: first, flushKey: 'a' } },
     );
 
@@ -73,7 +76,8 @@ describe('useRafCoalesced', () => {
     const first = { id: 'first' };
     const second = { id: 'second' };
     const { result, rerender } = renderHook(
-      ({ value }) => useRafCoalesced(value, 'epoch', false),
+      ({ value }: { value: ITestValue }) =>
+        useRafCoalesced(value, 'epoch', false),
       { initialProps: { value: first } },
     );
 
@@ -91,7 +95,8 @@ describe('useRafCoalesced', () => {
     const second = { id: 'second' };
     const third = { id: 'third' };
     const { result, rerender } = renderHook(
-      ({ value, enabled }) => useRafCoalesced(value, 'epoch', enabled),
+      ({ value, enabled }: { value: ITestValue; enabled: boolean }) =>
+        useRafCoalesced(value, 'epoch', enabled),
       { initialProps: { value: first, enabled: true } },
     );
 

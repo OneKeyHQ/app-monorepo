@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -20,7 +20,6 @@ import {
   buildTickOptions,
   getDefaultTickOption,
   getTickOptionsDataDuringTransition,
-  shouldPersistOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -63,6 +62,7 @@ export function useTickOptions({
     tickOptions: ITickParam[];
     defaultTickOption: ITickParam;
     priceDecimals: number;
+    isFallback?: boolean;
   } | null>(null);
 
   const [persistedTickOptions] = useOrderBookTickOptionsAtom();
@@ -72,8 +72,22 @@ export function useTickOptions({
   );
   const actions = useHyperliquidActions();
 
+  // Seeding makes the first write authoritative, so a seed that lands before
+  // the stored preferences finish loading would permanently replace the user's
+  // choice rather than transiently shadow it.
+  const [hasLoadedPersistedTickOptions, setHasLoadedPersistedTickOptions] =
+    useState(false);
   useEffect(() => {
-    void actions.current.ensureOrderBookTickOptionsLoaded();
+    let cancelled = false;
+    void (async () => {
+      await actions.current.ensureOrderBookTickOptionsLoaded();
+      if (!cancelled) {
+        setHasLoadedPersistedTickOptions(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [actions]);
 
   const topBidPrice = bids[0]?.px;
@@ -117,6 +131,7 @@ export function useTickOptions({
     if (marketTickOptionsData) {
       if (
         cached &&
+        !cached.isFallback &&
         marketTickOptionsData.priceDecimals <= cached.priceDecimals
       ) {
         return cached;
@@ -127,7 +142,10 @@ export function useTickOptions({
 
     const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
 
-    if (cached && priceDecimals <= cached.priceDecimals) {
+    if (
+      cached &&
+      (!cached.isFallback || priceDecimals <= cached.priceDecimals)
+    ) {
       return cached;
     }
 
@@ -143,11 +161,15 @@ export function useTickOptions({
     const tickLabelDecimals =
       new BigNumber(defaultTickOption.label).decimalPlaces() ?? 0;
 
+    // Derived without szDecimals, so it uses a different multiplier set than
+    // buildReferenceTickOptions and can label the same tick with a different
+    // nSigFigs. Tagged so a later reference list can displace it (OK-59102).
     const result = {
       symbol,
       tickOptions,
       defaultTickOption,
       priceDecimals: Math.max(priceDecimals, tickLabelDecimals),
+      isFallback: true,
     };
 
     // Cache the result
@@ -211,29 +233,36 @@ export function useTickOptions({
 
   useEffect(() => {
     if (!symbol) return;
+    if (!tickOptionsData) return;
+    if (!hasLoadedPersistedTickOptions) return;
+    // Only derive a tick option from a list built with szDecimals: without it
+    // buildReferenceTickOptions bails and the fallback builder labels the same
+    // tick with a different nSigFigs, which is what the two books disagreed on.
+    if (!Number.isInteger(szDecimals)) return;
 
-    const persisted = persistedTickOptions[symbol];
+    // Seed-only writer. The persisted tick option is a user preference, so an
+    // order book adopts it and never writes a derived correction back: two
+    // books whose instance-local lists disagree on nSigFigs for the same value
+    // would otherwise overwrite each other without ever converging (OK-59102).
+    const persisted = persistedTickOptionsForRender[symbol];
     const currentPersist: IPerpOrderBookTickOptionPersist = {
       value: selectedTickOption.value,
       nSigFigs: selectedTickOption.nSigFigs ?? null,
       mantissa: selectedTickOption.mantissa ?? null,
     };
 
-    if (
-      shouldPersistOrderBookTickOption({
-        isReady: Boolean(tickOptionsData),
-        persisted,
-        next: currentPersist,
-      })
-    ) {
+    if (!persisted) {
       void actions.current.setOrderBookTickOption({
         symbol,
         option: currentPersist,
+        source: 'seed',
       });
     }
   }, [
     symbol,
-    persistedTickOptions,
+    szDecimals,
+    hasLoadedPersistedTickOptions,
+    persistedTickOptionsForRender,
     selectedTickOption,
     tickOptionsData,
     actions,
