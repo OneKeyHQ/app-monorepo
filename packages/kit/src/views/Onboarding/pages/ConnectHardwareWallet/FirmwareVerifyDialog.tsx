@@ -1039,6 +1039,8 @@ export function FirmwareAuthenticationDialogContent({
   );
 }
 
+export type IFirmwareVerifyDialogHost = Pick<typeof Dialog, 'show'>;
+
 export function useFirmwareVerifyDialog() {
   const [isLoading, setIsLoading] = useState(false);
   const showFirmwareVerifyDialog = useCallback(
@@ -1049,6 +1051,7 @@ export function useFirmwareVerifyDialog() {
       onContinue,
       onDevSkipVerificationPress,
       onClose,
+      dialogHost = Dialog,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
@@ -1056,6 +1059,12 @@ export function useFirmwareVerifyDialog() {
       onClose: () => Promise<void> | void;
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
+      // A page-owned dialog host (useInPageDialog) renders this dialog into the
+      // page's own portal instead of the global full-window overlay. On iOS the
+      // global overlay stacks children by render order only, so a retry loop
+      // that re-mounts this dialog while the hardware checking Sheet is still
+      // exiting can strand a backdrop above it that swallows every tap.
+      dialogHost?: IFirmwareVerifyDialogHost;
     }) => {
       if (!deviceUtils.isFirmwareVerifySupported(device.deviceType)) {
         await onContinue({ checked: false });
@@ -1096,7 +1105,7 @@ export function useFirmwareVerifyDialog() {
       } finally {
         // await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      const firmwareAuthenticationDialog = Dialog.show({
+      const firmwareAuthenticationDialog = dialogHost.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
         title: ' ',

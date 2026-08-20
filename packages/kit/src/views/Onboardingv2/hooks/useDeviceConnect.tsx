@@ -740,18 +740,35 @@ export function useDeviceConnect({
           });
 
         if (shouldAuthenticateFirmware) {
-          void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: latestDevice.connectId ?? '',
-            hardClose: false,
-            skipDelayClose: true,
-            deviceResetToHome: false,
-          });
+          const closeCheckingDialogForVerify = async () =>
+            backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId: latestDevice.connectId ?? '',
+              hardClose: false,
+              skipDelayClose: true,
+              deviceResetToHome: false,
+            });
+          // Same handoff rule as the bootloader dialog above: wait until the
+          // hardware checking dialog has fully left the global iOS overlay
+          // before mounting the firmware verify dialog. Mounting while the old
+          // Sheet is still exiting can strand its overlay above the new dialog,
+          // and after a few genuine-check retries every tap gets swallowed.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(
+              closeCheckingDialogForVerify,
+            );
+          } else {
+            void closeCheckingDialogForVerify();
+          }
           let isVerified: boolean | undefined;
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
                 device: latestDevice,
                 features,
+                // Render into the page-owned portal (when the page provides
+                // one) so retry rounds never interleave this dialog with the
+                // checking Sheet inside the render-order-only global overlay.
+                dialogHost: getBootloaderDialogHost?.(),
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
                   setTimeout(() => {
