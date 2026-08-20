@@ -66,12 +66,12 @@ function buildService({
 
 // yarn jest packages/kit-bg/src/services/ServiceWalletConnectPay/ServiceWalletConnectPay.test.ts
 describe('isTxNeverBroadcast', () => {
-  it('returns true when all probes answer null through promise elements and the nonce is unconsumed', async () => {
+  it('returns true when all probes answer null through promise elements and nothing occupies the nonce', async () => {
     const { service, proxyRPCCall } = buildService({
       rpcHandler: ({ method }) => {
         if (method === 'eth_getTransactionCount') {
-          // confirmed count == nonce → the phantom nonce is still the next
-          // slot, nothing with it has landed
+          // confirmed == pending == nonce → the phantom nonce is still the
+          // next slot and this node sees nothing pending from the sender
           return [Promise.resolve('0x5')];
         }
         return [Promise.resolve(null)];
@@ -81,9 +81,9 @@ describe('isTxNeverBroadcast', () => {
     await expect(
       service.isTxNeverBroadcast({ networkId: 'evm--8453', txid: TXID }),
     ).resolves.toBe(true);
-    // 3 rounds × (tx + receipt) + 1 nonce lookup
-    expect(proxyRPCCall).toHaveBeenCalledTimes(7);
-    expect(proxyRPCCall).toHaveBeenLastCalledWith(
+    // 3 rounds × (tx + receipt) + latest + pending nonce lookups
+    expect(proxyRPCCall).toHaveBeenCalledTimes(8);
+    expect(proxyRPCCall).toHaveBeenCalledWith(
       expect.objectContaining({
         request: {
           method: 'eth_getTransactionCount',
@@ -91,9 +91,17 @@ describe('isTxNeverBroadcast', () => {
         },
       }),
     );
+    expect(proxyRPCCall).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        request: {
+          method: 'eth_getTransactionCount',
+          params: [SENDER, 'pending'],
+        },
+      }),
+    );
   });
 
-  it('returns false as soon as a probe finds the transaction — a promise element resolving to a tx object must not read as null', async () => {
+  it('returns false as soon as a probe finds the transaction', async () => {
     const { service, proxyRPCCall } = buildService({
       rpcHandler: () => [Promise.resolve({ hash: TXID })],
       meta: { sender: SENDER, nonce: 5 },
@@ -109,6 +117,36 @@ describe('isTxNeverBroadcast', () => {
       rpcHandler: ({ method }) =>
         method === 'eth_getTransactionCount'
           ? [Promise.resolve('0x6')]
+          : [Promise.resolve(null)],
+      meta: { sender: SENDER, nonce: 5 },
+    });
+    await expect(
+      service.isTxNeverBroadcast({ networkId: 'evm--8453', txid: TXID }),
+    ).resolves.toBe(false);
+  });
+
+  it('returns false when the node sees a pending tx from the sender — likely the phantom itself', async () => {
+    const { service } = buildService({
+      rpcHandler: ({ method, params }) => {
+        if (method === 'eth_getTransactionCount') {
+          return params[1] === 'pending'
+            ? [Promise.resolve('0x6')]
+            : [Promise.resolve('0x5')];
+        }
+        return [Promise.resolve(null)];
+      },
+      meta: { sender: SENDER, nonce: 5 },
+    });
+    await expect(
+      service.isTxNeverBroadcast({ networkId: 'evm--8453', txid: TXID }),
+    ).resolves.toBe(false);
+  });
+
+  it('returns false when the confirmed count is below the recorded nonce — account state inconsistent with the record', async () => {
+    const { service } = buildService({
+      rpcHandler: ({ method }) =>
+        method === 'eth_getTransactionCount'
+          ? [Promise.resolve('0x4')]
           : [Promise.resolve(null)],
       meta: { sender: SENDER, nonce: 5 },
     });

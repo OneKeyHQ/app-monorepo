@@ -1337,7 +1337,14 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
-    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+    params: ISendTxBaseParams &
+      IBuildUnsignedTxParams & {
+        // pin the tx to this exact nonce instead of deriving the next one;
+        // used when re-executing a possibly-broadcast action so a
+        // misjudged "never broadcast" can only produce a nonce conflict
+        // (one tx lands), never a second payment at nonce+1
+        nonceInfo?: { nonce: number };
+      },
   ) {
     const {
       networkId,
@@ -1357,6 +1364,7 @@ class ServiceSend extends ServiceBase {
       disableMev,
       withoutNonce,
       withUuid,
+      nonceInfo,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -1410,23 +1418,28 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (
-      isNonceRequired &&
-      new BigNumber(newUnsignedTx.nonce ?? 0).isZero() &&
-      !withoutNonce
-    ) {
-      const nonce = await this.backgroundApi.serviceSend.getNextNonce({
-        accountId,
-        networkId,
-        accountAddress: account.address,
-      });
+    if (isNonceRequired && !withoutNonce) {
+      if (nonceInfo) {
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo,
+        });
+      } else if (new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
+        const nonce = await this.backgroundApi.serviceSend.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress: account.address,
+        });
 
-      newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
-        accountId,
-        networkId,
-        unsignedTx: newUnsignedTx,
-        nonceInfo: { nonce },
-      });
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
     }
 
     if (withUuid) {

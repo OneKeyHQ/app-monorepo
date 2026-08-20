@@ -559,16 +559,23 @@ class ServiceWalletConnectPay extends ServiceBase {
    *
    * eth_getTransactionByHash returning null is the only usable
    * "not broadcast" signal (a missing receipt alone cannot tell pending
-   * from nonexistent). The conclusion needs two independent criteria to
-   * hold — several consistent tx+receipt null rounds, AND the phantom
-   * tx's nonce still unconsumed by the sender's confirmed on-chain tx
-   * count (the probes may read a different load-balanced RPC pool than
-   * the broadcast path used, so a really-broadcast tx can answer null for
-   * every round; a consumed nonce means a transaction with this nonce
-   * already landed — quite possibly this very one, and re-executing could
-   * pay twice). Any RPC failure, non-null probe result, or missing
-   * broadcast metadata aborts to false: uncertainty always keeps the
-   * stored txid.
+   * from nonexistent), affirmed only by several consistent tx+receipt
+   * null rounds. The nonce checks that follow are veto-only, not
+   * corroboration: a mempool-pending tx and a never-broadcast tx are
+   * indistinguishable by confirmed count, and the counts are read through
+   * the same RPC proxy pool as the probes, so a pool that cannot see the
+   * tx fails both together. They still veto the observable bad states —
+   * a consumed nonce (something with this nonce already landed, quite
+   * possibly this very tx) and a sender-visible pending tx. Any RPC
+   * failure, non-null probe result, or missing broadcast metadata aborts
+   * to false: uncertainty always keeps the stored txid.
+   *
+   * Because a false "never broadcast" verdict remains reachable (tx
+   * broadcast but invisible to the probe pool), callers must pin the
+   * re-executed transaction to the recorded nonce
+   * (getBroadcastMetaByTxid + prepareSendConfirmUnsignedTx nonceInfo) so
+   * a misjudgment can only produce a nonce conflict where one tx lands —
+   * never a second payment at nonce+1.
    */
   @backgroundMethod()
   async isTxNeverBroadcast({
@@ -628,21 +635,53 @@ class ServiceWalletConnectPay extends ServiceBase {
       if (!meta) {
         return false;
       }
-      // 'latest', not the wallet API account nonce — that one is
-      // pending-inclusive on some chains while only confirmed nonce
-      // consumption matters here
-      const countHex = await rpcCall<string>('eth_getTransactionCount', [
-        meta.sender,
-        'latest',
-      ]);
-      const confirmedCount = new BigNumber(countHex);
-      if (!confirmedCount.isInteger() || confirmedCount.gt(meta.nonce)) {
+      // 'latest' (not the wallet API account nonce, pending-inclusive on
+      // some chains): the phantom nonce must be exactly the next confirmed
+      // slot — a higher count means it was consumed, a lower one means the
+      // account state is inconsistent with the recorded tx
+      const confirmedCount = new BigNumber(
+        await rpcCall<string>('eth_getTransactionCount', [
+          meta.sender,
+          'latest',
+        ]),
+      );
+      // and this node must see nothing pending from the sender at all —
+      // a pending tx at this nonce is very likely the "phantom" itself
+      const pendingCount = new BigNumber(
+        await rpcCall<string>('eth_getTransactionCount', [
+          meta.sender,
+          'pending',
+        ]),
+      );
+      const isNothingAtNonce =
+        confirmedCount.isInteger() &&
+        pendingCount.isInteger() &&
+        confirmedCount.eq(meta.nonce) &&
+        pendingCount.eq(confirmedCount);
+      if (!isNothingAtNonce) {
         return false;
       }
     } catch {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Pre-broadcast metadata recorded for a txid (sender + nonce), if any.
+   * Read it BEFORE invalidating stored progress — invalidation truncates
+   * the entry that holds it — so the re-executed action can be pinned to
+   * the same nonce (see prepareSendConfirmUnsignedTx nonceInfo).
+   */
+  @backgroundMethod()
+  async getBroadcastMetaByTxid({
+    txid,
+  }: {
+    txid: string;
+  }): Promise<IWcPayBroadcastMeta | undefined> {
+    return this.backgroundApi.simpleDb.walletConnectPay.findBroadcastMetaByTxid(
+      { txid },
+    );
   }
 }
 

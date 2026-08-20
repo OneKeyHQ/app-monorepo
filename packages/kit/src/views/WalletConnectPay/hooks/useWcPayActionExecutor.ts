@@ -180,6 +180,12 @@ export function useWcPayActionExecutor() {
       // (startIndex === actions.length), or a phantom txid would be handed
       // to confirmPayment unchecked
       let effectiveStartIndex = startIndex;
+      // nonce to pin when re-executing an invalidated broadcast action: the
+      // never-broadcast verdict is fallible (the tx may merely be invisible
+      // to the probe pool), so the re-executed tx must reuse the recorded
+      // nonce — a misjudgment then yields a nonce conflict where only one
+      // tx lands, never a second payment at nonce+1
+      const pinnedNonces: Record<number, number> = {};
       if (startIndex > 0) {
         const prevIndex = startIndex - 1;
         const prevRpc = actions[prevIndex].walletRpc;
@@ -206,9 +212,18 @@ export function useWcPayActionExecutor() {
                 },
               );
             if (isNeverBroadcast) {
+              // read the recorded nonce BEFORE invalidation — truncating
+              // stored progress deletes the entry that holds it
+              const broadcastMeta =
+                await backgroundApiProxy.serviceWalletConnectPay.getBroadcastMetaByTxid(
+                  { txid: prevTxid },
+                );
               await onActionInvalidated?.({ index: prevIndex });
               results.length = prevIndex;
               effectiveStartIndex = prevIndex;
+              if (broadcastMeta) {
+                pinnedNonces[prevIndex] = broadcastMeta.nonce;
+              }
             } else if (prevIndex < actions.length - 1) {
               // mid-sequence resume: the broadcast tx must be mined before
               // the follow-up signing so the Permit2 "approve mined before
@@ -281,6 +296,12 @@ export function useWcPayActionExecutor() {
                   networkId,
                   accountId: account.id,
                   encodedTx,
+                  // pin the re-execution of an invalidated broadcast action
+                  // to its recorded nonce (see pinnedNonces above)
+                  nonceInfo:
+                    pinnedNonces[i] !== undefined
+                      ? { nonce: pinnedNonces[i] }
+                      : undefined,
                 },
               );
             let txid: string;
