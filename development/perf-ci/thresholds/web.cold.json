@@ -10,7 +10,7 @@
   },
   "startupGraph": {
     "moduleCount": 3300,
-    "sourceSizeBytes": 13107200,
+    "sourceSizeBytes": 13172736,
     "initialScriptCount": 45,
     "initialScriptRawBytes": 6291456,
     "initialScriptGzipBytes": 2097152,
