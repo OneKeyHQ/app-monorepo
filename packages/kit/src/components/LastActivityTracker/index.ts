@@ -34,17 +34,20 @@ const LastActivityTracker = () => {
         await backgroundApiProxy.serviceSetting.getInstanceId();
       const devSettings =
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      const utilityEndpointInfo =
+        await backgroundApiProxy.serviceApp.getEndpointInfo({
+          name: EServiceEndpointEnum.Utility,
+        });
       analytics.init({
         instanceId,
-        baseURL: (
-          await backgroundApiProxy.serviceApp.getEndpointInfo({
-            name: EServiceEndpointEnum.Utility,
-          })
-        ).endpoint,
+        baseURL: utilityEndpointInfo.endpoint,
         enableAnalyticsInDev:
           devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
-      void reportInstallAttribution().catch((error) => {
+      void reportInstallAttribution(
+        utilityEndpointInfo.endpoint,
+        instanceId,
+      ).catch((error) => {
         console.warn(
           '[InstallAttribution] Attribution report failed',
           error instanceof Error ? error.message : 'unknown_error',

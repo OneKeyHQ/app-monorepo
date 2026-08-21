@@ -11,6 +11,7 @@
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
+		07AD5E102F59000100AD5001 /* OneKeyAdServicesAttribution.m in Sources */ = {isa = PBXBuildFile; fileRef = 07AD5E0F2F59000100AD5001 /* OneKeyAdServicesAttribution.m */; };
 		07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A02F08000000E00001 /* RecoveryViewController.swift */; };
 		07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */; };
 		0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */; };
@@ -72,6 +73,7 @@
 /* Begin PBXFileReference section */
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
+		07AD5E0F2F59000100AD5001 /* OneKeyAdServicesAttribution.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyAdServicesAttribution.m; path = OneKeyWallet/OneKeyAdServicesAttribution.m; sourceTree = "<group>"; };
 		07B1C3A02F08000000E00001 /* RecoveryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecoveryViewController.swift; path = OneKeyWallet/RecoveryViewController.swift; sourceTree = "<group>"; };
 		07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BootRecoveryKeys.swift; path = OneKeyWallet/BootRecoveryKeys.swift; sourceTree = "<group>"; };
 		0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Regular.ttf"; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */,
 				0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */,
+				07AD5E0F2F59000100AD5001 /* OneKeyAdServicesAttribution.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
@@ -617,6 +620,7 @@
 				07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */,
 				07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
+				07AD5E102F59000100AD5001 /* OneKeyAdServicesAttribution.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,6 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export async function reportInstallAttribution(): Promise<void> {
+export async function reportInstallAttribution(
+  _utilityEndpoint: string,
+  _installationId: string,
+): Promise<void> {
   if (
     !platformEnv.isNativeAndroidGooglePlay ||
     !platformEnv.isNativeMainThread
