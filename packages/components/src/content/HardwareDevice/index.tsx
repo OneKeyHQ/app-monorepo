@@ -1,5 +1,4 @@
 import { ClassicDevice } from '../ClassicDevice';
-import { SCREEN_SWAP_MS } from '../deviceScene';
 import { ProDevice } from '../ProDevice';
 import { SlateDevice } from '../SlateDevice';
 
@@ -108,22 +107,6 @@ const REPLICAS: Partial<
   pro: ProDevice,
   slate: SlateDevice,
 };
-
-/**
- * How long this model takes to hand its screen from one scene to the next,
- * so a caller sequencing its own moves after the replica's can queue behind
- * it. Every replica plays the handover — content fades off the glass before
- * the next scene renders in; a model without a replica has no screen to
- * hand over.
- *
- * Part of the routing contract on purpose: reading it off a per-model
- * module would go around this entry point.
- */
-export function hardwareDeviceSwapMs(
-  deviceType?: IHardwareDeviceType | null,
-): number {
-  return deviceType && REPLICAS[deviceType] ? SCREEN_SWAP_MS : 0;
-}
 
 export function HardwareDevice({
   deviceType,
