@@ -6,13 +6,13 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-
-const DERIVE_TYPE_REFRESH_DELAY_MS = 300;
 
 type IUseEarnAccountParams = {
   networkId?: string;
@@ -40,12 +40,51 @@ export function useEarnAccount({
   // bypassing the async activeAccount resolution delay.
   const resolvedIndexedAccountId =
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
+  const isIndexedAccountScope = Boolean(
+    !resolvedAccountId && resolvedIndexedAccountId,
+  );
+  const fixedDeriveType: IAccountDeriveTypes | undefined =
+    isIndexedAccountScope &&
+    networkId &&
+    btcOnlyTaproot &&
+    networkUtils.isBTCNetwork(networkId)
+      ? 'BIP86'
+      : undefined;
+  const shouldResolveNetworkDeriveType = Boolean(
+    isIndexedAccountScope && networkId && !fixedDeriveType,
+  );
+  const {
+    result: networkDeriveType,
+    run: refreshNetworkDeriveType,
+    isLoading: isDeriveTypeLoading,
+  } = usePromiseResult(
+    async () => {
+      if (!networkId || !shouldResolveNetworkDeriveType) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      });
+    },
+    [networkId, shouldResolveNetworkDeriveType],
+    {
+      watchLoading: shouldResolveNetworkDeriveType,
+      undefinedResultIfReRun: true,
+    },
+  );
+  const effectiveDeriveType = isIndexedAccountScope
+    ? fixedDeriveType || networkDeriveType
+    : undefined;
+  const hasResolvedAccountScope = Boolean(
+    resolvedAccountId || (resolvedIndexedAccountId && effectiveDeriveType),
+  );
   const swrKey =
-    networkId && (resolvedAccountId || resolvedIndexedAccountId)
+    networkId && hasResolvedAccountScope
       ? swrKeys.earnAccount({
           networkId,
           accountId: resolvedAccountId,
           indexedAccountId: resolvedIndexedAccountId,
+          deriveType: effectiveDeriveType,
           btcOnlyTaproot,
         })
       : undefined;
@@ -56,7 +95,7 @@ export function useEarnAccount({
     isLoading,
   } = usePromiseResult(
     async () => {
-      if (!networkId || (!resolvedAccountId && !resolvedIndexedAccountId)) {
+      if (!networkId || !hasResolvedAccountScope) {
         return undefined;
       }
       return {
@@ -65,13 +104,21 @@ export function useEarnAccount({
           accountId: resolvedAccountId,
           networkId,
           indexedAccountId: resolvedIndexedAccountId,
+          deriveType: effectiveDeriveType,
           btcOnlyTaproot,
         }),
       };
     },
-    [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
+    [
+      networkId,
+      resolvedAccountId,
+      resolvedIndexedAccountId,
+      effectiveDeriveType,
+      btcOnlyTaproot,
+      hasResolvedAccountScope,
+    ],
     {
-      watchLoading: true,
+      watchLoading: hasResolvedAccountScope,
       undefinedResultIfReRun: false,
       swrKey,
       swrShouldPersist: (result) => Boolean(result?.earnAccount),
@@ -79,20 +126,14 @@ export function useEarnAccount({
   );
 
   useEffect(() => {
-    if (!networkId) {
+    if (!networkId || !shouldResolveNetworkDeriveType) {
       return undefined;
     }
 
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const refreshAfterDeriveTypeChanged = () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        timer = undefined;
-        // The service resolves the authoritative derive type for networkId.
-        void refreshAccount({ alwaysSetState: true });
-      }, DERIVE_TYPE_REFRESH_DELAY_MS);
+      // Clear the previous derive scope before resolving the new authoritative
+      // value so stale account data cannot remain actionable during refresh.
+      void refreshNetworkDeriveType({ alwaysSetState: true });
     };
 
     appEventBus.on(
@@ -105,9 +146,6 @@ export function useEarnAccount({
     );
 
     return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
       appEventBus.off(
         EAppEventBusNames.GlobalDeriveTypeUpdate,
         refreshAfterDeriveTypeChanged,
@@ -117,7 +155,7 @@ export function useEarnAccount({
         refreshAfterDeriveTypeChanged,
       );
     };
-  }, [networkId, refreshAccount]);
+  }, [networkId, refreshNetworkDeriveType, shouldResolveNetworkDeriveType]);
 
   const earnAccount =
     earnAccountResult && earnAccountResult.networkId === networkId
@@ -126,7 +164,9 @@ export function useEarnAccount({
 
   return {
     earnAccount,
-    isLoading,
+    isLoading:
+      isLoading ||
+      (shouldResolveNetworkDeriveType && isDeriveTypeLoading !== false),
     refreshAccount,
   };
 }

@@ -1,9 +1,21 @@
 /* eslint-disable import/first */
 
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: { serviceStaking: { getEarnAccount: jest.fn() } },
-}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
+  const getEarnAccount = jest.fn();
+  (
+    globalThis as unknown as {
+      __earnAccountServiceMock: typeof getEarnAccount;
+    }
+  ).__earnAccountServiceMock = getEarnAccount;
+
+  return {
+    __esModule: true,
+    default: {
+      serviceNetwork: { getGlobalDeriveTypeOfNetwork: jest.fn() },
+      serviceStaking: { getEarnAccount },
+    },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => {
   const selectedAccount = {
@@ -27,10 +39,21 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => {
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const state: {
-    deps?: unknown[];
-    options?: { swrKey?: string };
-    run: jest.Mock;
-  } = { run: jest.fn() };
+    deriveResult?: string;
+    deriveDeps?: unknown[];
+    deriveOptions?: {
+      undefinedResultIfReRun?: boolean;
+    };
+    deriveRun: jest.Mock;
+    accountMethod?: () => Promise<unknown>;
+    accountDeps?: unknown[];
+    accountOptions?: { swrKey?: string };
+    accountRun: jest.Mock;
+  } = {
+    deriveResult: 'default',
+    deriveRun: jest.fn(),
+    accountRun: jest.fn(),
+  };
   (
     globalThis as unknown as {
       __earnAccountPromiseResultMock: typeof state;
@@ -41,11 +64,29 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     usePromiseResult: (
       _method: () => Promise<unknown>,
       deps: unknown[],
-      options: { swrKey?: string },
+      options: {
+        swrKey?: string;
+        swrShouldPersist?: (result: unknown) => boolean;
+        undefinedResultIfReRun?: boolean;
+      },
     ) => {
-      state.deps = deps;
-      state.options = options;
-      return { result: undefined, run: state.run, isLoading: false };
+      if (options.swrShouldPersist) {
+        state.accountMethod = _method;
+        state.accountDeps = deps;
+        state.accountOptions = options;
+        return {
+          result: undefined,
+          run: state.accountRun,
+          isLoading: false,
+        };
+      }
+      state.deriveDeps = deps;
+      state.deriveOptions = options;
+      return {
+        result: state.deriveResult,
+        run: state.deriveRun,
+        isLoading: false,
+      };
     },
   };
 });
@@ -73,47 +114,89 @@ const selectedAccountMock = (
 const promiseResultMock = (
   globalThis as unknown as {
     __earnAccountPromiseResultMock: {
-      deps?: unknown[];
-      options?: { swrKey?: string };
-      run: jest.Mock;
+      deriveResult?: string;
+      deriveDeps?: unknown[];
+      deriveOptions?: { undefinedResultIfReRun?: boolean };
+      deriveRun: jest.Mock;
+      accountMethod?: () => Promise<unknown>;
+      accountDeps?: unknown[];
+      accountOptions?: { swrKey?: string };
+      accountRun: jest.Mock;
     };
   }
 ).__earnAccountPromiseResultMock;
+const earnAccountServiceMock = (
+  globalThis as unknown as {
+    __earnAccountServiceMock: jest.Mock;
+  }
+).__earnAccountServiceMock;
 
 describe('useEarnAccount cache identity', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     selectedAccountMock.current.deriveType = 'default';
-    promiseResultMock.deps = undefined;
-    promiseResultMock.options = undefined;
-    promiseResultMock.run.mockReset();
+    promiseResultMock.deriveResult = 'default';
+    promiseResultMock.deriveDeps = undefined;
+    promiseResultMock.deriveOptions = undefined;
+    promiseResultMock.deriveRun.mockReset();
+    promiseResultMock.accountMethod = undefined;
+    promiseResultMock.accountDeps = undefined;
+    promiseResultMock.accountOptions = undefined;
+    promiseResultMock.accountRun.mockReset();
+    earnAccountServiceMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('ignores another selector network derive type and refreshes from events', () => {
+  it('keys and fetches with the authoritative derive type of the target network', async () => {
+    promiseResultMock.deriveResult = undefined;
     const { rerender } = renderHook(() =>
       useEarnAccount({ networkId: 'evm--1' }),
     );
 
-    const initialDeps = promiseResultMock.deps;
-    const initialSWRKey = promiseResultMock.options?.swrKey;
+    expect(promiseResultMock.deriveOptions?.undefinedResultIfReRun).toBe(true);
+    expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
+
+    promiseResultMock.deriveResult = 'default';
+    rerender(undefined);
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--1::wallet-1--1:default:1',
+    );
+
+    await promiseResultMock.accountMethod?.();
+
+    expect(earnAccountServiceMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        indexedAccountId: 'wallet-1--1',
+        deriveType: 'default',
+      }),
+    );
 
     selectedAccountMock.current.deriveType = 'BIP44';
     rerender(undefined);
 
-    expect(promiseResultMock.deps).toEqual(initialDeps);
-    expect(promiseResultMock.options?.swrKey).toBe(initialSWRKey);
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--1::wallet-1--1:default:1',
+    );
+
+    promiseResultMock.deriveResult = 'ledgerLive';
+    rerender(undefined);
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--1::wallet-1--1:ledgerLive:1',
+    );
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, undefined);
-      jest.advanceTimersByTime(300);
     });
 
-    expect(promiseResultMock.run).toHaveBeenCalledWith({
+    expect(promiseResultMock.deriveRun).toHaveBeenCalledWith({
       alwaysSetState: true,
     });
+    expect(promiseResultMock.accountRun).not.toHaveBeenCalled();
   });
 });
