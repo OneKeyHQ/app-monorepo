@@ -32,8 +32,8 @@ Dashboard 原仓库的实际位置是 `/Users/huhuanming/dashboard`；不存在 
 | --- | --- | --- | --- |
 | Phase 0：worktree 与 handoff | `DONE` | 用户确认 / 2026-08-20 | 隔离环境和执行台账已验收 |
 | Phase 1：App Store Campaign destination | `DONE` | 用户确认 / 2026-08-21 | 实现和自动化验证完成；测试后端尚未部署新枚举 |
-| Phase 2：Apple Ads AdServices | `READY_FOR_ACCEPTANCE` | - | App + Utility 已实现并完成自动化验证；真机/真实广告流量待验收 |
-| Phase 3：MMP 与所有权决策 | `BLOCKED_BY_PHASE_2` | - | 决策阶段，不接 SDK |
+| Phase 2：Apple Ads AdServices | `DONE` | 用户确认 / 2026-08-21 | App + Utility 已验收；真机/真实广告流量作为上线验证项保留 |
+| Phase 3：MMP 与所有权决策 | `IN_PROGRESS` | - | 决策阶段，不接 SDK |
 | Phase 4：统一归因事件与 Conversion Writer | `BLOCKED_BY_PHASE_3` | - | 方案取决于 Phase 3 |
 | Phase 5：Apple postback 数据面 | `BLOCKED_BY_PHASE_4` | - | 自建或 MMP 二选一 |
 | Phase 6：广告平台适配与统一报表 | `BLOCKED_BY_PHASE_5` | - | Provider Adapter |
@@ -432,7 +432,7 @@ Phase 2 交接记录（2026-08-21）：
 
 ```text
 Status: READY_FOR_ACCEPTANCE
-Completed at: pending user acceptance
+Completed at: 2026-08-21
 Repositories changed:
   - app-monorepo
   - server-service-utility
@@ -471,8 +471,8 @@ Known limitations:
   - The seven-day first-open cutoff mirrors the existing Android anti-replay behavior. Marketing must explicitly approve a larger window if delayed first opens need attribution.
   - Full Xcode build from the required external worktree path remains blocked by an existing unquoted path-with-space script. No unrelated build-script fix is included in this phase.
 Decision required before next phase:
-  - User accepts Phase 2 implementation and its stated true-device follow-up, or requests that signed-device verification be completed before acceptance.
-  - Only after acceptance may Phase 3 begin; Phase 3 is research/ownership selection and does not add an MMP SDK.
+  - Accepted by the user on 2026-08-21 with the stated signed-device and real Apple Ads traffic checks retained as release validation items.
+  - Phase 3 is authorized; it is research/ownership selection and does not add an MMP SDK.
 ```
 
 ### Phase 3：MMP 与所有权决策
