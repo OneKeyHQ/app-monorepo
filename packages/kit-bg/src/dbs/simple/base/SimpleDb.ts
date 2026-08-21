@@ -557,10 +557,14 @@ export class SimpleDb {
   }
 
   get hardwarePortfolioSync() {
-    const SimpleDbEntityHardwarePortfolioSync = (
-      require('../entity/SimpleDbEntityHardwarePortfolioSync') as unknown as typeof import('../entity/SimpleDbEntityHardwarePortfolioSync')
-    ).SimpleDbEntityHardwarePortfolioSync;
-    const value = new SimpleDbEntityHardwarePortfolioSync();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@hardwarePortfolioSync',
+      loader: () =>
+        import('../entity/SimpleDbEntityHardwarePortfolioSync').then(
+          ({ SimpleDbEntityHardwarePortfolioSync }) =>
+            new SimpleDbEntityHardwarePortfolioSync(),
+        ),
+    });
     Object.defineProperty(this, 'hardwarePortfolioSync', { value });
     return value;
   }
