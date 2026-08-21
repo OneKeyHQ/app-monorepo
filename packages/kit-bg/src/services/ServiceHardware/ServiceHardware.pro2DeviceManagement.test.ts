@@ -1942,7 +1942,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {
   it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
-    'normalizes URL-only %s homescreens for Protocol V2 upload',
+    'requests %s homescreens with the native device type',
     async (deviceType) => {
       const get = jest.fn().mockResolvedValue({
         data: {
@@ -1981,7 +1981,7 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
         {
           id: `${deviceType}-wallpaper`,
           wallpaperType: 'default',
-          resType: 'custom',
+          resType: 'system',
           url: `https://example.com/${deviceType}-wallpaper.png`,
           screenHex: undefined,
           nameHex: undefined,

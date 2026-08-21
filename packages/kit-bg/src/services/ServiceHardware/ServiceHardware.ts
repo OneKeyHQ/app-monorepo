@@ -57,10 +57,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
-import {
-  NEO_DEVICE_TYPE,
-  isProtocolV2ProductType,
-} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -4888,21 +4885,14 @@ class ServiceHardware extends ServiceBase {
           item.wallpaperType === 'default' ||
           item.wallpaperType === 'cobranding',
       )
-      .map((item): IHardwareHomeScreenData => {
-        const shouldUploadProtocolV2Wallpaper =
-          isProtocolV2ProductType(deviceType) &&
-          Boolean(item.url) &&
-          !item.screenHex &&
-          !item.nameHex;
-        return {
-          id: item.id,
-          wallpaperType: item.wallpaperType,
-          resType: shouldUploadProtocolV2Wallpaper ? 'custom' : item.resType,
-          url: item.url,
-          screenHex: item.screenHex,
-          nameHex: item.nameHex,
-        };
-      });
+      .map((item) => ({
+        id: item.id,
+        wallpaperType: item.wallpaperType,
+        resType: item.resType,
+        url: item.url,
+        screenHex: item.screenHex,
+        nameHex: item.nameHex,
+      }));
   }
 
   @backgroundMethod()

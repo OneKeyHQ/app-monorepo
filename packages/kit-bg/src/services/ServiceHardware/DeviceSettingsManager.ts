@@ -732,10 +732,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
       device.deviceType,
     );
-    const isCustomScreen = resType === 'custom' || isUserUpload;
-
-    // Pro、Touch: custom upload wallpaper
-    const needUploadResource = isCustomScreen && !isMonochrome;
+    const isProtocolV2WallpaperUpload =
+      this._isProtocolV2Product(device) && Boolean(screenBase64);
+    const needUploadResource =
+      !isMonochrome &&
+      (resType === 'custom' || isUserUpload || isProtocolV2WallpaperUpload);
 
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
@@ -743,7 +744,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const result: DeviceUploadResourceResponse =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
-          // pro touch custom upload wallpaper
+          // Upload generated image data for custom and Protocol V2 wallpapers.
           if (needUploadResource) {
             if (this._isProtocolV2Product(device)) {
               if (!screenBase64) {
