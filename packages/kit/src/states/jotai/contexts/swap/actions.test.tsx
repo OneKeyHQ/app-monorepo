@@ -1907,16 +1907,49 @@ describe('useSwapActions', () => {
       wrapper: Wrapper,
     });
 
+    let settledFromToken: ISwapToken | undefined;
     await act(async () => {
-      await result.current.swapTypeSwitchAction(
+      settledFromToken = await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         usdtToken.networkId,
         { carryTargetToken: true },
       );
     });
 
+    expect(settledFromToken).toEqual(usdtToken);
     expect(store.get(swapSelectFromTokenAtom())).toEqual(usdtToken);
     expect(store.get(swapSelectToTokenAtom())).toEqual(uniToken);
+  });
+
+  it('returns the remapped FromToken when the Pro target matches a cross-chain Swap source', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), uniToken);
+      storeInstance.set(swapLastNonLimitSelectedTokensAtom(), {
+        sourceSwapType: ESwapTabSwitchType.SWAP,
+        fromToken: bnbToken,
+        toToken: uniToken,
+      });
+      storeInstance.set(swapProSelectTokenAtom(), bnbToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let settledFromToken: ISwapToken | undefined;
+    await act(async () => {
+      settledFromToken = await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        bnbToken.networkId,
+        { carryTargetToken: true },
+      );
+    });
+
+    expect(settledFromToken).toEqual(uniToken);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(uniToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(bnbToken);
   });
 
   it('does not carry targets during programmatic tab initialization', async () => {

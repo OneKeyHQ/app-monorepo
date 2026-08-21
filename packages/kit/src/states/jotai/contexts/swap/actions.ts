@@ -3282,7 +3282,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       options?: {
         carryTargetToken?: boolean;
       },
-    ) => {
+    ): Promise<ISwapToken | undefined> => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
@@ -3506,7 +3506,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapTypeSwitchAtom(), normalizedType);
       if (platformEnv.isNative && normalizedType === ESwapTabSwitchType.LIMIT) {
-        return;
+        return get(swapSelectFromTokenAtom());
       }
       if (
         oldType === ESwapTabSwitchType.LIMIT &&
@@ -3550,7 +3550,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
           carrySwapProTargetToSwap();
           restoreTargetInputAmountDraft();
-          return;
+          return get(swapSelectFromTokenAtom());
         }
       }
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -3715,6 +3715,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       carrySwapProTargetToSwap();
       restoreTargetInputAmountDraft();
+      return get(swapSelectFromTokenAtom());
     },
   );
 

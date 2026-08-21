@@ -11,7 +11,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import SwapHeaderContainer from './SwapHeaderContainer';
 
 const mockSwapTypeSwitchAction = jest.fn<
-  Promise<void>,
+  Promise<ISwapToken | undefined>,
   [
     ESwapTabSwitchType,
     string | undefined,
@@ -34,6 +34,7 @@ const mockProToken: ISwapToken = {
   decimals: 18,
   isNative: false,
 };
+let mockAccountNetworkId = mockProToken.networkId;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -105,7 +106,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 jest.mock('../../hooks/useSwapAccount', () => ({
-  useSwapAddressInfo: () => ({ networkId: mockProToken.networkId }),
+  useSwapAddressInfo: () => ({ networkId: mockAccountNetworkId }),
 }));
 jest.mock('./SwapHeaderRightActionContainer', () => () => null);
 
@@ -113,6 +114,8 @@ describe('SwapHeaderContainer', () => {
   beforeEach(() => {
     platformEnv.isNative = true;
     jest.clearAllMocks();
+    mockAccountNetworkId = mockProToken.networkId;
+    mockSwapTypeSwitchAction.mockResolvedValue(mockFromToken);
     mockUpdateSelectedAccountNetwork.mockResolvedValue(undefined);
   });
 
@@ -121,10 +124,10 @@ describe('SwapHeaderContainer', () => {
   });
 
   it('leaves the Pro owner before synchronizing the restored Swap network', async () => {
-    let resolveTypeSwitch: (() => void) | undefined;
+    let resolveTypeSwitch: ((token?: ISwapToken) => void) | undefined;
     mockSwapTypeSwitchAction.mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<ISwapToken | undefined>((resolve) => {
           resolveTypeSwitch = resolve;
         }),
     );
@@ -142,7 +145,7 @@ describe('SwapHeaderContainer', () => {
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveTypeSwitch?.();
+      resolveTypeSwitch?.(mockFromToken);
     });
 
     await waitFor(() => {
@@ -150,6 +153,27 @@ describe('SwapHeaderContainer', () => {
         num: 0,
         networkId: mockFromToken.networkId,
       });
+    });
+  });
+
+  it('syncs the account to the settled Swap fromToken after a Pro target remap', async () => {
+    mockAccountNetworkId = mockFromToken.networkId;
+    mockSwapTypeSwitchAction.mockResolvedValue(mockProToken);
+    const { getByTestId } = render(
+      <SwapHeaderContainer showSwapPro hideRightActions />,
+    );
+
+    fireEvent.click(getByTestId(`swap-type-tab-${ESwapTabSwitchType.SWAP}`));
+
+    await waitFor(() => {
+      expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
+        num: 0,
+        networkId: mockProToken.networkId,
+      });
+    });
+    expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalledWith({
+      num: 0,
+      networkId: mockFromToken.networkId,
     });
   });
 });

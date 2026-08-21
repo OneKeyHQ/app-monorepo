@@ -290,13 +290,20 @@ const SwapHeaderContainer = ({
           carryTargetToken: true,
         });
       } else {
-        await swapTypeSwitchAction(newType, fromToken?.networkId || networkId, {
-          carryTargetToken: true,
-        });
+        const settledFromToken = await swapTypeSwitchAction(
+          newType,
+          fromToken?.networkId || networkId,
+          {
+            carryTargetToken: true,
+          },
+        );
         // Leave the Pro owner before awaiting account synchronization so its
         // network effect cannot switch the account back while this is in flight.
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        // Use the settled source token: carry can remap From/To when the Pro
+        // target matches the restored FromToken (e.g. BNB→UNI becomes UNI→BNB).
+        const settledFromNetworkId = settledFromToken?.networkId;
+        if (settledFromNetworkId && settledFromNetworkId !== networkId) {
+          await updateSelectedAccountNetworkAction(settledFromNetworkId);
         }
       }
     },
