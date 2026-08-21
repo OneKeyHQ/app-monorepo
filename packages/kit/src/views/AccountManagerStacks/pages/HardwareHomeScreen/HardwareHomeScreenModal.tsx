@@ -695,12 +695,12 @@ export default function HardwareHomeScreenModal({
     );
 
     const categories: IWallpaperCategory[] = [];
+    const shouldShowDefaultWallpapers = deviceInfo?.deviceType
+      ? !deviceUtils.isTouchDevice(deviceInfo.deviceType) ||
+        isProtocolV2ProductType(deviceInfo.deviceType)
+      : false;
 
-    if (
-      defaultWallpapers.length > 0 &&
-      deviceInfo?.deviceType &&
-      !deviceUtils.isTouchDevice(deviceInfo?.deviceType)
-    ) {
+    if (defaultWallpapers.length > 0 && shouldShowDefaultWallpapers) {
       categories.push({
         title: intl.formatMessage({
           id: ETranslations.global_wallpaper_collection,
