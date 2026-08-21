@@ -854,9 +854,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return;
       }
 
-      navigation.switchTab(marketTab);
-
-      setTimeout(() => {
+      const navigateToTokenDetail = () => {
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
@@ -868,9 +866,29 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             },
           },
         });
-      }, 300);
+      };
+
+      if (platformEnv.isNative) {
+        navigateToMarketTab({
+          tabToSelect:
+            resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
+              ? EMarketHomeTab.Watchlist
+              : undefined,
+          onNavigationComplete: navigateToTokenDetail,
+        });
+        return;
+      }
+      navigation.switchTab(marketTab);
+
+      setTimeout(navigateToTokenDetail, 300);
     },
-    [marketTab, navigateToPerps, navigation],
+    [
+      marketTab,
+      navigateToMarketTab,
+      navigateToPerps,
+      navigation,
+      resolvedSelectedCategoryId,
+    ],
   );
 
   const renderEmptyStateCards = useCallback(() => {
