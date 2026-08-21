@@ -369,9 +369,15 @@ export function AmountInput({
     }
     if (balanceProps.loading) {
       return (
-        <Stack m="$1" px="$2.5" py="$1">
+        <XStack m="$1" px="$2.5" py="$1" alignItems="center">
           <Skeleton h="$4" w="$16" />
-        </Stack>
+          {enableMaxAmount ? (
+            <SizableText pl="$1" size="$bodySmMedium" color="$textPlaceholder">
+              {maxAmountText ??
+                intl.formatMessage({ id: ETranslations.send_max })}
+            </SizableText>
+          ) : null}
+        </XStack>
       );
     }
     if (balanceProps.value) {
@@ -396,15 +402,17 @@ export function AmountInput({
           borderRadius={6}
           onPress={balanceProps.onPress}
           testID={balanceProps.testID}
-          {...(enableMaxAmount && {
-            userSelect: 'none',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
+          {...(enableMaxAmount && balanceProps.onPress
+            ? {
+                userSelect: 'none',
+                hoverStyle: {
+                  bg: '$bgHover',
+                },
+                pressStyle: {
+                  bg: '$bgActive',
+                },
+              }
+            : undefined)}
           {...(balanceHelperProps && {
             px: '$1.5',
             mr: '$-2',
@@ -426,7 +434,13 @@ export function AmountInput({
             </SizableText>
           ) : null}
           {enableMaxAmount ? (
-            <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
+            <SizableText
+              pl="$1"
+              size="$bodySmMedium"
+              color={
+                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
+              }
+            >
               {maxAmountText ??
                 intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>

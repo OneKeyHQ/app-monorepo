@@ -311,10 +311,42 @@ const NS = {
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
   swapStockPositionsMetadata: 'swapStockPositionsMetadata',
+  borrowMarkets: 'borrowMarkets',
+  borrowReserves: 'borrowReserves',
+  borrowHealthFactor: 'borrowHealthFactor',
+  borrowRewards: 'borrowRewards',
+  borrowEModeStatus: 'borrowEModeStatus',
+  earnAccount: 'earnAccount',
+  earnProtocolDetail: 'earnProtocolDetail',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
 export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+type IBorrowScopedSWRKeyParams = {
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  accountId?: string;
+};
+
+function buildBorrowScopedSWRKey(
+  namespace:
+    | typeof NS.borrowReserves
+    | typeof NS.borrowHealthFactor
+    | typeof NS.borrowRewards
+    | typeof NS.borrowEModeStatus,
+  { networkId, provider, marketAddress, accountId }: IBorrowScopedSWRKeyParams,
+) {
+  return [
+    namespace,
+    'v1',
+    networkId,
+    provider.toLowerCase(),
+    marketAddress,
+    accountId ?? 'public',
+  ].join(':');
+}
 
 // --- Centralized SWR key builders ---
 export const swrKeys = {
@@ -636,6 +668,56 @@ export const swrKeys = {
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
   swapStockPositionsMetadata: ({ scope }: { scope: string }) =>
     [NS.swapStockPositionsMetadata, 'v1', scope].join(':'),
+  borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
+  borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowReserves, params),
+  borrowHealthFactor: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowHealthFactor, params),
+  borrowRewards: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowRewards, params),
+  borrowEModeStatus: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowEModeStatus, params),
+  earnAccount: ({
+    networkId,
+    accountId,
+    indexedAccountId,
+    deriveType,
+    btcOnlyTaproot,
+  }: {
+    networkId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    deriveType?: string;
+    btcOnlyTaproot: boolean;
+  }) =>
+    [
+      NS.earnAccount,
+      'v1',
+      networkId,
+      accountId ?? '',
+      indexedAccountId ?? '',
+      deriveType ?? '',
+      btcOnlyTaproot ? '1' : '0',
+    ].join(':'),
+  earnProtocolDetail: ({
+    networkId,
+    symbol,
+    provider,
+    vault,
+  }: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+  }) =>
+    [
+      NS.earnProtocolDetail,
+      'v1',
+      networkId,
+      provider.toLowerCase(),
+      symbol.toUpperCase(),
+      vault ?? '',
+    ].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

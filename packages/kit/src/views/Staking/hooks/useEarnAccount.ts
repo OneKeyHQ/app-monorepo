@@ -4,6 +4,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 type IUseEarnAccountParams = {
   networkId?: string;
@@ -31,6 +32,16 @@ export function useEarnAccount({
   // bypassing the async activeAccount resolution delay.
   const resolvedIndexedAccountId =
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
+  const swrKey =
+    networkId && (resolvedAccountId || resolvedIndexedAccountId)
+      ? swrKeys.earnAccount({
+          networkId,
+          accountId: resolvedAccountId,
+          indexedAccountId: resolvedIndexedAccountId,
+          deriveType: selectedAccount.deriveType,
+          btcOnlyTaproot,
+        })
+      : undefined;
 
   const {
     result: earnAccountResult,
@@ -52,7 +63,12 @@ export function useEarnAccount({
       };
     },
     [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: false,
+      swrKey,
+      swrShouldPersist: (result) => Boolean(result?.earnAccount),
+    },
   );
   const earnAccount =
     earnAccountResult && earnAccountResult.networkId === networkId

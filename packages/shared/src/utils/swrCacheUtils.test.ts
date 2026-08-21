@@ -134,6 +134,58 @@ describe('SWR cache keys', () => {
     ).toBe('swapStockPayTokenDetails:v1:1:usdc|usdt:idx:acc');
   });
 
+  it('scopes Borrow and Earn bootstrap data by its authoritative identity', () => {
+    expect(swrKeys.borrowMarkets()).toBe('borrowMarkets:v1');
+    expect(
+      swrKeys.borrowReserves({
+        networkId: 'evm--1',
+        provider: 'AAVE',
+        marketAddress: '0xMarket',
+        accountId: 'account-1',
+      }),
+    ).toBe('borrowReserves:v1:evm--1:aave:0xMarket:account-1');
+    expect(
+      swrKeys.borrowHealthFactor({
+        networkId: 'evm--1',
+        provider: 'AAVE',
+        marketAddress: '0xMarket',
+        accountId: 'account-1',
+      }),
+    ).toBe('borrowHealthFactor:v1:evm--1:aave:0xMarket:account-1');
+    expect(
+      swrKeys.borrowRewards({
+        networkId: 'evm--1',
+        provider: 'AAVE',
+        marketAddress: '0xMarket',
+        accountId: 'account-1',
+      }),
+    ).toBe('borrowRewards:v1:evm--1:aave:0xMarket:account-1');
+    expect(
+      swrKeys.borrowEModeStatus({
+        networkId: 'evm--1',
+        provider: 'AAVE',
+        marketAddress: '0xMarket',
+        accountId: 'account-1',
+      }),
+    ).toBe('borrowEModeStatus:v1:evm--1:aave:0xMarket:account-1');
+    expect(
+      swrKeys.earnAccount({
+        networkId: 'evm--1',
+        indexedAccountId: 'wallet-1--1',
+        deriveType: 'default',
+        btcOnlyTaproot: true,
+      }),
+    ).toBe('earnAccount:v1:evm--1::wallet-1--1:default:1');
+    expect(
+      swrKeys.earnProtocolDetail({
+        networkId: 'evm--1',
+        provider: 'AAVE',
+        symbol: 'usdc',
+        vault: '0xVault',
+      }),
+    ).toBe('earnProtocolDetail:v1:evm--1:aave:USDC:0xVault');
+  });
+
   it('scopes specified token balances by owner, network, and token set', () => {
     expect(
       swrKeys.specifiedTokenSelectorView({

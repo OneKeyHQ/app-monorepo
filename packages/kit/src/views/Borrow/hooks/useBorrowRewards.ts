@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 
 type IScopedBorrowRewardsResult = {
@@ -38,6 +39,9 @@ export const useBorrowRewards = ({
         : null,
     [accountId, enabled, marketAddress, networkId, provider],
   );
+  const swrKey = requestParams
+    ? swrKeys.borrowRewards(requestParams)
+    : undefined;
   const lastSuccessfulResultRef = useRef<{
     scopeKey: string;
     data: IBorrowRewards;
@@ -78,6 +82,9 @@ export const useBorrowRewards = ({
       initResult: null,
       watchLoading: true,
       alwaysSetState: true,
+      swrKey,
+      swrShouldPersist: (result) =>
+        result?.state === 'resolved' && Boolean(result.data),
     },
   );
   const hasSettledCurrentScope = scopedResult?.scopeKey === scopeKey;

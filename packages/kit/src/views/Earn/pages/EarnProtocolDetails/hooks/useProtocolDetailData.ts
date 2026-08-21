@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
@@ -51,7 +52,17 @@ export function useProtocolDetailData({
         vault,
       }),
     [networkId, symbol, provider, vault],
-    { watchLoading: true },
+    {
+      watchLoading: true,
+      swrKey: swrKeys.earnProtocolDetail({
+        networkId,
+        symbol,
+        provider,
+        vault,
+      }),
+      swrShouldPersist: (result) =>
+        Boolean(result.protocol || result.subscriptionValue?.token),
+    },
   );
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
