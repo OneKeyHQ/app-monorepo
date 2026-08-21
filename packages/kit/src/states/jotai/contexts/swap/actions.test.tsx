@@ -129,6 +129,9 @@ const mockCheckAccountNetworkNotSupported: jest.MockedFunction<
 const mockSetSwapNetworksSortRawData: jest.MockedFunction<
   (params: { data: unknown[] }) => Promise<void>
 > = jest.fn();
+const mockSetSwapProSelectToken: jest.MockedFunction<
+  (token: ISwapToken) => Promise<void>
+> = jest.fn();
 const mockGetSupportSwapAllAccounts: jest.MockedFunction<
   (params: unknown) => Promise<{
     supportAccountsFetchFailed: boolean;
@@ -157,6 +160,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockCancelFetchQuoteEvents(quoteRequestId),
     },
     simpleDb: {
+      swapProSelectToken: {
+        setSwapProSelectToken: (token: ISwapToken) =>
+          mockSetSwapProSelectToken(token),
+      },
       swapNetworksSort: {
         setRawData: (params: { data: unknown[] }) =>
           mockSetSwapNetworksSortRawData(params),
@@ -223,6 +230,13 @@ const usdtToken: ISwapToken = {
   contractAddress: '0xusdt',
   symbol: 'USDT',
   decimals: 6,
+  isNative: false,
+};
+const uniToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xuni',
+  symbol: 'UNI',
+  decimals: 18,
   isNative: false,
 };
 const stockTokenA: ISwapToken = {
@@ -429,6 +443,7 @@ describe('useSwapActions', () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
+    mockSetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
     mockCloseApproving.mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
@@ -1818,6 +1833,146 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.LIMIT],
     ).toBeUndefined();
+  });
+
+  it('carries the ordinary Swap target into native Pro', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapProSelectTokenAtom(), usdcToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        bnbToken.networkId,
+        { carryTargetToken: true },
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    expect(store.get(swapProSelectTokenAtom())).toEqual(appleStockToken);
+    expect(mockSetSwapProSelectToken).toHaveBeenCalledWith(appleStockToken);
+  });
+
+  it('carries the native Pro target back into the restored Swap pair', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapLastNonLimitSelectedTokensAtom(), {
+        sourceSwapType: ESwapTabSwitchType.SWAP,
+        fromToken: bnbToken,
+        toToken: usdtToken,
+      });
+      storeInstance.set(swapProSelectTokenAtom(), uniToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        bnbToken.networkId,
+        { carryTargetToken: true },
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(bnbToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(uniToken);
+  });
+
+  it('keeps a valid Swap pair when the Pro target matches the restored FromToken', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), uniToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapLastNonLimitSelectedTokensAtom(), {
+        sourceSwapType: ESwapTabSwitchType.SWAP,
+        fromToken: uniToken,
+        toToken: usdtToken,
+      });
+      storeInstance.set(swapProSelectTokenAtom(), uniToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let settledFromToken: ISwapToken | undefined;
+    await act(async () => {
+      settledFromToken = await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        usdtToken.networkId,
+        { carryTargetToken: true },
+      );
+    });
+
+    expect(settledFromToken).toEqual(usdtToken);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(usdtToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(uniToken);
+  });
+
+  it('returns the remapped FromToken when the Pro target matches a cross-chain Swap source', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), uniToken);
+      storeInstance.set(swapLastNonLimitSelectedTokensAtom(), {
+        sourceSwapType: ESwapTabSwitchType.SWAP,
+        fromToken: bnbToken,
+        toToken: uniToken,
+      });
+      storeInstance.set(swapProSelectTokenAtom(), bnbToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let settledFromToken: ISwapToken | undefined;
+    await act(async () => {
+      settledFromToken = await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        bnbToken.networkId,
+        { carryTargetToken: true },
+      );
+    });
+
+    expect(settledFromToken).toEqual(uniToken);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(uniToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(bnbToken);
+  });
+
+  it('does not carry targets during programmatic tab initialization', async () => {
+    platformEnv.isNative = true;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapProSelectTokenAtom(), usdcToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        bnbToken.networkId,
+      );
+    });
+
+    expect(store.get(swapProSelectTokenAtom())).toEqual(usdcToken);
+    expect(mockSetSwapProSelectToken).not.toHaveBeenCalled();
   });
 
   it('restores the native Stock amount after crossing the Limit owner boundary', async () => {

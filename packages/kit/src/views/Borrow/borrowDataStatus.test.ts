@@ -99,6 +99,16 @@ describe('deriveBorrowDataStatus', () => {
     ).toBe(EBorrowDataStatus.LoadingReserves);
   });
 
+  it('waits for account resolution before creating a reserves fetch scope', () => {
+    expect(
+      deriveBorrowDataStatus({
+        ...settledActiveState,
+        hasFetchKey: false,
+        shouldWaitForAccount: true,
+      }),
+    ).toBe(EBorrowDataStatus.WaitingForAccount);
+  });
+
   it('keeps a cacheless active scope pending before its request effect runs', () => {
     const status = deriveBorrowDataStatus(settledActiveState);
 

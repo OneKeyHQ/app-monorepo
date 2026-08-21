@@ -125,10 +125,14 @@ export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
   module: keyof IOffscreenApi;
 };
 
+export type IBackgroundAtomStates = Partial<Record<EAtomNames, any>>;
+
 export interface IBackgroundApiBridge {
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
-  getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
+  getAtomStates: (
+    atomNames?: EAtomNames[],
+  ) => Promise<{ states: IBackgroundAtomStates }>;
 
   // **** eventBus
   emitEvent<T extends keyof IAppEventBusPayload>(

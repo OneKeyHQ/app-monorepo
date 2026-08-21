@@ -3279,10 +3279,44 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       type: ESwapTabSwitchType,
       swapAccountNetworkId?: string,
-    ) => {
+      options?: {
+        carryTargetToken?: boolean;
+      },
+    ): Promise<ISwapToken | undefined> => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
+      const swapProTargetToken =
+        platformEnv.isNative &&
+        options?.carryTargetToken &&
+        oldType === ESwapTabSwitchType.LIMIT &&
+        normalizedType === ESwapTabSwitchType.SWAP
+          ? get(swapProSelectTokenAtom())
+          : undefined;
+      const carrySwapProTargetToSwap = () => {
+        if (!swapProTargetToken) {
+          return;
+        }
+        const fromToken = get(swapSelectFromTokenAtom());
+        const toToken = get(swapSelectToTokenAtom());
+        if (
+          equalTokenNoCaseSensitive({
+            token1: fromToken,
+            token2: swapProTargetToken,
+          })
+        ) {
+          set(
+            swapSelectFromTokenAtom(),
+            equalTokenNoCaseSensitive({
+              token1: toToken,
+              token2: swapProTargetToken,
+            })
+              ? undefined
+              : toToken,
+          );
+        }
+        set(swapSelectToTokenAtom(), swapProTargetToken);
+      };
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
       const shouldHandleInputAmountDraft =
@@ -3449,6 +3483,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       if (
         platformEnv.isNative &&
+        options?.carryTargetToken &&
+        isSwapOrBridgeQuoteType(oldType) &&
+        normalizedType === ESwapTabSwitchType.LIMIT &&
+        currentToToken
+      ) {
+        void this.setSwapProSelectToken.call(set, currentToToken);
+      }
+      if (
+        platformEnv.isNative &&
         (oldType === ESwapTabSwitchType.LIMIT ||
           type === ESwapTabSwitchType.LIMIT)
       ) {
@@ -3463,7 +3506,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapTypeSwitchAtom(), normalizedType);
       if (platformEnv.isNative && normalizedType === ESwapTabSwitchType.LIMIT) {
-        return;
+        return get(swapSelectFromTokenAtom());
       }
       if (
         oldType === ESwapTabSwitchType.LIMIT &&
@@ -3505,8 +3548,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (sortNetworkId) {
             void this.syncNetworksSort.call(set, sortNetworkId);
           }
+          carrySwapProTargetToSwap();
           restoreTargetInputAmountDraft();
-          return;
+          return get(swapSelectFromTokenAtom());
         }
       }
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -3669,7 +3713,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
+      carrySwapProTargetToSwap();
       restoreTargetInputAmountDraft();
+      return get(swapSelectFromTokenAtom());
     },
   );
 
