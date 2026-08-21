@@ -3,7 +3,10 @@ import { useMemo } from 'react';
 import { useCalendars } from 'expo-localization';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { TRADING_VIEW_URL_TEST } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  TRADING_VIEW_TEST_BUNDLE_HOST,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -18,8 +21,6 @@ interface IUseTradingViewUrlOptions {
   additionalParams?: Record<string, string>;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
 }
-
-const TRADING_VIEW_TEST_BUNDLE_HOST = 'app-bundle.onekeytest.com';
 
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const { additionalParams, disabledFeatures } = options;

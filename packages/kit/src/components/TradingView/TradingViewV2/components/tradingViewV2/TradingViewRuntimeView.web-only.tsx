@@ -46,6 +46,7 @@ interface ITradingViewRuntimeContext {
   refs: ITradingViewRuntimeRefs;
   runtimeUrl: string;
   setFallback(fallback: boolean): void;
+  setVisualReady(visualReady: boolean): void;
 }
 
 interface ITradingViewRuntimeLifecycle {
@@ -108,6 +109,7 @@ function forwardTradingViewEmbedMessage(
   }
   if (!lifecycle.visualReady && isTradingViewVisualReadyPayload(payload)) {
     lifecycle.visualReady = true;
+    context.setVisualReady(true);
     context.refs.onVisualReady.current?.();
   }
   lifecycle.monitor.notify(payload);
@@ -201,6 +203,7 @@ export default function TradingViewRuntimeView({
   const onLoadStartRef = useRef(onLoadStart);
   const fallbackWebViewRef = useRef<IWebViewRef | null>(null);
   const [fallback, setFallback] = useState(false);
+  const [visualReady, setVisualReady] = useState(false);
   const [runtimeUrl, setRuntimeUrl] = useState(src);
   const [reloadRevision, setReloadRevision] = useState(0);
 
@@ -214,9 +217,11 @@ export default function TradingViewRuntimeView({
     () =>
       ({
         loadURL(url: string) {
+          setVisualReady(false);
           setRuntimeUrl(url);
         },
         reload() {
+          setVisualReady(false);
           setReloadRevision((revision) => revision + 1);
         },
         sendMessageViaInjectedScript(message: unknown) {
@@ -241,6 +246,7 @@ export default function TradingViewRuntimeView({
   );
 
   useEffect(() => {
+    setVisualReady(false);
     setRuntimeUrl(src);
   }, [src]);
 
@@ -260,6 +266,7 @@ export default function TradingViewRuntimeView({
 
   useEffect(() => {
     setFallback(false);
+    setVisualReady(false);
   }, [reloadRevision, runtimeUrl]);
 
   useEffect(() => {
@@ -288,6 +295,7 @@ export default function TradingViewRuntimeView({
       },
       runtimeUrl,
       setFallback,
+      setVisualReady,
     });
   }, [fallback, reloadRevision, runtimeUrl]);
 
@@ -306,7 +314,15 @@ export default function TradingViewRuntimeView({
 
   return (
     <Stack flex={1} bg="$bgApp" {...containerProps}>
-      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+      <div
+        ref={containerRef}
+        data-testid="trading-view-dom-runtime"
+        style={{
+          height: '100%',
+          visibility: visualReady ? 'visible' : 'hidden',
+          width: '100%',
+        }}
+      />
     </Stack>
   );
 }

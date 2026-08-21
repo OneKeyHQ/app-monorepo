@@ -222,6 +222,8 @@ describe('TradingViewRuntimeView web fallback', () => {
     );
 
     await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
+    const runtimeContainer = screen.getByTestId('trading-view-dom-runtime');
+    expect(runtimeContainer.style.visibility).toBe('hidden');
     act(() => {
       onEmbedMessage?.({
         scope: '$private',
@@ -234,6 +236,7 @@ describe('TradingViewRuntimeView web fallback', () => {
     });
 
     expect(onVisualReady).toHaveBeenCalledTimes(1);
+    expect(runtimeContainer.style.visibility).toBe('visible');
   });
 
   it('reports DOM embed fallback so the app loading state can stop', async () => {

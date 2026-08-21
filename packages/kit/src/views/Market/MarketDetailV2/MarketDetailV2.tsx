@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, useIsModalPage, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRADING_VIEW_TEST_BUNDLE_HOST } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -146,7 +147,12 @@ function MarketDetailV2(
   const { navigation } = props;
   const media = useMedia();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(
+    !(
+      platformEnv.isWeb &&
+      globalThis.location?.hostname === TRADING_VIEW_TEST_BUNDLE_HOST
+    ),
+  );
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
   const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
