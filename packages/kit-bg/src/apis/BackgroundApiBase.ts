@@ -66,6 +66,7 @@ import {
 import type {
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -389,11 +390,24 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }>;
 
   @backgroundMethod()
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
     const atoms = await this.allAtoms;
-    const states = {} as Record<EAtomNames, any>;
+    const atomEntries = atomNames
+      ? atomNames.map((atomName) => {
+          const atom = atoms[atomName];
+          if (!atom) {
+            throw new OneKeyLocalError(
+              `getAtomStates ERROR: atomName not found: ${atomName}`,
+            );
+          }
+          return [atomName, atom] as const;
+        })
+      : Object.entries(atoms);
+    const states: IBackgroundAtomStates = {};
     await Promise.all(
-      Object.entries(atoms).map(async ([key, value]) => {
+      atomEntries.map(async ([key, value]) => {
         states[key as EAtomNames] = await value.get();
       }),
     );

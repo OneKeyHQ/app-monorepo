@@ -29,6 +29,7 @@ import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 // NOTE: `waitForDataLoaded`, `timerUtils`, `isWebEmbedApiAllowedOrigin`
 // and `IBackgroundApiWebembedCallMessage` used to be imported here for the
@@ -344,7 +345,12 @@ export class BackgroundApiProxyBase
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
+    if (atomNames) {
+      return this.callBackground('getAtomStates', atomNames);
+    }
     return this.callBackground('getAtomStates');
   }
 
