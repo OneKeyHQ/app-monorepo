@@ -78,9 +78,9 @@ export function useEarnAccount({
   const effectiveDeriveType = isIndexedAccountScope
     ? fixedDeriveType || networkDeriveType
     : undefined;
-  const hasResolvedAccountScope = Boolean(
-    resolvedAccountId || (resolvedIndexedAccountId && effectiveDeriveType),
-  );
+  const hasResolvedAccountScope = isIndexedAccountScope
+    ? Boolean(resolvedIndexedAccountId && effectiveDeriveType)
+    : Boolean(resolvedAccountId);
   const swrKey =
     networkId && hasResolvedAccountScope
       ? swrKeys.earnAccount({

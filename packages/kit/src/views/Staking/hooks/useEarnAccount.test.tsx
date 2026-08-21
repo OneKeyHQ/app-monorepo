@@ -201,12 +201,18 @@ describe('useEarnAccount cache identity', () => {
   });
 
   it('keeps an HD accountId with indexedAccountId in the derive scope', async () => {
-    renderHook(() =>
+    promiseResultMock.deriveResult = undefined;
+    const { rerender } = renderHook(() =>
       useEarnAccount({
         networkId: 'evm--1',
         accountId: 'hd-1--m/44/60/0/0/0',
       }),
     );
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
+
+    promiseResultMock.deriveResult = 'default';
+    rerender(undefined);
 
     expect(promiseResultMock.accountOptions?.swrKey).toBe(
       'earnAccount:v3:evm--1:hd-1--m/44/60/0/0/0:wallet-1--1:default:1',
