@@ -113,6 +113,7 @@ import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
 } from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 interface ICheckAmountResponse {
   code: number;
@@ -1756,9 +1757,16 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    deriveType?: IAccountDeriveTypes;
     btcOnlyTaproot?: boolean;
   }) {
-    const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
+    const {
+      accountId,
+      networkId,
+      indexedAccountId,
+      deriveType: requestedDeriveType,
+      btcOnlyTaproot,
+    } = params;
     if (!accountId && !indexedAccountId) {
       return null;
     }
@@ -1803,9 +1811,10 @@ class ServiceStaking extends ServiceBase {
     }
     try {
       const globalDeriveType =
-        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        requestedDeriveType ??
+        (await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId,
-        });
+        }));
       let deriveType = globalDeriveType;
       // only support taproot for earn
       if (networkUtils.isBTCNetwork(networkId) && btcOnlyTaproot) {

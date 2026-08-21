@@ -7,10 +7,7 @@ import { isEmpty } from 'lodash';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
@@ -35,7 +32,11 @@ import {
 
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
-const BORROW_DERIVE_TYPE_REFRESH_DELAY_MS = 300;
+
+type IScopedBorrowReservesResult = {
+  scopeKey: string;
+  data: IBorrowReserveItem;
+};
 
 export const BorrowDataGate = ({
   children,
@@ -77,11 +78,11 @@ export const BorrowDataGate = ({
     setBorrowDataStatus,
   } = useBorrowContext();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMarkets(availableMarkets);
   }, [availableMarkets, setMarkets]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMarket((currentMarket) => {
       if (!availableMarkets.length) {
         return currentMarket ? null : currentMarket;
@@ -121,52 +122,11 @@ export const BorrowDataGate = ({
     networkId: market?.networkId,
   });
 
-  useEffect(() => {
-    if (!market?.networkId) {
-      return undefined;
-    }
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refreshAccountAfterDeriveTypeChanged = () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        timer = undefined;
-        void refreshAccount({ alwaysSetState: true });
-      }, BORROW_DERIVE_TYPE_REFRESH_DELAY_MS);
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.GlobalDeriveTypeUpdate,
-      refreshAccountAfterDeriveTypeChanged,
-    );
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      refreshAccountAfterDeriveTypeChanged,
-    );
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      appEventBus.off(
-        EAppEventBusNames.GlobalDeriveTypeUpdate,
-        refreshAccountAfterDeriveTypeChanged,
-      );
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        refreshAccountAfterDeriveTypeChanged,
-      );
-    };
-  }, [market?.networkId, refreshAccount]);
-
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
   const prevFetchKeyRef = useRef<string | null>(null);
   const lastReservesUpdatedAtRef = useRef<number | null>(null);
   const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
-  const reservesResultOwnerKeyRef = useRef<string | null>(null);
   const reservesRequestIdRef = useRef(0);
   const forceRefreshCounterRef = useRef(0);
   const lastForceRefreshCounterRef = useRef(0);
@@ -193,12 +153,31 @@ export const BorrowDataGate = ({
     (hasAccountContext && scopedEarnAccountData === undefined);
   const fetchKey = useMemo(
     () =>
-      !isEmpty(market)
+      !shouldWaitForAccount && !isEmpty(market)
         ? `${marketProvider}-${marketNetworkId}-${marketAddress}-${
             accountId ?? 'public'
           }`
         : null,
-    [market, marketProvider, marketNetworkId, marketAddress, accountId],
+    [
+      accountId,
+      market,
+      marketAddress,
+      marketNetworkId,
+      marketProvider,
+      shouldWaitForAccount,
+    ],
+  );
+  const reservesSWRKey = useMemo(
+    () =>
+      fetchKey && marketProvider && marketNetworkId && marketAddress
+        ? swrKeys.borrowReserves({
+            provider: marketProvider,
+            networkId: marketNetworkId,
+            marketAddress,
+            accountId,
+          })
+        : undefined,
+    [accountId, fetchKey, marketAddress, marketNetworkId, marketProvider],
   );
 
   // Invalidate before usePromiseResult reruns for the new key; a later effect
@@ -208,7 +187,6 @@ export const BorrowDataGate = ({
     reservesRequestIdRef.current += 1;
     lastReservesUpdatedAtRef.current = null;
     reservesResultRef.current = undefined;
-    reservesResultOwnerKeyRef.current = null;
   }
 
   // Reset staleness on modal dismiss so revalidateOnFocus triggers a fresh fetch.
@@ -232,7 +210,7 @@ export const BorrowDataGate = ({
     isLoading: reservesLoading = true,
     run: refreshReserves,
   } = usePromiseResult(
-    async () => {
+    async (): Promise<IScopedBorrowReservesResult | undefined> => {
       if (
         !fetchKey ||
         !marketProvider ||
@@ -240,12 +218,16 @@ export const BorrowDataGate = ({
         !marketAddress ||
         shouldWaitForAccount
       ) {
-        return reservesResultRef.current;
+        return fetchKey && reservesResultRef.current
+          ? { scopeKey: fetchKey, data: reservesResultRef.current }
+          : undefined;
       }
       const shouldForceRefresh =
         forceRefreshCounterRef.current > lastForceRefreshCounterRef.current;
       if (!isViewActiveRef.current && !shouldForceRefresh) {
-        return reservesResultRef.current;
+        return reservesResultRef.current
+          ? { scopeKey: fetchKey, data: reservesResultRef.current }
+          : undefined;
       }
       const lastUpdatedAt = lastReservesUpdatedAtRef.current;
       const isStale =
@@ -254,7 +236,9 @@ export const BorrowDataGate = ({
       const hasNoCache = reservesResultRef.current === undefined;
       const shouldFetch = shouldForceRefresh || isStale || hasNoCache;
       if (!shouldFetch) {
-        return reservesResultRef.current;
+        return reservesResultRef.current
+          ? { scopeKey: fetchKey, data: reservesResultRef.current }
+          : undefined;
       }
       lastForceRefreshCounterRef.current = forceRefreshCounterRef.current;
       const requestKey = fetchKey;
@@ -276,12 +260,13 @@ export const BorrowDataGate = ({
           accountId,
         });
         if (!isCurrentRequest()) {
-          return reservesResultRef.current;
+          return reservesResultRef.current
+            ? { scopeKey: fetchKey, data: reservesResultRef.current }
+            : undefined;
         }
         reservesResultRef.current = result;
-        reservesResultOwnerKeyRef.current = requestKey;
         lastReservesUpdatedAtRef.current = Date.now();
-        return result;
+        return { scopeKey: requestKey, data: result };
       } catch (error) {
         if (isCurrentRequest()) {
           setReservesErrorOwnerKey(requestKey);
@@ -301,18 +286,26 @@ export const BorrowDataGate = ({
     {
       watchLoading: true,
       checkIsFocused: true,
-      undefinedResultIfReRun: true,
+      // The SWR entry is scoped by the complete request identity, so keep it
+      // visible while the authoritative refresh runs instead of returning the
+      // page to independently loading skeletons.
+      undefinedResultIfReRun: false,
       undefinedResultIfError: true,
       pollingInterval: isViewActive ? BORROW_POLLING_INTERVAL : undefined,
       revalidateOnFocus: true,
       alwaysSetState: true,
+      swrKey: reservesSWRKey,
+      swrShouldPersist: (result) => Boolean(result?.data.overview),
     },
   );
   const ownedReservesResult = getOwnedBorrowReservesResult({
-    result: reservesResult,
-    resultOwnerKey: reservesResultOwnerKeyRef.current,
+    result: reservesResult?.data,
+    resultOwnerKey: reservesResult?.scopeKey ?? null,
     currentKey: fetchKey,
   });
+  if (ownedReservesResult !== undefined && fetchKey) {
+    reservesResultRef.current = ownedReservesResult;
+  }
 
   const refreshReservesWithForce = useMemo(() => {
     return async () => {
@@ -326,13 +319,17 @@ export const BorrowDataGate = ({
       deriveBorrowDataStatus({
         isViewActive,
         wasViewActive: wasActiveRef.current,
-        hasCachedReserves: Boolean(prevReservesDataRef.current),
+        hasCachedReserves: Boolean(
+          prevReservesDataRef.current || ownedReservesResult,
+        ),
         marketsLoading,
         hasMarket: Boolean(market),
         hasFetchKey: Boolean(fetchKey),
         shouldWaitForAccount,
         reservesLoading,
-        isCurrentFetchKey: lastFetchKeyRef.current === fetchKey,
+        isCurrentFetchKey:
+          lastFetchKeyRef.current === fetchKey ||
+          ownedReservesResult !== undefined,
         hasOwnedReservesResult: ownedReservesResult !== undefined,
         hasReservesError: reservesErrorOwnerKey === fetchKey,
       }),
@@ -396,12 +393,12 @@ export const BorrowDataGate = ({
     let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
     if (lastFetchKeyRef.current !== fetchKey) {
       lastFetchKeyRef.current = fetchKey;
-      dataToSet = null;
+      dataToSet = ownedReservesResult ?? null;
     } else if (
       dataStatus === EBorrowDataStatus.LoadingMarkets ||
       dataStatus === EBorrowDataStatus.WaitingForAccount
     ) {
-      dataToSet = null;
+      dataToSet = ownedReservesResult ?? null;
     } else if (
       dataStatus === EBorrowDataStatus.Ready &&
       ownedReservesResult !== undefined
