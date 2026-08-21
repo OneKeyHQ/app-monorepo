@@ -41,11 +41,14 @@ function PageFirmwareUpdateInstallV2() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: async () => {
       await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-      if (result?.originalConnectId) {
+      // A completed update returns to onboarding, which immediately starts a
+      // fresh device check. Do not let this delayed cleanup cancel that call.
+      if (!isDone && result?.originalConnectId) {
         await backgroundApiProxy.serviceHardware.cancel({
           connectId: result.originalConnectId,
           forceDeviceResetToHome: true,
@@ -54,7 +57,6 @@ function PageFirmwareUpdateInstallV2() {
     },
   });
   const [isDoneInternal, setIsDoneInternal] = useState(false);
-  const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
   const needOnboarding =
     stepInfo.step === EFirmwareUpdateSteps.updateDone
       ? (stepInfo.payload?.needOnboarding ?? false)
