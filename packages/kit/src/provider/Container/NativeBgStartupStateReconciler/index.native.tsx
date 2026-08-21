@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EAtomNames } from '@onekeyhq/kit-bg/src/states/jotai/atomNames';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const NATIVE_BG_STARTUP_RECONCILE_DELAY_MS = 5000;
 
@@ -30,6 +31,10 @@ async function reconcileNativeBgStartupStates() {
 
 export function NativeBgStartupStateReconciler() {
   useEffect(() => {
+    if (!platformEnv.enableNativeBackgroundThread) {
+      return undefined;
+    }
+
     // Delay the targeted reconciliation until after the cold-start critical
     // path. The RPC waits for bg readiness if the runtime is still starting.
     const timer = setTimeout(() => {

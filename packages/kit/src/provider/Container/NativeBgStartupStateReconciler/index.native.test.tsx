@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EAtomNames } from '@onekeyhq/kit-bg/src/states/jotai/atomNames';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   NATIVE_BG_STARTUP_RECONCILE_DELAY_MS,
@@ -33,6 +34,13 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    enableNativeBackgroundThread: true,
+  },
+}));
+
 // Mocked module methods do not depend on their object binding.
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const mockedGetAtomStates = jest.mocked(backgroundApiProxy.getAtomStates);
@@ -44,6 +52,7 @@ describe('NativeBgStartupStateReconciler', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    platformEnv.enableNativeBackgroundThread = true;
   });
 
   afterEach(() => {
@@ -88,6 +97,18 @@ describe('NativeBgStartupStateReconciler', () => {
       await jest.advanceTimersByTimeAsync(NATIVE_BG_STARTUP_RECONCILE_DELAY_MS);
     });
     expect(mockedGetAtomStates).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips reconciliation when the native background thread is disabled', async () => {
+    platformEnv.enableNativeBackgroundThread = false;
+
+    render(<NativeBgStartupStateReconciler />);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(NATIVE_BG_STARTUP_RECONCILE_DELAY_MS);
+    });
+
+    expect(mockedGetAtomStates).not.toHaveBeenCalled();
+    expect(mockedUpdateAtomState).not.toHaveBeenCalled();
   });
 
   it('cancels reconciliation when the provider unmounts', async () => {
