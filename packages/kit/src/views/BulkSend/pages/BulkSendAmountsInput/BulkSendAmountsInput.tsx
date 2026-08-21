@@ -23,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -911,6 +912,7 @@ function BulkSendAmountsInputContent({
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
@@ -1534,7 +1536,16 @@ function BulkSendAmountsInputContent({
         }
       }
     },
-    [networkId, accountId, tokenInfo, bulkSendMode],
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      accountId,
+      tokenInfo,
+      bulkSendMode,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -1722,6 +1733,8 @@ function BulkSendAmountsInputContent({
         setSenderBalancesLoading(false);
       }
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       networkId,
       tokenInfo,
@@ -1729,6 +1742,8 @@ function BulkSendAmountsInputContent({
       senders,
       accountId,
       buildSenderBalanceAddressKey,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

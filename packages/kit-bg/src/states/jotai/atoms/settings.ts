@@ -8,7 +8,7 @@ import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
-import { globalAtom } from '../utils';
+import { globalAtom, globalAtomComputedR } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
@@ -141,6 +141,20 @@ export const { target: inscriptionProtectionControlPersistAtom } =
     initialValue: {
       enabled: true,
     },
+  });
+
+export type IInscriptionProtectionStateAtom = {
+  localEnabled: boolean;
+  serverEnabled: boolean;
+};
+
+export const { use: useInscriptionProtectionStateAtom } =
+  globalAtomComputedR<IInscriptionProtectionStateAtom>({
+    read: (get) => ({
+      localEnabled: get(settingsPersistAtom.atom()).inscriptionProtection,
+      serverEnabled: get(inscriptionProtectionControlPersistAtom.atom())
+        .enabled,
+    }),
   });
 
 type ISettingsLastActivityPersistAtom = {

@@ -22,7 +22,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveInfoItems } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -63,13 +63,9 @@ function BalanceDetailsContent({
   onClose?: () => void;
 }) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const { result } = usePromiseResult(async () => {
-    const [
-      vaultSettings,
-      { networkAccounts: n },
-      inscriptionProtectionServerEnabled,
-    ] = await Promise.all([
+    const [vaultSettings, { networkAccounts: n }] = await Promise.all([
       backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
         {
@@ -78,7 +74,6 @@ function BalanceDetailsContent({
           excludeEmptyAccount: true,
         },
       ),
-      backgroundApiProxy.serviceSetting.getInscriptionProtectionServerEnabled(),
     ]);
 
     const effectiveMergeDeriveAssetsEnabled =
@@ -103,7 +98,6 @@ function BalanceDetailsContent({
 
     return {
       inscriptionEnabled: i,
-      inscriptionProtectionServerEnabled,
       effectiveMergeDeriveAssetsEnabled,
       showDeriveItems: s,
       networkAccounts: n,
@@ -118,7 +112,6 @@ function BalanceDetailsContent({
 
   const {
     inscriptionEnabled,
-    inscriptionProtectionServerEnabled,
     effectiveMergeDeriveAssetsEnabled,
     showDeriveItems,
     networkAccounts,
@@ -138,7 +131,6 @@ function BalanceDetailsContent({
         !accountId ||
         !networkId ||
         isUndefined(inscriptionEnabled) ||
-        isUndefined(inscriptionProtectionServerEnabled) ||
         isUndefined(showDeriveItems) ||
         isUndefined(networkAccounts)
       )
@@ -236,13 +228,16 @@ function BalanceDetailsContent({
         network: n,
       };
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       accountId,
       networkId,
       inscriptionEnabled,
-      inscriptionProtectionServerEnabled,
       effectiveMergeDeriveAssetsEnabled,
       showDeriveItems,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
       networkAccounts,
     ],
     {
@@ -261,7 +256,7 @@ function BalanceDetailsContent({
   const renderFrozenBalance = useCallback(() => {
     if (
       networkUtils.isBTCNetwork(networkId) &&
-      !inscriptionProtectionServerEnabled
+      !inscriptionProtectionState.serverEnabled
     ) {
       return null;
     }
@@ -342,7 +337,7 @@ function BalanceDetailsContent({
             })}
           </YStack>
         ) : null}
-        {inscriptionEnabled && inscriptionProtectionServerEnabled ? (
+        {inscriptionEnabled && inscriptionProtectionState.serverEnabled ? (
           <>
             <Divider my="$3" />
             <XStack justifyContent="space-between" alignItems="center">
@@ -379,7 +374,7 @@ function BalanceDetailsContent({
               <Switch
                 testID="home-switch"
                 size={ESwitchSize.small}
-                value={settings.inscriptionProtection}
+                value={inscriptionProtectionState.localEnabled}
                 onChange={async (value) => {
                   await backgroundApiProxy.serviceSetting.setInscriptionProtection(
                     value,
@@ -398,7 +393,8 @@ function BalanceDetailsContent({
     deriveInfoItems,
     howToTransferOrdinalsAssetsUrl,
     inscriptionEnabled,
-    inscriptionProtectionServerEnabled,
+    inscriptionProtectionState.localEnabled,
+    inscriptionProtectionState.serverEnabled,
     isLoading,
     network?.symbol,
     networkAccounts,
@@ -407,7 +403,6 @@ function BalanceDetailsContent({
     overview?.deriveItems,
     overview?.frozenBalanceParsed,
     refreshDetails,
-    settings.inscriptionProtection,
     showDeriveItems,
     whatIsFrozenBalanceUrl,
     intl,

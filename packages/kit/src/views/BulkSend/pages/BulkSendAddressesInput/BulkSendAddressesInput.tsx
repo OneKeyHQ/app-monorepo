@@ -19,6 +19,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EmptyNoWalletView } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -67,6 +68,7 @@ function BaseBulkSendAddressesInput() {
   >();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const { accountId, networkId, indexedAccountId, tokenInfo, isInModal } =
     route.params ?? {};
@@ -374,6 +376,8 @@ function BaseBulkSendAddressesInput() {
         }
       }
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       isOneToMany,
       availableWallets,
@@ -382,6 +386,8 @@ function BaseBulkSendAddressesInput() {
       selectedToken,
       setSelectedTokenDetail,
       setTokenDetailsState,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

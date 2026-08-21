@@ -17,6 +17,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_NATIVE_TOKEN_INFO } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -98,6 +99,7 @@ function TxConfirm() {
     updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
@@ -203,45 +205,54 @@ function TxConfirm() {
     updateSendTxStatus,
   ]);
 
-  const fetchNativeTokenInfo = useCallback(async () => {
-    const nativeTokenAddress =
-      await backgroundApiProxy.serviceToken.getNativeTokenAddress({
-        networkId,
-      });
+  const fetchNativeTokenInfo = useCallback(
+    async () => {
+      const nativeTokenAddress =
+        await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+          networkId,
+        });
 
-    const withCheckInscription =
-      await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
-        {
+      const withCheckInscription =
+        await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const tokenResp =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountId,
-        },
-      );
-    const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      networkId,
+          contractList: [nativeTokenAddress],
+          withFrozenBalance: true,
+          withCheckInscription,
+        });
+      // Coin-control txs can only spend the user-selected UTXOs, so treat the
+      // selected subtotal as the spendable balance. The account-level balance
+      // fetched above excludes find-address claimed UTXOs (never aggregated),
+      // which would otherwise read as 0 and falsely trip the insufficient
+      // native balance checks.
+      const balance =
+        transferPayload?.selectedUtxoTotalAmount ??
+        tokenResp?.[0]?.balanceParsed;
+      updateNativeTokenInfo({
+        isLoading: false,
+        balance,
+        logoURI: tokenResp?.[0]?.info.logoURI ?? '',
+        info: tokenResp?.[0]?.info,
+      });
+    },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      updateNativeTokenInfo,
       accountId,
-      contractList: [nativeTokenAddress],
-      withFrozenBalance: true,
-      withCheckInscription,
-    });
-    // Coin-control txs can only spend the user-selected UTXOs, so treat the
-    // selected subtotal as the spendable balance. The account-level balance
-    // fetched above excludes find-address claimed UTXOs (never aggregated),
-    // which would otherwise read as 0 and falsely trip the insufficient
-    // native balance checks.
-    const balance =
-      transferPayload?.selectedUtxoTotalAmount ?? tokenResp?.[0]?.balanceParsed;
-    updateNativeTokenInfo({
-      isLoading: false,
-      balance,
-      logoURI: tokenResp?.[0]?.info.logoURI ?? '',
-      info: tokenResp?.[0]?.info,
-    });
-  }, [
-    updateNativeTokenInfo,
-    accountId,
-    networkId,
-    transferPayload?.selectedUtxoTotalAmount,
-  ]);
+      networkId,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+      transferPayload?.selectedUtxoTotalAmount,
+    ],
+  );
 
   usePromiseResult(
     async () => {

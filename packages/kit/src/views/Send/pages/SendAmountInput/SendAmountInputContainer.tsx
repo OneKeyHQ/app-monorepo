@@ -60,6 +60,7 @@ import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -811,6 +812,7 @@ function SendAmountInputContainer() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings, setSettings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -945,7 +947,20 @@ function SendAmountInputContainer() {
       // balance was fetched for — it lags `currentAccountId` after a switch.
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
-    [account, isNFT, network, nft, serviceNFT, serviceToken, token, tokenInfo],
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      account,
+      isNFT,
+      network,
+      nft,
+      serviceNFT,
+      serviceToken,
+      token,
+      tokenInfo,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+    ],
     {
       watchLoading: true,
       alwaysSetState: true,

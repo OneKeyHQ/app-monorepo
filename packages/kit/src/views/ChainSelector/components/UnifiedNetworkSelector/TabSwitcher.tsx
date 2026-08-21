@@ -5,8 +5,6 @@ import { useIntl } from 'react-intl';
 import { SegmentControl } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ChainSelectorTestIDs } from '../../testIDs';
-
 export type ITabType = 'portfolio' | 'network';
 
 type ITabSwitcherProps = {
@@ -29,12 +27,10 @@ export function TabSwitcher({ activeTab, onTabChange }: ITabSwitcherProps) {
       {
         label: intl.formatMessage({ id: ETranslations.global_all_networks }),
         value: 'portfolio',
-        testID: ChainSelectorTestIDs.unifiedAllNetworksTab,
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_single_network }),
         value: 'network',
-        testID: ChainSelectorTestIDs.unifiedSingleNetworkTab,
       },
     ],
     [intl],
