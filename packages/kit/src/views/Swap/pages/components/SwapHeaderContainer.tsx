@@ -274,7 +274,9 @@ const SwapHeaderContainer = ({
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
         syncRouteTabParam(newType);
-        await swapTypeSwitchAction(newType, networkId);
+        await swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+        });
         return;
       }
 
@@ -284,12 +286,18 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
-        void swapTypeSwitchAction(newType, networkId);
+        void swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+        });
       } else {
+        await swapTypeSwitchAction(newType, fromToken?.networkId || networkId, {
+          carryTargetToken: true,
+        });
+        // Leave the Pro owner before awaiting account synchronization so its
+        // network effect cannot switch the account back while this is in flight.
         if (fromToken?.networkId && fromToken?.networkId !== networkId) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
       }
     },
     [
