@@ -240,6 +240,11 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
   isStock?: boolean;
+  // Scaled-UI (rebase) token multiplier, copied from the wallet token
+  // snapshot at the wallet->swap boundary. Swap has no end-to-end
+  // scaled-UI support; gates use this to fail-close (see swap actions).
+  // /swap/v1 responses do not populate it today.
+  balanceMultiplier?: string;
 }
 
 export interface IFreeFeeTokenItem {
