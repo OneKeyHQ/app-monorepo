@@ -569,50 +569,53 @@ describe('DeviceSettingsManager device adapters', () => {
     });
   });
 
-  test('passes the compressed Pro2 wallpaper Base64 to the SDK', async () => {
-    const device = buildDevice(EDeviceType.Pro2);
-    jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
-    const waitForDeviceStateSync = jest.fn(async () => undefined);
-    const deviceUploadWallpaper = jest.fn(async () => ({
-      success: true as const,
-      payload: { message: 'Success', path: 'vol1:/wallpapers/custom.bin' },
-    }));
-    const manager = new DeviceSettingsManager({
-      backgroundApi: {
-        serviceHardware: {
-          getCompatibleConnectId: jest.fn(async () => device.connectId),
-          waitForDeviceStateSync,
-        },
-        serviceHardwareUI: {
-          withHardwareProcessing: jest.fn(
-            async (action: () => Promise<unknown>) => action(),
-          ),
-        },
-      } as unknown as IBackgroundApi,
-    });
-    jest.spyOn(manager, 'getSDKInstance').mockResolvedValue({
-      deviceUploadWallpaper,
-    } as unknown as CoreApi);
+  test.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'uploads a custom wallpaper to %s with generated Base64',
+    async (deviceType) => {
+      const device = buildDevice(deviceType);
+      jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
+      const waitForDeviceStateSync = jest.fn(async () => undefined);
+      const deviceUploadWallpaper = jest.fn(async () => ({
+        success: true as const,
+        payload: { message: 'Success', path: 'vol1:/wallpapers/custom.bin' },
+      }));
+      const manager = new DeviceSettingsManager({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId: jest.fn(async () => device.connectId),
+            waitForDeviceStateSync,
+          },
+          serviceHardwareUI: {
+            withHardwareProcessing: jest.fn(
+              async (action: () => Promise<unknown>) => action(),
+            ),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      jest.spyOn(manager, 'getSDKInstance').mockResolvedValue({
+        deviceUploadWallpaper,
+      } as unknown as CoreApi);
 
-    const result = await manager.setDeviceHomeScreen({
-      dbDeviceId: device.id,
-      screenItem: {
-        id: 'custom wallpaper',
-        resType: 'custom',
-        screenBase64: '/9j/',
-        isUserUpload: true,
-      },
-    });
+      const result = await manager.setDeviceHomeScreen({
+        dbDeviceId: device.id,
+        screenItem: {
+          id: `${deviceType} custom wallpaper`,
+          resType: 'custom',
+          url: `https://example.com/${deviceType}-wallpaper.jpg`,
+          screenBase64: '/9j/',
+        },
+      });
 
-    expect(deviceUploadWallpaper).toHaveBeenCalledWith(device.connectId, {
-      jpegBase64: '/9j/',
-      fileName: 'custom-wallpaper',
-    });
-    expect(waitForDeviceStateSync).toHaveBeenCalledWith({
-      connectIds: expect.arrayContaining(['PRO2_CONNECT_ID', 'PRO2_DEVICE_ID']),
-    });
-    expect(result).toMatchObject({ message: 'Success', applyScreen: true });
-  });
+      expect(deviceUploadWallpaper).toHaveBeenCalledWith(device.connectId, {
+        jpegBase64: '/9j/',
+        fileName: `${deviceType}-custom-wallpaper`,
+      });
+      expect(waitForDeviceStateSync).toHaveBeenCalledWith({
+        connectIds: expect.arrayContaining([device.connectId, device.deviceId]),
+      });
+      expect(result).toMatchObject({ message: 'Success', applyScreen: true });
+    },
+  );
 
   test.each([
     [

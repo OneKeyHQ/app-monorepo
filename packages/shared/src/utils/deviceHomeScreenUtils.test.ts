@@ -23,50 +23,53 @@ describe('deviceHomeScreenUtils.buildCustomScreenHex', () => {
     jest.clearAllMocks();
   });
 
-  it('resizes a Pro 2 JPEG to the device wallpaper dimensions', async () => {
-    mockedImageUtils.getBase64FromRequiredImageSource.mockResolvedValue(
-      'data:image/jpeg;base64,AAAA',
-    );
-    mockedImageUtils.resizeImage.mockResolvedValue({
-      hex: 'resized-jpeg-hex',
-      uri: 'resized-jpeg-uri',
-      width: 604,
-      height: 1024,
-      base64: 'resized-jpeg-base64',
-    });
-    mockedImageUtils.processImageBlur.mockResolvedValue({
-      hex: 'blur-hex',
-      width: 604,
-      height: 1024,
-    });
-
-    await expect(
-      deviceHomeScreenUtils.buildCustomScreenHex({
-        dbDeviceId: 'pro2-device',
-        url: 'https://example.com/pro-wallpaper.jpg',
-        deviceType: EDeviceType.Pro2,
-        config: {
-          names: [],
-          size: { width: 604, height: 1024 },
-          thumbnailSize: { width: 263, height: 263 },
-        },
-      }),
-    ).resolves.toMatchObject({
-      screenHex: '',
-      screenBase64: 'resized-jpeg-base64',
-      blurScreenHex: 'blur-hex',
-    });
-    expect(mockedImageUtils.resizeImage).toHaveBeenCalledWith(
-      expect.objectContaining({
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'resizes a %s JPEG to the device wallpaper dimensions',
+    async (deviceType) => {
+      mockedImageUtils.getBase64FromRequiredImageSource.mockResolvedValue(
+        'data:image/jpeg;base64,AAAA',
+      );
+      mockedImageUtils.resizeImage.mockResolvedValue({
+        hex: 'resized-jpeg-hex',
+        uri: 'resized-jpeg-uri',
         width: 604,
         height: 1024,
-        originW: 0,
-        originH: 0,
-        includeHex: false,
-      }),
-    );
-    expect(mockedImageUtils.resizeImage).toHaveBeenCalledTimes(1);
-  });
+        base64: 'resized-jpeg-base64',
+      });
+      mockedImageUtils.processImageBlur.mockResolvedValue({
+        hex: 'blur-hex',
+        width: 604,
+        height: 1024,
+      });
+
+      await expect(
+        deviceHomeScreenUtils.buildCustomScreenHex({
+          dbDeviceId: `${deviceType}-device`,
+          url: `https://example.com/${deviceType}-wallpaper.jpg`,
+          deviceType,
+          config: {
+            names: [],
+            size: { width: 604, height: 1024 },
+            thumbnailSize: { width: 263, height: 263 },
+          },
+        }),
+      ).resolves.toMatchObject({
+        screenHex: '',
+        screenBase64: 'resized-jpeg-base64',
+        blurScreenHex: 'blur-hex',
+      });
+      expect(mockedImageUtils.resizeImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          width: 604,
+          height: 1024,
+          originW: 0,
+          originH: 0,
+          includeHex: false,
+        }),
+      );
+      expect(mockedImageUtils.resizeImage).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('fails when a Protocol V2 wallpaper resize has no JPEG data', async () => {
     mockedImageUtils.getBase64FromRequiredImageSource.mockResolvedValue(
