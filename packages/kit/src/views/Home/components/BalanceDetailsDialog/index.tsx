@@ -241,6 +241,12 @@ function BalanceDetailsContent({
   });
 
   const renderFrozenBalance = useCallback(() => {
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      !(settings.inscriptionProtectionServerEnabled ?? true)
+    ) {
+      return null;
+    }
     if (!deriveInfoItems && networkUtils.isBTCNetwork(networkId)) {
       if (
         !(
