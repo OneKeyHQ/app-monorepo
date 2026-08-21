@@ -1298,7 +1298,17 @@ export default class Vault extends VaultBase {
     const { encodedTx, txDesc, token } = params;
     const spender = txDesc?.args[0] as string;
     const value = txDesc?.args[1] as ethers.BigNumber;
-    const amount = formatValue(value, token.decimals);
+    const rawAmountText = formatValue(value, token.decimals);
+    // Scaled-UI (rebase) tokens: show the display-basis approve amount.
+    // dApp approves have no send-page snapshot, so the fetched token is the
+    // only multiplier source. The 'Infinite' sentinel is non-finite and
+    // passes through applyBalanceMultiplier unchanged (pinned by test);
+    // revoke (0) is multiplier-invariant.
+    const balanceMultiplier = token.balanceMultiplier;
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmountText,
+      balanceMultiplier,
+    });
     const accountAddress = await this.getAccountAddress();
 
     const approveType =
@@ -1318,8 +1328,10 @@ export default class Vault extends VaultBase {
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
         isInfiniteAmount:
-          approveType === EApproveType.Approve && amount === InfiniteAmountText,
+          approveType === EApproveType.Approve &&
+          rawAmountText === InfiniteAmountText,
         approveType,
+        balanceMultiplier,
       },
     };
 

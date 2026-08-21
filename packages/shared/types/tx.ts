@@ -252,6 +252,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenIdOnNetwork: string;
   label?: string;
   approveType?: EApproveType;
+  // Scaled-UI (rebase) tokens: multiplier used to convert `amount` to
+  // display basis at decode time; lets UI converters fail-close editing.
+  balanceMultiplier?: string;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {

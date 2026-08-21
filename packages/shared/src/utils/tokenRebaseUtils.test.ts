@@ -93,6 +93,17 @@ describe('tokenRebaseUtils', () => {
         }),
       ).toBe('0.046064041493931333480284');
     });
+
+    it('passes the Infinite sentinel through unchanged even with a scaling multiplier', () => {
+      // The EVM approve decoder represents MaxUint256 as the literal string
+      // 'Infinite' (InfiniteAmountText); it must never be multiplied.
+      expect(
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount: 'Infinite',
+          balanceMultiplier: '2',
+        }),
+      ).toBe('Infinite');
+    });
   });
 
   describe('removeBalanceMultiplier (display -> raw)', () => {
