@@ -148,6 +148,102 @@ describe('useNavigateToMarketTab', () => {
     });
     expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
     expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
+    expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back once when the native atom echo is missing', async () => {
+    const onNavigationComplete = jest.fn();
+    const { result, rerender } = renderHook(() => useNavigateToMarketTab());
+
+    act(() => {
+      result.current({
+        tabToSelect: 'watchlist',
+        onNavigationComplete,
+      });
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
+    expect(onNavigationComplete).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+    expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+
+    mockMarketSelectedTab = { tab: 'watchlist' };
+    await act(async () => {
+      rerender();
+      await Promise.resolve();
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
+    expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels the previous pending navigation when a new request starts', async () => {
+    mockMarketSelectedTab = { tab: 'perps' };
+    const firstOnNavigationComplete = jest.fn();
+    const secondOnNavigationComplete = jest.fn();
+    const { result } = renderHook(() => useNavigateToMarketTab());
+
+    act(() => {
+      result.current({
+        tabToSelect: 'watchlist',
+        onNavigationComplete: firstOnNavigationComplete,
+      });
+      jest.advanceTimersByTime(250);
+      result.current({
+        tabToSelect: 'trending',
+        onNavigationComplete: secondOnNavigationComplete,
+      });
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+      await Promise.resolve();
+    });
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
+    expect(firstOnNavigationComplete).not.toHaveBeenCalled();
+    expect(secondOnNavigationComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels pending navigation when the hook unmounts', async () => {
+    const onNavigationComplete = jest.fn();
+    const { result, unmount } = renderHook(() => useNavigateToMarketTab());
+
+    act(() => {
+      result.current({
+        tabToSelect: 'watchlist',
+        onNavigationComplete,
+      });
+      unmount();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+    expect(mockRootNavigationRef.current.navigate).not.toHaveBeenCalled();
+    expect(onNavigationComplete).not.toHaveBeenCalled();
   });
 });
 

@@ -36,6 +36,8 @@ interface IPendingMarketNavigation {
   onNavigationComplete?: () => void;
 }
 
+const MARKET_NAVIGATION_SELECTION_TIMEOUT_MS = 500;
+
 export function useNavigateToMarketTab() {
   const [marketSelectedTab, setMarketSelectedTab] = useMarketSelectedTabAtom();
   const marketSelectedTabRef = useRef(marketSelectedTab);
@@ -43,6 +45,17 @@ export function useNavigateToMarketTab() {
   const pendingNavigationRef = useRef<IPendingMarketNavigation | undefined>(
     undefined,
   );
+  const pendingNavigationTimeoutRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+
+  const clearPendingNavigation = useCallback(() => {
+    if (pendingNavigationTimeoutRef.current !== undefined) {
+      clearTimeout(pendingNavigationTimeoutRef.current);
+      pendingNavigationTimeoutRef.current = undefined;
+    }
+    pendingNavigationRef.current = undefined;
+  }, []);
 
   const applyNavigationTarget = useCallback(
     (target: IMarketNavigationTarget) => {
@@ -136,12 +149,21 @@ export function useNavigateToMarketTab() {
       return;
     }
 
-    pendingNavigationRef.current = undefined;
+    clearPendingNavigation();
     void performNavigation(target, pendingNavigation?.onNavigationComplete);
-  }, [marketSelectedTab, performNavigation]);
+  }, [clearPendingNavigation, marketSelectedTab, performNavigation]);
+
+  useEffect(
+    () => () => {
+      clearPendingNavigation();
+    },
+    [clearPendingNavigation],
+  );
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
+      clearPendingNavigation();
+
       const {
         tabToSelect,
         spotCategoryToSelect,
@@ -169,10 +191,18 @@ export function useNavigateToMarketTab() {
 
       // Switch to specific tab inside Market (watchlist or trending)
       if (shouldWaitForSelection) {
-        pendingNavigationRef.current = {
+        const pendingNavigation: IPendingMarketNavigation = {
           target: navigationTarget,
           onNavigationComplete,
         };
+        pendingNavigationRef.current = pendingNavigation;
+        pendingNavigationTimeoutRef.current = setTimeout(() => {
+          if (pendingNavigationRef.current !== pendingNavigation) {
+            return;
+          }
+          clearPendingNavigation();
+          void performNavigation(navigationTarget, onNavigationComplete);
+        }, MARKET_NAVIGATION_SELECTION_TIMEOUT_MS);
         applyNavigationTarget(navigationTarget);
 
         if (
@@ -181,7 +211,7 @@ export function useNavigateToMarketTab() {
             navigationTarget,
           )
         ) {
-          pendingNavigationRef.current = undefined;
+          clearPendingNavigation();
           void performNavigation(navigationTarget, onNavigationComplete);
         }
         return;
@@ -189,7 +219,7 @@ export function useNavigateToMarketTab() {
 
       void performNavigation(undefined, onNavigationComplete);
     },
-    [applyNavigationTarget, performNavigation],
+    [applyNavigationTarget, clearPendingNavigation, performNavigation],
   );
 
   return navigateToMarketTab;
