@@ -95,6 +95,24 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     expect(html).toContain('getTimeScaleOptions(nextConfig)');
   });
 
+  it('preserves native adaptive tick labels when no time zone is provided', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('if (nextConfig.timeZone)');
+    expect(html).toContain('options.tickMarkFormatter =');
+    expect(html).not.toContain('date.toLocaleDateString');
+  });
+
   it('hides the native crosshair price label only when requested', () => {
     const config = {
       data: [{ time: 1 as UTCTimestamp, value: 1 }],

@@ -66,11 +66,6 @@ function getChartInitScript(): string {
       }
       function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
         var date = new Date(time * 1000);
-        if (!nextConfig.timeZone) {
-          var month = date.toLocaleDateString('en-US', { month: 'short' });
-          var day = date.getDate().toString().padStart(2, '0');
-          return month + ' ' + day;
-        }
         var formatterKey = [
           nextConfig.locale || '',
           nextConfig.timeZone,
@@ -90,7 +85,7 @@ function getChartInitScript(): string {
         return formatter.format(date);
       }
       function getTimeScaleOptions(nextConfig) {
-        return {
+        var options = {
           visible: nextConfig.showTimeScale !== false,
           borderVisible: false,
           timeVisible: true,
@@ -98,10 +93,13 @@ function getChartInitScript(): string {
           fixLeftEdge: true,
           fixRightEdge: true,
           lockVisibleTimeRangeOnResize: true,
-          tickMarkFormatter: function(time, tickMarkType) {
-            return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
-          },
         };
+        if (nextConfig.timeZone) {
+          options.tickMarkFormatter = function(time, tickMarkType) {
+            return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
+          };
+        }
+        return options;
       }
       function getChartOptions(nextConfig) {
         return {
