@@ -199,6 +199,32 @@ export function calculateTokenAmountInActions({
   };
 }
 
+// True when any decoded action involves a token whose balanceMultiplier
+// actually scales (valid and !== 1). Used by the signature-confirm service
+// to force the LOCAL txDisplay path: local decode emits display-basis
+// amounts (and fail-closed approve editing), while server display
+// components would carry raw amounts for these tokens.
+export function checkDecodedTxHasScalingBalanceMultiplier(
+  decodedTx: IDecodedTx,
+): boolean {
+  return (decodedTx.actions ?? []).some((action) => {
+    if (
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        action.tokenApprove?.balanceMultiplier,
+      )
+    ) {
+      return true;
+    }
+    const transfers = [
+      ...(action.assetTransfer?.sends ?? []),
+      ...(action.assetTransfer?.receives ?? []),
+    ];
+    return transfers.some((transfer) =>
+      tokenRebaseUtils.isScalingBalanceMultiplier(transfer.balanceMultiplier),
+    );
+  });
+}
+
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&

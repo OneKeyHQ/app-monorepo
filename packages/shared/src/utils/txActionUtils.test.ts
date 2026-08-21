@@ -13,6 +13,7 @@ import { appLocale } from '../locale/appLocale';
 import { ETranslations } from '../locale/enum/translations';
 
 import {
+  checkDecodedTxHasScalingBalanceMultiplier,
   collectDecodedTxInvolvedAddresses,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
 } from './txActionUtils';
@@ -244,5 +245,83 @@ describe('approve component scaled-UI handling', () => {
     ) as any;
     expect(approve.isEditable).toBe(true);
     expect(approve.token.info.balanceMultiplier).toBe('--');
+  });
+});
+
+describe('checkDecodedTxHasScalingBalanceMultiplier', () => {
+  const base = {
+    txid: '',
+    owner: '0xowner',
+    signer: '0xowner',
+    networkId: 'evm--56',
+    accountId: 'test-account',
+    status: EDecodedTxStatus.Pending,
+  };
+
+  it('detects a scaling multiplier on a transfer send', () => {
+    expect(
+      checkDecodedTxHasScalingBalanceMultiplier({
+        ...base,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: '0xowner',
+              to: '0xdest',
+              label: '',
+              sends: [{ amount: '1', balanceMultiplier: '1.0006' }],
+              receives: [],
+            },
+          },
+        ],
+      } as unknown as IDecodedTx),
+    ).toBe(true);
+  });
+
+  it('detects a scaling multiplier on an approve action', () => {
+    expect(
+      checkDecodedTxHasScalingBalanceMultiplier({
+        ...base,
+        actions: [
+          {
+            type: EDecodedTxActionType.TOKEN_APPROVE,
+            tokenApprove: { amount: '1', balanceMultiplier: '2' },
+          },
+        ],
+      } as unknown as IDecodedTx),
+    ).toBe(true);
+  });
+
+  it('returns false for multiplier 1, invalid, or absent', () => {
+    expect(
+      checkDecodedTxHasScalingBalanceMultiplier({
+        ...base,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: '0xowner',
+              to: '0xdest',
+              label: '',
+              sends: [{ amount: '1', balanceMultiplier: '1' }],
+              receives: [{ amount: '2', balanceMultiplier: '--' }],
+            },
+          },
+          {
+            type: EDecodedTxActionType.TOKEN_APPROVE,
+            tokenApprove: { amount: '1' },
+          },
+        ],
+      } as unknown as IDecodedTx),
+    ).toBe(false);
+  });
+
+  it('returns false for a tx with no actions', () => {
+    expect(
+      checkDecodedTxHasScalingBalanceMultiplier({
+        ...base,
+        actions: [],
+      } as unknown as IDecodedTx),
+    ).toBe(false);
   });
 });

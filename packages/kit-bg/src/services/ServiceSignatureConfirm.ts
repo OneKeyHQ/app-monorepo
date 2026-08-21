@@ -9,6 +9,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
   convertDecodedTxActionsToSignatureConfirmTxDisplayTitle,
@@ -406,7 +407,18 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx?.display && !shouldUseLocalDisplay) {
+    // Scaled-UI (rebase) tokens: the server display would carry raw
+    // amounts (and editable approve components) for scaling tokens; the
+    // local decode is display-correct and fail-closes approve editing, so
+    // force the local path. Server risk alerts are retained below.
+    const hasScalingRebaseAction =
+      checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+
+    if (
+      parsedTx?.display &&
+      !shouldUseLocalDisplay &&
+      !hasScalingRebaseAction
+    ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -422,12 +434,39 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
+      // Rebase-forced local display: the server parse ran but the rebase
+      // condition (not shouldUseLocalDisplay) forced the local path.
+      const isRebaseForcedLocal =
+        hasScalingRebaseAction &&
+        !shouldUseLocalDisplay &&
+        Boolean(parsedTx?.display);
+
+      // The rebase-forced path did not receive `parsedTx.display` above
+      // (shouldUseLocalDisplay was false), so `serverAlerts` is empty for
+      // it. Recompute alerts directly from the server display here so
+      // rebase-forced local rendering still surfaces server risk alerts.
+      // `simulationComponents` are deliberately NOT consumed here: a server
+      // Simulation panel carries raw (non-multiplied) server amounts and
+      // would reintroduce the display/raw mismatch this mechanism removes —
+      // do not "restore" it for the rebase-forced case.
+      const rebaseDisplayExtras = isRebaseForcedLocal
+        ? getPermit2ServerDisplayExtras(parsedTx?.display)
+        : undefined;
+
       decodedTx.txDisplay = {
         title: '',
         components: [...txDisplayComponents, ...serverSimulationComponents],
-        alerts: serverAlerts,
+        alerts: rebaseDisplayExtras?.alerts?.length
+          ? rebaseDisplayExtras.alerts
+          : serverAlerts,
       };
       decodedTx.isLocalParsed = true;
+      // Scaled-UI forced-local: the server parse ran and its alerts are
+      // retained above — mark it so SecurityCheckCard does not report a
+      // false "Unverified" for this tx.
+      if (isRebaseForcedLocal) {
+        decodedTx.hasServerSecurityAnalysis = true;
+      }
     }
 
     // Backfill approveType/spender/amount on server-built Approve components

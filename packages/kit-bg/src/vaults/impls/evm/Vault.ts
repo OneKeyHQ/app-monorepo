@@ -1117,6 +1117,31 @@ export default class Vault extends VaultBase {
         allowance === InfiniteAmountText ||
         !allowanceBn.isFinite() ||
         (approveType === EApproveType.Approve && isUnlimited);
+
+      // Scaled-UI (rebase) tokens: the editor UI is fail-closed for them
+      // (display-basis allowance strings must never be re-encoded as raw
+      // units — that would over-approve by the multiplier). This guard is
+      // defense in depth behind those UI gates, not a reachable branch.
+      // Unlimited and revoke (allowance === 0) are multiplier-invariant, so
+      // they skip the lookup; every other path re-encodes a finite
+      // non-zero allowance and must pass this check.
+      if (!isMaxUint256 && !allowanceBn.isZero()) {
+        const approveToken = await this.backgroundApi.serviceToken.getToken({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          tokenIdOnNetwork: encodedTx.to,
+        });
+        if (
+          tokenRebaseUtils.isScalingBalanceMultiplier(
+            approveToken?.balanceMultiplier,
+          )
+        ) {
+          throw new OneKeyLocalError(
+            'Approve editing is not supported for scaled-UI tokens',
+          );
+        }
+      }
+
       const amountHex = toBigIntHex(
         isMaxUint256
           ? new BigNumber(2).pow(256).minus(1)
@@ -1248,8 +1273,11 @@ export default class Vault extends VaultBase {
       token,
     });
     // Scaled-UI (rebase) tokens: decoded calldata carries the raw on-chain
-    // value; the confirm page must show the display basis the send page
-    // rendered. Snapshot-preference per the same-snapshot contract; EVM hex
+    // value; convert to the display basis the send page rendered. This
+    // governs the locally saved pending-history entry and the local
+    // txDisplay path — ServiceSignatureConfirm forces the local path for
+    // scaling-token txs so the confirm page renders these amounts.
+    // Snapshot-preference per the same-snapshot contract; EVM hex
     // addresses compare case-insensitively.
     const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
       snapshotToken: transferPayload?.tokenInfo,
@@ -1278,6 +1306,7 @@ export default class Vault extends VaultBase {
       name: token.name,
       symbol: token.symbol,
       amount,
+      balanceMultiplier,
       isNFT: false,
     };
 
