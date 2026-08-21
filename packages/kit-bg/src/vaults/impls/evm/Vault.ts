@@ -28,6 +28,7 @@ import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -1242,9 +1243,23 @@ export default class Vault extends VaultBase {
       value = txDesc?.args[2] as ethers.BigNumber;
     }
 
-    const amount = chainValueUtils.convertTokenChainValueToAmount({
+    const rawAmount = chainValueUtils.convertTokenChainValueToAmount({
       value: value.toString(),
       token,
+    });
+    // Scaled-UI (rebase) tokens: decoded calldata carries the raw on-chain
+    // value; the confirm page must show the display basis the send page
+    // rendered. Snapshot-preference per the same-snapshot contract; EVM hex
+    // addresses compare case-insensitively.
+    const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
+      snapshotToken: transferPayload?.tokenInfo,
+      fetchedToken: token,
+      tokenAddress: token.address,
+      addressCaseInsensitive: true,
+    });
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmount,
+      balanceMultiplier,
     });
 
     if (
