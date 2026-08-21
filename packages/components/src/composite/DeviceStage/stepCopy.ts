@@ -9,10 +9,10 @@ import type { HardwareDevice } from '../../content/HardwareDevice';
 import type { IKeyOfIcons } from '../../primitives';
 
 /**
- * The stage's words and scenes, shared by both engines (the sheet stage
- * and the overlay morph) so the two can never drift while they coexist.
- * Pure data: which steps exist and what they say is the stage vocabulary;
- * how a surface plays them is each engine's own business.
+ * The stage's vocabulary: which steps exist, what they say, what pose
+ * and scene they wear — plus the resolution rules for the words that
+ * vary at runtime. Pure data and pure functions; how the stage plays
+ * them is the engine's own business (see ./index).
  */
 
 // `off` has no words of its own: searching is part of connecting, so the
@@ -160,7 +160,7 @@ export const STEP_TEXT: Record<
     sub: 'Confirm on your device to verify its authenticity and secure your connection.',
   },
   // The sub is the legacy single-check shape's; a checklist on show
-  // retires it (the engines suppress it when authChecklist is present).
+  // retires it (resolveStageText suppresses it when one is present).
   authVerifying: { title: 'Verifying device', sub: 'Please wait...' },
   authSuccess: {
     title: 'Verification successful',
@@ -172,11 +172,9 @@ export const STEP_TEXT: Record<
     title: AUTH_FAILURE_TEXT.unknown.title,
     sub: AUTH_FAILURE_TEXT.unknown.sub,
   },
-  // No sub: the whole processing arrangement is this one line, set in the
-  // strip's own compact row rather than the heading grammar above.
+  // No sub: the waiting capsule speaks this one line by itself.
   processing: { title: 'Processing…' },
   error: ERROR_TEXT.generic,
-  success: { title: '✓ Done' },
 };
 
 /**
@@ -191,8 +189,8 @@ export const PASSPHRASE_CREATE_TEXT: { title: string; sub?: string } = {
 /**
  * What the replica's screen plays per step. The endings go dark: the
  * stage mirrors state, it does not invent what the physical screen
- * shows. The app-side inputs, the air-gap pair and the processing strip
- * have no replica on stage at all.
+ * shows. The app-side inputs, the air-gap pair and the waiting card
+ * beats have no replica on stage at all.
  */
 export const SCENE_ANIMATION: Record<
   IDeviceStageStep,
@@ -217,18 +215,88 @@ export const SCENE_ANIMATION: Record<
   authFailure: undefined,
   processing: undefined,
   error: undefined,
-  success: undefined,
 };
 
 /**
- * The staged steps that wear the confirm miniature — the compact
- * arrangement — instead of the full stage: confirm's own shrink, and the
- * authenticity flow, which keeps the whole device in view while the card
- * talks. Both engines read this list so their geometry agrees.
+ * Which rest pose a step belongs to: absent before the burst has
+ * anything to say, the capsule for waiting beats — nothing is asked of
+ * the person — and the card for everything else.
  */
+export const STEP_POSE: Record<
+  IDeviceStageStep,
+  'hidden' | 'capsule' | 'card'
+> = {
+  off: 'hidden',
+  connecting: 'capsule',
+  processing: 'capsule',
+  enterPin: 'card',
+  pinOnApp: 'card',
+  passphraseIntro: 'card',
+  enterPassphrase: 'card',
+  passphraseOnApp: 'card',
+  showQr: 'card',
+  scanQr: 'card',
+  confirm: 'card',
+  genuineCheck: 'card',
+  authVerifying: 'card',
+  authSuccess: 'card',
+  authFailure: 'card',
+  error: 'card',
+};
+
+/**
+ * The staged steps — the ones that keep the replica on stage. The full
+ * stage crops the device to screen-and-keys for the device-side asks;
+ * the compact list wears the confirm miniature instead — confirm's own
+ * shrink, and the authenticity flow, which keeps the whole device in
+ * view while the card talks. The engine derives its port map (and the
+ * miniature's scale) from these two lists, so membership is stated once.
+ */
+export const FULL_STAGED_STEPS: IDeviceStageStep[] = [
+  'enterPin',
+  'enterPassphrase',
+];
 export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
   'confirm',
   'genuineCheck',
   'authVerifying',
   'authSuccess',
 ];
+
+/**
+ * The stage seat's words, resolved: confirm swaps its sub for the live
+ * operation context, and a checklist on show retires authVerifying's
+ * legacy "Please wait..." line — the progress rows speak instead.
+ */
+export function resolveStageText(
+  step: IDeviceStageStep,
+  options: { confirmContext?: string; hasChecklist: boolean },
+): { title: string; sub: string } {
+  const text = STEP_TEXT[step];
+  let sub = (step === 'confirm' ? options.confirmContext : text.sub) ?? '';
+  if (step === 'authVerifying' && options.hasChecklist) {
+    sub = '';
+  }
+  return { title: text.title, sub };
+}
+
+/** The passphrase panel's words: create mode titles the step after the
+ * flow it performs, plain entry keeps the step's own words. */
+export function resolvePassphrasePanelText(mode?: 'create' | 'verify'): {
+  title: string;
+  sub?: string;
+} {
+  return mode === 'create' ? PASSPHRASE_CREATE_TEXT : STEP_TEXT.passphraseOnApp;
+}
+
+/** The capsule's words: always the live step's title, with the device's
+ * name as the second line while connecting (the flow spec's pairing). */
+export function resolveCapsuleText(
+  step: IDeviceStageStep,
+  deviceName?: string,
+): { title: string; sub?: string } {
+  return {
+    title: STEP_TEXT[step].title,
+    sub: step === 'connecting' ? deviceName : undefined,
+  };
+}

@@ -130,15 +130,14 @@ export function AuthFailureCard({
   if (noteShown) {
     return (
       <YStack gap="$6">
-        {/* The NOTE beat carries no icon, and its warning line wears
-            critical where StepText's sub wears subdued — same metrics,
-            its own color, so the words are set by hand here. */}
-        <YStack gap={6}>
-          <SizableText size="$heading2xl">{AUTH_NOTE_TEXT.title}</SizableText>
-          <SizableText fontSize={15} lineHeight={21} color="$textCritical">
-            {AUTH_NOTE_TEXT.sub}
-          </SizableText>
-        </YStack>
+        {/* The NOTE beat carries no icon; its warning line wears
+            critical on the words' own metrics. */}
+        <StepText
+          title={AUTH_NOTE_TEXT.title}
+          sub={AUTH_NOTE_TEXT.sub}
+          subColor="$textCritical"
+          animated={false}
+        />
         <YStack gap="$2">
           <Button
             testID="device-stage-auth-continue-anyway"

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Anchor, Button, SizableText, YStack } from '../../primitives';
 
-import { ESwitchSize, Switch } from '../../forms/Switch';
-import { Anchor, Button, SizableText, XStack, YStack } from '../../primitives';
+import { PreferenceCapsule } from './PreferenceCapsule';
 
 /**
  * The teach-first beat of creating a hidden wallet, to the ratified
@@ -68,28 +67,12 @@ export function PassphraseIntro({
         </Anchor>{' '}
         before continuing.
       </SizableText>
-      {/* The preference capsule, the passphrase form's own grammar. */}
-      <XStack
-        alignItems="center"
-        gap="$5"
-        pl="$6"
-        pr="$4"
-        py="$3"
-        borderRadius="$full"
-        bg="$neutral2"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$neutral4"
-      >
-        <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-          Keep a shortcut on the wallet list
-        </SizableText>
-        <Switch
-          testID="device-stage-passphrase-intro-keep-shortcut"
-          size={ESwitchSize.small}
-          value={keepShortcut}
-          onChange={setKeepShortcut}
-        />
-      </XStack>
+      <PreferenceCapsule
+        testID="device-stage-passphrase-intro-keep-shortcut"
+        label="Keep a shortcut on the wallet list"
+        value={keepShortcut}
+        onChange={setKeepShortcut}
+      />
       {onContinue ? (
         <Button
           testID="device-stage-passphrase-intro-continue"
