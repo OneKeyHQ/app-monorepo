@@ -384,10 +384,9 @@ export function useSwapTokenList(
                 walletToken?.networkId === token?.networkId,
             );
             if (balanceToken) {
-              // OK-60609: the balance-list copy lacks search-only display
-              // fields (e.g. localized stock subtitles); replacing the
-              // search token wholesale would strip them and make the local
-              // keyword fuse drop the held token from the results.
+              // OK-60609: the balance-list copy lacks search-only metadata.
+              // Preserve server aliases when decorating a result with its
+              // wallet balance so local highlighting keeps the same DTO.
               return {
                 ...balanceToken,
                 subtitles: token.subtitles ?? balanceToken.subtitles,
@@ -557,8 +556,9 @@ export function useSwapTokenList(
     }
 
     if (state.phase === 'fetching') {
-      // Count what the selector actually displays (OK-60609 fallback
-      // included) instead of only the local fuse's subset.
+      // Count the server-backed results this hook returns instead of only the
+      // local fuse's highlight subset. Modal-only metadata fallbacks are not
+      // part of this fetch lifecycle.
       const resultCount = currentTokensRef.current?.length ?? 0;
 
       defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({

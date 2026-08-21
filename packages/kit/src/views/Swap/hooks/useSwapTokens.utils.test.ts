@@ -1,4 +1,5 @@
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapFuseResultList,
@@ -32,6 +33,20 @@ describe('buildSwapFuseResultList', () => {
     ).toEqual([
       { item: { symbol: 'NVDA' }, refIndex: 0 },
       { item: { symbol: 'AAPL' }, refIndex: 1 },
+    ]);
+  });
+
+  it('preserves the server subtitle-array contract for tag-only results', () => {
+    const tagMatchedToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xaapl',
+      symbol: 'AAPLx',
+      decimals: 18,
+      subtitles: ['Apple', '苹果'],
+    } satisfies ISwapToken;
+
+    expect(buildSwapFuseResultList([tagMatchedToken])).toEqual([
+      { item: tagMatchedToken, refIndex: 0 },
     ]);
   });
 
