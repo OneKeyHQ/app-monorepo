@@ -38,6 +38,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
   dedupeTokenSelectorNetworkAccounts,
@@ -924,6 +925,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      // Scaled-UI (rebase) tokens are blocked from Swap end-to-end: the
+      // /swap/v1 pipeline is raw-basis and would desync display and quotes
+      // from the wallet. Silent fail-closed, mirroring the wallet-entry
+      // gate in TokenActionsView. Multiplier === 1 is a no-op, never block.
+      if (
+        tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
+      ) {
+        return;
+      }
       const toToken = get(swapSelectToTokenAtom());
       if (
         !skipCheckEqualToken &&
@@ -961,6 +971,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      // Same scaled-UI gate as selectFromToken above.
+      if (
+        tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
+      ) {
+        return;
+      }
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
       }
@@ -979,6 +995,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  // No scaled-UI gate here (unlike selectFromToken/selectToToken above):
+  // stock-channel inputs are /swap/v1-shaped and cannot carry
+  // balanceMultiplier; the surface is product-owned. See the plan's
+  // known-limitations (docs/superpowers/plans/2026-08-21-bstocks-scaled-ui-evm.md).
   selectStockExecutionTokens = contextAtomMethod(
     async (
       get,
