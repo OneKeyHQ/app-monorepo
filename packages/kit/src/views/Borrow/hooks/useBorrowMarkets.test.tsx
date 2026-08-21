@@ -15,6 +15,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   const state: {
     current: {
       result: unknown[];
@@ -22,6 +23,8 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
       run: jest.Mock;
     };
     method?: () => Promise<unknown[]>;
+    firstRunResult?: unknown[];
+    firstRunPromise?: Promise<void>;
   } = {
     current: { result: [], isLoading: false, run: jest.fn() },
   };
@@ -34,12 +37,20 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   return {
     usePromiseResult: (method: () => Promise<unknown[]>) => {
       state.method = method;
+      React.useEffect(() => {
+        state.firstRunPromise = method().then((result) => {
+          state.firstRunResult = result;
+        });
+        // The real hook reruns from its deps effect. This mock intentionally
+        // registers at the same hook position to preserve effect ordering.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
       return state.current;
     },
   };
 });
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
@@ -54,6 +65,8 @@ const promiseResultMock = (
         run: jest.Mock;
       };
       method?: () => Promise<IBorrowMarketItem[]>;
+      firstRunResult?: IBorrowMarketItem[];
+      firstRunPromise?: Promise<void>;
     };
   }
 ).__borrowMarketsPromiseResultMock;
@@ -71,6 +84,8 @@ describe('useBorrowMarkets SWR hydration', () => {
       run: jest.fn(),
     };
     promiseResultMock.method = undefined;
+    promiseResultMock.firstRunResult = undefined;
+    promiseResultMock.firstRunPromise = undefined;
     serviceMock.mockReset();
   });
 
@@ -89,7 +104,11 @@ describe('useBorrowMarkets SWR hydration', () => {
 
     const { result } = renderHook(() => useBorrowMarkets({ isActive: false }));
 
-    await expect(promiseResultMock.method?.()).resolves.toBe(cachedMarkets);
+    await act(async () => {
+      await promiseResultMock.firstRunPromise;
+    });
+
+    expect(promiseResultMock.firstRunResult).toBe(cachedMarkets);
     expect(result.current.markets).toBe(cachedMarkets);
     expect(serviceMock).not.toHaveBeenCalled();
   });

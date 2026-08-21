@@ -172,10 +172,9 @@ describe('SWR cache keys', () => {
       swrKeys.earnAccount({
         networkId: 'evm--1',
         indexedAccountId: 'wallet-1--1',
-        deriveType: 'default',
         btcOnlyTaproot: true,
       }),
-    ).toBe('earnAccount:v1:evm--1::wallet-1--1:default:1');
+    ).toBe('earnAccount:v2:evm--1::wallet-1--1:1');
     expect(
       swrKeys.earnProtocolDetail({
         networkId: 'evm--1',

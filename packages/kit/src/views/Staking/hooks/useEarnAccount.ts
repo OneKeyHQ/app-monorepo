@@ -40,14 +40,12 @@ export function useEarnAccount({
   // bypassing the async activeAccount resolution delay.
   const resolvedIndexedAccountId =
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
-  const deriveType = selectedAccount.deriveType;
   const swrKey =
     networkId && (resolvedAccountId || resolvedIndexedAccountId)
       ? swrKeys.earnAccount({
           networkId,
           accountId: resolvedAccountId,
           indexedAccountId: resolvedIndexedAccountId,
-          deriveType,
           btcOnlyTaproot,
         })
       : undefined;
@@ -71,16 +69,7 @@ export function useEarnAccount({
         }),
       };
     },
-    // deriveType invalidates a request whose authoritative network-scoped
-    // value is resolved inside ServiceStaking rather than this closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      networkId,
-      resolvedAccountId,
-      resolvedIndexedAccountId,
-      deriveType,
-      btcOnlyTaproot,
-    ],
+    [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
     {
       watchLoading: true,
       undefinedResultIfReRun: false,

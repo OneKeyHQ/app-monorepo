@@ -681,22 +681,19 @@ export const swrKeys = {
     networkId,
     accountId,
     indexedAccountId,
-    deriveType,
     btcOnlyTaproot,
   }: {
     networkId: string;
     accountId?: string;
     indexedAccountId?: string;
-    deriveType?: string;
     btcOnlyTaproot: boolean;
   }) =>
     [
       NS.earnAccount,
-      'v1',
+      'v2',
       networkId,
       accountId ?? '',
       indexedAccountId ?? '',
-      deriveType ?? '',
       btcOnlyTaproot ? '1' : '0',
     ].join(':'),
   earnProtocolDetail: ({

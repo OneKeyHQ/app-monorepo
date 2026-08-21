@@ -29,7 +29,8 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const state: {
     deps?: unknown[];
     options?: { swrKey?: string };
-  } = {};
+    run: jest.Mock;
+  } = { run: jest.fn() };
   (
     globalThis as unknown as {
       __earnAccountPromiseResultMock: typeof state;
@@ -44,12 +45,17 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     ) => {
       state.deps = deps;
       state.options = options;
-      return { result: undefined, run: jest.fn(), isLoading: false };
+      return { result: undefined, run: state.run, isLoading: false };
     },
   };
 });
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
+
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { useEarnAccount } from './useEarnAccount';
 
@@ -69,29 +75,45 @@ const promiseResultMock = (
     __earnAccountPromiseResultMock: {
       deps?: unknown[];
       options?: { swrKey?: string };
+      run: jest.Mock;
     };
   }
 ).__earnAccountPromiseResultMock;
 
 describe('useEarnAccount cache identity', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     selectedAccountMock.current.deriveType = 'default';
     promiseResultMock.deps = undefined;
     promiseResultMock.options = undefined;
+    promiseResultMock.run.mockReset();
   });
 
-  it('reruns and swaps cache scope when the selected derive type changes', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('ignores another selector network derive type and refreshes from events', () => {
     const { rerender } = renderHook(() =>
       useEarnAccount({ networkId: 'evm--1' }),
     );
 
-    expect(promiseResultMock.deps).toContain('default');
-    expect(promiseResultMock.options?.swrKey).toContain(':default:');
+    const initialDeps = promiseResultMock.deps;
+    const initialSWRKey = promiseResultMock.options?.swrKey;
 
     selectedAccountMock.current.deriveType = 'BIP44';
     rerender(undefined);
 
-    expect(promiseResultMock.deps).toContain('BIP44');
-    expect(promiseResultMock.options?.swrKey).toContain(':BIP44:');
+    expect(promiseResultMock.deps).toEqual(initialDeps);
+    expect(promiseResultMock.options?.swrKey).toBe(initialSWRKey);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, undefined);
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(promiseResultMock.run).toHaveBeenCalledWith({
+      alwaysSetState: true,
+    });
   });
 });
