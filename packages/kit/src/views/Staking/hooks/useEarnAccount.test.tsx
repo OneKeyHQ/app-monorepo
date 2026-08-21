@@ -143,7 +143,7 @@ describe('useEarnAccount cache identity', () => {
     promiseResultMock.accountDeps = undefined;
     promiseResultMock.accountOptions = undefined;
     promiseResultMock.accountRun.mockReset();
-    earnAccountServiceMock.mockResolvedValue(null);
+    earnAccountServiceMock.mockReset().mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -198,5 +198,36 @@ describe('useEarnAccount cache identity', () => {
       alwaysSetState: true,
     });
     expect(promiseResultMock.accountRun).not.toHaveBeenCalled();
+  });
+
+  it('keeps an HD accountId with indexedAccountId in the derive scope', async () => {
+    renderHook(() =>
+      useEarnAccount({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44/60/0/0/0',
+      }),
+    );
+
+    expect(promiseResultMock.accountOptions?.swrKey).toBe(
+      'earnAccount:v3:evm--1:hd-1--m/44/60/0/0/0:wallet-1--1:default:1',
+    );
+
+    await promiseResultMock.accountMethod?.();
+
+    expect(earnAccountServiceMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'hd-1--m/44/60/0/0/0',
+        indexedAccountId: 'wallet-1--1',
+        deriveType: 'default',
+      }),
+    );
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
+    });
+
+    expect(promiseResultMock.deriveRun).toHaveBeenCalledWith({
+      alwaysSetState: true,
+    });
   });
 });

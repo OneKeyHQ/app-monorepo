@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
@@ -41,7 +42,9 @@ export function useEarnAccount({
   const resolvedIndexedAccountId =
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
   const isIndexedAccountScope = Boolean(
-    !resolvedAccountId && resolvedIndexedAccountId,
+    resolvedIndexedAccountId &&
+    (!resolvedAccountId ||
+      !accountUtils.isOthersAccount({ accountId: resolvedAccountId })),
   );
   const fixedDeriveType: IAccountDeriveTypes | undefined =
     isIndexedAccountScope &&
