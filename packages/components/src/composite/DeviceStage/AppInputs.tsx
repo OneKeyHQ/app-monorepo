@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -13,7 +13,6 @@ import Animated, {
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input } from '../../forms/Input';
-import { ESwitchSize, Switch } from '../../forms/Switch';
 import {
   Anchor,
   Button,
@@ -23,6 +22,8 @@ import {
   XStack,
   YStack,
 } from '../../primitives';
+
+import { PreferenceCapsule } from './PreferenceCapsule';
 
 /**
  * The app-side input panels: the steps where the person types in the app
@@ -75,7 +76,10 @@ const DOT_SLIDE = LinearTransition.duration(MARK_IN_MS).easing(easeOutFn);
 /** Refusing an empty confirm: a prompt in place of a disabled key. */
 const EMPTY_PIN_PROMPT = 'Enter your PIN first.';
 
-function PinKey({
+// Memoized: `onKey` is stable (its value rides a ref), so a keypress
+// re-renders the dots strip alone instead of all twelve keys' Tamagui
+// style resolution on the same JS beat as the dot's layout transition.
+const PinKey = memo(function PinKey({
   value,
   onKey,
 }: {
@@ -110,7 +114,7 @@ function PinKey({
       )}
     </Stack>
   );
-}
+});
 
 export interface IPinPadProps {
   onSubmit?: (pin: string) => void;
@@ -478,36 +482,12 @@ export function PassphraseForm({
           reads as "decide what happens to the wallet, then pick a way in".
           Verify unlocks an existing wallet — nothing to decide, no row. */}
       {mode === 'create' ? (
-        // The preference capsule, the stage's ratified grammar: a
-        // full-pill container on $neutral2 under a $neutral4 hairline,
-        // subdued label riding the wider start padding, switch tight to
-        // the end.
-        <XStack
-          alignItems="center"
-          gap="$5"
-          pl="$6"
-          pr="$4"
-          py="$3"
-          borderRadius="$full"
-          bg="$neutral2"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$neutral4"
-        >
-          <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-            Keep wallet after closing app
-          </SizableText>
-          {/* Native switch — relies on the @expo/ui patch that restores
-              UIKit view-touch delivery inside the sheet's hosted RN
-              content (see patches/@expo+ui): without it the system
-              UISwitch is a touch black hole there, while RN's own
-              pipeline keeps working. */}
-          <Switch
-            testID="device-stage-passphrase-keep-accessible"
-            size={ESwitchSize.small}
-            value={keepAccessible}
-            onChange={setKeepAccessible}
-          />
-        </XStack>
+        <PreferenceCapsule
+          testID="device-stage-passphrase-keep-accessible"
+          label="Keep wallet after closing app"
+          value={keepAccessible}
+          onChange={setKeepAccessible}
+        />
       ) : null}
       <Button
         testID="device-stage-passphrase-confirm"
