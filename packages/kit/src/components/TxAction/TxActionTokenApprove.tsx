@@ -442,6 +442,12 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     // For scaled-UI tokens this seeds a DISPLAY-basis originalAllowance;
     // safe only because the sole reader (legacy ApproveEditor reset) is
     // behind the isScalingBalanceMultiplier-gated edit button above.
+    // Caveat: the sendConfirm-context updateTokenApproveInfo is
+    // last-write-wins with no guard (unlike signatureConfirm's
+    // first-write-wins), so if multiple approve detail views ever share one
+    // sendConfirm context, a NON-scaling token's Reset could replay this
+    // display-basis value — and the vault guard would not catch it (it keys
+    // on that token's address). Keep this seeding gated if that ever changes.
     updateTokenApproveInfo({
       originalAllowance: originalApproveAmount,
       originalIsUnlimited: approveIsMax,
