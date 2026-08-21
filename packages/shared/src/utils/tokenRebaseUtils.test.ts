@@ -530,4 +530,92 @@ describe('tokenRebaseUtils', () => {
       expect(resp.tokens.map[$key].balanceMultiplier).toBe('3');
     });
   });
+
+  describe('pickDecodeBalanceMultiplier', () => {
+    const fetchedToken = { balanceMultiplier: '3' };
+
+    it('prefers the snapshot multiplier on exact address match', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: '0xAbC', balanceMultiplier: '2' },
+          fetchedToken,
+          tokenAddress: '0xAbC',
+        }),
+      ).toBe('2');
+    });
+
+    it('snapshot wins wholesale even when its multiplier is undefined', () => {
+      // Same-snapshot contract: use what the send page displayed against,
+      // even if that snapshot carried no multiplier.
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: '0xAbC' },
+          fetchedToken,
+          tokenAddress: '0xAbC',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('matches case-insensitively when addressCaseInsensitive is set (EVM)', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: '0xABC', balanceMultiplier: '2' },
+          fetchedToken,
+          tokenAddress: '0xabc',
+          addressCaseInsensitive: true,
+        }),
+      ).toBe('2');
+    });
+
+    it('does NOT match across case by default (base58 chains)', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: 'AbC', balanceMultiplier: '2' },
+          fetchedToken,
+          tokenAddress: 'abc',
+        }),
+      ).toBe('3');
+    });
+
+    it('falls back to the fetched token on address mismatch', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: '0xOther', balanceMultiplier: '2' },
+          fetchedToken,
+          tokenAddress: '0xAbC',
+          addressCaseInsensitive: true,
+        }),
+      ).toBe('3');
+    });
+
+    it('falls back to the fetched token when no snapshot exists (dApp txs)', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: undefined,
+          fetchedToken,
+          tokenAddress: '0xAbC',
+        }),
+      ).toBe('3');
+    });
+
+    it('returns undefined when neither source has a multiplier', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: undefined,
+          fetchedToken: undefined,
+          tokenAddress: '0xAbC',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('never matches on empty-string addresses (EVM native sentinel)', () => {
+      expect(
+        tokenRebaseUtils.pickDecodeBalanceMultiplier({
+          snapshotToken: { address: '', balanceMultiplier: '2' },
+          fetchedToken,
+          tokenAddress: '',
+        }),
+      ).toBe('3');
+    });
+  });
 });
