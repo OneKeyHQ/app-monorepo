@@ -649,6 +649,7 @@ function MobilePerpMarket() {
     () =>
       hasFundingTabMounted && mode === 'perp' ? (
         <PerpFundingChart
+          key={activeTradeInstrument.coin}
           coin={activeTradeInstrument.coin}
           isActive={activeTab === 'funding'}
           variant="mobile"

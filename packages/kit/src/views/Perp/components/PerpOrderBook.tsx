@@ -45,6 +45,7 @@ import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import {
   type IL2BookData,
@@ -418,7 +419,9 @@ function MobileHeader() {
         </YStack>
       }
       renderContent={(closeDialog) => (
-        <FundingDialogContent closeDialog={closeDialog} />
+        <PerpsProviderMirror>
+          <FundingDialogContent closeDialog={closeDialog} />
+        </PerpsProviderMirror>
       )}
     />
   );

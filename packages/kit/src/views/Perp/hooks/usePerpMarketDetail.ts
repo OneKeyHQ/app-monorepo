@@ -233,7 +233,6 @@ export function usePerpFundingHistory(
       pollingInterval: coin ? 60 * 1000 : undefined,
       initResult: [],
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
     },
   );
 }
