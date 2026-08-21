@@ -54,11 +54,12 @@ export const useBorrowMarkets = ({
     },
   );
 
-  useEffect(() => {
-    if (markets) {
-      marketsRef.current = markets;
-    }
-  }, [markets]);
+  // usePromiseResult starts its request effect before effects declared below.
+  // Mirror a synchronously hydrated SWR result during render so an inactive
+  // first run returns that snapshot instead of overwriting it with [].
+  if (markets) {
+    marketsRef.current = markets;
+  }
 
   const refetchMarkets = useCallback(async () => {
     lastUpdatedAtRef.current = null;

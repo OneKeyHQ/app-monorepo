@@ -1,10 +1,18 @@
+import { useEffect } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+
+const DERIVE_TYPE_REFRESH_DELAY_MS = 300;
 
 type IUseEarnAccountParams = {
   networkId?: string;
@@ -32,13 +40,14 @@ export function useEarnAccount({
   // bypassing the async activeAccount resolution delay.
   const resolvedIndexedAccountId =
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
+  const deriveType = selectedAccount.deriveType;
   const swrKey =
     networkId && (resolvedAccountId || resolvedIndexedAccountId)
       ? swrKeys.earnAccount({
           networkId,
           accountId: resolvedAccountId,
           indexedAccountId: resolvedIndexedAccountId,
-          deriveType: selectedAccount.deriveType,
+          deriveType,
           btcOnlyTaproot,
         })
       : undefined;
@@ -62,7 +71,16 @@ export function useEarnAccount({
         }),
       };
     },
-    [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
+    // deriveType invalidates a request whose authoritative network-scoped
+    // value is resolved inside ServiceStaking rather than this closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      resolvedAccountId,
+      resolvedIndexedAccountId,
+      deriveType,
+      btcOnlyTaproot,
+    ],
     {
       watchLoading: true,
       undefinedResultIfReRun: false,
@@ -70,6 +88,48 @@ export function useEarnAccount({
       swrShouldPersist: (result) => Boolean(result?.earnAccount),
     },
   );
+
+  useEffect(() => {
+    if (!networkId) {
+      return undefined;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refreshAfterDeriveTypeChanged = () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        timer = undefined;
+        // The service resolves the authoritative derive type for networkId.
+        void refreshAccount({ alwaysSetState: true });
+      }, DERIVE_TYPE_REFRESH_DELAY_MS);
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      refreshAfterDeriveTypeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      refreshAfterDeriveTypeChanged,
+    );
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        refreshAfterDeriveTypeChanged,
+      );
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        refreshAfterDeriveTypeChanged,
+      );
+    };
+  }, [networkId, refreshAccount]);
+
   const earnAccount =
     earnAccountResult && earnAccountResult.networkId === networkId
       ? earnAccountResult.earnAccount

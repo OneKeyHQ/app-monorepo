@@ -704,19 +704,25 @@ export const swrKeys = {
     symbol,
     provider,
     vault,
+    locale,
+    currencyId,
   }: {
     networkId: string;
     symbol: string;
     provider: string;
     vault?: string;
+    locale: string;
+    currencyId: string;
   }) =>
     [
       NS.earnProtocolDetail,
-      'v1',
+      'v2',
       networkId,
       provider.toLowerCase(),
       symbol.toUpperCase(),
       vault ?? '',
+      locale.toLowerCase(),
+      currencyId.toLowerCase(),
     ].join(':'),
 };
 

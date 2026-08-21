@@ -182,8 +182,10 @@ describe('SWR cache keys', () => {
         provider: 'AAVE',
         symbol: 'usdc',
         vault: '0xVault',
+        locale: 'zh-CN',
+        currencyId: 'CNY',
       }),
-    ).toBe('earnProtocolDetail:v1:evm--1:aave:USDC:0xVault');
+    ).toBe('earnProtocolDetail:v2:evm--1:aave:USDC:0xVault:zh-cn:cny');
   });
 
   it('scopes specified token balances by owner, network, and token set', () => {

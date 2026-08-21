@@ -7,10 +7,6 @@ import { isEmpty } from 'lodash';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
@@ -36,7 +32,6 @@ import {
 
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
-const BORROW_DERIVE_TYPE_REFRESH_DELAY_MS = 300;
 
 type IScopedBorrowReservesResult = {
   scopeKey: string;
@@ -127,46 +122,6 @@ export const BorrowDataGate = ({
     networkId: market?.networkId,
   });
 
-  useEffect(() => {
-    if (!market?.networkId) {
-      return undefined;
-    }
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refreshAccountAfterDeriveTypeChanged = () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        timer = undefined;
-        void refreshAccount({ alwaysSetState: true });
-      }, BORROW_DERIVE_TYPE_REFRESH_DELAY_MS);
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.GlobalDeriveTypeUpdate,
-      refreshAccountAfterDeriveTypeChanged,
-    );
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      refreshAccountAfterDeriveTypeChanged,
-    );
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      appEventBus.off(
-        EAppEventBusNames.GlobalDeriveTypeUpdate,
-        refreshAccountAfterDeriveTypeChanged,
-      );
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        refreshAccountAfterDeriveTypeChanged,
-      );
-    };
-  }, [market?.networkId, refreshAccount]);
-
   const { fetchReserves } = useBorrowReserves();
   const lastFetchKeyRef = useRef<string | null>(null);
   const prevFetchKeyRef = useRef<string | null>(null);
@@ -198,12 +153,19 @@ export const BorrowDataGate = ({
     (hasAccountContext && scopedEarnAccountData === undefined);
   const fetchKey = useMemo(
     () =>
-      !isEmpty(market)
+      !shouldWaitForAccount && !isEmpty(market)
         ? `${marketProvider}-${marketNetworkId}-${marketAddress}-${
             accountId ?? 'public'
           }`
         : null,
-    [market, marketProvider, marketNetworkId, marketAddress, accountId],
+    [
+      accountId,
+      market,
+      marketAddress,
+      marketNetworkId,
+      marketProvider,
+      shouldWaitForAccount,
+    ],
   );
   const reservesSWRKey = useMemo(
     () =>
