@@ -71,7 +71,7 @@ export function useEarnAccount({
     },
     [networkId, shouldResolveNetworkDeriveType],
     {
-      watchLoading: shouldResolveNetworkDeriveType,
+      watchLoading: true,
       undefinedResultIfReRun: true,
     },
   );

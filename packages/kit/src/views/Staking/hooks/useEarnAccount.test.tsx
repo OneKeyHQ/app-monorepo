@@ -43,6 +43,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     deriveDeps?: unknown[];
     deriveOptions?: {
       undefinedResultIfReRun?: boolean;
+      watchLoading?: boolean;
     };
     deriveRun: jest.Mock;
     accountMethod?: () => Promise<unknown>;
@@ -116,7 +117,10 @@ const promiseResultMock = (
     __earnAccountPromiseResultMock: {
       deriveResult?: string;
       deriveDeps?: unknown[];
-      deriveOptions?: { undefinedResultIfReRun?: boolean };
+      deriveOptions?: {
+        undefinedResultIfReRun?: boolean;
+        watchLoading?: boolean;
+      };
       deriveRun: jest.Mock;
       accountMethod?: () => Promise<unknown>;
       accountDeps?: unknown[];
@@ -148,6 +152,20 @@ describe('useEarnAccount cache identity', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('keeps derive loading watched when the network arrives after mount', () => {
+    promiseResultMock.deriveResult = undefined;
+    const params: { networkId?: string } = {};
+    const { rerender } = renderHook(() => useEarnAccount(params));
+
+    expect(promiseResultMock.deriveOptions?.watchLoading).toBe(true);
+
+    params.networkId = 'evm--1';
+    rerender(undefined);
+
+    expect(promiseResultMock.deriveDeps).toEqual(['evm--1', true]);
+    expect(promiseResultMock.deriveOptions?.watchLoading).toBe(true);
   });
 
   it('keys and fetches with the authoritative derive type of the target network', async () => {
