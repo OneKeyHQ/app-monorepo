@@ -86,6 +86,7 @@ describe('ServiceUniversalSearch perps asset capability', () => {
     { type: 'perps', name: 'BTC', subtitle: 'Bitcoin' },
     { type: 'xyz', name: 'AMAT', subtitle: 'Applied Materials' },
     { type: 'xyz', name: 'EWJ', subtitle: 'Japan ETF' },
+    { type: 'xyz', name: 'NVDA', subtitle: 'NVIDIA' },
     { type: 'para', name: 'UNITREE', subtitle: 'Unitree' },
   ].map((asset) => ({
     ...asset,
@@ -105,6 +106,7 @@ describe('ServiceUniversalSearch perps asset capability', () => {
               [
                 { name: 'xyz:AMAT', maxLeverage: 10 },
                 { name: 'xyz:EWJ', maxLeverage: 10 },
+                { name: 'xyz:NVDA', maxLeverage: 10 },
               ],
               [{ name: 'para:UNITREE', maxLeverage: 5 }],
             ],
@@ -112,7 +114,18 @@ describe('ServiceUniversalSearch perps asset capability', () => {
           }),
         },
       },
-      serviceHyperliquid: { refreshTradingMeta: jest.fn() },
+      serviceHyperliquid: {
+        refreshTradingMeta: jest.fn(),
+        // Shaped like the server config: every market also carries its pair
+        // notations, which is what makes `usdc` match all of them upstream.
+        getTokenSearchAliases: jest.fn().mockResolvedValue({
+          BTC: { aliases: ['btc', 'bitcoin', 'digital gold', 'btc-usdc'] },
+          'xyz:AMAT': { aliases: ['amat', 'amat-usdc', 'amat/usd'] },
+          'xyz:EWJ': { aliases: ['ewj', 'ewj-usdc'] },
+          'xyz:NVDA': { aliases: ['nvda', 'nvda-usdc'] },
+          'para:UNITREE': { aliases: ['unitree', 'unitree-usdc'] },
+        }),
+      },
     };
     const Ctor = ServiceUniversalSearch as unknown as new (args: {
       backgroundApi: unknown;
@@ -125,16 +138,21 @@ describe('ServiceUniversalSearch perps asset capability', () => {
   }
 
   test.each<[string, string[]]>([
+    // Matched upstream only through the `*-usdc` pair aliases.
     ['usdc', []],
     ['btc', ['BTC']],
+    // Four characters, the threshold itself.
+    ['nvda', ['NVDA']],
+    // Reachable only through an alias: the row itself shows `BTC` / `Bitcoin`.
+    ['gold', ['BTC']],
     // An exact dex prefix browses that sub-dex, a fragment of one does not.
-    ['xyz', ['AMAT', 'EWJ']],
+    ['xyz', ['AMAT', 'EWJ', 'NVDA']],
     ['ar', []],
     // Only the row's description carries this one.
     ['etf', ['EWJ']],
     // Longer and non-ASCII queries stay on the endpoint's own ranking.
-    ['japan', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
-    ['比特币', ['BTC', 'AMAT', 'EWJ', 'UNITREE']],
+    ['japan', ['BTC', 'AMAT', 'EWJ', 'NVDA', 'UNITREE']],
+    ['比特币', ['BTC', 'AMAT', 'EWJ', 'NVDA', 'UNITREE']],
   ])('keeps the rows a %p query can match', async (input, expected) => {
     const service = buildSearchService();
 

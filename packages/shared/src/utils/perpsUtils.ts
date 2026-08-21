@@ -1685,6 +1685,34 @@ export interface ITokenSearchAliasItem {
 
 export type ITokenSearchAliases = Record<string, ITokenSearchAliasItem>;
 
+// Every market also carries its pair notations (`btc-usdc`, `btc/usd`) as
+// aliases, so matching those would let a quote currency query pull in every
+// market that settles in it.
+const TOKEN_SEARCH_PAIR_ALIAS_REGEX = /[-/]usdc?$/;
+
+// Mirrors findTokensByAlias for a single market, minus the pair notations.
+export function matchesTokenSearchAlias({
+  query,
+  aliases,
+}: {
+  query: string;
+  aliases: string[] | undefined;
+}): boolean {
+  if (!query || !aliases?.length) {
+    return false;
+  }
+  const shouldMatchAliasPrefix = /^[a-z0-9]{1,2}$/.test(query);
+  return aliases.some((alias) => {
+    const normalizedAlias = alias.toLowerCase();
+    if (TOKEN_SEARCH_PAIR_ALIAS_REGEX.test(normalizedAlias)) {
+      return false;
+    }
+    return shouldMatchAliasPrefix
+      ? normalizedAlias.startsWith(query)
+      : normalizedAlias.includes(query);
+  });
+}
+
 /**
  * Find token symbols by search alias
  * @param query - Search query (already lowercased)
@@ -2232,6 +2260,7 @@ export default {
   getHyperliquidTokenImageUrl,
   getHyperliquidTokenImageUris,
   findTokensByAlias,
+  matchesTokenSearchAlias,
   getTokenSubtitle,
   mapTriggerOrderType,
   inferTpsl,
