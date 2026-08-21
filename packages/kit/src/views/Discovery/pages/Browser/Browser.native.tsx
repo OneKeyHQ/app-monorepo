@@ -609,6 +609,17 @@ function MobileBrowser() {
                     {platformEnv.isNativeAndroid ? (
                       <Animated.View
                         collapsable={false}
+                        pointerEvents={
+                          shouldShowRootWebPageLayer ? 'auto' : 'none'
+                        }
+                        accessibilityElementsHidden={
+                          !shouldShowRootWebPageLayer
+                        }
+                        importantForAccessibility={
+                          shouldShowRootWebPageLayer
+                            ? 'auto'
+                            : 'no-hide-descendants'
+                        }
                         style={[styles.webPageLayer, webPageAnimatedStyle]}
                       >
                         <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
