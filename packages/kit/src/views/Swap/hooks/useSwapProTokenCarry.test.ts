@@ -246,7 +246,7 @@ describe('useSwapProTokenCarry orchestration', () => {
     expect(store.get(swapProSelectTokenAtom())).toBeUndefined();
   });
 
-  it('moves a cross-network Pro target into Swap with the target native FromToken', () => {
+  it('moves a cross-network Pro target into Swap after Pro synced the account network', () => {
     const fromToken = buildFullToken({
       networkId: 'evm--1',
       contractAddress: '',
@@ -265,7 +265,7 @@ describe('useSwapProTokenCarry orchestration', () => {
       storeInstance.set(swapNetworks(), buildSwapNetworks());
     });
     const { result } = renderHook(
-      () => useSwapProTokenCarry({ accountNetworkId: 'evm--1' }),
+      () => useSwapProTokenCarry({ accountNetworkId: 'sol--101' }),
       { wrapper: Wrapper },
     );
 
@@ -284,6 +284,47 @@ describe('useSwapProTokenCarry orchestration', () => {
       }),
     );
     expect(store.get(swapSelectToTokenAtom())).toBe(proToken);
+  });
+
+  it('keys stable lookup by token identity without clearing same-key results', () => {
+    const fromToken = buildFullToken({
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      isNative: true,
+    });
+    const toToken = buildFullToken({
+      networkId: 'evm--1',
+      contractAddress: '0xusdt',
+      symbol: 'USDT',
+    });
+    const { store, Wrapper } = createCarryHookWrapper((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+      storeInstance.set(swapSelectToTokenAtom(), toToken);
+      storeInstance.set(swapNetworks(), buildSwapNetworks());
+    });
+    renderHook(() => useSwapProTokenCarry({ accountNetworkId: 'evm--1' }), {
+      wrapper: Wrapper,
+    });
+
+    const initialCall = mockUsePromiseResult.mock.lastCall;
+    const initialDependencies = initialCall?.[1] as unknown[] | undefined;
+    expect(initialDependencies?.[1]).toBe('evm--1:0xusdt');
+    expect(initialCall?.[2]).not.toHaveProperty('undefinedResultIfReRun');
+
+    act(() => {
+      store.set(swapSelectToTokenAtom(), {
+        ...toToken,
+        balanceParsed: '100',
+        price: '1',
+      });
+    });
+
+    const refreshedCall = mockUsePromiseResult.mock.lastCall;
+    const refreshedDependencies = refreshedCall?.[1] as unknown[] | undefined;
+    expect(refreshedDependencies?.[0]).toBe(initialDependencies?.[0]);
+    expect(refreshedDependencies?.[1]).toBe(initialDependencies?.[1]);
+    expect(refreshedCall?.[2]).not.toHaveProperty('undefinedResultIfReRun');
   });
 
   it('does not apply a prepared plan after the Pro target changes asynchronously', () => {
@@ -552,21 +593,21 @@ describe('resolveProToSwapCarryToken', () => {
 });
 
 describe('resolveSwapContextNetworkId', () => {
-  it('prefers the account network over a restored FromToken network', () => {
+  it('prefers the ordinary Swap FromToken over the Pro-synced account network', () => {
     expect(
       resolveSwapContextNetworkId({
-        accountNetworkId: 'evm--56',
-        fromTokenNetworkId: 'evm--1',
-      }),
-    ).toBe('evm--56');
-  });
-
-  it('falls back to the FromToken only when the account network is unknown', () => {
-    expect(
-      resolveSwapContextNetworkId({
+        accountNetworkId: 'sol--101',
         fromTokenNetworkId: 'evm--1',
       }),
     ).toBe('evm--1');
+  });
+
+  it('falls back to the account network when the FromToken is unknown', () => {
+    expect(
+      resolveSwapContextNetworkId({
+        accountNetworkId: 'evm--56',
+      }),
+    ).toBe('evm--56');
   });
 
   it('keeps all-network selection by using the FromToken as carry context', () => {

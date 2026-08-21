@@ -94,9 +94,9 @@ export function resolveSwapContextNetworkId({
   fromTokenNetworkId?: string;
   isAllNetwork?: boolean;
 }) {
-  return !isAllNetwork && accountNetworkId
-    ? accountNetworkId
-    : fromTokenNetworkId;
+  // Pro keeps the account selector aligned with its own target network while
+  // active. The ordinary Swap pair therefore owns the context we return to.
+  return fromTokenNetworkId ?? (!isAllNetwork ? accountNetworkId : undefined);
 }
 
 function areOptionalSwapTokensEqual(
@@ -299,21 +299,30 @@ export function useSwapProTokenCarry({
   const stableTokenRequestKey = buildSwapStableTokenRequestKey(
     stableTokenCandidates,
   );
+  const stableTokenRequestCandidates = useMemo(
+    () => stableTokenCandidates,
+    // The request key fully describes every candidate field consumed by the
+    // stable-token lookup. Ignore balance and price-only object replacements.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stableTokenRequestKey],
+  );
   const { result: stableTokenSnapshot } =
     usePromiseResult<ISwapStableTokenSnapshot>(
       async () => ({
         requestKey: stableTokenRequestKey,
         stableTokenKeys:
           platformEnv.isNative && stableTokenRequestKey
-            ? await fetchSwapStableTokenKeys(stableTokenCandidates)
+            ? await fetchSwapStableTokenKeys(stableTokenRequestCandidates)
             : EMPTY_STABLE_TOKEN_KEYS,
       }),
-      [stableTokenCandidates, stableTokenRequestKey],
+      // Token detail refreshes replace token objects without changing their
+      // identity. Revalidate only when the canonical request identity changes;
+      // focus/reconnect refreshes can keep the settled same-key snapshot visible.
+      [stableTokenRequestCandidates, stableTokenRequestKey],
       {
         checkIsFocused: true,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
-        undefinedResultIfReRun: true,
       },
     );
   const stableTokenKeys =

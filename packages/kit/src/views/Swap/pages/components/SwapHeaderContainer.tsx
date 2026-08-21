@@ -322,7 +322,11 @@ const SwapHeaderContainer = ({
           newType === ESwapTabSwitchType.SWAP
             ? prepareProTokenCarryToSwap()
             : undefined;
-        if (!isAllNetworkSelected && proCarry?.targetNetworkId) {
+        if (
+          !isAllNetworkSelected &&
+          proCarry?.targetNetworkId &&
+          proCarry.targetNetworkId !== selectedAccountNetworkId
+        ) {
           await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
         } else if (
           !isAllNetworkSelected &&
