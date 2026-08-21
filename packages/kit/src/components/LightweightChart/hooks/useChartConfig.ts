@@ -34,6 +34,7 @@ interface IUseChartConfigProps {
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
@@ -63,6 +64,7 @@ export function useChartConfig({
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceFormatter,
+  priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
@@ -118,6 +120,7 @@ export function useChartConfig({
       secondaryLineWidth,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       seriesType: resolvedSeriesType,
@@ -149,6 +152,7 @@ export function useChartConfig({
       priceScaleEntireTextOnly,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       resolvedSeriesType,

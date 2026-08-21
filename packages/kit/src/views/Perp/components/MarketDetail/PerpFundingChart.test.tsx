@@ -20,6 +20,7 @@ type IMockLightweightChartProps = {
   fontSize?: number;
   hideCrosshairPriceLabel?: boolean;
   lineWidth?: number;
+  priceFormatterPrecision?: number;
   priceScaleMinimumWidth?: number;
   priceScalePosition?: 'left' | 'right';
   secondaryLineData?: IMarketTokenChart;
@@ -37,6 +38,7 @@ type IMockFundingHistory = {
     time: number;
   }>;
   isLoading: boolean | undefined;
+  setStopPolling: jest.Mock<boolean, [boolean]>;
 };
 
 const mockLightweightChart = jest.fn((_props: IMockLightweightChartProps) => (
@@ -46,6 +48,7 @@ const mockUsePerpFundingHistory = jest.fn<
   IMockFundingHistory,
   [string | undefined, string]
 >();
+const mockSetStopPolling = jest.fn<boolean, [boolean]>(() => false);
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -137,6 +140,7 @@ describe('PerpFundingChart', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
+      setStopPolling: mockSetStopPolling,
     });
   });
 
@@ -144,6 +148,7 @@ describe('PerpFundingChart', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: undefined,
+      setStopPolling: mockSetStopPolling,
     });
 
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
@@ -156,6 +161,7 @@ describe('PerpFundingChart', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: false,
+      setStopPolling: mockSetStopPolling,
     });
 
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
@@ -178,6 +184,7 @@ describe('PerpFundingChart', () => {
         ],
         hideCrosshairPriceLabel: true,
         lineWidth: 2,
+        priceFormatterPrecision: 4,
         priceScalePosition: 'left',
         showLastValue: false,
         showTimeScale: true,
@@ -193,6 +200,7 @@ describe('PerpFundingChart', () => {
         ],
         hideCrosshairPriceLabel: true,
         lineWidth: 2,
+        priceFormatterPrecision: 4,
         priceScalePosition: 'left',
         showLastValue: true,
         showTimeScale: true,
@@ -292,5 +300,17 @@ describe('PerpFundingChart', () => {
         }),
       );
     });
+  });
+
+  it('pauses polling while hidden and resumes when active', () => {
+    const { rerender } = render(
+      <PerpFundingChart coin="BTC" isActive={false} />,
+    );
+
+    expect(mockSetStopPolling).toHaveBeenLastCalledWith(true);
+
+    rerender(<PerpFundingChart coin="BTC" isActive />);
+
+    expect(mockSetStopPolling).toHaveBeenLastCalledWith(false);
   });
 });

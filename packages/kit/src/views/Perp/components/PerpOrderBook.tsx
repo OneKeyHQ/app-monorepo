@@ -113,9 +113,195 @@ function FundingDialogTrigger({
   return cloneElement(renderTrigger, { onPress: handlePress });
 }
 
-function MobileHeader() {
+function FundingDialogContent({
+  closeDialog,
+}: {
+  closeDialog: () => Promise<void> | void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const countdown = useFundingCountdown();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { assetCtx } = usePerpsActiveAssetCtxDisplay(
+    activeTradeInstrument.coin,
+  );
+  const fundingRate = assetCtx?.ctx?.fundingRate || '0';
+  const fundingRateNumber = parseFloat(fundingRate);
+  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
+  const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
+
+  const handleViewFundingHistory = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      navigation.push(EModalPerpRoutes.MobilePerpMarket, {
+        initialTab: 'funding',
+      });
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, navigation]);
+
+  return (
+    <YStack
+      bg="$bg"
+      justifyContent="center"
+      w="100%"
+      px="$5"
+      pt="$2"
+      pb="$5"
+      gap="$6"
+    >
+      <YStack gap="$2">
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perps_fee_rate_projection,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            })}
+          </SizableText>
+        </XStack>
+        <YStack gap="$3">
+          <XStack justifyContent="space-between" alignItems="center">
+            <XStack gap="$1" alignItems="center">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.perps_hourly,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                ({countdown})
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {hourlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_daily,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {dailyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_weekly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {weeklyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_monthly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {monthlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_annually,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {annualizedFundingRate}%
+            </SizableText>
+          </XStack>
+        </YStack>
+      </YStack>
+      <Divider />
+
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_trades_history_direction,
+          })}
+        </SizableText>
+        {fundingRateNumber >= 0 ? (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>
+          </SizableText>
+        ) : (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>
+          </SizableText>
+        )}
+      </YStack>
+
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip0,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip1,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip2,
+          })}
+        </SizableText>
+      </YStack>
+      <Button
+        size="medium"
+        variant="secondary"
+        width="100%"
+        testID="perp-view-funding-history-button"
+        onPress={handleViewFundingHistory}
+      >
+        {intl.formatMessage({
+          id: ETranslations.export_history__action,
+        })}
+      </Button>
+    </YStack>
+  );
+}
+
+function MobileHeader() {
+  const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -135,11 +321,6 @@ function MobileHeader() {
   };
   const fundingRateNumber = parseFloat(fundingRate);
   const hasFundingValue = Number.isFinite(fundingRateNumber);
-  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
   const fundingColor = useMemo(() => {
     if (!hasFundingValue) {
       return '$textSubdued';
@@ -191,18 +372,6 @@ function MobileHeader() {
     [activeTradeInstrument.coin, showSkeleton],
   );
 
-  const handleViewFundingHistory = useCallback(
-    (closeDialog: () => Promise<void> | void) => {
-      void closeDialog();
-      setTimeout(() => {
-        navigation.push(EModalPerpRoutes.MobilePerpMarket, {
-          initialTab: 'funding',
-        });
-      }, FUNDING_DIALOG_CLOSE_DURATION_MS);
-    },
-    [navigation],
-  );
-
   if (isSpot) {
     return null;
   }
@@ -249,178 +418,7 @@ function MobileHeader() {
         </YStack>
       }
       renderContent={(closeDialog) => (
-        <YStack
-          bg="$bg"
-          justifyContent="center"
-          w="100%"
-          px="$5"
-          pt="$2"
-          pb="$5"
-          gap="$6"
-        >
-          <YStack gap="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_fee_rate_projection,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding,
-                })}
-              </SizableText>
-            </XStack>
-            <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="center">
-                <XStack gap="$1" alignItems="center">
-                  <SizableText size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_hourly,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMdMedium" color="$textSubdued">
-                    ({countdown})
-                  </SizableText>
-                </XStack>
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {hourlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_daily,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {dailyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_weekly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {weeklyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_monthly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {monthlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_annually,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {annualizedFundingRate}%
-                </SizableText>
-              </XStack>
-            </YStack>
-          </YStack>
-          <Divider />
-
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trades_history_direction,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" color={fundingColor}>
-              {parseFloat(fundingRate) >= 0 ? (
-                <SizableText size="$bodyMdMedium" color="$text">
-                  <SizableText size="$bodyMdMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodyMdMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>
-                </SizableText>
-              ) : (
-                <SizableText size="$bodyMdMedium" color="$text">
-                  <SizableText size="$bodyMdMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodyMdMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>
-                </SizableText>
-              )}
-            </SizableText>
-          </YStack>
-
-          <Divider />
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip0,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip1,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip2,
-              })}
-            </SizableText>
-          </YStack>
-          <Button
-            size="medium"
-            variant="secondary"
-            width="100%"
-            testID="perp-view-funding-history-button"
-            onPress={() => {
-              void handleViewFundingHistory(closeDialog);
-            }}
-          >
-            {intl.formatMessage({
-              id: ETranslations.export_history__action,
-            })}
-          </Button>
-        </YStack>
+        <FundingDialogContent closeDialog={closeDialog} />
       )}
     />
   );

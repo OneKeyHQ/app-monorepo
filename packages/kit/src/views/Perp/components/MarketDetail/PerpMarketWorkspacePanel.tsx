@@ -188,7 +188,10 @@ export function PerpMarketWorkspacePanel({
             minHeight={0}
             display={visibleActiveView === 'funding' ? 'flex' : 'none'}
           >
-            <PerpFundingChart coin={coin} />
+            <PerpFundingChart
+              coin={coin}
+              isActive={visibleActiveView === 'funding'}
+            />
           </YStack>
         ) : null}
 

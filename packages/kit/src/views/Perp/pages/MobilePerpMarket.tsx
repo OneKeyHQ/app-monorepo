@@ -648,9 +648,13 @@ function MobilePerpMarket() {
   const fundingContent = useMemo(
     () =>
       hasFundingTabMounted && mode === 'perp' ? (
-        <PerpFundingChart coin={activeTradeInstrument.coin} variant="mobile" />
+        <PerpFundingChart
+          coin={activeTradeInstrument.coin}
+          isActive={activeTab === 'funding'}
+          variant="mobile"
+        />
       ) : null,
-    [activeTradeInstrument.coin, hasFundingTabMounted, mode],
+    [activeTab, activeTradeInstrument.coin, hasFundingTabMounted, mode],
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);

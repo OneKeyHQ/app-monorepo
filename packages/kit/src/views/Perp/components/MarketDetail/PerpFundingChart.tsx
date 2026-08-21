@@ -382,6 +382,7 @@ function FundingChartPanel({
           priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
           priceScaleMinimumWidth={priceScaleMinimumWidth}
           priceFormatter={formatFundingPercent}
+          priceFormatterPrecision={4}
           fontSize={isMobile ? MOBILE_CHART_FONT_SIZE : DESKTOP_CHART_FONT_SIZE}
           seriesType="baseline"
           baselineOptions={baselineOptions}
@@ -439,9 +440,11 @@ function FundingChartPanel({
 
 export function PerpFundingChart({
   coin,
+  isActive = true,
   variant = 'workspace',
 }: {
   coin: string;
+  isActive?: boolean;
   variant?: IFundingChartVariant;
 }) {
   const intl = useIntl();
@@ -453,7 +456,11 @@ export function PerpFundingChart({
   const [cumulativeInterval, setCumulativeInterval] =
     useState<IPerpFundingChartInterval>('8h');
   const fundingHistory = usePerpFundingHistory(coin, '90d');
+  const { setStopPolling } = fundingHistory;
   const isMobile = variant === 'mobile';
+  useEffect(() => {
+    setStopPolling(!isActive);
+  }, [isActive, setStopPolling]);
   const history = useMemo(
     () => fundingHistory.result ?? [],
     [fundingHistory.result],

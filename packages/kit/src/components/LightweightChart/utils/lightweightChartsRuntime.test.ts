@@ -119,6 +119,25 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
       'labelVisible: !config.hideCrosshairPriceLabel',
     );
   });
+
+  it('serializes caller-provided percent precision for native charts', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 0.001 }],
+      lineWidth: 2,
+      priceFormatterType: 'percent',
+      priceFormatterPrecision: 4,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"priceFormatterPrecision":4');
+    expect(html).toContain('price.toFixed(precision)');
+  });
 });
 
 describe('resolveSerializablePriceFormatterType', () => {

@@ -39,6 +39,7 @@ export interface ILightweightChartConfig {
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
   priceFormatterType?: ILightweightChartPriceFormatterType;
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
@@ -73,6 +74,9 @@ export interface ILightweightChartProps {
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  // Native WebView only. Custom formatter functions cannot cross the WebView
+  // boundary, so callers can opt into a serializable percent precision.
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';

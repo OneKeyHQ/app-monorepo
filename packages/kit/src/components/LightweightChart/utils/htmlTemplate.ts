@@ -21,7 +21,9 @@ function getChartInitScript(): string {
             return numberPriceFormatter(price, nextConfig);
           };
         }
-        return pctPriceFormatter;
+        return function(price) {
+          return pctPriceFormatter(price, nextConfig);
+        };
       }
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
@@ -393,8 +395,12 @@ function getChartInitScript(): string {
         if (Number.isInteger(abs)) return sign + '$' + abs.toFixed(0);
         return sign + '$' + abs.toFixed(2);
       }
-      function pctPriceFormatter(price) {
-        return price.toFixed(2) + '%';
+      function pctPriceFormatter(price, nextConfig) {
+        var precision = Number(nextConfig && nextConfig.priceFormatterPrecision);
+        if (!Number.isInteger(precision) || precision < 0 || precision > 10) {
+          precision = 2;
+        }
+        return price.toFixed(precision) + '%';
       }
       function numberPriceFormatter(price, nextConfig) {
         var tickStep = Number(nextConfig && nextConfig.priceFormatterTickStep);
