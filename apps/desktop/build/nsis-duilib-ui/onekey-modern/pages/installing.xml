@@ -14,6 +14,7 @@
       <Label text="{{string.feature.eyebrow}}" font="3" textcolor="{{color.brand}}" height="28" />
       <Text name="feature-title" text="{{feature.title}}" font="1" textcolor="{{color.textOnDark}}" height="88" wordbreak="true" />
       <Text name="feature-description" text="{{feature.description}}" textcolor="{{color.textOnDarkSecondary}}" height="102" wordbreak="true" />
+      <Button name="feature-action" text="{{string.feature.action}}" textcolor="{{color.brand}}" hottextcolor="{{color.textOnDark}}" bkcolor="{{color.heroSurface}}" hotbkcolor="{{color.brandPressed}}" pushedbkcolor="{{color.brandPressed}}" width="112" height="34" borderround="9,9" />
       <Control />
       <HorizontalLayout height="36">
         <Button name="feature-prev" text="‹" textcolor="{{color.textOnDark}}" hottextcolor="{{color.surface}}" bkcolor="{{color.heroSurface}}" hotbkcolor="{{color.brandPressed}}" pushedbkcolor="{{color.brandPressed}}" width="36" height="36" borderround="10,10" font="2" />
