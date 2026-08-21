@@ -1,0 +1,50 @@
+{
+  "primaryMetric": "scriptDurationMs",
+  "minimumImprovementRatio": 0.1,
+  "maximumRegressionRatio": 0.05,
+  "guardMetrics": [
+    "taskDurationMs",
+    "recalcStyleDurationMs",
+    "layoutDurationMs",
+    "longTaskTotalMs",
+    "maxFrameDurationMs"
+  ],
+  "scenarios": {
+    "market-control-lg": {
+      "mode": "guard"
+    },
+    "market-cross-lg": {
+      "mode": "improve"
+    },
+    "market-control-xl": {
+      "mode": "guard"
+    },
+    "market-cross-xl": {
+      "mode": "improve"
+    },
+    "control-gt-md": {
+      "mode": "guard"
+    },
+    "cross-sm": {
+      "mode": "improve"
+    },
+    "cross-md": {
+      "mode": "improve"
+    },
+    "cross-2md": {
+      "mode": "improve"
+    },
+    "cross-lg": {
+      "mode": "improve"
+    },
+    "cross-xl": {
+      "mode": "improve"
+    },
+    "cross-2xl": {
+      "mode": "improve"
+    },
+    "cross-height": {
+      "mode": "improve"
+    }
+  }
+}

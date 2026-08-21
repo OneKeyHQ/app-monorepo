@@ -56,6 +56,7 @@
     "perf:android:release:daemon": "node development/perf-ci/run-android-perf-detox-release-daemon.js",
     "perf:web:release": "node development/perf-ci/run-web-perf-release.js",
     "perf:web:release:daemon": "node development/perf-ci/run-web-perf-release-daemon.js",
+    "perf:web:resize": "node development/perf-ci/run-web-resize-perf.js",
     "perf:web:cold": "node development/perf-ci/run-web-cold.js",
     "perf:web:cold:entries": "cross-env PERF_WEB_COLD_SCENARIOS=entries PERF_WEB_COLD_BUDGET_FAIL=0 node development/perf-ci/run-web-cold.js",
     "perf:web:prepare": "node development/perf-ci/run-web-perf-prepare.js",

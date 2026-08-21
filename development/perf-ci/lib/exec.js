@@ -1,7 +1,52 @@
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const { stopChild } = require('./processTree');
+
+function findRepoYarnPath(startDir) {
+  let currentDir = path.resolve(startDir || process.cwd());
+  while (true) {
+    const yarnRcPath = path.join(currentDir, '.yarnrc.yml');
+    try {
+      const yarnRc = fs.readFileSync(yarnRcPath, 'utf8');
+      const match = yarnRc.match(
+        /^\s*yarnPath:\s*(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/m,
+      );
+      const configuredPath = match?.[1] || match?.[2] || match?.[3];
+      if (configuredPath) {
+        const yarnPath = path.resolve(currentDir, configuredPath);
+        if (fs.existsSync(yarnPath)) return yarnPath;
+      }
+    } catch {
+      // Continue toward the filesystem root when this directory has no config.
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) return null;
+    currentDir = parentDir;
+  }
+}
+
+function resolveSpawnInvocation(
+  cmd,
+  args,
+  { cwd, platform = process.platform } = {},
+) {
+  if (platform === 'win32' && String(cmd).toLowerCase() === 'yarn') {
+    const yarnPath = findRepoYarnPath(cwd);
+    if (!yarnPath) {
+      throw new Error(
+        `Unable to locate yarnPath from ${path.resolve(cwd || process.cwd())}`,
+      );
+    }
+    return {
+      command: process.execPath,
+      args: [yarnPath, ...args],
+    };
+  }
+  return { command: cmd, args };
+}
 
 function appendTail(buffer, chunk, maxChars) {
   const next = `${buffer}${chunk}`;
@@ -27,7 +72,8 @@ function execCmd(
     let stoppingForSignal = false;
     let t = null;
 
-    const child = spawn(cmd, args, {
+    const invocation = resolveSpawnInvocation(cmd, args, { cwd });
+    const child = spawn(invocation.command, invocation.args, {
       cwd,
       env: env ? { ...process.env, ...env } : process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -168,6 +214,8 @@ function withRepoNodeBin(repoRoot, env = {}) {
 
 module.exports = {
   execCmd,
+  findRepoYarnPath,
   formatExecResultError,
+  resolveSpawnInvocation,
   withRepoNodeBin,
 };

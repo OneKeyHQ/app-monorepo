@@ -122,6 +122,71 @@ function relativeLogPath(logPath) {
   return path.relative(process.cwd(), logPath);
 }
 
+function findRepoYarnPath() {
+  const yarnRc = fs.readFileSync(
+    path.join(process.cwd(), '.yarnrc.yml'),
+    'utf8',
+  );
+  const match = yarnRc.match(
+    /^\s*yarnPath:\s*(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/m,
+  );
+  const configuredPath = match?.[1] || match?.[2] || match?.[3];
+  if (!configuredPath) {
+    throw new Error('Unable to resolve yarnPath from .yarnrc.yml');
+  }
+  const yarnPath = path.resolve(process.cwd(), configuredPath);
+  if (!fs.existsSync(yarnPath)) {
+    throw new Error(`Configured Yarn release does not exist: ${yarnPath}`);
+  }
+  return yarnPath;
+}
+
+function resolveCommandInvocation(command, args) {
+  if (process.platform !== 'win32') return { command, args };
+  if (command === 'yarn') {
+    return {
+      command: process.execPath,
+      args: [findRepoYarnPath(), ...args],
+    };
+  }
+  if ((command === 'npx' || command === 'npx.cmd') && args[0] === 'oxlint') {
+    return {
+      command: process.execPath,
+      args: [
+        path.join(process.cwd(), 'node_modules', 'oxlint', 'bin', 'oxlint'),
+        ...args.slice(1),
+      ],
+    };
+  }
+  return { command, args };
+}
+
+function commandEnvironment() {
+  if (process.platform !== 'win32') return process.env;
+  const candidates = [
+    path.join(
+      process.env.PROGRAMFILES || 'C:\\Program Files',
+      'Git',
+      'usr',
+      'bin',
+    ),
+    path.join(
+      process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+      'Git',
+      'usr',
+      'bin',
+    ),
+  ];
+  const gitUnixToolsDir = candidates.find((candidate) =>
+    fs.existsSync(path.join(candidate, 'grep.exe')),
+  );
+  if (!gitUnixToolsDir) return process.env;
+  return {
+    ...process.env,
+    PATH: `${gitUnixToolsDir}${path.delimiter}${process.env.PATH || ''}`,
+  };
+}
+
 function writeCommandLog(logDir, name, command, args, result, durationMs) {
   const fileName = `${name.replace(/[^a-zA-Z0-9._-]/g, '_')}.log`;
   const logPath = path.join(logDir, fileName);
@@ -129,6 +194,7 @@ function writeCommandLog(logDir, name, command, args, result, durationMs) {
     `$ ${[command, ...args].join(' ')}`,
     `exitCode: ${String(result.status)}`,
     `signal: ${result.signal || ''}`,
+    result.error ? `spawnError: ${result.error.message}` : '',
     `duration: ${formatDuration(durationMs)}`,
     '',
     '--- stdout ---',
@@ -157,8 +223,10 @@ function compactCommandResult(result) {
 
 function runCommand(logDir, name, command, args) {
   const startedAt = Date.now();
-  const result = spawnSync(command, args, {
+  const invocation = resolveCommandInvocation(command, args);
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: process.cwd(),
+    env: commandEnvironment(),
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 50,
   });
@@ -166,8 +234,8 @@ function runCommand(logDir, name, command, args) {
   const logPath = writeCommandLog(
     logDir,
     name,
-    command,
-    args,
+    invocation.command,
+    invocation.args,
     result,
     durationMs,
   );
@@ -181,8 +249,8 @@ function runCommand(logDir, name, command, args) {
 
   return {
     name,
-    command,
-    args,
+    command: invocation.command,
+    args: invocation.args,
     ok,
     exitCode: result.status,
     signal: result.signal,

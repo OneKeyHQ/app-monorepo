@@ -33,7 +33,7 @@ import { useTabNameContextSafe } from '../Tabs/TabNameContext';
 
 import { Column, MemoHeaderColumn } from './components';
 
-import type { ITableProps } from './types';
+import type { ITableColumn, ITableProps } from './types';
 import type { IListViewRef } from '../../layouts';
 import type {
   IRenderItemParams,
@@ -99,6 +99,45 @@ const renderContent = (text?: string) => (
     {text ?? '-'}
   </SizableText>
 );
+
+function TableCell<T>({
+  column,
+  index,
+  item,
+  showSkeleton,
+}: {
+  column: ITableColumn<T>;
+  index: number;
+  item: T;
+  showSkeleton: boolean;
+}) {
+  const {
+    dataIndex,
+    align,
+    render = renderContent,
+    renderSkeleton,
+    columnWidth = 40,
+    columnProps,
+  } = column;
+  return (
+    <Column
+      name={dataIndex}
+      align={align}
+      width={columnWidth}
+      {...(columnProps as any)}
+    >
+      {showSkeleton
+        ? renderSkeleton?.()
+        : render(
+            (item as Record<string, string>)[dataIndex] as unknown as string,
+            item,
+            index,
+          )}
+    </Column>
+  );
+}
+
+const MemoTableCell = memo(TableCell) as typeof TableCell;
 
 function TableRow<T>({
   columns,
@@ -251,32 +290,14 @@ function TableRow<T>({
         if (!column) {
           return null;
         }
-        const {
-          dataIndex,
-          align,
-          render = renderContent,
-          renderSkeleton,
-          columnWidth = 40,
-          columnProps,
-        } = column;
         return (
-          <Column
-            key={dataIndex}
-            name={dataIndex}
-            align={align}
-            width={columnWidth}
-            {...(columnProps as any)}
-          >
-            {showSkeleton
-              ? renderSkeleton?.()
-              : render(
-                  (item as Record<string, string>)[
-                    dataIndex
-                  ] as unknown as string,
-                  item,
-                  index,
-                )}
-          </Column>
+          <MemoTableCell
+            key={column.dataIndex}
+            column={column}
+            item={item}
+            index={index}
+            showSkeleton={showSkeleton}
+          />
         );
       })}
     </XStack>
