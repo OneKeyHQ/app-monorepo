@@ -31,6 +31,7 @@ module.exports = {
   },
   'nsis': {
     'oneClick': false,
+    'include': 'installer.nsh',
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'installerIcon': 'app/build/static/images/icons/installerIcon.ico',
     'uninstallerIcon': 'app/build/static/images/icons/installerIcon.ico',
