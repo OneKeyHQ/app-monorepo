@@ -732,13 +732,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
       device.deviceType,
     );
-    const hasProtocolV2WallpaperPayload =
-      this._isProtocolV2Product(device) && Boolean(screenBase64);
-    // Protocol V2 system wallpapers keep their resource type; the generated
-    // JPEG Base64 payload determines that they use the upload flow.
-    const usesUploadFlow =
-      resType === 'custom' || isUserUpload || hasProtocolV2WallpaperPayload;
-    const needUploadResource = !isMonochrome && usesUploadFlow;
+    const isCustomScreen = resType === 'custom' || isUserUpload;
+
+    // Pro、Touch: custom upload wallpaper
+    const needUploadResource = isCustomScreen && !isMonochrome;
 
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
@@ -746,7 +743,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const result: DeviceUploadResourceResponse =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
-          // Upload generated image data for custom and Protocol V2 wallpapers.
+          // pro touch custom upload wallpaper
           if (needUploadResource) {
             if (this._isProtocolV2Product(device)) {
               if (!screenBase64) {

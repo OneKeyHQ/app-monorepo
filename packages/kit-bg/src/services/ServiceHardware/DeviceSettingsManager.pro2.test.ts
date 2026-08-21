@@ -570,14 +570,14 @@ describe('DeviceSettingsManager device adapters', () => {
   });
 
   test.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
-    'uploads a URL-backed system wallpaper to %s with generated Base64',
+    'uploads a custom wallpaper to %s with generated Base64',
     async (deviceType) => {
       const device = buildDevice(deviceType);
       jest.spyOn(localDb, 'getDevice').mockResolvedValue(device);
       const waitForDeviceStateSync = jest.fn(async () => undefined);
       const deviceUploadWallpaper = jest.fn(async () => ({
         success: true as const,
-        payload: { message: 'Success', path: 'vol1:/wallpapers/system.bin' },
+        payload: { message: 'Success', path: 'vol1:/wallpapers/custom.bin' },
       }));
       const manager = new DeviceSettingsManager({
         backgroundApi: {
@@ -599,8 +599,8 @@ describe('DeviceSettingsManager device adapters', () => {
       const result = await manager.setDeviceHomeScreen({
         dbDeviceId: device.id,
         screenItem: {
-          id: `${deviceType} system wallpaper`,
-          resType: 'system',
+          id: `${deviceType} custom wallpaper`,
+          resType: 'custom',
           url: `https://example.com/${deviceType}-wallpaper.jpg`,
           screenBase64: '/9j/',
         },
@@ -608,7 +608,7 @@ describe('DeviceSettingsManager device adapters', () => {
 
       expect(deviceUploadWallpaper).toHaveBeenCalledWith(device.connectId, {
         jpegBase64: '/9j/',
-        fileName: `${deviceType}-system-wallpaper`,
+        fileName: `${deviceType}-custom-wallpaper`,
       });
       expect(waitForDeviceStateSync).toHaveBeenCalledWith({
         connectIds: expect.arrayContaining([device.connectId, device.deviceId]),

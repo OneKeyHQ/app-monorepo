@@ -15,16 +15,4 @@ describe('HardwareHomeScreenModal Protocol V2 wallpapers', () => {
       'defaultWallpapers.length > 0 && shouldShowDefaultWallpapers',
     );
   });
-
-  it('builds the upload payload from a Protocol V2 system wallpaper URL', () => {
-    const source = readFileSync(
-      join(__dirname, 'HardwareHomeScreenModal.tsx'),
-      'utf8',
-    );
-
-    expect(source).toMatch(
-      /const shouldBuildImagePayload =[\s\S]*isProtocolV2ProductType\(device\.deviceType\)[\s\S]*Boolean\(selectedItem\.url\)/u,
-    );
-    expect(source).toContain('if (shouldBuildImagePayload)');
-  });
 });

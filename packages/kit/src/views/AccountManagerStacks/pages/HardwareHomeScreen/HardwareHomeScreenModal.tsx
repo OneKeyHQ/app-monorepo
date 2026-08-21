@@ -810,11 +810,7 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             } = selectedItem;
 
-            const shouldBuildImagePayload =
-              resType === 'custom' ||
-              isUserUpload ||
-              (isProtocolV2ProductType(device.deviceType) &&
-                Boolean(selectedItem.url));
+            const isCustomScreen = resType === 'custom' || isUserUpload;
 
             let buildCustomHexError: string | undefined = '';
 
@@ -823,8 +819,9 @@ export default function HardwareHomeScreenModal({
             let finallyThumbnailHex: string | undefined;
             let finallyBlurScreenHex: string | undefined;
             try {
-              if (shouldBuildImagePayload) {
-                // Convert custom uploads and Protocol V2 server URLs on the client.
+              if (isCustomScreen) {
+                // case 1: custom upload wallpaper from uri
+                // case 2: server custom wallpaper from url
                 const {
                   screenHex: customScreenHex,
                   screenBase64: customScreenBase64,

@@ -1950,7 +1950,7 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
             {
               id: `${deviceType}-wallpaper`,
               wallpaperType: 'default',
-              resType: 'system',
+              resType: 'custom',
               url: `https://example.com/${deviceType}-wallpaper.png`,
               deviceTypes: [deviceType],
             },
@@ -1981,7 +1981,7 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
         {
           id: `${deviceType}-wallpaper`,
           wallpaperType: 'default',
-          resType: 'system',
+          resType: 'custom',
           url: `https://example.com/${deviceType}-wallpaper.png`,
           screenHex: undefined,
           nameHex: undefined,
