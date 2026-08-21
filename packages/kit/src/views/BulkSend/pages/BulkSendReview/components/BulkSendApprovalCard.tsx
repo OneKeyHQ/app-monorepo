@@ -25,6 +25,7 @@ import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -102,7 +103,11 @@ function ApprovalItem({
           >
             {displayAmount}
           </NumberSizeableText>
-          {onEdit && !isResetApproval ? (
+          {onEdit &&
+          !isResetApproval &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            tokenInfo?.balanceMultiplier,
+          ) ? (
             <IconButton
               testID="bulk-send-icon-btn"
               icon="PencilOutline"
