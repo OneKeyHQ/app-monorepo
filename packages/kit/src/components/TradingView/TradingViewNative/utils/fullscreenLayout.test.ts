@@ -1,6 +1,7 @@
 import {
   getTradingViewNativeFullscreenButtonBottom,
   getTradingViewNativeFullscreenLayout,
+  shouldHideTradingViewNativeStatusBar,
 } from './fullscreenLayout';
 
 describe('TradingView native fullscreen layout', () => {
@@ -66,5 +67,64 @@ describe('TradingView native fullscreen layout', () => {
         paneCount: 2,
       }),
     ).toBe(144);
+  });
+
+  it.each([
+    {
+      expected: true,
+      height: 844,
+      isAndroid: true,
+      isFullscreen: true,
+      isSpanningWindow: false,
+      name: 'a compact portrait window',
+      width: 390,
+    },
+    {
+      expected: true,
+      height: 390,
+      isAndroid: true,
+      isFullscreen: true,
+      isSpanningWindow: false,
+      name: 'a compact landscape window',
+      width: 844,
+    },
+    {
+      expected: false,
+      height: 883,
+      isAndroid: true,
+      isFullscreen: true,
+      isSpanningWindow: false,
+      name: 'a large unfolded-sized window before posture detection is ready',
+      width: 852,
+    },
+    {
+      expected: false,
+      height: 844,
+      isAndroid: true,
+      isFullscreen: true,
+      isSpanningWindow: true,
+      name: 'a spanning foldable window',
+      width: 390,
+    },
+    {
+      expected: false,
+      height: 844,
+      isAndroid: true,
+      isFullscreen: false,
+      isSpanningWindow: false,
+      name: 'a non-fullscreen chart',
+      width: 390,
+    },
+    {
+      expected: false,
+      height: 844,
+      isAndroid: false,
+      isFullscreen: true,
+      isSpanningWindow: false,
+      name: 'an iOS window',
+      width: 390,
+    },
+  ])('returns $expected for $name', ({ expected, ...options }) => {
+    expect(shouldHideTradingViewNativeStatusBar(options)).toBe(expected);
   });
 });

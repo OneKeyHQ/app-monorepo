@@ -2,6 +2,8 @@ import { TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT } from '../chartConstants';
 
 import { getTradingViewNativeSubIndicatorPaneStackHeight } from './subIndicatorRender';
 
+const ANDROID_LARGE_WINDOW_MIN_DIMENSION = 600;
+
 export interface ITradingViewNativeFullscreenInsets {
   bottom: number;
   left: number;
@@ -11,6 +13,32 @@ export interface ITradingViewNativeFullscreenInsets {
 
 function normalizeLayoutValue(value: number) {
   return Number.isFinite(value) ? Math.max(value, 0) : 0;
+}
+
+export function shouldHideTradingViewNativeStatusBar({
+  height,
+  isAndroid,
+  isFullscreen,
+  isSpanningWindow,
+  width,
+}: {
+  height: number;
+  isAndroid: boolean;
+  isFullscreen: boolean;
+  isSpanningWindow: boolean;
+  width: number;
+}) {
+  if (!isAndroid || !isFullscreen || isSpanningWindow) {
+    return false;
+  }
+
+  // The shortest edge keeps the window class stable when fullscreen rotates.
+  const minWindowDimension = Math.min(width, height);
+  return (
+    Number.isFinite(minWindowDimension) &&
+    minWindowDimension > 0 &&
+    minWindowDimension < ANDROID_LARGE_WINDOW_MIN_DIMENSION
+  );
 }
 
 export function getTradingViewNativeFullscreenLayout({

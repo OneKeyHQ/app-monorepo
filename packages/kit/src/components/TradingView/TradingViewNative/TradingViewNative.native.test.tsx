@@ -11,6 +11,7 @@ import type { ITradingViewNativeSource } from './types';
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
 const mockIsSpanning = jest.fn(() => false);
+const mockStatusBar = jest.fn<null, [{ hidden?: boolean }]>(() => null);
 const mockWindowDimensions = { height: 844, width: 390 };
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
@@ -39,6 +40,8 @@ jest.mock('react-native', () => ({
   Dimensions: {
     get: () => mockWindowDimensions,
   },
+  StatusBar: (props: { hidden?: boolean }) => mockStatusBar(props),
+  useWindowDimensions: () => mockWindowDimensions,
 }));
 
 jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
@@ -79,6 +82,7 @@ describe('TradingViewNative screen orientation', () => {
     render(<TradingViewNative source={source} />);
 
     expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockStatusBar).not.toHaveBeenCalled();
   });
 
   it('locks landscape only while fullscreen and restores portrait on exit', async () => {
@@ -178,6 +182,7 @@ describe('TradingViewNative screen orientation', () => {
 
     expect(mockLockAsync).not.toHaveBeenCalled();
     expect(handleFullscreenChange).not.toHaveBeenCalled();
+    expect(mockStatusBar).not.toHaveBeenCalled();
 
     unmount();
 
@@ -193,6 +198,7 @@ describe('TradingViewNative screen orientation', () => {
     );
 
     expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockStatusBar.mock.calls[0]?.[0]).toMatchObject({ hidden: true });
 
     unmount();
 
@@ -216,5 +222,6 @@ describe('TradingViewNative screen orientation', () => {
     await waitFor(() => {
       expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
     });
+    expect(mockStatusBar.mock.calls[0]?.[0]).toMatchObject({ hidden: true });
   });
 });

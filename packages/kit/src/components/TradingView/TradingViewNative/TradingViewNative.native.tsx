@@ -2,12 +2,18 @@ import { useEffect } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
-import { AppState, Dimensions } from 'react-native';
+import {
+  AppState,
+  Dimensions,
+  StatusBar,
+  useWindowDimensions,
+} from 'react-native';
 
 import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
+import { shouldHideTradingViewNativeStatusBar } from './utils/fullscreenLayout';
 
 import type { ITradingViewNativeProps } from './types';
 
@@ -41,6 +47,15 @@ function lockScreenOrientation(
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
+  const { height, width } = useWindowDimensions();
+  const isAndroid = platformEnv.isNativeAndroid === true;
+  const shouldHideStatusBar = shouldHideTradingViewNativeStatusBar({
+    height,
+    isAndroid,
+    isFullscreen,
+    isSpanningWindow: isAndroid && isSpanning(),
+    width,
+  });
 
   useEffect(() => {
     if (!isFullscreen) {
@@ -78,5 +93,10 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     };
   }, [isFullscreen, onNativeChartFullscreenChange]);
 
-  return <TradingViewNativeContainer {...props} />;
+  return (
+    <>
+      {shouldHideStatusBar ? <StatusBar hidden /> : null}
+      <TradingViewNativeContainer {...props} />
+    </>
+  );
 }
