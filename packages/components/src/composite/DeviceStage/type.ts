@@ -1,38 +1,36 @@
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
 /**
- * Exploration-only hardware-interaction stage. Deliberately minimal, like the
- * DialogV2 it wraps: enough surface to judge the look and the step-to-step
- * feel, nothing else. Event wiring, honest cancel semantics and i18n belong
- * to the integration layer built after this is accepted.
+ * Exploration-only hardware-interaction stage. Deliberately minimal:
+ * enough surface to judge the look and the step-to-step feel, nothing
+ * else. Event wiring, honest cancel semantics and i18n belong to the
+ * integration layer built after this is accepted.
  */
 
 /**
- * Where the interaction currently stands. One dialog instance plays every
- * step of a burst; the content swaps in place so consecutive device requests
- * never close and reopen the surface — including the endings: failures and
- * completion render on the same stage instead of a toast or a second dialog.
+ * Where the interaction currently stands. One stage instance plays every
+ * step of a burst; the content swaps in place so consecutive device
+ * requests never close and reopen the surface — including the endings:
+ * failures render on the same stage instead of a toast or a second
+ * dialog, and a successful burst simply returns to `off`.
  *
- * `off` is the step before the device responds: no scene, the replica sits
- * with its screen dark, and whichever step follows enters by waking it.
- * `pinOnApp` and `passphraseOnApp` are the app-side inputs — the person
- * types here while the device waits, so the replica leaves the stage and
- * the input panel takes its place. `passphraseIntro` is the teach-first
- * beat before a hidden wallet is created: what a passphrase is and the
- * facts to hold before one exists to lose, with Continue as its single
+ * `off` is the stage at rest: the overlay is not there, and whichever
+ * step follows enters at its own pose. `connecting` and `processing`
+ * are the waiting beats — nothing is asked of the person, so the stage
+ * rests as the floating capsule until the device answers. `pinOnApp`
+ * and `passphraseOnApp` are the app-side inputs — the person types here
+ * while the device waits, so the replica leaves the stage and the input
+ * panel takes its place. `passphraseIntro` is the teach-first beat
+ * before a hidden wallet is created: what a passphrase is and the facts
+ * to hold before one exists to lose, with Continue as its single
  * action — reading material, so the replica stays off stage there too;
  * drivers route through it only when creating, never for plain entry.
- * `showQr` and `scanQr` are the air-gap
- * pair — the app presents a code for the device to scan, then the app's
- * camera scans the code the device shows back; the person is holding the
- * device in both, so the replica stays off stage there too. `processing`
- * is the wait after an input round-trips: nothing is asked of the person,
- * so the stage empties to one spinner line and the sheet closes down to a
- * short strip until the device answers.
+ * `showQr` and `scanQr` are the air-gap pair — the app presents a code
+ * for the device to scan, then the app's camera scans the code the
+ * device shows back; the person is holding the device in both, so the
+ * replica stays off stage there too.
  * `error` is the terminal failure beat, worded by `errorReason`, with one
- * recovery action. `success` is the landing beat — under a second, closed
- * by the driver — and it holds the arrangement it arrives in rather than
- * moving the stage.
+ * recovery action.
  *
  * `genuineCheck`, `authVerifying`, `authSuccess` and `authFailure` are
  * the device-authenticity flow (the live Genuine check): the ask — the
@@ -60,8 +58,7 @@ export type IDeviceStageStep =
   | 'authSuccess'
   | 'authFailure'
   | 'processing'
-  | 'error'
-  | 'success';
+  | 'error';
 
 /**
  * What went wrong, in stage vocabulary. Each reason picks the failure copy
@@ -106,12 +103,11 @@ export interface IAuthChecklistItem {
 }
 
 export interface IDeviceStageProps {
-  /** Controlled visibility, passed straight through to the dialog. */
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   /** Model on stage. Models without a replica render an empty stage. */
   deviceType: IHardwareDeviceType;
   step: IDeviceStageStep;
+  /** The connected device's name — the connecting capsule's second line. */
+  deviceName?: string;
   /**
    * One line of operation context under the confirm title — what the person
    * is about to approve, e.g. "Send 0.1 ETH". The current toast shows
@@ -234,14 +230,4 @@ export interface IDeviceStageProps {
    * PIN pad its arrival also clears the typed value.
    */
   inputError?: string;
-  /**
-   * Blocks every dismissal path for steps that must not be interrupted
-   * (a firmware install, not an everyday confirm).
-   */
-  locked?: boolean;
-  /**
-   * Passed to the dialog: keep the app behind the sheet interactive on
-   * native, for drivers that steer the stage from the host screen.
-   */
-  backgroundInteractive?: boolean;
 }

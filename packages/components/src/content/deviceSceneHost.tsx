@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
 import { StyleSheet, View } from 'react-native';
@@ -301,7 +301,7 @@ export function GlassSweep({
  * Hosts a scene on the screen canvas: builds its clock from the registry
  * spec (no loop means the clock just rests at 0) and renders its content.
  */
-function SceneHost<TScene extends string>({
+function SceneHostBase<TScene extends string>({
   scene,
   scenes,
   paused,
@@ -323,6 +323,13 @@ function SceneHost<TScene extends string>({
   if (!Content) return null;
   return <Content clock={clock} onReady={onReady} />;
 }
+// Memoized: the troupe slot below rebuilds on every crossing, pause flip,
+// grant and warm-up beat, and without this bail every PARKED scene
+// re-renders its whole content tree (dozens of SVG/Tamagui nodes) for
+// zero native change. Per-seat props are stable while a seat holds, so
+// only the seats whose `paused` actually flips re-render. The cast keeps
+// the generic signature memo() erases.
+const SceneHost = memo(SceneHostBase) as typeof SceneHostBase;
 
 /**
  * The troupe screen: every resident scene stays built on the glass,
