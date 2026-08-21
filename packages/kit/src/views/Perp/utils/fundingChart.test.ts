@@ -107,6 +107,17 @@ describe('getPerpFundingTooltipPosition', () => {
     ).toEqual({ left: 212, top: 152 });
   });
 
+  it('accounts for a left price scale before placing the tooltip', () => {
+    expect(
+      getPerpFundingTooltipPosition({
+        ...chartSize,
+        x: 136,
+        y: 200,
+        leftPriceScaleWidth: 64,
+      }),
+    ).toEqual({ left: 212, top: 152 });
+  });
+
   it('flips the tooltip to the left near the right chart edge', () => {
     expect(
       getPerpFundingTooltipPosition({

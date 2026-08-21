@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   DashText,
   DebugRenderTracker,
   Divider,
@@ -16,6 +17,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -29,6 +31,8 @@ import {
   useSpotActiveAssetCtxAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
@@ -667,6 +671,14 @@ const TickerBarFundingRateView = memo(
     isLoading: boolean;
   }) => {
     const intl = useIntl();
+    const tooltipRef = useRef<ITooltipRef>({
+      closeTooltip: () => Promise.resolve(),
+      openTooltip: () => Promise.resolve(),
+    });
+    const handleViewFundingHistory = useCallback(() => {
+      void tooltipRef.current.closeTooltip();
+      appEventBus.emit(EAppEventBusNames.PerpShowFundingHistory, undefined);
+    }, []);
     return (
       <DebugRenderTracker name="TickerBarFundingRate">
         <YStack gap={TICKER_BAR_STAT_LABEL_VALUE_GAP}>
@@ -678,6 +690,7 @@ const TickerBarFundingRateView = memo(
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
             <XStack alignItems="baseline" gap="$2">
               <Tooltip
+                ref={tooltipRef}
                 hovering
                 renderTrigger={
                   <XStack alignItems="baseline" gap="$2">
@@ -858,6 +871,17 @@ const TickerBarFundingRateView = memo(
                         })}
                       </SizableText>
                     </YStack>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      width="100%"
+                      testID="perp-desktop-view-funding-history-button"
+                      onPress={handleViewFundingHistory}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.export_history__action,
+                      })}
+                    </Button>
                   </YStack>
                 }
               />

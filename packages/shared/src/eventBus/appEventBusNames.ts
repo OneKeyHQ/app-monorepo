@@ -176,6 +176,7 @@ export enum EAppEventBusNames {
   PerpsSubscriptionsRecovered = 'PerpsSubscriptionsRecovered',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
+  PerpShowFundingHistory = 'PerpShowFundingHistory',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',

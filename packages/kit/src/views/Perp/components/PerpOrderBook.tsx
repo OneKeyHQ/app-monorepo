@@ -1,12 +1,22 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  cloneElement,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   DashText,
   DebugRenderTracker,
+  Dialog,
   Divider,
-  Popover,
   SizableText,
   XStack,
   YStack,
@@ -30,9 +40,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import {
   type IL2BookData,
@@ -72,8 +84,38 @@ import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalS
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 import type { LayoutChangeEvent } from 'react-native';
 
+const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
+
+function FundingDialogTrigger({
+  title,
+  renderTrigger,
+  renderContent,
+}: {
+  title: string;
+  renderTrigger: ReactElement<{ onPress?: () => void }>;
+  renderContent: (closeDialog: () => Promise<void> | void) => ReactNode;
+}) {
+  const handlePress = useCallback(() => {
+    const dialogInstanceRef: {
+      current?: ReturnType<typeof Dialog.show>;
+    } = {};
+    const closeDialog = () => dialogInstanceRef.current?.close();
+    dialogInstanceRef.current = Dialog.show({
+      title,
+      showFooter: false,
+      contentContainerProps: { p: '$0' },
+      sheetProps: { animation: '100ms' },
+      sheetOverlayProps: { animation: '100ms' },
+      renderContent: renderContent(closeDialog),
+    });
+  }, [renderContent, title]);
+
+  return cloneElement(renderTrigger, { onPress: handlePress });
+}
+
 function MobileHeader() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -149,12 +191,24 @@ function MobileHeader() {
     [activeTradeInstrument.coin, showSkeleton],
   );
 
+  const handleViewFundingHistory = useCallback(
+    (closeDialog: () => Promise<void> | void) => {
+      void closeDialog();
+      setTimeout(() => {
+        navigation.push(EModalPerpRoutes.MobilePerpMarket, {
+          initialTab: 'funding',
+        });
+      }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+    },
+    [navigation],
+  );
+
   if (isSpot) {
     return null;
   }
 
   return (
-    <Popover
+    <FundingDialogTrigger
       title={intl.formatMessage({
         id: ETranslations.perp_position_funding,
       })}
@@ -169,7 +223,7 @@ function MobileHeader() {
           <DashText
             fontSize={10}
             color="$textSubdued"
-            dashColor="$textSubdued"
+            dashColor="$borderSubdued"
             dashThickness={0.5}
             lineHeight={16}
           >
@@ -194,7 +248,7 @@ function MobileHeader() {
           )}
         </YStack>
       }
-      renderContent={
+      renderContent={(closeDialog) => (
         <YStack
           bg="$bg"
           justifyContent="center"
@@ -220,69 +274,69 @@ function MobileHeader() {
             <YStack gap="$3">
               <XStack justifyContent="space-between" alignItems="center">
                 <XStack gap="$1" alignItems="center">
-                  <SizableText size="$headingXs">
+                  <SizableText size="$bodyMdMedium">
                     {intl.formatMessage({
                       id: ETranslations.perps_hourly,
                     })}
                   </SizableText>
-                  <SizableText size="$headingXs" color="$textSubdued">
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
                     ({countdown})
                   </SizableText>
                 </XStack>
                 <SizableText
-                  size="$headingXs"
+                  size="$bodyMdMedium"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {hourlyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
+                <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
                     id: ETranslations.earn_daily,
                   })}
                 </SizableText>
                 <SizableText
-                  size="$headingXs"
+                  size="$bodyMdMedium"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {dailyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
+                <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
                     id: ETranslations.earn_weekly,
                   })}
                 </SizableText>
                 <SizableText
-                  size="$headingXs"
+                  size="$bodyMdMedium"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {weeklyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
+                <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
                     id: ETranslations.earn_monthly,
                   })}
                 </SizableText>
                 <SizableText
-                  size="$headingXs"
+                  size="$bodyMdMedium"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {monthlyFundingRate}%
                 </SizableText>
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
+                <SizableText size="$bodyMdMedium">
                   {intl.formatMessage({
                     id: ETranslations.earn_annually,
                   })}
                 </SizableText>
                 <SizableText
-                  size="$headingXs"
+                  size="$bodyMdMedium"
                   color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
                 >
                   {annualizedFundingRate}%
@@ -300,8 +354,8 @@ function MobileHeader() {
             </SizableText>
             <SizableText size="$bodyMdMedium" color={fundingColor}>
               {parseFloat(fundingRate) >= 0 ? (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$green11">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  <SizableText size="$bodyMdMedium" color="$green11">
                     {intl.formatMessage({
                       id: ETranslations.perp_ticker_direction_funding_tooltip_long,
                     })}
@@ -309,15 +363,15 @@ function MobileHeader() {
                   {intl.formatMessage({
                     id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
                   })}{' '}
-                  <SizableText size="$bodySmMedium" color="$red11">
+                  <SizableText size="$bodyMdMedium" color="$red11">
                     {intl.formatMessage({
                       id: ETranslations.perp_ticker_direction_funding_tooltip_short,
                     })}
                   </SizableText>
                 </SizableText>
               ) : (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$red11">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  <SizableText size="$bodyMdMedium" color="$red11">
                     {intl.formatMessage({
                       id: ETranslations.perp_ticker_direction_funding_tooltip_short,
                     })}
@@ -325,7 +379,7 @@ function MobileHeader() {
                   {intl.formatMessage({
                     id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
                   })}{' '}
-                  <SizableText size="$bodySmMedium" color="$green11">
+                  <SizableText size="$bodyMdMedium" color="$green11">
                     {intl.formatMessage({
                       id: ETranslations.perp_ticker_direction_funding_tooltip_long,
                     })}
@@ -342,19 +396,32 @@ function MobileHeader() {
                 id: ETranslations.perp_funding_rate_tip0,
               })}
             </SizableText>
-            <SizableText size="$bodySmMedium">
+            <SizableText size="$bodyMdMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_funding_rate_tip1,
               })}
             </SizableText>
-            <SizableText size="$bodySmMedium">
+            <SizableText size="$bodyMdMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_funding_rate_tip2,
               })}
             </SizableText>
           </YStack>
+          <Button
+            size="medium"
+            variant="secondary"
+            width="100%"
+            testID="perp-view-funding-history-button"
+            onPress={() => {
+              void handleViewFundingHistory(closeDialog);
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.export_history__action,
+            })}
+          </Button>
         </YStack>
-      }
+      )}
     />
   );
 }

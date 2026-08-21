@@ -560,6 +560,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
     tab: 'Positions' | 'Balances';
   };
+  [EAppEventBusNames.PerpShowFundingHistory]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';

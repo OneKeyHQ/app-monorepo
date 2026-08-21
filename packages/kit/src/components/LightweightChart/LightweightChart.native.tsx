@@ -47,6 +47,9 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
+  hideCrosshairPriceLabel,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -77,10 +80,16 @@ export function LightweightChart({
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeZone,
+    locale,
   });
   const nativeConfig = useMemo(
-    () => ({ ...chartConfig, showLastValue: !!showLastValue }),
-    [chartConfig, showLastValue],
+    () => ({
+      ...chartConfig,
+      showLastValue: !!showLastValue,
+      hideCrosshairPriceLabel,
+    }),
+    [chartConfig, hideCrosshairPriceLabel, showLastValue],
   );
   const [webViewSource] = useState(() =>
     buildStaticWebViewSource(nativeConfig),

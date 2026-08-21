@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -106,6 +108,22 @@ export function PerpMarketWorkspacePanel({
       setActiveView('chart');
     }
   }, [activeView, mode]);
+
+  useEffect(() => {
+    const handleShowFundingHistory = () => {
+      handleChangeActiveView('funding');
+    };
+    appEventBus.on(
+      EAppEventBusNames.PerpShowFundingHistory,
+      handleShowFundingHistory,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PerpShowFundingHistory,
+        handleShowFundingHistory,
+      );
+    };
+  }, [handleChangeActiveView]);
 
   useEffect(() => {
     setMountedInfoMarketKey((prev) => {

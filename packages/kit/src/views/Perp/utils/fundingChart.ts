@@ -17,6 +17,7 @@ export type IPerpFundingTooltipPositionParams = {
   chartHeight: number;
   tooltipWidth: number;
   tooltipHeight: number;
+  leftPriceScaleWidth?: number;
   offset?: number;
   padding?: number;
 };
@@ -38,13 +39,18 @@ export function getPerpFundingTooltipPosition({
   chartHeight,
   tooltipWidth,
   tooltipHeight,
+  leftPriceScaleWidth = 0,
   offset = 12,
   padding = 8,
 }: IPerpFundingTooltipPositionParams) {
   const maxLeft = Math.max(padding, chartWidth - tooltipWidth - padding);
   const maxTop = Math.max(padding, chartHeight - tooltipHeight - padding);
-  const fitsToTheRight = x + offset + tooltipWidth + padding <= chartWidth;
-  const preferredLeft = fitsToTheRight ? x + offset : x - tooltipWidth - offset;
+  const crosshairX = x + leftPriceScaleWidth;
+  const fitsToTheRight =
+    crosshairX + offset + tooltipWidth + padding <= chartWidth;
+  const preferredLeft = fitsToTheRight
+    ? crosshairX + offset
+    : crosshairX - tooltipWidth - offset;
 
   return {
     left: Math.min(maxLeft, Math.max(padding, preferredLeft)),

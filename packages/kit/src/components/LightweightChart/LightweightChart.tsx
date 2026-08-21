@@ -76,6 +76,8 @@ export function LightweightChart({
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
   pulseLastPoint,
   preserveChartInstanceOnDataChange,
   onHover,
@@ -115,6 +117,8 @@ export function LightweightChart({
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeZone,
+    locale,
   });
   const chartConfigRef = useRef(chartConfig);
   chartConfigRef.current = chartConfig;
@@ -166,6 +170,8 @@ export function LightweightChart({
           currentChartConfig.useTimeScaleTickMarkWithoutUnit,
           priceScaleMinimumWidth,
           currentChartConfig.priceScalePosition,
+          currentChartConfig.timeZone,
+          currentChartConfig.locale,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -426,7 +432,9 @@ export function LightweightChart({
     chartConfig.theme.lineColor,
     chartConfig.theme.textSubduedColor,
     chartConfig.theme.topColor,
+    chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
+    chartConfig.locale,
     chartDataCreateDependency,
     hasSecondaryLineData,
     height,

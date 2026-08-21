@@ -44,6 +44,63 @@ function getChartInitScript(): string {
             : {}
         );
       }
+      var timeScaleFormatterCache = new Map();
+      function getTimeScaleFormatOptions(tickMarkType) {
+        if (tickMarkType === 0) return { year: 'numeric' };
+        if (tickMarkType === 1) return { month: 'short' };
+        if (tickMarkType === 2) return { day: 'numeric' };
+        if (tickMarkType === 3) {
+          return { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+        }
+        if (tickMarkType === 4) {
+          return {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+          };
+        }
+        return { month: 'short', day: 'numeric' };
+      }
+      function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
+        var date = new Date(time * 1000);
+        if (!nextConfig.timeZone) {
+          var month = date.toLocaleDateString('en-US', { month: 'short' });
+          var day = date.getDate().toString().padStart(2, '0');
+          return month + ' ' + day;
+        }
+        var formatterKey = [
+          nextConfig.locale || '',
+          nextConfig.timeZone,
+          tickMarkType,
+        ].join('|');
+        var formatter = timeScaleFormatterCache.get(formatterKey);
+        if (!formatter) {
+          formatter = new Intl.DateTimeFormat(
+            nextConfig.locale || undefined,
+            Object.assign(
+              { timeZone: nextConfig.timeZone },
+              getTimeScaleFormatOptions(tickMarkType)
+            )
+          );
+          timeScaleFormatterCache.set(formatterKey, formatter);
+        }
+        return formatter.format(date);
+      }
+      function getTimeScaleOptions(nextConfig) {
+        return {
+          visible: nextConfig.showTimeScale !== false,
+          borderVisible: false,
+          timeVisible: true,
+          secondsVisible: false,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          lockVisibleTimeRangeOnResize: true,
+          tickMarkFormatter: function(time, tickMarkType) {
+            return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
+          },
+        };
+      }
       function getChartOptions(nextConfig) {
         return {
           layout: {
@@ -62,15 +119,7 @@ function getChartInitScript(): string {
                 }
               : { visible: false },
           },
-          timeScale: {
-            visible: nextConfig.showTimeScale !== false,
-            borderVisible: false,
-            timeVisible: true,
-            secondsVisible: false,
-            fixLeftEdge: true,
-            fixRightEdge: true,
-            lockVisibleTimeRangeOnResize: true,
-          },
+          timeScale: getTimeScaleOptions(nextConfig),
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
@@ -384,23 +433,12 @@ function getChartInitScript(): string {
             style: 3,
             labelVisible: false,
           },
-          horzLine: { visible: false },
-        },
-        timeScale: {
-          visible: config.showTimeScale !== false,
-          borderVisible: false,
-          timeVisible: true,
-          secondsVisible: false,
-          fixLeftEdge: true,
-          fixRightEdge: true,
-          lockVisibleTimeRangeOnResize: true,
-          tickMarkFormatter: (time) => {
-            const date = new Date(time * 1000);
-            const month = date.toLocaleDateString('en-US', { month: 'short' });
-            const day = date.getDate().toString().padStart(2, '0');
-            return month + ' ' + day;
+          horzLine: {
+            visible: false,
+            labelVisible: !config.hideCrosshairPriceLabel,
           },
         },
+        timeScale: getTimeScaleOptions(config),
         rightPriceScale: getPriceScaleOptions(config, 'right'),
         leftPriceScale: getPriceScaleOptions(config, 'left'),
         handleScroll: {

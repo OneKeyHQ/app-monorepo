@@ -1,4 +1,9 @@
-import { createChartOptions } from './chartOptions';
+import {
+  createChartOptions,
+  formatChartTickMarkInTimeZone,
+} from './chartOptions';
+
+import type { UTCTimestamp } from 'lightweight-charts';
 
 const theme = {
   bgColor: 'transparent',
@@ -51,5 +56,20 @@ describe('createChartOptions', () => {
       minimumWidth: 64,
     });
     expect(options.rightPriceScale).toEqual({ visible: false });
+  });
+
+  it.each([
+    ['UTC', '03:12'],
+    ['Asia/Shanghai', '11:12'],
+    ['America/New_York', '22:12'],
+  ])('formats time ticks in %s', (timeZone, expected) => {
+    expect(
+      formatChartTickMarkInTimeZone({
+        time: (Date.UTC(2026, 0, 2, 3, 12) / 1000) as UTCTimestamp,
+        tickMarkType: 3,
+        timeZone,
+        locale: 'en-US',
+      }),
+    ).toBe(expected);
   });
 });
