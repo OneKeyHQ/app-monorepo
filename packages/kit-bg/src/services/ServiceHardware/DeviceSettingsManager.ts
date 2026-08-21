@@ -732,11 +732,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
       device.deviceType,
     );
-    const isProtocolV2WallpaperUpload =
+    const hasProtocolV2WallpaperPayload =
       this._isProtocolV2Product(device) && Boolean(screenBase64);
-    const needUploadResource =
-      !isMonochrome &&
-      (resType === 'custom' || isUserUpload || isProtocolV2WallpaperUpload);
+    // Protocol V2 system wallpapers keep their resource type; the generated
+    // JPEG Base64 payload determines that they use the upload flow.
+    const usesUploadFlow =
+      resType === 'custom' || isUserUpload || hasProtocolV2WallpaperPayload;
+    const needUploadResource = !isMonochrome && usesUploadFlow;
 
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
