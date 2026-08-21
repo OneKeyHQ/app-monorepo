@@ -33,7 +33,7 @@ Dashboard 原仓库的实际位置是 `/Users/huhuanming/dashboard`；不存在 
 | Phase 0：worktree 与 handoff | `DONE` | 用户确认 / 2026-08-20 | 隔离环境和执行台账已验收 |
 | Phase 1：App Store Campaign destination | `DONE` | 用户确认 / 2026-08-21 | 实现和自动化验证完成；测试后端尚未部署新枚举 |
 | Phase 2：Apple Ads AdServices | `DONE` | 用户确认 / 2026-08-21 | App + Utility 已验收；真机/真实广告流量作为上线验证项保留 |
-| Phase 3：MMP 与所有权决策 | `IN_PROGRESS` | - | 决策阶段，不接 SDK |
+| Phase 3：MMP 与所有权决策 | `READY_FOR_ACCEPTANCE` | - | 推荐 AppsFlyer；MMP 统一持有 CV Writer 与 Apple postback sink |
 | Phase 4：统一归因事件与 Conversion Writer | `BLOCKED_BY_PHASE_3` | - | 方案取决于 Phase 3 |
 | Phase 5：Apple postback 数据面 | `BLOCKED_BY_PHASE_4` | - | 自建或 MMP 二选一 |
 | Phase 6：广告平台适配与统一报表 | `BLOCKED_BY_PHASE_5` | - | Provider Adapter |
@@ -503,6 +503,142 @@ unsupportedOrDegradedPlatforms: [...]
 
 若 `selectedMmp=none`，必须明确接受 X 无法完整支持、Snap 接入受限，以及 Google/Meta/TikTok 各自 Adapter 的维护成本。
 
+#### Phase 3 决策结论
+
+```text
+selectedMmp: appsflyer
+conversionOwner: mmp
+postbackSinkOwner: mmp
+supportedPaidPlatforms:
+  - apple_ads (OneKey AdServices fact path remains authoritative)
+  - google_ads
+  - meta_ads
+  - tiktok
+  - snap
+  - x_ads
+  - other AppsFlyer integrated partners
+unsupportedOrDegradedPlatforms:
+  - google_ios_without_odm: SKAN and Google modeled reporting remain, but ICM/ODM coverage is degraded
+  - meta_ios_without_att: aggregate/modeled measurement only; no promise of user-level campaign attribution
+  - snap_view_through: log-level campaign dimensions are withheld by Snap
+  - x_ads_without_mmp: unsupported by X
+  - non_apple_aak: provider support is unverified unless the provider or AppsFlyer integration documentation explicitly confirms it
+  - china: supported in product documentation, but production use remains gated by a mainland-network POC and contract terms
+```
+
+该选择是技术方案，不代表已经购买服务。进入 SDK 实现前仍必须完成本文的商业、法务和网络 POC gate；若 AppsFlyer 无法满足任一 hard gate，回退顺序是 `Adjust`，不是在 App 中同时接入两个 MMP。
+
+#### 候选对比
+
+| 维度 | AppsFlyer | Adjust | Branch | 结论 |
+| --- | --- | --- | --- | --- |
+| SKAN 4 / AAK | 官方文档把当前 SKAN solution 同时覆盖 SKAdNetwork 和 AdAttributionKit；可接收两种 Apple copy | 官方提供两种 copy endpoint，并允许关闭 SDK SKAN 写入 | 支持 SKAN/AAK 归因；公开 direct-postback 文档仍以 SKAN endpoint/export 为主 | AppsFlyer、Adjust 证据最完整 |
+| Conversion Writer | SDK 可作为 writer，也能在初始化前 `disableSKAdNetwork` | SDK 默认写入，可在初始化前 `disableSkanAttribution` | SDK 默认写入，可 opt out | 三者都能满足唯一 writer；选择 AppsFlyer writer |
+| Postback sink/export | Apple 直接发到 AppsFlyer；AppsFlyer 可用 Push API 把 copy 转发给 OneKey，Data Locker/Push API 提供 raw data | Apple 可直接发到 Adjust；raw callback/cloud export 能力和套餐需商务确认 | SKAN direct copy 可通过 Custom Exports API 导出；AAK raw copy 字段完整性需确认 | AppsFlyer 最符合 MMP-first、OneKey-copy 的数据面 |
+| 现有 Short Link | OneLink 是独立产品；Google/Meta/X/Snap 等 SRN 不依赖 AppsFlyer click link，自有/KOL link 可继续由 OneKey 管理 | Deep Link 是可选能力；SAN 不需要 Adjust link | 产品和 SDK 明显围绕 Branch Link/Ad Link；迁移文档要求替换多类 MMP link | Branch 与现有能力重叠和耦合最大 |
+| Google/Meta/TikTok/Snap/X | 五个平台均有正式集成；X 官方认可 | 五个平台均有正式集成；X 官方认可 | 五个平台均有正式集成；X 官方认可 | 网络覆盖本身不能区分三者 |
+| 中国与数据驻留 | 价格/能力页声明支持中国国内；SDK manifest 包含中国域名；具体 region、SLA 和可达性需合同/POC | SDK 明确提供 `adjust.cn`/`adjust.world` 策略，数据驻留公开支持 US/EEA/Turkey | 本次官方资料未找到同等级的中国网络承诺 | Adjust 在公开的中国配置证据上更强，作为第一回退 |
+| Privacy Manifest | 当前默认 SDK manifest 声明 Device ID、Product Interaction 和 tracking；另有去除 IDFA/AdSupport 的 Strict SDK | 当前 SDK manifest 声明 Device ID、Product Interaction 和 tracking，并提供 consent/URL strategy | 当前 manifest 声明 Device ID 和 tracking；支持 reduced/none 等隐私级别 | 三者均不能“无审查即接入” |
+| SDK 大小/启动 | 官方没有可横向比较的 release-build 增量数字 | 官方没有可横向比较的 release-build 增量数字 | 官方给出约 220 KB、初始化中位数约 80-250 ms | 必须以 OneKey release IPA 和冷启动指标做同口径 POC |
+| 价格与 raw data | Growth 公示为免费额度后每 conversion USD 0.07；raw API/Data Locker 属于 premium/套餐能力 | 公开文档以合同阈值和套餐为准 | 公开三档套餐但没有可比较单价；完整 partner 数量需要更高套餐 | 采购必须拿同一流量模型报价 |
+| 数据保留/DPA | 公开 DPA；服务隐私政策默认终端用户数据最长 24 个月，客户/合同可进一步约束 | 可配置 consent expiry 和 retention，公开上限 25 个月；DPA/SLA 需采购核验 | 有 DPA、privacy controls；具体 retention/SLA 需采购核验 | OneKey 要求最小保留并以合同覆盖删除、导出和退出条款 |
+
+不选择 `none`：X 官方要求使用认可 MMP；自行维护 Google、Meta、TikTok、Snap 的不同回传、账户授权、字段限制和 API 演进会持续产生客户端与服务端重复开发。
+
+不首选 `Adjust`：它在中国 URL strategy 和数据驻留的公开说明更清楚，但本次公开证据无法像 AppsFlyer 一样确认“Apple SKAN/AAK copy -> MMP -> OneKey Push API”的完整转发链。若 AppsFlyer 的中国可达性、数据驻留或合同不通过，Adjust 是唯一预设回退。
+
+不选择 `Branch`：其强项是 deep link/Ad Link，和 OneKey Short Link 的产品边界重叠最大；官方迁移材料也更倾向替换既有广告链接。选择 Branch 会增加链接迁移和双控制面的长期成本。
+
+#### 平台差异与投放方式
+
+| 场景 | 实际投放入口 | 归因/优化数据 | OneKey Short Link 的角色 | 不可消除的限制 |
+| --- | --- | --- | --- | --- |
+| 自有渠道/KOL | OneKey Short Link -> App Store Campaign URL (`pt/ct/mt`) | Short Link click + App Store Connect campaign aggregate | 主入口；`ct` 按 KOL/会话批次细分 | 无法把 App Store aggregate 反查到具体安装用户 |
+| Apple Ads | Apple Ads 创建的 App Store 广告，不投普通 MMP link | Phase 2 AdServices 实例归因 + Apple SKAN/AAK/MMP 报表 | 不参与付费广告跳转 | AdServices 是 Apple Ads 专属，不覆盖其他平台 |
+| Google App Campaign | Google Ads 内选择 App；SAN/AAP 账户连接，不需要 OneKey 点击链接 | Google modeled + SKAN；实现 ODM 后增加 ICM | 仅用于独立 owned campaign，不插入 Google SAN 链路 | ODM 仍需要 Firebase 或 standalone ODM；MMP 不能消除这项 Google 特例 |
+| Meta App Ads | Meta Ads 内选择 App；通过 AppsFlyer partner integration 回传事件 | Meta AEM/aggregate + SKAN + AppsFlyer reporting | 不插入 SAN 链路 | 未获 ATT 时不得承诺 user-level；Meta 可能只向 MMP 提供 aggregate SKAN 数据 |
+| TikTok App Ads | TikTok Ads Manager + AppsFlyer MMP connection | MMP events + SKAN | 不插入 SAN 链路 | 全 App 只能一个 CV writer；若以后加 TikTok SDK，必须关闭其 SKAN handling |
+| Snap App Ads | Snap Ads Manager + AppsFlyer MMP connection | Snap privacy measurement + SKAN | 通常不插入 SAN 链路 | view-through 的 log-level campaign 字段会被平台删除 |
+| X App Ads | X Ads + 认可 MMP | AppsFlyer/X integration + SKAN | 不插入 SAN 链路 | X 不提供无 MMP 的 Ads API 直接替代方案 |
+| 其他 non-SAN | 广告平台认可的 AppsFlyer measurement URL/tracking template | AppsFlyer click/view + Apple postback | OneKey 仍管理 campaign registry；只有平台允许 redirect chain 时才把 MMP URL 作为 Short Link destination | 不能假设所有平台都接受短链嵌套或多次重定向 |
+
+MMP 不会让所有平台变成相同协议。统一的是 OneKey 内部事件、campaign key、数据接入和报表口径；Google ODM、Meta AEM、Snap log-level 限制等仍作为 provider capability，而不是散落在 App 业务代码里的条件分支。
+
+#### 唯一所有权和运行时设计
+
+```text
+iOS main runtime
+  OneKey AttributionEventGateway
+    -> OneKey fact event (existing logger/Utility)
+    -> AppsFlyerAdapter (allowlisted event only)
+         -> AppsFlyer SDK is the only SKAN/AAK conversion writer
+
+Apple device
+  SKAN endpoint + AAK endpoint
+    -> AppsFlyer (single postback sink owner)
+         -> AppsFlyer Push API / raw export
+              -> Utility AppsFlyer ingestion adapter
+                   -> AttributionObservations / DailyMetrics
+```
+
+App 约束：
+
+1. AppsFlyer 只在 iOS production main runtime 初始化；bg 不导入、不初始化、不上报。原生 SDK singleton 属于进程资源，但调用所有权只给 main；不能依赖 main/bg 初始化顺序。
+2. 初始版本不请求 ATT，不接 Meta/TikTok/Snap 独立 SDK，不向 AppsFlyer发送钱包地址、账户 ID、资产、余额、币种、交易或收入字段。
+3. `install_open`、`onboarding_complete`、`activation`、`retained_d2/d7/d30` 只能从一个 `AttributionEventGateway` 进入；业务代码不知道 AppsFlyer event name。
+4. AppsFlyer 保持唯一 CV writer；禁止任何内部代码、Firebase、Meta、TikTok 或其他 SDK 调 Apple conversion update API。
+5. 保留 Phase 2 OneKey AdServices 路径，并在 AppsFlyer 设置 `disableAppleAdsAttribution=true` 关闭 AdServices 自动归因，避免同一个 Apple Ads install 产生两个未经标记的事实来源。不要使用已经只针对旧 iAd 的 `disableCollectASA` 代替它。
+6. OneLink/deferred deep link 不初始化；OneKey Short Link 继续服务 owned/KOL。若某 non-SAN 强制使用 MMP link，只在服务端 campaign binding 记录，不向 App 暴露 provider 分支。
+7. SDK 版本必须锁定；接入 PR 必须检查该版本的 Privacy Manifest、App Store privacy labels、release IPA 增量、main-thread 时间和首次网络请求字段。
+
+Utility 约束：
+
+1. 新增 `AppsFlyerProviderAdapter`，接收经过签名/共享密钥保护的 Push API 或拉取 Data Locker；不得让普通公网请求伪造 MMP observation。
+2. 保存 provider record ID、Apple postback ID、schema version、received time、measurement method 和 raw-object reference，按 provider ID + postback ID 去重。
+3. 只有拿到 Apple 原始 postback/JWS 且验证链完整的数据才标 `apple_verified`；MMP enrichment、platform aggregate 和 modeled data分别标记，不能合并成一个“安装”。
+4. Apple privacy postback 不强行关联 `installationId` 或用户。只有 Phase 2 AdServices 和明确允许的 MMP device attribution可以形成安装实例 observation；SKAN/AAK 主要按 campaign/date 聚合对账。
+5. Provider event mapping、campaign binding 和 sync checkpoint 由服务端配置；新增广告平台不得要求 App 新增业务事件调用。
+
+#### 商业、隐私和 POC hard gates
+
+在 Phase 4 添加 SDK 前，Owner 必须拿到并归档以下 AppsFlyer 书面结论：
+
+- SKAN 4 与 AdAttributionKit 都由当前 iOS/RN SDK 的同一个 conversion schema/writer 管理，并说明关闭/迁移行为。
+- Apple AAK Push API 样例包含 `postback-identifier`、JWS/签名或等价的可验证原始字段；否则不得标为 `apple_verified`。
+- Growth/Enterprise 中 Push API、Data Locker、raw postback copy、API 限额、历史回补和退出导出的准确价格。
+- 中国大陆 iOS SDK endpoint、DNS/TLS 可达性、fallback 行为、数据实际驻留位置及跨境条款。
+- DPA、subprocessor、删除 SLA、备份删除、24 个月默认保留如何缩短，以及合同终止后的完整导出期限。
+- OneKey 加密货币钱包业务允许接入；广告平台自身的加密货币投放准入由营销/法务另外处理，MMP 合同不能替代平台审批。
+- SDK Strict/no-IDFA 方案是否仍完整支持所需的 SKAN/AAK、Google/Meta/TikTok/Snap/X 集成，以及对应 App Privacy disclosure。
+
+同一 release 配置下做三组基线：无 MMP、AppsFlyer Strict、AppsFlyer standard-no-ATT。至少测量 IPA 增量、首次可交互时间、main-thread 阻塞、首次启动请求数/域名/字段和 main/bg 初始化次数。只有 AppsFlyer 通过 hard gate 才进入 Phase 4；失败时用相同脚本测 Adjust，不能同时打包两家 SDK。
+
+#### Phase 3 交接记录（2026-08-21）
+
+```text
+Status: READY_FOR_ACCEPTANCE
+Completed at: pending user acceptance
+Repositories changed:
+  - app-monorepo handoff document only
+Code/SDK changes: none
+Decision:
+  - selectedMmp=appsflyer
+  - conversionOwner=mmp
+  - postbackSinkOwner=mmp
+Validation results:
+  - Apple, AppsFlyer, Adjust, Branch, Google, TikTok, Snap and X official documentation reviewed.
+  - Current official iOS SDK privacy manifests inspected for AppsFlyer, Adjust and Branch.
+  - Repository scan found no existing AppsFlyer/Adjust/Branch dependency and no existing SKAN/AAK conversion writer call.
+  - Existing OneKey Short Link and Phase 2 AdServices ownership remain unchanged.
+Known limitations:
+  - Comparable AppsFlyer/Adjust SDK size and startup numbers are not publicly standardized; OneKey release-build POC is mandatory.
+  - Commercial price, SLA, China route, data residency, crypto acceptance and AAK raw export completeness require vendor confirmation.
+  - Google ODM is an explicit optional platform module even after selecting an MMP.
+Decision required before next phase:
+  - User accepts AppsFlyer as the conditional selected MMP and authorizes Phase 4 POC/implementation preparation.
+  - Procurement/Legal accepts the listed hard gates before any production SDK release.
+```
+
 ### Phase 4：统一归因事件与 Conversion Writer
 
 范围取决于 Phase 3：
@@ -607,6 +743,7 @@ Google：
 - iOS on-device measurement：<https://support.google.com/google-ads/answer/12119136?hl=en>
 - App Conversion API：<https://developers.google.com/app-conversion-tracking/api/integrated-conversion-measurement>
 - App Attribution Partners：<https://support.google.com/google-ads/answer/12961402?hl=en>
+- iOS App campaign measurement methods：<https://support.google.com/google-ads/answer/16771743?hl=en>
 
 Meta：
 
@@ -623,8 +760,25 @@ Snap 与 X：
 
 - Snap SKAN：<https://businesshelp.snapchat.com/articles/en_US/Knowledge/skadnetwork>
 - X mobile app measurement：<https://business.x.com/en/help/campaign-setup/create-an-app-installs-campaign/mobile-app-measurement-and-attribution>
+- X 认可 MMP 列表：<https://business.x.com/en/resources/mobile-app-advertising-guide>
 
 MMP：
 
 - AppsFlyer SKAN Conversion Studio：<https://support.appsflyer.com/hc/en-us/articles/4403727223185-SKAN-Conversion-Studio>
+- AppsFlyer iOS SDK、SKAN/AAK copy endpoint：<https://dev.appsflyer.com/hc/docs/integrate-ios-sdk>
+- AppsFlyer Apple copy 转发：<https://support.appsflyer.com/hc/en-us/articles/4402320969617-Send-SKAN-and-AdAttributionKit-postback-copies-directly-to-AppsFlyer-iOS-15>
+- AppsFlyer raw report：<https://support.appsflyer.com/hc/en-us/articles/360014261518-SKAN-raw-data-reports>
+- AppsFlyer iOS API（writer、Apple Ads、IDFV 控制）：<https://dev.appsflyer.com/hc/docs/ios-sdk-reference-appsflyerlib>
+- AppsFlyer Strict SDK：<https://dev.appsflyer.com/hc/docs/install-ios-sdk>
+- AppsFlyer 价格：<https://www.appsflyer.com/pricing/full/>
+- AppsFlyer 数据保留：<https://www.appsflyer.com/legal/services-privacy-policy/>
+- AppsFlyer Privacy Manifest：<https://github.com/AppsFlyerSDK/AppsFlyerFramework/blob/master/Resources/PrivacyInfo.xcprivacy>
 - Adjust SKAN/AdAttributionKit：<https://dev.adjust.com/en/sdk/ios/features/skad/>
+- Adjust 中国 URL strategy：<https://dev.adjust.com/en/sdk/ios/features/privacy/>
+- Adjust 数据驻留：<https://help.adjust.com/en/article/getting-started-with-adjust>
+- Adjust Privacy Manifest：<https://github.com/adjust/ios_sdk/blob/master/Adjust/PrivacyInfo.xcprivacy>
+- Branch iOS SDK 大小/启动/依赖：<https://help.branch.io/developer-hub/docs/ios-basic-integration>
+- Branch SKAN writer opt out：<https://help.branch.io/developer-hub/docs/advanced-skadnetwork-sdk-configuration>
+- Branch SAN 支持矩阵：<https://help.branch.io/marketer-hub/docs/self-attributing-networks-sans>
+- Branch direct postback/export：<https://help.branch.io/marketer-hub/docs/skadnetwork-direct-postback>
+- Branch Privacy Manifest：<https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/blob/master/Sources/Resources/PrivacyInfo.xcprivacy>
