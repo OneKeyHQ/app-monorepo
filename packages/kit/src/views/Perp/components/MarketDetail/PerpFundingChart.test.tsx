@@ -237,7 +237,7 @@ describe('PerpFundingChart', () => {
     ['1h', '8h', 'D'].forEach((label) => {
       expect(screen.getAllByText(label)).toHaveLength(2);
     });
-    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '30d');
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
     expect(
       screen.getAllByText(ETranslations.perp_positive_funding_rate__label),
     ).toHaveLength(2);
@@ -246,7 +246,7 @@ describe('PerpFundingChart', () => {
     ).toHaveLength(2);
   });
 
-  it('lets each chart select its interval independently', () => {
+  it('changes each chart interval locally after preloading 90 days', () => {
     render(<PerpFundingChart coin="BTC" />);
 
     fireEvent.click(screen.getAllByText('1h')[0]);
@@ -261,13 +261,16 @@ describe('PerpFundingChart', () => {
       [0, 0.003],
       [28_800, 0.006],
     ]);
-    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '30d');
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
 
     fireEvent.click(screen.getAllByText('1h')[1]);
-    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '7d');
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
 
     fireEvent.click(screen.getAllByText('D')[0]);
     expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
+    expect(
+      new Set(mockUsePerpFundingHistory.mock.calls.map(([, range]) => range)),
+    ).toEqual(new Set(['90d']));
   });
 
   it('uses compact axes for the mobile chart layout', () => {

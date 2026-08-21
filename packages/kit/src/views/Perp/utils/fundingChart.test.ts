@@ -2,7 +2,6 @@ import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/s
 
 import {
   buildPerpFundingChartData,
-  getPerpFundingChartHistoryRange,
   getPerpFundingTooltipPosition,
 } from './fundingChart';
 
@@ -64,12 +63,12 @@ describe('buildPerpFundingChartData', () => {
   });
 
   it.each([
-    ['1h', 7 * 24, '7d'],
-    ['8h', 30 * 24, '30d'],
-    ['1d', 90 * 24, '90d'],
+    ['1h', 7 * 24],
+    ['8h', 30 * 24],
+    ['1d', 90 * 24],
   ] as const)(
     'limits the %s interval to its %s-hour history range',
-    (interval, rangeHours, historyRange) => {
+    (interval, rangeHours) => {
       const latestHour = 100 * 24;
       const result = buildPerpFundingChartData(
         [
@@ -83,7 +82,6 @@ describe('buildPerpFundingChartData', () => {
       expect(result).toHaveLength(2);
       expect(result[0]?.time).toBe((latestHour - rangeHours) * 3600);
       expect(result.at(-1)?.cumulativeFundingRate).toBeCloseTo(0.005);
-      expect(getPerpFundingChartHistoryRange(interval)).toBe(historyRange);
     },
   );
 });

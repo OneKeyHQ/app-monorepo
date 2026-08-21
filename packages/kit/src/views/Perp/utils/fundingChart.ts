@@ -29,19 +29,12 @@ const INTERVAL_CONFIG: Record<
   {
     bucketHours: number;
     rangeHours: number;
-    historyRange: '7d' | '30d' | '90d';
   }
 > = {
-  '1h': { bucketHours: 1, rangeHours: 7 * 24, historyRange: '7d' },
-  '8h': { bucketHours: 8, rangeHours: 30 * 24, historyRange: '30d' },
-  '1d': { bucketHours: 24, rangeHours: 90 * 24, historyRange: '90d' },
+  '1h': { bucketHours: 1, rangeHours: 7 * 24 },
+  '8h': { bucketHours: 8, rangeHours: 30 * 24 },
+  '1d': { bucketHours: 24, rangeHours: 90 * 24 },
 };
-
-export function getPerpFundingChartHistoryRange(
-  interval: IPerpFundingChartInterval,
-) {
-  return INTERVAL_CONFIG[interval].historyRange;
-}
 
 export function getPerpFundingTooltipPosition({
   x,
