@@ -33,7 +33,9 @@ export function MarketDetailResponsiveLayout({
   return (
     <MobileLayout
       disableTrade={disableTrade}
+      isChartFullscreen={isChartFullscreen}
       isTradingViewNative={isTradingViewNative}
+      onChartFullscreenChange={onChartFullscreenChange}
       onChartSwitch={onChartSwitch}
       isNative={isNative}
       networkId={networkId}

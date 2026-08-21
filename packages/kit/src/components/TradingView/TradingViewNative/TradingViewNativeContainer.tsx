@@ -17,6 +17,7 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
 import {
   DEFAULT_TRADING_VIEW_NATIVE_INDICATORS,
   type ITradingViewNativeAnyIndicator,
@@ -42,6 +43,7 @@ import type {
 import type { ITradingViewNativeViewportTarget } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewChartControls/calendarControls/CalendarPanelPopover';
+import type { LayoutChangeEvent } from 'react-native';
 
 export function updateTradingViewNativeSubIndicatorInstances(
   currentInstances: ITradingViewNativeSubIndicatorInstanceConfig[],
@@ -147,6 +149,7 @@ export const TradingViewNativeContainer = memo(
       target: ITradingViewNativeViewportTarget;
     } | null>(null);
     const [chartWidth, setChartWidth] = useState(0);
+    const [chartHeight, setChartHeight] = useState(0);
     const [activeMainIndicatorValues, setActiveMainIndicatorValues] = useState<
       Set<ITradingViewNativeIndicator>
     >(() => new Set(DEFAULT_TRADING_VIEW_NATIVE_INDICATORS));
@@ -509,6 +512,21 @@ export const TradingViewNativeContainer = memo(
       onNativeSubIndicatorCountChange?.(visibleSubIndicatorCount);
     }, [onNativeSubIndicatorCountChange, visibleSubIndicatorCount]);
 
+    const isMobileControlsLayout = nativeControlsLayoutMode !== 'desktop';
+    const handleChartAreaLayout = useCallback((event: LayoutChangeEvent) => {
+      const nextChartHeight = Math.round(event.nativeEvent.layout.height);
+      if (nextChartHeight > 0) {
+        setChartHeight((currentChartHeight) =>
+          currentChartHeight === nextChartHeight
+            ? currentChartHeight
+            : nextChartHeight,
+        );
+      }
+    }, []);
+    const handleMobileFullscreenToggle = useCallback(() => {
+      onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
+    }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
+
     return (
       <Stack flex={1} w="100%" h="100%" bg="$transparent">
         <TradingViewNativeChartControlsContainer
@@ -526,9 +544,11 @@ export const TradingViewNativeContainer = memo(
           onIndicatorChange={handleIndicatorChange}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
-          onFullscreenChange={onNativeChartFullscreenChange}
+          onFullscreenChange={
+            isMobileControlsLayout ? undefined : onNativeChartFullscreenChange
+          }
         />
-        <Stack flex={1} position="relative">
+        <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
@@ -572,6 +592,14 @@ export const TradingViewNativeContainer = memo(
                 {intl.formatMessage({ id: ETranslations.global_retry })}
               </Button>
             </YStack>
+          ) : null}
+          {isMobileControlsLayout && onNativeChartFullscreenChange ? (
+            <TradingViewNativeFullscreenButton
+              chartHeight={chartHeight}
+              isFullscreen={Boolean(isNativeChartFullscreen)}
+              onPress={handleMobileFullscreenToggle}
+              visibleSubIndicatorCount={visibleSubIndicatorCount}
+            />
           ) : null}
         </Stack>
       </Stack>
