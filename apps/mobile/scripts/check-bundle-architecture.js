@@ -52,6 +52,9 @@ const ALLOWED_EAGER_SIMPLE_DB_ENTITY_MODULES = new Set([
   // Lightweight compatibility contract. The implementation lives in
   // SimpleDbEntityRecentRecipientsImpl.ts and must stay lazy.
   `${SIMPLE_DB_ENTITY_PREFIX}RecentRecipients.ts`,
+  // Lightweight (~60 lines). Warmed during deferred bootstrap by
+  // serviceHardwarePortfolioSync.init() — shipped 6.5.2 hardware behavior.
+  `${SIMPLE_DB_ENTITY_PREFIX}HardwarePortfolioSync.ts`,
 ]);
 
 // Module path patterns that must NOT appear in main-runtime segments.
