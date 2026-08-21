@@ -1,0 +1,284 @@
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
+index 6ccad7e..e829537 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
+@@ -1,4 +1,5 @@
+ #import "RCTTabViewComponentView.h"
++#import "RCTTabViewLog.h"
+ 
+ #import <react/renderer/components/RNCTabView/RNCTabViewComponentDescriptor.h>
+ #import <react/renderer/components/RNCTabView/EventEmitters.h>
+@@ -123,6 +124,9 @@ - (instancetype)initWithFrame:(CGRect)frame
+     _containerView = [[containerClass alloc] init];
+     self.contentView = _containerView;
+ 
++    [RCTTabViewLog debug:@"OK-60835.TabBar.Native"
++                 message:[NSString stringWithFormat:@"layer=fabric event=init component=%p container=%p", self, _containerView]];
++
+     // Set up event forwarding from Swift container to Fabric EventEmitter.
+     // Swift container uses RCTDirectEventBlock (void (^)(NSDictionary *)) for events,
+     // but in Fabric mode we need to forward them through the C++ EventEmitter.
+@@ -213,6 +217,15 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+   const auto &oldViewProps = *std::static_pointer_cast<RNCTabViewProps const>(_props);
+   const auto &newViewProps = *std::static_pointer_cast<RNCTabViewProps const>(props);
+ 
++  [RCTTabViewLog debug:@"OK-60835.TabBar.Native"
++               message:[NSString stringWithFormat:
++                 @"layer=fabric event=update-props component=%p container=%p oldHidden=%d newHidden=%d hiddenChanged=%d",
++                 self,
++                 _containerView,
++                 oldViewProps.tabBarHidden,
++                 newViewProps.tabBarHidden,
++                 oldViewProps.tabBarHidden != newViewProps.tabBarHidden]];
++
+ #define SET_PROP(prop, value) \
+   if ([_containerView respondsToSelector:@selector(setProp:)]) { \
+     [_containerView setValue:value forKey:@#prop]; \
+@@ -305,6 +318,12 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+   }
+ 
+   if (oldViewProps.tabBarHidden != newViewProps.tabBarHidden) {
++    [RCTTabViewLog debug:@"OK-60835.TabBar.Native"
++                 message:[NSString stringWithFormat:
++                   @"layer=fabric event=forward-hidden component=%p container=%p hidden=%d",
++                   self,
++                   _containerView,
++                   newViewProps.tabBarHidden]];
+     [_containerView setValue:@(newViewProps.tabBarHidden) forKey:@"tabBarHidden"];
+   }
+ 
+@@ -327,9 +346,17 @@ - (void)updateState:(const facebook::react::State::Shared &)state oldState:(cons
+ 
+ - (void)prepareForRecycle
+ {
++  [RCTTabViewLog debug:@"OK-60835.TabBar.Native"
++               message:[NSString stringWithFormat:@"layer=fabric event=prepare-recycle component=%p container=%p", self, _containerView]];
+   [super prepareForRecycle];
+ }
+ 
++- (void)dealloc
++{
++  [RCTTabViewLog debug:@"OK-60835.TabBar.Native"
++               message:[NSString stringWithFormat:@"layer=fabric event=dealloc component=%p container=%p", self, _containerView]];
++}
++
+ @end
+ 
+ Class<RCTComponentViewProtocol> RNCTabViewCls(void)
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+index 4505879..0e58e82 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+@@ -66,6 +66,54 @@ class RCTTabViewContainerView: UIView {
+   private var longPressHandler: LongPressGestureHandler?
+   /// Cached view controllers keyed by tab key to avoid unnecessary reparenting
+   private var cachedViewControllers: [String: UIViewController] = [:]
++  private var lastLayoutDebugSignature: String?
++
++  private func objectAddress(_ object: AnyObject?) -> String {
++    guard let object else { return "nil" }
++    return String(describing: Unmanaged.passUnretained(object).toOpaque())
++  }
++
++  private func tabBarDebugState() -> String {
++    let containerAddress = objectAddress(self)
++    let controllerAddress = objectAddress(tabBarController)
++    let windowBounds = window.map { NSCoder.string(for: $0.bounds) } ?? "nil"
++    let interfaceOrientation = window?.windowScene?.interfaceOrientation.rawValue ?? -1
++    let horizontalSizeClass = traitCollection.horizontalSizeClass.rawValue
++    let verticalSizeClass = traitCollection.verticalSizeClass.rawValue
++
++    guard let tbc = tabBarController else {
++      return "container=\(containerAddress) controller=nil propHidden=\(tabBarHidden) containerBounds=\(NSCoder.string(for: bounds)) windowBounds=\(windowBounds) interfaceOrientation=\(interfaceOrientation) hSizeClass=\(horizontalSizeClass) vSizeClass=\(verticalSizeClass)"
++    }
++
++    var controllerHidden = "unavailable"
++    var controllerMode = "unavailable"
++    if #available(iOS 18.0, *) {
++      controllerHidden = String(tbc.isTabBarHidden)
++      #if compiler(>=6.0)
++      controllerMode = String(describing: tbc.mode)
++      #endif
++    }
++
++    return "container=\(containerAddress) controller=\(controllerAddress) propHidden=\(tabBarHidden) controllerHidden=\(controllerHidden) actualHidden=\(tbc.tabBar.isHidden) interactionEnabled=\(tbc.tabBar.isUserInteractionEnabled) alpha=\(tbc.tabBar.alpha) mode=\(controllerMode) selectedIndex=\(tbc.selectedIndex) viewControllerCount=\(tbc.viewControllers?.count ?? 0) containerBounds=\(NSCoder.string(for: bounds)) controllerBounds=\(NSCoder.string(for: tbc.view.bounds)) tabBarFrame=\(NSCoder.string(for: tbc.tabBar.frame)) safeAreaInsets=\(NSCoder.string(for: tbc.view.safeAreaInsets)) windowBounds=\(windowBounds) interfaceOrientation=\(interfaceOrientation) hSizeClass=\(horizontalSizeClass) vSizeClass=\(verticalSizeClass) tabBarHasWindow=\(tbc.tabBar.window != nil)"
++  }
++
++  private func logTabBarDebug(
++    _ event: String,
++    note: String = "",
++    deduplicateLayout: Bool = false
++  ) {
++    let state = tabBarDebugState()
++    if deduplicateLayout {
++      let signature = "\(event)|\(state)|\(note)"
++      guard signature != lastLayoutDebugSignature else { return }
++      lastLayoutDebugSignature = signature
++    }
++    let noteText = note.isEmpty ? "" : " \(note)"
++    RCTTabViewLog.debug(
++      "OK-60835.TabBar.Native",
++      message: "layer=swift event=\(event) \(state)\(noteText)"
++    )
++  }
+ 
+   // MARK: - Props (set by Fabric ComponentView via KVC)
+ 
+@@ -106,7 +154,13 @@ class RCTTabViewContainerView: UIView {
+   }
+ 
+   @objc var tabBarHidden: Bool = false {
+-    didSet { updateTabBarHidden() }
++    didSet {
++      logTabBarDebug(
++        "prop-hidden",
++        note: "oldHidden=\(oldValue) newHidden=\(tabBarHidden)"
++      )
++      updateTabBarHidden()
++    }
+   }
+ 
+   @objc var translucent: NSNumber? {
+@@ -154,12 +208,35 @@ class RCTTabViewContainerView: UIView {
+ 
+   override init(frame: CGRect) {
+     super.init(frame: frame)
++    logTabBarDebug("init")
+   }
+ 
+   required init?(coder: NSCoder) {
+     fatalError("init(coder:) has not been implemented")
+   }
+ 
++  deinit {
++    logTabBarDebug("deinit")
++  }
++
++  override func didMoveToWindow() {
++    super.didMoveToWindow()
++    logTabBarDebug("did-move-to-window")
++  }
++
++  override func safeAreaInsetsDidChange() {
++    super.safeAreaInsetsDidChange()
++    logTabBarDebug("safe-area-changed")
++  }
++
++  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
++    super.traitCollectionDidChange(previousTraitCollection)
++    logTabBarDebug(
++      "traits-changed",
++      note: "previousHSizeClass=\(previousTraitCollection?.horizontalSizeClass.rawValue ?? -1) previousVSizeClass=\(previousTraitCollection?.verticalSizeClass.rawValue ?? -1)"
++    )
++  }
++
+   override func didAddSubview(_ subview: UIView) {
+     super.didAddSubview(subview)
+     if let tbcView = tabBarController?.view, subview !== tbcView {
+@@ -172,6 +249,7 @@ class RCTTabViewContainerView: UIView {
+   override func layoutSubviews() {
+     super.layoutSubviews()
+     handleLayout()
++    logTabBarDebug("layout", deduplicateLayout: true)
+   }
+ 
+   // MARK: - Bottom Accessory (iOS 26+)
+@@ -197,7 +275,15 @@ class RCTTabViewContainerView: UIView {
+ 
+   private func setupTabBarControllerIfNeeded() {
+     guard tabBarController == nil else { return }
+-    guard let parentVC = self.reactViewController() else { return }
++    guard let parentVC = self.reactViewController() else {
++      logTabBarDebug("setup-waiting-parent", deduplicateLayout: true)
++      return
++    }
++
++    logTabBarDebug(
++      "setup-controller-begin",
++      note: "parentClass=\(String(describing: type(of: parentVC))) parent=\(objectAddress(parentVC))"
++    )
+ 
+     let tbc = UITabBarController()
+     tbc.delegate = TabViewDelegateProxy.shared
+@@ -212,6 +298,8 @@ class RCTTabViewContainerView: UIView {
+ 
+     self.tabBarController = tbc
+ 
++    logTabBarDebug("setup-controller-attached")
++
+     setupLongPressGesture()
+     rebuildViewControllers()
+     updateTabBarAppearance()
+@@ -222,6 +310,7 @@ class RCTTabViewContainerView: UIView {
+ 
+     DispatchQueue.main.async { [weak self] in
+       guard let self, let tbc = self.tabBarController else { return }
++      self.logTabBarDebug("setup-controller-next-runloop")
+       if !tbc.tabBar.isHidden {
+         self.onTabBarMeasured?(["height": Double(tbc.tabBar.frame.size.height)])
+       }
+@@ -370,6 +459,10 @@ class RCTTabViewContainerView: UIView {
+     // Only call setViewControllers if the VC list actually changed
+     let currentVCs = tbc.viewControllers ?? []
+     if currentVCs.count != viewControllers.count || !zip(currentVCs, viewControllers).allSatisfy({ $0 === $1 }) {
++      logTabBarDebug(
++        "rebuild-controllers-before",
++        note: "oldCount=\(currentVCs.count) newCount=\(viewControllers.count)"
++      )
+       if disablePageAnimations {
+         UIView.performWithoutAnimation {
+           tbc.setViewControllers(viewControllers, animated: false)
+@@ -377,6 +470,10 @@ class RCTTabViewContainerView: UIView {
+       } else {
+         tbc.setViewControllers(viewControllers, animated: false)
+       }
++      logTabBarDebug(
++        "rebuild-controllers-after",
++        note: "oldCount=\(currentVCs.count) newCount=\(viewControllers.count)"
++      )
+     }
+ 
+     updateSelectedTab()
+@@ -421,6 +518,7 @@ class RCTTabViewContainerView: UIView {
+ 
+   private func updateTabBarAppearance() {
+     guard let tbc = tabBarController else { return }
++    defer { logTabBarDebug("appearance-updated") }
+     let tabBar = tbc.tabBar
+ 
+     if scrollEdgeAppearance == "transparent" {
+@@ -508,9 +606,14 @@ class RCTTabViewContainerView: UIView {
+   }
+ 
+   private func updateTabBarHidden() {
+-    guard let tbc = tabBarController else { return }
++    guard let tbc = tabBarController else {
++      logTabBarDebug("hidden-apply-waiting-controller")
++      return
++    }
++    logTabBarDebug("hidden-apply-before")
+     tbc.tabBar.isHidden = tabBarHidden
+     tbc.tabBar.isUserInteractionEnabled = !tabBarHidden
++    logTabBarDebug("hidden-apply-after")
+ 
+     if !tabBarHidden {
+       onTabBarMeasured?(["height": Double(tbc.tabBar.frame.size.height)])
+@@ -519,6 +622,7 @@ class RCTTabViewContainerView: UIView {
+ 
+   private func updateSidebarAdaptable() {
+     guard let tbc = tabBarController else { return }
++    defer { logTabBarDebug("sidebar-updated") }
+     if #available(iOS 18.0, *) {
+       #if compiler(>=6.0)
+       if sidebarAdaptable {
+@@ -556,6 +660,10 @@ class RCTTabViewContainerView: UIView {
+       default:
+         break
+       }
++      logTabBarDebug(
++        "minimize-behavior-updated",
++        note: "behavior=\(behavior)"
++      )
+     }
+     #endif
+   }

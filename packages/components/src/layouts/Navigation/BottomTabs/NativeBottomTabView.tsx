@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import TabView from '@onekeyfe/react-native-tab-view';
 import {
@@ -8,6 +8,11 @@ import {
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
+
+import {
+  createOk60835TabBarLogInstance,
+  ok60835TabBarLog,
+} from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 
 import type {
   NativeBottomTabDescriptorMap,
@@ -28,6 +33,35 @@ export function NativeBottomTabView({
   tabBar,
   ...rest
 }: Props) {
+  const [debugInstanceId] = useState(() =>
+    createOk60835TabBarLogInstance('native-bottom-tab-view'),
+  );
+
+  useEffect(() => {
+    ok60835TabBarLog('native-bottom-tab-props', {
+      instance: debugInstanceId,
+      navigationStateKey: state.key,
+      selectedIndex: state.index,
+      selectedRouteName: state.routes[state.index]?.name,
+      routeNames: state.routes.map((route) => route.name),
+      hasCustomTabBar: Boolean(tabBar),
+      tabBarHidden: rest.tabBarHidden,
+      sidebarAdaptable: rest.sidebarAdaptable,
+      ignoreBottomInsets: rest.ignoreBottomInsets,
+      minimizeBehavior: rest.minimizeBehavior,
+    });
+  }, [
+    debugInstanceId,
+    rest.ignoreBottomInsets,
+    rest.minimizeBehavior,
+    rest.sidebarAdaptable,
+    rest.tabBarHidden,
+    state.index,
+    state.key,
+    state.routes,
+    tabBar,
+  ]);
+
   const renderScene = useCallback(
     ({ route }: { route: Route<string> }) => descriptors[route.key]?.render(),
     [descriptors],

@@ -24,6 +24,7 @@ import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/ty
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import { ok60835TabBarLog } from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -782,6 +783,15 @@ class AppEventBusClass extends CrossEventEmitter {
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
+    if (type === EAppEventBusNames.HideTabBar) {
+      ok60835TabBarLog('event-bus-emit', {
+        payload,
+        runtimeRole: platformEnv.runtimeRole,
+        nodeId: this.nodeId,
+        callerStack: new Error().stack?.split('\n').slice(2, 7).join(' <- '),
+      });
+    }
+
     // Local listeners always fire on the originating node — no platform
     // exception. Cross-process delivery is a separate, additive step.
     this.emitToSelf({ type, payload, isRemote: false });
@@ -887,6 +897,15 @@ class AppEventBusClass extends CrossEventEmitter {
     cloned?: boolean;
   }) {
     const { type, payload, isRemote, cloned = true } = params;
+    if (type === EAppEventBusNames.HideTabBar) {
+      ok60835TabBarLog('event-bus-dispatch', {
+        payload,
+        isRemote: Boolean(isRemote),
+        cloned,
+        runtimeRole: platformEnv.runtimeRole,
+        nodeId: this.nodeId,
+      });
+    }
     const payloadCloned = cloned ? cloneDeep(payload) : payload;
     try {
       // @ts-ignore

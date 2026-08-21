@@ -15,6 +15,10 @@ import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createOk60835TabBarLogInstance,
+  ok60835TabBarLog,
+} from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -133,7 +137,10 @@ function MarketDetailV2(
     ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
-  const { navigation } = props;
+  const { navigation, route } = props;
+  const [debugInstanceId] = useState(() =>
+    createOk60835TabBarLogInstance('market-detail'),
+  );
   const media = useMedia();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
@@ -168,16 +175,35 @@ function MarketDetailV2(
         platformEnv.isNative ||
         (!platformEnv.isExtension && media.md);
 
+      ok60835TabBarLog('market-detail-focus', {
+        instance: debugInstanceId,
+        routeName: route.name,
+        routeKey: route.key,
+        effectiveIsChartFullscreen,
+        isNative: platformEnv.isNative,
+        isExtension: platformEnv.isExtension,
+        mediaMd: media.md,
+        shouldHideTabBar,
+      });
+
       if (!shouldHideTabBar) {
         return;
       }
 
+      ok60835TabBarLog('market-detail-hide-emit', {
+        instance: debugInstanceId,
+        hidden: true,
+      });
       appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
       return () => {
+        ok60835TabBarLog('market-detail-hide-cleanup', {
+          instance: debugInstanceId,
+          hidden: false,
+        });
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [effectiveIsChartFullscreen, media.md]),
+    }, [debugInstanceId, effectiveIsChartFullscreen, media.md, route]),
   );
 
   return (

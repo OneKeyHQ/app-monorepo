@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
 import {
   EAppEventBusNames,
@@ -14,6 +15,10 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import {
+  createOk60835TabBarLogInstance,
+  ok60835TabBarLog,
+} from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
@@ -109,6 +114,7 @@ const nativeTabScreenOptions = {
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  showTabBar,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
@@ -117,18 +123,40 @@ export function TabStackNavigator<RouteName extends string>({
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
   useThemeName();
+  const [debugInstanceId] = useState(() =>
+    createOk60835TabBarLogInstance('tab-stack'),
+  );
   const [tabBarHidden, setTabBarHidden] = useState(false);
+
+  useEffect(() => {
+    ok60835TabBarLog('tab-stack-mount', { instance: debugInstanceId });
+    return () => {
+      ok60835TabBarLog('tab-stack-unmount', { instance: debugInstanceId });
+    };
+  }, [debugInstanceId]);
 
   // Listen for HideTabBar events to show/hide the tab bar
   useEffect(() => {
     const handler = (hidden: boolean) => {
-      setTabBarHidden((prev) => (prev === hidden ? prev : hidden));
+      ok60835TabBarLog('hide-event-received', {
+        instance: debugInstanceId,
+        incomingHidden: hidden,
+      });
+      setTabBarHidden((previousHidden) =>
+        previousHidden === hidden ? previousHidden : hidden,
+      );
     };
+    ok60835TabBarLog('hide-event-subscribe', {
+      instance: debugInstanceId,
+    });
     appEventBus.on(EAppEventBusNames.HideTabBar, handler);
     return () => {
+      ok60835TabBarLog('hide-event-unsubscribe', {
+        instance: debugInstanceId,
+      });
       appEventBus.off(EAppEventBusNames.HideTabBar, handler);
     };
-  }, []);
+  }, [debugInstanceId]);
 
   // Handle tab press events for logging and event bus notifications
   const handleTabPress = useCallback(
@@ -220,7 +248,7 @@ export function TabStackNavigator<RouteName extends string>({
   }, [config, extraConfig, intl, handleTabPress]);
 
   const splitViewType = useSplitViewType();
-  const isLandscape = useIsSplitView();
+  const isLandscape = useIsSplitView('TabStackNavigator');
   const hidden = useMemo(() => {
     switch (splitViewType) {
       case ESplitViewType.MAIN:
@@ -237,6 +265,32 @@ export function TabStackNavigator<RouteName extends string>({
         return tabBarHidden;
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
+
+  useEffect(() => {
+    const windowDimensions = Dimensions.get('window');
+    const screenDimensions = Dimensions.get('screen');
+    ok60835TabBarLog('tab-stack-decision', {
+      instance: debugInstanceId,
+      splitViewType,
+      isSplitMainView,
+      isLandscape,
+      tabBarHidden,
+      showTabBar,
+      computedHidden: hidden,
+      windowWidth: windowDimensions.width,
+      windowHeight: windowDimensions.height,
+      screenWidth: screenDimensions.width,
+      screenHeight: screenDimensions.height,
+    });
+  }, [
+    debugInstanceId,
+    hidden,
+    isLandscape,
+    isSplitMainView,
+    showTabBar,
+    splitViewType,
+    tabBarHidden,
+  ]);
   const tabBarStyle = useMemo(
     () =>
       // On iOS 26+ omit backgroundColor so UITabBar renders the system

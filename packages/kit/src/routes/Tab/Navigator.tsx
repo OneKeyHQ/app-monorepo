@@ -1,8 +1,9 @@
-import { useContext, useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommonActions, useNavigationState } from '@react-navigation/native';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Dimensions } from 'react-native';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
@@ -22,6 +23,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
+import {
+  createOk60835TabBarLogInstance,
+  ok60835TabBarLog,
+} from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
@@ -129,8 +134,11 @@ function FloatingDevModeBackButton() {
 }
 
 export function TabNavigator() {
+  const [debugInstanceId] = useState(() =>
+    createOk60835TabBarLogInstance('tab-navigator'),
+  );
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
-  const isLandscape = useIsSplitView();
+  const isLandscape = useIsSplitView('TabNavigator');
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
@@ -138,6 +146,30 @@ export function TabNavigator() {
   const { gtMd, md } = useMedia();
   const isTabletDetailView = useSplitSubView();
   const shouldHideExtTabBar = isExtPopupOrSidePanel && md;
+  const showTabBar =
+    !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar;
+
+  useEffect(() => {
+    const windowDimensions = Dimensions.get('window');
+    const screenDimensions = Dimensions.get('screen');
+    ok60835TabBarLog('tab-navigator-decision', {
+      instance: debugInstanceId,
+      isTabletDetailView,
+      isLandscape,
+      shouldHideExtTabBar,
+      showTabBar,
+      windowWidth: windowDimensions.width,
+      windowHeight: windowDimensions.height,
+      screenWidth: screenDimensions.width,
+      screenHeight: screenDimensions.height,
+    });
+  }, [
+    debugInstanceId,
+    isLandscape,
+    isTabletDetailView,
+    shouldHideExtTabBar,
+    showTabBar,
+  ]);
 
   useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
@@ -214,9 +246,7 @@ export function TabNavigator() {
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={
-          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar
-        }
+        showTabBar={showTabBar}
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
       />

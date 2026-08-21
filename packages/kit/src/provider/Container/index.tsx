@@ -6,6 +6,7 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import { ok60835TabBarLog } from '@onekeyhq/shared/src/utils/debug/ok60835TabBarLog';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
@@ -104,6 +105,7 @@ export function Container() {
   // always halve the tab-container width even after the user disabled the
   // split-view setting — leaving Wallet/Home content stuck on the left half.
   useEffect(() => {
+    ok60835TabBarLog('container-split-mode', { shouldUseSplitView });
     setSplitViewLayoutDisabled(!shouldUseSplitView);
   }, [shouldUseSplitView]);
 
