@@ -18,10 +18,14 @@ import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { usePerpFundingHistory } from '../../hooks/usePerpMarketDetail';
+import {
+  type IPerpFundingHistoryRange,
+  usePerpFundingHistory,
+} from '../../hooks/usePerpMarketDetail';
 import {
   type IPerpFundingChartInterval,
   buildPerpFundingChartData,
+  getPerpFundingChartHistoryRange,
   getPerpFundingTooltipPosition,
 } from '../../utils/fundingChart';
 
@@ -32,11 +36,16 @@ const FUNDING_INTERVAL_ITEMS: Array<{
   label: string;
 }> = [
   { key: '1h', label: '1h' },
-  { key: '4h', label: '4h' },
   { key: '8h', label: '8h' },
-  { key: '12h', label: '12h' },
   { key: '1d', label: 'D' },
 ];
+
+const FUNDING_HISTORY_RANGE_ORDER: Record<IPerpFundingHistoryRange, number> = {
+  '24h': 0,
+  '7d': 1,
+  '30d': 2,
+  '90d': 3,
+};
 
 const FUNDING_POSITIVE_COLOR = '#31E72F';
 const FUNDING_NEGATIVE_COLOR = '#EF4444';
@@ -454,7 +463,15 @@ export function PerpFundingChart({
     useState<IPerpFundingChartInterval>('8h');
   const [cumulativeInterval, setCumulativeInterval] =
     useState<IPerpFundingChartInterval>('8h');
-  const fundingHistory = usePerpFundingHistory(coin, '30d');
+  const fundingHistoryRange = useMemo(() => {
+    const fundingRange = getPerpFundingChartHistoryRange(fundingInterval);
+    const cumulativeRange = getPerpFundingChartHistoryRange(cumulativeInterval);
+    return FUNDING_HISTORY_RANGE_ORDER[fundingRange] >=
+      FUNDING_HISTORY_RANGE_ORDER[cumulativeRange]
+      ? fundingRange
+      : cumulativeRange;
+  }, [cumulativeInterval, fundingInterval]);
+  const fundingHistory = usePerpFundingHistory(coin, fundingHistoryRange);
   const isMobile = variant === 'mobile';
   const history = useMemo(
     () => fundingHistory.result ?? [],

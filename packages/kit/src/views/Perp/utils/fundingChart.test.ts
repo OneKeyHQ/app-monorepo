@@ -2,6 +2,7 @@ import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/s
 
 import {
   buildPerpFundingChartData,
+  getPerpFundingChartHistoryRange,
   getPerpFundingTooltipPosition,
 } from './fundingChart';
 
@@ -63,28 +64,26 @@ describe('buildPerpFundingChartData', () => {
   });
 
   it.each([
-    ['4h', 3, 4, 0, 4],
-    ['12h', 11, 12, 0, 12],
+    ['1h', 7 * 24, '7d'],
+    ['8h', 30 * 24, '30d'],
+    ['1d', 90 * 24, '90d'],
   ] as const)(
-    'uses UTC-aligned buckets for the %s interval',
-    (interval, firstHour, secondHour, firstBucketHour, secondBucketHour) => {
+    'limits the %s interval to its %s-hour history range',
+    (interval, rangeHours, historyRange) => {
+      const latestHour = 100 * 24;
       const result = buildPerpFundingChartData(
-        [record(firstHour, '0.00001'), record(secondHour, '0.00002')],
+        [
+          record(latestHour - rangeHours - 1, '0.00001'),
+          record(latestHour - rangeHours, '0.00002'),
+          record(latestHour, '0.00003'),
+        ],
         interval,
       );
 
-      expect(result).toEqual([
-        {
-          time: firstBucketHour * 3600,
-          fundingRate: 0.001,
-          cumulativeFundingRate: 0.001,
-        },
-        {
-          time: secondBucketHour * 3600,
-          fundingRate: 0.002,
-          cumulativeFundingRate: 0.003,
-        },
-      ]);
+      expect(result).toHaveLength(2);
+      expect(result[0]?.time).toBe((latestHour - rangeHours) * 3600);
+      expect(result.at(-1)?.cumulativeFundingRate).toBeCloseTo(0.005);
+      expect(getPerpFundingChartHistoryRange(interval)).toBe(historyRange);
     },
   );
 });

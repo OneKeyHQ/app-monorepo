@@ -42,7 +42,10 @@ type IMockFundingHistory = {
 const mockLightweightChart = jest.fn((_props: IMockLightweightChartProps) => (
   <div data-testid="funding-chart" />
 ));
-const mockUsePerpFundingHistory = jest.fn<IMockFundingHistory, []>();
+const mockUsePerpFundingHistory = jest.fn<
+  IMockFundingHistory,
+  [string | undefined, string]
+>();
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -103,7 +106,8 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('../../hooks/usePerpMarketDetail', () => ({
-  usePerpFundingHistory: () => mockUsePerpFundingHistory(),
+  usePerpFundingHistory: (coin: string | undefined, range: string) =>
+    mockUsePerpFundingHistory(coin, range),
 }));
 
 const FUNDING_HISTORY = [
@@ -129,7 +133,7 @@ const FUNDING_HISTORY = [
 
 describe('PerpFundingChart', () => {
   beforeEach(() => {
-    mockLightweightChart.mockClear();
+    jest.clearAllMocks();
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
@@ -230,9 +234,10 @@ describe('PerpFundingChart', () => {
       ETranslations.perp_funding_rate_history__title,
       ETranslations.perp_cumulative_funding_rate__title,
     ]);
-    ['1h', '4h', '8h', '12h', 'D'].forEach((label) => {
+    ['1h', '8h', 'D'].forEach((label) => {
       expect(screen.getAllByText(label)).toHaveLength(2);
     });
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '30d');
     expect(
       screen.getAllByText(ETranslations.perp_positive_funding_rate__label),
     ).toHaveLength(2);
@@ -256,6 +261,13 @@ describe('PerpFundingChart', () => {
       [0, 0.003],
       [28_800, 0.006],
     ]);
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '30d');
+
+    fireEvent.click(screen.getAllByText('1h')[1]);
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '7d');
+
+    fireEvent.click(screen.getAllByText('D')[0]);
+    expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
   });
 
   it('uses compact axes for the mobile chart layout', () => {

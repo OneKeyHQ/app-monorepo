@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-export type IPerpFundingChartInterval = '1h' | '4h' | '8h' | '12h' | '1d';
+export type IPerpFundingChartInterval = '1h' | '8h' | '1d';
 
 export type IPerpFundingChartPoint = {
   time: number;
@@ -24,13 +24,24 @@ export type IPerpFundingTooltipPositionParams = {
 
 const HOUR_MS = 60 * 60 * 1000;
 
-const INTERVAL_HOURS: Record<IPerpFundingChartInterval, number> = {
-  '1h': 1,
-  '4h': 4,
-  '8h': 8,
-  '12h': 12,
-  '1d': 24,
+const INTERVAL_CONFIG: Record<
+  IPerpFundingChartInterval,
+  {
+    bucketHours: number;
+    rangeHours: number;
+    historyRange: '7d' | '30d' | '90d';
+  }
+> = {
+  '1h': { bucketHours: 1, rangeHours: 7 * 24, historyRange: '7d' },
+  '8h': { bucketHours: 8, rangeHours: 30 * 24, historyRange: '30d' },
+  '1d': { bucketHours: 24, rangeHours: 90 * 24, historyRange: '90d' },
 };
+
+export function getPerpFundingChartHistoryRange(
+  interval: IPerpFundingChartInterval,
+) {
+  return INTERVAL_CONFIG[interval].historyRange;
+}
 
 export function getPerpFundingTooltipPosition({
   x,
@@ -62,14 +73,27 @@ export function buildPerpFundingChartData(
   records: IFundingHistoryRecord[],
   interval: IPerpFundingChartInterval,
 ): IPerpFundingChartPoint[] {
-  const bucketSizeMs = INTERVAL_HOURS[interval] * HOUR_MS;
+  const { bucketHours, rangeHours } = INTERVAL_CONFIG[interval];
+  const bucketSizeMs = bucketHours * HOUR_MS;
+  const latestRecordTime = records.reduce(
+    (latestTime, record) =>
+      Number.isFinite(record.time)
+        ? Math.max(latestTime, record.time)
+        : latestTime,
+    Number.NEGATIVE_INFINITY,
+  );
+  const rangeStartTime = latestRecordTime - rangeHours * HOUR_MS;
   const buckets = new Map<number, BigNumber>();
 
   records
     .toSorted((a, b) => a.time - b.time)
     .forEach((record) => {
       const fundingRate = new BigNumber(record.fundingRate);
-      if (!Number.isFinite(record.time) || !fundingRate.isFinite()) {
+      if (
+        !Number.isFinite(record.time) ||
+        record.time < rangeStartTime ||
+        !fundingRate.isFinite()
+      ) {
         return;
       }
 
