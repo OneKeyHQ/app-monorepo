@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+  <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
+  <Font id="1" name="{{font.family}}" size="{{font.titleSize}}" bold="true" />
+  <Font id="2" name="{{font.family}}" size="19" bold="true" />
+  <Font id="3" name="{{font.family}}" size="12" bold="true" />
+  <HorizontalLayout name="page-root" bkcolor="{{color.surface}}">
+    <VerticalLayout width="348" bkcolor="{{color.heroBackground}}" inset="36,34,36,34">
+      <HorizontalLayout height="36">
+        <BrandMark width="30" height="30" bkcolor="{{color.brand}}" borderround="9,9" />
+        <Label text="OneKey" font="2" textcolor="{{color.textOnDark}}" padding="12,0,0,0" />
+      </HorizontalLayout>
+      <Control />
+      <Text text="{{feature.title}}" font="1" textcolor="{{color.textOnDark}}" height="88" wordbreak="true" />
+      <Text text="{{feature.description}}" textcolor="{{color.textOnDarkSecondary}}" height="102" wordbreak="true" />
+      <Control />
+    </VerticalLayout>
+    <VerticalLayout bkcolor="{{color.surface}}">
+      <HorizontalLayout height="64" inset="28,16,18,8">
+        <Label text="{{string.app.name}}" font="3" textcolor="{{color.textSecondary}}" />
+        <Button name="closebtn" text="×" textcolor="{{color.textSecondary}}" hottextcolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" width="36" height="36" borderround="10,10" font="2" />
+      </HorizontalLayout>
+      <VerticalLayout inset="64,58,64,44">
+        <Label text="!" font="1" textcolor="{{color.danger}}" bkcolor="{{color.dangerSoft}}" width="68" height="68" borderround="34,34" align="center" />
+        <Control height="32" />
+        <Label text="{{string.error.title}}" font="1" textcolor="{{color.textPrimary}}" height="50" />
+        <Text text="{{string.error.subtitle}}" textcolor="{{color.textSecondary}}" height="76" wordbreak="true" />
+        <Text name="status" text="{{runtime.status}}" textcolor="{{color.danger}}" bkcolor="{{color.dangerSoft}}" height="64" padding="16,12,16,12" borderround="10,10" wordbreak="true" />
+        <Control />
+        <HorizontalLayout height="48">
+          <Button name="cancel" text="{{string.install.cancel}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.surfaceMuted}}" hotbkcolor="{{color.border}}" width="112" height="48" borderround="12,12" />
+          <Control width="12" />
+          <Button name="primary" text="{{string.error.retry}}" textcolor="{{color.heroBackground}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" height="48" borderround="12,12" font="3" />
+        </HorizontalLayout>
+      </VerticalLayout>
+    </VerticalLayout>
+  </HorizontalLayout>
+</Window>

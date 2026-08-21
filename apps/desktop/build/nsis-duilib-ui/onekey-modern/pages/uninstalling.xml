@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+  <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
+  <Font id="1" name="{{font.family}}" size="{{font.titleSize}}" bold="true" />
+  <Font id="2" name="{{font.family}}" size="19" bold="true" />
+  <Font id="3" name="{{font.family}}" size="12" bold="true" />
+  <HorizontalLayout name="page-root" bkcolor="{{color.surface}}">
+    <VerticalLayout width="348" bkcolor="{{color.heroBackground}}" inset="36,34,36,34">
+      <HorizontalLayout height="36">
+        <BrandMark width="30" height="30" bkcolor="{{color.brand}}" borderround="9,9" />
+        <Label text="OneKey" font="2" textcolor="{{color.textOnDark}}" padding="12,0,0,0" />
+      </HorizontalLayout>
+      <Control height="110" />
+      <Label text="{{string.feature.eyebrow}}" font="3" textcolor="{{color.brand}}" height="28" />
+      <Text text="{{feature.title}}" font="1" textcolor="{{color.textOnDark}}" height="88" wordbreak="true" />
+      <Text text="{{feature.description}}" textcolor="{{color.textOnDarkSecondary}}" height="102" wordbreak="true" />
+      <Control />
+    </VerticalLayout>
+    <VerticalLayout bkcolor="{{color.surface}}">
+      <HorizontalLayout height="64" inset="28,16,18,8">
+        <Label text="{{string.app.name}}" font="3" textcolor="{{color.textSecondary}}" />
+        <Button name="minbtn" text="—" textcolor="{{color.textSecondary}}" hotbkcolor="{{color.surfaceMuted}}" width="36" height="36" borderround="10,10" />
+      </HorizontalLayout>
+      <VerticalLayout inset="64,90,64,44">
+        <Label text="{{string.uninstall.title}}" font="1" textcolor="{{color.textPrimary}}" height="52" />
+        <Text text="{{string.uninstall.subtitle}}" textcolor="{{color.textSecondary}}" height="70" wordbreak="true" />
+        <Control height="72" />
+        <HorizontalLayout height="26">
+          <Label text="{{string.install.progressLabel}}" font="3" textcolor="{{color.textPrimary}}" />
+          <Label name="progress-value" text="{{runtime.progress}}%" font="3" textcolor="{{color.textPrimary}}" width="56" align="right" />
+        </HorizontalLayout>
+        <Progress name="progress" height="8" value="{{runtime.progress}}" bkcolor="{{color.progressTrack}}" forecolor="{{color.brand}}" borderround="4,4" />
+        <Label name="status" text="{{string.uninstall.status}}" textcolor="{{color.textSecondary}}" height="48" padding="0,14,0,0" />
+        <Control />
+        <Label text="{{string.install.version}}" textcolor="{{color.textSecondary}}" height="30" align="right" />
+      </VerticalLayout>
+    </VerticalLayout>
+  </HorizontalLayout>
+</Window>

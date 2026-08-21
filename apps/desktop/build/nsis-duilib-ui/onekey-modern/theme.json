@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "onekey-modern",
+  "name": "OneKey Modern",
+  "minEngineVersion": "0.1.0",
+  "window": {
+    "width": 960,
+    "height": 600,
+    "radius": 16
+  },
+  "pages": {
+    "welcome": "pages/welcome.xml",
+    "options": "pages/options.xml",
+    "installing": "pages/installing.xml",
+    "finish": "pages/finish.xml",
+    "uninstalling": "pages/uninstalling.xml",
+    "uninstallFinish": "pages/uninstall-finish.xml",
+    "error": "pages/error.xml"
+  },
+  "tokens": "tokens.json",
+  "content": "content.json",
+  "locales": {
+    "en-US": "locales/en-US.json",
+    "zh-CN": "locales/zh-CN.json"
+  }
+}
