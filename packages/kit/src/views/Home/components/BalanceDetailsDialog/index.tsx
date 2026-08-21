@@ -63,12 +63,14 @@ function BalanceDetailsContent({
   onClose?: () => void;
 }) {
   const intl = useIntl();
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
   const { result } = usePromiseResult(async () => {
-    const [vaultSettings, { networkAccounts: n }] = await Promise.all([
-      backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId,
-      }),
+    const [
+      vaultSettings,
+      { networkAccounts: n },
+      inscriptionProtectionServerEnabled,
+    ] = await Promise.all([
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
         {
           networkId,
@@ -76,15 +78,17 @@ function BalanceDetailsContent({
           excludeEmptyAccount: true,
         },
       ),
+      backgroundApiProxy.serviceSetting.getInscriptionProtectionServerEnabled(),
     ]);
 
+    const effectiveMergeDeriveAssetsEnabled =
+      mergeDeriveAssetsEnabled ?? vaultSettings?.mergeDeriveAssetsEnabled;
     const i =
       await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
         {
           networkId,
           accountId,
-          mergeDeriveAssetsEnabled:
-            mergeDeriveAssetsEnabled ?? vaultSettings?.mergeDeriveAssetsEnabled,
+          mergeDeriveAssetsEnabled: effectiveMergeDeriveAssetsEnabled,
         },
       );
 
@@ -99,6 +103,8 @@ function BalanceDetailsContent({
 
     return {
       inscriptionEnabled: i,
+      inscriptionProtectionServerEnabled,
+      effectiveMergeDeriveAssetsEnabled,
       showDeriveItems: s,
       networkAccounts: n,
     };
@@ -110,7 +116,13 @@ function BalanceDetailsContent({
     deriveInfoItems,
   ]);
 
-  const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
+  const {
+    inscriptionEnabled,
+    inscriptionProtectionServerEnabled,
+    effectiveMergeDeriveAssetsEnabled,
+    showDeriveItems,
+    networkAccounts,
+  } = result ?? {};
 
   const {
     result: { overview, network, account } = {
@@ -119,12 +131,14 @@ function BalanceDetailsContent({
       account: undefined,
     },
     isLoading,
+    run: refreshDetails,
   } = usePromiseResult(
     async () => {
       if (
         !accountId ||
         !networkId ||
         isUndefined(inscriptionEnabled) ||
+        isUndefined(inscriptionProtectionServerEnabled) ||
         isUndefined(showDeriveItems) ||
         isUndefined(networkAccounts)
       )
@@ -137,9 +151,13 @@ function BalanceDetailsContent({
         accountId,
       });
       const withCheckInscription =
-        inscriptionEnabled &&
-        settings.inscriptionProtection &&
-        (settings.inscriptionProtectionServerEnabled ?? true);
+        await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
+          {
+            networkId,
+            accountId,
+            mergeDeriveAssetsEnabled: effectiveMergeDeriveAssetsEnabled,
+          },
+        );
       let r: Partial<IFetchAccountDetailsResp> & {
         deriveItems?: {
           deriveType: string;
@@ -222,9 +240,9 @@ function BalanceDetailsContent({
       accountId,
       networkId,
       inscriptionEnabled,
+      inscriptionProtectionServerEnabled,
+      effectiveMergeDeriveAssetsEnabled,
       showDeriveItems,
-      settings.inscriptionProtection,
-      settings.inscriptionProtectionServerEnabled,
       networkAccounts,
     ],
     {
@@ -243,7 +261,7 @@ function BalanceDetailsContent({
   const renderFrozenBalance = useCallback(() => {
     if (
       networkUtils.isBTCNetwork(networkId) &&
-      !(settings.inscriptionProtectionServerEnabled ?? true)
+      !inscriptionProtectionServerEnabled
     ) {
       return null;
     }
@@ -324,8 +342,7 @@ function BalanceDetailsContent({
             })}
           </YStack>
         ) : null}
-        {inscriptionEnabled &&
-        (settings.inscriptionProtectionServerEnabled ?? true) ? (
+        {inscriptionEnabled && inscriptionProtectionServerEnabled ? (
           <>
             <Divider my="$3" />
             <XStack justifyContent="space-between" alignItems="center">
@@ -363,11 +380,11 @@ function BalanceDetailsContent({
                 testID="home-switch"
                 size={ESwitchSize.small}
                 value={settings.inscriptionProtection}
-                onChange={(value) => {
-                  setSettings((v) => ({
-                    ...v,
-                    inscriptionProtection: value,
-                  }));
+                onChange={async (value) => {
+                  await backgroundApiProxy.serviceSetting.setInscriptionProtection(
+                    value,
+                  );
+                  await refreshDetails();
                 }}
               />
             </XStack>
@@ -381,6 +398,7 @@ function BalanceDetailsContent({
     deriveInfoItems,
     howToTransferOrdinalsAssetsUrl,
     inscriptionEnabled,
+    inscriptionProtectionServerEnabled,
     isLoading,
     network?.symbol,
     networkAccounts,
@@ -388,9 +406,8 @@ function BalanceDetailsContent({
     onClose,
     overview?.deriveItems,
     overview?.frozenBalanceParsed,
-    setSettings,
+    refreshDetails,
     settings.inscriptionProtection,
-    settings.inscriptionProtectionServerEnabled,
     showDeriveItems,
     whatIsFrozenBalanceUrl,
     intl,

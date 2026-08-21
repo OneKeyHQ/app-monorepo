@@ -148,17 +148,13 @@ function SendReplaceTxContainer() {
           await backgroundApiProxy.serviceToken.getNativeTokenAddress({
             networkId,
           });
-        const accountEligibleForInscriptionProtection =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          accountEligibleForInscriptionProtection &&
-          settings.inscriptionProtection &&
-          (settings.inscriptionProtectionServerEnabled ?? true);
         const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountId,
@@ -168,13 +164,7 @@ function SendReplaceTxContainer() {
         });
         return r[0];
       },
-      [
-        accountId,
-        network,
-        networkId,
-        settings.inscriptionProtection,
-        settings.inscriptionProtectionServerEnabled,
-      ],
+      [accountId, network, networkId],
       { watchLoading: true },
     );
 

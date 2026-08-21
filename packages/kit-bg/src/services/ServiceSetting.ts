@@ -77,6 +77,7 @@ import {
 } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
+  inscriptionProtectionControlPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -521,31 +522,28 @@ class ServiceSetting extends ServiceBase {
 
   private _fetchInscriptionProtectionControl = memoizee(
     async () => {
-      try {
-        const client = await this.getClient(EServiceEndpointEnum.Utility);
-        const response = await client.get<{
-          data: { value: string; key: string }[];
-        }>('/utility/v1/setting', {
-          params: {
-            key: INSCRIPTION_PROTECTION_SETTING_KEY,
-          },
-        });
-        const matched = response.data.data.find(
-          (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key: INSCRIPTION_PROTECTION_SETTING_KEY,
+        },
+      });
+      const matched = response.data.data.find(
+        (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      );
+      const serverEnabled = matched
+        ? parseInscriptionProtectionServerEnabled(matched.value)
+        : undefined;
+      if (serverEnabled === undefined) {
+        throw new OneKeyLocalError(
+          'Invalid inscription protection control response',
         );
-        const serverEnabled = matched
-          ? parseInscriptionProtectionServerEnabled(matched.value)
-          : undefined;
-        if (serverEnabled === undefined) {
-          return;
-        }
-        await settingsPersistAtom.set((prev) => ({
-          ...prev,
-          inscriptionProtectionServerEnabled: serverEnabled,
-        }));
-      } catch (e) {
-        console.error('fetchInscriptionProtectionControl error', e);
       }
+      await inscriptionProtectionControlPersistAtom.set(() => ({
+        enabled: serverEnabled,
+      }));
     },
     {
       promise: true,
@@ -555,7 +553,15 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async fetchInscriptionProtectionControl() {
-    await this._fetchInscriptionProtectionControl();
+    try {
+      await this._fetchInscriptionProtectionControl();
+    } catch (error) {
+      void this._fetchInscriptionProtectionControl.clear();
+      defaultLogger.setting.page.consoleError(
+        'fetchInscriptionProtectionControl error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
   }
 
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
@@ -657,6 +663,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setInscriptionProtection(enabled: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      inscriptionProtection: enabled,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtectionServerEnabled() {
+    const { enabled } = await inscriptionProtectionControlPersistAtom.get();
+    return enabled;
+  }
+
+  @backgroundMethod()
   public async getEffectiveInscriptionProtection({
     networkId,
     accountId,
@@ -666,19 +686,16 @@ class ServiceSetting extends ServiceBase {
     accountId: string;
     mergeDeriveAssetsEnabled?: boolean;
   }) {
-    const [settings, accountEligible] = await Promise.all([
+    const [settings, control, accountEligible] = await Promise.all([
       settingsPersistAtom.get(),
+      inscriptionProtectionControlPersistAtom.get(),
       this.checkInscriptionProtectionEnabled({
         networkId,
         accountId,
         mergeDeriveAssetsEnabled,
       }),
     ]);
-    return (
-      accountEligible &&
-      settings.inscriptionProtection &&
-      (settings.inscriptionProtectionServerEnabled ?? true)
-    );
+    return accountEligible && settings.inscriptionProtection && control.enabled;
   }
 
   @backgroundMethod()

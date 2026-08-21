@@ -4,6 +4,10 @@ const mockSettingsPersistAtom = {
   get: jest.fn(),
   set: jest.fn(),
 };
+const mockInscriptionProtectionControlPersistAtom = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -35,6 +39,8 @@ jest.mock('../states/jotai/atoms/prime', () => ({
 }));
 
 jest.mock('../states/jotai/atoms/settings', () => ({
+  inscriptionProtectionControlPersistAtom:
+    mockInscriptionProtectionControlPersistAtom,
   settingsPersistAtom: mockSettingsPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom: {},
   settingsLastActivityAtom: {},
@@ -65,20 +71,15 @@ const ServiceSetting = require('./ServiceSetting')
 
 function createService({
   inscriptionProtection = true,
-  inscriptionProtectionServerEnabled,
+  inscriptionProtectionServerEnabled = true,
 }: {
   inscriptionProtection?: boolean;
   inscriptionProtectionServerEnabled?: boolean;
 } = {}) {
-  let settingsState: {
-    inscriptionProtection: boolean;
-    inscriptionProtectionServerEnabled?: boolean;
-  } = {
+  let settingsState: { inscriptionProtection: boolean } = {
     inscriptionProtection,
-    ...(inscriptionProtectionServerEnabled === undefined
-      ? {}
-      : { inscriptionProtectionServerEnabled }),
   };
+  let controlState = { enabled: inscriptionProtectionServerEnabled };
   const get = jest.fn();
   const service = new ServiceSetting({
     backgroundApi: {
@@ -94,10 +95,20 @@ function createService({
       return settingsState;
     },
   );
+  mockInscriptionProtectionControlPersistAtom.get.mockImplementation(
+    async () => controlState,
+  );
+  mockInscriptionProtectionControlPersistAtom.set.mockImplementation(
+    async (builder: (value: typeof controlState) => typeof controlState) => {
+      controlState = builder(controlState);
+      return controlState;
+    },
+  );
   jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
 
   return {
     get,
+    getControlState: () => controlState,
     getSettingsState: () => settingsState,
     service,
   };
@@ -109,7 +120,7 @@ describe('ServiceSetting inscription protection control', () => {
   });
 
   it('persists the server value without overwriting the user preference', async () => {
-    const { get, getSettingsState, service } = createService({
+    const { get, getControlState, getSettingsState, service } = createService({
       inscriptionProtection: true,
       inscriptionProtectionServerEnabled: true,
     });
@@ -131,8 +142,33 @@ describe('ServiceSetting inscription protection control', () => {
     });
     expect(getSettingsState()).toEqual({
       inscriptionProtection: true,
-      inscriptionProtectionServerEnabled: false,
     });
+    expect(getControlState()).toEqual({ enabled: false });
+    expect(mockSettingsPersistAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('keeps the control value isolated from UI settings snapshots', async () => {
+    const { get, getControlState, service } = createService({
+      inscriptionProtection: true,
+      inscriptionProtectionServerEnabled: true,
+    });
+    get.mockResolvedValue({
+      data: {
+        data: [
+          {
+            key: 'BTC_INSCRIPTION_PROTECTION_ENABLED',
+            value: '{"value":false}',
+          },
+        ],
+      },
+    });
+
+    await service.fetchInscriptionProtectionControl();
+    await mockSettingsPersistAtom.set(() => ({
+      inscriptionProtection: false,
+    }));
+
+    expect(getControlState()).toEqual({ enabled: false });
   });
 
   it.each([
@@ -156,31 +192,55 @@ describe('ServiceSetting inscription protection control', () => {
       ],
     ],
   ])('keeps the last valid value for %s', async (_label, data) => {
-    const { get, getSettingsState, service } = createService({
+    const { get, getControlState, service } = createService({
       inscriptionProtectionServerEnabled: true,
     });
     get.mockResolvedValue({ data: { data } });
 
     await service.fetchInscriptionProtectionControl();
 
-    expect(mockSettingsPersistAtom.set).not.toHaveBeenCalled();
-    expect(getSettingsState().inscriptionProtectionServerEnabled).toBe(true);
+    expect(
+      mockInscriptionProtectionControlPersistAtom.set,
+    ).not.toHaveBeenCalled();
+    expect(getControlState().enabled).toBe(true);
   });
 
   it('keeps the last valid value when the request fails', async () => {
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    const { get, getSettingsState, service } = createService({
+    const { get, getControlState, service } = createService({
       inscriptionProtectionServerEnabled: false,
     });
     get.mockRejectedValue(new Error('network error'));
 
     await service.fetchInscriptionProtectionControl();
 
-    expect(mockSettingsPersistAtom.set).not.toHaveBeenCalled();
-    expect(getSettingsState().inscriptionProtectionServerEnabled).toBe(false);
-    consoleError.mockRestore();
+    expect(
+      mockInscriptionProtectionControlPersistAtom.set,
+    ).not.toHaveBeenCalled();
+    expect(getControlState().enabled).toBe(false);
+  });
+
+  it('retries immediately after a failed request', async () => {
+    const { get, getControlState, service } = createService({
+      inscriptionProtectionServerEnabled: true,
+    });
+    get
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              key: 'BTC_INSCRIPTION_PROTECTION_ENABLED',
+              value: '{"value":false}',
+            },
+          ],
+        },
+      });
+
+    await service.fetchInscriptionProtectionControl();
+    await service.fetchInscriptionProtectionControl();
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(getControlState().enabled).toBe(false);
   });
 
   it.each([
@@ -188,7 +248,6 @@ describe('ServiceSetting inscription protection control', () => {
     [true, false, true, false],
     [false, true, true, false],
     [true, true, false, false],
-    [true, undefined, true, true],
   ])(
     'combines local=%s server=%s eligible=%s into %s',
     async (localEnabled, serverEnabled, eligible, expected) => {

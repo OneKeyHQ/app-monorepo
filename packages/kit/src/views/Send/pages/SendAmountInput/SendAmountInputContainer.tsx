@@ -919,17 +919,13 @@ function SendAmountInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const accountEligibleForInscriptionProtection =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          accountEligibleForInscriptionProtection &&
-          settings.inscriptionProtection &&
-          (settings.inscriptionProtectionServerEnabled ?? true);
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -949,18 +945,7 @@ function SendAmountInputContainer() {
       // balance was fetched for — it lags `currentAccountId` after a switch.
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
-    [
-      account,
-      isNFT,
-      network,
-      nft,
-      serviceNFT,
-      serviceToken,
-      token,
-      tokenInfo,
-      settings.inscriptionProtection,
-      settings.inscriptionProtectionServerEnabled,
-    ],
+    [account, isNFT, network, nft, serviceNFT, serviceToken, token, tokenInfo],
     {
       watchLoading: true,
       alwaysSetState: true,
@@ -2186,12 +2171,6 @@ function SendAmountInputContainer() {
     networkId,
     indexedAccountId: account?.indexedAccountId ?? '',
     tokenAddress: tokenInfo?.address ?? '',
-    // Spendable balance depends on this setting; feeding it in (and keying the
-    // sibling cache on it) keeps siblings on the same balance contract as the
-    // current page and invalidates the cache when the user toggles it mid-flow.
-    inscriptionProtection:
-      !!settings.inscriptionProtection &&
-      (settings.inscriptionProtectionServerEnabled ?? true),
   });
 
   const performAutoSwitchToAccount = useCallback(

@@ -13,7 +13,6 @@ import {
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -51,7 +50,6 @@ function SendConfirmContainer() {
     updateSendFeeStatus,
     updatePreCheckTxStatus,
   } = useSendConfirmActions().current;
-  const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendAlertStatus] = useSendTxStatusAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
@@ -95,17 +93,13 @@ function SendConfirmContainer() {
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
       ]);
-      const accountEligibleForInscriptionProtection =
-        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+      const withCheckInscription =
+        await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
           {
             networkId,
             accountId,
           },
         );
-      const withCheckInscription =
-        accountEligibleForInscriptionProtection &&
-        settings.inscriptionProtection &&
-        (settings.inscriptionProtectionServerEnabled ?? true);
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
         networkId,
         accountId,
@@ -127,8 +121,6 @@ function SendConfirmContainer() {
       unsignedTxs,
       updateNativeTokenInfo,
       updateUnsignedTxs,
-      settings.inscriptionProtection,
-      settings.inscriptionProtectionServerEnabled,
     ]).result ?? {};
 
   usePromiseResult(async () => {

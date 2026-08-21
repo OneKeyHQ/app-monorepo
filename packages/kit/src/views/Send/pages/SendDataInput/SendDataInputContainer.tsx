@@ -42,7 +42,6 @@ import type {
   IChainValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -116,7 +115,6 @@ function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
 
-  const [settings] = useSettingsPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
@@ -266,17 +264,13 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const accountEligibleForInscriptionProtection =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          accountEligibleForInscriptionProtection &&
-          settings.inscriptionProtection &&
-          (settings.inscriptionProtectionServerEnabled ?? true);
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -294,18 +288,7 @@ function SendDataInputContainer() {
 
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
-    [
-      account,
-      isNFT,
-      network,
-      nft,
-      serviceNFT,
-      serviceToken,
-      token,
-      tokenInfo,
-      settings.inscriptionProtection,
-      settings.inscriptionProtectionServerEnabled,
-    ],
+    [account, isNFT, network, nft, serviceNFT, serviceToken, token, tokenInfo],
     { watchLoading: true, alwaysSetState: true },
   );
 

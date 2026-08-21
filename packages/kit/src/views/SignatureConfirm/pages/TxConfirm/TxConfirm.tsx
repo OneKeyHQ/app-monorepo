@@ -17,7 +17,6 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_NATIVE_TOKEN_INFO } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -99,7 +98,6 @@ function TxConfirm() {
     updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
-  const [settings] = useSettingsPersistAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
@@ -211,17 +209,13 @@ function TxConfirm() {
         networkId,
       });
 
-    const accountEligibleForInscriptionProtection =
-      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+    const withCheckInscription =
+      await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
         {
           networkId,
           accountId,
         },
       );
-    const withCheckInscription =
-      accountEligibleForInscriptionProtection &&
-      settings.inscriptionProtection &&
-      (settings.inscriptionProtectionServerEnabled ?? true);
     const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountId,
@@ -246,8 +240,6 @@ function TxConfirm() {
     updateNativeTokenInfo,
     accountId,
     networkId,
-    settings.inscriptionProtection,
-    settings.inscriptionProtectionServerEnabled,
     transferPayload?.selectedUtxoTotalAmount,
   ]);
 

@@ -46,7 +46,6 @@ export type ISettingsPersistAtom = {
   transferAllowList: boolean;
   spendDustUTXO: boolean;
   inscriptionProtection: boolean;
-  inscriptionProtectionServerEnabled?: boolean;
   isFirstTimeSwap: boolean;
   isPrivateSendGuideClicked?: boolean;
   swapBatchApproveAndSwap: boolean;
@@ -100,7 +99,6 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   transferAllowList: false,
   spendDustUTXO: false,
   inscriptionProtection: true,
-  inscriptionProtectionServerEnabled: true,
   isFirstTimeSwap: true,
   isPrivateSendGuideClicked: false,
   swapBatchApproveAndSwap: true,
@@ -130,6 +128,19 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
     persist: true,
     name: EAtomNames.settingsPersistAtom,
     initialValue: settingsAtomInitialValue,
+  });
+
+export type IInscriptionProtectionControlPersistAtom = {
+  enabled: boolean;
+};
+
+export const { target: inscriptionProtectionControlPersistAtom } =
+  globalAtom<IInscriptionProtectionControlPersistAtom>({
+    persist: true,
+    name: EAtomNames.inscriptionProtectionControlPersistAtom,
+    initialValue: {
+      enabled: true,
+    },
   });
 
 type ISettingsLastActivityPersistAtom = {
