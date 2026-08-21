@@ -13,6 +13,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('../utils', () => ({
   globalAtom: jest.fn(() => ({ target: {}, use: jest.fn() })),
+  globalAtomComputedR: jest.fn(() => ({ use: jest.fn() })),
 }));
 
 describe('settings default hardware transport', () => {

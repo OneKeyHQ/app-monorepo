@@ -27,7 +27,9 @@ describe('ServiceSetting desktop Bluetooth', () => {
       jest.spyOn(settingsPersistAtom, 'get').mockResolvedValue({
         enableDesktopBluetooth: persistedValue,
       } as never);
-      const service = new ServiceSetting({ backgroundApi: {} });
+      const service = new ServiceSetting({
+        backgroundApi: { simpleDb: { appStatus: {} } },
+      });
 
       await expect(service.getEnableDesktopBluetooth()).resolves.toBe(expected);
     },
