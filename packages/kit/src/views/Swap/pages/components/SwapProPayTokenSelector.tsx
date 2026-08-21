@@ -213,7 +213,7 @@ const SwapProPayTokenSelector = ({
             tokens={defaultTokensFromType as IToken[]}
             onTokenPress={handleTokenSelect}
             onTradePress={() => {
-              setSwapProUserSelectedToken(false);
+              setSwapProUserSelectedToken(undefined);
               setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
             }}
             disabledOnSwitchToTrade

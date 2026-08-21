@@ -472,13 +472,27 @@ describe('useSwapActions', () => {
       await act(async () => {
         await result.current.selectFromToken(bnbToken, true, true);
       });
-      expect(store.get(swapUserSelectedTokensAtom())).toBe(expectedArmed);
+      expect(Boolean(store.get(swapUserSelectedTokensAtom()))).toBe(
+        expectedArmed,
+      );
+      if (expectedArmed) {
+        expect(store.get(swapUserSelectedTokensAtom())?.fromToken).toBe(
+          bnbToken,
+        );
+      }
 
-      store.set(swapUserSelectedTokensAtom(), false);
+      store.set(swapUserSelectedTokensAtom(), undefined);
       await act(async () => {
         await result.current.selectToToken(usdtToken, true);
       });
-      expect(store.get(swapUserSelectedTokensAtom())).toBe(expectedArmed);
+      expect(Boolean(store.get(swapUserSelectedTokensAtom()))).toBe(
+        expectedArmed,
+      );
+      if (expectedArmed) {
+        expect(store.get(swapUserSelectedTokensAtom())?.toToken).toBe(
+          usdtToken,
+        );
+      }
     },
   );
 
@@ -486,7 +500,10 @@ describe('useSwapActions', () => {
     platformEnv.isNative = true;
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapUserSelectedTokensAtom(), true);
+      storeInstance.set(swapUserSelectedTokensAtom(), {
+        fromToken: bnbToken,
+        toToken: usdtToken,
+      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -498,16 +515,132 @@ describe('useSwapActions', () => {
         'evm--1',
       );
     });
-    expect(store.get(swapUserSelectedTokensAtom())).toBe(false);
+    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
 
-    store.set(swapProUserSelectedTokenAtom(), true);
+    store.set(swapProUserSelectedTokenAtom(), usdtToken);
     await act(async () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         'evm--1',
       );
     });
-    expect(store.get(swapProUserSelectedTokenAtom())).toBe(false);
+    expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
+  });
+
+  it('commits a manual token and its carry snapshot before network-sort persistence settles', async () => {
+    let resolveNetworkSort: (() => void) | undefined;
+    mockSetSwapNetworksSortRawData.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveNetworkSort = resolve;
+      }),
+    );
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let selectionPromise: Promise<void> | undefined;
+    act(() => {
+      selectionPromise = result.current.selectToToken(usdtToken);
+    });
+
+    expect(store.get(swapSelectToTokenAtom())).toBe(usdtToken);
+    expect(store.get(swapUserSelectedTokensAtom())).toEqual({
+      fromToken: bnbToken,
+      toToken: usdtToken,
+    });
+
+    resolveNetworkSort?.();
+    await act(async () => selectionPromise);
+  });
+
+  it('applies Pro carry to the Swap pair as one synchronous transition', () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdcToken);
+      storeInstance.set(swapProSelectTokenAtom(), usdtToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: '2500',
+        isInput: false,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.applyProTokenCarryToSwap({
+        token: usdtToken,
+        nativeFromToken: bnbToken,
+        sourceProToken: usdtToken,
+      });
+    });
+
+    expect(store.get(swapSelectFromTokenAtom())).toBe(bnbToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(usdtToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+  });
+
+  it('keeps an armed carry snapshot aligned with direction alternation', () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapUserSelectedTokensAtom(), {
+        fromToken: bnbToken,
+        toToken: usdtToken,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.alternationToken();
+    });
+
+    expect(store.get(swapUserSelectedTokensAtom())).toEqual({
+      fromToken: usdtToken,
+      toToken: bnbToken,
+    });
+  });
+
+  it('invalidates an armed snapshot when a programmatic token replaces the pair', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapUserSelectedTokensAtom(), {
+        fromToken: bnbToken,
+        toToken: usdtToken,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.selectToToken(
+        usdcToken,
+        undefined,
+        undefined,
+        false,
+      );
+    });
+
+    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
   });
 
   it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {

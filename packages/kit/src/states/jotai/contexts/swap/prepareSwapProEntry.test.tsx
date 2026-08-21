@@ -21,12 +21,14 @@ import {
   swapFromTokenAmountAtom,
   swapProDirectionAtom,
   swapProSelectTokenAtom,
+  swapProUserSelectedTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
+  swapUserSelectedTokensAtom,
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
@@ -142,6 +144,11 @@ describe('prepareSwapProEntry', () => {
     store.set(swapToTokenAmountAtom(), toAmount);
     store.set(swapQuoteListAtom(), activeQuotes);
     store.set(swapQuoteActionLockAtom(), quoteLock);
+    store.set(swapUserSelectedTokensAtom(), {
+      fromToken: ordinaryFromToken,
+      toToken: ordinaryToToken,
+    });
+    store.set(swapProUserSelectedTokenAtom(), ordinaryToToken);
 
     const coldStartScopeKey = `store:${EJotaiContextStoreNames.swap}`;
     (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
@@ -180,6 +187,8 @@ describe('prepareSwapProEntry', () => {
     });
     expect(store.get(swapQuoteListAtom())).toBe(activeQuotes);
     expect(store.get(swapQuoteActionLockAtom())).toBe(quoteLock);
+    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
+    expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
   });
 
   it('prepares the same token again after returning to ordinary Swap state', () => {

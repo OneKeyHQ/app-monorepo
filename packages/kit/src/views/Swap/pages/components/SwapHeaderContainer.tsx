@@ -316,13 +316,12 @@ const SwapHeaderContainer = ({
         // back into Swap after the switch action has applied its own
         // last-non-limit token restores. Explicitly gated to the SWAP target
         // so a future non-swap tab leaving LIMIT never consumes the marker.
-        const preparedProCarry =
+        const proCarry =
           platformEnv.isNative &&
           swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
           newType === ESwapTabSwitchType.SWAP
             ? prepareProTokenCarryToSwap()
             : undefined;
-        const proCarry = preparedProCarry?.immediate;
         if (!isAllNetworkSelected && proCarry?.targetNetworkId) {
           await updateSelectedAccountNetworkAction(proCarry.targetNetworkId);
         } else if (
@@ -330,26 +329,20 @@ const SwapHeaderContainer = ({
           fromToken?.networkId &&
           fromToken.networkId !== selectedAccountNetworkId
         ) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+          await updateSelectedAccountNetworkAction(fromToken.networkId);
+        }
+        if (proCarry && !proCarry.claim()) {
+          // The Pro target changed while an account-network update was in
+          // flight. Keep the user on Pro with the newer carry intent intact.
+          syncRouteTabParam(swapTypeSwitch);
+          return;
         }
         await swapTypeSwitchAction(
           newType,
           proCarry?.targetNetworkId ??
             (fromToken?.networkId || swapContextNetworkId || networkId),
         );
-        await proCarry?.apply();
-        if (preparedProCarry?.pending) {
-          void preparedProCarry.pending.then(async (pendingCarry) => {
-            if (!pendingCarry?.isValid()) return;
-            if (!isAllNetworkSelected && pendingCarry.targetNetworkId) {
-              await updateSelectedAccountNetworkAction(
-                pendingCarry.targetNetworkId,
-              );
-            }
-            if (!pendingCarry.isValid()) return;
-            await pendingCarry.apply();
-          });
-        }
+        proCarry?.apply();
       }
     },
     [

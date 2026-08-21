@@ -183,7 +183,7 @@ const SwapProActionButton = ({
   const handleJumpToSwapAction = useCallback(() => {
     // This path transfers the complete Pro pair directly, so it must discard
     // the one-shot Pro -> Swap tab carry intent instead of leaving it stale.
-    setSwapProUserSelectedToken(false);
+    setSwapProUserSelectedToken(undefined);
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (

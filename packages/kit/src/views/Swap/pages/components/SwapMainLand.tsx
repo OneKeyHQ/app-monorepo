@@ -1210,7 +1210,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       if (focusSwapPro) {
         // OK-55190: a manual Pro target-token pick arms the Pro -> Swap
         // carry-over marker.
-        setSwapProUserSelectedToken(true);
+        setSwapProUserSelectedToken(token);
         void setSwapProSelectToken(token);
       } else {
         if (

@@ -79,10 +79,7 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
-    // OK-55190: a manual Pro target-token pick arms the Pro -> Swap
-    // carry-over marker.
-    setSwapProUserSelectedToken(true);
-    void setSwapProSelectToken({
+    const selectedToken = {
       networkId: token.networkId,
       contractAddress: token.address,
       decimals: token.decimals,
@@ -93,7 +90,11 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
       isStock: Boolean(token.stock),
-    });
+    };
+    // OK-55190: a manual Pro target-token pick arms the Pro -> Swap
+    // carry-over marker.
+    setSwapProUserSelectedToken(selectedToken);
+    void setSwapProSelectToken(selectedToken);
   };
   const handleSearchTokenSelect = (
     token: IMarketSearchV2Token & { networkLogoURI: string },
@@ -114,9 +115,7 @@ const SwapProSelectTokenPage = ({
       });
     }
     navigation.popStack();
-    // OK-55190: see handleTokenSelect — arm the Pro -> Swap carry marker.
-    setSwapProUserSelectedToken(true);
-    void setSwapProSelectToken({
+    const selectedToken = {
       networkId: token.network,
       contractAddress: token.address,
       decimals: token.decimals,
@@ -127,7 +126,10 @@ const SwapProSelectTokenPage = ({
       isNative: token.isNative,
       price: token.price?.toString(),
       isStock: Boolean(token.stock),
-    });
+    };
+    // OK-55190: see handleTokenSelect — arm the Pro -> Swap carry marker.
+    setSwapProUserSelectedToken(selectedToken);
+    void setSwapProSelectToken(selectedToken);
   };
   return (
     <Page>
