@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -11,21 +12,25 @@ import Animated, {
 
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { SizableText } from '../../primitives';
+import { SWAP_IN_MS, SWAP_OUT_MS } from '../MorphOverlay';
 
 /**
- * The stage's words, shared by both engines so the two surfaces speak
- * with one voice: title and subtitle swapped as one block — the outgoing
- * pair lifts out and fades, then the incoming pair rises in from below,
- * strictly in that order, so the two never share the stage. The swap
- * starts the moment the step changes: the words wait for nothing else.
- * With `animated` off (the surface is closed, or motion is reduced) they
- * snap, so a reopened stage never replays a stale swap; a fresh mount
- * shows its target directly — arrivals are carried by their presenter's
- * own fade.
+ * The stage's words, one voice for every step: title and subtitle
+ * swapped as one block — the outgoing pair lifts out and fades, then the
+ * incoming pair rises in from below, strictly in that order, so the two
+ * never share the stage. The swap starts the moment the step changes:
+ * the words wait for nothing else. With `animated` off (the surface is
+ * closed, or motion is reduced) they snap, so a reopened stage never
+ * replays a stale swap; a fresh mount shows its target directly —
+ * arrivals are carried by their presenter's own fade.
+ *
+ * The clock IS the container's crossing clock (one grammar): words
+ * swapping in place and arrangements crossing run the same two phases
+ * with the same easings, so anything queued on either beat agrees.
  */
 
-export const TEXT_OUT_MS = 200;
-export const TEXT_IN_MS = 280;
+export const TEXT_OUT_MS = SWAP_OUT_MS;
+export const TEXT_IN_MS = SWAP_IN_MS;
 const TEXT_OUT_RISE = 14;
 const TEXT_IN_DROP = 18;
 
@@ -39,10 +44,14 @@ export function StepText({
   title,
   sub,
   animated,
+  subColor = '$textSubdued',
 }: {
   title: string;
   sub: string;
   animated: boolean;
+  /** The sub line's color — subdued by default; the NOTE beat wears
+   * critical on the same metrics. */
+  subColor?: ComponentProps<typeof SizableText>['color'];
 }) {
   const [shown, setShown] = useState({ title, sub });
   const targetRef = useRef({ title, sub });
@@ -91,7 +100,7 @@ export function StepText({
     <Animated.View style={style}>
       <SizableText size="$heading2xl">{shown.title}</SizableText>
       {shown.sub ? (
-        <SizableText fontSize={15} lineHeight={21} color="$textSubdued">
+        <SizableText fontSize={15} lineHeight={21} color={subColor}>
           {shown.sub}
         </SizableText>
       ) : null}
