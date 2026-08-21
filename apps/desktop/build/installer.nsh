@@ -13,6 +13,8 @@ Var OneKeyModernResult
   InitPluginsDir
   SetOutPath "$PLUGINSDIR\onekey-modern"
   File /r "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\onekey-modern\*.*"
+  SetOutPath "$PLUGINSDIR\onekey-modern\licenses"
+  File /r "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\licenses\*.*"
 !macroend
 
 !macro OneKeyModernSelectLocale
