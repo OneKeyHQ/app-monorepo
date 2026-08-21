@@ -552,7 +552,14 @@ class ServiceSetting extends ServiceBase {
   );
 
   @backgroundMethod()
-  public async fetchInscriptionProtectionControl() {
+  public async fetchInscriptionProtectionControl({
+    forceRefresh,
+  }: {
+    forceRefresh?: boolean;
+  } = {}) {
+    if (forceRefresh) {
+      void this._fetchInscriptionProtectionControl.clear();
+    }
     try {
       await this._fetchInscriptionProtectionControl();
     } catch (error) {

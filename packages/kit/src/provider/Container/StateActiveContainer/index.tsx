@@ -15,7 +15,12 @@ export const StateActiveContainer = () => {
     void (async () => {
       if (platformEnv.isExtension && !extSpecialChecked) {
         extSpecialChecked = true;
-        await backgroundApiProxy.servicePassword.checkLockStatus();
+        await Promise.all([
+          backgroundApiProxy.servicePassword.checkLockStatus(),
+          backgroundApiProxy.serviceSetting.fetchInscriptionProtectionControl({
+            forceRefresh: true,
+          }),
+        ]);
       }
       void backgroundApiProxy.serviceNotification.clearBadgeWhenAppStart();
     })();

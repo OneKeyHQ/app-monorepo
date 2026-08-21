@@ -243,6 +243,39 @@ describe('ServiceSetting inscription protection control', () => {
     expect(getControlState().enabled).toBe(false);
   });
 
+  it('bypasses a successful cached request when forced', async () => {
+    const { get, getControlState, service } = createService({
+      inscriptionProtectionServerEnabled: true,
+    });
+    get
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              key: 'BTC_INSCRIPTION_PROTECTION_ENABLED',
+              value: '{"value":false}',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              key: 'BTC_INSCRIPTION_PROTECTION_ENABLED',
+              value: '{"value":true}',
+            },
+          ],
+        },
+      });
+
+    await service.fetchInscriptionProtectionControl();
+    await service.fetchInscriptionProtectionControl({ forceRefresh: true });
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(getControlState().enabled).toBe(true);
+  });
+
   it.each([
     [true, true, true, true],
     [true, false, true, false],
