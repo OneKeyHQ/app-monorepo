@@ -18,7 +18,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnPageBannerListItem,
+} from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 

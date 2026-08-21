@@ -416,6 +416,8 @@ const DEVICE_MODEL_NAMES_BY_TYPE: Record<IOneKeyDeviceType, string> = {
   [EDeviceType.Mini]: 'OneKey Mini',
   [EDeviceType.Touch]: 'OneKey Touch',
   [EDeviceType.Pro]: 'OneKey Pro',
+  [EDeviceType.Pro2]: 'OneKey Pro 2',
+  [NEO_DEVICE_TYPE]: 'OneKey Neo',
   [EDeviceType.Unknown]: '',
 };
 

@@ -461,13 +461,7 @@ function BluetoothCard({
   );
 }
 
-function DeviceVideo({
-  deviceTypeItems,
-  themeVariant,
-}: {
-  deviceTypeItems: EDeviceType[];
-  themeVariant: 'light' | 'dark';
-}) {
+function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   const isProtocolV2Product = useMemo(
     () => deviceTypeItems.some(isProtocolV2ProductType),
     [deviceTypeItems],
@@ -510,7 +504,7 @@ function DeviceVideo({
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
-  }, [isClassic, isMini, isProtocolV2Product, isTouch, themeVariant]);
+  }, [isClassic, isMini, isProtocolV2Product, isTouch]);
 
   return (
     <Video

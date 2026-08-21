@@ -37,10 +37,6 @@ import {
 } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
-  checkBLEPermissions,
-  checkBLEState,
-} from '@onekeyhq/shared/src/hardware/blePermissions';
-import {
   CoreSDKLoader,
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
@@ -4208,58 +4204,6 @@ class ServiceHardware extends ServiceBase {
     return state.forceTransportType;
   }
 
-  private shouldPrecheckNativeBleForHardwareCall({
-    hardwareCallContext,
-  }: {
-    hardwareCallContext: EHardwareCallContext;
-  }) {
-    return (
-      platformEnv.isNativeAndroid &&
-      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
-    );
-  }
-
-  private async ensureNativeBleReadyForHardwareCall({
-    connectId,
-    hardwareCallContext,
-  }: {
-    connectId: string;
-    hardwareCallContext: EHardwareCallContext;
-  }) {
-    if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
-      return;
-    }
-
-    const currentTransportType = await this.getCurrentTransportType();
-    if (currentTransportType !== EHardwareTransportType.BLE) {
-      return;
-    }
-
-    const hasBlePermission = !!(await checkBLEPermissions());
-    if (!hasBlePermission) {
-      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
-        uiRequestType: EHardwareUiStateAction.LOCATION_PERMISSION,
-      });
-      throw new deviceErrors.NeedBluetoothPermissions({
-        payload: {
-          connectId,
-        },
-      });
-    }
-
-    const isBluetoothOn = !!(await checkBLEState());
-    if (!isBluetoothOn) {
-      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
-        uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
-      });
-      throw new deviceErrors.NeedBluetoothTurnedOn({
-        payload: {
-          connectId,
-        },
-      });
-    }
-  }
-
   @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
@@ -4699,13 +4643,12 @@ class ServiceHardware extends ServiceBase {
           connectId: device.connectId || connectId,
           hardwareCallContext,
         });
-        if (
-          result.targetType === EHardwareTransportType.DesktopWebBle &&
-          persistedDesktopBleConnectId
-        ) {
-          return persistedDesktopBleConnectId;
-        }
-        return device.connectId || connectId;
+        const preferredBle = await this.resolveTrezorPreferredBleConnectId({
+          device,
+          bleConnectId: persistedDesktopBleConnectId,
+          targetType: result.targetType,
+        });
+        return preferredBle || device.connectId || connectId;
       }
     }
 
