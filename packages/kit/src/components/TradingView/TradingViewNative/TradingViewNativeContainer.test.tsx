@@ -27,6 +27,17 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
+const mockTradingViewNativeFullscreenButton = jest.fn<
+  ReactNode,
+  [{ onPress: () => void }]
+>(({ onPress }) => (
+  <button
+    aria-label="Toggle fullscreen"
+    data-testid="trading-view-native-fullscreen-toggle"
+    onClick={onPress}
+    type="button"
+  />
+));
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
@@ -107,6 +118,11 @@ jest.mock('./TradingViewNativeChart', () => ({
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
   TradingViewNativeChartControlsContainer: (props: unknown) =>
     mockTradingViewNativeChartControlsContainer(props),
+}));
+
+jest.mock('./TradingViewNativeFullscreenButton', () => ({
+  TradingViewNativeFullscreenButton: (props: { onPress: () => void }) =>
+    mockTradingViewNativeFullscreenButton(props),
 }));
 
 describe('TradingViewNativeContainer', () => {
@@ -492,7 +508,7 @@ describe('TradingViewNativeContainer', () => {
     expect(restoredInstances[0].settings).toBe(settings);
   });
 
-  it('forwards controlled fullscreen props to chart controls', () => {
+  it('forwards desktop controlled fullscreen props to chart controls', () => {
     const handleFullscreenChange = jest.fn();
     const fullscreenHeader = <div>Token info</div>;
 
@@ -506,6 +522,7 @@ describe('TradingViewNativeContainer', () => {
           realtime: 'disabled',
         }}
         isNativeChartFullscreen
+        nativeControlsLayoutMode="desktop"
         nativeChartFullscreenHeader={fullscreenHeader}
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
@@ -518,6 +535,41 @@ describe('TradingViewNativeContainer', () => {
         onFullscreenChange: handleFullscreenChange,
       }),
     );
+  });
+
+  it('renders the mobile fullscreen control over the chart', () => {
+    const handleFullscreenChange = jest.fn();
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        nativeControlsLayoutMode="mobile"
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onFullscreenChange: undefined,
+      }),
+    );
+    expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isFullscreen: false,
+        visibleSubIndicatorCount: 0,
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByTestId('trading-view-native-fullscreen-toggle'),
+    );
+    expect(handleFullscreenChange).toHaveBeenCalledWith(true);
   });
 
   it('maps calendar submissions to native viewport targets', () => {
