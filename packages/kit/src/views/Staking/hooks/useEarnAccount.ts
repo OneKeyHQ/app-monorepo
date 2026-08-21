@@ -121,7 +121,7 @@ export function useEarnAccount({
       hasResolvedAccountScope,
     ],
     {
-      watchLoading: hasResolvedAccountScope,
+      watchLoading: true,
       undefinedResultIfReRun: false,
       swrKey,
       swrShouldPersist: (result) => Boolean(result?.earnAccount),

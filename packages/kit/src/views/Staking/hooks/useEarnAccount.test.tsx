@@ -47,7 +47,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     deriveRun: jest.Mock;
     accountMethod?: () => Promise<unknown>;
     accountDeps?: unknown[];
-    accountOptions?: { swrKey?: string };
+    accountOptions?: { swrKey?: string; watchLoading?: boolean };
     accountRun: jest.Mock;
   } = {
     deriveResult: 'default',
@@ -120,7 +120,7 @@ const promiseResultMock = (
       deriveRun: jest.Mock;
       accountMethod?: () => Promise<unknown>;
       accountDeps?: unknown[];
-      accountOptions?: { swrKey?: string };
+      accountOptions?: { swrKey?: string; watchLoading?: boolean };
       accountRun: jest.Mock;
     };
   }
@@ -158,6 +158,7 @@ describe('useEarnAccount cache identity', () => {
 
     expect(promiseResultMock.deriveOptions?.undefinedResultIfReRun).toBe(true);
     expect(promiseResultMock.accountOptions?.swrKey).toBeUndefined();
+    expect(promiseResultMock.accountOptions?.watchLoading).toBe(true);
 
     promiseResultMock.deriveResult = 'default';
     rerender(undefined);
