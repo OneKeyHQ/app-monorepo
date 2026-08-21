@@ -25,6 +25,8 @@ import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
+import tokenRebaseUtils from './tokenRebaseUtils';
+
 import type {
   IDisplayComponent,
   IDisplayComponentAddress,
@@ -497,6 +499,14 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     });
   }
 
+  // Scaled-UI (rebase) tokens: `action.amount` is display-basis (multiplied
+  // at decode). The editor write-back re-encodes amountParsed verbatim as
+  // raw units, so editing must be fail-closed to prevent over-approval by
+  // the multiplier. Multiplier === 1 is the documented no-op — never block.
+  const isScalingMultiplier = tokenRebaseUtils.isScalingBalanceMultiplier(
+    action.balanceMultiplier,
+  );
+
   const approveComponent: IDisplayComponentApprove = {
     type: EParseTxComponentType.Approve,
     label: approveLabel,
@@ -509,10 +519,11 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         isNative: false,
         decimals: action.decimals,
         logoURI: action.icon,
+        balanceMultiplier: action.balanceMultiplier,
       },
     },
     amountParsed: action.amount,
-    isEditable: !isRevoke && !isMultiTxs,
+    isEditable: !isRevoke && !isMultiTxs && !isScalingMultiplier,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
     approveType: action.approveType,

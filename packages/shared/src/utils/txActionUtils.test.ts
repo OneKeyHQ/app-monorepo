@@ -162,3 +162,87 @@ describe('collectDecodedTxInvolvedAddresses', () => {
     expect(collectDecodedTxInvolvedAddresses({ decodedTx })).toEqual([]);
   });
 });
+
+describe('approve component scaled-UI handling', () => {
+  const buildApproveDecodedTx = (balanceMultiplier?: string): IDecodedTx =>
+    ({
+      txid: '',
+      owner: '0xowner',
+      signer: '0xowner',
+      networkId: 'evm--56',
+      accountId: 'test-account',
+      status: EDecodedTxStatus.Pending,
+      actions: [
+        {
+          type: EDecodedTxActionType.TOKEN_APPROVE,
+          tokenApprove: {
+            from: '0xowner',
+            to: '0xtoken',
+            spender: '0xspender',
+            amount: '100.06',
+            icon: '',
+            name: 'Apple (bStocks)',
+            symbol: 'AAPLB',
+            decimals: 18,
+            tokenIdOnNetwork: '0xtoken',
+            isInfiniteAmount: false,
+            balanceMultiplier,
+          },
+        },
+      ],
+    }) as unknown as IDecodedTx;
+
+  it('fails closed (not editable) and carries the multiplier for scaling tokens', () => {
+    const components =
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildApproveDecodedTx('1.0006'),
+        unsignedTx: { encodedTx: {} } as any,
+      });
+    const approve = components.find(
+      (c: any) => c.type === EParseTxComponentType.Approve,
+    ) as any;
+    expect(approve).toBeDefined();
+    expect(approve.isEditable).toBe(false);
+    expect(approve.token.info.balanceMultiplier).toBe('1.0006');
+    expect(approve.amountParsed).toBe('100.06');
+  });
+
+  it('stays editable for multiplier === 1 (documented no-op)', () => {
+    const components =
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildApproveDecodedTx('1'),
+        unsignedTx: { encodedTx: {} } as any,
+      });
+    const approve = components.find(
+      (c: any) => c.type === EParseTxComponentType.Approve,
+    ) as any;
+    expect(approve.isEditable).toBe(true);
+  });
+
+  it('stays editable when no multiplier is present', () => {
+    const components =
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildApproveDecodedTx(undefined),
+        unsignedTx: { encodedTx: {} } as any,
+      });
+    const approve = components.find(
+      (c: any) => c.type === EParseTxComponentType.Approve,
+    ) as any;
+    expect(approve.isEditable).toBe(true);
+  });
+
+  it('stays editable for an invalid multiplier sentinel', () => {
+    // Server sentinels ('--', '0') mean the decode-side conversion was a
+    // passthrough, so amountParsed is raw and editing stays safe/enabled.
+    const components =
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildApproveDecodedTx('--'),
+        unsignedTx: { encodedTx: {} } as any,
+      });
+    const approve = components.find(
+      (c: any) => c.type === EParseTxComponentType.Approve,
+    ) as any;
+    expect(approve.isEditable).toBe(true);
+    expect(approve.token.info.balanceMultiplier).toBe('--');
+  });
+});
