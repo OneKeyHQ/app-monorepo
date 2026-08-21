@@ -56,6 +56,11 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 const PERPS_ASSET_TYPE_VERSION = 2;
+// The search index also matches collateral text, so `usdc` returns every
+// USDC settled market. Only short ASCII tickers are held to a literal match:
+// a longer query is where the index's description hits such as `nasdaq` are
+// the point, and a non-ASCII one is where its localized aliases are.
+const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -1292,9 +1297,26 @@ class ServiceUniversalSearch extends ServiceBase {
             ? await this.readTradablePerpMaxLeverageMap()
             : cachedPerpMaxLeverage;
 
+        const normalizedQuery = input.trim().toLowerCase();
+        const requiresLiteralMatch =
+          /^[a-z0-9]+$/.test(normalizedQuery) &&
+          normalizedQuery.length <= PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH;
+
         const items: IUniversalSearchPerpResult['items'] =
           rawAssets
             ?.filter((asset) => {
+              // `asset.type` is the dex prefix, so matching it exactly keeps
+              // `xyz` browsing that sub-dex without a fragment such as `ar`
+              // waving through every `para` row.
+              if (
+                requiresLiteralMatch &&
+                asset.type?.toLowerCase() !== normalizedQuery &&
+                ![asset.name, asset.subtitle].some((field) =>
+                  field?.toLowerCase().includes(normalizedQuery),
+                )
+              ) {
+                return false;
+              }
               // The search index still carries delisted assets — `xyz:UNITREE`
               // survives there after moving to `para`, so the same ticker would
               // appear twice with one dead row.
