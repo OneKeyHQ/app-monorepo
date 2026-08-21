@@ -32,7 +32,7 @@ Dashboard 原仓库的实际位置是 `/Users/huhuanming/dashboard`；不存在 
 | --- | --- | --- | --- |
 | Phase 0：worktree 与 handoff | `DONE` | 用户确认 / 2026-08-20 | 隔离环境和执行台账已验收 |
 | Phase 1：App Store Campaign destination | `DONE` | 用户确认 / 2026-08-21 | 实现和自动化验证完成；测试后端尚未部署新枚举 |
-| Phase 2：Apple Ads AdServices | `IN_PROGRESS` | - | App + Utility |
+| Phase 2：Apple Ads AdServices | `READY_FOR_ACCEPTANCE` | - | App + Utility 已实现并完成自动化验证；真机/真实广告流量待验收 |
 | Phase 3：MMP 与所有权决策 | `BLOCKED_BY_PHASE_2` | - | 决策阶段，不接 SDK |
 | Phase 4：统一归因事件与 Conversion Writer | `BLOCKED_BY_PHASE_3` | - | 方案取决于 Phase 3 |
 | Phase 5：Apple postback 数据面 | `BLOCKED_BY_PHASE_4` | - | 自建或 MMP 二选一 |
@@ -367,7 +367,12 @@ Files changed:
   - server-service-utility: 5 files
   - dashboard: 6 files
   - app-monorepo: this handoff document only
-Commits/PRs: none
+Commits/PRs:
+  - app-monorepo handoff: 40cf345da7
+  - server-service-dashboard: 6ae8384
+  - server-service-utility: e5bca96
+  - dashboard: 7167b22b
+  - PRs: none
 Validation results:
   - Server Dashboard: 29 suites / 327 tests passed; focused URL suite 50 tests passed; typecheck, build and lint passed (30 unrelated existing warnings, 0 errors).
   - Utility: Short Link 6 suites / 125 tests passed; focused URL suite 65 tests passed; typecheck, build and lint passed (112 unrelated existing warnings, 0 errors).
@@ -417,11 +422,58 @@ Utility 约束：
 
 验收条件：
 
-- iOS 模拟器/无归因环境不崩溃。
-- 真机测试请求路径可观察，但日志中没有 token。
-- Utility mock Apple API 的成功、无归因、失败、重复场景测试通过。
-- App `yarn agent:check --profile commit` 通过。
-- Utility 聚焦测试、lint、build 通过。
+- [x] iOS 原生模块完成编译和链接；模拟器/无归因路径由 runtime guard 和单测覆盖。
+- [ ] 签名生产构建真机请求路径可观察，但日志中没有 token。
+- [x] Utility mock Apple API 的成功、无归因、失败、重复场景测试通过。
+- [x] App `yarn agent:check --profile commit` 通过。
+- [x] Utility 聚焦测试、lint、typecheck、build 通过。
+
+Phase 2 交接记录（2026-08-21）：
+
+```text
+Status: READY_FOR_ACCEPTANCE
+Completed at: pending user acceptance
+Repositories changed:
+  - app-monorepo
+  - server-service-utility
+Files changed:
+  - app-monorepo: 9 source/project files plus this handoff update
+  - server-service-utility: 10 source/test files
+Commits/PRs:
+  - app-monorepo: 3d80793d75 (feat: add Apple Ads install attribution)
+  - server-service-utility: c558a16 (feat: add Apple Ads install attribution)
+  - PRs: none
+Validation results:
+  - App: 2 focused suites / 9 tests passed.
+  - App: yarn agent:check --profile commit passed lint-worktree-ts, format-worktree, agent-context, lint-staged and tsc-staged.
+  - Native: Xcode compiled OneKeyAdServicesAttribution.m, produced the arm64 simulator object, linked AAAttribution and AdServices.framework into OneKeyWallet.debug.dylib, and passed direct Clang syntax validation.
+  - Utility: 4 focused suites / 32 tests passed; typecheck, build and lint passed (112 unrelated existing warnings, 0 errors).
+  - Utility: HEAD c558a16 equals its remote upstream.
+Implementation flow:
+  1. LastActivityTracker resolves the stable instance ID and Utility endpoint in the iOS main JS runtime.
+  2. Production App Store iOS main runtime continues; bg, E2E and non-store builds return before importing attribution code.
+  3. A local marker prevents successful installs from reporting twice; installs older than seven days are marked handled without requesting a token.
+  4. The native bridge calls AAAttribution.attributionToken() on a utility queue. No ATT request is made and the token is neither persisted nor logged by the App.
+  5. App sends the opaque token and x-onekey-instance-id to POST /utility/v1/install-attribution/apple-ads.
+  6. Utility validates input, exchanges the raw text/plain token directly with Apple, retries only 404/5xx up to three attempts with a five-second interval, and normalizes an allowlist of response fields.
+  7. Utility persists one observation per installation ID, including attribution=false for diagnostics, but never persists the token. Endpoint-specific access-log redaction discards all request body fields and emits only a redacted marker.
+Runtime topology:
+  - Platform: iOS production App Store build.
+  - JS runtime: main only. bg does not import, initialize or report AdServices attribution; main and bg initialization order is irrelevant.
+  - JS heaps: main and bg remain isolated; the local completion marker is durable storage rather than shared JS memory.
+  - Native resource: AdServices is an iOS system/process resource; OneKey intentionally exposes it only to the main-runtime call path.
+Manual/native evidence:
+  - The linked debug dylib contains OneKeyAdServicesAttribution class/method symbols, an AAAttribution reference and AdServices.framework load command.
+  - Full xcodebuild passed native compilation and the main app dylib link, then stopped in the existing "Bundle React Native code and images" build phase because its shell command does not quote the worktree path /Volumes/T7 Shield/Project. This failure occurs after the attribution native link and is unrelated to the changed module.
+Known limitations:
+  - A real Apple Ads-attributed install cannot be reproduced with the simulator/debug guard. Final operational acceptance needs a signed production/TestFlight or App Store build plus real Apple Ads traffic.
+  - The current x-onekey-instance-id is a stable idempotency key, not cryptographic app attestation. Apple validates the opaque token, while abuse protection still depends on ingress rate limiting and optionally validating expected Apple org/account fields after production values are confirmed.
+  - The seven-day first-open cutoff mirrors the existing Android anti-replay behavior. Marketing must explicitly approve a larger window if delayed first opens need attribution.
+  - Full Xcode build from the required external worktree path remains blocked by an existing unquoted path-with-space script. No unrelated build-script fix is included in this phase.
+Decision required before next phase:
+  - User accepts Phase 2 implementation and its stated true-device follow-up, or requests that signed-device verification be completed before acceptance.
+  - Only after acceptance may Phase 3 begin; Phase 3 is research/ownership selection and does not add an MMP SDK.
+```
 
 ### Phase 3：MMP 与所有权决策
 
