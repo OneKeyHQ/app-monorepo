@@ -84,13 +84,17 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotOpenedPassphrase,
+  DeviceNotSame,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -211,6 +215,12 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { buildBtcOnlyFirmwareCacheKey } from './btcOnlyFirmwareCacheUtils';
+import {
+  getStandardHwWalletLabelForNameSync,
+  refreshDeviceStateAfterStandardWalletUnlock,
+  resolveDeviceStateForHwWalletCreate,
+} from './deviceStateForHwWalletCreate';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 import {
   type IKeylessWalletRemovalCapability,
@@ -237,7 +247,9 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
@@ -252,6 +264,7 @@ export type IAddHDOrHWAccountsParams = {
   hdCredentialCacheScopeId?: string;
   // auto multi-network fill scene flag (business derived from it, not passed in)
   isAutoCreateMultiNetwork?: boolean;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -1269,6 +1282,7 @@ class ServiceAccount extends ServiceBase {
       skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
       skipWaitingAnimationAtFirst,
+      oneKeyOperationLease,
     } = params;
 
     const { prepareParams, deviceParams, networkId, walletId } =
@@ -1304,6 +1318,7 @@ class ServiceAccount extends ServiceBase {
             hideCheckingDeviceLoading,
             debugMethodName: 'keyring.prepareAccounts',
             skipWaitingAnimationAtFirst,
+            oneKeyOperationLease,
           },
         );
 
@@ -3447,6 +3462,14 @@ class ServiceAccount extends ServiceBase {
     }
 
     const wallet = await this.getWallet({ walletId });
+    if (wallet.deprecated) {
+      throw new DeviceNotSame();
+    }
+    if (accountUtils.isWalletDeprecatedOrMocked(wallet)) {
+      throw new OneKeyLocalError(
+        'Hardware wallet is unavailable after device reset',
+      );
+    }
     const dbDevice = await this.getWalletDevice({ walletId });
 
     // Ensure connectId is compatible for the current transport type
@@ -3458,9 +3481,6 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
             hardwareCallContext,
-            // We hold the record here, so pass its vendor: lets the resolver find
-            // a third-party device and pick its transport-correct connectId
-            // (Trezor BLE session -> bleConnectId instead of the deviceId).
             vendor: dbDevice.vendor,
           });
       } catch (error) {
@@ -3468,6 +3488,23 @@ class ServiceAccount extends ServiceBase {
         console.warn('Failed to get compatible connectId:', error);
         throw error;
       }
+    }
+
+    const isOneKeyDevice =
+      (dbDevice.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey;
+    const connectProtocol =
+      dbDevice.connectProtocol ??
+      dbDevice.deviceStateInfo?.protocol ??
+      (isOneKeyDevice ? undefined : dbDevice.featuresInfo?.protocol);
+    if (
+      !dbDevice.connectProtocol &&
+      (connectProtocol === 'V1' || connectProtocol === 'V2')
+    ) {
+      await localDb.updateDeviceConnectProtocol({
+        dbDeviceId: dbDevice.id,
+        connectProtocol,
+      });
+      dbDevice.connectProtocol = connectProtocol;
     }
 
     return {
@@ -3479,6 +3516,9 @@ class ServiceAccount extends ServiceBase {
         useEmptyPassphrase: !wallet.passphraseState,
         // Pre-warm signal; only sign methods honor it (getAddress etc. just MISS)
         usePreInitialize: true,
+        ...(connectProtocol === 'V1' || connectProtocol === 'V2'
+          ? { connectProtocol }
+          : {}),
       },
     };
   }
@@ -3504,11 +3544,29 @@ class ServiceAccount extends ServiceBase {
         features = connected.payload.features as IOneKeyDeviceFeatures;
       }
     } else {
-      features = await this.backgroundApi.serviceHardware.getFeatures({
-        connectId: compatibleConnectId,
-      });
+      const persistedState = dbDevice.deviceStateInfo;
+      const protocol = dbDevice.connectProtocol ?? persistedState?.protocol;
+      // Pro 1 already opened the hidden-wallet session in the previous step.
+      // Reading live state without its passphrase context would restore the
+      // standard Protocol V1 session and prompt again while deriving the XFP.
+      const state =
+        protocol === 'V1' && persistedState
+          ? persistedState
+          : await this.backgroundApi.serviceHardware.getDeviceState({
+              connectId: compatibleConnectId,
+            });
+      features = projectLegacyDeviceFeaturesFromState(state);
     }
-    return features || dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
+    if (features) {
+      return features;
+    }
+    if (
+      (dbDevice.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
+      dbDevice.deviceStateInfo
+    ) {
+      return projectLegacyDeviceFeaturesFromState(dbDevice.deviceStateInfo);
+    }
+    return dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
   }
 
   private async getFirstEvmAddressForHwWalletCreate({
@@ -3526,15 +3584,6 @@ class ServiceAccount extends ServiceBase {
   }): Promise<string | null> {
     if (isMockedStandardHwWallet) {
       return '';
-    }
-    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
-    if (!vendorProfile?.isThirdParty) {
-      return this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
-        connectId: compatibleConnectId,
-        deviceId,
-        path: FIRST_EVM_ADDRESS_PATH,
-        vendor,
-      });
     }
     return this.backgroundApi.serviceHardware.getEvmAddressByWalletState({
       connectId: compatibleConnectId,
@@ -3558,15 +3607,22 @@ class ServiceAccount extends ServiceBase {
     hideCheckingDeviceLoading?: boolean;
     isAttachPinMode?: boolean;
   }) {
+    const wallet = await this.getWallet({ walletId });
+    if (wallet.deprecated) {
+      throw new DeviceNotSame();
+    }
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const storedConnectProtocol =
+      dbDevice.connectProtocol ?? dbDevice.deviceStateInfo?.protocol;
+    const connectProtocol =
+      storedConnectProtocol === 'V1' || storedConnectProtocol === 'V2'
+        ? storedConnectProtocol
+        : undefined;
     const compatibleConnectId =
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
-        // Without the vendor the lookup defaults to OneKey and misses a
-        // third-party device row, so a Trezor main connectId (deviceId) leaks
-        // raw into the BLE session and hangs on the noble connect timeout.
         vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
@@ -3574,10 +3630,61 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        // Seed the canonical device state BEFORE opening the hidden-wallet
+        // passphrase session: a live state read on Protocol V1 restores the
+        // standard session, so reading it after getPassphraseState would
+        // clobber the hidden session and cost extra device round trips to
+        // re-establish it (see getFeaturesForHwWalletCreate). Known-V2 devices
+        // are excluded — their flow always reads live state by design. An
+        // unknown-protocol device that turns out V2 pays one redundant read,
+        // but that class is practically empty: V2 device records have always
+        // stored connectProtocol since the protocol field was introduced.
+        let seededDbDevice = dbDevice;
+        let seededConnectProtocol = connectProtocol;
+        const hiddenWalletVendorProfile = getVendorProfile(
+          dbDevice.vendor ?? EHardwareVendor.onekey,
+        );
+        if (
+          !seededDbDevice.deviceStateInfo &&
+          !hiddenWalletVendorProfile.isThirdParty &&
+          seededConnectProtocol !== 'V2'
+        ) {
+          const seededState =
+            await this.backgroundApi.serviceHardware.getDeviceState({
+              connectId: compatibleConnectId,
+              params: {
+                scope: 'runtime',
+                ...(seededConnectProtocol
+                  ? { connectProtocol: seededConnectProtocol }
+                  : {}),
+              },
+            });
+          // Mirror the live-identity guard in resolveDeviceStateForHwWalletCreate:
+          // with a seeded snapshot its fast path returns early, so the guard
+          // must run here to keep the old no-snapshot fail-fast behavior.
+          if (
+            seededState.status.mode === 'normal' &&
+            !seededState.identity.deviceId
+          ) {
+            throw new OneKeyLocalError(
+              'Unable to resolve live hardware device identity',
+            );
+          }
+          // DEVICE.STATE persistence is async; carry the snapshot in memory so
+          // downstream steps take their fast paths deterministically.
+          seededDbDevice = { ...seededDbDevice, deviceStateInfo: seededState };
+          if (
+            !seededConnectProtocol &&
+            (seededState.protocol === 'V1' || seededState.protocol === 'V2')
+          ) {
+            seededConnectProtocol = seededState.protocol;
+          }
+        }
+
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
-          dbDevice,
+          dbDevice: seededDbDevice,
           serviceHardware: this.backgroundApi.serviceHardware,
           serviceThirdPartyHardware:
             this.backgroundApi.serviceThirdPartyHardware,
@@ -3596,14 +3703,46 @@ class ServiceAccount extends ServiceBase {
           throw deviceNotOpenedPassphraseError;
         }
 
+        // The passphrase call above emitted DEVICE.STATE events (including the
+        // unlock / attach-PIN status); wait for their persistence and prefer
+        // the persisted post-unlock snapshot over the pre-unlock seed for
+        // everything derived or stored below. Pure DB reads — no device I/O,
+        // so the hidden session established above is never touched. Gated like
+        // the seeding block: third-party vendors are excluded, and an empty
+        // connectId must not reach getDeviceByConnectId — getDeviceByQuery
+        // would degenerate to "first OneKey device" and overlay an unrelated
+        // device's state.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+            connectIds: [
+              compatibleConnectId,
+              dbDevice.connectId,
+              dbDevice.deviceId,
+              seededDbDevice.deviceStateInfo?.identity.serialNo,
+            ],
+          });
+          const postUnlockDbDevice =
+            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+              connectId,
+            });
+          if (postUnlockDbDevice?.deviceStateInfo) {
+            seededDbDevice = {
+              ...seededDbDevice,
+              deviceStateInfo: postUnlockDbDevice.deviceStateInfo,
+            };
+          }
+        }
+
         // TODO save remember states
         const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice,
+          dbDevice: seededDbDevice,
           compatibleConnectId,
         });
         const dbWallet = await this.createHWWalletBase({
-          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
+          connectProtocol: seededConnectProtocol,
+          deviceState: seededDbDevice.deviceStateInfo,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3632,9 +3771,40 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
+        // resolvedFeatures already reflects the post-unlock snapshot refreshed
+        // above, but the XFP / address derivation calls inside
+        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
+        // the persistence queue once more and prefer the latest stored status.
+        let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
+        // Same gate as the post-unlock refresh above: attach-PIN is
+        // OneKey-specific, and an empty connectId must not reach the lookup.
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          try {
+            await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+              connectIds: [
+                compatibleConnectId,
+                dbDevice.connectId,
+                dbDevice.deviceId,
+                seededDbDevice.deviceStateInfo?.identity.serialNo,
+              ],
+            });
+            const latestDbDevice =
+              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+                connectId,
+              });
+            const latestUnlockedAttachPin =
+              latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
+            if (typeof latestUnlockedAttachPin === 'boolean') {
+              isAttachPinMode = latestUnlockedAttachPin;
+            }
+          } catch {
+            // keep the resolved-features fallback
+          }
+        }
+
         return {
           ...dbWallet,
-          isAttachPinMode: resolvedFeatures.unlocked_attach_pin,
+          isAttachPinMode,
         };
       },
       {
@@ -3672,14 +3842,15 @@ class ServiceAccount extends ServiceBase {
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
-    // Don't trust the global transport flag alone — use the picked device's
-    // actual connectionType (carried on `device.raw` for third-party devices;
-    // absent for OneKey HD, so they're unaffected).
+    // Persist the endpoint selected from the fused scan. The global setting is
+    // only a fallback when the selected device has no transport metadata.
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
+      deviceCommType: (params.device as { commType?: SearchDevice['commType'] })
+        .commType,
       isNative: !!platformEnv.isNative,
     });
 
@@ -3749,29 +3920,48 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
-            // Third-party rows are invisible to the default (OneKey) lookup;
-            // without this a Trezor arriving with its main connectId (e.g. the
-            // hidden-wallet path passes the DB record) keeps the raw deviceId.
             vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
-    const deviceId = deviceUtils.getRawDeviceId({
+    let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
 
-    let xfp: string | undefined;
-    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
-      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
-        deviceId,
-        passphraseState,
-        throwError: true,
-        withUserInteraction: true,
-        vendor,
+    const getDeviceStateForHwWalletCreate = (
+      connectId: string,
+      stateParams: { scope: 'runtime' },
+    ) =>
+      this.backgroundApi.serviceHardware.getDeviceState({
+        connectId,
+        params: {
+          ...stateParams,
+          ...(params.connectProtocol
+            ? { connectProtocol: params.connectProtocol }
+            : {}),
+        },
       });
+    let deviceState = await resolveDeviceStateForHwWalletCreate({
+      existingState: params.deviceState,
+      preserveWalletSession:
+        !vendorProfile?.isThirdParty &&
+        params.connectProtocol === 'V1' &&
+        Boolean(passphraseState),
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      isMocked: Boolean(isMockedStandardHwWallet),
+      connectId: compatibleConnectId,
+      getDeviceState: getDeviceStateForHwWalletCreate,
+      onError: (error) =>
+        defaultLogger.hardware.sdkLog.log(
+          'createHWWalletBase: unable to seed canonical device state',
+          error instanceof Error ? error.message : 'Unknown error',
+        ),
+    });
+    const liveDeviceId = deviceState?.identity.deviceId;
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      deviceId = liveDeviceId;
     }
     // Refresh DB info when compatibility lookup resolves to another connectId.
     // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
@@ -3789,8 +3979,39 @@ class ServiceAccount extends ServiceBase {
         params.device = refreshedDevice;
       }
     }
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      params.device = { ...params.device, deviceId: liveDeviceId };
+      params.features = { ...params.features, deviceId: liveDeviceId };
+    }
+
+    let xfp: string | undefined;
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
+        connectId: compatibleConnectId,
+        deviceId,
+        passphraseState,
+        throwError: true,
+        withUserInteraction: true,
+        vendor,
+      });
+    }
+    deviceState = await refreshDeviceStateAfterStandardWalletUnlock({
+      existingState: deviceState,
+      connectProtocol: params.connectProtocol,
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      isMocked: Boolean(isMockedStandardHwWallet),
+      passphraseState,
+      connectId: compatibleConnectId,
+      getDeviceState: getDeviceStateForHwWalletCreate,
+      onError: (error) =>
+        defaultLogger.hardware.sdkLog.log(
+          'createHWWalletBase: unable to refresh state after standard wallet unlock',
+          error instanceof Error ? error.message : 'Unknown error',
+        ),
+    });
     const result = await localDb.createHwWallet({
       ...params,
+      deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',
@@ -3816,6 +4037,30 @@ class ServiceAccount extends ServiceBase {
         : undefined,
       transportType,
     });
+    const deviceLabel = getStandardHwWalletLabelForNameSync({
+      currentWalletName: result.wallet.name,
+      deviceState,
+      explicitName: params.name,
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      passphraseState,
+    });
+    if (deviceLabel) {
+      try {
+        result.wallet = await this.setWalletNameAndAvatar({
+          walletId: result.wallet.id,
+          name: deviceLabel,
+          shouldCheckDuplicate: false,
+        });
+      } catch (error) {
+        defaultLogger.hardware.sdkLog.log(
+          'createHWWalletBase: unable to persist device label',
+          error instanceof Error ? error.message : 'Unknown error',
+        );
+        result.wallet = await this.getWallet({ walletId: result.wallet.id });
+      }
+    } else {
+      result.wallet = await this.getWallet({ walletId: result.wallet.id });
+    }
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
 
     // Trezor: THP pairing credentials were minted while probing the device above
@@ -5152,10 +5397,15 @@ class ServiceAccount extends ServiceBase {
     let wallet = await this.getWalletSafe({ walletId });
     assertWalletCanUseGenericRemoval(wallet);
 
-    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-      walletId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-    });
+    const shouldSkipUnavailableHardwareCheck =
+      accountUtils.isHwWallet({ walletId }) &&
+      accountUtils.isWalletDeprecatedOrMocked(wallet);
+    if (!shouldSkipUnavailableHardwareCheck) {
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      });
+    }
 
     wallet = await this.getWalletSafe({ walletId });
     assertWalletCanUseGenericRemoval(wallet);
@@ -5752,7 +6002,7 @@ class ServiceAccount extends ServiceBase {
     const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const addresses = await vault.keyring.batchGetAddresses(prepareParams);
         if (!isEmpty(addresses)) {
           return addresses.map((address) => address.address);
@@ -5768,6 +6018,7 @@ class ServiceAccount extends ServiceBase {
               indexes: prepareParams.indexes,
               showOnOneKey: true,
               isVerifyAddressAction: prepareParams.isVerifyAddressAction,
+              oneKeyOperationLease,
             },
           );
         const results: string[] = [];
@@ -6665,7 +6916,24 @@ class ServiceAccount extends ServiceBase {
   };
 
   generateHwWalletsMissingXfpDebounced = debounce(
-    this.generateHwWalletsMissingXfpFn,
+    (params: Parameters<typeof this.generateHwWalletsMissingXfpFn>[0]) => {
+      const operation = () => this.generateHwWalletsMissingXfpFn(params);
+      const vendor =
+        params.wallet?.associatedDeviceInfo?.vendor ?? EHardwareVendor.onekey;
+      if (getVendorProfile(vendor).isThirdParty) {
+        void operation();
+        return;
+      }
+      void this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        operation,
+        {
+          deviceKey:
+            params.wallet?.associatedDevice ||
+            params.deviceId ||
+            params.connectId,
+        },
+      );
+    },
     3000,
     {
       leading: false,
@@ -6773,7 +7041,7 @@ class ServiceAccount extends ServiceBase {
     deviceId: string | undefined;
     withUserInteraction: boolean;
   }) {
-    await this.generateHwWalletsMissingXfpDebounced({
+    this.generateHwWalletsMissingXfpDebounced({
       wallet,
       connectId,
       deviceId,
@@ -8058,16 +8326,7 @@ class ServiceAccount extends ServiceBase {
     {
       promise: true,
       primitive: true,
-      normalizer: ([options]) => {
-        const fwVendor = options.featuresInfo?.fw_vendor || '';
-        const capabilities =
-          options.featuresInfo?.capabilities?.join(',') ?? '';
-        const unitBtcOnly = String(
-          (options.featuresInfo as { unit_btconly?: boolean } | undefined)
-            ?.unit_btconly ?? '',
-        );
-        return `${options.walletId}-${fwVendor}-${capabilities}-${unitBtcOnly}`;
-      },
+      normalizer: ([options]) => buildBtcOnlyFirmwareCacheKey(options),
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,
     },

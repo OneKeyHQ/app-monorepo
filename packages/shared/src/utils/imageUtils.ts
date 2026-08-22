@@ -335,6 +335,7 @@ async function resizeImage(params: {
   compress?: number;
   cornerRadius?: number;
   cornerBackgroundColor?: string;
+  includeHex?: boolean;
 }): Promise<IResizeImageResult> {
   const {
     uri,
@@ -346,6 +347,7 @@ async function resizeImage(params: {
     originH,
     cornerRadius = 0,
     cornerBackgroundColor,
+    includeHex = true,
   } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
 
@@ -453,8 +455,9 @@ async function resizeImage(params: {
     imageResult.base64 = roundedBase64;
   }
 
-  const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
-  const hex = bufferUtils.bytesToHex(buffer);
+  const hex = includeHex
+    ? bufferUtils.bytesToHex(Buffer.from(imageResult.base64 ?? '', 'base64'))
+    : '';
   return { ...imageResult, hex };
 }
 

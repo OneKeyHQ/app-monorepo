@@ -1,9 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  isSameOnekeyBleName,
+} from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import {
+  cloneDeep,
   debounce,
   isEmpty,
   isNil,
@@ -86,6 +91,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  hasDeviceStateIdentityMismatch,
+  mergeDeviceStateEvent,
+  projectLegacyDeviceFeaturesFromState,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -95,10 +105,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
-  AllWalletAvatarImages,
   getDeviceAvatarImage,
+  getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
-import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -106,6 +116,7 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -122,6 +133,7 @@ import type {
   IDeviceHomeScreen,
   IDeviceVersionCacheInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
@@ -200,6 +212,76 @@ import type {
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export function sanitizeDeviceStateForPersistence(
+  state: IOneKeyDeviceState,
+): IOneKeyDeviceState {
+  const persistedState = cloneDeep(state);
+  delete (persistedState as unknown as { raw?: unknown }).raw;
+  delete (persistedState as unknown as { session?: unknown }).session;
+  delete (
+    persistedState.identity as unknown as {
+      displayName?: unknown;
+    }
+  ).displayName;
+  return persistedState;
+}
+
+function getAppFeatureParams(
+  features?: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(features ?? {}).filter(([key]) => key.startsWith('$app_')),
+  );
+}
+
+function parsePersistedFeatures(features?: string): IOneKeyDeviceFeatures {
+  try {
+    return JSON.parse(features || '{}') as IOneKeyDeviceFeatures;
+  } catch {
+    return {} as IOneKeyDeviceFeatures;
+  }
+}
+
+function parsePersistedDeviceState(
+  deviceState?: string,
+): IOneKeyDeviceState | undefined {
+  try {
+    const parsed = JSON.parse(deviceState || 'null') as unknown;
+    if (!isPlainObject(parsed)) {
+      return undefined;
+    }
+    const stateRecord = parsed as Record<string, unknown>;
+    if (
+      !isPlainObject(stateRecord.identity) ||
+      !isPlainObject(stateRecord.status) ||
+      !isPlainObject(stateRecord.settings) ||
+      !isPlainObject(stateRecord.versions)
+    ) {
+      return undefined;
+    }
+    return parsed as IOneKeyDeviceState;
+  } catch {
+    return undefined;
+  }
+}
+
+export type IUpdateDeviceStateResult =
+  | {
+      kind: 'updated';
+      deviceDbId: string;
+      state: IOneKeyDeviceState;
+    }
+  | {
+      kind: 'identity-mismatch';
+      deviceDbId: string;
+      currentDeviceId: string;
+      incomingDeviceId: string;
+    }
+  | {
+      kind: 'ignored';
+      reason: 'device-not-found' | 'stale';
+    };
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
@@ -321,6 +403,25 @@ export function buildTrezorDesktopBleUsbConnectId({
     rawDeviceId
   ) {
     return rawDeviceId;
+  }
+  return undefined;
+}
+
+/** Select the BLE endpoint persisted during wallet creation using x-branch semantics. */
+export function resolveBleConnectIdForCreate({
+  connectId,
+  explicitBleConnectId,
+  transportType,
+}: {
+  connectId?: string | null;
+  explicitBleConnectId?: string | null;
+  transportType?: EHardwareTransportType;
+}): string | undefined {
+  if (transportType === EHardwareTransportType.DesktopWebBle) {
+    return explicitBleConnectId || connectId || undefined;
+  }
+  if (transportType === EHardwareTransportType.BLE) {
+    return connectId || undefined;
   }
   return undefined;
 }
@@ -533,21 +634,20 @@ export function buildThirdPartyDeviceDisplayName({
   return `${vendorName} Device`;
 }
 
-export function getThirdPartyDeviceAvatarImage({
-  profile,
-  modelName,
+function getThirdPartyDeviceModelCode({
+  device,
+  features,
 }: {
-  profile: ReturnType<typeof getVendorProfile>;
-  modelName?: string;
-}): IAllWalletAvatarImageNamesWithoutDividers {
-  if (
-    profile.vendor === EHardwareVendor.trezor &&
-    modelName &&
-    modelName in AllWalletAvatarImages
-  ) {
-    return modelName as IAllWalletAvatarImageNamesWithoutDividers;
-  }
-  return profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+}): string | undefined {
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    internal_model?: string;
+  };
+  return (
+    featureRecord.internal_model ||
+    getExtraDeviceFieldString(device, 'vendorModel')
+  );
 }
 
 function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
@@ -555,7 +655,8 @@ function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
     return {};
   }
   try {
-    return JSON.parse(settingsRaw) as IDBDeviceSettings;
+    const parsed = JSON.parse(settingsRaw) as unknown;
+    return isPlainObject(parsed) ? (parsed as IDBDeviceSettings) : {};
   } catch {
     return {};
   }
@@ -730,6 +831,11 @@ type IResolveExistingDeviceParams = {
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
+  private deviceStateEventOrderByDeviceId = new Map<
+    string,
+    { sdkEventSequence: number; sdkInstanceEpoch: number }
+  >();
+
   tempWallets: {
     [walletId: string]: boolean;
   } = {};
@@ -3322,10 +3428,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixAvatar) {
           if (profile.isThirdParty) {
-            // Third-party vendor: fix avatar to match vendor key
-            const expectedImg =
-              profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers;
-            if (avatarInfo?.img && avatarInfo.img !== expectedImg) {
+            // Resolve per-model avatar; parseDeviceSettingsRaw is a defensive fallback.
+            const deviceSettings =
+              device?.settings ?? parseDeviceSettingsRaw(device?.settingsRaw);
+            const expectedImg = getThirdPartyDeviceAvatarImage({
+              vendor: profile.vendor,
+              vendorModel: deviceSettings.vendorModel,
+              vendorModelName: deviceSettings.vendorModelName,
+              fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+            });
+            if (avatarInfo?.img !== expectedImg) {
               wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
               wallet.avatar = JSON.stringify(wallet.avatarInfo);
             }
@@ -3386,16 +3498,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               wallet.name = vendorLabel;
             }
           } else {
-            // OneKey devices: sync name from features.label
-            const label = device?.featuresInfo?.label;
-            if (device && label && label !== wallet.name) {
+            // Only a real device label may rename the wallet. BLE names are
+            // transport identities and must not overwrite the user-facing name.
+            const state = device?.deviceStateInfo;
+            const isBleNamePollution = Boolean(
+              state &&
+              !state.identity.label &&
+              state.identity.bleName &&
+              isSameOnekeyBleName(wallet.name, state.identity.bleName),
+            );
+            const displayName = state
+              ? state.identity.label ||
+                (isBleNamePollution && state.identity.deviceType
+                  ? deviceUtils.getDefaultDeviceLabel(state.identity.deviceType)
+                  : undefined)
+              : device?.featuresInfo?.label;
+            if (device && displayName && displayName !== wallet.name) {
               appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
                 walletId: wallet.id,
                 dbDeviceId: device.id,
-                label,
+                label: displayName,
                 walletName: wallet.name,
               });
-              wallet.name = label;
+              wallet.name = displayName;
             }
           }
         }
@@ -4329,10 +4454,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     addedHdAccountIndex,
     isOverrideWallet,
+    withoutRefillWallet,
   }: {
     walletId: string;
     addedHdAccountIndex: number;
     isOverrideWallet?: boolean;
+    withoutRefillWallet?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
@@ -4341,6 +4468,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }> {
     const dbWallet = await this.getWallet({
       walletId,
+      withoutRefill: withoutRefillWallet,
     });
 
     let dbIndexedAccount: IDBIndexedAccount | undefined;
@@ -4953,9 +5081,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateDevice({
     features,
     preciseUpdateFields,
+    skipFeaturesUpdateEvent,
   }: {
     features: IOneKeyDeviceFeatures;
     preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
+    // Set when the caller emits its own refresh signal after this write,
+    // so listeners are not refreshed twice for one mutation.
+    skipFeaturesUpdateEvent?: boolean;
   }) {
     const device = await this.getDeviceByQuery({
       features,
@@ -4975,6 +5107,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const featuresInfo = await deviceUtils.attachAppParamsToFeatures({
       features: updateFeatures,
     });
+    const persistedFeatures = device.deviceStateInfo
+      ? {
+          ...getAppFeatureParams(
+            parsePersistedFeatures(device.features) as Record<string, unknown>,
+          ),
+          ...getAppFeatureParams(featuresInfo as Record<string, unknown>),
+        }
+      : featuresInfo;
     let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
@@ -4982,7 +5122,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: async (item) => {
-          const newFeatures = stringUtils.stableStringify(featuresInfo);
+          const newFeatures = stringUtils.stableStringify(persistedFeatures);
           if (item.features !== newFeatures) {
             item.features = newFeatures;
             isUpdated = true;
@@ -4992,10 +5132,228 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     });
     if (isUpdated) {
-      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-        deviceId: device.id,
-      });
+      // Drop record caches that a concurrent read may have re-filled with
+      // pre-commit data before notifying listeners that re-read the DB.
+      this.clearStoreCachedDataIfMatch(ELocalDBStoreNames.Device);
+      if (!skipFeaturesUpdateEvent) {
+        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+          deviceId: device.id,
+        });
+      }
     }
+  }
+
+  async updateDeviceState({
+    changedKeys,
+    connectId,
+    sdkEventSequence,
+    sdkInstanceEpoch,
+    source,
+    state,
+  }: {
+    changedKeys: string[];
+    connectId?: string | null;
+    revision: number;
+    sdkEventSequence?: number;
+    sdkInstanceEpoch?: number;
+    source: string;
+    state: IOneKeyDeviceState;
+  }): Promise<IUpdateDeviceStateResult> {
+    const { devices } = await this.getAllDevices();
+    const oneKeyDevices = devices.filter(
+      (item) =>
+        (item.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey,
+    );
+    const serialNo = state.identity.serialNo;
+    const deviceId = state.identity.deviceId;
+    const getPersistedDeviceId = (item: IDBDevice) =>
+      item.deviceStateInfo?.identity.deviceId || item.deviceId;
+    const serialCandidates = serialNo
+      ? oneKeyDevices.filter((item) => item.uuid === serialNo)
+      : [];
+    let device =
+      serialNo && deviceId
+        ? serialCandidates.find(
+            (item) => getPersistedDeviceId(item) === deviceId,
+          )
+        : undefined;
+    if (!device && deviceId) {
+      device = oneKeyDevices.find(
+        (item) =>
+          getPersistedDeviceId(item) === deviceId &&
+          (!serialNo || !item.uuid || item.uuid === serialNo),
+      );
+    }
+    if (!device && serialCandidates.length > 0) {
+      device = [...serialCandidates].toSorted(
+        (left, right) => right.updatedAt - left.updatedAt,
+      )[0];
+    }
+    if (!device) {
+      const normalizedConnectId = connectId?.toLowerCase();
+      device = normalizedConnectId
+        ? oneKeyDevices.find(
+            (item) =>
+              [item.connectId, item.usbConnectId, item.bleConnectId].some(
+                (value) => value?.toLowerCase() === normalizedConnectId,
+              ) &&
+              (!deviceId || !item.deviceId || item.deviceId === deviceId),
+          )
+        : undefined;
+    }
+    if (!device) {
+      return { kind: 'ignored' as const, reason: 'device-not-found' as const };
+    }
+    let updateResult: IUpdateDeviceStateResult = {
+      kind: 'ignored',
+      reason: 'stale',
+    };
+    let updatedState: IOneKeyDeviceState | undefined;
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [device.id],
+        updater: (item) => {
+          const currentState = parsePersistedDeviceState(item.deviceState);
+          const currentDeviceId =
+            currentState?.identity.deviceId || item.deviceId;
+          if (
+            hasDeviceStateIdentityMismatch({
+              currentDeviceId,
+              incomingDeviceId: state.identity.deviceId,
+            })
+          ) {
+            updateResult = {
+              kind: 'identity-mismatch',
+              deviceDbId: item.id,
+              currentDeviceId,
+              incomingDeviceId: state.identity.deviceId as string,
+            };
+            return item;
+          }
+          const currentEventOrder = this.deviceStateEventOrderByDeviceId.get(
+            item.id,
+          );
+          const hasSdkEventOrder =
+            sdkInstanceEpoch !== undefined && sdkEventSequence !== undefined;
+          const isStaleSdkEvent = Boolean(
+            hasSdkEventOrder &&
+            currentEventOrder &&
+            (sdkInstanceEpoch < currentEventOrder.sdkInstanceEpoch ||
+              (sdkInstanceEpoch === currentEventOrder.sdkInstanceEpoch &&
+                sdkEventSequence <= currentEventOrder.sdkEventSequence)),
+          );
+          const isStaleLegacyEvent = Boolean(
+            !hasSdkEventOrder &&
+            currentState &&
+            (state.updatedAt < currentState.updatedAt ||
+              (state.updatedAt === currentState.updatedAt &&
+                state.revision <= currentState.revision)),
+          );
+          if (isStaleSdkEvent || isStaleLegacyEvent) {
+            return item;
+          }
+          const persistedState = mergeDeviceStateEvent({
+            currentState,
+            incomingState: state,
+            changedKeys,
+            source,
+          });
+          item.deviceState = stringUtils.stableStringify(persistedState);
+          item.features = stringUtils.stableStringify(
+            getAppFeatureParams(
+              parsePersistedFeatures(item.features) as Record<string, unknown>,
+            ),
+          );
+          if (
+            persistedState.protocol === 'V1' ||
+            persistedState.protocol === 'V2'
+          ) {
+            item.connectProtocol = persistedState.protocol;
+          }
+          item.name = deviceUtils.getDeviceDisplayName({
+            state: persistedState,
+          });
+          item.updatedAt = Math.max(item.updatedAt, persistedState.updatedAt);
+          if (persistedState.identity.deviceId) {
+            item.deviceId = persistedState.identity.deviceId;
+          }
+          if (persistedState.identity.serialNo) {
+            item.uuid = persistedState.identity.serialNo;
+          }
+          if (persistedState.identity.deviceType !== EDeviceType.Unknown) {
+            item.deviceType = persistedState.identity.deviceType;
+          }
+          if (hasSdkEventOrder) {
+            this.deviceStateEventOrderByDeviceId.set(item.id, {
+              sdkEventSequence,
+              sdkInstanceEpoch,
+            });
+          }
+          updateResult = {
+            kind: 'updated',
+            deviceDbId: item.id,
+            state: persistedState,
+          };
+          updatedState = persistedState;
+          return item;
+        },
+      });
+    });
+    // Record caches are invalidated when the write starts; a concurrent read
+    // can re-fill them with pre-commit data. Clear again after the commit so
+    // refreshes triggered by the events emitted for this update cannot be
+    // served the stale snapshot.
+    this.clearStoreCachedDataIfMatch(ELocalDBStoreNames.Device);
+    if (updatedState) {
+      const persistedState = updatedState;
+      device.deviceState = stringUtils.stableStringify(persistedState);
+      device.features = stringUtils.stableStringify(
+        getAppFeatureParams(
+          parsePersistedFeatures(device.features) as Record<string, unknown>,
+        ),
+      );
+      if (
+        persistedState.protocol === 'V1' ||
+        persistedState.protocol === 'V2'
+      ) {
+        device.connectProtocol = persistedState.protocol;
+      }
+      device.name = deviceUtils.getDeviceDisplayName({ state: persistedState });
+      device.updatedAt = Math.max(device.updatedAt, persistedState.updatedAt);
+      if (persistedState.identity.deviceId) {
+        device.deviceId = persistedState.identity.deviceId;
+      }
+      if (persistedState.identity.serialNo) {
+        device.uuid = persistedState.identity.serialNo;
+      }
+      if (persistedState.identity.deviceType !== EDeviceType.Unknown) {
+        device.deviceType = persistedState.identity.deviceType;
+      }
+      this.refillDeviceInfo({ device });
+    }
+    return updateResult;
+  }
+
+  async updateDeviceConnectProtocol({
+    dbDeviceId,
+    connectProtocol,
+  }: {
+    dbDeviceId: string;
+    connectProtocol: 'V1' | 'V2';
+  }): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          item.connectProtocol = connectProtocol;
+          return item;
+        },
+      });
+    });
   }
 
   async updateThirdPartyDeviceFeatures({
@@ -5005,8 +5363,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     vendor: EHardwareVendor;
     features: IOneKeyDeviceFeatures;
   }) {
-    const featuresDeviceId =
-      typeof features.device_id === 'string' ? features.device_id : undefined;
+    const featuresDeviceId = thirdPartyDeviceUtils.getDeviceId(
+      features as Record<string, unknown>,
+    );
     if (!featuresDeviceId) {
       return;
     }
@@ -5047,54 +5406,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async updateDeviceFeaturesLabel({
-    dbDeviceId,
-    label,
-  }: {
-    dbDeviceId: string;
-    label: string;
-  }) {
-    const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Device,
-        ids: [dbDeviceId],
-        updater: async (item) => {
-          item.features = JSON.stringify({
-            ...device.featuresInfo,
-            label,
-          });
-          return item;
-        },
-      });
-    });
-  }
-
-  async updateDeviceFeaturesPassphraseProtection({
-    dbDeviceId,
-    passphraseProtection,
-  }: {
-    dbDeviceId: string;
-    passphraseProtection: boolean;
-  }) {
-    const device = await this.getDevice(dbDeviceId);
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Device,
-        ids: [dbDeviceId],
-        updater: async (item) => {
-          item.features = JSON.stringify({
-            ...device.featuresInfo,
-            passphrase_protection: passphraseProtection,
-          });
-          return item;
-        },
-      });
-    });
-  }
-
   async updateDeviceVersionInfo({
     dbDeviceId,
     versionCacheInfo,
@@ -5117,11 +5428,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
-          item.features = JSON.stringify({
-            ...device.featuresInfo,
-            ...versionCacheInfo,
-            ...bitcoinOnlyFlag,
-          });
+          const currentFeatures = parsePersistedFeatures(item.features);
+          item.features = JSON.stringify(
+            device.deviceStateInfo
+              ? {
+                  ...getAppFeatureParams(
+                    currentFeatures as Record<string, unknown>,
+                  ),
+                  ...getAppFeatureParams(
+                    bitcoinOnlyFlag as Record<string, unknown> | undefined,
+                  ),
+                }
+              : {
+                  ...device.featuresInfo,
+                  ...versionCacheInfo,
+                  ...bitcoinOnlyFlag,
+                },
+          );
           return item;
         },
       });
@@ -5302,8 +5625,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let xfpHash = '';
     let xfpHashLegacy = '';
 
-    // TODO support OneKey Pro device only
-    const deviceType: IDeviceType = EDeviceType.Pro;
+    const deviceType = resolveQrWalletDeviceType({
+      deviceName: qrDevice.name,
+      deviceType: qrDevice.deviceType,
+    });
     // TODO name should be OneKey Pro-xxxxxx
     let deviceName = qrDevice.name || 'OneKey Pro';
     const nameArr = deviceName.split('-');
@@ -5536,6 +5861,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               ids: [dbDeviceId],
               updater: async (item) => {
                 item.updatedAt = now;
+                item.deviceType = deviceType;
                 // TODO update qrDevice last version(not updated version)
 
                 if (!item.features && featuresStr) {
@@ -5710,8 +6036,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async buildHwWalletId(params: IDBCreateHwWalletParams) {
-    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
-
     const {
       name,
       device,
@@ -5720,7 +6044,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       isFirmwareVerified,
       vendor,
     } = params;
-    const deviceUUID = device.uuid || getDeviceUUID(features);
+    const deviceUUID =
+      device.uuid || deviceUtils.getDeviceSerialNoFromFeatures(features) || '';
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
@@ -5822,7 +6147,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       deviceType: EDeviceType.Unknown,
       firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
-        img: getThirdPartyDeviceAvatarImage({ profile, modelName }),
+        img: getThirdPartyDeviceAvatarImage({
+          vendor: profile.vendor,
+          vendorModel: getThirdPartyDeviceModelCode({ device, features }),
+          vendorModelName: modelName,
+          fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+        }),
       },
       deviceName: finalDeviceName,
       featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
@@ -5900,8 +6230,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
-    const featuresStr = JSON.stringify(featuresInfo);
-
     const firstAccountIndex = 0;
 
     let addedHdAccountIndex = -1;
@@ -5911,6 +6239,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let usbConnectId: string | undefined;
     let bleConnectId: string | undefined;
     let compatibleConnectId: string | undefined;
+    const runtimeDevice = device as typeof device & {
+      bleConnectId?: string;
+    };
+    const resolvedBleConnectId = resolveBleConnectIdForCreate({
+      connectId,
+      explicitBleConnectId: runtimeDevice.bleConnectId,
+      transportType,
+    });
 
     if (transportType) {
       switch (transportType) {
@@ -5921,24 +6257,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           compatibleConnectId = connectId ?? undefined;
           break;
         case EHardwareTransportType.BLE:
-          bleConnectId = connectId ?? undefined;
+          bleConnectId = resolvedBleConnectId;
           compatibleConnectId = connectId ?? undefined;
           break;
         case EHardwareTransportType.DesktopWebBle:
-          // BLE connections - set bleConnectId but don't override connectId
-          // @ts-expect-error
-          bleConnectId = (device.bleConnectId || connectId) ?? undefined;
-          // If connectId is empty, get it from getDeviceUUID for compatibility
+          bleConnectId = resolvedBleConnectId;
           if (!compatibleConnectId) {
-            const { getDeviceUUID } = await CoreSDKLoader();
-            const uuid =
+            const hardwareSdk = await CoreSDKLoader();
+            const getDeviceSerialNo =
+              (
+                hardwareSdk as typeof hardwareSdk & {
+                  getDeviceSerialNo?: typeof hardwareSdk.getDeviceUUID;
+                }
+              ).getDeviceSerialNo ?? hardwareSdk.getDeviceUUID;
+            const fallbackConnectId =
               buildTrezorDesktopBleUsbConnectId({
                 vendor: resolvedVendor,
                 transportType,
                 rawDeviceId,
-              }) || getDeviceUUID(features);
-            compatibleConnectId = uuid;
-            usbConnectId = uuid;
+              }) ||
+              deviceUtils.getDeviceSerialNoFromFeatures(features) ||
+              getDeviceSerialNo(features);
+            compatibleConnectId = fallbackConnectId;
+            usbConnectId = fallbackConnectId;
           }
           break;
         default:
@@ -5958,14 +6299,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           vendor: resolvedVendor,
         };
 
+    const initialDeviceState = params.deviceState
+      ? sanitizeDeviceStateForPersistence(params.deviceState)
+      : undefined;
+    const featuresStr = JSON.stringify(
+      initialDeviceState && !profile.isThirdParty
+        ? getAppFeatureParams(featuresInfo as Record<string, unknown>)
+        : featuresInfo,
+    );
+
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
-      name: deviceName,
+      name: initialDeviceState
+        ? deviceUtils.getDeviceDisplayName({ state: initialDeviceState })
+        : deviceName,
+      connectProtocol:
+        params.connectProtocol ??
+        (initialDeviceState?.protocol === 'V1' ||
+        initialDeviceState?.protocol === 'V2'
+          ? initialDeviceState.protocol
+          : undefined),
       connectId: compatibleConnectId || '',
       uuid: deviceUUID,
       deviceId: rawDeviceId,
       deviceType,
       features: featuresStr,
+      deviceState: initialDeviceState
+        ? stringUtils.stableStringify(initialDeviceState)
+        : undefined,
       settingsRaw: JSON.stringify(initialSettings),
       createdAt: now,
       updatedAt: now,
@@ -6061,9 +6422,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ids: [dbDeviceId],
             updater: async (item) => {
               item.features = featuresStr;
+              item.deviceState = deviceToAdd.deviceState ?? item.deviceState;
+              item.connectProtocol =
+                deviceToAdd.connectProtocol ?? item.connectProtocol;
               item.updatedAt = now;
 
-              // Use compatibleConnectId which includes getDeviceUUID fallback for BLE
+              // Use compatibleConnectId which includes serial-number fallback for BLE
               item.connectId = compatibleConnectId || item.connectId || '';
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
@@ -6184,6 +6548,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId: dbWalletId,
       addedHdAccountIndex,
       isOverrideWallet: Boolean(existingWallet && !existingWallet?.isMocked),
+      withoutRefillWallet: true,
       // isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
@@ -8256,7 +8621,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ) => Promise<'match' | 'mismatch' | 'unknown'>;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    // Third-party devices may not have rawDeviceId (features.device_id).
+    // Third-party devices may not have rawDeviceId.
     // Use vendorProfile.canMatchDeviceByConnectId to determine if connectId
     // is reliable enough to identify an existing device.
     if (!rawDeviceId) {
@@ -8417,7 +8782,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     features?: IOneKeyDeviceFeatures;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    const { getDeviceUUID } = await CoreSDKLoader();
     const normalizedVendor = vendor ?? EHardwareVendor.onekey;
     const { devices } = await this.getAllDevices();
     const device = devices.find((item) => {
@@ -8449,14 +8813,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (features) {
         let uuidInDb = item.uuid;
         if (!uuidInDb) {
-          uuidInDb = item.featuresInfo ? getDeviceUUID(item.featuresInfo) : '';
+          uuidInDb =
+            item.deviceStateInfo?.identity.serialNo ||
+            (item.featuresInfo
+              ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo) ||
+                ''
+              : '');
         }
-        const uuidInQuery = getDeviceUUID(features);
+        const uuidInQuery =
+          deviceUtils.getDeviceSerialNoFromFeatures(features) || '';
         if (uuidInDb && uuidInQuery) {
           mergePredicate(uuidInQuery === uuidInDb);
         } else if (!connectId && !featuresDeviceId) {
           // features is the only discriminator and it can't discriminate here
-          // (getDeviceUUID reads OneKey-specific serial fields, so a
+          // (the serial helper reads OneKey-specific fields, so a
           // third-party device's features always yield an empty UUID) —
           // constraining by vendor alone would return an arbitrary device of
           // that vendor. No current caller combines features with connectId
@@ -8487,9 +8857,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {
-    device.featuresInfo = JSON.parse(device.features || '{}');
-    device.settings = JSON.parse(device.settingsRaw || '{}');
+    const persistedFeatures = parsePersistedFeatures(device.features);
+    device.deviceStateInfo = parsePersistedDeviceState(device.deviceState);
+    device.settings = parseDeviceSettingsRaw(device.settingsRaw);
     device.vendor = device.settings?.vendor ?? EHardwareVendor.onekey;
+    device.featuresInfo =
+      device.vendor === EHardwareVendor.onekey && device.deviceStateInfo
+        ? {
+            ...projectLegacyDeviceFeaturesFromState(device.deviceStateInfo),
+            ...getAppFeatureParams(
+              persistedFeatures as Record<string, unknown>,
+            ),
+          }
+        : persistedFeatures;
     return device;
   }
 

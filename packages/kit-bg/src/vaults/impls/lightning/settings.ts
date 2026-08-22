@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   COINTYPE_LIGHTNING,
   IMPL_LIGHTNING,
@@ -27,6 +29,15 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   addressBookDisabled: true,
   copyAddressDisabled: true,
+
+  supportedDeviceTypes: [
+    EDeviceType.Classic,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro,
+  ],
 
   dappInteractionEnabled: true,
 

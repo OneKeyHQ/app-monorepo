@@ -801,6 +801,7 @@ sompi
 Sompi
 Sparkline
 splitter
+Stax
 sr25519
 starcoin
 Starcoin

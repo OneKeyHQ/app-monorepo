@@ -527,6 +527,19 @@ describe('mergeStoredValue non plain objects', () => {
     expect(mergeStoredValue([], [1, 2], true)).toEqual([1, 2]);
   });
 
+  // lodash merge skips empty source arrays, so turning a force target off
+  // would leave the previous items in place. The firmware atom opts out of
+  // this merge; this test pins the default-on behavior.
+  it('keeps previous nested array items when merging onto empty', () => {
+    expect(
+      mergeStoredValue(
+        { pro2ForceUpdateTargets: ['boot'] },
+        { pro2ForceUpdateTargets: [] },
+        true,
+      ),
+    ).toEqual({ pro2ForceUpdateTargets: ['boot'] });
+  });
+
   // merge({}, init, new Date()) collapses to {}.
   it('leaves a Date value untouched', () => {
     const date = new Date(1_712_345_678_000);
