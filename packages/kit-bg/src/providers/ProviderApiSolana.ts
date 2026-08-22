@@ -33,6 +33,57 @@ type ISolanaSendOptions = {
   maxRetries?: number;
 };
 
+// Decoding failures are dapp input errors: bs58 and the offchain message encoder throw their
+// own error types, which would reach the dapp instead of a JSON-RPC invalidParams.
+function decodeBase58Message(message: string) {
+  try {
+    return bs58.decode(message);
+  } catch {
+    throw web3Errors.rpc.invalidParams(
+      'message must be a base58 encoded string',
+    );
+  }
+}
+
+function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
+  const decoded: Uint8Array[] = [];
+  for (const signer of requiredSigners) {
+    let bytes: Uint8Array | undefined;
+    try {
+      bytes = bs58.decode(signer);
+    } catch {
+      bytes = undefined;
+    }
+    if (!bytes || bytes.length !== 32) {
+      throw web3Errors.rpc.invalidParams(
+        'requiredSigners must be base58 encoded 32-byte public keys',
+      );
+    }
+    decoded.push(bytes);
+  }
+  return decoded;
+}
+
+function buildOffchainMessageV1Bytes(
+  message: string,
+  requiredSigners: string[],
+): Uint8Array {
+  const decodedSigners = decodeRequiredSigners(requiredSigners);
+  try {
+    return OffchainMessage.createOffChainMessageV1Bytes({
+      message,
+      requiredSigners: decodedSigners,
+    });
+  } catch (error) {
+    // Uniqueness and the 255 signer cap are enforced by the encoder, so they surface here.
+    throw web3Errors.rpc.invalidParams(
+      error instanceof Error
+        ? error.message
+        : 'invalid offchain message params',
+    );
+  }
+}
+
 @backgroundClass()
 class ProviderApiSolana extends ProviderApiBase {
   public providerName = IInjectedProviderNames.solana;
@@ -216,7 +267,7 @@ class ProviderApiSolana extends ProviderApiBase {
         request,
         unsignedMessage: {
           type: EMessageTypesCommon.SIGN_MESSAGE,
-          message: bs58.decode(message).toString(),
+          message: decodeBase58Message(message).toString(),
         },
         networkId: networkId ?? '',
         accountId: accountId ?? '',
@@ -278,11 +329,10 @@ class ProviderApiSolana extends ProviderApiBase {
 
       // Built here as well as on the signing path. Both go through the same encoder, so the
       // bytes returned to the dapp are exactly the bytes that were signed.
-      const signedOffchainMessage =
-        OffchainMessage.createOffChainMessageV1Bytes({
-          message,
-          requiredSigners: requiredSigners.map((signer) => bs58.decode(signer)),
-        });
+      const signedOffchainMessage = buildOffchainMessageV1Bytes(
+        message,
+        requiredSigners,
+      );
 
       const signature =
         await this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -314,7 +364,7 @@ class ProviderApiSolana extends ProviderApiBase {
         request,
         unsignedMessage: {
           type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
-          message: bs58.decode(message).toString(),
+          message: decodeBase58Message(message).toString(),
           payload: {
             version: version ?? 0,
             applicationDomain,
