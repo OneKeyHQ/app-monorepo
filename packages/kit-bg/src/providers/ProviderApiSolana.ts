@@ -11,6 +11,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EMessageTypesCommon,
   EMessageTypesSolana,
@@ -63,6 +64,11 @@ function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
   }
   return decoded;
 }
+
+// Versions the wallet actually implements. Anything else must be rejected: an unknown version
+// otherwise falls into the version 0 branch, and hardware and QR never pass a message version
+// down, so they would sign it as version 0 bytes the dapp cannot verify.
+const SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS = [undefined, 0, 1];
 
 function buildOffchainMessageV1Bytes(
   message: string,
@@ -305,6 +311,12 @@ class ProviderApiSolana extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
 
+    if (!SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS.includes(params.version)) {
+      throw web3Errors.rpc.invalidParams(
+        'unsupported offchain message version',
+      );
+    }
+
     if (params.version === 1) {
       const { message, requiredSigners } = params;
 
@@ -333,6 +345,15 @@ class ProviderApiSolana extends ProviderApiBase {
         message,
         requiredSigners,
       );
+
+      // Firmware and the air-gap data types only implement version 0. The keyrings are the
+      // boundary that refuses to sign it, but they run after the confirm screen: without this
+      // the user approves a request that can only fail afterwards.
+      if (accountId && accountUtils.isHwOrQrAccount({ accountId })) {
+        throw web3Errors.rpc.methodNotSupported(
+          'Version 1 Solana offchain messages are not supported by hardware or QR wallets',
+        );
+      }
 
       const signature =
         await this.backgroundApi.serviceDApp.openSignMessageModal({
