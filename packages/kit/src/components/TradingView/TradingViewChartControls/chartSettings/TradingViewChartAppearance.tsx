@@ -2,7 +2,14 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IIconProps } from '@onekeyhq/components';
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  LinearGradient,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
@@ -232,14 +239,20 @@ function OkxChartPriceSwatch({
         cursor="pointer"
         onPress={() => setIsPaletteOpen(!isPaletteOpen)}
       >
-        <Stack
+        <LinearGradient
           w={22}
           h={22}
           overflow="hidden"
           borderRadius={2}
-          style={{
-            background: `linear-gradient(45deg, ${resolvedDownColor} 0 50%, ${resolvedUpColor} 50% 100%)`,
-          }}
+          colors={[
+            resolvedDownColor,
+            resolvedDownColor,
+            resolvedUpColor,
+            resolvedUpColor,
+          ]}
+          locations={[0, 0.5, 0.5, 1]}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
         />
       </Stack>
 
@@ -498,6 +511,7 @@ export function AppearanceCoordinatesSettingsContent({
             width={97}
             options={OKX_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getOkxChartLineStyleFromLabel}
             open={activeLatestPriceControl === 'style'}
             onOpenChange={(open) =>
               setActiveLatestPriceControl(open ? 'style' : undefined)
@@ -731,6 +745,7 @@ export function AppearanceLayoutSettingsContent({
             width={97}
             options={OKX_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getOkxChartLineStyleFromLabel}
             onChange={(label) =>
               onCrossLineStyleChange(getOkxChartLineStyleFromLabel(label))
             }

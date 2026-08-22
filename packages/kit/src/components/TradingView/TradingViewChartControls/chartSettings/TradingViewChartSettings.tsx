@@ -11,6 +11,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  LinearGradient,
   Page,
   Popover,
   ScrollView,
@@ -60,6 +61,7 @@ const OPTION_TRANSLATION_IDS: Record<
   keyof ITradingViewChartSettingsOptions,
   ETranslations
 > = {
+  yAxis: ETranslations.market_chart_settings__y_axis,
   countdown: ETranslations.market_chart_settings__countdown,
   depth: ETranslations.market_chart_settings__depth,
   priceChange: ETranslations.market_chart_settings__price_change,
@@ -351,12 +353,18 @@ function SettingsPriceColorPicker({
           borderRadius="$2"
           bg="$bgStrong"
         >
-          <YStack
+          <LinearGradient
             flex={1}
             borderRadius="$1"
-            style={{
-              background: `linear-gradient(45deg, ${resolvedDownColor} 0 50%, ${resolvedUpColor} 50% 100%)`,
-            }}
+            colors={[
+              resolvedDownColor,
+              resolvedDownColor,
+              resolvedUpColor,
+              resolvedUpColor,
+            ]}
+            locations={[0, 0.5, 0.5, 1]}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 1, y: 0 }}
           />
         </YStack>
       )}
@@ -923,7 +931,7 @@ export function TradingViewChartSettings({
 
   const renderCoordinateSettings = () => (
     <YStack>
-      {(['countdown', 'depth', 'priceChange'] as const).some(
+      {(['yAxis', 'countdown', 'depth', 'priceChange'] as const).some(
         isOptionVisible,
       ) ? (
         <SettingsGroup
@@ -931,7 +939,7 @@ export function TradingViewChartSettings({
             id: ETranslations.market_chart_settings__price_scales,
           })}
         >
-          {(['countdown', 'depth', 'priceChange'] as const)
+          {(['yAxis', 'countdown', 'depth', 'priceChange'] as const)
             .filter(isOptionVisible)
             .map((option) => (
               <SettingsCheckboxRow

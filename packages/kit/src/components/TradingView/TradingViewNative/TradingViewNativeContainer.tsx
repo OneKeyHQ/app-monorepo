@@ -8,6 +8,7 @@ import {
   useMarketTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 
@@ -238,6 +239,10 @@ export const TradingViewNativeContainer = memo(
           themeColors,
         ),
       [themeColors, unresolvedMainIndicatorSettings],
+    );
+    const mainIndicatorSettingsKey = useMemo(
+      () => stableStringify(mainIndicatorSettings),
+      [mainIndicatorSettings],
     );
     const unresolvedSubIndicatorInstances = useMemo(
       () =>
@@ -660,6 +665,7 @@ export const TradingViewNativeContainer = memo(
             currentPriceLabel={currentPriceLabel}
             hasVolume={false}
             indicatorSeries={indicatorSeries}
+            indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}

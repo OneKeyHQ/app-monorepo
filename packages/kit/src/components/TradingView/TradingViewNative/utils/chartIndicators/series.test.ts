@@ -96,4 +96,45 @@ describe('TradingViewNative indicator series', () => {
       values: [null, 1.5, 2.5],
     });
   });
+
+  it('keeps configured main-indicator width and line pattern independent', () => {
+    const series = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['MA']),
+      indicatorSettings: {
+        MA: {
+          active: true,
+          id: 'MA',
+          lines: {
+            'line:0': {
+              color: '#123456',
+              enabled: true,
+              period: 2,
+              secondaryStyle: 'dashed',
+              style: 'bold',
+            },
+            'line:1': {
+              color: '#E9386F',
+              enabled: false,
+              period: 10,
+              style: 'solid',
+            },
+            'line:2': {
+              color: '#23BFD5',
+              enabled: false,
+              period: 20,
+              style: 'solid',
+            },
+          },
+          parameters: {},
+          transparency: 0,
+        },
+      },
+      points: buildPoints([1, 2, 3]),
+    });
+
+    expect(series[0]?.style).toMatchObject({
+      lineStyle: 'dashed',
+      lineWidth: 3,
+    });
+  });
 });

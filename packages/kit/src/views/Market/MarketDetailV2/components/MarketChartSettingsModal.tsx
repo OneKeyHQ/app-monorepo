@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
 import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const NATIVE_HIDDEN_APPEARANCE_SECTION_IDS = [
   'events',
@@ -24,6 +25,11 @@ const NATIVE_HIDDEN_OPTION_IDS = [
   'depth',
   'futureEvents',
   'pastEvents',
+] as const satisfies NonNullable<
+  ITradingViewChartSettingsProps['hiddenOptionIds']
+>;
+const NON_NATIVE_HIDDEN_OPTION_IDS = [
+  ...NATIVE_HIDDEN_OPTION_IDS,
   'clickInteraction',
 ] as const satisfies NonNullable<
   ITradingViewChartSettingsProps['hiddenOptionIds']
@@ -64,7 +70,11 @@ export default function MarketChartSettingsModal() {
           usePageFooter={!md}
           mobileLayout={md}
           hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
-          hiddenOptionIds={NATIVE_HIDDEN_OPTION_IDS}
+          hiddenOptionIds={
+            platformEnv.isNative
+              ? NATIVE_HIDDEN_OPTION_IDS
+              : NON_NATIVE_HIDDEN_OPTION_IDS
+          }
           onChange={md ? handleMobileSettingsChange : undefined}
           onConfirm={updateChartSettings}
         />

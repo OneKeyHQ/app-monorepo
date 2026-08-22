@@ -83,6 +83,7 @@ interface ITradingViewNativeChartProps {
   currentPriceLabel: string;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;

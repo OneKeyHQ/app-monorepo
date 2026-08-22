@@ -1,3 +1,5 @@
+import { colord } from 'colord';
+
 import {
   type ITradingViewNativeAnyIndicatorId,
   type ITradingViewNativeIndicatorLineSettings,
@@ -76,6 +78,9 @@ const INDICATOR_LINE_STYLES = new Set<string>([
   'dashed',
   'dotted',
 ]);
+const INDICATOR_THEME_COLORS = new Set<string>(
+  Object.values(TRADING_VIEW_NATIVE_THEME_COLORS),
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -87,13 +92,28 @@ function isIndicatorLineStyle(
   return typeof value === 'string' && INDICATOR_LINE_STYLES.has(value);
 }
 
+function isIndicatorLinePatternStyle(
+  value: unknown,
+): value is Extract<
+  ITradingViewIndicatorSettingsLine['style'],
+  'dashed' | 'dotted'
+> {
+  return value === 'dashed' || value === 'dotted';
+}
+
+function isIndicatorColor(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    (INDICATOR_THEME_COLORS.has(value) || colord(value).isValid())
+  );
+}
+
 function normalizeStoredIndicatorLine(
   value: unknown,
 ): ITradingViewNativeIndicatorLineSettings | undefined {
   if (
     !isRecord(value) ||
-    typeof value.color !== 'string' ||
-    !value.color.trim() ||
+    !isIndicatorColor(value.color) ||
     typeof value.enabled !== 'boolean' ||
     typeof value.period !== 'number' ||
     !Number.isFinite(value.period) ||
@@ -124,10 +144,8 @@ function normalizeStoredIndicatorLine(
 function normalizeStoredOpacityColors(value: unknown) {
   if (
     !isRecord(value) ||
-    typeof value.downColor !== 'string' ||
-    !value.downColor.trim() ||
-    typeof value.upColor !== 'string' ||
-    !value.upColor.trim()
+    !isIndicatorColor(value.downColor) ||
+    !isIndicatorColor(value.upColor)
   ) {
     return undefined;
   }
@@ -336,18 +354,31 @@ function getStoredLine(
   const storedLine = storedIndicator?.lines[id];
   const storedLineStyle = storedLine?.style;
   const storedLineSecondaryStyle = storedLine?.secondaryStyle;
-  const storedStyle = isIndicatorLineStyle(storedLineStyle)
-    ? storedLineStyle
+  const fallbackStyle = isIndicatorLinePatternStyle(fallback.style)
+    ? 'solid'
     : fallback.style;
-  const storedSecondaryStyle = isIndicatorLineStyle(storedLineSecondaryStyle)
-    ? storedLineSecondaryStyle
-    : fallback.secondaryStyle;
+  const fallbackSecondaryStyle =
+    fallback.secondaryStyle ??
+    (isIndicatorLinePatternStyle(fallback.style) ? fallback.style : undefined);
+  let storedStyle: ITradingViewIndicatorSettingsLine['style'] = fallbackStyle;
+  let storedSecondaryStyle: ITradingViewIndicatorSettingsLine['secondaryStyle'] =
+    fallbackSecondaryStyle;
+  if (
+    isIndicatorLineStyle(storedLineStyle) &&
+    !isIndicatorLinePatternStyle(storedLineStyle)
+  ) {
+    storedStyle = storedLineStyle;
+  }
+  if (isIndicatorLinePatternStyle(storedLineSecondaryStyle)) {
+    storedSecondaryStyle = storedLineSecondaryStyle;
+  } else if (isIndicatorLinePatternStyle(storedLineStyle)) {
+    storedSecondaryStyle = storedLineStyle;
+  }
   const storedPeriod = getFiniteNumber(storedLine?.period, fallback.period);
   return {
-    color:
-      typeof storedLine?.color === 'string' && storedLine.color
-        ? storedLine.color
-        : fallback.color,
+    color: isIndicatorColor(storedLine?.color)
+      ? storedLine.color
+      : fallback.color,
     enabled:
       typeof storedLine?.enabled === 'boolean'
         ? storedLine.enabled
@@ -371,14 +402,12 @@ function getStoredOpacityColors(
 ) {
   const colors = storedIndicator?.opacityColors;
   return {
-    downColor:
-      typeof colors?.downColor === 'string' && colors.downColor
-        ? colors.downColor
-        : fallback.downColor,
-    upColor:
-      typeof colors?.upColor === 'string' && colors.upColor
-        ? colors.upColor
-        : fallback.upColor,
+    downColor: isIndicatorColor(colors?.downColor)
+      ? colors.downColor
+      : fallback.downColor,
+    upColor: isIndicatorColor(colors?.upColor)
+      ? colors.upColor
+      : fallback.upColor,
   };
 }
 
@@ -391,7 +420,9 @@ function createLine({
   showCheckbox = true,
   showColor = true,
   showPeriod = false,
+  showSecondaryStyle = false,
   showStyle = true,
+  secondaryStyle,
   storedIndicator,
   style = 'solid',
 }: {
@@ -403,7 +434,9 @@ function createLine({
   showCheckbox?: boolean;
   showColor?: boolean;
   showPeriod?: boolean;
+  showSecondaryStyle?: boolean;
   showStyle?: boolean;
+  secondaryStyle?: ITradingViewIndicatorSettingsLine['secondaryStyle'];
   storedIndicator: ITradingViewNativeIndicatorSettingsItem | undefined;
   style?: ITradingViewIndicatorSettingsLine['style'];
 }): ITradingViewIndicatorSettingsLine {
@@ -411,6 +444,7 @@ function createLine({
     color,
     enabled,
     period,
+    ...(secondaryStyle ? { secondaryStyle } : {}),
     style,
   });
   return {
@@ -420,8 +454,24 @@ function createLine({
     showCheckbox,
     showColor,
     showPeriod,
+    showSecondaryStyle,
     showStyle,
   };
+}
+
+function getSettingsLineWidthStyle(
+  lineWidth: number,
+): ITradingViewIndicatorSettingsLine['style'] {
+  if (lineWidth >= 4) {
+    return 'extraBold';
+  }
+  if (lineWidth >= 3) {
+    return 'bold';
+  }
+  if (lineWidth >= 2) {
+    return 'medium';
+  }
+  return 'solid';
 }
 
 function createParameter({
@@ -622,6 +672,7 @@ function createSubIndicator(
         fallbackValue: band.defaultStyle.value,
         id: `band:${band.id}`,
         label: band.title,
+        min: Number.NEGATIVE_INFINITY,
         storedIndicator,
       }),
     ),
@@ -635,8 +686,9 @@ function createSubIndicator(
       label: plot.title,
       showColor: !plot.paletteId,
       showStyle: plot.defaultStyle.type === 'line',
+      secondaryStyle: plot.defaultStyle.lineStyle,
       storedIndicator,
-      style: plot.defaultStyle.lineStyle,
+      style: getSettingsLineWidthStyle(plot.defaultStyle.lineWidth),
     }),
   );
   const bandLines = definition.bands.map((band) =>
@@ -646,8 +698,10 @@ function createSubIndicator(
       id: `band:${band.id}`,
       label: band.title,
       showPeriod: false,
+      showSecondaryStyle: true,
+      secondaryStyle: band.defaultStyle.lineStyle,
       storedIndicator,
-      style: band.defaultStyle.lineStyle,
+      style: getSettingsLineWidthStyle(band.defaultStyle.lineWidth),
     }),
   );
   const fillLines = definition.fills.map((fill) =>
@@ -868,10 +922,14 @@ function getSubIndicatorOverrides(
         {
           color: line?.color ?? plot.defaultStyle.color,
           lineStyle: getRuntimeLineStyle(
-            line?.style ?? plot.defaultStyle.lineStyle,
+            line?.secondaryStyle ??
+              (isIndicatorLinePatternStyle(line?.style)
+                ? line.style
+                : plot.defaultStyle.lineStyle),
           ),
           lineWidth: getRuntimeLineWidth(
-            line?.style ?? plot.defaultStyle.lineStyle,
+            line?.style ??
+              getSettingsLineWidthStyle(plot.defaultStyle.lineWidth),
           ),
           transparency:
             indicator.id === 'VOL'
@@ -890,10 +948,14 @@ function getSubIndicatorOverrides(
         {
           color: line?.color ?? band.defaultStyle.color,
           lineStyle: getRuntimeLineStyle(
-            line?.style ?? band.defaultStyle.lineStyle,
+            line?.secondaryStyle ??
+              (isIndicatorLinePatternStyle(line?.style)
+                ? line.style
+                : band.defaultStyle.lineStyle),
           ),
           lineWidth: getRuntimeLineWidth(
-            line?.style ?? band.defaultStyle.lineStyle,
+            line?.style ??
+              getSettingsLineWidthStyle(band.defaultStyle.lineWidth),
           ),
           value: parameterMap.get(`band:${band.id}`) ?? band.defaultStyle.value,
           visible: line?.enabled ?? band.defaultStyle.visible,

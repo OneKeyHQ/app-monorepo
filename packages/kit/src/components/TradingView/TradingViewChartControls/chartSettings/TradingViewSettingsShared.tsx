@@ -33,11 +33,11 @@ function OkxChartLinePreview({
   color,
   mr,
 }: {
-  variant: string;
+  variant: 'solid' | 'dashed';
   color: string;
   mr?: number;
 }) {
-  if (variant === '虚线') {
+  if (variant === 'dashed') {
     return (
       <XStack w={24} h={1} mr={mr} gap={2} alignItems="center">
         {OKX_LINE_PREVIEW_DASHES.map((dash) => (
@@ -56,6 +56,7 @@ export function OkxChartSelectMock({
   height = 28,
   showLinePreview,
   options,
+  getLinePreviewVariant,
   open,
   onOpenChange,
   onChange,
@@ -65,6 +66,7 @@ export function OkxChartSelectMock({
   height?: number;
   showLinePreview?: boolean;
   options: string[];
+  getLinePreviewVariant?: (value: string) => 'solid' | 'dashed';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onChange?: (value: string) => void;
@@ -93,7 +95,11 @@ export function OkxChartSelectMock({
         onPress={() => setIsOpen(!isOpen)}
       >
         {showLinePreview ? (
-          <OkxChartLinePreview variant={value} mr={9} color={OKX_CHART_TEXT} />
+          <OkxChartLinePreview
+            variant={getLinePreviewVariant?.(value) ?? 'solid'}
+            mr={9}
+            color={OKX_CHART_TEXT}
+          />
         ) : null}
         <SizableText
           flex={1}
@@ -140,7 +146,10 @@ export function OkxChartSelectMock({
                 }}
               >
                 {showLinePreview ? (
-                  <OkxChartLinePreview variant={option} color="$text" />
+                  <OkxChartLinePreview
+                    variant={getLinePreviewVariant?.(option) ?? 'solid'}
+                    color="$text"
+                  />
                 ) : null}
                 <SizableText
                   fontSize={13}

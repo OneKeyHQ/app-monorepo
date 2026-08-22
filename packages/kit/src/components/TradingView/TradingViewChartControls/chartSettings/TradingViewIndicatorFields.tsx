@@ -467,6 +467,9 @@ export function OkxIndicatorLineRow({
             width={97}
             options={secondaryStyleOptions}
             showLinePreview
+            getLinePreviewVariant={(value) =>
+              value === dashedLineLabel ? 'dashed' : 'solid'
+            }
             onChange={(value) =>
               onSecondaryStyleChange(
                 line.id,

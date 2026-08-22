@@ -105,6 +105,28 @@ interface ITradingViewNativeSubIndicatorPanesPictureInput {
   structureKey: string;
 }
 
+interface ITradingViewNativeIndicatorSeriesPictureInput {
+  chartPictureVersion: number;
+  pointCount: number;
+  seriesKey: string;
+  settingsKey: string;
+}
+
+export function shouldReplaceTradingViewNativeIndicatorSeries({
+  current,
+  previous,
+}: {
+  current: ITradingViewNativeIndicatorSeriesPictureInput;
+  previous: ITradingViewNativeIndicatorSeriesPictureInput;
+}) {
+  return (
+    previous.chartPictureVersion !== current.chartPictureVersion ||
+    previous.pointCount !== current.pointCount ||
+    previous.seriesKey !== current.seriesKey ||
+    previous.settingsKey !== current.settingsKey
+  );
+}
+
 export interface ITradingViewNativeSubIndicatorPanesUpdate {
   latestPaneValues: ITradingViewNativeSubIndicatorLatestPaneValues[];
   replacementPanes: readonly ITradingViewNativeSubIndicatorRenderPane[] | null;
@@ -333,6 +355,7 @@ interface ITradingViewNativeChartProps {
   currentPriceLabel: string;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
@@ -405,6 +428,7 @@ export const TradingViewNativeChart = memo(
     currentPriceLabel,
     hasVolume,
     indicatorSeries,
+    indicatorSeriesSettingsKey,
     initialRightOffset,
     isSwitchingInterval,
     onChartWidthChange,
@@ -443,6 +467,7 @@ export const TradingViewNativeChart = memo(
     const previousPictureInputRef = useRef({
       chartPictureVersion,
       indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
+      indicatorSeriesSettingsKey,
       pointCount: points.length,
       subIndicatorPanesStructureKey,
     });
@@ -690,8 +715,20 @@ export const TradingViewNativeChart = memo(
         previousPictureInput.chartPictureVersion !== chartPictureVersion ||
         previousPictureInput.pointCount !== points.length;
       const shouldReplaceAllIndicatorSeries =
-        shouldReplaceAllPoints ||
-        previousPictureInput.indicatorSeriesKey !== indicatorSeriesKey;
+        shouldReplaceTradingViewNativeIndicatorSeries({
+          current: {
+            chartPictureVersion,
+            pointCount: points.length,
+            seriesKey: indicatorSeriesKey,
+            settingsKey: indicatorSeriesSettingsKey,
+          },
+          previous: {
+            chartPictureVersion: previousPictureInput.chartPictureVersion,
+            pointCount: previousPictureInput.pointCount,
+            seriesKey: previousPictureInput.indicatorSeriesKey,
+            settingsKey: previousPictureInput.indicatorSeriesSettingsKey,
+          },
+        });
       const subIndicatorPanesUpdate =
         getTradingViewNativeSubIndicatorPanesUpdate({
           current: {
@@ -710,6 +747,7 @@ export const TradingViewNativeChart = memo(
       previousPictureInputRef.current = {
         chartPictureVersion,
         indicatorSeriesKey,
+        indicatorSeriesSettingsKey,
         pointCount: points.length,
         subIndicatorPanesStructureKey: subIndicatorPanesUpdate.structureKey,
       };
@@ -818,6 +856,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       hasVolume,
       indicatorSeries,
+      indicatorSeriesSettingsKey,
       points,
       priceAxisWidth,
       subIndicatorPanes,

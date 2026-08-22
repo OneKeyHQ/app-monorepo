@@ -32,6 +32,7 @@ const mockGetTradingViewNativeChartSettings = jest.fn<
 >();
 const mockPanelValue = {} as ITradingViewChartSettingsValue;
 let mockIsMobileLayout = false;
+let mockIsNative = false;
 let mockChartSettings = createTradingViewNativeChartSettings();
 
 jest.mock('react-intl', () => ({
@@ -50,6 +51,15 @@ jest.mock('@onekeyhq/components', () => {
     useMedia: () => ({ md: mockIsMobileLayout }),
   };
 });
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
 
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings',
@@ -79,6 +89,7 @@ describe('MarketChartSettingsModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsMobileLayout = false;
+    mockIsNative = false;
     mockChartSettings = createTradingViewNativeChartSettings();
     mockSetChartSettings.mockImplementation((update) => {
       mockChartSettings = update(mockChartSettings);
@@ -126,5 +137,14 @@ describe('MarketChartSettingsModal', () => {
     });
 
     expect(mockSetChartSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes the implemented click interaction only on native platforms', () => {
+    mockIsNative = true;
+    render(<MarketChartSettingsModal />);
+
+    expect(
+      mockTradingViewChartSettings.mock.calls[0][0].hiddenOptionIds,
+    ).toEqual(['depth', 'futureEvents', 'pastEvents']);
   });
 });

@@ -108,6 +108,7 @@ export type ITradingViewChartSettingsPriceColorMode =
   | 'redUpGreenDown';
 
 export type ITradingViewChartSettingsOptions = {
+  yAxis: boolean;
   countdown: boolean;
   depth: boolean;
   priceChange: boolean;
@@ -1660,6 +1661,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
     schemaVersion: TRADING_VIEW_SETTINGS_SCHEMA_VERSION,
     appearanceSections: cloneAppearanceSections(),
     options: {
+      yAxis: true,
       countdown: true,
       depth: true,
       priceChange: true,

@@ -6,6 +6,8 @@ import {
   createTradingViewNativeIndicatorSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { updateTradingViewSettingsMockIndicatorParameter } from '../TradingViewChartControls/chartSettings/TradingViewSettingsMockState';
+
 import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeActiveMainIndicators,
@@ -124,7 +126,7 @@ describe('indicatorSettingsAdapter', () => {
           id: 'MA',
           lines: {
             'line:0': {
-              color: 42,
+              color: 'not-a-color',
               enabled: true,
               period: 5,
               style: 'zigzag',
@@ -311,6 +313,69 @@ describe('indicatorSettingsAdapter', () => {
       restoredValue.indicators.find((indicator) => indicator.id === 'MA')
         ?.lines[0],
     ).toMatchObject({ color: '#123456', period: 7, style: 'bold' });
+  });
+
+  it('preserves negative sub-indicator band values through editing and rendering', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const nextValue = updateTradingViewSettingsMockIndicatorParameter(
+      value,
+      'WR',
+      'band:upper',
+      -30,
+    );
+    const wr = nextValue.indicators.find((indicator) => indicator.id === 'WR');
+    if (wr) {
+      wr.active = true;
+    }
+    const settings = getTradingViewNativeIndicatorSettings(nextValue);
+    const restored = getTradingViewNativeIndicatorSettingsValue(settings);
+    const instance = getTradingViewNativeSubIndicatorInstances(settings).find(
+      (candidate) => candidate.indicator === 'WR',
+    );
+
+    expect(
+      wr?.parameters?.find((parameter) => parameter.id === 'band:upper'),
+    ).toMatchObject({ min: Number.NEGATIVE_INFINITY, value: -30 });
+    expect(
+      restored.indicators
+        .find((indicator) => indicator.id === 'WR')
+        ?.parameters?.find((parameter) => parameter.id === 'band:upper')?.value,
+    ).toBe(-30);
+    expect(instance?.settings?.bands?.upper?.value).toBe(-30);
+  });
+
+  it('keeps sub-indicator band width and line pattern independent', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
+    const upperBand = rsi?.lines.find((line) => line.id === 'band:upper');
+    expect(upperBand).toMatchObject({
+      secondaryStyle: 'dashed',
+      showSecondaryStyle: true,
+      style: 'solid',
+    });
+    if (!upperBand) {
+      return;
+    }
+    if (rsi) {
+      rsi.active = true;
+    }
+    upperBand.style = 'bold';
+    upperBand.secondaryStyle = 'dashed';
+
+    const settings = getTradingViewNativeIndicatorSettings(value);
+    const instance = getTradingViewNativeSubIndicatorInstances(settings).find(
+      (candidate) => candidate.indicator === 'RSI',
+    );
+
+    expect(instance?.settings?.bands?.upper).toMatchObject({
+      lineStyle: 'dashed',
+      lineWidth: 3,
+    });
+    expect(
+      getTradingViewNativeIndicatorSettingsValue(settings)
+        .indicators.find((indicator) => indicator.id === 'RSI')
+        ?.lines.find((line) => line.id === 'band:upper'),
+    ).toMatchObject({ secondaryStyle: 'dashed', style: 'bold' });
   });
 
   it('keeps configured values when quick controls toggle an indicator', () => {

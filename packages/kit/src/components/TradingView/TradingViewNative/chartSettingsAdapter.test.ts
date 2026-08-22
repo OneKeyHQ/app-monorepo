@@ -18,7 +18,7 @@ describe('TradingViewNative chart settings adapter', () => {
     ).toEqual(createTradingViewChartSettingsValue());
   });
 
-  it('round-trips chart settings while preserving the quick y-axis option', () => {
+  it('round-trips chart settings including the y-axis option', () => {
     const currentSettings = createTradingViewNativeChartSettings();
     currentSettings.options.yAxis = false;
     const value = getTradingViewChartSettingsValue(currentSettings);
@@ -30,6 +30,7 @@ describe('TradingViewNative chart settings adapter', () => {
       body.enabled = false;
       body.upColor = '#112233';
     }
+    value.options.yAxis = true;
     value.options.latestPrice = false;
     value.background.style = 'gradient';
     value.background.colors = ['#010203', '#040506'];
@@ -39,7 +40,7 @@ describe('TradingViewNative chart settings adapter', () => {
       value,
     });
 
-    expect(nextSettings.options.yAxis).toBe(false);
+    expect(nextSettings.options.yAxis).toBe(true);
     expect(nextSettings.options.latestPrice).toBe(false);
     expect(nextSettings.candles.body).toEqual({
       enabled: false,
@@ -78,5 +79,56 @@ describe('TradingViewNative chart settings adapter', () => {
     const migrated = normalizeTradingViewNativeChartSettings(legacySettings);
 
     expect(migrated).toEqual(createTradingViewNativeChartSettings());
+  });
+
+  it('sanitizes malformed nested values in the current persisted schema', () => {
+    const fallback = createTradingViewNativeChartSettings();
+    const normalized = normalizeTradingViewNativeChartSettings({
+      schemaVersion: fallback.schemaVersion,
+      candles: null,
+      options: {
+        yAxis: false,
+        countdown: 'yes',
+      },
+      latestPriceLine: {
+        upColor: '#123456',
+        downColor: 'not-a-color',
+        style: 'dotted',
+      },
+      background: {
+        colors: null,
+        style: 'pattern',
+      },
+      grid: null,
+      crossLine: {
+        color: 42,
+        style: 'solid',
+      },
+      colorMode: 'unknown',
+      priceColorMode: 'redUpGreenDown',
+    });
+
+    expect(normalized).toEqual({
+      ...fallback,
+      options: {
+        ...fallback.options,
+        yAxis: false,
+      },
+      latestPriceLine: {
+        ...fallback.latestPriceLine,
+        upColor: '#123456',
+      },
+      crossLine: {
+        ...fallback.crossLine,
+        style: 'solid',
+      },
+      priceColorMode: 'redUpGreenDown',
+    });
+  });
+
+  it('falls back safely when the persisted root is invalid', () => {
+    expect(normalizeTradingViewNativeChartSettings(null)).toEqual(
+      createTradingViewNativeChartSettings(),
+    );
   });
 });

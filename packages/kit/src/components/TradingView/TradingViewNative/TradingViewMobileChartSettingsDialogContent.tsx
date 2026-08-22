@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,8 @@ import {
 import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITradingViewNativeChartSettingsOptions } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
@@ -91,6 +93,10 @@ export function TradingViewMobileChartSettingsDialogContent({
   const dialog = useDialogInstance();
   const [settings, setSettings] =
     useMarketTradingViewChartSettingsPersistAtom();
+  const normalizedSettings = useMemo(
+    () => normalizeTradingViewNativeChartSettings(settings),
+    [settings],
+  );
 
   const handleOpenSettings = useCallback(async () => {
     await dialog.close();
@@ -99,13 +105,17 @@ export function TradingViewMobileChartSettingsDialogContent({
 
   const handleOptionChange = useCallback(
     (key: keyof IQuickSettingOptions, value: boolean) => {
-      setSettings((currentSettings) => ({
-        ...currentSettings,
-        options: {
-          ...currentSettings.options,
-          [key]: value,
-        },
-      }));
+      setSettings((currentSettings) => {
+        const normalizedCurrentSettings =
+          normalizeTradingViewNativeChartSettings(currentSettings);
+        return {
+          ...normalizedCurrentSettings,
+          options: {
+            ...normalizedCurrentSettings.options,
+            [key]: value,
+          },
+        };
+      });
     },
     [setSettings],
   );
@@ -129,7 +139,7 @@ export function TradingViewMobileChartSettingsDialogContent({
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS[option],
               })}
-              value={settings.options[option]}
+              value={normalizedSettings.options[option]}
               onChange={(value) => handleOptionChange(option, value)}
             />
           ))}

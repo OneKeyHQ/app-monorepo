@@ -48,13 +48,20 @@ function getLineWidth(style: ITradingViewNativeIndicatorLineSettings['style']) {
   return 1;
 }
 
+function getLineStyle(
+  line: ITradingViewNativeIndicatorLineSettings,
+): NonNullable<ITradingViewNativeIndicatorSeries['style']>['lineStyle'] {
+  const style = line.secondaryStyle ?? line.style;
+  return style === 'dashed' || style === 'dotted' ? style : 'solid';
+}
+
 export function getTradingViewNativeIndicatorSeriesStyle(
   line: ITradingViewNativeIndicatorLineSettings,
   settings: ITradingViewNativeIndicatorSettingsItem | undefined,
 ): NonNullable<ITradingViewNativeIndicatorSeries['style']> {
   return {
     color: line.color,
-    lineStyle: line.style,
+    lineStyle: getLineStyle(line),
     lineWidth: getLineWidth(line.style),
     opacity: 1 - Math.min(100, Math.max(0, settings?.transparency ?? 0)) / 100,
   };

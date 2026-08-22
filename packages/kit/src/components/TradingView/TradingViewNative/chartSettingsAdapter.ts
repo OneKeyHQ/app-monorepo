@@ -1,3 +1,5 @@
+import { colord } from 'colord';
+
 import {
   type ITradingViewNativeChartCandlePartSettings,
   type ITradingViewNativeChartSettings,
@@ -18,6 +20,51 @@ const CANDLE_PARTS = new Set<ITradingViewNativeCandlePart>([
   'border',
   'wick',
 ]);
+const LINE_STYLES = ['solid', 'dashed'] as const;
+const BACKGROUND_STYLES = ['solid', 'gradient'] as const;
+const GRID_STYLES = ['both', 'horizontal', 'vertical', 'none'] as const;
+const COLOR_MODES = ['modern', 'classic'] as const;
+const PRICE_COLOR_MODES = ['greenUpRedDown', 'redUpGreenDown'] as const;
+const THEME_COLORS = new Set<string>(
+  Object.values(TRADING_VIEW_NATIVE_THEME_COLORS),
+);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeColor(value: unknown, fallback: string) {
+  return typeof value === 'string' &&
+    (THEME_COLORS.has(value) || colord(value).isValid())
+    ? value
+    : fallback;
+}
+
+function normalizeStringUnion<T extends string>(
+  value: unknown,
+  values: readonly T[],
+  fallback: T,
+): T {
+  return typeof value === 'string' && values.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
+function normalizeCandlePartSettings(
+  value: unknown,
+  fallback: ITradingViewNativeChartCandlePartSettings,
+): ITradingViewNativeChartCandlePartSettings {
+  const record = isRecord(value) ? value : {};
+  return {
+    enabled: normalizeBoolean(record.enabled, fallback.enabled),
+    upColor: normalizeColor(record.upColor, fallback.upColor),
+    downColor: normalizeColor(record.downColor, fallback.downColor),
+  };
+}
 
 function migrateLegacyTrendColor(color: string) {
   const normalizedColor = color.toUpperCase();
@@ -31,12 +78,125 @@ function migrateLegacyTrendColor(color: string) {
 }
 
 export function normalizeTradingViewNativeChartSettings(
-  settings: ITradingViewNativeChartSettings,
+  settings: unknown,
 ): ITradingViewNativeChartSettings {
-  if (
-    settings.schemaVersion === TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION
-  ) {
-    return settings;
+  const fallback = createTradingViewNativeChartSettings();
+  const record = isRecord(settings) ? settings : {};
+  const candles = isRecord(record.candles) ? record.candles : {};
+  const options = isRecord(record.options) ? record.options : {};
+  const latestPriceLine = isRecord(record.latestPriceLine)
+    ? record.latestPriceLine
+    : {};
+  const background = isRecord(record.background) ? record.background : {};
+  const backgroundColors = Array.isArray(background.colors)
+    ? background.colors
+    : [];
+  const grid = isRecord(record.grid) ? record.grid : {};
+  const crossLine = isRecord(record.crossLine) ? record.crossLine : {};
+  const shouldMigrateThemeColors =
+    record.schemaVersion !== TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION;
+
+  const normalizedSettings: ITradingViewNativeChartSettings = {
+    schemaVersion: TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    candles: {
+      body: normalizeCandlePartSettings(candles.body, fallback.candles.body),
+      border: normalizeCandlePartSettings(
+        candles.border,
+        fallback.candles.border,
+      ),
+      wick: normalizeCandlePartSettings(candles.wick, fallback.candles.wick),
+    },
+    options: {
+      yAxis: normalizeBoolean(options.yAxis, fallback.options.yAxis),
+      countdown: normalizeBoolean(
+        options.countdown,
+        fallback.options.countdown,
+      ),
+      depth: normalizeBoolean(options.depth, fallback.options.depth),
+      priceChange: normalizeBoolean(
+        options.priceChange,
+        fallback.options.priceChange,
+      ),
+      latestPrice: normalizeBoolean(
+        options.latestPrice,
+        fallback.options.latestPrice,
+      ),
+      futureEvents: normalizeBoolean(
+        options.futureEvents,
+        fallback.options.futureEvents,
+      ),
+      pastEvents: normalizeBoolean(
+        options.pastEvents,
+        fallback.options.pastEvents,
+      ),
+      clickInteraction: normalizeBoolean(
+        options.clickInteraction,
+        fallback.options.clickInteraction,
+      ),
+      crossLine: normalizeBoolean(
+        options.crossLine,
+        fallback.options.crossLine,
+      ),
+    },
+    latestPriceLine: {
+      upColor: normalizeColor(
+        latestPriceLine.upColor,
+        fallback.latestPriceLine.upColor,
+      ),
+      downColor: normalizeColor(
+        latestPriceLine.downColor,
+        fallback.latestPriceLine.downColor,
+      ),
+      style: normalizeStringUnion(
+        latestPriceLine.style,
+        LINE_STYLES,
+        fallback.latestPriceLine.style,
+      ),
+    },
+    background: {
+      style: normalizeStringUnion(
+        background.style,
+        BACKGROUND_STYLES,
+        fallback.background.style,
+      ),
+      colors: [
+        normalizeColor(backgroundColors[0], fallback.background.colors[0]),
+        normalizeColor(backgroundColors[1], fallback.background.colors[1]),
+      ],
+    },
+    grid: {
+      style: normalizeStringUnion(grid.style, GRID_STYLES, fallback.grid.style),
+      horizontalColor: normalizeColor(
+        grid.horizontalColor,
+        fallback.grid.horizontalColor,
+      ),
+      verticalColor: normalizeColor(
+        grid.verticalColor,
+        fallback.grid.verticalColor,
+      ),
+    },
+    crossLine: {
+      color: normalizeColor(crossLine.color, fallback.crossLine.color),
+      style: normalizeStringUnion(
+        crossLine.style,
+        LINE_STYLES,
+        fallback.crossLine.style,
+      ),
+    },
+    colorMode: normalizeStringUnion(
+      record.colorMode,
+      COLOR_MODES,
+      fallback.colorMode,
+    ),
+    priceColorMode: normalizeStringUnion(
+      record.priceColorMode,
+      PRICE_COLOR_MODES,
+      fallback.priceColorMode,
+    ),
+  };
+
+  if (!shouldMigrateThemeColors) {
+    return normalizedSettings;
   }
 
   const migrateBackgroundColor = (color: string, index: number) => {
@@ -55,48 +215,65 @@ export function normalizeTradingViewNativeChartSettings(
       : color;
 
   return {
-    ...settings,
+    ...normalizedSettings,
     schemaVersion: TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
     candles: {
       body: {
-        ...settings.candles.body,
-        downColor: migrateLegacyTrendColor(settings.candles.body.downColor),
-        upColor: migrateLegacyTrendColor(settings.candles.body.upColor),
+        ...normalizedSettings.candles.body,
+        downColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.body.downColor,
+        ),
+        upColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.body.upColor,
+        ),
       },
       border: {
-        ...settings.candles.border,
-        downColor: migrateLegacyTrendColor(settings.candles.border.downColor),
-        upColor: migrateLegacyTrendColor(settings.candles.border.upColor),
+        ...normalizedSettings.candles.border,
+        downColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.border.downColor,
+        ),
+        upColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.border.upColor,
+        ),
       },
       wick: {
-        ...settings.candles.wick,
-        downColor: migrateLegacyTrendColor(settings.candles.wick.downColor),
-        upColor: migrateLegacyTrendColor(settings.candles.wick.upColor),
+        ...normalizedSettings.candles.wick,
+        downColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.wick.downColor,
+        ),
+        upColor: migrateLegacyTrendColor(
+          normalizedSettings.candles.wick.upColor,
+        ),
       },
     },
     latestPriceLine: {
-      ...settings.latestPriceLine,
-      downColor: migrateLegacyTrendColor(settings.latestPriceLine.downColor),
-      upColor: migrateLegacyTrendColor(settings.latestPriceLine.upColor),
+      ...normalizedSettings.latestPriceLine,
+      downColor: migrateLegacyTrendColor(
+        normalizedSettings.latestPriceLine.downColor,
+      ),
+      upColor: migrateLegacyTrendColor(
+        normalizedSettings.latestPriceLine.upColor,
+      ),
     },
     background: {
-      ...settings.background,
-      colors: settings.background.colors.map(migrateBackgroundColor) as [
-        string,
-        string,
-      ],
+      ...normalizedSettings.background,
+      colors: normalizedSettings.background.colors.map(
+        migrateBackgroundColor,
+      ) as [string, string],
     },
     grid: {
-      ...settings.grid,
-      horizontalColor: migrateGridColor(settings.grid.horizontalColor),
-      verticalColor: migrateGridColor(settings.grid.verticalColor),
+      ...normalizedSettings.grid,
+      horizontalColor: migrateGridColor(
+        normalizedSettings.grid.horizontalColor,
+      ),
+      verticalColor: migrateGridColor(normalizedSettings.grid.verticalColor),
     },
     crossLine: {
-      ...settings.crossLine,
+      ...normalizedSettings.crossLine,
       color:
-        settings.crossLine.color.toUpperCase() === '#BFC3CF'
+        normalizedSettings.crossLine.color.toUpperCase() === '#BFC3CF'
           ? TRADING_VIEW_NATIVE_THEME_COLORS.crosshair
-          : settings.crossLine.color,
+          : normalizedSettings.crossLine.color,
     },
   };
 }
@@ -153,6 +330,7 @@ export function getTradingViewChartSettingsValue(
         : section,
     ),
     options: {
+      yAxis: normalizedSettings.options.yAxis,
       countdown: normalizedSettings.options.countdown,
       depth: normalizedSettings.options.depth,
       priceChange: normalizedSettings.options.priceChange,
@@ -175,15 +353,12 @@ export function getTradingViewChartSettingsValue(
 }
 
 export function getTradingViewNativeChartSettings({
-  currentSettings,
   value,
 }: {
   currentSettings: ITradingViewNativeChartSettings;
   value: ITradingViewChartSettingsValue;
 }): ITradingViewNativeChartSettings {
   const fallback = createTradingViewNativeChartSettings();
-  const normalizedCurrentSettings =
-    normalizeTradingViewNativeChartSettings(currentSettings);
 
   return {
     schemaVersion: fallback.schemaVersion,
@@ -206,7 +381,6 @@ export function getTradingViewNativeChartSettings({
     },
     options: {
       ...value.options,
-      yAxis: normalizedCurrentSettings.options.yAxis,
     },
     latestPriceLine: { ...value.latestPriceLine },
     background: {
