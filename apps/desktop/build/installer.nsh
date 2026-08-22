@@ -95,10 +95,29 @@ Var OneKeyModernResult
 
   Function un.onUninstFailed
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::Shutdown
-      Pop $0
-      StrCpy $OneKeyModernUiActive "0"
-      ShowWindow $HWNDPARENT ${SW_SHOW}
+      nsis-duilib-ui::SetPage "uninstallError"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        ShowWindow $HWNDPARENT ${SW_HIDE}
+        nsis-duilib-ui::WaitForEvent
+        Pop $OneKeyModernResult
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ${If} $OneKeyModernResult == "primary"
+          ExecShell "open" "$EXEPATH"
+        ${EndIf}
+        Quit
+      ${Else}
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ShowWindow $HWNDPARENT ${SW_SHOW}
+      ${EndIf}
     ${EndIf}
   FunctionEnd
 
@@ -208,10 +227,29 @@ Var OneKeyModernResult
 
   Function .onInstFailed
     ${If} $OneKeyModernUiActive == "1"
-      nsis-duilib-ui::Shutdown
-      Pop $0
-      StrCpy $OneKeyModernUiActive "0"
-      ShowWindow $HWNDPARENT ${SW_SHOW}
+      nsis-duilib-ui::SetPage "error"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        ShowWindow $HWNDPARENT ${SW_HIDE}
+        nsis-duilib-ui::WaitForEvent
+        Pop $OneKeyModernResult
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ${If} $OneKeyModernResult == "primary"
+          ExecShell "open" "$EXEPATH"
+        ${EndIf}
+        Quit
+      ${Else}
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ShowWindow $HWNDPARENT ${SW_SHOW}
+      ${EndIf}
     ${EndIf}
   FunctionEnd
 

@@ -15,6 +15,7 @@
     "finish": "pages/finish.xml",
     "uninstalling": "pages/uninstalling.xml",
     "uninstallFinish": "pages/uninstall-finish.xml",
+    "uninstallError": "pages/uninstall-error.xml",
     "error": "pages/error.xml"
   },
   "tokens": "tokens.json",
