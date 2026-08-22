@@ -245,10 +245,12 @@ describe('TradingViewNative chart controls', () => {
       createDefaultValue: () => ReturnType<
         typeof getTradingViewNativeIndicatorSettingsValue
       >;
+      maxActiveSubIndicatorCount: number | null;
       onConfirm: (
         value: ReturnType<typeof getTradingViewNativeIndicatorSettingsValue>,
       ) => Promise<void>;
     }>;
+    expect(dialogContent.props.maxActiveSubIndicatorCount).toBeNull();
     const resetValue = dialogContent.props.createDefaultValue();
     const ma = resetValue.indicators.find((indicator) => indicator.id === 'MA');
     expect(ma).toBeDefined();

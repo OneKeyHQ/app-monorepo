@@ -1,11 +1,57 @@
 import {
   createTradingViewIndicatorSettingsValue,
+  normalizeTradingViewActiveSubIndicators,
   updateTradingViewSettingsMockIndicatorParameter,
   updateTradingViewSettingsMockLineColor,
   updateTradingViewSettingsMockLinePeriod,
 } from './TradingViewSettingsMockState';
 
 describe('TradingViewSettingsMockState', () => {
+  it('supports default, explicit, and unlimited sub-indicator caps', () => {
+    const value = createTradingViewIndicatorSettingsValue();
+    let activatedSubIndicatorCount = 0;
+    const valueWithFiveActiveSubIndicators = {
+      ...value,
+      indicators: value.indicators.map((indicator) => {
+        if (indicator.scope !== 'sub') {
+          return indicator;
+        }
+        const active = activatedSubIndicatorCount < 5;
+        if (active) {
+          activatedSubIndicatorCount += 1;
+        }
+        return { ...indicator, active };
+      }),
+    };
+    expect(activatedSubIndicatorCount).toBe(5);
+
+    const defaultLimitedValue = normalizeTradingViewActiveSubIndicators(
+      valueWithFiveActiveSubIndicators,
+    );
+    const explicitlyLimitedValue = normalizeTradingViewActiveSubIndicators(
+      valueWithFiveActiveSubIndicators,
+      undefined,
+      2,
+    );
+    const unlimitedValue = normalizeTradingViewActiveSubIndicators(
+      valueWithFiveActiveSubIndicators,
+      undefined,
+      null,
+    );
+
+    expect(
+      defaultLimitedValue.indicators.filter(
+        (indicator) => indicator.scope === 'sub' && indicator.active,
+      ),
+    ).toHaveLength(4);
+    expect(
+      explicitlyLimitedValue.indicators.filter(
+        (indicator) => indicator.scope === 'sub' && indicator.active,
+      ),
+    ).toHaveLength(2);
+    expect(unlimitedValue).toBe(valueWithFiveActiveSubIndicators);
+  });
+
   it('updates a line only inside the selected indicator', () => {
     const value = createTradingViewIndicatorSettingsValue();
     const firstIndicator = value.indicators[0];

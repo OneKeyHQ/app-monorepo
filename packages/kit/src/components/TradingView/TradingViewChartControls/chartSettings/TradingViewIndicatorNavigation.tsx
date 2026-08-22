@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS } from './TradingViewSettingsMockState';
 import {
   OKX_CHART_BG,
   OKX_CHART_DIVIDER,
@@ -36,16 +35,22 @@ const OKX_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
 export function OkxIndicatorScopeTabs({
   value,
   indicators,
+  maxActiveSubIndicatorCount,
   onChange,
 }: {
   value: ITradingViewSettingsMockIndicatorScope;
   indicators: ITradingViewSettingsMockIndicator[];
+  maxActiveSubIndicatorCount: number | null;
   onChange: (value: ITradingViewSettingsMockIndicatorScope) => void;
 }) {
   const intl = useIntl();
   const activeSubIndicatorCount = indicators.filter(
     (indicator) => indicator.scope === 'sub' && indicator.active,
   ).length;
+  const subIndicatorCountLabel =
+    maxActiveSubIndicatorCount === null
+      ? `${activeSubIndicatorCount}`
+      : `${activeSubIndicatorCount}/${maxActiveSubIndicatorCount}`;
   const tabs = [
     {
       label: intl.formatMessage({
@@ -56,7 +61,7 @@ export function OkxIndicatorScopeTabs({
     {
       label: `${intl.formatMessage({
         id: ETranslations.market_sub_chart_indicators,
-      })} (${activeSubIndicatorCount}/${TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS})`,
+      })} (${subIndicatorCountLabel})`,
       value: 'sub' as const,
     },
   ];

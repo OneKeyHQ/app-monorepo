@@ -1738,6 +1738,9 @@ export function toggleTradingViewSettingsMockIndicator(
   indicatorId: string,
   active: boolean,
   activeSubIndicatorOrder?: readonly string[],
+  maxActiveSubIndicatorCount:
+    | number
+    | null = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
 ): ITradingViewIndicatorSettingsValue {
   const targetIndicator = state.indicators.find(
     (indicator) => indicator.id === indicatorId,
@@ -1771,18 +1774,35 @@ export function toggleTradingViewSettingsMockIndicator(
     ? normalizeTradingViewActiveSubIndicators(
         nextState,
         activeSubIndicatorOrder,
+        maxActiveSubIndicatorCount,
       )
     : nextState;
+}
+
+export function normalizeTradingViewMaxActiveSubIndicatorCount(
+  value: number | null,
+) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : null;
 }
 
 export function normalizeTradingViewActiveSubIndicators(
   state: ITradingViewIndicatorSettingsValue,
   activeSubIndicatorOrder?: readonly string[],
+  maxActiveSubIndicatorCount:
+    | number
+    | null = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
 ): ITradingViewIndicatorSettingsValue {
+  const normalizedMaxActiveSubIndicatorCount =
+    normalizeTradingViewMaxActiveSubIndicatorCount(maxActiveSubIndicatorCount);
   const activeSubIndicators = state.indicators.filter(
     (indicator) => indicator.scope === 'sub' && indicator.active,
   );
-  if (activeSubIndicators.length <= TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS) {
+  if (
+    normalizedMaxActiveSubIndicatorCount === null ||
+    activeSubIndicators.length <= normalizedMaxActiveSubIndicatorCount
+  ) {
     return state;
   }
 
@@ -1797,7 +1817,13 @@ export function normalizeTradingViewActiveSubIndicators(
   ).filter((indicatorId) => activeSubIndicatorIds.has(indicatorId));
 
   const retainedActiveSubIndicatorIds = new Set(
-    orderedActiveSubIndicatorIds.slice(-TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS),
+    orderedActiveSubIndicatorIds.slice(
+      Math.max(
+        0,
+        orderedActiveSubIndicatorIds.length -
+          normalizedMaxActiveSubIndicatorCount,
+      ),
+    ),
   );
   return {
     ...state,

@@ -153,6 +153,7 @@ function OkxIndicatorContent({
 
 export function OkxIndicatorSettingsDialog({
   value,
+  maxActiveSubIndicatorCount,
   selectedIndicatorScope,
   selectedIndicatorId,
   visibleIndicators,
@@ -174,6 +175,7 @@ export function OkxIndicatorSettingsDialog({
   isSubmitting = false,
 }: {
   value: ITradingViewIndicatorSettingsValue;
+  maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
   selectedIndicatorId: string;
   visibleIndicators: ITradingViewSettingsMockIndicator[];
@@ -250,6 +252,7 @@ export function OkxIndicatorSettingsDialog({
         <OkxIndicatorScopeTabs
           value={selectedIndicatorScope}
           indicators={value.indicators}
+          maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
           onChange={onScopeChange}
         />
         <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { OkxIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import {
+  TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
   createTradingViewIndicatorSettingsValue,
   getDefaultTradingViewIndicatorIdForScope,
   getTradingViewSettingsMockIndicatorsByScope,
   normalizeTradingViewActiveSubIndicators,
+  normalizeTradingViewMaxActiveSubIndicatorCount,
   toggleTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockLine,
   updateTradingViewSettingsMockIndicatorOpacity,
@@ -29,6 +31,8 @@ export type ITradingViewIndicatorSettingsProps = {
   defaultValue?: ITradingViewIndicatorSettingsValue;
   /** Creates the value used by Reset. */
   createDefaultValue?: () => ITradingViewIndicatorSettingsValue;
+  /** Set to null to allow any number of active sub-indicators. */
+  maxActiveSubIndicatorCount?: number | null;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
@@ -68,6 +72,7 @@ export function TradingViewIndicatorSettings({
   value,
   defaultValue,
   createDefaultValue = createTradingViewIndicatorSettingsValue,
+  maxActiveSubIndicatorCount = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
   isSubmitting = false,
   onChange,
   onConfirm,
@@ -77,11 +82,19 @@ export function TradingViewIndicatorSettings({
   onClose,
 }: ITradingViewIndicatorSettingsProps) {
   const activeSubIndicatorOrderRef = useRef<string[]>([]);
+  const normalizedMaxActiveSubIndicatorCount = useMemo(
+    () =>
+      normalizeTradingViewMaxActiveSubIndicatorCount(
+        maxActiveSubIndicatorCount,
+      ),
+    [maxActiveSubIndicatorCount],
+  );
   const handleSettingsChange = useCallback(
     (nextValue: ITradingViewIndicatorSettingsValue) => {
       const normalizedNextValue = normalizeTradingViewActiveSubIndicators(
         nextValue,
         activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
       );
       activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
         normalizedNextValue,
@@ -89,7 +102,7 @@ export function TradingViewIndicatorSettings({
       );
       onChange?.(normalizedNextValue);
     },
-    [onChange],
+    [normalizedMaxActiveSubIndicatorCount, onChange],
   );
   const [
     settingsValue,
@@ -107,8 +120,9 @@ export function TradingViewIndicatorSettings({
       normalizeTradingViewActiveSubIndicators(
         settingsValue,
         activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
       ),
-    [settingsValue],
+    [normalizedMaxActiveSubIndicatorCount, settingsValue],
   );
   const [selectedIndicatorScope, setSelectedIndicatorScope] =
     useState<ITradingViewSettingsMockIndicatorScope>('main');
@@ -149,8 +163,11 @@ export function TradingViewIndicatorSettings({
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
   const handleReset = useCallback(() => {
-    const nextValue =
-      normalizeTradingViewActiveSubIndicators(createDefaultValue());
+    const nextValue = normalizeTradingViewActiveSubIndicators(
+      createDefaultValue(),
+      undefined,
+      normalizedMaxActiveSubIndicatorCount,
+    );
     activeSubIndicatorOrderRef.current =
       reconcileActiveSubIndicatorOrder(nextValue);
     updateSettingsValue(() => nextValue);
@@ -168,6 +185,7 @@ export function TradingViewIndicatorSettings({
     }
   }, [
     createDefaultValue,
+    normalizedMaxActiveSubIndicatorCount,
     selectedIndicatorId,
     selectedIndicatorScope,
     updateSettingsValue,
@@ -200,10 +218,15 @@ export function TradingViewIndicatorSettings({
           indicatorId,
           active,
           activeSubIndicatorOrderRef.current,
+          normalizedMaxActiveSubIndicatorCount,
         ),
       );
     },
-    [normalizedSettingsValue, updateSettingsValue],
+    [
+      normalizedMaxActiveSubIndicatorCount,
+      normalizedSettingsValue,
+      updateSettingsValue,
+    ],
   );
 
   const handleClose = () => {
@@ -244,6 +267,7 @@ export function TradingViewIndicatorSettings({
   return (
     <OkxIndicatorSettingsDialog
       value={normalizedSettingsValue}
+      maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}
       selectedIndicatorScope={selectedIndicatorScope}
       selectedIndicatorId={effectiveSelectedIndicatorId}
       visibleIndicators={visibleIndicators}
