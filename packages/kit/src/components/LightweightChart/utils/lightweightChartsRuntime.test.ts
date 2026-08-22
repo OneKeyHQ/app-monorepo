@@ -69,8 +69,92 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     });
 
     expect(html).toContain('LightweightCharts');
+    expect(html).toContain('LightweightCharts.LineType.WithSteps');
+    expect(html).toContain("getPriceScaleOptions(nextConfig, 'left')");
     expect(html).not.toContain('<script src=');
     expect(html).not.toContain('unpkg.com');
+  });
+
+  it('serializes the configured time zone into the native chart template', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      locale: 'zh-CN',
+      timeZone: 'Asia/Shanghai',
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"locale":"zh-CN"');
+    expect(html).toContain('"timeZone":"Asia/Shanghai"');
+    expect(html).toContain('getTimeScaleOptions(nextConfig)');
+  });
+
+  it('preserves native adaptive tick labels when no time zone is provided', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('if (nextConfig.timeZone)');
+    expect(html).toContain('options.tickMarkFormatter =');
+    expect(html).not.toContain('date.toLocaleDateString');
+  });
+
+  it('hides the native crosshair price label only when requested', () => {
+    const config = {
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    };
+    const defaultHtml = generateChartHTML(config);
+    const requestedHtml = generateChartHTML({
+      ...config,
+      hideCrosshairPriceLabel: true,
+    });
+
+    expect(defaultHtml).not.toContain('"hideCrosshairPriceLabel":true');
+    expect(requestedHtml).toContain('"hideCrosshairPriceLabel":true');
+    expect(requestedHtml).toContain(
+      'labelVisible: !config.hideCrosshairPriceLabel',
+    );
+  });
+
+  it('serializes caller-provided percent precision for native charts', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 0.001 }],
+      lineWidth: 2,
+      priceFormatterType: 'percent',
+      priceFormatterPrecision: 4,
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"priceFormatterPrecision":4');
+    expect(html).toContain('price.toFixed(precision)');
   });
 });
 

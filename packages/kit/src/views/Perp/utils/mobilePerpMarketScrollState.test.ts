@@ -1,4 +1,35 @@
-import { getMobilePerpMarketPageScrollState } from './mobilePerpMarketScrollState';
+import {
+  getMobilePerpMarketPageScrollState,
+  getMobilePerpMarketPagerHeight,
+} from './mobilePerpMarketScrollState';
+
+describe('getMobilePerpMarketPagerHeight', () => {
+  const pageHeights = {
+    orderbook: 1200,
+    info: 900,
+    funding: 760,
+  };
+
+  it('uses the active page content height instead of the tallest page', () => {
+    expect(
+      getMobilePerpMarketPagerHeight({
+        activeTab: 'funding',
+        pageHeights,
+        useIntrinsicHeight: true,
+      }),
+    ).toBe(760);
+  });
+
+  it('lets fixed-height layouts keep control of the pager height', () => {
+    expect(
+      getMobilePerpMarketPagerHeight({
+        activeTab: 'funding',
+        pageHeights,
+        useIntrinsicHeight: false,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('getMobilePerpMarketPageScrollState', () => {
   it('keeps the page scroll container mounted while disabling native scroll during TradingView overlays', () => {
