@@ -2,12 +2,23 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, SetStateAction } from 'react';
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import {
+  createTradingViewNativeIndicatorSettingsValue,
+  getTradingViewNativeIndicatorSettings,
+} from './indicatorSettingsAdapter';
 import {
   TradingViewNativeContainer,
   updateTradingViewNativeSubIndicatorInstances,
@@ -44,6 +55,12 @@ let mockActiveInterval = '60';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
 let mockViewportRequest: unknown;
+let mockInitialIndicatorSettings:
+  | ITradingViewNativeIndicatorSettings
+  | undefined;
+let mockPersistedIndicatorSettings:
+  | ITradingViewNativeIndicatorSettings
+  | undefined;
 let mockRealtimePointListener:
   | ((point: IMarketTokenKLineDataPoint) => void)
   | undefined;
@@ -133,10 +150,27 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   return {
     useMarketTradingViewChartSettingsPersistAtom: () =>
       React.useState(tradingViewNative.createTradingViewNativeChartSettings),
-    useMarketTradingViewIndicatorSettingsPersistAtom: () =>
-      React.useState(
-        tradingViewNative.createTradingViewNativeIndicatorSettings,
-      ),
+    useMarketTradingViewIndicatorSettingsPersistAtom: () => {
+      const [settings, setSettings] = React.useState(
+        () =>
+          mockInitialIndicatorSettings ??
+          tradingViewNative.createTradingViewNativeIndicatorSettings(),
+      );
+      const setTrackedSettings = React.useCallback(
+        (nextSettings: SetStateAction<ITradingViewNativeIndicatorSettings>) => {
+          setSettings((currentSettings) => {
+            const resolvedSettings =
+              typeof nextSettings === 'function'
+                ? nextSettings(currentSettings)
+                : nextSettings;
+            mockPersistedIndicatorSettings = resolvedSettings;
+            return resolvedSettings;
+          });
+        },
+        [],
+      );
+      return [settings, setTrackedSettings] as const;
+    },
   };
 });
 
@@ -173,6 +207,8 @@ describe('TradingViewNativeContainer', () => {
     mockVisibleTimeRange = undefined;
     mockRealtimePointListener = undefined;
     mockViewportRequest = null;
+    mockInitialIndicatorSettings = undefined;
+    mockPersistedIndicatorSettings = undefined;
   });
 
   afterEach(() => {
@@ -504,6 +540,61 @@ describe('TradingViewNativeContainer', () => {
       'MFI',
     ]);
     expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(4);
+  });
+
+  it('limits an over-cap persisted snapshot before rendering and persists it', async () => {
+    const activeSubIndicatorIds = new Set([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+    const settingsValue = createTradingViewNativeIndicatorSettingsValue();
+    settingsValue.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settingsValue);
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 1,
+    }));
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        maxNativeSubIndicatorCount={4}
+      />,
+    );
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI']);
+
+    await waitFor(() => {
+      expect(
+        mockPersistedIndicatorSettings?.subIndicators.filter(
+          (indicator) => indicator.active,
+        ),
+      ).toHaveLength(4);
+    });
   });
 
   it('preserves a sub-indicator instance and settings when visibility changes', () => {

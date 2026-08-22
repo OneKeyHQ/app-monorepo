@@ -15,6 +15,7 @@ import {
   getTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeMainIndicatorSettings,
   getTradingViewNativeSubIndicatorInstances,
+  limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
@@ -63,6 +64,39 @@ describe('indicatorSettingsAdapter', () => {
       ...TRADING_VIEW_NATIVE_SUB_INDICATORS,
     ]);
     expect(value.indicators.every((indicator) => !indicator.active)).toBe(true);
+  });
+
+  it('limits active persisted sub-indicators for a constrained chart', () => {
+    const activeSubIndicatorIds = new Set<string>(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS.slice(0, 5),
+    );
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    value.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    const settings = getTradingViewNativeIndicatorSettings(value);
+
+    const limitedSettings = limitTradingViewNativeSubIndicatorSettings(
+      settings,
+      4,
+    );
+
+    expect(
+      settings.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual([...activeSubIndicatorIds]);
+    expect(
+      limitedSettings.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual([...activeSubIndicatorIds].slice(0, 4));
+    expect(limitTradingViewNativeSubIndicatorSettings(limitedSettings, 4)).toBe(
+      limitedSettings,
+    );
+    expect(limitTradingViewNativeSubIndicatorSettings(settings)).toBe(settings);
   });
 
   it('does not expose an ineffective single-color control for palette plots', () => {

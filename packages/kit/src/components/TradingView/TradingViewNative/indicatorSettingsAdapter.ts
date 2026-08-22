@@ -337,6 +337,49 @@ export function normalizeTradingViewNativeIndicatorSettings(
   };
 }
 
+function normalizeMaxSubIndicatorCount(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : undefined;
+}
+
+export function limitTradingViewNativeSubIndicatorSettings(
+  settings: ITradingViewNativeIndicatorSettings,
+  maxSubIndicatorCount?: number,
+): ITradingViewNativeIndicatorSettings {
+  const normalizedMaxSubIndicatorCount =
+    normalizeMaxSubIndicatorCount(maxSubIndicatorCount);
+  if (normalizedMaxSubIndicatorCount === undefined) {
+    return settings;
+  }
+
+  let activeSubIndicatorCount = 0;
+  let settingsChanged = false;
+  const subIndicators = settings.subIndicators.map((indicator) => {
+    if (!indicator.active) {
+      return indicator;
+    }
+
+    activeSubIndicatorCount += 1;
+    if (activeSubIndicatorCount <= normalizedMaxSubIndicatorCount) {
+      return indicator;
+    }
+
+    settingsChanged = true;
+    return {
+      ...indicator,
+      active: false,
+    };
+  });
+
+  return settingsChanged
+    ? {
+        ...settings,
+        subIndicators,
+      }
+    : settings;
+}
+
 function getStoredIndicator(
   settings: ITradingViewNativeIndicatorSettings,
   id: ITradingViewNativeAnyIndicatorId,
@@ -848,14 +891,15 @@ export function updateTradingViewNativeIndicatorActiveState({
   if (!targetIndicator || targetIndicator.active === active) {
     return normalizedSettings;
   }
+  const normalizedMaxSubIndicatorCount =
+    normalizeMaxSubIndicatorCount(maxSubIndicatorCount);
   if (
     active &&
     isTradingViewNativeSubIndicator(indicator) &&
-    typeof maxSubIndicatorCount === 'number' &&
-    Number.isFinite(maxSubIndicatorCount) &&
+    normalizedMaxSubIndicatorCount !== undefined &&
     value.indicators.filter(
       (item) => item.active && isTradingViewNativeSubIndicator(item.id),
-    ).length >= Math.max(0, Math.floor(maxSubIndicatorCount))
+    ).length >= normalizedMaxSubIndicatorCount
   ) {
     return normalizedSettings;
   }

@@ -28,6 +28,7 @@ import {
   getTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeMainIndicatorSettings,
   getTradingViewNativeSubIndicatorInstances,
+  limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
@@ -189,10 +190,41 @@ export const TradingViewNativeContainer = memo(
     const [subIndicatorCalculationCache] = useState(() =>
       createTradingViewNativeSubIndicatorCalculationCache(),
     );
-    const normalizedIndicatorSettings = useMemo(
+    const normalizedStoredIndicatorSettings = useMemo(
       () => normalizeTradingViewNativeIndicatorSettings(indicatorSettings),
       [indicatorSettings],
     );
+    const normalizedIndicatorSettings = useMemo(
+      () =>
+        limitTradingViewNativeSubIndicatorSettings(
+          normalizedStoredIndicatorSettings,
+          maxNativeSubIndicatorCount,
+        ),
+      [maxNativeSubIndicatorCount, normalizedStoredIndicatorSettings],
+    );
+    useEffect(() => {
+      if (normalizedIndicatorSettings === normalizedStoredIndicatorSettings) {
+        return;
+      }
+
+      void setIndicatorSettings((currentSettings) => {
+        const normalizedCurrentSettings =
+          normalizeTradingViewNativeIndicatorSettings(currentSettings);
+        const limitedCurrentSettings =
+          limitTradingViewNativeSubIndicatorSettings(
+            normalizedCurrentSettings,
+            maxNativeSubIndicatorCount,
+          );
+        return limitedCurrentSettings === normalizedCurrentSettings
+          ? currentSettings
+          : limitedCurrentSettings;
+      });
+    }, [
+      maxNativeSubIndicatorCount,
+      normalizedIndicatorSettings,
+      normalizedStoredIndicatorSettings,
+      setIndicatorSettings,
+    ]);
     const indicatorSettingsValue = useMemo(
       () =>
         getTradingViewNativeIndicatorSettingsValue(normalizedIndicatorSettings),
