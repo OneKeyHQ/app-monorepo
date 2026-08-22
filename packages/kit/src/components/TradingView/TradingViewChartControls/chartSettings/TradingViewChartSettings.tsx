@@ -11,7 +11,6 @@ import {
   Divider,
   Icon,
   IconButton,
-  LinearGradient,
   Page,
   Popover,
   ScrollView,
@@ -33,10 +32,6 @@ import {
   TRADING_VIEW_SETTINGS_COLOR_PALETTE,
   useSettingsDraftValue,
 } from './TradingViewSettingsShared';
-import {
-  resolveTradingViewSettingsThemeColor,
-  useTradingViewSettingsThemeColors,
-} from './TradingViewSettingsThemeColors';
 
 import type {
   ITradingViewChartSettingsOptions,
@@ -269,10 +264,12 @@ function SettingsCheckboxRow({
 }
 
 function SettingsColorPicker({
+  testID,
   value,
   disabled,
   onChange,
 }: {
+  testID?: string;
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
@@ -284,6 +281,7 @@ function SettingsColorPicker({
       columns={5}
       triggerSize={32}
       disabled={disabled}
+      testID={testID}
       onChange={onChange}
     />
   );
@@ -291,11 +289,13 @@ function SettingsColorPicker({
 
 function SettingsColorField({
   label,
+  testID,
   value,
   disabled,
   onChange,
 }: {
   label?: string;
+  testID?: string;
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
@@ -308,68 +308,12 @@ function SettingsColorField({
         </SizableText>
       ) : null}
       <SettingsColorPicker
+        testID={testID}
         value={value}
         disabled={disabled}
         onChange={onChange}
       />
     </XStack>
-  );
-}
-
-function SettingsPriceColorPicker({
-  upColor,
-  downColor,
-  disabled,
-  onChange,
-}: {
-  upColor: string;
-  downColor: string;
-  disabled: boolean;
-  onChange: (color: string) => void;
-}) {
-  const themeColors = useTradingViewSettingsThemeColors();
-  const resolvedUpColor = resolveTradingViewSettingsThemeColor(
-    upColor,
-    themeColors,
-  );
-  const resolvedDownColor = resolveTradingViewSettingsThemeColor(
-    downColor,
-    themeColors,
-  );
-  return (
-    <ColorPicker
-      value={upColor}
-      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
-      columns={5}
-      triggerSize={32}
-      disabled={disabled}
-      renderTrigger={() => (
-        <YStack
-          width={32}
-          height={32}
-          p="$1"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderRadius="$2"
-          bg="$bgStrong"
-        >
-          <LinearGradient
-            flex={1}
-            borderRadius="$1"
-            colors={[
-              resolvedDownColor,
-              resolvedDownColor,
-              resolvedUpColor,
-              resolvedUpColor,
-            ]}
-            locations={[0, 0.5, 0.5, 1]}
-            start={{ x: 0, y: 1 }}
-            end={{ x: 1, y: 0 }}
-          />
-        </YStack>
-      )}
-      onChange={onChange}
-    />
   );
 }
 
@@ -849,6 +793,19 @@ export function TradingViewChartSettings({
     [updateSettingsValue],
   );
 
+  const handleLatestPriceColorChange = useCallback(
+    (role: ITradingViewSettingsMockColorRole, color: string) => {
+      updateSettingsValue((currentValue) => ({
+        ...currentValue,
+        latestPriceLine: {
+          ...currentValue.latestPriceLine,
+          [role === 'up' ? 'upColor' : 'downColor']: color,
+        },
+      }));
+    },
+    [updateSettingsValue],
+  );
+
   const handleCancel = () => {
     cancelSettingsValue();
     onCancel?.();
@@ -974,6 +931,8 @@ export function TradingViewChartSettings({
             <XStack
               gap="$3"
               alignItems="center"
+              justifyContent="flex-end"
+              flexWrap="wrap"
               opacity={settingsValue.options.latestPrice ? 1 : 0.5}
             >
               <SettingsSelect
@@ -997,22 +956,29 @@ export function TradingViewChartSettings({
                   }));
                 }}
               />
-              <SettingsPriceColorPicker
-                upColor={settingsValue.latestPriceLine.upColor}
-                downColor={settingsValue.latestPriceLine.downColor}
+              <SettingsColorField
+                label={intl.formatMessage({
+                  id: ETranslations.market_chart_settings__up,
+                })}
+                testID="latest-price-up-color"
+                value={settingsValue.latestPriceLine.upColor}
                 disabled={
                   submitInProgress || !settingsValue.options.latestPrice
                 }
-                onChange={(color) => {
-                  updateSettingsValue((currentValue) => ({
-                    ...currentValue,
-                    latestPriceLine: {
-                      ...currentValue.latestPriceLine,
-                      upColor: color,
-                      downColor: color,
-                    },
-                  }));
-                }}
+                onChange={(color) => handleLatestPriceColorChange('up', color)}
+              />
+              <SettingsColorField
+                label={intl.formatMessage({
+                  id: ETranslations.market_chart_settings__down,
+                })}
+                testID="latest-price-down-color"
+                value={settingsValue.latestPriceLine.downColor}
+                disabled={
+                  submitInProgress || !settingsValue.options.latestPrice
+                }
+                onChange={(color) =>
+                  handleLatestPriceColorChange('down', color)
+                }
               />
             </XStack>
           </SettingsCheckboxRow>

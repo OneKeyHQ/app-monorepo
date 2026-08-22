@@ -32,6 +32,8 @@ describe('TradingViewNative chart settings adapter', () => {
     }
     value.options.yAxis = true;
     value.options.latestPrice = false;
+    value.latestPriceLine.upColor = '#123456';
+    value.latestPriceLine.downColor = '#654321';
     value.background.style = 'gradient';
     value.background.colors = ['#010203', '#040506'];
 
@@ -42,6 +44,11 @@ describe('TradingViewNative chart settings adapter', () => {
 
     expect(nextSettings.options.yAxis).toBe(true);
     expect(nextSettings.options.latestPrice).toBe(false);
+    expect(nextSettings.latestPriceLine).toEqual({
+      ...currentSettings.latestPriceLine,
+      upColor: '#123456',
+      downColor: '#654321',
+    });
     expect(nextSettings.candles.body).toEqual({
       enabled: false,
       upColor: '#112233',
