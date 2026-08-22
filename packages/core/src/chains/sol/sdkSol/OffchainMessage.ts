@@ -451,8 +451,14 @@ export class OffchainMessage {
         // signerCount(1) | signers(32 each) | content, no application domain, no format,
         // no length prefix.
         if (version === 1) {
-          const signersCount = message[offset];
           const signersOffset = offset + 1;
+          // The signer count byte itself has to be there: reading past the end yields undefined,
+          // which turns every length check below into a NaN comparison that never trips.
+          if (message.length < signersOffset) {
+            return { type: EOffChainMessageType.INVALID };
+          }
+
+          const signersCount = message[offset];
           const contentOffset = signersOffset + signersCount * 32;
           // Content is trailing and must not be empty.
           if (signersCount === 0 || message.length <= contentOffset) {

@@ -256,6 +256,17 @@ describe('OffchainMessage.createOffChainMessage', () => {
       );
     });
 
+    it('should reject a version 1 message truncated before the signer count', () => {
+      const domainAndVersion = OffchainMessage.createOffChainMessageV1Bytes({
+        message: 'x',
+        requiredSigners: [key(1)],
+      }).slice(0, 17);
+
+      expect(
+        OffchainMessage.detectOffChainMessageType(domainAndVersion).type,
+      ).toBe(EOffChainMessageType.INVALID);
+    });
+
     it('should reject a version 1 message without content', () => {
       const preamble = OffchainMessage.createOffChainMessageV1Bytes({
         message: 'x',
