@@ -101,6 +101,12 @@ function isIndicatorLinePatternStyle(
   return value === 'dashed' || value === 'dotted';
 }
 
+function isIndicatorLineSecondaryStyle(
+  value: unknown,
+): value is 'solid' | 'dashed' | 'dotted' {
+  return value === 'solid' || isIndicatorLinePatternStyle(value);
+}
+
 function isIndicatorColor(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -369,7 +375,7 @@ function getStoredLine(
   ) {
     storedStyle = storedLineStyle;
   }
-  if (isIndicatorLinePatternStyle(storedLineSecondaryStyle)) {
+  if (isIndicatorLineSecondaryStyle(storedLineSecondaryStyle)) {
     storedSecondaryStyle = storedLineSecondaryStyle;
   } else if (isIndicatorLinePatternStyle(storedLineStyle)) {
     storedSecondaryStyle = storedLineStyle;

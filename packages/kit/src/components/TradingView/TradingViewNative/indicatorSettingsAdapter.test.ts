@@ -345,37 +345,37 @@ describe('indicatorSettingsAdapter', () => {
   });
 
   it('keeps sub-indicator band width and line pattern independent', () => {
-    const value = createTradingViewNativeIndicatorSettingsValue();
-    const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
-    const upperBand = rsi?.lines.find((line) => line.id === 'band:upper');
-    expect(upperBand).toMatchObject({
-      secondaryStyle: 'dashed',
-      showSecondaryStyle: true,
-      style: 'solid',
-    });
-    if (!upperBand) {
-      return;
-    }
-    if (rsi) {
+    for (const secondaryStyle of ['solid', 'dashed'] as const) {
+      const value = createTradingViewNativeIndicatorSettingsValue();
+      const rsi = value.indicators.find((indicator) => indicator.id === 'RSI');
+      const upperBand = rsi?.lines.find((line) => line.id === 'band:upper');
+      expect(upperBand).toMatchObject({
+        secondaryStyle: 'dashed',
+        showSecondaryStyle: true,
+        style: 'solid',
+      });
+      if (!rsi || !upperBand) {
+        return;
+      }
       rsi.active = true;
+      upperBand.style = 'bold';
+      upperBand.secondaryStyle = secondaryStyle;
+
+      const settings = getTradingViewNativeIndicatorSettings(value);
+      const instance = getTradingViewNativeSubIndicatorInstances(settings).find(
+        (candidate) => candidate.indicator === 'RSI',
+      );
+
+      expect(instance?.settings?.bands?.upper).toMatchObject({
+        lineStyle: secondaryStyle,
+        lineWidth: 3,
+      });
+      expect(
+        getTradingViewNativeIndicatorSettingsValue(settings)
+          .indicators.find((indicator) => indicator.id === 'RSI')
+          ?.lines.find((line) => line.id === 'band:upper'),
+      ).toMatchObject({ secondaryStyle, style: 'bold' });
     }
-    upperBand.style = 'bold';
-    upperBand.secondaryStyle = 'dashed';
-
-    const settings = getTradingViewNativeIndicatorSettings(value);
-    const instance = getTradingViewNativeSubIndicatorInstances(settings).find(
-      (candidate) => candidate.indicator === 'RSI',
-    );
-
-    expect(instance?.settings?.bands?.upper).toMatchObject({
-      lineStyle: 'dashed',
-      lineWidth: 3,
-    });
-    expect(
-      getTradingViewNativeIndicatorSettingsValue(settings)
-        .indicators.find((indicator) => indicator.id === 'RSI')
-        ?.lines.find((line) => line.id === 'band:upper'),
-    ).toMatchObject({ secondaryStyle: 'dashed', style: 'bold' });
   });
 
   it('keeps configured values when quick controls toggle an indicator', () => {
