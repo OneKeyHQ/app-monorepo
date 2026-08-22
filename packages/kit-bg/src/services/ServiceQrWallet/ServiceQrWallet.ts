@@ -24,6 +24,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
@@ -264,6 +265,7 @@ class ServiceQrWallet extends ServiceBase {
         walletId: byWallet.id,
         backgroundApi: this.backgroundApi,
         includingNetworkWithGlobalDeriveType: true,
+        deviceType: byDevice?.deviceType,
         firmwareType: byDevice?.featuresInfo?.$app_firmware_type,
       });
     let allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
@@ -374,6 +376,9 @@ class ServiceQrWallet extends ServiceBase {
     }
     const qrDevice: IQrWalletDevice = {
       name: airGapMultiAccounts.device || 'QR Wallet',
+      deviceType: resolveQrWalletDeviceType({
+        deviceName: airGapMultiAccounts.device,
+      }),
       deviceId: airGapMultiAccounts.deviceId || '',
       version: airGapMultiAccounts.deviceVersion || '',
       xfp: airGapMultiAccounts.masterFingerprint || '',

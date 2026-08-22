@@ -14,6 +14,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -57,9 +58,15 @@ export function WalletRenameButton({
     [wallet?.associatedDeviceInfo?.vendor],
   );
 
+  const labelAsciiAlphanumericWithSpacesOnly = useMemo(
+    () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),
+    [wallet?.associatedDeviceInfo?.deviceType],
+  );
+
   return (
     <>
       <XStack
+        testID={AccountManagerTestIDs.walletRenameButton}
         py="$1"
         px="$1.5"
         flexShrink={1}
@@ -82,6 +89,8 @@ export function WalletRenameButton({
                   wallet,
                   intl,
                   asciiOnly: labelAsciiOnly,
+                  asciiAlphanumericWithSpacesOnly:
+                    labelAsciiAlphanumericWithSpacesOnly,
                 },
                 {
                   onSubmit: async (name) => {

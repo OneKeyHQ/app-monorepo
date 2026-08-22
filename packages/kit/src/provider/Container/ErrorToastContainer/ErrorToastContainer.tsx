@@ -67,6 +67,7 @@ export function ErrorToastContainer() {
 
       const actions = getErrorAction({
         errorCode: p.errorCode,
+        connectId: p.connectId,
         requestId: p.requestId,
         diagnosticText: p.diagnosticText,
         i18nKey: p.i18nKey,

@@ -58,6 +58,10 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import {
+  DESKTOP_API_ALLOWED_MODULES,
+  isDesktopApiMethodAllowed,
+} from './libs/desktopApiModuleAllowlist';
+import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
@@ -73,8 +77,6 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
-import { logTrezorBleFlags } from './process/trezorBleFlags';
-import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -1134,23 +1136,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
-  const allowedModules = new Set([
-    'system',
-    'security',
-    'storage',
-    'webview',
-    'notification',
-    'dev',
-    'inAppPurchase',
-    'bluetooth',
-    'appUpdate',
-    'bundleUpdate',
-    'cloudKit',
-    'keychain',
-    'sniRequest',
-    'oauthLocalServer',
-    'appleAuth',
-  ]);
+  const allowedModules = new Set<string>(DESKTOP_API_ALLOWED_MODULES);
   ipcMain.handle(
     'DESKTOP_API_CALL',
     async (
@@ -1178,14 +1164,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: unknown module "${module}"`,
         );
       }
-      // Block inherited prototype methods and private methods
-      if (
-        typeof method !== 'string' ||
-        method.startsWith('_') ||
-        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
-          method,
-        )
-      ) {
+      if (!isDesktopApiMethodAllowed(module, method)) {
         throw new OneKeyLocalError(
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
@@ -1642,6 +1621,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
     EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
     EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
     EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
     EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
     EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
@@ -1684,21 +1664,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
-  logTrezorBleFlags();
   initTrezorBleSupport(browserWindow.webContents, {
-    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
-    // caches scan address, runs the WinRT pairing helper before noble connects.
-    // No-op on non-Windows / builds without the bundled helper.
-    ipcMain: createTrezorBlePairingIpcMain(
-      trezorBleSenderGatedIpcMain,
-      browserWindow,
-    ),
-    // NO nobleFactory override. A proxy used to sit here to replay `discover`
-    // events into the SDK's cache; it blinded noble entirely (the SDK saw zero
-    // peripherals while a WinRT watcher in another process saw 29 at the same
-    // moment) and, because it did not forward `connectAsync`, it would also have
-    // disabled the SDK's connect-by-id fallback. The SDK owns both behaviors as
-    // of 1.1.32-alpha.1 — let it use plain noble.
+    ipcMain: trezorBleSenderGatedIpcMain,
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /

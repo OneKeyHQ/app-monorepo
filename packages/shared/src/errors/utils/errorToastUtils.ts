@@ -216,6 +216,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         errorCode: err?.code,
         errorClassName: err?.className,
         errorName: err?.name,
+        connectId: err?.payload?.connectId,
         httpStatusCode,
         method: 'error' as const,
         title: err?.message ?? 'Error',

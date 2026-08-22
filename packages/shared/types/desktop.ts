@@ -1,6 +1,7 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 
 export type IPrefType =
   | 'default'
@@ -19,9 +20,16 @@ export type IDesktopEventUnSubscribe = () => void;
 
 // Type for the legacy desktopApi exposed via contextBridge in preload.ts
 export type INobleBleApi = {
+  /** Restrict background work to an existing link without reconnecting. */
+  beginConnectedOnlyScope: (uuid: string) => number;
+  endConnectedOnlyScope: (uuid: string, scopeId: number) => void;
   enumerate: () => Promise<{ id: string; name: string }[]>;
+  stopScan: () => Promise<void>;
   getDevice: (uuid: string) => Promise<{ id: string; name: string } | null>;
   connect: (uuid: string) => Promise<void>;
+  // Logical end-of-operation: the link stays up and the main process starts its
+  // idle countdown. `keepSession` holds it on the longer busy backstop instead.
+  release: (uuid: string, keepSession?: boolean) => Promise<void>;
   disconnect: (uuid: string) => Promise<void>;
   subscribe: (uuid: string) => Promise<void>;
   unsubscribe: (uuid: string) => Promise<void>;
@@ -30,8 +38,16 @@ export type INobleBleApi = {
   onNotification: (
     callback: (deviceId: string, data: string) => void,
   ) => () => void;
+  // Diagnostics only: `reason` records whether the link dropped on its own or
+  // the main process reclaimed an idle one, but every drop is reported the
+  // same way — a link we closed ourselves is still a closed link. Optional,
+  // since an older host bridge omits it.
   onDeviceDisconnected: (
-    callback: (device: { id: string; name: string }) => void,
+    callback: (device: {
+      id: string;
+      name: string;
+      reason?: EBleDisconnectReason;
+    }) => void,
   ) => () => void;
   checkAvailability: () => Promise<{
     available: boolean;

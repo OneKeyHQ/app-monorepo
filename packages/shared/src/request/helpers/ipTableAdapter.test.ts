@@ -1,11 +1,13 @@
 import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
@@ -240,6 +242,27 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
   });
 });
 
+describe('isIpTableTransportError', () => {
+  test('recognizes the normalized Axios network error used by the global interceptor', () => {
+    expect(
+      isIpTableTransportError({
+        code: -99_999,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        message: 'Network error',
+      }),
+    ).toBe(true);
+  });
+
+  test('does not treat an HTTP response as a transport failure', () => {
+    expect(
+      isIpTableTransportError({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        response: { status: 503 },
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('ipTableAdapter fail-open on domain network failures', () => {
   const BUILTIN_CN_IPS = [
     '104.18.20.233',
@@ -339,8 +362,40 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       ip: string;
       hostname: string;
     };
-    expect(BUILTIN_CN_IPS).toContain(sniArgs.ip);
+    expect(sniArgs.ip).toBe(BUILTIN_CN_IPS[0]);
     expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw networkError();
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://data.onekey.so/config.json'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://data.onekey.so/config.json'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: BUILTIN_CN_IPS[0],
+        hostname: 'data.onekey.so',
+      }),
+    );
   });
 
   test('does not replay the failing request itself', async () => {

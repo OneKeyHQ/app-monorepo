@@ -61,6 +61,10 @@ import {
 import { buildPerpAccountStatusAnalyticsParams } from '../utils/perpAccountStatusAnalytics';
 import { preloadPerpsDepositSelectTokenModal } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { preloadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import {
+  loadPerpsMobileMarketPage,
+  preloadPerpsMobileMarketPage,
+} from '../utils/preloadPerpsMobileMarketPage';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
@@ -72,7 +76,7 @@ import type { LayoutChangeEvent } from 'react-native';
 // shared sub-components (PerpCandles / PerpOrderBook / PerpTokenSelectorRow)
 // across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
 // split-bundle integrity check. Lazy-load here too so the edge stays async.
-const MobilePerpMarketInline = LazyLoadPage(() => import('./MobilePerpMarket'));
+const MobilePerpMarketInline = LazyLoadPage(loadPerpsMobileMarketPage);
 const PERP_NATIVE_HEADER_ROW_HEIGHT = 44;
 const PERP_NATIVE_HEADER_TOP_OFFSET = 20;
 
@@ -200,6 +204,7 @@ function PerpContent() {
 
   useEffect(() => {
     if (platformEnv.isNative) {
+      void preloadPerpsMobileMarketPage();
       void preloadPerpsMobileTokenSelectorPage();
       void preloadPerpsDepositWithdrawModal();
       void preloadPerpsDepositSelectTokenModal();

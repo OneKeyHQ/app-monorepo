@@ -1,4 +1,25 @@
-export type IMobilePerpMarketTab = 'orderbook' | 'info';
+import type { IMobilePerpMarketTab } from '@onekeyhq/shared/src/routes/perp';
+
+export type { IMobilePerpMarketTab };
+
+export function getMobilePerpMarketPagerHeight({
+  activeTab,
+  pageHeights,
+  useIntrinsicHeight,
+}: {
+  activeTab: IMobilePerpMarketTab;
+  pageHeights: Partial<Record<IMobilePerpMarketTab, number>>;
+  useIntrinsicHeight: boolean;
+}) {
+  if (!useIntrinsicHeight) {
+    return undefined;
+  }
+
+  const activePageHeight = pageHeights[activeTab];
+  return activePageHeight && activePageHeight > 0
+    ? activePageHeight
+    : undefined;
+}
 
 export function getMobilePerpMarketPageScrollState({
   isInteractionOverlayOpen,
