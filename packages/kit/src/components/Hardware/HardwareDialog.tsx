@@ -94,6 +94,13 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
       : undefined,
   }) as const;
 
+export const buildBleBondError = (intl: IntlShape): IDialogShowProps => ({
+  ...buildBleNotifyChangeError(intl),
+  description: intl.formatMessage({
+    id: ETranslations.feedback_try_repairing_device_in_settings,
+  }),
+});
+
 function OpenBleNotifyChangeErrorDialogContainer(
   props: any,
   ref: ForwardedRef<IDialogInstance>,
