@@ -599,6 +599,112 @@ describe('TradingViewNativeContainer', () => {
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
 
+  it('atomically replaces hidden over-cap indicators with the confirmed selection', () => {
+    const activeSubIndicatorIds = new Set([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+    const settingsValue = createTradingViewNativeIndicatorSettingsValue();
+    settingsValue.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settingsValue);
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 1,
+    }));
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        maxNativeSubIndicatorCount={4}
+      />,
+    );
+
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onIndicatorSelectionConfirm: (selection: {
+          activeIndicatorValues: ReadonlySet<string>;
+          replaceMainIndicators: boolean;
+          replaceSubIndicators: boolean;
+        }) => void;
+      };
+    act(() => {
+      controlsProps.onIndicatorSelectionConfirm({
+        activeIndicatorValues: new Set([
+          'MA',
+          'VOL',
+          'MACD',
+          'RSI',
+          'StochRSI',
+        ]),
+        replaceMainIndicators: true,
+        replaceSubIndicators: false,
+      });
+    });
+
+    expect(
+      mockPersistedIndicatorSettings?.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI', 'OBV']);
+    const updatedControlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onIndicatorSelectionConfirm: (selection: {
+          activeIndicatorValues: ReadonlySet<string>;
+          replaceMainIndicators: boolean;
+          replaceSubIndicators: boolean;
+        }) => void;
+      };
+    act(() => {
+      updatedControlsProps.onIndicatorSelectionConfirm({
+        activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'MFI']),
+        replaceMainIndicators: false,
+        replaceSubIndicators: true,
+      });
+    });
+
+    const latestControlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        activeIndicatorValues: Set<string>;
+      };
+    expect([...latestControlsProps.activeIndicatorValues]).toEqual([
+      'MA',
+      'VOL',
+      'RSI',
+      'StochRSI',
+      'MFI',
+    ]);
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+    expect(
+      mockPersistedIndicatorSettings?.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+  });
+
   it('preserves a sub-indicator instance and settings when visibility changes', () => {
     const settings = {
       inputs: { period: 7 },

@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
+import type { ITradingViewNativeIndicatorSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
@@ -16,6 +17,9 @@ import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subI
 type IMockIndicatorListProps = {
   maxSubIndicatorCount?: number;
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
 };
 
 type IMockDialogConfig = {
@@ -33,6 +37,7 @@ const defaultIndicatorSettingsProps = {
     createTradingViewNativeIndicatorSettings(),
   ),
   onIndicatorSettingsConfirm: jest.fn(),
+  onIndicatorSelectionConfirm: jest.fn(),
 };
 
 jest.mock('react-intl', () => ({
@@ -293,6 +298,7 @@ describe('TradingViewNative chart controls', () => {
   });
 
   it('forwards the sub-indicator cap to the dialog and popover controls', () => {
+    const handleIndicatorSelectionConfirm = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
@@ -300,6 +306,7 @@ describe('TradingViewNative chart controls', () => {
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         maxNativeSubIndicatorCount={4}
         onIndicatorChange={jest.fn()}
+        onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
         onIntervalChange={jest.fn()}
       />,
     );
@@ -314,6 +321,15 @@ describe('TradingViewNative chart controls', () => {
     expect(
       mockDialogShow.mock.calls[0][0].renderContent.props.maxSubIndicatorCount,
     ).toBe(4);
+    const selection: ITradingViewNativeIndicatorSelection = {
+      activeIndicatorValues: new Set(['MA', 'RSI']),
+      replaceMainIndicators: false,
+      replaceSubIndicators: true,
+    };
+    mockDialogShow.mock.calls[0][0].renderContent.props.onSelectionConfirm?.(
+      selection,
+    );
+    expect(handleIndicatorSelectionConfirm).toHaveBeenCalledWith(selection);
   });
 
   it('reports fullscreen state changes through the shared chart controls', () => {

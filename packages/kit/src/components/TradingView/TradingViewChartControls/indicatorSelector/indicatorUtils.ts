@@ -4,7 +4,10 @@ import {
   resolveTradingViewNativeIndicatorId,
 } from '../../TradingViewNative/utils/chartIndicators/indicatorCatalog';
 
-import type { ITradingViewIndicatorOption } from '../types';
+import type {
+  ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
+} from '../types';
 
 function getCanonicalIndicatorId(indicator: ITradingViewIndicatorOption) {
   return resolveTradingViewNativeIndicatorId(indicator.value, indicator.label);
@@ -121,4 +124,44 @@ export function getNativeIndicatorSelectionUpdates({
   });
 
   return [...removedIndicators, ...addedIndicators];
+}
+
+export function commitNativeIndicatorSelection({
+  indicators,
+  nextActiveIndicatorValues,
+  onSelect,
+  onSelectionConfirm,
+  originalActiveIndicatorValues,
+}: {
+  indicators: ITradingViewIndicatorOption[];
+  nextActiveIndicatorValues: ReadonlySet<string>;
+  onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
+  originalActiveIndicatorValues: ReadonlySet<string>;
+}) {
+  const selectionUpdates = getNativeIndicatorSelectionUpdates({
+    indicators,
+    originalActiveIndicatorValues,
+    nextActiveIndicatorValues,
+  });
+  if (selectionUpdates.length === 0) {
+    return;
+  }
+  if (onSelectionConfirm) {
+    onSelectionConfirm({
+      activeIndicatorValues: new Set(nextActiveIndicatorValues),
+      replaceMainIndicators: selectionUpdates.some(([indicatorId]) =>
+        isTradingViewNativeIndicator(indicatorId),
+      ),
+      replaceSubIndicators: selectionUpdates.some(([indicatorId]) =>
+        isTradingViewNativeSubIndicator(indicatorId),
+      ),
+    });
+    return;
+  }
+  selectionUpdates.forEach(([indicatorName, desiredActive]) => {
+    onSelect(indicatorName, desiredActive);
+  });
 }

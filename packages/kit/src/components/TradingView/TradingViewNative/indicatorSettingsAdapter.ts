@@ -916,6 +916,59 @@ export function updateTradingViewNativeIndicatorActiveState({
       };
 }
 
+export function reconcileTradingViewNativeIndicatorActiveState({
+  activeIndicatorValues,
+  maxSubIndicatorCount,
+  replaceMainIndicators,
+  replaceSubIndicators,
+  settings,
+}: {
+  activeIndicatorValues: ReadonlySet<string>;
+  maxSubIndicatorCount?: number;
+  replaceMainIndicators: boolean;
+  replaceSubIndicators: boolean;
+  settings: ITradingViewNativeIndicatorSettings;
+}): ITradingViewNativeIndicatorSettings {
+  const normalizedSettings =
+    normalizeTradingViewNativeIndicatorSettings(settings);
+  const value = getTradingViewNativeIndicatorSettingsValue(normalizedSettings);
+  let settingsChanged = false;
+  value.indicators.forEach((indicator) => {
+    if (
+      isTradingViewNativeIndicator(indicator.id)
+        ? !replaceMainIndicators
+        : !replaceSubIndicators
+    ) {
+      return;
+    }
+    const active = activeIndicatorValues.has(indicator.id);
+    if (indicator.active !== active) {
+      indicator.active = active;
+      settingsChanged = true;
+    }
+  });
+  if (!settingsChanged) {
+    return normalizedSettings;
+  }
+
+  const nextSettings = getTradingViewNativeIndicatorSettings(value);
+  const reconciledSettings = {
+    ...normalizedSettings,
+    ...(replaceMainIndicators
+      ? { mainIndicators: nextSettings.mainIndicators }
+      : {}),
+    ...(replaceSubIndicators
+      ? { subIndicators: nextSettings.subIndicators }
+      : {}),
+  };
+  return replaceSubIndicators
+    ? limitTradingViewNativeSubIndicatorSettings(
+        reconciledSettings,
+        maxSubIndicatorCount,
+      )
+    : reconciledSettings;
+}
+
 export function getTradingViewNativeActiveMainIndicators(
   settings: ITradingViewNativeIndicatorSettings,
 ) {

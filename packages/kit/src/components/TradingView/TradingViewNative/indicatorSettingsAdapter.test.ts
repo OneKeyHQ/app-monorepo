@@ -17,6 +17,7 @@ import {
   getTradingViewNativeSubIndicatorInstances,
   limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
+  reconcileTradingViewNativeIndicatorActiveState,
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import {
@@ -97,6 +98,64 @@ describe('indicatorSettingsAdapter', () => {
       limitedSettings,
     );
     expect(limitTradingViewNativeSubIndicatorSettings(settings)).toBe(settings);
+  });
+
+  it('atomically reconciles a constrained indicator selection', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const initialActiveIndicatorIds = new Set([
+      'MA',
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+    value.indicators.forEach((indicator) => {
+      if (initialActiveIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    const settings = getTradingViewNativeIndicatorSettings(value);
+
+    const reconciledSettings = reconcileTradingViewNativeIndicatorActiveState({
+      activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'MFI']),
+      maxSubIndicatorCount: 4,
+      replaceMainIndicators: false,
+      replaceSubIndicators: true,
+      settings,
+    });
+
+    expect(
+      reconciledSettings.mainIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['MA']);
+    expect(
+      reconciledSettings.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+    expect(
+      settings.subIndicators.filter((indicator) => indicator.active),
+    ).toHaveLength(5);
+
+    const mainOnlySettings = reconcileTradingViewNativeIndicatorActiveState({
+      activeIndicatorValues: new Set(['EMA', 'VOL', 'MACD', 'RSI', 'StochRSI']),
+      maxSubIndicatorCount: 4,
+      replaceMainIndicators: true,
+      replaceSubIndicators: false,
+      settings,
+    });
+    expect(
+      mainOnlySettings.mainIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['EMA']);
+    expect(
+      mainOnlySettings.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI', 'OBV']);
   });
 
   it('does not expose an ineffective single-color control for palette plots', () => {

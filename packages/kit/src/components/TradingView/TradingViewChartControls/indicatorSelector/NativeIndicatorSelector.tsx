@@ -19,13 +19,14 @@ import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShar
 
 import {
   canToggleTradingViewNativeIndicatorOn,
+  commitNativeIndicatorSelection,
   getIndicatorSections,
-  getNativeIndicatorSelectionUpdates,
 } from './indicatorUtils';
 
 import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
+  ITradingViewNativeIndicatorSelection,
 } from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
@@ -202,12 +203,16 @@ export function IndicatorListDialogContent({
   resetLayout,
   maxSubIndicatorCount,
   onSelect,
+  onSelectionConfirm,
   onResetLayout,
 }: {
   indicators: ITradingViewIndicatorOption[];
   resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
   maxSubIndicatorCount?: number;
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
   onResetLayout: () => void;
 }) {
   const intl = useIntl();
@@ -256,15 +261,15 @@ export function IndicatorListDialogContent({
   const handleConfirmPress = useCallback(() => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    getNativeIndicatorSelectionUpdates({
+    commitNativeIndicatorSelection({
       indicators,
-      originalActiveIndicatorValues: originalValues,
       nextActiveIndicatorValues: nextValues,
-    }).forEach(([indicatorName, desiredActive]) => {
-      onSelect(indicatorName, desiredActive);
+      onSelect,
+      onSelectionConfirm,
+      originalActiveIndicatorValues: originalValues,
     });
     void dialog.close();
-  }, [dialog, indicators, onSelect]);
+  }, [dialog, indicators, onSelect, onSelectionConfirm]);
 
   const confirmText = intl.formatMessage({
     id: ETranslations.global_confirm,

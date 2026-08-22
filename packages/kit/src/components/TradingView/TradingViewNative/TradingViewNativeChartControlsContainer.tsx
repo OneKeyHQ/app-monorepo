@@ -11,6 +11,7 @@ import {
 import type {
   ITradingViewChartControlsProps,
   ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewIndicatorSettingsValue } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
@@ -48,6 +49,9 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorSettingsConfirm: (
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
+  onIndicatorSelectionConfirm: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -69,6 +73,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     onIntervalChange,
     onIndicatorChange,
     onIndicatorSettingsConfirm,
+    onIndicatorSelectionConfirm,
     onCalendarPanelOpen,
     onCalendarPanelSubmit,
     onFullscreenChange,
@@ -154,6 +159,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             indicators={indicators}
             maxSubIndicatorCount={maxNativeSubIndicatorCount}
             onSelect={handleIndicatorSelect}
+            onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
           />
         ),
@@ -166,6 +172,7 @@ export const TradingViewNativeChartControlsContainer = memo(
       layoutMode,
       maxNativeSubIndicatorCount,
       onIndicatorSettingsConfirm,
+      onIndicatorSelectionConfirm,
     ]);
 
     return (

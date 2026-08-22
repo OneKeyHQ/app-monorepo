@@ -30,6 +30,7 @@ import {
   getTradingViewNativeSubIndicatorInstances,
   limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
+  reconcileTradingViewNativeIndicatorActiveState,
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
@@ -62,6 +63,7 @@ import type {
 import type { ITradingViewNativeViewportTarget } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewChartControls/calendarControls/CalendarPanelPopover';
+import type { ITradingViewNativeIndicatorSelection } from '../TradingViewChartControls/types';
 import type { LayoutChangeEvent } from 'react-native';
 
 export function updateTradingViewNativeSubIndicatorInstances(
@@ -546,6 +548,24 @@ export const TradingViewNativeContainer = memo(
       },
       [maxNativeSubIndicatorCount, setIndicatorSettings],
     );
+    const handleIndicatorSelectionConfirm = useCallback(
+      ({
+        activeIndicatorValues: selectedIndicatorValues,
+        replaceMainIndicators,
+        replaceSubIndicators,
+      }: ITradingViewNativeIndicatorSelection) => {
+        void setIndicatorSettings((currentSettings) =>
+          reconcileTradingViewNativeIndicatorActiveState({
+            activeIndicatorValues: selectedIndicatorValues,
+            maxSubIndicatorCount: maxNativeSubIndicatorCount,
+            replaceMainIndicators,
+            replaceSubIndicators,
+            settings: currentSettings,
+          }),
+        );
+      },
+      [maxNativeSubIndicatorCount, setIndicatorSettings],
+    );
 
     const handleCalendarPanelSubmit = useCallback(
       (payload: ICalendarPanelSubmitPayload) => {
@@ -658,6 +678,7 @@ export const TradingViewNativeContainer = memo(
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
           onIndicatorSettingsConfirm={setIndicatorSettings}
+          onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
           onFullscreenChange={
