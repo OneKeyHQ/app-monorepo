@@ -4,9 +4,9 @@
   "name": "OneKey Modern",
   "minEngineVersion": "0.1.0",
   "window": {
-    "width": 960,
-    "height": 600,
-    "radius": 16
+    "width": 900,
+    "height": 560,
+    "radius": 18
   },
   "pages": {
     "welcome": "pages/welcome.xml",
