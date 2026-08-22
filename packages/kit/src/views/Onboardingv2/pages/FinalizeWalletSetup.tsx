@@ -341,6 +341,7 @@ function FinalizeWalletSetupPage({
     useRef<IShowOnboardingInviteCodeDialog | null>(null);
   const showThirdPartyDeviceRewardDialogRef =
     useRef<IShowThirdPartyDeviceRewardDialog | null>(null);
+  const thirdPartyPostAddFlowStartedRef = useRef(false);
   const readyReferralCheckHandledRef = useRef(false);
 
   // Hold the "existing wallet switched" toast until the user confirms with
@@ -384,6 +385,8 @@ function FinalizeWalletSetupPage({
         thirdPartyVendor = 'ledger';
       }
       if (thirdPartyVendor) {
+        if (thirdPartyPostAddFlowStartedRef.current) return;
+        thirdPartyPostAddFlowStartedRef.current = true;
         try {
           await showThirdPartyAccountNameSyncDialog({
             wallet: createdWallet,
@@ -398,13 +401,17 @@ function FinalizeWalletSetupPage({
           (deviceData?.device as SearchDevice | undefined)?.connectId ??
           '';
         if (showReward) {
-          showReward({
-            wallet: createdWallet,
-            vendor: thirdPartyVendor,
-            connectId,
-            onDone: proceedToWallet,
-          });
-          return;
+          try {
+            showReward({
+              wallet: createdWallet,
+              vendor: thirdPartyVendor,
+              connectId,
+              onDone: proceedToWallet,
+            });
+            return;
+          } catch {
+            // A reward dialog failure must not block entry to the new wallet.
+          }
         }
         proceedToWallet();
         return;

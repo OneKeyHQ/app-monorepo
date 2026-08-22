@@ -1,23 +1,29 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
-type ILocalMockAuthenticityResult = {
-  vendor: 'trezor' | 'ledger';
-  verified: boolean;
-  deviceId?: string;
-  usedDebugKey?: boolean;
-  error?: string;
-};
+import type { IThirdPartyDeviceAuthenticityResult } from '@onekeyhq/shared/src/hardware/thirdPartyDeviceAuthenticity';
+import type {
+  IThirdPartyDeviceRewardVoucher,
+  IThirdPartyDeviceRewardVendor,
+} from '@onekeyhq/shared/src/hardware/thirdPartyDeviceReward';
 
 export type ILocalMockDeviceClaimVerification = {
   deviceId: string;
   verificationMode: 'trezor-sdk-genuine-check' | 'ledger-sdk-genuine-check';
 };
 
-export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
-  status: 'issued';
-  voucherCode: string;
-  challengeHex: string;
+export type ILocalMockDeviceClaimRecord = {
+  claimId: string;
+  voucher: IThirdPartyDeviceRewardVoucher;
 };
+
+export type ILocalMockDeviceClaimStore = Map<
+  string,
+  ILocalMockDeviceClaimRecord
+>;
+
+export type ILocalMockDeviceClaimResult = ILocalMockDeviceClaimVerification & {
+  status: 'issued' | 'already_claimed';
+  challengeHex: string;
+} & ILocalMockDeviceClaimRecord;
 
 export function createLocalMockDeviceClaimChallenge(): string {
   const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
@@ -30,8 +36,8 @@ export function verifyLocalMockDeviceClaimEvidence({
   vendor,
   authenticity,
 }: {
-  vendor: 'trezor' | 'ledger';
-  authenticity: ILocalMockAuthenticityResult;
+  vendor: IThirdPartyDeviceRewardVendor;
+  authenticity: IThirdPartyDeviceAuthenticityResult;
 }): ILocalMockDeviceClaimVerification {
   if (authenticity.vendor !== vendor) {
     throw new OneKeyLocalError({
@@ -52,13 +58,16 @@ export function verifyLocalMockDeviceClaimEvidence({
         message: 'Trezor 原厂验真拒绝了调试或预发布根密钥',
       });
     }
-    if (!authenticity.deviceId) {
+    if (
+      !authenticity.deviceId ||
+      !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
+    ) {
       throw new OneKeyLocalError({
-        message: 'Trezor 原厂验真未返回物理设备的验真标识',
+        message: 'Trezor 原厂验真未返回由验真公钥派生的设备标识',
       });
     }
     return {
-      deviceId: authenticity.deviceId,
+      deviceId: authenticity.deviceId.toLowerCase(),
       verificationMode: 'trezor-sdk-genuine-check',
     };
   }
@@ -78,44 +87,64 @@ export function verifyLocalMockDeviceClaimEvidence({
   };
 }
 
-/**
- * App-local mock for the future claim service. The async executor is the seam:
- * today it calls the hardware SDK directly; production replaces it with a
- * backend challenge/session API without changing the UI contract.
- */
 export async function runTrustedLocalMockDeviceClaim({
+  campaignId,
   vendor,
+  claims,
   executeAuthenticityCheck,
 }: {
-  vendor: 'trezor' | 'ledger';
+  campaignId: string;
+  vendor: IThirdPartyDeviceRewardVendor;
+  claims: ILocalMockDeviceClaimStore;
   executeAuthenticityCheck: (
     challengeHex: string,
-  ) => Promise<ILocalMockAuthenticityResult>;
+  ) => Promise<IThirdPartyDeviceAuthenticityResult>;
 }): Promise<ILocalMockDeviceClaimResult> {
   const challengeHex = createLocalMockDeviceClaimChallenge();
   const authenticity = await executeAuthenticityCheck(challengeHex);
+  if (
+    vendor === 'trezor' &&
+    authenticity.trezorProof?.challenge !== challengeHex
+  ) {
+    throw new OneKeyLocalError({
+      message: 'Trezor 本地证明与本次 challenge 不匹配',
+    });
+  }
   const verification = verifyLocalMockDeviceClaimEvidence({
     vendor,
     authenticity,
   });
+  const deviceClaimKey = `${campaignId}:${vendor}:${verification.deviceId}`;
+  const existingClaim = claims.get(deviceClaimKey);
+  if (existingClaim) {
+    return {
+      status: 'already_claimed',
+      challengeHex,
+      ...verification,
+      ...existingClaim,
+    };
+  }
+
   const voucherCode = `DEV-LOCAL-${vendor.toUpperCase()}-${challengeHex
     .slice(0, 8)
     .toUpperCase()}`;
-  if (
-    !voucherCode ||
-    !new RegExp(`^DEV-LOCAL-${vendor.toUpperCase()}-[0-9A-F]{8}$`).test(
-      voucherCode,
-    )
-  ) {
-    throw new OneKeyLocalError({
-      message: '可信验真服务未签发本地测试券',
-    });
-  }
+  const issuedAt = Date.now();
+  const claim: ILocalMockDeviceClaimRecord = {
+    claimId: `local-${challengeHex}`,
+    voucher: {
+      campaignId,
+      code: voucherCode,
+      status: 'unused',
+      issuedAt,
+      expiresAt: issuedAt + 30 * 24 * 60 * 60 * 1000,
+    },
+  };
+  claims.set(deviceClaimKey, claim);
 
   return {
     status: 'issued',
-    voucherCode,
     challengeHex,
     ...verification,
+    ...claim,
   };
 }

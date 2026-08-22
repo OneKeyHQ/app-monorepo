@@ -1,6 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-const LEDGER_RELAY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{24,256}$/;
+// An unpadded 24-byte token occupies 32 base64url characters. The backend is
+// responsible for generating all 192 bits with a CSPRNG.
+const LEDGER_RELAY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32,256}$/;
 const LEDGER_RELAY_PATH_PREFIX = '/v1/ledger/session/';
 const MAX_LEDGER_RELAY_URL_LENGTH = 2048;
 

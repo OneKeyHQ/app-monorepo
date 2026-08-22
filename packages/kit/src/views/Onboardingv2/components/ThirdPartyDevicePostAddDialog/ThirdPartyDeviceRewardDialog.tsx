@@ -4,7 +4,6 @@ import {
   Button,
   DialogContainer,
   EInPageDialogType,
-  Input,
   SizableText,
   Spinner,
   Theme,
@@ -13,41 +12,12 @@ import {
   useDialogInstance,
   useInPageDialog,
 } from '@onekeyhq/components';
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
-  IThirdPartyDeviceRewardEvidence,
-  IThirdPartyHardwareRewardVendor,
-} from '@onekeyhq/shared/src/referralCode/type';
-import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
-import {
-  EMessageTypesBtc,
-  EMessageTypesEth,
-} from '@onekeyhq/shared/types/message';
-
-export const THIRD_PARTY_DEVICE_REWARD_CAMPAIGN_ID =
-  'third-party-hardware-2026';
-
-type IAuthenticityResult = {
-  vendor: 'trezor' | 'ledger';
-  verified: boolean;
-  trezorProof?: {
-    challenge: string;
-    deviceModel: string;
-    proof: Extract<
-      IThirdPartyDeviceRewardEvidence,
-      { vendor: 'trezor' }
-    >['proof'];
-  };
-};
+  IThirdPartyDeviceRewardClaimSuccess,
+  IThirdPartyDeviceRewardVendor,
+} from '@onekeyhq/shared/src/hardware/thirdPartyDeviceReward';
 
 function ThirdPartyDeviceRewardDialogContent({
   wallet,
@@ -56,14 +26,16 @@ function ThirdPartyDeviceRewardDialogContent({
   onDone,
 }: {
   wallet: IDBWallet;
-  vendor: IThirdPartyHardwareRewardVendor;
+  vendor: IThirdPartyDeviceRewardVendor;
   connectId: string;
   onDone: () => void;
 }) {
   const dialogInstance = useDialogInstance();
-  const [inviteCode, setInviteCode] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [claimResult, setClaimResult] =
+    useState<IThirdPartyDeviceRewardClaimSuccess>();
+  const isPendingRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(
@@ -73,159 +45,28 @@ function ThirdPartyDeviceRewardDialogContent({
     [],
   );
 
-  const { result: walletInfo } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceReferralCode.getThirdPartyDeviceRewardWalletInfo(
-        { walletId: wallet.id },
-      ),
-    [wallet.id],
-  );
-  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
-    accountId: walletInfo?.accountId ?? '',
-    networkId: walletInfo?.networkId ?? '',
-  });
-
   const finish = useCallback(async () => {
-    onDone();
     await dialogInstance.close();
+    onDone();
   }, [dialogInstance, onDone]);
 
   const handleVerify = useCallback(async () => {
-    if (isPending) return;
-    if (!walletInfo) {
-      setError('The reward address is not ready yet. Please try again.');
-      return;
-    }
-    if (!connectId && vendor !== 'ledger') {
-      setError('Reconnect the hardware wallet to verify this device.');
-      return;
-    }
+    if (isPendingRef.current) return;
 
+    isPendingRef.current = true;
     setError(undefined);
     setIsPending(true);
     try {
-      const challenge =
-        await backgroundApiProxy.serviceReferralCode.createThirdPartyDeviceRewardChallenge(
+      const claim =
+        await backgroundApiProxy.serviceThirdPartyDeviceReward.verifyAndClaimThirdPartyDeviceReward(
           {
-            walletId: wallet.id,
             vendor,
-            campaignId: THIRD_PARTY_DEVICE_REWARD_CAMPAIGN_ID,
-            // A cancelled signature or expired challenge must be retryable.
-            // The backend independently checks first-add eligibility; it never
-            // treats this client-generated id as proof of eligibility.
-            walletAddAttemptId: generateUUID(),
-          },
-        );
-
-      const authenticity =
-        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareVerifyDeviceAuthenticity(
-          {
-            vendor:
-              vendor === 'ledger'
-                ? EHardwareVendor.ledger
-                : EHardwareVendor.trezor,
             connectId,
             dbDeviceId: wallet.associatedDevice,
-            challenge: vendor === 'trezor' ? challenge.challengeHex : undefined,
-            ledgerGenuineCheckWebSocketUrl:
-              vendor === 'ledger'
-                ? challenge.ledgerRelay?.webSocketUrl
-                : undefined,
           },
         );
-      if (!authenticity.success) {
-        throw new OneKeyLocalError(
-          'The device authenticity check did not complete.',
-        );
-      }
-      const authenticityPayload = authenticity.payload as IAuthenticityResult;
-      if (!authenticityPayload.verified) {
-        throw new OneKeyLocalError(
-          'The connected device could not be verified as genuine.',
-        );
-      }
-
-      const rawMessage = stableStringify(challenge.addressMessage);
-      const isBtc =
-        walletInfo.isBtcOnlyWallet &&
-        networkUtils.isBTCNetwork(walletInfo.networkId);
-      const message = isBtc
-        ? rawMessage
-        : autoFixPersonalSignMessage({ message: rawMessage });
-      const unsignedMessage: IUnsignedMessage = isBtc
-        ? {
-            type: EMessageTypesBtc.ECDSA,
-            message,
-            sigOptions: { noScriptType: true },
-            payload: { isFromDApp: false },
-          }
-        : {
-            type: EMessageTypesEth.PERSONAL_SIGN,
-            message,
-            payload: [message, walletInfo.address],
-          };
-      const signature = await navigationToMessageConfirmAsync({
-        accountId: walletInfo.accountId,
-        networkId: walletInfo.networkId,
-        unsignedMessage,
-        walletInternalSign: true,
-        sameModal: false,
-        skipBackupCheck: true,
-      });
-      if (!signature) {
-        throw new OneKeyLocalError('Address signature was cancelled.');
-      }
-
-      let evidence: IThirdPartyDeviceRewardEvidence;
-      if (vendor === 'trezor') {
-        const trezorProof = authenticityPayload.trezorProof;
-        if (!trezorProof || trezorProof.challenge !== challenge.challengeHex) {
-          throw new OneKeyLocalError(
-            'The Trezor proof did not match the server challenge.',
-          );
-        }
-        evidence = {
-          vendor: 'trezor',
-          scheme: 'trezor-authenticate-device-v1',
-          deviceModelHint: trezorProof.deviceModel,
-          proof: trezorProof.proof,
-        };
-      } else {
-        const attestationSessionId =
-          challenge.ledgerRelay?.attestationSessionId;
-        if (!attestationSessionId) {
-          throw new OneKeyLocalError(
-            'The Ledger attestation relay is unavailable.',
-          );
-        }
-        evidence = {
-          vendor: 'ledger',
-          scheme: 'ledger-genuine-relay-v1',
-          attestationSessionId,
-        };
-      }
-
-      const claim =
-        await backgroundApiProxy.serviceReferralCode.claimThirdPartyDeviceReward(
-          {
-            challengeId: challenge.challengeId,
-            inviteCode: inviteCode.trim() || undefined,
-            addressSignature: {
-              scheme: isBtc ? 'btc-ecdsa' : 'evm-personal-sign',
-              address: walletInfo.address,
-              signature,
-              pubkey: walletInfo.pubkey,
-            },
-            evidence,
-          },
-        );
-      if (claim.status !== 'issued' && claim.status !== 'already_claimed') {
-        throw new OneKeyLocalError(
-          `Device reward was not issued: ${claim.status}`,
-        );
-      }
       if (isMountedRef.current) {
-        await finish();
+        setClaimResult(claim);
       }
     } catch (e) {
       if (isMountedRef.current) {
@@ -234,32 +75,38 @@ function ThirdPartyDeviceRewardDialogContent({
             ? e.message
             : 'Device verification failed. Please try again.',
         );
+      }
+    } finally {
+      isPendingRef.current = false;
+      if (isMountedRef.current) {
         setIsPending(false);
       }
     }
-  }, [
-    connectId,
-    finish,
-    inviteCode,
-    isPending,
-    navigationToMessageConfirmAsync,
-    vendor,
-    wallet.associatedDevice,
-    wallet.id,
-    walletInfo,
-  ]);
+  }, [connectId, vendor, wallet.associatedDevice]);
+
+  if (claimResult) {
+    return (
+      <YStack gap="$4">
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {claimResult.status === 'issued'
+              ? 'Reward issued'
+              : 'This device already claimed a reward'}
+          </SizableText>
+          <SizableText selectable>{claimResult.voucher.code}</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Voucher status: {claimResult.voucher.status}
+          </SizableText>
+        </YStack>
+        <Button variant="primary" onPress={finish}>
+          Done
+        </Button>
+      </YStack>
+    );
+  }
 
   return (
     <YStack gap="$4">
-      <Input
-        testID="third-party-device-reward-invite-code"
-        value={inviteCode}
-        onChangeText={setInviteCode}
-        placeholder="Invite code (optional)"
-        maxLength={30}
-        autoCapitalize="none"
-        disabled={isPending}
-      />
       {error ? (
         <SizableText size="$bodySm" color="$textCritical">
           {error}
@@ -291,7 +138,7 @@ function ThirdPartyDeviceRewardDialogContent({
 
 export type IShowThirdPartyDeviceRewardDialog = (params: {
   wallet: IDBWallet;
-  vendor: IThirdPartyHardwareRewardVendor;
+  vendor: IThirdPartyDeviceRewardVendor;
   connectId: string;
   onDone: () => void;
 }) => void;
@@ -316,7 +163,7 @@ export function useShowThirdPartyDeviceRewardDialog(): IShowThirdPartyDeviceRewa
               showExitButton={false}
               showFooter={false}
               title="Verify your device and get a reward"
-              description="Confirm this newly added physical device with OneKey. A device ID alone is never enough to claim the reward."
+              description="Confirm this newly added physical device with OneKey to claim your reward."
               renderContent={
                 <ThirdPartyDeviceRewardDialogContent
                   wallet={wallet}

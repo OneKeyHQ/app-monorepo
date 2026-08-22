@@ -1,3 +1,80 @@
+export type IThirdPartyAccountNameVendor = 'trezor' | 'ledger';
+
+export type IThirdPartyAccountNameSourceStatus =
+  | 'available'
+  | 'no_matches'
+  | 'source_not_found'
+  | 'encrypted_source'
+  | 'cloud_source_requires_authorization'
+  | 'unsupported_source'
+  | 'invalid_source';
+
+export interface IThirdPartyAccountNameCandidate {
+  indexedAccountId: string;
+  currentName: string;
+  sourceName: string;
+  sourceNames: string[];
+  matchedAddress: string;
+  source: 'ledger-live' | 'trezor-suite';
+}
+
+export interface IThirdPartyAccountNameCandidatesResult {
+  status: IThirdPartyAccountNameSourceStatus;
+  candidates: IThirdPartyAccountNameCandidate[];
+}
+
+export interface IThirdPartyAccountNameSourceInventoryAccount {
+  sourceName: string;
+  address: string;
+  path?: string;
+  source: 'ledger-live' | 'trezor-suite';
+  sourceDeviceId?: string;
+  sourceAccountType?: string;
+  selectedDeviceMatch?: boolean;
+  matchedOneKeyAccounts: Array<{
+    indexedAccountId: string;
+    accountId: string;
+    walletId: string;
+    walletName: string;
+    currentName: string;
+    networkId: string;
+    networkName: string;
+    networkImpl: string;
+    address: string;
+    path?: string;
+  }>;
+}
+
+export interface IThirdPartyAccountNameLocalAccount {
+  indexedAccountId: string;
+  accountId: string;
+  walletId: string;
+  walletName: string;
+  currentName: string;
+  networkId: string;
+  networkName: string;
+  networkImpl: string;
+  address: string;
+  path?: string;
+}
+
+export interface IThirdPartyAccountNameSelectedDevice {
+  dbDeviceId: string;
+  deviceId: string;
+  featuresDeviceId?: string;
+  connectId: string;
+  usbConnectId?: string;
+  bleConnectId?: string;
+}
+
+export interface IThirdPartyAccountNameSourceInventoryResult {
+  status: IThirdPartyAccountNameSourceStatus;
+  accounts: IThirdPartyAccountNameSourceInventoryAccount[];
+  localAccounts: IThirdPartyAccountNameLocalAccount[];
+  selectedDevice?: IThirdPartyAccountNameSelectedDevice;
+  scopeDescription: string;
+}
+
 export interface IThirdPartyAccountNameSourceAccount {
   name: string;
   address: string;

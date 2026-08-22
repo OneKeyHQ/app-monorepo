@@ -10,20 +10,21 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { assertLedgerAttestationRelayUrl } from '@onekeyhq/shared/src/hardware/ledgerAttestationRelayUrl';
+import {
+  matchAccountNamesByAddress,
+  type IThirdPartyAccountNameCandidatesResult,
+  type IThirdPartyAccountNameLocalAccount,
+  type IThirdPartyAccountNameSelectedDevice,
+  type IThirdPartyAccountNameSourceInventoryAccount,
+  type IThirdPartyAccountNameSourceInventoryResult,
+  type IThirdPartyAccountNameSourceStatus,
+} from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
+import type { IThirdPartyDeviceAuthenticityResult } from '@onekeyhq/shared/src/hardware/thirdPartyDeviceAuthenticity';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { matchAccountNamesByAddress } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IThirdPartyAccountNameCandidatesResult,
-  IThirdPartyAccountNameLocalAccount,
-  IThirdPartyAccountNameSelectedDevice,
-  IThirdPartyAccountNameSourceInventoryAccount,
-  IThirdPartyAccountNameSourceInventoryResult,
-  IThirdPartyAccountNameSourceStatus,
-} from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -46,8 +47,6 @@ import {
   thirdPartyHardwareAdapterRegistry,
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
-
-import { runTrustedLocalMockDeviceClaim } from './localMockDeviceClaim';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -1318,7 +1317,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     dbDeviceId?: string;
     challenge?: string;
     ledgerGenuineCheckWebSocketUrl?: string;
-  }) {
+  }): Promise<Response<IThirdPartyDeviceAuthenticityResult>> {
     if (
       params.vendor === EHardwareVendor.ledger &&
       params.ledgerGenuineCheckWebSocketUrl
@@ -1347,20 +1346,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
           challenge?: string;
           ledgerGenuineCheckWebSocketUrl?: string;
         },
-      ) => Promise<Response<unknown>>;
+      ) => Promise<Response<IThirdPartyDeviceAuthenticityResult>>;
     };
     const verify = (connectId: string) =>
       hw.verifyDeviceAuthenticity(connectId, {
         challenge: params.challenge,
         ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
       });
-    if (params.vendor === EHardwareVendor.trezor && params.dbDeviceId) {
-      const dbDevice = await localDb.getDevice(params.dbDeviceId);
-      if (dbDevice.vendor !== EHardwareVendor.trezor) {
-        throw new OneKeyLocalError(
-          'The selected device is not a Trezor device',
-        );
-      }
+    const dbDevice = params.dbDeviceId
+      ? await localDb.getDevice(params.dbDeviceId)
+      : undefined;
+    if (params.dbDeviceId && !dbDevice) {
+      throw new OneKeyLocalError('The selected device could not be found');
+    }
+    if (dbDevice && dbDevice.vendor !== params.vendor) {
+      throw new OneKeyLocalError(
+        'The selected device vendor does not match the verification vendor',
+      );
+    }
+    if (params.vendor === EHardwareVendor.trezor && dbDevice) {
       const verifySelectedDevice = async (connectId: string) => {
         const connected = await this.connectTrezorAndVerifyDeviceIdentity({
           device: dbDevice,
@@ -1378,76 +1382,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
       );
     }
     return verify(params.connectId);
-  }
-
-  /**
-   * App-local service mock for the future claim API. The async verifier seam
-   * delegates to the real vendor implementation already owned by the hardware
-   * SDK, then issues a local DEV voucher so the UI flow can be exercised.
-   *
-   * Production replaces this local method with a remote API. In particular,
-   * the backend must own/witness Ledger's DMK session instead of trusting the
-   * SDK result returned to the App.
-   */
-  @backgroundMethod()
-  async runLocalMockThirdPartyDeviceClaim(params: {
-    vendor: EHardwareVendor;
-    connectId: string;
-    dbDeviceId: string;
-  }): Promise<{
-    status: 'issued';
-    voucherCode: string;
-    challengeHex: string;
-    deviceId: string;
-    verificationMode: 'trezor-sdk-genuine-check' | 'ledger-sdk-genuine-check';
-  }> {
-    await this.assertThirdPartyOnboardingDevMode();
-    if (
-      params.vendor !== EHardwareVendor.trezor &&
-      params.vendor !== EHardwareVendor.ledger
-    ) {
-      throw new OneKeyLocalError('本地设备验真测试仅支持 Trezor 和 Ledger');
-    }
-    const vendor =
-      params.vendor === EHardwareVendor.trezor ? 'trezor' : 'ledger';
-    return runTrustedLocalMockDeviceClaim({
-      vendor,
-      executeAuthenticityCheck: async (challengeHex) => {
-        const response = await this.thirdPartyHardwareVerifyDeviceAuthenticity({
-          vendor: params.vendor,
-          connectId: params.connectId,
-          dbDeviceId: params.dbDeviceId,
-          challenge:
-            params.vendor === EHardwareVendor.trezor ? challengeHex : undefined,
-        });
-        if (!response.success) {
-          throw convertThirdPartyDeviceError(response.payload, {
-            vendor:
-              params.vendor === EHardwareVendor.trezor ? 'Trezor' : 'Ledger',
-          });
-        }
-        return response.payload as {
-          vendor: 'trezor' | 'ledger';
-          verified: boolean;
-          deviceId?: string;
-          usedDebugKey?: boolean;
-          error?: string;
-          // cspell:ignore optiga
-          trezorProof?: {
-            challenge: string;
-            deviceModel: string;
-            proof: {
-              optiga_certificates: string[];
-              optiga_signature: string;
-              tropic_certificates?: string[];
-              tropic_signature?: string;
-              mcu_certificates?: string[];
-              mcu_signature?: string;
-            };
-          };
-        };
-      },
-    });
   }
 
   /**
@@ -1647,23 +1581,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
       return { status: 'unsupported_source', candidates: [] };
     }
 
-    const statusMap: Record<string, IThirdPartyAccountNameSourceStatus> = {
-      no_accounts: 'no_matches',
-      source_not_found: 'source_not_found',
-      encrypted_source: 'encrypted_source',
-      invalid_source: 'invalid_source',
-    };
-
-    const source = isTrezor
-      ? await globalThis.desktopApiProxy.system.readTrezorSuiteAccountNames()
-      : await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
-    if (source.status !== 'available') {
-      return {
-        status: statusMap[source.status] ?? 'no_matches',
-        candidates: [],
-      };
-    }
-
     // getWallets() only fills dbAccounts for "others" wallets, so hardware
     // wallets need the account tables directly.
     const [{ wallets }, { accounts }, { indexedAccounts }] = await Promise.all([
@@ -1679,6 +1596,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
     if (!wallet) {
       return { status: 'no_matches', candidates: [] };
     }
+    const walletDevice = await localDb
+      .getWalletDeviceSafe({ walletId: params.walletId })
+      .catch(() => undefined);
+    if (!walletDevice || walletDevice.vendor !== params.vendor) {
+      return { status: 'no_matches', candidates: [] };
+    }
+
+    const statusMap: Record<string, IThirdPartyAccountNameSourceStatus> = {
+      no_accounts: 'no_matches',
+      source_not_found: 'source_not_found',
+      encrypted_source: 'encrypted_source',
+      invalid_source: 'invalid_source',
+    };
+    const source = isTrezor
+      ? await globalThis.desktopApiProxy.system.readTrezorSuiteAccountNames()
+      : await globalThis.desktopApiProxy.system.readLedgerLiveAccountNames();
+    if (source.status !== 'available') {
+      return {
+        status: statusMap[source.status] ?? 'no_matches',
+        candidates: [],
+      };
+    }
 
     // Ledger Live has no device marker; only Trezor can narrow by deviceId.
     let sourceAccounts = source.accounts.map(
@@ -1689,11 +1628,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       }),
     );
     if (isTrezor) {
-      const walletDeviceId = (
-        await localDb
-          .getWalletDeviceSafe({ walletId: params.walletId })
-          .catch(() => undefined)
-      )?.deviceId;
+      const walletDeviceId = walletDevice.deviceId;
       if (!walletDeviceId) {
         return { status: 'no_matches', candidates: [] };
       }

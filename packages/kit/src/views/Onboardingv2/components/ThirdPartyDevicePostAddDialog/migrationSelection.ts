@@ -1,4 +1,4 @@
-import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/referralCode/type';
+import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 
 // indexedAccountId -> { whether to rename, which offered name was picked }
 export type IAccountNameSyncSelection = Record<

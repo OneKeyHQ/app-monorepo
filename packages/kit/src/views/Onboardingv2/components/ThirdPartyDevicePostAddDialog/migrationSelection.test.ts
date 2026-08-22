@@ -1,9 +1,6 @@
-import {
-  buildInitialSelection,
-  buildRenames,
-} from './migrationSelection';
+import { buildInitialSelection, buildRenames } from './migrationSelection';
 
-import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/referralCode/type';
+import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 
 // Mirrors the real Ledger Live shape: one account offers a single name, the
 // other reuses one address across chains and offers two.

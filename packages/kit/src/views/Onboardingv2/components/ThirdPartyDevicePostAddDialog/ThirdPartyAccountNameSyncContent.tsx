@@ -2,10 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  ISelectItem,
-  ISizableTextProps,
-} from '@onekeyhq/components';
+import type { ISelectItem, ISizableTextProps } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
@@ -18,7 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/referralCode/type';
+import type { IThirdPartyAccountNameCandidate } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IAccountNameSyncSelection } from './migrationSelection';
@@ -111,27 +108,29 @@ function CandidateRow({
         alignItems="flex-end"
       >
         {hasChoice ? (
-          <Select
-            title={intl.formatMessage({
-              id: ETranslations.v4_select_account_name_label,
-            })}
-            items={selectItems}
-            value={selectedName}
-            onChange={(value: string) =>
-              onPickName(candidate.indexedAccountId, value)
-            }
-            floatingPanelProps={{ maxHeight: 272 }}
-            renderTrigger={() => (
-              <Button
-                size="small"
-                variant="tertiary"
-                iconAfter="ChevronDownSmallOutline"
-                disabled={!checked}
-              >
-                {selectedName}
-              </Button>
-            )}
-          />
+          <Stack onPress={(event) => event.stopPropagation()}>
+            <Select
+              title={intl.formatMessage({
+                id: ETranslations.v4_select_account_name_label,
+              })}
+              items={selectItems}
+              value={selectedName}
+              onChange={(value: string) =>
+                onPickName(candidate.indexedAccountId, value)
+              }
+              floatingPanelProps={{ maxHeight: 272 }}
+              renderTrigger={() => (
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  iconAfter="ChevronDownSmallOutline"
+                  disabled={!checked}
+                >
+                  {selectedName}
+                </Button>
+              )}
+            />
+          </Stack>
         ) : (
           <SizableText
             size="$bodyMd"
@@ -189,8 +188,7 @@ export function ThirdPartyAccountNameSyncContent({
   const checkedCount = candidates.filter(
     (candidate) => selection[candidate.indexedAccountId]?.checked,
   ).length;
-  // Mirrors NetworkListHeader: a partial selection counts as "on", so the
-  // button clears it rather than expanding it.
+  // Preserve the indeterminate visual state for a partial selection.
   const isAllSelected =
     checkedCount === 0
       ? false

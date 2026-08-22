@@ -6,8 +6,8 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IThirdPartyAccountNameCandidate,
   IThirdPartyAccountNameSourceStatus,
-  IThirdPartyHardwareRewardVendor,
-} from '@onekeyhq/shared/src/referralCode/type';
+  IThirdPartyAccountNameVendor,
+} from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
 import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -61,7 +61,7 @@ export interface IAccountNameSyncDialogOutcome {
 // review. Locale enum/generated files must not be edited by hand.
 export async function showThirdPartyAccountNameSyncDialog(params: {
   wallet: IDBWallet;
-  vendor: IThirdPartyHardwareRewardVendor;
+  vendor: IThirdPartyAccountNameVendor;
 }): Promise<IAccountNameSyncDialogOutcome> {
   const result = await createTimeoutPromise({
     asyncFunc: async () => {

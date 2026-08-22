@@ -50,6 +50,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   private connectorInitPromises = new Map<VendorType, Promise<IConnector>>();
 
+  private ledgerGenuineCheckRelayConfigured = false;
+
   // ---------------------------------------------------------------------------
   // Connector lifecycle (lazy init per vendor)
   // ---------------------------------------------------------------------------
@@ -206,7 +208,9 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   }): Promise<ConnectorCallResult> {
     const connector = await this.getConnector(params.vendor);
     const ownsOneShotLedgerRelay =
-      params.vendor === 'ledger' && params.method === 'getDeviceGenuineCheck';
+      params.vendor === 'ledger' &&
+      params.method === 'getDeviceGenuineCheck' &&
+      this.ledgerGenuineCheckRelayConfigured;
     try {
       return await connector.call(
         params.sessionId,
@@ -218,6 +222,7 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         // This offscreen document owns the long-lived DMK and relay
         // capability. Clear it locally before replying to the service worker;
         // SW teardown/configure messages are not a reliable security boundary.
+        this.ledgerGenuineCheckRelayConfigured = false;
         try {
           await connector.configure?.({
             ledgerGenuineCheckWebSocketUrl: undefined,
@@ -246,6 +251,9 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
+    if (params.vendor === 'ledger') {
+      this.ledgerGenuineCheckRelayConfigured = false;
+    }
     connector?.reset();
   }
 
@@ -255,6 +263,17 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   }): Promise<void> {
     const connector = await this.getConnector(params.vendor);
     await connector.configure?.(params.config);
+    if (
+      params.vendor === 'ledger' &&
+      Object.prototype.hasOwnProperty.call(
+        params.config,
+        'ledgerGenuineCheckWebSocketUrl',
+      )
+    ) {
+      this.ledgerGenuineCheckRelayConfigured = Boolean(
+        params.config.ledgerGenuineCheckWebSocketUrl,
+      );
+    }
   }
 
   /**

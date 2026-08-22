@@ -13,13 +13,13 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { showThirdPartyAccountNameSyncDialog } from '@onekeyhq/kit/src/views/Onboardingv2/components/ThirdPartyDevicePostAddDialog';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IThirdPartyAccountNameLocalAccount,
   IThirdPartyAccountNameSelectedDevice,
   IThirdPartyAccountNameSourceInventoryAccount,
   IThirdPartyAccountNameSourceStatus,
-} from '@onekeyhq/shared/src/referralCode/type';
+} from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ListItemGroup } from '../ListItemGroup';
@@ -318,7 +318,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
         throw new OneKeyLocalError('请重新连接设备后再执行设备验真。');
       }
       const result =
-        await backgroundApiProxy.serviceThirdPartyHardware.runLocalMockThirdPartyDeviceClaim(
+        await backgroundApiProxy.serviceThirdPartyDeviceReward.runLocalMockThirdPartyDeviceClaim(
           {
             vendor,
             connectId,
@@ -343,7 +343,11 @@ function DeviceSectionThirdPartyOnboardingDev() {
           vendor === EHardwareVendor.trezor
             ? `挑战值：${result.challengeHex}`
             : `本地领取随机数：${result.challengeHex}`,
-          `测试券码：${result.voucherCode}`,
+          `领取结果：${
+            result.status === 'issued' ? '首次签发' : '已领取，返回原券'
+          }`,
+          `测试券码：${result.voucher.code}`,
+          `券状态：${result.voucher.status}`,
           '',
           '这只是本地集成测试。正式环境必须由服务端发起或见证设备验真，验真通过后才能发放真实优惠券。',
         ].join('\n'),

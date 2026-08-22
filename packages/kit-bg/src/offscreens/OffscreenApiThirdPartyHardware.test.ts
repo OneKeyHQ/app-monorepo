@@ -123,6 +123,14 @@ describe('OffscreenApiThirdPartyHardware Trezor logging', () => {
   it('clears a one-shot Ledger relay locally before returning the result', async () => {
     const api = new OffscreenApiThirdPartyHardware();
 
+    await api.configure({
+      vendor: 'ledger',
+      config: {
+        ledgerGenuineCheckWebSocketUrl:
+          'wss://attestation.onekey.test/session/opaque',
+      },
+    });
+
     await expect(
       api.call({
         vendor: 'ledger',
@@ -143,6 +151,13 @@ describe('OffscreenApiThirdPartyHardware Trezor logging', () => {
 
   it('clears a one-shot Ledger relay locally when genuine check fails', async () => {
     const api = new OffscreenApiThirdPartyHardware();
+    await api.configure({
+      vendor: 'ledger',
+      config: {
+        ledgerGenuineCheckWebSocketUrl:
+          'wss://attestation.onekey.test/session/opaque',
+      },
+    });
     mockLedgerCall.mockRejectedValueOnce(new Error('relay disconnected'));
 
     await expect(
@@ -158,5 +173,19 @@ describe('OffscreenApiThirdPartyHardware Trezor logging', () => {
       ledgerGenuineCheckWebSocketUrl: undefined,
     });
     expect(mockLedgerReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the Ledger connector session after a default genuine check', async () => {
+    const api = new OffscreenApiThirdPartyHardware();
+
+    await api.call({
+      vendor: 'ledger',
+      sessionId: 'ledger-session',
+      method: 'getDeviceGenuineCheck',
+      callParams: {},
+    });
+
+    expect(mockLedgerConfigure).not.toHaveBeenCalled();
+    expect(mockLedgerReset).not.toHaveBeenCalled();
   });
 });

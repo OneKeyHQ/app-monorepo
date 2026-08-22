@@ -123,6 +123,7 @@ async function attachTrezorSuiteLocalLabels({
           );
         }
       } catch {
+        // A missing, stale, or undecryptable optional label is ignored.
       }
     }
     labelCache.set(cacheKey, label);
