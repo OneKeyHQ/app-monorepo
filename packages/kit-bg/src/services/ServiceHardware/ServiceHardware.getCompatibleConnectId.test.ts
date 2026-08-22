@@ -101,7 +101,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDeviceByQuery: jest.fn(),
     updateDeviceConnectId: jest.fn(),
-    cleanStaleDeviceConnectIdAliases: jest.fn(),
+    updateDeviceBleConnectIdAndCleanStaleAliases: jest.fn(),
   },
 }));
 
@@ -176,7 +176,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       isNativeAndroid: false,
     });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
-    mockedLocalDb.cleanStaleDeviceConnectIdAliases.mockResolvedValue([]);
+    mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mockResolvedValue(
+      { cleanedRecordIds: [] },
+    );
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
     mockedAxios.post.mockReset();
@@ -425,19 +427,22 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       }),
     ).resolves.toBe(liveBleConnectId);
 
-    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
-      [{ dbDeviceId: liveDevice.id, bleConnectId: liveBleConnectId }],
-    ]);
-    // The verified repair must retire the pre-wipe sibling's aliases so the
-    // next connectId-only lookup cannot fall back to the stale record.
-    expect(mockedLocalDb.cleanStaleDeviceConnectIdAliases.mock.calls).toEqual([
+    // The verified repair persists the binding and retires the pre-wipe
+    // sibling's aliases atomically so the next connectId-only lookup cannot
+    // fall back to the stale record, and a failed cleanup rolls back the
+    // binding so the repair stays retryable.
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
       [
         {
-          keepDbDeviceId: liveDevice.id,
+          dbDeviceId: liveDevice.id,
+          bleConnectId: liveBleConnectId,
           verifiedDeviceId: 'POST_WIPE_DEVICE_ID',
         },
       ],
     ]);
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toHaveLength(0);
   });
 
   it('falls back to the persisted USB connectId for an offline background task', async () => {
@@ -884,14 +889,21 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         }),
       }),
     );
-    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
-      [{ dbDeviceId: dbDevice.id, bleConnectId: liveBleConnectId }],
+    // The verified bind persists the binding and retires stale sibling
+    // aliases in ONE transaction — committing the binding alone would make
+    // a failed cleanup permanent (the bind path is never re-entered).
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
+      [
+        {
+          dbDeviceId: dbDevice.id,
+          bleConnectId: liveBleConnectId,
+          verifiedDeviceId: 'PRO2_DEVICE_ID',
+        },
+      ],
     ]);
-    // A verified silent bind also retires stale sibling aliases so the
-    // next connectId-only lookup resolves this record.
-    expect(mockedLocalDb.cleanStaleDeviceConnectIdAliases.mock.calls).toEqual([
-      [{ keepDbDeviceId: dbDevice.id, verifiedDeviceId: 'PRO2_DEVICE_ID' }],
-    ]);
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toHaveLength(0);
     expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
   });
 
@@ -965,7 +977,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect.objectContaining({ silentMode: true }),
     );
 
-    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([]);
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toHaveLength(0);
     expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(
       expect.objectContaining({
         device: dbDevice,
@@ -2581,7 +2595,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       transportType: 'ble',
     });
     expect(connect).not.toHaveBeenCalled();
-    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toHaveLength(0);
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toHaveLength(0);
   });
 
   it('persists only the verified Noble peripheral ID as bleConnectId', async () => {
@@ -2629,11 +2645,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
       hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
-    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
       [
         {
           dbDeviceId: 'db-pro2-device',
           bleConnectId,
+          verifiedDeviceId: 'PRO2_DEVICE_ID',
         },
       ],
     ]);

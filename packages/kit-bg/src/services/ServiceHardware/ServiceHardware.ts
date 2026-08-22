@@ -4366,18 +4366,13 @@ class ServiceHardware extends ServiceBase {
         });
 
         if (device) {
-          // Update device with BLE connectId using the dedicated function
-          await localDb.updateDeviceConnectId({
+          // The verified connect proves which record is live; the binding
+          // is persisted together with de-aliasing stale siblings (e.g.
+          // the pre-wipe record keeping the same USB serial) in one
+          // transaction, or the whole repair fails and retries.
+          await this.persistVerifiedBleConnectId({
             dbDeviceId: device.id,
             bleConnectId,
-          });
-
-          // The verified connect proves which record is live; a stale
-          // sibling (e.g. the pre-wipe record keeping the same USB serial)
-          // would otherwise keep winning connectId-only lookups and re-open
-          // this pairing dialog on every hardware call.
-          await this.cleanStaleDeviceConnectIdAliasesSafe({
-            keepDbDeviceId: device.id,
             verifiedDeviceId: expectedDeviceId,
           });
 
@@ -4475,30 +4470,33 @@ class ServiceHardware extends ServiceBase {
   }
 
   /**
-   * De-alias stale sibling device records after a BLE bind whose identity
-   * was just verified against the live device. Best-effort: the bind itself
-   * already succeeded, so cleanup failures must never surface to the caller.
+   * Persist a BLE binding whose device identity was just verified against
+   * the live device, atomically de-aliasing stale sibling records in the
+   * same transaction. Errors propagate on purpose: nothing is committed on
+   * failure, so the caller's bind path (pairing repair / silent bind) stays
+   * fully retryable — a binding committed without the cleanup would make
+   * the stale sibling shadow connectId-only lookups permanently.
    */
-  private async cleanStaleDeviceConnectIdAliasesSafe({
-    keepDbDeviceId,
+  private async persistVerifiedBleConnectId({
+    dbDeviceId,
+    bleConnectId,
     verifiedDeviceId,
   }: {
-    keepDbDeviceId: string;
+    dbDeviceId: string;
+    bleConnectId: string;
     verifiedDeviceId: string;
   }) {
-    try {
-      const cleanedIds = await localDb.cleanStaleDeviceConnectIdAliases({
-        keepDbDeviceId,
+    const { cleanedRecordIds } =
+      await localDb.updateDeviceBleConnectIdAndCleanStaleAliases({
+        dbDeviceId,
+        bleConnectId,
         verifiedDeviceId,
       });
-      if (cleanedIds.length) {
-        defaultLogger.hardware.sdkLog.log(
-          'cleanStaleDeviceConnectIdAliases: cleared stale sibling connect-id aliases',
-          JSON.stringify({ keepDbDeviceId, cleanedIds }),
-        );
-      }
-    } catch (error) {
-      console.error('cleanStaleDeviceConnectIdAliases failed:', error);
+    if (cleanedRecordIds.length) {
+      defaultLogger.hardware.sdkLog.log(
+        'persistVerifiedBleConnectId: cleared stale sibling connect-id aliases',
+        JSON.stringify({ dbDeviceId, cleanedRecordIds }),
+      );
     }
   }
 
@@ -4592,12 +4590,9 @@ class ServiceHardware extends ServiceBase {
       const probedDeviceId =
         connectResult?.deviceId || connectResult?.device_id || '';
       if (probedDeviceId && probedDeviceId === expectedDeviceId) {
-        await localDb.updateDeviceConnectId({
+        await this.persistVerifiedBleConnectId({
           dbDeviceId: device.id,
           bleConnectId: connectId,
-        });
-        await this.cleanStaleDeviceConnectIdAliasesSafe({
-          keepDbDeviceId: device.id,
           verifiedDeviceId: probedDeviceId,
         });
         return connectId;

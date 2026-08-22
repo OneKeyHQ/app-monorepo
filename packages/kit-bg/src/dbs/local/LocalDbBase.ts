@@ -5534,72 +5534,106 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   /**
-   * Clear connect-id aliases from same-vendor sibling records that provably
-   * belong to a different device identity (e.g. the record left behind by a
-   * device wipe keeps the serial-based connectId, wins connectId-only lookups
-   * over the live record, and re-triggers the desktop BLE pairing dialog on
-   * every hardware call). Call only with an identity that was verified
-   * against the live device moments ago. Returns the cleaned record ids.
+   * Atomically persist a verified BLE binding and clear connect-id aliases
+   * from same-vendor sibling records that provably belong to a different
+   * device identity (e.g. the record left behind by a device wipe keeps the
+   * serial-based connectId, wins connectId-only lookups over the live
+   * record, and re-triggers the desktop BLE pairing dialog on every
+   * hardware call).
+   *
+   * Binding and cleanup share ONE transaction on purpose: once a binding
+   * commits, identity-qualified lookups short-circuit on it and the bind
+   * paths that could re-run this cleanup are never entered again — a
+   * cleanup that failed after a committed binding would leave the stale
+   * sibling shadowing every connectId-only lookup permanently. A failure
+   * here rolls back both writes, so the next bind attempt retries the
+   * whole operation.
+   *
+   * Call only with an identity that was verified against the live device
+   * moments ago. Returns the cleaned sibling record ids.
    */
-  async cleanStaleDeviceConnectIdAliases({
-    keepDbDeviceId,
+  async updateDeviceBleConnectIdAndCleanStaleAliases({
+    dbDeviceId,
+    bleConnectId,
     verifiedDeviceId,
   }: {
-    keepDbDeviceId: string;
+    dbDeviceId: string;
+    bleConnectId: string;
     verifiedDeviceId: string;
-  }): Promise<string[]> {
-    if (!verifiedDeviceId) {
-      return [];
-    }
-    const keepDevice = await this.getDeviceSafe(keepDbDeviceId);
-    if (!keepDevice) {
-      return [];
-    }
-    const keepVendor = keepDevice.vendor ?? EHardwareVendor.onekey;
-    const aliases = collectDeviceConnectIdAliases(keepDevice);
-    const { devices } = await this.getAllDevices();
-    const staleRecordIds = devices
-      .filter(
-        (item) =>
-          (item.vendor ?? EHardwareVendor.onekey) === keepVendor &&
-          isStaleDeviceConnectIdAliasRecord({
-            candidate: item,
-            keepDbDeviceId,
-            verifiedDeviceId,
-            aliases,
-          }),
-      )
-      .map((item) => item.id);
-    if (!staleRecordIds.length) {
-      return [];
+  }): Promise<{ cleanedRecordIds: string[] }> {
+    const keepDevice = await this.getDeviceSafe(dbDeviceId);
+    // The binding is committed in the same transaction as the cleanup, so
+    // the alias set cannot be read back from the record — include the
+    // incoming bleConnectId explicitly.
+    const normalizedIncomingBleConnectId = bleConnectId.trim().toLowerCase();
+    const aliases = [
+      ...new Set([
+        ...(keepDevice ? collectDeviceConnectIdAliases(keepDevice) : []),
+        ...(normalizedIncomingBleConnectId
+          ? [normalizedIncomingBleConnectId]
+          : []),
+      ]),
+    ];
+    const keepVendor = keepDevice?.vendor ?? EHardwareVendor.onekey;
+    let staleRecordIds: string[] = [];
+    if (verifiedDeviceId) {
+      const { devices } = await this.getAllDevices();
+      staleRecordIds = devices
+        .filter(
+          (item) =>
+            (item.vendor ?? EHardwareVendor.onekey) === keepVendor &&
+            isStaleDeviceConnectIdAliasRecord({
+              candidate: item,
+              keepDbDeviceId: dbDeviceId,
+              verifiedDeviceId,
+              aliases,
+            }),
+        )
+        .map((item) => item.id);
     }
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
-        ids: staleRecordIds,
+        ids: [dbDeviceId],
         updater: async (item) => {
-          const collides = (value?: string | null) => {
-            const normalized = value?.trim().toLowerCase();
-            return Boolean(normalized && aliases.includes(normalized));
-          };
-          if (collides(item.connectId)) {
-            // connectId is a required column; an empty string removes the
-            // record from connectId-based lookups without a schema change.
-            item.connectId = '';
-          }
-          if (collides(item.usbConnectId)) {
-            item.usbConnectId = undefined;
-          }
-          if (collides(item.bleConnectId)) {
-            item.bleConnectId = undefined;
-          }
+          item.bleConnectId = bleConnectId;
           item.updatedAt = await this.timeNow();
           return item;
         },
       });
+      if (staleRecordIds.length) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: staleRecordIds,
+          updater: async (item) => {
+            const collides = (value?: string | null) => {
+              const normalized = value?.trim().toLowerCase();
+              return Boolean(normalized && aliases.includes(normalized));
+            };
+            if (collides(item.connectId)) {
+              // connectId is a required column; an empty string removes the
+              // record from connectId-based lookups without a schema change.
+              item.connectId = '';
+            }
+            if (collides(item.usbConnectId)) {
+              item.usbConnectId = undefined;
+            }
+            if (collides(item.bleConnectId)) {
+              item.bleConnectId = undefined;
+            }
+            item.updatedAt = await this.timeNow();
+            return item;
+          },
+        });
+      }
     });
-    return staleRecordIds;
+    // A concurrent read between the pre-commit cache clear and the commit
+    // can re-fill the record cache with pre-commit data; drop it again so
+    // the next connectId lookup sees the bound + cleaned state.
+    this.clearStoreCachedDataIfMatch(ELocalDBStoreNames.Device);
+    return { cleanedRecordIds: staleRecordIds };
   }
 
   async cleanDeviceConnectId({ dbDeviceId }: { dbDeviceId: string }) {
