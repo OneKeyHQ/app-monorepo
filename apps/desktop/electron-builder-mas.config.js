@@ -5,6 +5,33 @@ const {
   macExcludePrebuilds,
 } = require('./electron-builder-files.config');
 
+// Electron uses Chromium locale names; zh-HK shares the zh_TW resources.
+const masElectronLanguages = [
+  'bn',
+  'de',
+  'en',
+  'es',
+  'fr',
+  'hi',
+  'id',
+  'it',
+  'ja',
+  'ko',
+  'pt_BR',
+  'pt_PT',
+  'ru',
+  'th',
+  'uk',
+  'vi',
+  'zh_CN',
+  'zh_TW',
+];
+
+const masExcludedFiles = [
+  '!**/*.map',
+  '!build/static/images/icons/{512x512.icns,512x512@2x.png,background.tiff,dmg.icns,icon.icns,installerIcon.ico,installerSidebar.bmp}',
+];
+
 module.exports = {
   ...baseElectronBuilderConfig,
   'appId': 'so.onekey.wallet',
@@ -13,7 +40,8 @@ module.exports = {
     'sign': false,
   },
   'mac': {
-    'files': [...baseFiles, ...macExcludePrebuilds],
+    'files': [...baseFiles, ...macExcludePrebuilds, ...masExcludedFiles],
+    'electronLanguages': masElectronLanguages,
     'identity': null,
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
