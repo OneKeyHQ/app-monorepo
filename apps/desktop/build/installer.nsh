@@ -3,11 +3,24 @@
 
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
+!include "nsDialogs.nsh"
 !addplugindir /x86-unicode "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\plugin\x86-unicode"
 
 Var OneKeyModernUiActive
 Var OneKeyModernLocale
 Var OneKeyModernResult
+
+# Keep upgrades in their existing install scope and use per-user installs for
+# fresh setups. This makes electron-builder's native install-mode page skip
+# itself while preserving its elevation and registry handling.
+!macro customInstallMode
+  ${If} $hasPerMachineInstallation == "1"
+  ${AndIf} $hasPerUserInstallation == "0"
+    StrCpy $isForceMachineInstall "1"
+  ${Else}
+    StrCpy $isForceCurrentInstall "1"
+  ${EndIf}
+!macroend
 
 !macro OneKeyModernExtractTheme
   InitPluginsDir
@@ -91,7 +104,7 @@ Var OneKeyModernResult
 
 !else
 
-  !macro customPageAfterChangeDir
+  !macro customWelcomePage
     Page custom OneKeyModernInstallStart
   !macroend
 
@@ -105,6 +118,14 @@ Var OneKeyModernResult
     nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "ok"
+      nsis-duilib-ui::SetPage "welcome"
+      Pop $OneKeyModernResult
+    ${EndIf}
+    ${If} $OneKeyModernResult == "ok"
+      nsis-duilib-ui::SetInstallDirectory "$INSTDIR"
+      Pop $OneKeyModernResult
+    ${EndIf}
+    ${If} $OneKeyModernResult == "ok"
       nsis-duilib-ui::Show
       Pop $OneKeyModernResult
     ${EndIf}
@@ -116,7 +137,42 @@ Var OneKeyModernResult
       nsis-duilib-ui::Shutdown
       Pop $0
       ShowWindow $HWNDPARENT ${SW_SHOW}
+      Abort
     ${EndIf}
+
+  OneKeyModernWelcomeLoop:
+    nsis-duilib-ui::WaitForEvent
+    Pop $OneKeyModernResult
+    ${If} $OneKeyModernResult == "browse"
+      nsDialogs::SelectFolderDialog "$(^DirText)" "$INSTDIR"
+      Pop $0
+      ${If} $0 != ""
+        StrCpy $INSTDIR "$0"
+        nsis-duilib-ui::SetInstallDirectory "$INSTDIR"
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult != "ok"
+          Goto OneKeyModernInstallFallback
+        ${EndIf}
+      ${EndIf}
+      Goto OneKeyModernWelcomeLoop
+    ${ElseIf} $OneKeyModernResult == "primary"
+      nsis-duilib-ui::SetPage "installing"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        Abort
+      ${EndIf}
+      Goto OneKeyModernInstallFallback
+    ${Else}
+      nsis-duilib-ui::Shutdown
+      Pop $0
+      Quit
+    ${EndIf}
+
+  OneKeyModernInstallFallback:
+    nsis-duilib-ui::Shutdown
+    Pop $0
+    StrCpy $OneKeyModernUiActive "0"
+    ShowWindow $HWNDPARENT ${SW_SHOW}
     Abort
   FunctionEnd
 
