@@ -1,0 +1,14 @@
+diff --git a/node_modules/@react-native-async-storage/async-storage/android/src/main/java/com/asyncstorage/ReactDatabaseSupplier.java b/node_modules/@react-native-async-storage/async-storage/android/src/main/java/com/asyncstorage/ReactDatabaseSupplier.java
+index 6e6032c..172b917 100644
+--- a/node_modules/@react-native-async-storage/async-storage/android/src/main/java/com/asyncstorage/ReactDatabaseSupplier.java
++++ b/node_modules/@react-native-async-storage/async-storage/android/src/main/java/com/asyncstorage/ReactDatabaseSupplier.java
+@@ -39,7 +39,8 @@ public class ReactDatabaseSupplier extends SQLiteOpenHelper {
+ 
+     private Context mContext;
+     private @Nullable SQLiteDatabase mDb;
+-    private long mMaximumDatabaseSize = 6L * 1024L * 1024L;
++    // OneKey patch: Keep the Android AsyncStorage limit at 1 GB after BuildConfig support was removed.
++    private long mMaximumDatabaseSize = 1024L * 1024L * 1024L;
+ 
+     private ReactDatabaseSupplier(Context context) {
+         super(context, DATABASE_NAME, null, DATABASE_VERSION);
