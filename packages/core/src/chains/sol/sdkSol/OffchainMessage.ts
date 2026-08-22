@@ -10,6 +10,7 @@ import type {
   ICreateOffChainMessageV1Options,
   IOffChainMessageHeaderLegacy,
   IOffChainMessageHeaderStandard,
+  IOffChainMessageHeaderV1,
 } from '../types';
 
 // Max off-chain message length supported by Ledger
@@ -418,7 +419,10 @@ export class OffchainMessage {
 
   static detectOffChainMessageType(message: Uint8Array): {
     type: EOffChainMessageType;
-    header?: IOffChainMessageHeaderLegacy | IOffChainMessageHeaderStandard;
+    header?:
+      | IOffChainMessageHeaderLegacy
+      | IOffChainMessageHeaderStandard
+      | IOffChainMessageHeaderV1;
   } {
     const SIGNING_DOMAIN = new Uint8Array([
       0xff, 0x73, 0x6f, 0x6c, 0x61, 0x6e, 0x61, 0x20, 0x6f, 0x66, 0x66, 0x63,
@@ -443,7 +447,35 @@ export class OffchainMessage {
         const version = message[offset];
         offset += 1;
 
-        if (message.length >= offset + 32) {
+        // Version 1 replaces the whole version 0 preamble:
+        // signerCount(1) | signers(32 each) | content, no application domain, no format,
+        // no length prefix.
+        if (version === 1) {
+          const signersCount = message[offset];
+          const signersOffset = offset + 1;
+          const contentOffset = signersOffset + signersCount * 32;
+          // Content is trailing and must not be empty.
+          if (signersCount === 0 || message.length <= contentOffset) {
+            return { type: EOffChainMessageType.INVALID };
+          }
+          return {
+            type: EOffChainMessageType.V1,
+            header: {
+              version: 1,
+              signersCount,
+              requiredSigners: Array.from({ length: signersCount }, (_, i) =>
+                message.slice(
+                  signersOffset + i * 32,
+                  signersOffset + (i + 1) * 32,
+                ),
+              ),
+            },
+          };
+        }
+
+        // Version 0 only. Without this gate a newer version byte is parsed with the version 0
+        // layout and reported as STANDARD with fields read from the wrong offsets.
+        if (version === 0 && message.length >= offset + 32) {
           const applicationDomain = message.slice(offset, offset + 32);
           offset += 32;
 

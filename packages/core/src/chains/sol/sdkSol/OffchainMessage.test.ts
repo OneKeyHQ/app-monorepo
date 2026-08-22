@@ -226,6 +226,60 @@ describe('OffchainMessage.createOffChainMessage', () => {
     });
   });
 
+  describe('Version 1 Detection', () => {
+    const key = (fill: number) => new Uint8Array(32).fill(fill);
+
+    const detectV1 = (message: string, requiredSigners: Uint8Array[]) =>
+      OffchainMessage.detectOffChainMessageType(
+        OffchainMessage.createOffChainMessageV1Bytes({
+          message,
+          requiredSigners,
+        }),
+      );
+
+    it('should detect a version 1 message', () => {
+      const detected = detectV1(testMessage, [key(1), key(2)]);
+
+      expect(detected.type).toBe(EOffChainMessageType.V1);
+      expect(detected.header).toEqual({
+        version: 1,
+        signersCount: 2,
+        requiredSigners: [key(1), key(2)],
+      });
+    });
+
+    it('should not report a long version 1 message as standard', () => {
+      // A version 1 body long enough to satisfy the version 0 length checks used to be parsed
+      // with the version 0 layout, reporting signer bytes as the application domain.
+      expect(detectV1(` ${'a'.repeat(1100)}`, [key(1)]).type).toBe(
+        EOffChainMessageType.V1,
+      );
+    });
+
+    it('should reject a version 1 message without content', () => {
+      const preamble = OffchainMessage.createOffChainMessageV1Bytes({
+        message: 'x',
+        requiredSigners: [key(1)],
+      }).slice(0, -1);
+
+      expect(OffchainMessage.detectOffChainMessageType(preamble).type).toBe(
+        EOffChainMessageType.INVALID,
+      );
+    });
+
+    it('should not parse an unknown version with the version 0 layout', () => {
+      const bytes = OffchainMessage.createOffChainMessageV1Bytes({
+        message: testMessage,
+        requiredSigners: [key(1)],
+      });
+      bytes[16] = 2; // version byte
+
+      expect(OffchainMessage.detectOffChainMessageType(bytes).type).toBe(
+        EOffChainMessageType.INVALID,
+      );
+    });
+  });
+
   describe('Error Cases', () => {
     it('should throw on empty message', () => {
       expect(() =>
