@@ -4,13 +4,7 @@
 
 import type { ReactNode, SetStateAction } from 'react';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
@@ -542,7 +536,7 @@ describe('TradingViewNativeContainer', () => {
     expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(4);
   });
 
-  it('limits an over-cap persisted snapshot before rendering and persists it', async () => {
+  it('limits an over-cap snapshot without overwriting global preferences', () => {
     const activeSubIndicatorIds = new Set([
       'VOL',
       'MACD',
@@ -587,14 +581,22 @@ describe('TradingViewNativeContainer', () => {
     expect(
       chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
     ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI']);
-
-    await waitFor(() => {
-      expect(
-        mockPersistedIndicatorSettings?.subIndicators.filter(
-          (indicator) => indicator.active,
-        ),
-      ).toHaveLength(4);
-    });
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        activeIndicatorValues: Set<string>;
+      };
+    expect([...controlsProps.activeIndicatorValues]).toEqual([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+    ]);
+    expect(
+      mockInitialIndicatorSettings.subIndicators.filter(
+        (indicator) => indicator.active,
+      ),
+    ).toHaveLength(5);
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
 
   it('preserves a sub-indicator instance and settings when visibility changes', () => {

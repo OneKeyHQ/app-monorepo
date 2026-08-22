@@ -202,29 +202,6 @@ export const TradingViewNativeContainer = memo(
         ),
       [maxNativeSubIndicatorCount, normalizedStoredIndicatorSettings],
     );
-    useEffect(() => {
-      if (normalizedIndicatorSettings === normalizedStoredIndicatorSettings) {
-        return;
-      }
-
-      void setIndicatorSettings((currentSettings) => {
-        const normalizedCurrentSettings =
-          normalizeTradingViewNativeIndicatorSettings(currentSettings);
-        const limitedCurrentSettings =
-          limitTradingViewNativeSubIndicatorSettings(
-            normalizedCurrentSettings,
-            maxNativeSubIndicatorCount,
-          );
-        return limitedCurrentSettings === normalizedCurrentSettings
-          ? currentSettings
-          : limitedCurrentSettings;
-      });
-    }, [
-      maxNativeSubIndicatorCount,
-      normalizedIndicatorSettings,
-      normalizedStoredIndicatorSettings,
-      setIndicatorSettings,
-    ]);
     const indicatorSettingsValue = useMemo(
       () =>
         getTradingViewNativeIndicatorSettingsValue(normalizedIndicatorSettings),
