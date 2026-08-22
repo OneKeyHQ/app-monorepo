@@ -1,3 +1,4 @@
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { IDBFactory } from 'fake-indexeddb';
 
 import {
@@ -60,6 +61,7 @@ import type {
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
 
@@ -67,6 +69,8 @@ jest.setTimeout(120_000);
 
 function buildNoopSyncManager() {
   return {
+    buildSyncTargetByDBQuery: jest.fn(async () => ({})),
+    buildSyncKeyAndPayload: jest.fn(async () => undefined),
     buildExistingSyncItemsInfo: jest.fn(async () => ({
       existingSyncItems: {},
       newSyncItems: {},
@@ -101,7 +105,14 @@ class TestLocalDb extends LocalDbBase {
 
   credentials: IDBCredentialBase[] = [];
 
+  removedDeviceIds: string[] = [];
+
   addHDNextIndexedAccountCalls = 0;
+
+  buildCreateResultCalls: {
+    walletId: string;
+    withoutRefillWallet?: boolean;
+  }[] = [];
 
   constructor() {
     super();
@@ -243,6 +254,12 @@ class TestLocalDb extends LocalDbBase {
     return { ...wallet };
   }
 
+  override async getAllWallets(): Promise<{ wallets: IDBWallet[] }> {
+    return {
+      wallets: this.wallets.map((wallet) => ({ ...wallet })),
+    };
+  }
+
   override async getRecordsByIds<T extends ELocalDBStoreNames>({
     name,
     ids,
@@ -269,6 +286,16 @@ class TestLocalDb extends LocalDbBase {
   }: ILocalDBTxGetAllRecordsParams<T>): Promise<
     ILocalDBTxGetAllRecordsResult<T>
   > {
+    if (name === ELocalDBStoreNames.Wallet) {
+      const records = this.wallets.map((wallet) => ({ ...wallet }));
+      return {
+        records: records as ILocalDBTxGetAllRecordsResult<T>['records'],
+        recordPairs: records.map((record) => [
+          record,
+          null,
+        ]) as ILocalDBTxGetAllRecordsResult<T>['recordPairs'],
+      };
+    }
     if (name === ELocalDBStoreNames.Credential) {
       const records = this.credentials.map((credential) => ({
         ...credential,
@@ -335,11 +362,30 @@ class TestLocalDb extends LocalDbBase {
     return undefined;
   }
 
+  override async txRemoveRecords<T extends ELocalDBStoreNames>({
+    name,
+    ids = [],
+    recordPairs = [],
+  }: ILocalDBTxRemoveRecordsParams<T>): Promise<void> {
+    const targetIds = [...ids, ...recordPairs.map(([record]) => record.id)];
+    if (name === ELocalDBStoreNames.Wallet) {
+      this.wallets = this.wallets.filter(
+        (wallet) => !targetIds.includes(wallet.id),
+      );
+    }
+    if (name === ELocalDBStoreNames.Device) {
+      this.removedDeviceIds.push(...targetIds);
+    }
+  }
+
   override async buildCreateHDAndHWWalletResult({
     walletId,
+    withoutRefillWallet,
   }: {
     walletId: string;
+    withoutRefillWallet?: boolean;
   }) {
+    this.buildCreateResultCalls.push({ walletId, withoutRefillWallet });
     return {
       wallet: this.wallets.find((wallet) => wallet.id === walletId)!,
       indexedAccount: undefined,
@@ -492,6 +538,47 @@ async function buildLegacyLocalSecretEnvelopeVerifyString({
   });
 }
 
+describe('LocalDbBase.removeWallet hardware device lifecycle', () => {
+  const buildHardwareWallet = (): IDBWallet => ({
+    id: 'hw-wallet-1',
+    name: 'OneKey Pro 2',
+    type: 'hw',
+    backuped: true,
+    accounts: [],
+    nextIds: {},
+    associatedDevice: 'device-1',
+    walletNo: 1,
+  });
+
+  it('retains a mocked standard wallet as the hidden-wallet device proxy', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [buildHardwareWallet()];
+
+    await db.removeWallet({
+      walletId: 'hw-wallet-1',
+      isRemoveToMocked: true,
+    });
+
+    expect(db.wallets).toEqual([
+      expect.objectContaining({
+        id: 'hw-wallet-1',
+        isMocked: true,
+      }),
+    ]);
+    expect(db.removedDeviceIds).toEqual([]);
+  });
+
+  it('deletes the wallet and device record when the device is removed', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [buildHardwareWallet()];
+
+    await db.removeWallet({ walletId: 'hw-wallet-1' });
+
+    expect(db.wallets).toEqual([]);
+    expect(db.removedDeviceIds).toEqual(['device-1']);
+  });
+});
+
 describe('LocalDbBase.createHDWallet', () => {
   it('keeps nextHD stable while preserving unique walletNo for override wallet ids', async () => {
     const db = new TestLocalDb();
@@ -574,6 +661,74 @@ describe('LocalDbBase.createHDWallet', () => {
         layer.kind === adapter.kind ? adapter : undefined,
     });
     expect(innerCredential.credential).toBe(rs);
+  });
+});
+
+describe('LocalDbBase.createHwWallet', () => {
+  it('returns the persisted wallet before refill for label synchronization', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [
+      {
+        id: 'hw-device-db-1',
+        name: 'Previous device name',
+        type: 'hw',
+        backuped: true,
+        accounts: [],
+        nextIds: {},
+        associatedDevice: 'device-db-1',
+        walletNo: 1,
+      },
+    ];
+    jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+      dbDeviceId: 'device-db-1',
+      dbWalletId: 'hw-device-db-1',
+      deviceUUID: 'PRO2_SERIAL',
+      rawDeviceId: 'PRO2_DEVICE_ID',
+    });
+    jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+
+    const result = await db.createHwWallet({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_SERIAL',
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        name: 'Pro2 6136',
+      },
+      features: {
+        label: 'Current device name',
+        bleName: 'Pro2 6136',
+        deviceType: EDeviceType.Pro2,
+        deviceId: 'PRO2_DEVICE_ID',
+        serialNo: 'PRO2_SERIAL',
+      } as never,
+      deviceState: {
+        schemaVersion: 1,
+        revision: 1,
+        updatedAt: 1,
+        protocol: 'V2',
+        identity: {
+          deviceType: EDeviceType.Pro2,
+          firmwareType: EFirmwareType.Universal,
+          model: 'pro2',
+          vendor: 'onekey.so',
+          deviceId: 'PRO2_DEVICE_ID',
+          serialNo: 'PRO2_SERIAL',
+          label: 'Current device name',
+          bleName: 'Pro2 6136',
+        },
+        status: { mode: 'normal' },
+        settings: {},
+        versions: {},
+        capabilities: [],
+      } as never,
+    });
+
+    expect(result.wallet.name).toBe('Previous device name');
+    expect(db.buildCreateResultCalls.at(-1)).toEqual({
+      walletId: 'hw-device-db-1',
+      withoutRefillWallet: true,
+    });
   });
 });
 

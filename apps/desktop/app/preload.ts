@@ -8,8 +8,31 @@ import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/auth
 
 import { ipcMessageKeys } from './config';
 
+import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+
+const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
+const desktopBleConnectedOnlyScopes = new Map<string, Map<number, number>>();
+let desktopBleConnectedOnlyScopeId = 0;
+
+function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
+  const scopes = desktopBleConnectedOnlyScopes.get(uuid);
+  if (!scopes) {
+    return false;
+  }
+  const now = Date.now();
+  for (const [scopeId, expiresAt] of scopes) {
+    if (expiresAt <= now) {
+      scopes.delete(scopeId);
+    }
+  }
+  if (!scopes.size) {
+    desktopBleConnectedOnlyScopes.delete(uuid);
+    return false;
+  }
+  return true;
+}
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -19,6 +42,7 @@ export interface IVerifyUpdateParams {
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
+  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;
@@ -230,18 +254,49 @@ const desktopApi = {
   },
   // Desktop Bluetooth
   nobleBle: {
+    beginConnectedOnlyScope: (uuid: string) => {
+      desktopBleConnectedOnlyScopeId += 1;
+      const scopes = desktopBleConnectedOnlyScopes.get(uuid) ?? new Map();
+      scopes.set(
+        desktopBleConnectedOnlyScopeId,
+        Date.now() + DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS,
+      );
+      desktopBleConnectedOnlyScopes.set(uuid, scopes);
+      return desktopBleConnectedOnlyScopeId;
+    },
+    endConnectedOnlyScope: (uuid: string, scopeId: number) => {
+      const scopes = desktopBleConnectedOnlyScopes.get(uuid);
+      scopes?.delete(scopeId);
+      if (!scopes?.size) {
+        desktopBleConnectedOnlyScopes.delete(uuid);
+      }
+    },
     enumerate: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
+    stopScan: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
     getDevice: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
     connect: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+    release: (uuid: string, keepSession?: boolean) =>
+      ipcRenderer.invoke(
+        EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
+        uuid,
+        keepSession,
+      ),
     disconnect: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
     subscribe: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE, uuid),
     unsubscribe: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
+      isDesktopBleConnectedOnlyScopeActive(uuid)
+        ? Promise.resolve()
+        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
     write: (uuid: string, data: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_WRITE, uuid, data),
     cancelPairing: () =>
@@ -261,12 +316,33 @@ const desktopApi = {
         );
       };
     },
-    onDeviceDisconnected: (
-      callback: (device: { id: string; name: string }) => void,
-    ) => {
+    onMtuChanged: (callback: (device: { id: string; mtu: number }) => void) => {
       const subscription = (
         _: unknown,
-        device: { id: string; name: string },
+        device: { id: string; mtu: number },
+      ) => {
+        callback(device);
+      };
+      ipcRenderer.on(EOneKeyBleMessageKeys.NOBLE_BLE_MTU_CHANGED, subscription);
+      return () => {
+        ipcRenderer.removeListener(
+          EOneKeyBleMessageKeys.NOBLE_BLE_MTU_CHANGED,
+          subscription,
+        );
+      };
+    },
+    onDeviceDisconnected: (
+      callback: (device: {
+        id: string;
+        name: string;
+        reason?: EBleDisconnectReason;
+      }) => void,
+    ) => {
+      // Forward the payload whole so `reason` reaches the transport, which
+      // logs it. It does not gate what happens: every link drop is reported.
+      const subscription = (
+        _: unknown,
+        device: { id: string; name: string; reason?: EBleDisconnectReason },
       ) => {
         callback(device);
       };

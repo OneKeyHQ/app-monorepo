@@ -24,6 +24,18 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      void import('./ServiceFirmwareUpdate/FirmwareUpdateRuntime')
+        .then(({ firmwareArtifactAdapter }) =>
+          firmwareArtifactAdapter.sweepOrphans(),
+        )
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareArtifactOrphanSweep (FAILED)',
+            0,
+          );
+        });
+    }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
         void this.initDeferred();
@@ -61,6 +73,18 @@ class ServiceBootstrap extends ServiceBase {
       markIdentityRecoveryFailed();
       defaultLogger.app.bootstrap.initCriticalStep(
         'identityRecovery (FAILED)',
+        0,
+      );
+    }
+    try {
+      await this.timed(
+        'serviceHardware.migrateExistingDeviceConnectProtocols',
+        () =>
+          this.backgroundApi.serviceHardware.migrateExistingDeviceConnectProtocols(),
+      );
+    } catch (_error) {
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'hardwareConnectProtocolMigration (FAILED)',
         0,
       );
     }
@@ -146,6 +170,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        ),
+        timedDeferred('serviceHardwarePortfolioSync.init', async () =>
+          this.backgroundApi.serviceHardwarePortfolioSync.init(),
         ),
       ]);
     } catch (_error) {

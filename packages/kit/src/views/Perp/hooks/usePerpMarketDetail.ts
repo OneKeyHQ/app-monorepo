@@ -17,7 +17,7 @@ import type {
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import type { IMarketStockDetail } from '@onekeyhq/shared/types/marketV2';
 
-export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
+export type IPerpFundingHistoryRange = '24h' | '7d' | '30d' | '90d';
 
 export type IPerpResolvedMarketDetail = {
   assetMetaKey: string;
@@ -163,6 +163,9 @@ function getFundingRangeStart(range: IPerpFundingHistoryRange) {
   }
   if (range === '30d') {
     return now - 30 * 24 * 60 * 60 * 1000;
+  }
+  if (range === '90d') {
+    return now - 90 * 24 * 60 * 60 * 1000;
   }
   return now - 24 * 60 * 60 * 1000;
 }
