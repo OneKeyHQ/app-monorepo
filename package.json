@@ -193,7 +193,7 @@
     "@supabase/supabase-js": "^2.77.0",
     "@tamagui/animations-moti": "1.108.0",
     "@tamagui/config": "1.108.0",
-    "@tamagui/static": "1.108.0",
+    "@tamagui/static": "1.129.6",
     "@tamagui/themes": "1.108.0",
     "@tamagui/toast": "1.108.0",
     "@ungap/structured-clone": "^1.2.0",
