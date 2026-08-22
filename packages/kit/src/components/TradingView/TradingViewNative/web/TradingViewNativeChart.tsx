@@ -12,11 +12,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
-  TRADING_VIEW_NATIVE_CHART_DOWN_COLOR as CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
@@ -27,7 +26,6 @@ import {
 } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartWidth,
-  getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
 } from '../utils/chartLayout';
@@ -79,8 +77,10 @@ const ONEKEY_WATERMARK_URI =
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
+  currentPriceLabel: string;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
@@ -108,10 +108,12 @@ interface IPointerDragState {
 interface IDrawKLineChartOptions {
   candleIntervalSeconds: number;
   canvas: HTMLCanvasElement;
+  chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
   hasVolume: boolean;
   candleLabels: ITradingViewNativeCandleLabels;
+  currentPriceLabel: string;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
@@ -127,12 +129,16 @@ interface ICanvasPriceAxisLabels {
   widestPrice: string;
   widestSubIndicator: string;
   widestVolume: string;
+  yAxisVisible: boolean;
 }
 
 function getCanvasPriceAxisWidth(
   canvas: HTMLCanvasElement,
   labels: ICanvasPriceAxisLabels,
 ) {
+  if (!labels.yAxisVisible) {
+    return 0;
+  }
   const context = canvas.getContext('2d');
   if (!context) {
     return getTradingViewNativePriceAxisWidth({
@@ -165,10 +171,12 @@ function getCanvasChartWidth(
 function drawKLineChart({
   candleIntervalSeconds,
   canvas,
+  chartSettings,
   chartType,
   colors,
   hasVolume,
   candleLabels,
+  currentPriceLabel,
   indicatorSeries,
   points,
   priceAxisWidth,
@@ -198,6 +206,7 @@ function drawKLineChart({
 
   const scene = buildTradingViewNativeChartScene({
     candleIntervalSeconds,
+    chartSettings,
     chartType,
     crosshair: runtimeState.crosshair,
     hasVolume,
@@ -208,6 +217,7 @@ function drawKLineChart({
       return context.measureText(text).width;
     },
     candleLabels,
+    currentPriceLabel,
     points,
     priceAxisWidth,
     subIndicatorPanes,
@@ -227,11 +237,13 @@ function drawKLineChart({
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartSettings,
     chartType,
     hasVolume,
     indicatorSeries,
     initialRightOffset,
     isSwitchingInterval,
+    currentPriceLabel,
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
@@ -267,7 +279,9 @@ export const TradingViewNativeChart = memo(
     const pointCount = points.length;
     const priceAxisLabels = useMemo(
       () => ({
-        currentPrice: getTradingViewNativeCurrentPriceLabel(points),
+        currentPrice: chartSettings.options.latestPrice
+          ? currentPriceLabel
+          : '',
         widestIndicatorPrice:
           getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
         widestPrice: getTradingViewNativePriceAxisLabel(points),
@@ -276,16 +290,25 @@ export const TradingViewNativeChart = memo(
         widestVolume: hasVolume
           ? getTradingViewNativeVolumeAxisLabel(points)
           : '',
+        yAxisVisible: chartSettings.options.yAxis,
       }),
-      [hasVolume, indicatorSeries, points, subIndicatorPanes],
+      [
+        chartSettings.options.latestPrice,
+        chartSettings.options.yAxis,
+        currentPriceLabel,
+        hasVolume,
+        indicatorSeries,
+        points,
+        subIndicatorPanes,
+      ],
     );
     const previousLatestTimestampRef = useRef<number | undefined>(
       points[pointCount - 1]?.t,
     );
     const theme = useTheme();
     const themeName = useThemeName();
-    const background = theme.transparent.val;
-    const grid = theme.borderSubdued.val;
+    const background = chartSettings.background.colors[0];
+    const grid = chartSettings.grid.horizontalColor;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const watermarkOpacity =
@@ -344,17 +367,19 @@ export const TradingViewNativeChart = memo(
         drawKLineChart({
           candleIntervalSeconds,
           canvas,
+          chartSettings,
           chartType,
           colors: {
             axisText,
             background,
-            down: CHART_DOWN_COLOR,
+            down: chartSettings.candles.body.downColor,
             grid,
             line,
-            up: CHART_UP_COLOR,
+            up: chartSettings.candles.body.upColor,
           },
           hasVolume,
           candleLabels,
+          currentPriceLabel,
           indicatorSeries,
           points,
           priceAxisWidth,
@@ -368,7 +393,9 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        chartSettings,
         chartType,
+        currentPriceLabel,
         grid,
         hasVolume,
         indicatorSeries,
@@ -494,6 +521,17 @@ export const TradingViewNativeChart = memo(
     ]);
 
     useLayoutEffect(() => {
+      if (chartSettings.options.crossLine) {
+        return;
+      }
+
+      runtimeStateRef.current = reduceTradingViewNativeChartRuntime(
+        runtimeStateRef.current,
+        { type: 'crosshairHidden' },
+      );
+    }, [chartSettings.options.crossLine]);
+
+    useLayoutEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) {
         return undefined;
@@ -591,6 +629,9 @@ export const TradingViewNativeChart = memo(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
         const dragState = pointerDragStateRef.current;
         if (!dragState) {
+          if (!chartSettings.options.crossLine) {
+            return;
+          }
           const canvasRect = event.currentTarget.getBoundingClientRect();
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtimeStateRef.current,
@@ -640,7 +681,12 @@ export const TradingViewNativeChart = memo(
             : nextRuntimeState.viewport,
         );
       },
-      [pointCount, priceAxisLabels, renderChart],
+      [
+        chartSettings.options.crossLine,
+        pointCount,
+        priceAxisLabels,
+        renderChart,
+      ],
     );
 
     const handlePointerLeave = useCallback(() => {

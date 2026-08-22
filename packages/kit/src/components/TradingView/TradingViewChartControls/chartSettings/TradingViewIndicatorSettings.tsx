@@ -27,6 +27,8 @@ export type ITradingViewIndicatorSettingsProps = {
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewIndicatorSettingsValue;
   defaultValue?: ITradingViewIndicatorSettingsValue;
+  /** Creates the value used by Reset. */
+  createDefaultValue?: () => ITradingViewIndicatorSettingsValue;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
@@ -34,6 +36,8 @@ export type ITradingViewIndicatorSettingsProps = {
   onConfirm?: (
     value: ITradingViewIndicatorSettingsValue,
   ) => void | Promise<void>;
+  /** Called after the confirmed draft has been committed locally. */
+  onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
   onCancel?: () => void;
@@ -63,9 +67,11 @@ function reconcileActiveSubIndicatorOrder(
 export function TradingViewIndicatorSettings({
   value,
   defaultValue,
+  createDefaultValue = createTradingViewIndicatorSettingsValue,
   isSubmitting = false,
   onChange,
   onConfirm,
+  onConfirmSuccess,
   onConfirmError,
   onCancel,
   onClose,
@@ -93,7 +99,7 @@ export function TradingViewIndicatorSettings({
   ] = useSettingsDraftValue({
     value,
     defaultValue,
-    createDefaultValue: createTradingViewIndicatorSettingsValue,
+    createDefaultValue,
     onChange: handleSettingsChange,
   });
   const normalizedSettingsValue = useMemo(
@@ -143,9 +149,8 @@ export function TradingViewIndicatorSettings({
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
   const handleReset = useCallback(() => {
-    const nextValue = normalizeTradingViewActiveSubIndicators(
-      createTradingViewIndicatorSettingsValue(),
-    );
+    const nextValue =
+      normalizeTradingViewActiveSubIndicators(createDefaultValue());
     activeSubIndicatorOrderRef.current =
       reconcileActiveSubIndicatorOrder(nextValue);
     updateSettingsValue(() => nextValue);
@@ -161,7 +166,12 @@ export function TradingViewIndicatorSettings({
         ),
       );
     }
-  }, [selectedIndicatorId, selectedIndicatorScope, updateSettingsValue]);
+  }, [
+    createDefaultValue,
+    selectedIndicatorId,
+    selectedIndicatorScope,
+    updateSettingsValue,
+  ]);
 
   const handleToggleIndicator = useCallback(
     (indicatorId: string, active: boolean) => {
@@ -207,6 +217,7 @@ export function TradingViewIndicatorSettings({
       return;
     }
 
+    let didConfirm = false;
     setIsConfirming(true);
     try {
       if (normalizedSettingsValue !== settingsValue) {
@@ -214,10 +225,19 @@ export function TradingViewIndicatorSettings({
       }
       await onConfirm?.(normalizedSettingsValue);
       commitSettingsValue();
+      didConfirm = true;
     } catch (error) {
       onConfirmError?.(error);
     } finally {
       setIsConfirming(false);
+    }
+
+    if (didConfirm) {
+      try {
+        await onConfirmSuccess?.();
+      } catch (error) {
+        onConfirmError?.(error);
+      }
     }
   };
 
@@ -254,23 +274,39 @@ export function TradingViewIndicatorSettings({
       onToggleIndicator={handleToggleIndicator}
       onToggleLine={(lineId, enabled) => {
         updateSettingsValue((currentValue) =>
-          toggleTradingViewSettingsMockLine(currentValue, lineId, enabled),
+          toggleTradingViewSettingsMockLine(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            enabled,
+          ),
         );
       }}
       onLinePeriodChange={(lineId, period) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLinePeriod(currentValue, lineId, period),
+          updateTradingViewSettingsMockLinePeriod(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            period,
+          ),
         );
       }}
       onLineStyleChange={(lineId, style) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLineStyle(currentValue, lineId, style),
+          updateTradingViewSettingsMockLineStyle(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            style,
+          ),
         );
       }}
       onLineSecondaryStyleChange={(lineId, style) => {
         updateSettingsValue((currentValue) =>
           updateTradingViewSettingsMockLineSecondaryStyle(
             currentValue,
+            effectiveSelectedIndicatorId,
             lineId,
             style,
           ),
@@ -278,7 +314,12 @@ export function TradingViewIndicatorSettings({
       }}
       onLineColorChange={(lineId, color) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLineColor(currentValue, lineId, color),
+          updateTradingViewSettingsMockLineColor(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            color,
+          ),
         );
       }}
       onOpacityChange={(indicatorId, opacity) => {
@@ -304,6 +345,7 @@ export function TradingViewIndicatorSettings({
         updateSettingsValue((currentValue) =>
           updateTradingViewSettingsMockIndicatorParameter(
             currentValue,
+            effectiveSelectedIndicatorId,
             parameterId,
             nextValue,
           ),

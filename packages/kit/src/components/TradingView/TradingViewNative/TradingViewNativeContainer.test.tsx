@@ -100,10 +100,45 @@ jest.mock('@onekeyhq/components', () => ({
     <span>{children}</span>
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  useTheme: () => ({
+    amber9: { val: '#amber9' },
+    bgApp: { val: '#bgApp' },
+    bgSubdued: { val: '#bgSubdued' },
+    blue3: { val: '#blue3' },
+    blue9: { val: '#blue9' },
+    borderSubdued: { val: '#borderSubdued' },
+    brand9: { val: '#brand9' },
+    cyan9: { val: '#cyan9' },
+    green6: { val: '#green6' },
+    green9: { val: '#green9' },
+    neutral9: { val: '#neutral9' },
+    orange9: { val: '#orange9' },
+    pink9: { val: '#pink9' },
+    purple9: { val: '#purple9' },
+    red6: { val: '#red6' },
+    red9: { val: '#red9' },
+    textSubdued: { val: '#textSubdued' },
+  }),
   YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
     <div data-testid={testID}>{children}</div>
   ),
 }));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const tradingViewNative = jest.requireActual<
+    typeof import('@onekeyhq/shared/types/tradingViewNative')
+  >('@onekeyhq/shared/types/tradingViewNative');
+
+  return {
+    useMarketTradingViewChartSettingsPersistAtom: () =>
+      React.useState(tradingViewNative.createTradingViewNativeChartSettings),
+    useMarketTradingViewIndicatorSettingsPersistAtom: () =>
+      React.useState(
+        tradingViewNative.createTradingViewNativeIndicatorSettings,
+      ),
+  };
+});
 
 jest.mock('./data/useTradingViewNativeKLine', () => ({
   useTradingViewNativeKLine: (params: {
@@ -292,9 +327,9 @@ describe('TradingViewNativeContainer', () => {
       indicatorSeries: Array<{ key: string }>;
     };
     expect(chartProps.indicatorSeries.map(({ key }) => key)).toEqual([
-      'ema-5',
-      'ema-10',
-      'ema-20',
+      'ema-1',
+      'ema-2',
+      'ema-3',
     ]);
   });
 
@@ -446,9 +481,9 @@ describe('TradingViewNativeContainer', () => {
       indicatorSeries: Array<{ key: string }>;
     };
     expect(cappedChartProps.indicatorSeries.map(({ key }) => key)).toEqual([
-      'ema-5',
-      'ema-10',
-      'ema-20',
+      'ema-1',
+      'ema-2',
+      'ema-3',
     ]);
 
     act(() => {

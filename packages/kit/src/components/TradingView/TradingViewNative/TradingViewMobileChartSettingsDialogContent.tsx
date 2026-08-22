@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,24 +11,18 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { createTradingViewChartSettingsValue } from '../TradingViewChartControls/chartSettings';
-
-import type { ITradingViewChartSettingsOptions } from '../TradingViewChartControls/chartSettings/TradingViewSettingsMockState';
+import type { ITradingViewNativeChartSettingsOptions } from '@onekeyhq/shared/types/tradingViewNative';
 
 type IQuickSettingOptions = Pick<
-  ITradingViewChartSettingsOptions,
-  'countdown' | 'futureEvents' | 'pastEvents'
-> & {
-  yAxis: boolean;
-};
+  ITradingViewNativeChartSettingsOptions,
+  'yAxis' | 'countdown'
+>;
 
 const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
   'yAxis',
   'countdown',
-  'futureEvents',
-  'pastEvents',
 ];
 
 const OPTION_TRANSLATION_IDS: Record<
@@ -37,8 +31,6 @@ const OPTION_TRANSLATION_IDS: Record<
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
   countdown: ETranslations.market_chart_settings__countdown,
-  futureEvents: ETranslations.market_chart_settings__upcoming_events,
-  pastEvents: ETranslations.market_chart_settings__past_events,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
@@ -97,15 +89,8 @@ export function TradingViewMobileChartSettingsDialogContent({
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [options, setOptions] = useState<IQuickSettingOptions>(() => {
-    const defaultOptions = createTradingViewChartSettingsValue().options;
-    return {
-      yAxis: true,
-      countdown: defaultOptions.countdown,
-      futureEvents: defaultOptions.futureEvents,
-      pastEvents: defaultOptions.pastEvents,
-    };
-  });
+  const [settings, setSettings] =
+    useMarketTradingViewChartSettingsPersistAtom();
 
   const handleOpenSettings = useCallback(async () => {
     await dialog.close();
@@ -114,12 +99,15 @@ export function TradingViewMobileChartSettingsDialogContent({
 
   const handleOptionChange = useCallback(
     (key: keyof IQuickSettingOptions, value: boolean) => {
-      setOptions((currentOptions) => ({
-        ...currentOptions,
-        [key]: value,
+      setSettings((currentSettings) => ({
+        ...currentSettings,
+        options: {
+          ...currentSettings.options,
+          [key]: value,
+        },
       }));
     },
-    [],
+    [setSettings],
   );
 
   return (
@@ -141,7 +129,7 @@ export function TradingViewMobileChartSettingsDialogContent({
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS[option],
               })}
-              value={options[option]}
+              value={settings.options[option]}
               onChange={(value) => handleOptionChange(option, value)}
             />
           ))}

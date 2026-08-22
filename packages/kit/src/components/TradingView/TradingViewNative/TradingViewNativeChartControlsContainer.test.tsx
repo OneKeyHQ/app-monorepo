@@ -6,6 +6,9 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
+import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/indicatorCatalog';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subIndicatorTypes';
@@ -16,13 +19,21 @@ type IMockIndicatorListProps = {
 };
 
 type IMockDialogConfig = {
-  renderContent: ReactElement<IMockIndicatorListProps>;
+  renderContent: ReactElement<
+    IMockIndicatorListProps & Record<string, unknown>
+  >;
   testID?: string;
 };
 
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
+const defaultIndicatorSettingsProps = {
+  indicatorSettingsValue: getTradingViewNativeIndicatorSettingsValue(
+    createTradingViewNativeIndicatorSettings(),
+  ),
+  onIndicatorSettingsConfirm: jest.fn(),
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -57,6 +68,7 @@ describe('TradingViewNative chart controls', () => {
   it('exposes intervals and the implemented indicators in mobile layout', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         onIndicatorChange={jest.fn()}
@@ -99,6 +111,7 @@ describe('TradingViewNative chart controls', () => {
   it('keeps chart settings hidden in desktop layout without an opt-in', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
@@ -117,6 +130,7 @@ describe('TradingViewNative chart controls', () => {
   it('opens chart settings from opted-in desktop controls', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         enableNativeChartSettings
         intervalConfig={{ activeInterval: '60', intervals: [] }}
@@ -147,6 +161,7 @@ describe('TradingViewNative chart controls', () => {
     const handleCalendarPanelSubmit = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         calendarAvailableTimeRange={{ from: 100 }}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
@@ -172,6 +187,7 @@ describe('TradingViewNative chart controls', () => {
     const handleChartSwitch = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isChartSwitchDisabled
@@ -193,32 +209,66 @@ describe('TradingViewNative chart controls', () => {
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles indicators directly from the desktop popover', () => {
-    const handleIndicatorChange = jest.fn();
+  it('opens and confirms the persisted indicator settings dialog on desktop', async () => {
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
-        onIndicatorChange={handleIndicatorChange}
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
     );
 
     const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
-      onIndicatorPress: (indicator: { label: string; value: string }) => void;
+      onShowIndicatorsDialog: () => void;
       showIndicatorPopover: boolean;
     };
-    expect(controlsProps.showIndicatorPopover).toBe(true);
+    expect(controlsProps.showIndicatorPopover).toBe(false);
+    controlsProps.onShowIndicatorsDialog();
 
-    controlsProps.onIndicatorPress({ label: 'RSI', value: 'RSI' });
-    expect(handleIndicatorChange).toHaveBeenCalledWith('RSI', true);
+    expect(mockDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showFooter: false,
+        showHeader: false,
+        testID: 'trading-view-native-indicator-settings-dialog',
+      }),
+    );
+    const dialogContent = mockDialogShow.mock.calls[0][0]
+      .renderContent as unknown as ReactElement<{
+      createDefaultValue: () => ReturnType<
+        typeof getTradingViewNativeIndicatorSettingsValue
+      >;
+      onConfirm: (
+        value: ReturnType<typeof getTradingViewNativeIndicatorSettingsValue>,
+      ) => Promise<void>;
+    }>;
+    const resetValue = dialogContent.props.createDefaultValue();
+    const ma = resetValue.indicators.find((indicator) => indicator.id === 'MA');
+    expect(ma).toBeDefined();
+    if (ma) {
+      ma.active = true;
+    }
+
+    await dialogContent.props.onConfirm(resetValue);
+
+    expect(
+      defaultIndicatorSettingsProps.onIndicatorSettingsConfirm,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mainIndicators: expect.arrayContaining([
+          expect.objectContaining({ active: true, id: 'MA' }),
+        ]),
+      }),
+    );
   });
 
   it('selects subpane indicators from the mobile dialog', () => {
     const handleIndicatorChange = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         onIndicatorChange={handleIndicatorChange}
@@ -245,6 +295,7 @@ describe('TradingViewNative chart controls', () => {
   it('forwards the sub-indicator cap to the dialog and popover controls', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         maxNativeSubIndicatorCount={4}
@@ -270,6 +321,7 @@ describe('TradingViewNative chart controls', () => {
     const fullscreenHeader = <div>Token info</div>;
     const { rerender } = render(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isFullscreen={false}
@@ -297,6 +349,7 @@ describe('TradingViewNative chart controls', () => {
 
     rerender(
       <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isFullscreen

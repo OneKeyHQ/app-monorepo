@@ -9,6 +9,12 @@ import {
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+
+import {
+  resolveTradingViewSettingsThemeColor,
+  useTradingViewSettingsThemeColors,
+} from './TradingViewSettingsThemeColors';
 
 export const OKX_CHART_BG = '$bg';
 export const OKX_CHART_SIDE_ACTIVE_BG = '$bgActive';
@@ -16,8 +22,8 @@ export const OKX_CHART_BORDER = '$borderSubdued';
 export const OKX_CHART_DIVIDER = '$borderSubdued';
 export const OKX_CHART_TEXT = '$text';
 export const OKX_CHART_TEXT_SUBDUED = '$textSubdued';
-export const OKX_CHART_UP = '#219D46';
-export const OKX_CHART_DOWN = '#C33759';
+export const OKX_CHART_UP = TRADING_VIEW_NATIVE_THEME_COLORS.positive;
+export const OKX_CHART_DOWN = TRADING_VIEW_NATIVE_THEME_COLORS.negative;
 export const OKX_CHART_SELECT_BG = '$bgStrong';
 export const OKX_CHART_SELECT_BORDER = '$borderSubdued';
 export const OKX_LINE_PREVIEW_DASHES = [0, 1, 2, 3, 4, 5];
@@ -152,99 +158,31 @@ export function OkxChartSelectMock({
   );
 }
 
-const OKX_COLOR_PALETTE = [
-  [
-    '#FFFFFF',
-    '#F02F3C',
-    '#FF8D00',
-    '#FFE834',
-    '#43A646',
-    '#088E76',
-    '#00B4CE',
-    '#2457FF',
-    '#5C33AE',
-    '#9123A7',
-    '#E61C58',
-  ],
-  [
-    '#CCCED7',
-    '#FCC4C6',
-    '#FFDBA8',
-    '#FFF8BC',
-    '#C1E2C2',
-    '#A2E1D7',
-    '#A9E8F0',
-    '#B3D4FA',
-    '#CBBCE6',
-    '#DDB6E3',
-    '#F7B3CA',
-  ],
-  [
-    '#9FA2AC',
-    '#F9979A',
-    '#FFC575',
-    '#FFF392',
-    '#9BD09D',
-    '#66C5B5',
-    '#76D9E7',
-    '#85B7F8',
-    '#AA92D6',
-    '#C788D2',
-    '#F284A8',
-  ],
-  [
-    '#62656F',
-    '#F67175',
-    '#FFAE44',
-    '#FFEE6B',
-    '#76C079',
-    '#3BB59F',
-    '#45CADD',
-    '#5191F5',
-    '#8A6AC6',
-    '#B15DC1',
-    '#EE5788',
-  ],
-  [
-    '#34363E',
-    '#F74855',
-    '#FF9D22',
-    '#FFEB4E',
-    '#5BB35F',
-    '#20A189',
-    '#23BFD5',
-    '#2C6EF3',
-    '#734DBA',
-    '#A13EB4',
-    '#E9386F',
-  ],
-  [
-    '#252932',
-    '#A9242D',
-    '#F27206',
-    '#FAB828',
-    '#318335',
-    '#0B5B4C',
-    '#008C9D',
-    '#183FC5',
-    '#47289E',
-    '#701C98',
-    '#BA1751',
-  ],
-  [
-    '#000000',
-    '#751920',
-    '#E24600',
-    '#F37416',
-    '#19531D',
-    '#042D25',
-    '#075559',
-    '#0F2C8E',
-    '#2B1A87',
-    '#411481',
-    '#7C1046',
-  ],
-];
+export const TRADING_VIEW_SETTINGS_COLOR_PALETTE = [
+  TRADING_VIEW_NATIVE_THEME_COLORS.background,
+  TRADING_VIEW_NATIVE_THEME_COLORS.backgroundSubdued,
+  TRADING_VIEW_NATIVE_THEME_COLORS.band,
+  TRADING_VIEW_NATIVE_THEME_COLORS.crosshair,
+  TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+  TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
+  TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+  TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimarySubdued,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.warning,
+  TRADING_VIEW_NATIVE_THEME_COLORS.brand,
+  TRADING_VIEW_NATIVE_THEME_COLORS.grid,
+] as const;
+
+const OKX_COLOR_PALETTE = Array.from(
+  { length: Math.ceil(TRADING_VIEW_SETTINGS_COLOR_PALETTE.length / 11) },
+  (_, index) =>
+    TRADING_VIEW_SETTINGS_COLOR_PALETTE.slice(index * 11, index * 11 + 11),
+);
 
 type ISettingsValueUpdater<TValue> = (currentValue: TValue) => TValue;
 
@@ -363,7 +301,12 @@ export function OkxChartColorPicker({
   onChange: (value: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const themeColors = useTradingViewSettingsThemeColors();
   const themeName = useThemeName();
+  const resolvedValue = resolveTradingViewSettingsThemeColor(
+    value,
+    themeColors,
+  );
   const checkerColor =
     themeName === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
   let popoverPlacement: 'bottom-end' | 'bottom-start' | 'top-end' | 'top-start';
@@ -416,7 +359,7 @@ export function OkxChartColorPicker({
             style={
               pattern === 'checker'
                 ? {
-                    background: `repeating-conic-gradient(${value} 0% 25%, ${checkerColor} 0% 50%) 50% / 6px 6px`,
+                    background: `repeating-conic-gradient(${resolvedValue} 0% 25%, ${checkerColor} 0% 50%) 50% / 6px 6px`,
                   }
                 : undefined
             }
@@ -491,7 +434,11 @@ export function OkxChartColorPalette({
                   right={0}
                   bottom={0}
                   left={0}
-                  borderWidth={color === '#000000' ? 1 : 0}
+                  borderWidth={
+                    color === TRADING_VIEW_NATIVE_THEME_COLORS.background
+                      ? 1
+                      : 0
+                  }
                   borderColor="$borderStrong"
                   bg={color}
                 />

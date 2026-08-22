@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   ScrollView,
@@ -8,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS } from './TradingViewSettingsMockState';
 import {
@@ -39,13 +42,21 @@ export function OkxIndicatorScopeTabs({
   indicators: ITradingViewSettingsMockIndicator[];
   onChange: (value: ITradingViewSettingsMockIndicatorScope) => void;
 }) {
+  const intl = useIntl();
   const activeSubIndicatorCount = indicators.filter(
     (indicator) => indicator.scope === 'sub' && indicator.active,
   ).length;
   const tabs = [
-    { label: '主图指标', value: 'main' as const },
     {
-      label: `副图指标 (${activeSubIndicatorCount}/${TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS})`,
+      label: intl.formatMessage({
+        id: ETranslations.market_main_chart_indicators,
+      }),
+      value: 'main' as const,
+    },
+    {
+      label: `${intl.formatMessage({
+        id: ETranslations.market_sub_chart_indicators,
+      })} (${activeSubIndicatorCount}/${TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS})`,
       value: 'sub' as const,
     },
   ];
