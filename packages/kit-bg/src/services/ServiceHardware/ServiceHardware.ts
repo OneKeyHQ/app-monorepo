@@ -4372,6 +4372,15 @@ class ServiceHardware extends ServiceBase {
             bleConnectId,
           });
 
+          // The verified connect proves which record is live; a stale
+          // sibling (e.g. the pre-wipe record keeping the same USB serial)
+          // would otherwise keep winning connectId-only lookups and re-open
+          // this pairing dialog on every hardware call.
+          await this.cleanStaleDeviceConnectIdAliasesSafe({
+            keepDbDeviceId: device.id,
+            verifiedDeviceId: expectedDeviceId,
+          });
+
           return bleConnectId;
         }
       }
@@ -4463,6 +4472,34 @@ class ServiceHardware extends ServiceBase {
       stampedAt !== undefined &&
       Date.now() - stampedAt <= LIVE_CONNECT_ID_EVIDENCE_WINDOW_MS
     );
+  }
+
+  /**
+   * De-alias stale sibling device records after a BLE bind whose identity
+   * was just verified against the live device. Best-effort: the bind itself
+   * already succeeded, so cleanup failures must never surface to the caller.
+   */
+  private async cleanStaleDeviceConnectIdAliasesSafe({
+    keepDbDeviceId,
+    verifiedDeviceId,
+  }: {
+    keepDbDeviceId: string;
+    verifiedDeviceId: string;
+  }) {
+    try {
+      const cleanedIds = await localDb.cleanStaleDeviceConnectIdAliases({
+        keepDbDeviceId,
+        verifiedDeviceId,
+      });
+      if (cleanedIds.length) {
+        defaultLogger.hardware.sdkLog.log(
+          'cleanStaleDeviceConnectIdAliases: cleared stale sibling connect-id aliases',
+          JSON.stringify({ keepDbDeviceId, cleanedIds }),
+        );
+      }
+    } catch (error) {
+      console.error('cleanStaleDeviceConnectIdAliases failed:', error);
+    }
   }
 
   /**
@@ -4559,6 +4596,10 @@ class ServiceHardware extends ServiceBase {
           dbDeviceId: device.id,
           bleConnectId: connectId,
         });
+        await this.cleanStaleDeviceConnectIdAliasesSafe({
+          keepDbDeviceId: device.id,
+          verifiedDeviceId: probedDeviceId,
+        });
         return connectId;
       }
     } catch (error) {
@@ -4597,9 +4638,24 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // A transport connect ID is already a precise device key. Do not let stale
-    // device info or legacy feature projections veto a valid USB/BLE ID match.
-    let device = await localDb.getDeviceByQuery({ connectId, vendor });
+    // A transport connect ID is a precise device key only while it is unique:
+    // a device wipe keeps the serial-based connectId on the stale record, so
+    // an identity-qualified match must win over the connectId-only match —
+    // otherwise reads resolve the stale record (no bleConnectId → pairing
+    // dialog) while BLE repairs write to the live one, looping forever. Stale
+    // device info must still never veto a valid USB/BLE ID match, hence the
+    // connectId-only fallback.
+    let device: IDBDevice | undefined;
+    if (featuresDeviceId) {
+      device = await localDb.getDeviceByQuery({
+        connectId,
+        featuresDeviceId,
+        vendor,
+      });
+    }
+    if (!device) {
+      device = await localDb.getDeviceByQuery({ connectId, vendor });
+    }
     if (!device && featuresDeviceId) {
       device = await localDb.getDeviceByQuery({
         featuresDeviceId,

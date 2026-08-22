@@ -407,6 +407,60 @@ export function buildTrezorDesktopBleUsbConnectId({
   return undefined;
 }
 
+/**
+ * Collect the normalized connect-id aliases persisted on a device record.
+ * connectId/usbConnectId/bleConnectId all participate in connectId-based
+ * lookups, so any of them can shadow another record.
+ */
+export function collectDeviceConnectIdAliases(device: {
+  connectId?: string | null;
+  usbConnectId?: string | null;
+  bleConnectId?: string | null;
+}): string[] {
+  return [device.connectId, device.usbConnectId, device.bleConnectId]
+    .map((value) => value?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value));
+}
+
+/**
+ * A sibling record holds stale connect-id aliases when it provably belongs to
+ * a different device identity yet still shares a connect-id alias with the
+ * live record — e.g. after a device wipe the leftover record keeps the
+ * serial-based connectId and shadows the new record in connectId-only
+ * lookups. A record without a persisted deviceId may still be this same
+ * physical device (legacy data), so it is never treated as stale.
+ */
+export function isStaleDeviceConnectIdAliasRecord({
+  candidate,
+  keepDbDeviceId,
+  verifiedDeviceId,
+  aliases,
+}: {
+  candidate: {
+    id: string;
+    deviceId?: string | null;
+    connectId?: string | null;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+  };
+  keepDbDeviceId: string;
+  verifiedDeviceId: string;
+  aliases: string[];
+}): boolean {
+  if (!verifiedDeviceId || !aliases.length) {
+    return false;
+  }
+  if (candidate.id === keepDbDeviceId) {
+    return false;
+  }
+  if (!candidate.deviceId || candidate.deviceId === verifiedDeviceId) {
+    return false;
+  }
+  return collectDeviceConnectIdAliases(candidate).some((alias) =>
+    aliases.includes(alias),
+  );
+}
+
 /** Select the BLE endpoint persisted during wallet creation using x-branch semantics. */
 export function resolveBleConnectIdForCreate({
   connectId,
@@ -5477,6 +5531,75 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
     });
+  }
+
+  /**
+   * Clear connect-id aliases from same-vendor sibling records that provably
+   * belong to a different device identity (e.g. the record left behind by a
+   * device wipe keeps the serial-based connectId, wins connectId-only lookups
+   * over the live record, and re-triggers the desktop BLE pairing dialog on
+   * every hardware call). Call only with an identity that was verified
+   * against the live device moments ago. Returns the cleaned record ids.
+   */
+  async cleanStaleDeviceConnectIdAliases({
+    keepDbDeviceId,
+    verifiedDeviceId,
+  }: {
+    keepDbDeviceId: string;
+    verifiedDeviceId: string;
+  }): Promise<string[]> {
+    if (!verifiedDeviceId) {
+      return [];
+    }
+    const keepDevice = await this.getDeviceSafe(keepDbDeviceId);
+    if (!keepDevice) {
+      return [];
+    }
+    const keepVendor = keepDevice.vendor ?? EHardwareVendor.onekey;
+    const aliases = collectDeviceConnectIdAliases(keepDevice);
+    const { devices } = await this.getAllDevices();
+    const staleRecordIds = devices
+      .filter(
+        (item) =>
+          (item.vendor ?? EHardwareVendor.onekey) === keepVendor &&
+          isStaleDeviceConnectIdAliasRecord({
+            candidate: item,
+            keepDbDeviceId,
+            verifiedDeviceId,
+            aliases,
+          }),
+      )
+      .map((item) => item.id);
+    if (!staleRecordIds.length) {
+      return [];
+    }
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: staleRecordIds,
+        updater: async (item) => {
+          const collides = (value?: string | null) => {
+            const normalized = value?.trim().toLowerCase();
+            return Boolean(normalized && aliases.includes(normalized));
+          };
+          if (collides(item.connectId)) {
+            // connectId is a required column; an empty string removes the
+            // record from connectId-based lookups without a schema change.
+            item.connectId = '';
+          }
+          if (collides(item.usbConnectId)) {
+            item.usbConnectId = undefined;
+          }
+          if (collides(item.bleConnectId)) {
+            item.bleConnectId = undefined;
+          }
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+    return staleRecordIds;
   }
 
   async cleanDeviceConnectId({ dbDeviceId }: { dbDeviceId: string }) {

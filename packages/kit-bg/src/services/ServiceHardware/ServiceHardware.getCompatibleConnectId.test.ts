@@ -101,6 +101,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDeviceByQuery: jest.fn(),
     updateDeviceConnectId: jest.fn(),
+    cleanStaleDeviceConnectIdAliases: jest.fn(),
   },
 }));
 
@@ -175,6 +176,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       isNativeAndroid: false,
     });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    mockedLocalDb.cleanStaleDeviceConnectIdAliases.mockResolvedValue([]);
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
     mockedAxios.post.mockReset();
@@ -206,7 +208,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         isNative: true,
         isNativeAndroid,
       });
-      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      const dbDevice = {
         id: 'db-pro2-device',
         connectId: 'PRB09B0088A',
         usbConnectId: 'PRB09B0088A',
@@ -218,7 +220,15 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         settingsRaw: '{}',
         createdAt: 0,
         updatedAt: 0,
-      } as IDBDevice);
+      } as IDBDevice;
+      // The stale featuresDeviceId matches no record, so the
+      // identity-qualified lookup misses and the connectId-only
+      // fallback must still resolve the record.
+      mockedLocalDb.getDeviceByQuery.mockImplementation(async (query) =>
+        query.featuresDeviceId && query.featuresDeviceId !== dbDevice.deviceId
+          ? undefined
+          : dbDevice,
+      );
 
       await expect(
         new ServiceHardware({
@@ -237,6 +247,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       ).resolves.toBe(bleConnectId);
 
       expect(mockedLocalDb.getDeviceByQuery.mock.calls).toEqual([
+        [{ connectId: 'PRB09B0088A', featuresDeviceId: 'STALE_DEVICE_ID' }],
         [{ connectId: 'PRB09B0088A' }],
       ]);
     },
@@ -244,7 +255,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
   it('uses the bound Noble peripheral ID before stale device info on desktop', async () => {
     const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+    const dbDevice = {
       id: 'db-pro2-device',
       connectId: 'PRB09B0088A',
       usbConnectId: 'PRB09B0088A',
@@ -256,7 +267,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       settingsRaw: '{}',
       createdAt: 0,
       updatedAt: 0,
-    } as IDBDevice);
+    } as IDBDevice;
+    // Stale identity must not veto the connectId match: the
+    // identity-qualified lookup misses, the connectId-only fallback hits.
+    mockedLocalDb.getDeviceByQuery.mockImplementation(async (query) =>
+      query.featuresDeviceId && query.featuresDeviceId !== dbDevice.deviceId
+        ? undefined
+        : dbDevice,
+    );
 
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
@@ -280,8 +298,145 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       }),
     ).resolves.toBe(bleConnectId);
 
+    // Later protocol lookups may re-query by the record's own connectId;
+    // only the resolution order of the leading lookups matters here.
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls.slice(0, 2)).toEqual([
+      [{ connectId: 'PRB09B0088A', featuresDeviceId: 'STALE_DEVICE_ID' }],
+      [{ connectId: 'PRB09B0088A' }],
+    ]);
+  });
+
+  it('prefers the identity-matched record when a stale wipe leftover shares the connectId', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const staleDevice = {
+      id: 'db-stale-pre-wipe',
+      connectId: 'PRB09B0058A',
+      usbConnectId: 'PRB09B0058A',
+      bleConnectId: undefined,
+      deviceId: 'PRE_WIPE_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    const liveDevice = {
+      id: 'db-live-device',
+      connectId: 'PRB09B0058A',
+      usbConnectId: 'PRB09B0058A',
+      bleConnectId: liveBleConnectId,
+      deviceId: 'POST_WIPE_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    // Store order is arbitrary: connectId-only lookups resolve the stale
+    // pre-wipe record (no bleConnectId), which used to re-open the pairing
+    // dialog on every call while repairs kept writing to the live record.
+    mockedLocalDb.getDeviceByQuery.mockImplementation(async (query) => {
+      if (query.featuresDeviceId) {
+        return query.featuresDeviceId === liveDevice.deviceId &&
+          (!query.connectId || query.connectId === liveDevice.connectId)
+          ? liveDevice
+          : undefined;
+      }
+      return query.connectId === staleDevice.connectId
+        ? staleDevice
+        : undefined;
+    });
+    const showBluetoothDevicePairingDialog = jest.fn();
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+        serviceSetting: { setHardwareTransportType: jest.fn() },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'PRB09B0058A',
+        featuresDeviceId: 'POST_WIPE_DEVICE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(liveBleConnectId);
+
     expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
-      { connectId: 'PRB09B0088A' },
+      { connectId: 'PRB09B0058A', featuresDeviceId: 'POST_WIPE_DEVICE_ID' },
+    ]);
+    expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
+  });
+
+  it('de-aliases stale siblings after a verified pairing repair', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const liveDevice = {
+      id: 'db-live-device',
+      connectId: 'PRB09B0058A',
+      usbConnectId: 'PRB09B0058A',
+      bleConnectId: undefined,
+      deviceId: 'POST_WIPE_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(liveDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest.spyOn(service, 'searchDevices').mockResolvedValue({
+      success: true,
+      payload: [
+        {
+          connectId: liveBleConnectId,
+          name: 'Pro 76D1',
+          commType: 'electron-ble',
+        },
+      ],
+    } as never);
+    jest
+      .spyOn(service, 'connect')
+      .mockResolvedValue({ deviceId: 'POST_WIPE_DEVICE_ID' } as never);
+
+    await expect(
+      service.repairBleConnectIdWithProgress({
+        connectId: 'PRB09B0058A',
+        featuresDeviceId: 'POST_WIPE_DEVICE_ID',
+        features: {
+          ble_name: 'Pro 76D1',
+        } as unknown as IOneKeyDeviceFeaturesWithAppParams,
+      }),
+    ).resolves.toBe(liveBleConnectId);
+
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
+      [{ dbDeviceId: liveDevice.id, bleConnectId: liveBleConnectId }],
+    ]);
+    // The verified repair must retire the pre-wipe sibling's aliases so the
+    // next connectId-only lookup cannot fall back to the stale record.
+    expect(mockedLocalDb.cleanStaleDeviceConnectIdAliases.mock.calls).toEqual([
+      [
+        {
+          keepDbDeviceId: liveDevice.id,
+          verifiedDeviceId: 'POST_WIPE_DEVICE_ID',
+        },
+      ],
     ]);
   });
 
@@ -732,6 +887,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
       [{ dbDeviceId: dbDevice.id, bleConnectId: liveBleConnectId }],
     ]);
+    // A verified silent bind also retires stale sibling aliases so the
+    // next connectId-only lookup resolves this record.
+    expect(mockedLocalDb.cleanStaleDeviceConnectIdAliases.mock.calls).toEqual([
+      [{ keepDbDeviceId: dbDevice.id, verifiedDeviceId: 'PRO2_DEVICE_ID' }],
+    ]);
     expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
   });
 
@@ -1046,9 +1206,20 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       createdAt: 0,
       updatedAt: 0,
     } as IDBDevice;
-    mockedLocalDb.getDeviceByQuery
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValue(device);
+    // The stale connectId matches nothing, so both connectId-based lookups
+    // miss and only the featuresDeviceId fallback resolves the record.
+    mockedLocalDb.getDeviceByQuery.mockImplementation(async (query) => {
+      if (query.connectId && query.connectId !== device.connectId) {
+        return undefined;
+      }
+      if (
+        query.featuresDeviceId &&
+        query.featuresDeviceId !== device.deviceId
+      ) {
+        return undefined;
+      }
+      return device;
+    });
 
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
@@ -1075,11 +1246,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       }),
     ).resolves.toBe(bleConnectId);
 
-    expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
-      { connectId: 'STALE_CONNECT_ID' },
-    ]);
-    expect(mockedLocalDb.getDeviceByQuery.mock.calls[1]).toEqual([
-      { featuresDeviceId: 'PRO2_DEVICE_ID' },
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls.slice(0, 3)).toEqual([
+      [{ connectId: 'STALE_CONNECT_ID', featuresDeviceId: 'PRO2_DEVICE_ID' }],
+      [{ connectId: 'STALE_CONNECT_ID' }],
+      [{ featuresDeviceId: 'PRO2_DEVICE_ID' }],
     ]);
   });
 
@@ -1132,6 +1302,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
       {
         connectId: 'USB_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
         vendor: EHardwareVendor.trezor,
       },
     ]);
