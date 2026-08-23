@@ -68,6 +68,14 @@ Function OneKeyModernOnGuiInit
   ${EndIf}
 FunctionEnd
 
+# MUI shows the native host again when it enters InstFiles. Hide it in the
+# page's own show callback so there is no visible frame before the DLL timer.
+Function OneKeyModernOnInstFilesShow
+  ${If} $OneKeyModernUiActive == "1"
+    ShowWindow $HWNDPARENT ${SW_HIDE}
+  ${EndIf}
+FunctionEnd
+
 # The hidden electron-builder install-mode page remains authoritative for
 # elevation, registry scope, and the default directory. The modern scope page
 # only supplies a choice when the registry/command line did not already do so.
@@ -309,6 +317,7 @@ FunctionEnd
 
   !macro customPageAfterChangeDir
     Page custom OneKeyModernInstallStart
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW OneKeyModernOnInstFilesShow
   !macroend
 
   # This page deliberately runs after the hidden install-mode page. At this
