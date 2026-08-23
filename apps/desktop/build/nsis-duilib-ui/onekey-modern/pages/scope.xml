@@ -12,7 +12,7 @@
         <Label text="{{string.scope.title}}" font="1" textcolor="{{color.textPrimary}}" height="40" align="center" />
         <Label text="{{string.scope.subtitle}}" textcolor="{{color.textSecondary}}" height="42" align="center" />
         <Control height="32" />
-        <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.current.description}}" textcolor="{{color.textPrimary}}" hotbkcolor="#DDF4FFF0" bkcolor="#CCFFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="14,14" height="82" font="3" />
+        <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.current.description}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" bordercolor="{{color.brand}}" bordersize="1" borderround="14,14" height="82" font="3" />
         <Control height="16" />
         <Button name="scope-all" text="{{string.scope.all.title}}  ·  {{string.scope.all.description}}" textcolor="{{color.textPrimary}}" hotbkcolor="#DDF4FFF0" bkcolor="#CCFFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="14,14" height="82" font="3" />
         <Control />
