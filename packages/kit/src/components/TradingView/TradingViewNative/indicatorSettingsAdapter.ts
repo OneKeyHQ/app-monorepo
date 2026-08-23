@@ -337,7 +337,7 @@ export function normalizeTradingViewNativeIndicatorSettings(
   };
 }
 
-function normalizeMaxSubIndicatorCount(value: number | undefined) {
+function normalizeMaxSelectableSubIndicatorCount(value: number | undefined) {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.floor(value))
     : undefined;
@@ -837,12 +837,12 @@ export function getTradingViewNativeIndicatorSettings(
 export function updateTradingViewNativeIndicatorActiveState({
   active,
   indicator,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   settings,
 }: {
   active: boolean;
   indicator: ITradingViewNativeAnyIndicator;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   settings: ITradingViewNativeIndicatorSettings;
 }): ITradingViewNativeIndicatorSettings {
   const normalizedSettings =
@@ -854,15 +854,15 @@ export function updateTradingViewNativeIndicatorActiveState({
   if (!targetIndicator || targetIndicator.active === active) {
     return normalizedSettings;
   }
-  const normalizedMaxSubIndicatorCount =
-    normalizeMaxSubIndicatorCount(maxSubIndicatorCount);
+  const normalizedMaxSelectableSubIndicatorCount =
+    normalizeMaxSelectableSubIndicatorCount(maxSelectableSubIndicatorCount);
   if (
     active &&
     isTradingViewNativeSubIndicator(indicator) &&
-    normalizedMaxSubIndicatorCount !== undefined &&
+    normalizedMaxSelectableSubIndicatorCount !== undefined &&
     value.indicators.filter(
       (item) => item.active && isTradingViewNativeSubIndicator(item.id),
-    ).length >= normalizedMaxSubIndicatorCount
+    ).length >= normalizedMaxSelectableSubIndicatorCount
   ) {
     return normalizedSettings;
   }

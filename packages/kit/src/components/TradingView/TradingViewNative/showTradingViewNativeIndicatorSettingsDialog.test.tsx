@@ -54,14 +54,14 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
     expect(mockCloseDialog).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards an explicit sub-indicator cap to the shared editor', () => {
+  it('forwards an explicit selection cap to the shared editor', () => {
     const value: ITradingViewIndicatorSettingsValue = {
       indicators: [],
       schemaVersion: 1,
     };
 
     showTradingViewNativeIndicatorSettingsDialog({
-      maxSubIndicatorCount: 2,
+      maxSelectableSubIndicatorCount: 2,
       onConfirm: jest.fn(),
       value,
     });

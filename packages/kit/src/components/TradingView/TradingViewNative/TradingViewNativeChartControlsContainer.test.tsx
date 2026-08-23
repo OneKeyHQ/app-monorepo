@@ -15,7 +15,7 @@ import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/i
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subIndicatorTypes';
 
 type IMockIndicatorListProps = {
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
   onSelectionConfirm?: (
     selection: ITradingViewNativeIndicatorSelection,
@@ -299,14 +299,14 @@ describe('TradingViewNative chart controls', () => {
     expect(handleIndicatorChange).toHaveBeenCalledWith('RSI', true);
   });
 
-  it('forwards the sub-indicator cap to the dialog and popover controls', () => {
+  it('forwards the sub-indicator selection cap to dialog and popover controls', () => {
     const handleIndicatorSelectionConfirm = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
-        maxNativeSubIndicatorCount={4}
+        maxSelectableSubIndicatorCount={4}
         onIndicatorChange={jest.fn()}
         onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
         onIntervalChange={jest.fn()}
@@ -314,14 +314,15 @@ describe('TradingViewNative chart controls', () => {
     );
 
     const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
-      maxSubIndicatorCount?: number;
+      maxSelectableSubIndicatorCount?: number;
       onShowIndicatorsDialog: () => void;
     };
-    expect(controlsProps.maxSubIndicatorCount).toBe(4);
+    expect(controlsProps.maxSelectableSubIndicatorCount).toBe(4);
 
     controlsProps.onShowIndicatorsDialog();
     expect(
-      mockDialogShow.mock.calls[0][0].renderContent.props.maxSubIndicatorCount,
+      mockDialogShow.mock.calls[0][0].renderContent.props
+        .maxSelectableSubIndicatorCount,
     ).toBe(4);
     const selection: ITradingViewNativeIndicatorSelection = {
       activeIndicatorValues: new Set(['MA', 'RSI']),

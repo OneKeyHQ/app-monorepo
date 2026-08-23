@@ -448,7 +448,7 @@ describe('TradingViewNativeContainer', () => {
     expect(inactiveChartProps.subIndicatorPanes).toEqual([]);
   });
 
-  it('enforces the sub-indicator cap while keeping main indicators independent', () => {
+  it('enforces the sub-indicator selection cap while keeping main indicators independent', () => {
     const handleSubIndicatorCountChange = jest.fn();
     mockDataState = { status: 'live' };
     mockPoints = Array.from({ length: 25 }, (_, index) => ({
@@ -469,7 +469,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
-        maxNativeSubIndicatorCount={4}
+        maxSelectableSubIndicatorCount={4}
         onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
       />,
     );
@@ -477,10 +477,10 @@ describe('TradingViewNativeContainer', () => {
     const controlsProps =
       mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
         activeIndicatorValues: Set<string>;
-        maxNativeSubIndicatorCount?: number;
+        maxSelectableSubIndicatorCount?: number;
         onIndicatorChange: (indicator: string, desiredActive: boolean) => void;
       };
-    expect(controlsProps.maxNativeSubIndicatorCount).toBe(4);
+    expect(controlsProps.maxSelectableSubIndicatorCount).toBe(4);
 
     act(() => {
       controlsProps.onIndicatorChange('VOL', true);
@@ -537,7 +537,7 @@ describe('TradingViewNativeContainer', () => {
     expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(4);
   });
 
-  it('renders an over-cap snapshot in every layout without overwriting preferences', () => {
+  it('renders a snapshot above the selection cap in every layout', () => {
     const handleSubIndicatorCountChange = jest.fn();
     const activeSubIndicatorIds = new Set<string>(
       TRADING_VIEW_NATIVE_SUB_INDICATORS,
@@ -569,7 +569,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
-        maxNativeSubIndicatorCount={4}
+        maxSelectableSubIndicatorCount={4}
         nativeControlsLayoutMode="mobile"
         onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
       />,
@@ -623,7 +623,7 @@ describe('TradingViewNativeContainer', () => {
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
 
-  it('only removes the explicitly deselected over-cap indicator on confirm', () => {
+  it('only removes the explicitly deselected indicator above the selection cap', () => {
     const activeSubIndicatorIds = new Set([
       'VOL',
       'MACD',
@@ -658,7 +658,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
-        maxNativeSubIndicatorCount={4}
+        maxSelectableSubIndicatorCount={4}
       />,
     );
 

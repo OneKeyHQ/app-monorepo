@@ -69,7 +69,7 @@ export function updateTradingViewNativeSubIndicatorInstances(
   currentInstances: ITradingViewNativeSubIndicatorInstanceConfig[],
   indicator: ITradingViewNativeSubIndicator,
   desiredActive: boolean,
-  maxNativeSubIndicatorCount?: number,
+  maxSelectableSubIndicatorCount?: number,
 ): ITradingViewNativeSubIndicatorInstanceConfig[] {
   const existingIndex = currentInstances.findIndex(
     (instance) => instance.indicator === indicator,
@@ -93,18 +93,18 @@ export function updateTradingViewNativeSubIndicatorInstances(
     return currentInstances;
   }
 
-  const normalizedMaxSubIndicatorCount =
-    typeof maxNativeSubIndicatorCount === 'number' &&
-    Number.isFinite(maxNativeSubIndicatorCount)
-      ? Math.max(0, Math.floor(maxNativeSubIndicatorCount))
+  const normalizedMaxSelectableSubIndicatorCount =
+    typeof maxSelectableSubIndicatorCount === 'number' &&
+    Number.isFinite(maxSelectableSubIndicatorCount)
+      ? Math.max(0, Math.floor(maxSelectableSubIndicatorCount))
       : undefined;
   const visibleInstanceCount = currentInstances.reduce(
     (count, instance) => (instance.isVisible !== false ? count + 1 : count),
     0,
   );
   if (
-    normalizedMaxSubIndicatorCount !== undefined &&
-    visibleInstanceCount >= normalizedMaxSubIndicatorCount
+    normalizedMaxSelectableSubIndicatorCount !== undefined &&
+    visibleInstanceCount >= normalizedMaxSelectableSubIndicatorCount
   ) {
     return currentInstances;
   }
@@ -146,7 +146,7 @@ export const TradingViewNativeContainer = memo(
     source,
     enableNativeChartSettings,
     initialRightOffset,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
@@ -532,12 +532,12 @@ export const TradingViewNativeContainer = memo(
           updateTradingViewNativeIndicatorActiveState({
             active: desiredActive,
             indicator,
-            maxSubIndicatorCount: maxNativeSubIndicatorCount,
+            maxSelectableSubIndicatorCount,
             settings: currentSettings,
           }),
         );
       },
-      [maxNativeSubIndicatorCount, setIndicatorSettings],
+      [maxSelectableSubIndicatorCount, setIndicatorSettings],
     );
     const handleIndicatorSelectionConfirm = useCallback(
       ({
@@ -659,7 +659,7 @@ export const TradingViewNativeContainer = memo(
           intervalConfig={intervalConfig}
           activeIndicatorValues={activeIndicatorValues}
           indicatorSettingsValue={indicatorSettingsValue}
-          maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}

@@ -81,13 +81,13 @@ describe('indicatorSettingsAdapter', () => {
     const blockedSettings = updateTradingViewNativeIndicatorActiveState({
       active: true,
       indicator: 'MFI',
-      maxSubIndicatorCount: 4,
+      maxSelectableSubIndicatorCount: 4,
       settings,
     });
     const reducedSettings = updateTradingViewNativeIndicatorActiveState({
       active: false,
       indicator: 'OBV',
-      maxSubIndicatorCount: 4,
+      maxSelectableSubIndicatorCount: 4,
       settings: blockedSettings,
     });
 
@@ -103,7 +103,7 @@ describe('indicatorSettingsAdapter', () => {
     ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI']);
   });
 
-  it('reconciles a complete over-cap indicator selection without trimming it', () => {
+  it('reconciles a selection above the cap without trimming it', () => {
     const value = createTradingViewNativeIndicatorSettingsValue();
     const initialActiveIndicatorIds = new Set([
       'MA',

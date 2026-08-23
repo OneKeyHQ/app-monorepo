@@ -30,14 +30,14 @@ describe('native indicator selector utilities', () => {
       canToggleTradingViewNativeIndicatorOn({
         activeIndicatorValues,
         indicatorValue: 'UNKNOWN',
-        maxSubIndicatorCount: 1,
+        maxSelectableSubIndicatorCount: 1,
       }),
     ).toBe(true);
     expect(
       canToggleTradingViewNativeIndicatorOn({
         activeIndicatorValues,
         indicatorValue: 'MACD',
-        maxSubIndicatorCount: 1,
+        maxSelectableSubIndicatorCount: 1,
       }),
     ).toBe(false);
   });

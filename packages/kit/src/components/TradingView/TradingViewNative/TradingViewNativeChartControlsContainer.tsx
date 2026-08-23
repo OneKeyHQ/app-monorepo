@@ -35,7 +35,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   enableNativeChartSettings?: boolean;
   indicatorSettingsValue: ITradingViewIndicatorSettingsValue;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
-  maxNativeSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -64,7 +64,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     enableNativeChartSettings = false,
     indicatorSettingsValue,
     intervalConfig,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
@@ -144,7 +144,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     const showIndicatorsDialog = useCallback(() => {
       if (layoutMode === 'desktop') {
         showTradingViewNativeIndicatorSettingsDialog({
-          maxSubIndicatorCount: maxNativeSubIndicatorCount,
+          maxSelectableSubIndicatorCount,
           onConfirm: onIndicatorSettingsConfirm,
           value: indicatorSettingsValue,
         });
@@ -158,7 +158,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         renderContent: (
           <IndicatorListDialogContent
             indicators={indicators}
-            maxSubIndicatorCount={maxNativeSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
@@ -171,7 +171,7 @@ export const TradingViewNativeChartControlsContainer = memo(
       indicators,
       indicatorsTitle,
       layoutMode,
-      maxNativeSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onIndicatorSettingsConfirm,
       onIndicatorSelectionConfirm,
     ]);
@@ -194,7 +194,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
-        maxSubIndicatorCount={maxNativeSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}

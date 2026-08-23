@@ -14,11 +14,11 @@ import {
 const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = 690;
 
 export function showTradingViewNativeIndicatorSettingsDialog({
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onConfirm,
   value,
 }: {
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onConfirm: (
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
@@ -50,7 +50,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
       <TradingViewIndicatorSettings
         value={value}
         createDefaultValue={createTradingViewNativeIndicatorSettingsValue}
-        maxActiveSubIndicatorCount={maxSubIndicatorCount ?? null}
+        maxActiveSubIndicatorCount={maxSelectableSubIndicatorCount ?? null}
         onClose={() => {
           void closeDialog();
         }}
