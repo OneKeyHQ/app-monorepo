@@ -24,6 +24,8 @@ const PROCESS_NAME = 'onekey-ble-pair';
 const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 // The user has up to the OS pairing window to confirm; keep some headroom.
 const PAIR_TIMEOUT_MS = 60_000;
+// After the deadline the helper still needs a moment to decline before it is killed.
+const PAIR_DECLINE_GRACE_MS = 5_000;
 
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
@@ -97,9 +99,25 @@ function runHelper(
     let settled = false;
     let lastError: string | undefined;
 
+    // Once we know why the attempt ends, the helper's own failure text must not
+    // replace it: the SDK maps our reason, not `pairing failed with status N`.
+    let reasonLocked = false;
+    const lockReason = (reason: string) => {
+      if (reasonLocked) return;
+      lastError = reason;
+      reasonLocked = true;
+    };
+
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      lastError = `BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`;
-      child.kill();
+      lockReason(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`);
+      // Decline first, kill second: only a live helper can complete the WinRT
+      // deferral, and that is what makes Windows tell the device the pairing
+      // failed instead of leaving it to notice a dead peer.
+      child.stdin?.write('cancel\n', (error) => {
+        if (error) child.kill();
+      });
+      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
     }, PAIR_TIMEOUT_MS);
 
     // Cancel goes through stdin, not kill(): only a live helper can decline the
@@ -107,7 +125,7 @@ function runHelper(
     registerDecide?.((decision) => {
       if (settled) return;
       if (decision === 'cancel') {
-        lastError = PAIR_CANCELLED_REASON;
+        lockReason(PAIR_CANCELLED_REASON);
       }
       child.stdin?.write(`${decision}\n`, (error) => {
         if (!error) return;
@@ -123,6 +141,7 @@ function runHelper(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
       fn();
     };
 
@@ -153,7 +172,7 @@ function runHelper(
                 `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(logged)}`,
               );
             }
-            if (event.type === 'error') {
+            if (event.type === 'error' && !reasonLocked) {
               lastError = event.message;
             }
             onEvent?.(event);
