@@ -59,6 +59,15 @@ Var OneKeyModernResult
   ${EndIf}
 !macroend
 
+# Hide the native NSIS host before its first frame is painted. Every modern
+# UI initialization failure path restores it before falling back.
+!define MUI_CUSTOMFUNCTION_GUIINIT OneKeyModernOnGuiInit
+Function OneKeyModernOnGuiInit
+  ${IfNot} ${Silent}
+    ShowWindow $HWNDPARENT ${SW_HIDE}
+  ${EndIf}
+FunctionEnd
+
 # The hidden electron-builder install-mode page remains authoritative for
 # elevation, registry scope, and the default directory. The modern scope page
 # only supplies a choice when the registry/command line did not already do so.
