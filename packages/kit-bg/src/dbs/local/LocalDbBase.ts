@@ -5542,12 +5542,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
    * hardware call).
    *
    * Binding and cleanup share ONE transaction on purpose: once a binding
-   * commits, identity-qualified lookups short-circuit on it and the bind
-   * paths that could re-run this cleanup are never entered again — a
-   * cleanup that failed after a committed binding would leave the stale
-   * sibling shadowing every connectId-only lookup permanently. A failure
-   * here rolls back both writes, so the next bind attempt retries the
-   * whole operation.
+   * commits, identity-qualified lookups short-circuit on it, so a cleanup
+   * that failed after a committed binding would leave the stale sibling
+   * shadowing connectId-only lookups until some later pairing-dialog
+   * repair happens to retry it. A failure here rolls back both writes
+   * instead, so the next bind attempt retries the whole operation.
    *
    * Call only with an identity that was verified against the live device
    * moments ago. Returns the cleaned sibling record ids.

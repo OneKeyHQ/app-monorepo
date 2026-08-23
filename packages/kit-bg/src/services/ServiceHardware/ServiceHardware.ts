@@ -4357,23 +4357,30 @@ class ServiceHardware extends ServiceBase {
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
       });
 
-      if (connectResult && connectResult.deviceId === expectedDeviceId) {
-        // Step 5: Update device in DB with BLE connectId
+      // Step 5: The identity read over the live connection decides which
+      // record owns this endpoint. The caller's expected id can be stale —
+      // a connectId-only caller resolves the pre-wipe record and the dialog
+      // derives its id from that record's frozen features, which can never
+      // match the live device — and requiring it to match would make this
+      // repair (and the stale-alias cleanup it carries) permanently
+      // unreachable on that path. V2 state projections only carry the raw
+      // `device_id` field.
+      const liveDeviceId = connectResult?.deviceId || connectResult?.device_id;
+      if (connectResult && liveDeviceId) {
         const device = await localDb.getDeviceByQuery({
           connectId,
-          featuresDeviceId: featuresDeviceId || undefined,
+          featuresDeviceId: liveDeviceId,
           features,
         });
 
         if (device) {
-          // The verified connect proves which record is live; the binding
-          // is persisted together with de-aliasing stale siblings (e.g.
-          // the pre-wipe record keeping the same USB serial) in one
-          // transaction, or the whole repair fails and retries.
+          // The binding is persisted together with de-aliasing stale
+          // siblings (e.g. the pre-wipe record keeping the same USB serial)
+          // in one transaction, or the whole repair fails and retries.
           await this.persistVerifiedBleConnectId({
             dbDeviceId: device.id,
             bleConnectId,
-            verifiedDeviceId: expectedDeviceId,
+            verifiedDeviceId: liveDeviceId,
           });
 
           return bleConnectId;

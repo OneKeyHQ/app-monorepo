@@ -445,6 +445,133 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toHaveLength(0);
   });
 
+  it('repairs to the live-identity record when the dialog carries a stale expected id', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    const staleDevice = {
+      id: 'db-stale-pre-wipe',
+      connectId: 'PRB09B0058A',
+      usbConnectId: 'PRB09B0058A',
+      bleConnectId: undefined,
+      deviceId: 'PRE_WIPE_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    const liveDevice = {
+      id: 'db-live-device',
+      connectId: 'PRB09B0058A',
+      usbConnectId: 'PRB09B0058A',
+      bleConnectId: liveBleConnectId,
+      deviceId: 'POST_WIPE_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    // A connectId-only caller resolves the stale pre-wipe record, so the
+    // pairing dialog derives its expected id from that record's frozen
+    // features. Only the identity read over the live connection can route
+    // the binding (and the stale-alias cleanup) to the live record.
+    mockedLocalDb.getDeviceByQuery.mockImplementation(async (query) => {
+      if (query.featuresDeviceId === liveDevice.deviceId) {
+        return liveDevice;
+      }
+      if (query.featuresDeviceId === staleDevice.deviceId) {
+        return staleDevice;
+      }
+      return undefined;
+    });
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest.spyOn(service, 'searchDevices').mockResolvedValue({
+      success: true,
+      payload: [
+        {
+          connectId: liveBleConnectId,
+          name: 'Pro 76D1',
+          commType: 'electron-ble',
+        },
+      ],
+    } as never);
+    jest
+      .spyOn(service, 'connect')
+      .mockResolvedValue({ deviceId: 'POST_WIPE_DEVICE_ID' } as never);
+
+    await expect(
+      service.repairBleConnectIdWithProgress({
+        connectId: 'PRB09B0058A',
+        featuresDeviceId: 'PRE_WIPE_DEVICE_ID',
+        features: {
+          ble_name: 'Pro 76D1',
+        } as unknown as IOneKeyDeviceFeaturesWithAppParams,
+      }),
+    ).resolves.toBe(liveBleConnectId);
+
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
+      [
+        {
+          dbDeviceId: liveDevice.id,
+          bleConnectId: liveBleConnectId,
+          verifiedDeviceId: 'POST_WIPE_DEVICE_ID',
+        },
+      ],
+    ]);
+  });
+
+  it('keeps failing closed when no record matches the live identity', async () => {
+    const liveBleConnectId = '714d4c59ef4af3df00d92885755c4a58';
+    // Device was wiped but not yet re-onboarded: no record carries the
+    // post-wipe identity, so the repair must not bind or clean anything.
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest.spyOn(service, 'searchDevices').mockResolvedValue({
+      success: true,
+      payload: [
+        {
+          connectId: liveBleConnectId,
+          name: 'Pro 76D1',
+          commType: 'electron-ble',
+        },
+      ],
+    } as never);
+    jest
+      .spyOn(service, 'connect')
+      .mockResolvedValue({ deviceId: 'POST_WIPE_DEVICE_ID' } as never);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        service.repairBleConnectIdWithProgress({
+          connectId: 'PRB09B0058A',
+          featuresDeviceId: 'PRE_WIPE_DEVICE_ID',
+          features: {
+            ble_name: 'Pro 76D1',
+          } as unknown as IOneKeyDeviceFeaturesWithAppParams,
+        }),
+      ).rejects.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toHaveLength(0);
+  });
+
   it('falls back to the persisted USB connectId for an offline background task', async () => {
     const dbDevice = {
       id: 'db-pro2-device',
