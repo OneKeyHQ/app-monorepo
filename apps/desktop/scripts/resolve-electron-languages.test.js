@@ -23,9 +23,25 @@ describe('resolveElectronLanguages', () => {
     ]);
   });
 
-  test('fails when Electron has no resources for a OneKey locale', () => {
-    expect(() => resolveElectronLanguages(['tl'], ['en', 'fil'])).toThrow(
-      'No Electron locale is available for OneKey locale "tl"',
+  test('preserves Windows and Linux Electron locale names', () => {
+    expect(
+      resolveElectronLanguages(
+        ['en_US', 'fr_FR', 'pt', 'pt_BR', 'zh_CN', 'zh_HK'],
+        ['en-US', 'fr', 'pt-BR', 'pt-PT', 'zh-CN', 'zh-TW'],
+      ),
+    ).toEqual(['en-US', 'fr', 'pt-BR', 'pt-PT', 'zh-CN', 'zh-TW']);
+  });
+
+  test('falls back to the platform English locale when unsupported', () => {
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+
+    expect(resolveElectronLanguages(['tl'], ['en-US', 'fil'])).toEqual([
+      'en-US',
+    ]);
+    expect(consoleWarn).toHaveBeenCalledWith(
+      '[electron-languages] no Electron locale for OneKey locale "tl", falling back to "en-US"',
     );
+
+    consoleWarn.mockRestore();
   });
 });

@@ -4,9 +4,6 @@ const {
   baseFiles,
   macExcludePrebuilds,
 } = require('./electron-builder-files.config');
-const {
-  getElectronLanguages,
-} = require('./scripts/resolve-electron-languages');
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -17,7 +14,6 @@ module.exports = {
   },
   'mac': {
     'files': [...baseFiles, ...macExcludePrebuilds],
-    'electronLanguages': getElectronLanguages(),
     'identity': null,
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
