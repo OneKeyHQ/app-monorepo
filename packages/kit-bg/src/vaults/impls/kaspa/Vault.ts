@@ -828,9 +828,7 @@ export default class Vault extends VaultBase {
     const refTxs = Array.from(prevTxs.values()).map((tx) =>
       this.buildPrevTx(tx),
     );
-    // Only trust version-0 txs: recomputing a txid off the fields the prev-tx
-    // stream carries reproduces a v0 id exactly but never a v1 one, so v1
-    // commits to something this protocol cannot express. Bail → blind-sign.
+    // The refTx stream only carries the fields a v0 txid is computed from.
     if (refTxs.some((tx) => tx.version !== 0)) {
       throw new OneKeyLocalError('kaspa refTx: unsupported non-v0 prev tx');
     }

@@ -6,9 +6,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IKaspaRefTransaction } from './Vault';
 
-// Reads a uint64 refTx field. nullMeansZero=false for amounts (empty ≠ 0);
-// true for sequence/lockTime/gas, which upstream drops when zero. Values past
-// 2^53 are already rounded by the JSON parse, so bail rather than sign wrong.
+// Reads a uint64 refTx field. nullMeansZero=false for amounts (empty ≠ 0), true
+// for sequence/lockTime/gas — api.kaspa.org does send those as 0, so it is only
+// a guard. Past 2^53 the JSON parse already rounded it, so bail, not sign wrong.
 export function readRefTxUint64({
   value,
   field,
