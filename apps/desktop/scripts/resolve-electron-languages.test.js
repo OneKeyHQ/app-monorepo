@@ -1,47 +1,95 @@
-const { resolveElectronLanguages } = require('./resolve-electron-languages');
+const {
+  getElectronLanguages,
+  resolveElectronLanguages,
+} = require('./resolve-electron-languages');
 
 describe('resolveElectronLanguages', () => {
-  test('uses exact Electron locales and falls back to the base language', () => {
-    expect(
-      resolveElectronLanguages(['en_US', 'es', 'fr_FR'], ['en', 'es', 'fr']),
-    ).toEqual(['en', 'es', 'fr']);
+  test('includes exact and base locale candidates for every target', () => {
+    expect(resolveElectronLanguages(['en_US', 'es', 'fr_FR'])).toEqual([
+      'en',
+      'en-US',
+      'en_US',
+      'es',
+      'fr',
+      'fr-FR',
+      'fr_FR',
+    ]);
   });
 
-  test('deduplicates OneKey locales that share Electron resources', () => {
-    expect(
-      resolveElectronLanguages(
-        ['pt', 'pt_BR', 'zh_CN', 'zh_HK', 'zh_TW'],
-        ['pt_BR', 'pt_PT', 'zh_CN', 'zh_TW'],
-      ),
-    ).toEqual(['pt_BR', 'pt_PT', 'zh_CN', 'zh_TW']);
+  test('includes Portuguese and Chinese regional fallbacks', () => {
+    const languages = resolveElectronLanguages([
+      'pt',
+      'pt_BR',
+      'zh_CN',
+      'zh_HK',
+      'zh_TW',
+    ]);
+
+    expect(languages).toEqual(
+      expect.arrayContaining([
+        'pt-BR',
+        'pt-PT',
+        'pt_BR',
+        'pt_PT',
+        'zh-CN',
+        'zh-TW',
+        'zh_CN',
+        'zh_TW',
+      ]),
+    );
+    expect(new Set(languages).size).toBe(languages.length);
   });
 
-  test('automatically includes newly supported Electron locales', () => {
-    expect(resolveElectronLanguages(['en_US', 'ar'], ['en', 'ar'])).toEqual([
+  test('automatically includes newly added OneKey locales', () => {
+    expect(resolveElectronLanguages(['en_US', 'ar'])).toEqual([
       'ar',
       'en',
-    ]);
-  });
-
-  test('preserves Windows and Linux Electron locale names', () => {
-    expect(
-      resolveElectronLanguages(
-        ['en_US', 'fr_FR', 'pt', 'pt_BR', 'zh_CN', 'zh_HK'],
-        ['en-US', 'fr', 'pt-BR', 'pt-PT', 'zh-CN', 'zh-TW'],
-      ),
-    ).toEqual(['en-US', 'fr', 'pt-BR', 'pt-PT', 'zh-CN', 'zh-TW']);
-  });
-
-  test('falls back to the platform English locale when unsupported', () => {
-    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-
-    expect(resolveElectronLanguages(['tl'], ['en-US', 'fil'])).toEqual([
       'en-US',
+      'en_US',
     ]);
-    expect(consoleWarn).toHaveBeenCalledWith(
-      '[electron-languages] no Electron locale for OneKey locale "tl", falling back to "en-US"',
-    );
+  });
 
-    consoleWarn.mockRestore();
+  test('keeps target resources when macOS builds macOS and Linux together', () => {
+    const languages = resolveElectronLanguages([
+      'en_US',
+      'fr_FR',
+      'pt',
+      'pt_BR',
+      'zh_CN',
+      'zh_HK',
+    ]);
+    const macElectronLocales = ['en', 'fr', 'pt_BR', 'pt_PT', 'zh_CN', 'zh_TW'];
+    const linuxElectronLocales = [
+      'en-US',
+      'fr',
+      'pt-BR',
+      'pt-PT',
+      'zh-CN',
+      'zh-TW',
+    ];
+
+    expect(
+      macElectronLocales.filter((locale) => languages.includes(locale)),
+    ).toEqual(macElectronLocales);
+    expect(
+      linuxElectronLocales.filter((locale) => languages.includes(locale)),
+    ).toEqual(linuxElectronLocales);
+  });
+
+  test('always keeps each platform English fallback locale', () => {
+    expect(resolveElectronLanguages(['tl'])).toEqual(['en', 'en-US', 'tl']);
+  });
+
+  test('derives the allowlist from the current OneKey locale catalog', () => {
+    expect(getElectronLanguages()).toEqual(
+      expect.arrayContaining([
+        'en',
+        'en-US',
+        'pt-BR',
+        'pt_BR',
+        'zh-CN',
+        'zh_CN',
+      ]),
+    );
   });
 });
