@@ -49,6 +49,19 @@ export const toGrayScale = (red: number, green: number, blue: number): number =>
 // JPEG block noise — so Otsu would binarize the noise into a checkerboard.
 const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
 
+// Undefined once the image is wide enough to split; otherwise the value every pixel takes.
+// Cutting a near-solid image at any threshold would only binarize its noise, and a spread
+// that straddles the cut point is where it shows up as a checkerboard.
+export function solidValueForNarrowRange(
+  luminanceMin: number,
+  luminanceMax: number,
+): number | undefined {
+  if (luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
+    return undefined;
+  }
+  return (luminanceMin + luminanceMax) / 2 > 128 ? 255 : 0;
+}
+
 // Only invert when white is unambiguously the majority; near 50% the Otsu
 // threshold tracks the image's own median, so the ratio is noise-sensitive.
 const INVERT_DEAD_ZONE = 0.05;
@@ -175,9 +188,10 @@ function convertToBlackAndWhiteImageBase64(
         if (value > luminanceMax) luminanceMax = value;
       }
 
-      // Otsu threshold instead of a fixed 128 — adapts per image, skipped below MIN_LUMINANCE_RANGE_FOR_OTSU.
+      // Otsu threshold instead of a fixed 128 — adapts per image, unless there is nothing to split.
+      const solid = solidValueForNarrowRange(luminanceMin, luminanceMax);
       let threshold = 128;
-      if (luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
+      if (solid === undefined) {
         try {
           threshold = otsuThreshold(luminance);
         } catch (error) {
@@ -190,7 +204,7 @@ function convertToBlackAndWhiteImageBase64(
 
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const bw = luminance[p] > threshold ? 255 : 0;
+        const bw = solid ?? (luminance[p] > threshold ? 255 : 0);
         if (bw === 255) {
           whiteCount += 1;
         }

@@ -4,6 +4,7 @@
 import {
   otsuThreshold,
   shouldInvertForMajorityWhite,
+  solidValueForNarrowRange,
   toGrayScale,
 } from './imageUtils';
 
@@ -46,6 +47,24 @@ describe('otsuThreshold', () => {
     const threshold = otsuThreshold(luminance);
     expect(threshold).toBeGreaterThanOrEqual(10);
     expect(threshold).toBeLessThan(200);
+  });
+});
+
+describe('solidValueForNarrowRange', () => {
+  it('lets a wide enough spread be split', () => {
+    expect(solidValueForNarrowRange(100, 132)).toBeUndefined();
+  });
+
+  it('collapses a mid-gray spread instead of cutting it at 128', () => {
+    // The failure this guard exists for: a spread narrow enough to be noise but
+    // sitting across the cut point, which a threshold turns into a checkerboard.
+    expect(solidValueForNarrowRange(113, 144)).toBe(255);
+    expect(solidValueForNarrowRange(112, 142)).toBe(0);
+  });
+
+  it('collapses near-black and near-white spreads', () => {
+    expect(solidValueForNarrowRange(0, 20)).toBe(0);
+    expect(solidValueForNarrowRange(235, 255)).toBe(255);
   });
 });
 
