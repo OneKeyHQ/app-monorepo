@@ -68,7 +68,7 @@ function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
 // Versions the wallet actually implements. Anything else must be rejected: an unknown version
 // otherwise falls into the version 0 branch, and hardware and QR never pass a message version
 // down, so they would sign it as version 0 bytes the dapp cannot verify.
-const SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS = [undefined, 0, 1];
+const SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS = new Set([undefined, 0, 1]);
 
 function buildOffchainMessageV1Bytes(
   message: string,
@@ -311,7 +311,7 @@ class ProviderApiSolana extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
 
-    if (!SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS.includes(params.version)) {
+    if (!SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS.has(params.version)) {
       throw web3Errors.rpc.invalidParams(
         'unsupported offchain message version',
       );
