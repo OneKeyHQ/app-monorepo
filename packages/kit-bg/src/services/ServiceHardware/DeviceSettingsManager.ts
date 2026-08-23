@@ -809,8 +809,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           }
           // Pro、Touch: built-in wallpaper
           // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          if (!finallyScreenHex && !isMonochrome) {
-            // empty string will clear the home screen(classic,mini)
+          // An empty hex clears the home screen on classic/mini, so it can never stand in
+          // for a wallpaper: a near-solid image encodes to nothing, and letting it through
+          // reset the device while the caller reported success.
+          if (!finallyScreenHex) {
             throw new OneKeyLocalError('Invalid home screen hex');
           }
           const response = await this.applySettingsToDevice(device.connectId, {
