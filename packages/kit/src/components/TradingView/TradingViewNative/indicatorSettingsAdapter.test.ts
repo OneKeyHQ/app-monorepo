@@ -15,7 +15,6 @@ import {
   getTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeMainIndicatorSettings,
   getTradingViewNativeSubIndicatorInstances,
-  limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
   reconcileTradingViewNativeIndicatorActiveState,
   updateTradingViewNativeIndicatorActiveState,
@@ -67,7 +66,7 @@ describe('indicatorSettingsAdapter', () => {
     expect(value.indicators.every((indicator) => !indicator.active)).toBe(true);
   });
 
-  it('limits active persisted sub-indicators for a constrained chart', () => {
+  it('limits only new activations when settings already exceed the cap', () => {
     const activeSubIndicatorIds = new Set<string>(
       TRADING_VIEW_NATIVE_SUB_INDICATORS.slice(0, 5),
     );
@@ -79,28 +78,32 @@ describe('indicatorSettingsAdapter', () => {
     });
     const settings = getTradingViewNativeIndicatorSettings(value);
 
-    const limitedSettings = limitTradingViewNativeSubIndicatorSettings(
+    const blockedSettings = updateTradingViewNativeIndicatorActiveState({
+      active: true,
+      indicator: 'MFI',
+      maxSubIndicatorCount: 4,
       settings,
-      4,
-    );
+    });
+    const reducedSettings = updateTradingViewNativeIndicatorActiveState({
+      active: false,
+      indicator: 'OBV',
+      maxSubIndicatorCount: 4,
+      settings: blockedSettings,
+    });
 
     expect(
-      settings.subIndicators
+      blockedSettings.subIndicators
         .filter((indicator) => indicator.active)
         .map((indicator) => indicator.id),
     ).toEqual([...activeSubIndicatorIds]);
     expect(
-      limitedSettings.subIndicators
+      reducedSettings.subIndicators
         .filter((indicator) => indicator.active)
         .map((indicator) => indicator.id),
-    ).toEqual([...activeSubIndicatorIds].slice(0, 4));
-    expect(limitTradingViewNativeSubIndicatorSettings(limitedSettings, 4)).toBe(
-      limitedSettings,
-    );
-    expect(limitTradingViewNativeSubIndicatorSettings(settings)).toBe(settings);
+    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI']);
   });
 
-  it('atomically reconciles a constrained indicator selection', () => {
+  it('reconciles a complete over-cap indicator selection without trimming it', () => {
     const value = createTradingViewNativeIndicatorSettingsValue();
     const initialActiveIndicatorIds = new Set([
       'MA',
@@ -118,8 +121,14 @@ describe('indicatorSettingsAdapter', () => {
     const settings = getTradingViewNativeIndicatorSettings(value);
 
     const reconciledSettings = reconcileTradingViewNativeIndicatorActiveState({
-      activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'MFI']),
-      maxSubIndicatorCount: 4,
+      activeIndicatorValues: new Set([
+        'MA',
+        'VOL',
+        'RSI',
+        'StochRSI',
+        'OBV',
+        'MFI',
+      ]),
       replaceMainIndicators: false,
       replaceSubIndicators: true,
       settings,
@@ -134,14 +143,13 @@ describe('indicatorSettingsAdapter', () => {
       reconciledSettings.subIndicators
         .filter((indicator) => indicator.active)
         .map((indicator) => indicator.id),
-    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'OBV', 'MFI']);
     expect(
       settings.subIndicators.filter((indicator) => indicator.active),
     ).toHaveLength(5);
 
     const mainOnlySettings = reconcileTradingViewNativeIndicatorActiveState({
       activeIndicatorValues: new Set(['EMA', 'VOL', 'MACD', 'RSI', 'StochRSI']),
-      maxSubIndicatorCount: 4,
       replaceMainIndicators: true,
       replaceSubIndicators: false,
       settings,

@@ -343,43 +343,6 @@ function normalizeMaxSubIndicatorCount(value: number | undefined) {
     : undefined;
 }
 
-export function limitTradingViewNativeSubIndicatorSettings(
-  settings: ITradingViewNativeIndicatorSettings,
-  maxSubIndicatorCount?: number,
-): ITradingViewNativeIndicatorSettings {
-  const normalizedMaxSubIndicatorCount =
-    normalizeMaxSubIndicatorCount(maxSubIndicatorCount);
-  if (normalizedMaxSubIndicatorCount === undefined) {
-    return settings;
-  }
-
-  let activeSubIndicatorCount = 0;
-  let settingsChanged = false;
-  const subIndicators = settings.subIndicators.map((indicator) => {
-    if (!indicator.active) {
-      return indicator;
-    }
-
-    activeSubIndicatorCount += 1;
-    if (activeSubIndicatorCount <= normalizedMaxSubIndicatorCount) {
-      return indicator;
-    }
-
-    settingsChanged = true;
-    return {
-      ...indicator,
-      active: false,
-    };
-  });
-
-  return settingsChanged
-    ? {
-        ...settings,
-        subIndicators,
-      }
-    : settings;
-}
-
 function getStoredIndicator(
   settings: ITradingViewNativeIndicatorSettings,
   id: ITradingViewNativeAnyIndicatorId,
@@ -918,13 +881,11 @@ export function updateTradingViewNativeIndicatorActiveState({
 
 export function reconcileTradingViewNativeIndicatorActiveState({
   activeIndicatorValues,
-  maxSubIndicatorCount,
   replaceMainIndicators,
   replaceSubIndicators,
   settings,
 }: {
   activeIndicatorValues: ReadonlySet<string>;
-  maxSubIndicatorCount?: number;
   replaceMainIndicators: boolean;
   replaceSubIndicators: boolean;
   settings: ITradingViewNativeIndicatorSettings;
@@ -961,12 +922,7 @@ export function reconcileTradingViewNativeIndicatorActiveState({
       ? { subIndicators: nextSettings.subIndicators }
       : {}),
   };
-  return replaceSubIndicators
-    ? limitTradingViewNativeSubIndicatorSettings(
-        reconciledSettings,
-        maxSubIndicatorCount,
-      )
-    : reconciledSettings;
+  return reconciledSettings;
 }
 
 export function getTradingViewNativeActiveMainIndicators(

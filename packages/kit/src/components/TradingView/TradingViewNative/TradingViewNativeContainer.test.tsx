@@ -17,6 +17,7 @@ import {
   TradingViewNativeContainer,
   updateTradingViewNativeSubIndicatorInstances,
 } from './TradingViewNativeContainer';
+import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
 import type { ITradingViewNativeDataState } from './types';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
@@ -536,14 +537,11 @@ describe('TradingViewNativeContainer', () => {
     expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(4);
   });
 
-  it('limits an over-cap snapshot without overwriting global preferences', () => {
-    const activeSubIndicatorIds = new Set([
-      'VOL',
-      'MACD',
-      'RSI',
-      'StochRSI',
-      'OBV',
-    ]);
+  it('renders an over-cap snapshot in every layout without overwriting preferences', () => {
+    const handleSubIndicatorCountChange = jest.fn();
+    const activeSubIndicatorIds = new Set<string>(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS,
+    );
     const settingsValue = createTradingViewNativeIndicatorSettingsValue();
     settingsValue.indicators.forEach((indicator) => {
       if (activeSubIndicatorIds.has(indicator.id)) {
@@ -562,7 +560,7 @@ describe('TradingViewNativeContainer', () => {
       v: 1,
     }));
 
-    render(
+    const { rerender } = render(
       <TradingViewNativeContainer
         source={{
           kind: 'market',
@@ -572,6 +570,8 @@ describe('TradingViewNativeContainer', () => {
           realtime: 'disabled',
         }}
         maxNativeSubIndicatorCount={4}
+        nativeControlsLayoutMode="mobile"
+        onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
       />,
     );
 
@@ -580,26 +580,50 @@ describe('TradingViewNativeContainer', () => {
     };
     expect(
       chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
-    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI']);
+    ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
     const controlsProps =
       mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
         activeIndicatorValues: Set<string>;
       };
-    expect([...controlsProps.activeIndicatorValues]).toEqual([
-      'VOL',
-      'MACD',
-      'RSI',
-      'StochRSI',
-    ]);
+    expect([...controlsProps.activeIndicatorValues]).toEqual(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS,
+    );
+    expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS.length,
+    );
     expect(
       mockInitialIndicatorSettings.subIndicators.filter(
         (indicator) => indicator.active,
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(TRADING_VIEW_NATIVE_SUB_INDICATORS.length);
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+
+    rerender(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        nativeControlsLayoutMode="desktop"
+        onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
+      />,
+    );
+
+    const desktopChartProps = mockTradingViewNativeChart.mock.calls.at(
+      -1,
+    )?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      desktopChartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
 
-  it('atomically replaces hidden over-cap indicators with the confirmed selection', () => {
+  it('only removes the explicitly deselected over-cap indicator on confirm', () => {
     const activeSubIndicatorIds = new Set([
       'VOL',
       'MACD',
@@ -675,7 +699,7 @@ describe('TradingViewNativeContainer', () => {
       };
     act(() => {
       updatedControlsProps.onIndicatorSelectionConfirm({
-        activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'MFI']),
+        activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'OBV']),
         replaceMainIndicators: false,
         replaceSubIndicators: true,
       });
@@ -690,19 +714,19 @@ describe('TradingViewNativeContainer', () => {
       'VOL',
       'RSI',
       'StochRSI',
-      'MFI',
+      'OBV',
     ]);
     const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
       subIndicatorPanes: Array<{ indicator: string }>;
     };
     expect(
       chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
-    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'OBV']);
     expect(
       mockPersistedIndicatorSettings?.subIndicators
         .filter((indicator) => indicator.active)
         .map((indicator) => indicator.id),
-    ).toEqual(['VOL', 'RSI', 'StochRSI', 'MFI']);
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'OBV']);
   });
 
   it('preserves a sub-indicator instance and settings when visibility changes', () => {

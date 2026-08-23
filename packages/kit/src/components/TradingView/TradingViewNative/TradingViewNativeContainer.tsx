@@ -28,7 +28,6 @@ import {
   getTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeMainIndicatorSettings,
   getTradingViewNativeSubIndicatorInstances,
-  limitTradingViewNativeSubIndicatorSettings,
   normalizeTradingViewNativeIndicatorSettings,
   reconcileTradingViewNativeIndicatorActiveState,
   updateTradingViewNativeIndicatorActiveState,
@@ -192,17 +191,9 @@ export const TradingViewNativeContainer = memo(
     const [subIndicatorCalculationCache] = useState(() =>
       createTradingViewNativeSubIndicatorCalculationCache(),
     );
-    const normalizedStoredIndicatorSettings = useMemo(
+    const normalizedIndicatorSettings = useMemo(
       () => normalizeTradingViewNativeIndicatorSettings(indicatorSettings),
       [indicatorSettings],
-    );
-    const normalizedIndicatorSettings = useMemo(
-      () =>
-        limitTradingViewNativeSubIndicatorSettings(
-          normalizedStoredIndicatorSettings,
-          maxNativeSubIndicatorCount,
-        ),
-      [maxNativeSubIndicatorCount, normalizedStoredIndicatorSettings],
     );
     const indicatorSettingsValue = useMemo(
       () =>
@@ -557,14 +548,13 @@ export const TradingViewNativeContainer = memo(
         void setIndicatorSettings((currentSettings) =>
           reconcileTradingViewNativeIndicatorActiveState({
             activeIndicatorValues: selectedIndicatorValues,
-            maxSubIndicatorCount: maxNativeSubIndicatorCount,
             replaceMainIndicators,
             replaceSubIndicators,
             settings: currentSettings,
           }),
         );
       },
-      [maxNativeSubIndicatorCount, setIndicatorSettings],
+      [setIndicatorSettings],
     );
 
     const handleCalendarPanelSubmit = useCallback(
