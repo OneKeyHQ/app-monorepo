@@ -7,7 +7,10 @@ import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 
 import type { ITradingViewNativeIndicatorSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
+import {
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -214,13 +217,14 @@ describe('TradingViewNative chart controls', () => {
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it('opens and confirms the persisted indicator settings dialog on desktop', async () => {
+  it('keeps the desktop indicator editor uncapped when confirming persisted settings', async () => {
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
+        maxSelectableSubIndicatorCount={4}
         onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
@@ -257,6 +261,13 @@ describe('TradingViewNative chart controls', () => {
     if (ma) {
       ma.active = true;
     }
+    const activeSubIndicatorIds: readonly string[] =
+      TRADING_VIEW_NATIVE_SUB_INDICATORS.slice(0, 5);
+    resetValue.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.includes(indicator.id)) {
+        indicator.active = true;
+      }
+    });
 
     await dialogContent.props.onConfirm(resetValue);
 
@@ -269,6 +280,14 @@ describe('TradingViewNative chart controls', () => {
         ]),
       }),
     );
+    const confirmedSettings = defaultIndicatorSettingsProps
+      .onIndicatorSettingsConfirm.mock
+      .calls[0][0] as ITradingViewNativeIndicatorSettings;
+    expect(
+      confirmedSettings.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(activeSubIndicatorIds);
   });
 
   it('selects subpane indicators from the mobile dialog', () => {

@@ -53,22 +53,4 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
     await props.onConfirmSuccess?.();
     expect(mockCloseDialog).toHaveBeenCalledTimes(1);
   });
-
-  it('forwards an explicit selection cap to the shared editor', () => {
-    const value: ITradingViewIndicatorSettingsValue = {
-      indicators: [],
-      schemaVersion: 1,
-    };
-
-    showTradingViewNativeIndicatorSettingsDialog({
-      maxSelectableSubIndicatorCount: 2,
-      onConfirm: jest.fn(),
-      value,
-    });
-
-    expect(
-      mockShowDialog.mock.calls[0][0].renderContent.props
-        .maxActiveSubIndicatorCount,
-    ).toBe(2);
-  });
 });
