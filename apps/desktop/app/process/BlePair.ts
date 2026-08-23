@@ -25,7 +25,7 @@ const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 // The user has up to the OS pairing window to confirm; keep some headroom.
 const PAIR_TIMEOUT_MS = 60_000;
 // After the deadline the helper still needs a moment to decline before it is killed.
-const PAIR_DECLINE_GRACE_MS = 5_000;
+const PAIR_DECLINE_GRACE_MS = 5000;
 
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
