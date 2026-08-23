@@ -15,7 +15,7 @@
         <HorizontalLayout height="52"><Control /><Button name="scope-current" text="{{string.scope.current.title}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="320" height="52" borderround="12,12" font="3" /><Control /></HorizontalLayout>
         <Label text="{{string.scope.current.description}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
         <Control height="16" />
-        <HorizontalLayout height="42"><Control /><Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" bkcolor="#00FFFFFF" width="420" height="42" borderround="10,10" font="3" /><Control /></HorizontalLayout>
+        <HorizontalLayout height="52"><Control /><Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" bordersize="1" width="320" height="52" borderround="12,12" font="3" /><Control /></HorizontalLayout>
         <Label text="{{string.scope.all.description}}" textcolor="{{color.textSecondary}}" height="30" align="center" />
         <Control />
       </VerticalLayout>

@@ -27,7 +27,7 @@
           <Control />
           <HorizontalLayout width="540" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,14,0">
             <Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" padding="9,0,0,0" />
-            <Button name="browse" text="{{string.welcome.change}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" width="46" />
+            <Button name="browse" text="{{string.welcome.change}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="46" height="34" borderround="8,8" />
           </HorizontalLayout>
           <Control />
         </HorizontalLayout>

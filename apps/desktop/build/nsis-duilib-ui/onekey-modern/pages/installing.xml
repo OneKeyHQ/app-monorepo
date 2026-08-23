@@ -29,7 +29,7 @@
           <AnimatedProgress name="progress" height="28" value="{{runtime.progress}}" trackcolor="{{color.progressTrack}}" startcolor="{{color.progressStart}}" endcolor="{{color.brand}}" />
           <HorizontalLayout height="32">
             <Label text="{{string.install.safeHint}}" textcolor="{{color.textSecondary}}" />
-            <Button name="cancel" text="{{string.install.cancel}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" width="42" />
+            <Button name="cancel" text="{{string.install.cancel}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="64" height="28" borderround="8,8" />
           </HorizontalLayout>
         </GlassPanel>
         <Control />
