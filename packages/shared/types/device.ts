@@ -4,9 +4,11 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
+import type { IThirdPartyWalletAvatarImageNames } from '../src/utils/avatarUtils';
 import type {
   BleReleaseInfoPayload,
   CommonParams,
+  DeviceState,
   Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
@@ -18,12 +20,27 @@ import type {
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
-export type IOneKeyDeviceFeatures = FeaturesTransport;
+export type IOneKeyDeviceState = DeviceState;
+export type IOneKeyPersistedDeviceState = DeviceState;
+
+/** Used only for Protocol V1, third-party hardware adapters, and legacy DB migration. */
+export type IOneKeyDeviceFeatures = FeaturesCore & {
+  autoShutdownDelayMs?: number | null;
+  wallpaperPath?: string | null;
+  brightness?: number | null;
+  animationEnabled?: boolean | null;
+  tapToWake?: boolean | null;
+  hapticFeedback?: boolean | null;
+  deviceNameDisplayEnabled?: boolean | null;
+  airgapMode?: boolean | null;
+  fidoEnabled?: boolean | null;
+  usbLockEnabled?: boolean | null;
+  randomKeypad?: boolean | null;
+};
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
 export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
   $app_firmware_type?: EFirmwareType;
@@ -102,12 +119,32 @@ export type IBleFirmwareUpdateInfo =
 export type IBootloaderUpdateInfo =
   IFirmwareUpdateInfoBase<IBootloaderReleasePayload>;
 
+export type IProtocolV2ResourceArchive = {
+  archiveSha256: string;
+  archiveSize: number;
+};
+
+export type IProtocolV2FirmwareComponentVersion = {
+  target: Exclude<IPro2FirmwareUpdateTarget, 'resource'>;
+  currentVersion: string | null;
+  targetVersion: string | null;
+};
+
+export type IProtocolV2FirmwareVersionInfo = {
+  safeOS: {
+    currentVersion: string | null;
+    targetVersion: string | null;
+  };
+  components: IProtocolV2FirmwareComponentVersion[];
+};
+
 export type ICheckAllFirmwareReleaseResult = {
   hasUpgrade: boolean | undefined;
   features: IOneKeyDeviceFeatures | undefined;
   isBootloaderMode: boolean;
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
+  firmwareUpdatePlanDigest?: string;
   deviceName: string | undefined;
   deviceBleName: string | undefined;
   updatingConnectId: string | undefined;
@@ -119,7 +156,25 @@ export type ICheckAllFirmwareReleaseResult = {
     bridge: IHardwareBridgeReleasePayload | undefined;
   };
   totalPhase: IDeviceFirmwareType[];
+  pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
+  pro2ResourceArchive?: IProtocolV2ResourceArchive;
+  protocolV2FirmwareVersionInfo?: IProtocolV2FirmwareVersionInfo;
 };
+
+export const PRO2_FIRMWARE_UPDATE_TARGETS = [
+  'boot',
+  'app_v1',
+  'app_v2',
+  'coprocessor',
+  'resource',
+  'se01',
+  'se02',
+  'se03',
+  'se04',
+] as const;
+
+export type IPro2FirmwareUpdateTarget =
+  (typeof PRO2_FIRMWARE_UPDATE_TARGETS)[number];
 
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;
@@ -140,7 +195,8 @@ export type IDevicePreInitialize = {
 };
 export type IDeviceCommonParams = IDevicePassphraseParams &
   IDeviceWebUSBParams &
-  IDevicePreInitialize;
+  IDevicePreInitialize &
+  Pick<CommonParams, 'connectProtocol'>;
 export type IDeviceCommonParamsFull = CommonParams;
 
 export type IGetDeviceAccountDataParams = {
@@ -226,7 +282,7 @@ export type IDeviceHomeScreen = {
 
 export type IQrWalletDevice = {
   name: string; // device name like: 'OneKey Pro'
-  // TODO deviceType
+  deviceType?: IDeviceType;
   deviceId: string;
   version: string;
   xfp: string; // different in passphrase
@@ -272,6 +328,8 @@ export enum EHardwareVendor {
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
+  // cspell:disable-next-line
+  romloader = 'romloader',
   notInitialized = 'notInitialized',
   // initialize = 'initialize',
   backupMode = 'backupMode',
@@ -303,6 +361,7 @@ export enum EFirmwareUpdateTipMessages {
   UpdateSysResourceSuccess = 'UpdateSysResourceSuccess',
   StartTransferData = 'StartTransferData',
   InstallingFirmware = 'InstallingFirmware',
+  FirmwareUpdating = 'FirmwareUpdating',
 
   // For V3
   StartDownloadFirmware = 'StartDownloadFirmware',
@@ -405,11 +464,9 @@ export interface IDeviceVerifyVersionCompareResult {
 }
 
 export type IDeviceVersionCacheInfo = {
-  onekey_firmware_version: string | undefined;
-  onekey_ble_version: string | undefined;
-  ble_ver: string | undefined;
-  onekey_boot_version: string | undefined;
-  bootloader_version: string | undefined;
+  firmwareVersion: string | undefined;
+  bleVersion: string | undefined;
+  bootloaderVersion: string | undefined;
 };
 
 export type IFirmwareUpdateV3VersionParams = {
@@ -418,12 +475,15 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
   firmwareType: EFirmwareType | undefined;
+  isPro2Device?: boolean;
+  pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 
 export enum EHardwareCallContext {
   USER_INTERACTION = 'user_interaction',
   USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
   BACKGROUND_TASK = 'background_task',
+  BACKGROUND_NON_INTERACTIVE = 'background_non_interactive',
   SDK_INITIALIZATION = 'sdk_initialization',
   SILENT_CALL = 'silent_call',
   UPDATE_FIRMWARE = 'update_firmware',
@@ -437,6 +497,8 @@ export interface IConnectYourDeviceItem {
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
   vendor?: EHardwareVendor;
+  // Resolved per-model avatar key for third-party (Ledger/Trezor) scan rows.
+  avatarImg?: IThirdPartyWalletAvatarImageNames;
 }
 
 export interface IFirmwareVerifyResult {

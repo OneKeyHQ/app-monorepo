@@ -64,14 +64,16 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
 } {
   const device = makeDevice();
   const sdk = {
-    getFeatures: jest.fn(async () => makeSuccess({ unlocked: true })),
+    getDeviceState: jest.fn(async () =>
+      makeSuccess({ status: { unlocked: true } }),
+    ),
     deviceUnlock: jest.fn(async () => makeSuccess({})),
     searchDevices: jest.fn(async () =>
       makeSuccess([
         {
           connectId: device.connectId,
           deviceId: device.deviceId,
-          features: { device_id: device.deviceId, session_id: 'session-123' },
+          sessionId: 'session-123',
         },
       ]),
     ),
@@ -101,8 +103,8 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
       async () => sdk,
     ) as unknown as ISignerHardwareDeps['ensureSDKReady'],
     installPassphraseProvider,
-    resolvePassphraseStateByMode:
-      jest.fn() as unknown as ISignerHardwareDeps['resolvePassphraseStateByMode'],
+    resolvePassphraseSessionByMode:
+      jest.fn() as unknown as ISignerHardwareDeps['resolvePassphraseSessionByMode'],
     keychainFactory: () => ({
       get: jest.fn(async () => null),
       set: jest.fn(async () => undefined),

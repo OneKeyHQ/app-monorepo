@@ -1,3 +1,4 @@
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
@@ -14,7 +15,7 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
-  it('preserves error payload metadata across response serialization', () => {
+  it('preserves hardware error identity across response serialization', () => {
     const payload = {
       connectId: 'CE:1F:0C:F1:CA:A9',
       deviceId: 'device-1',
@@ -23,10 +24,11 @@ describe('background thread RPC protocol', () => {
       },
     };
     const error = {
-      name: 'OneKeyHardwareError',
-      message: 'Please enable Passphrase',
-      className: 'DeviceNotOpenedPassphrase',
-      code: 801,
+      name: 'DeviceNotFound',
+      message: 'Device not found',
+      className: 'DeviceNotFound',
+      $isHardwareError: true,
+      code: 710,
       data: {
         [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
           LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
@@ -46,6 +48,8 @@ describe('background thread RPC protocol', () => {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     });
+    expect(response?.error?.$isHardwareError).toBe(true);
+    expect(isOneKeyHardwareError(response?.error)).toBe(true);
   });
 
   it('keeps only the LSE marker from background error data', () => {

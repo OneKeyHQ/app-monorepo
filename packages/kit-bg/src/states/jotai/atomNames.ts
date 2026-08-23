@@ -157,6 +157,12 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  // Nested force-target arrays must replace, not lodash-merge. merge({},
+  // {targets:['boot']}, {targets:[]}) keeps ['boot'], so the Pro2 switches
+  // cannot turn off (and look like they "don't toggle").
+  [EAtomNames.firmwareUpdateDevSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // This state is written as a complete snapshot so legacy chart namespace
   // fields can be removed instead of being merged back on every write.
   [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
