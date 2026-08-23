@@ -49,17 +49,15 @@ export const toGrayScale = (red: number, green: number, blue: number): number =>
 // JPEG block noise — so Otsu would binarize the noise into a checkerboard.
 const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
 
-// Undefined once the image is wide enough to split; otherwise the value every pixel takes.
 // Cutting a near-solid image at any threshold would only binarize its noise, and a spread
-// that straddles the cut point is where it shows up as a checkerboard.
-export function solidValueForNarrowRange(
+// that straddles the cut point is where it shows up as a checkerboard. Such an image goes
+// out solid black: polarity cannot survive here anyway, because a solid white field is
+// inverted straight back by shouldInvertForMajorityWhite.
+export function hasSplittableLuminanceRange(
   luminanceMin: number,
   luminanceMax: number,
-): number | undefined {
-  if (luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
-    return undefined;
-  }
-  return (luminanceMin + luminanceMax) / 2 > 128 ? 255 : 0;
+): boolean {
+  return luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU;
 }
 
 // Only invert when white is unambiguously the majority; near 50% the Otsu
@@ -189,9 +187,9 @@ function convertToBlackAndWhiteImageBase64(
       }
 
       // Otsu threshold instead of a fixed 128 — adapts per image, unless there is nothing to split.
-      const solid = solidValueForNarrowRange(luminanceMin, luminanceMax);
+      const canSplit = hasSplittableLuminanceRange(luminanceMin, luminanceMax);
       let threshold = 128;
-      if (solid === undefined) {
+      if (canSplit) {
         try {
           threshold = otsuThreshold(luminance);
         } catch (error) {
@@ -204,7 +202,7 @@ function convertToBlackAndWhiteImageBase64(
 
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const bw = solid ?? (luminance[p] > threshold ? 255 : 0);
+        const bw = canSplit && luminance[p] > threshold ? 255 : 0;
         if (bw === 255) {
           whiteCount += 1;
         }

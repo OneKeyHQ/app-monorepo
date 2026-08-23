@@ -2,9 +2,9 @@
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
 import {
+  hasSplittableLuminanceRange,
   otsuThreshold,
   shouldInvertForMajorityWhite,
-  solidValueForNarrowRange,
   toGrayScale,
 } from './imageUtils';
 
@@ -50,21 +50,21 @@ describe('otsuThreshold', () => {
   });
 });
 
-describe('solidValueForNarrowRange', () => {
-  it('lets a wide enough spread be split', () => {
-    expect(solidValueForNarrowRange(100, 132)).toBeUndefined();
+describe('hasSplittableLuminanceRange', () => {
+  it('splits once the spread is wide enough', () => {
+    expect(hasSplittableLuminanceRange(100, 132)).toBe(true);
   });
 
-  it('collapses a mid-gray spread instead of cutting it at 128', () => {
+  it('refuses a mid-gray spread rather than cutting it at 128', () => {
     // The failure this guard exists for: a spread narrow enough to be noise but
     // sitting across the cut point, which a threshold turns into a checkerboard.
-    expect(solidValueForNarrowRange(113, 144)).toBe(255);
-    expect(solidValueForNarrowRange(112, 142)).toBe(0);
+    expect(hasSplittableLuminanceRange(113, 144)).toBe(false);
+    expect(hasSplittableLuminanceRange(112, 142)).toBe(false);
   });
 
-  it('collapses near-black and near-white spreads', () => {
-    expect(solidValueForNarrowRange(0, 20)).toBe(0);
-    expect(solidValueForNarrowRange(235, 255)).toBe(255);
+  it('refuses near-black and near-white spreads', () => {
+    expect(hasSplittableLuminanceRange(0, 20)).toBe(false);
+    expect(hasSplittableLuminanceRange(235, 255)).toBe(false);
   });
 });
 
