@@ -20,6 +20,7 @@ Var OneKeyModernResult
   Var OneKeyModernIsInner
   Var OneKeyModernPerUserDirectory
   Var OneKeyModernPerMachineDirectory
+  Var OneKeyModernStartAppArgs
 
 # Snapshot the registry-backed state after electron-builder has resolved it in
 # initMultiUser. Command-line /allusers and /currentuser flags affect the
@@ -320,6 +321,30 @@ FunctionEnd
     !define MUI_PAGE_CUSTOMFUNCTION_SHOW OneKeyModernOnInstFilesShow
   !macroend
 
+  # Run the modern finish UI only after the installation section has returned.
+  # Keep the native MUI finish page behind it for initialization fallbacks.
+  !macro customFinishPage
+    Function OneKeyModernStartApp
+      ${If} ${isUpdated}
+        StrCpy $OneKeyModernStartAppArgs "--updated"
+      ${Else}
+        StrCpy $OneKeyModernStartAppArgs ""
+      ${EndIf}
+      ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$OneKeyModernStartAppArgs"
+      ${If} $0 != "ok"
+      ${AndIf} $0 != "fallback"
+        ${StdUtils.ExecShellAsUser} $0 "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "open" "$OneKeyModernStartAppArgs"
+      ${EndIf}
+    FunctionEnd
+
+    Page custom OneKeyModernInstallFinish
+    !ifndef HIDE_RUN_AFTER_FINISH
+      !define MUI_FINISHPAGE_RUN
+      !define MUI_FINISHPAGE_RUN_FUNCTION "OneKeyModernStartApp"
+    !endif
+    !insertmacro MUI_PAGE_FINISH
+  !macroend
+
   # This page deliberately runs after the hidden install-mode page. At this
   # point $INSTDIR contains the selected scope's registry/default path, so a
   # fresh directory choice cannot be overwritten by setInstallModePerUser or
@@ -405,24 +430,7 @@ FunctionEnd
     ${If} $OneKeyModernUiActive == "1"
       nsis-duilib-ui::SetProgress "100"
       Pop $OneKeyModernResult
-      nsis-duilib-ui::SetPage "finish"
-      Pop $OneKeyModernResult
-      ${If} $OneKeyModernResult == "ok"
-        ShowWindow $HWNDPARENT ${SW_HIDE}
-        nsis-duilib-ui::WaitForEvent
-        Pop $OneKeyModernResult
-        ${If} $OneKeyModernResult == "primary"
-          ${If} ${isUpdated}
-            StrCpy $1 "--updated"
-          ${Else}
-            StrCpy $1 ""
-          ${EndIf}
-          ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
-        ${EndIf}
-        nsis-duilib-ui::Shutdown
-        Pop $0
-        Quit
-      ${Else}
+      ${If} $OneKeyModernResult != "ok"
         nsis-duilib-ui::Shutdown
         Pop $0
         StrCpy $OneKeyModernUiActive "0"
@@ -430,6 +438,52 @@ FunctionEnd
       ${EndIf}
     ${EndIf}
   !macroend
+
+  Function OneKeyModernInstallFinish
+    ${If} $OneKeyModernUiActive != "1"
+      Abort
+    ${EndIf}
+
+    nsis-duilib-ui::SetPage "finish"
+    Pop $OneKeyModernResult
+    ${If} $OneKeyModernResult != "ok"
+      nsis-duilib-ui::Shutdown
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
+      ShowWindow $HWNDPARENT ${SW_SHOW}
+      Abort
+    ${EndIf}
+
+  OneKeyModernFinishWait:
+    ShowWindow $HWNDPARENT ${SW_HIDE}
+    nsis-duilib-ui::WaitForEvent
+    Pop $OneKeyModernResult
+    ${If} $OneKeyModernResult == "primary"
+      Call OneKeyModernStartApp
+      ${If} $0 != "ok"
+      ${AndIf} $0 != "fallback"
+        nsis-duilib-ui::SetPage "finish"
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult == "ok"
+          Goto OneKeyModernFinishWait
+        ${EndIf}
+        Goto OneKeyModernFinishFallback
+      ${EndIf}
+    ${EndIf}
+
+    nsis-duilib-ui::Shutdown
+    Pop $0
+    StrCpy $OneKeyModernUiActive "0"
+    SetErrorLevel 0
+    Quit
+
+  OneKeyModernFinishFallback:
+    nsis-duilib-ui::Shutdown
+    Pop $0
+    StrCpy $OneKeyModernUiActive "0"
+    ShowWindow $HWNDPARENT ${SW_SHOW}
+    Abort
+  FunctionEnd
 
   Function .onInstFailed
     ${If} $OneKeyModernUiActive == "1"
