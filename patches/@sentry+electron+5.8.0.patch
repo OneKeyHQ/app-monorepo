@@ -1,0 +1,46 @@
+diff --git a/node_modules/@sentry/electron/esm/main/integrations/preload-injection.js b/node_modules/@sentry/electron/esm/main/integrations/preload-injection.js
+index 31c01dd..703f480 100644
+--- a/node_modules/@sentry/electron/esm/main/integrations/preload-injection.js
++++ b/node_modules/@sentry/electron/esm/main/integrations/preload-injection.js
+@@ -43,9 +43,15 @@ const preloadInjectionIntegration = defineIntegration(() => {
+                 const path = getPreloadPath();
+                 if (path && typeof path === 'string' && isAbsolute(path) && existsSync(path)) {
+                     for (const sesh of options.getSessions()) {
+-                        // Fetch any existing preloads so we don't overwrite them
+-                        const existing = sesh.getPreloads();
+-                        sesh.setPreloads([path, ...existing]);
++                        // OneKey patch: Electron 35+ deprecates getPreloads/setPreloads.
++                        if (typeof sesh.registerPreloadScript === 'function') {
++                            sesh.registerPreloadScript({ type: 'frame', filePath: path });
++                        }
++                        else {
++                            // Fetch any existing preloads so we don't overwrite them
++                            const existing = sesh.getPreloads();
++                            sesh.setPreloads([path, ...existing]);
++                        }
+                     }
+                 }
+                 else {
+diff --git a/node_modules/@sentry/electron/main/integrations/preload-injection.js b/node_modules/@sentry/electron/main/integrations/preload-injection.js
+index a592cd4..6a9fd12 100644
+--- a/node_modules/@sentry/electron/main/integrations/preload-injection.js
++++ b/node_modules/@sentry/electron/main/integrations/preload-injection.js
+@@ -44,9 +44,15 @@ const preloadInjectionIntegration = core.defineIntegration(() => {
+                 const path$1 = getPreloadPath();
+                 if (path$1 && typeof path$1 === 'string' && path.isAbsolute(path$1) && fs.existsSync(path$1)) {
+                     for (const sesh of options.getSessions()) {
+-                        // Fetch any existing preloads so we don't overwrite them
+-                        const existing = sesh.getPreloads();
+-                        sesh.setPreloads([path$1, ...existing]);
++                        // OneKey patch: Electron 35+ deprecates getPreloads/setPreloads.
++                        if (typeof sesh.registerPreloadScript === 'function') {
++                            sesh.registerPreloadScript({ type: 'frame', filePath: path$1 });
++                        }
++                        else {
++                            // Fetch any existing preloads so we don't overwrite them
++                            const existing = sesh.getPreloads();
++                            sesh.setPreloads([path$1, ...existing]);
++                        }
+                     }
+                 }
+                 else {
