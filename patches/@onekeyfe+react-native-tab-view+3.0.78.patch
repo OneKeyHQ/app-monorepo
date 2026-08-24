@@ -1,0 +1,14 @@
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+index 4505879..61d8243 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+@@ -511,3 +511,8 @@ class RCTTabViewContainerView: UIView {
+     guard let tbc = tabBarController else { return }
+-    tbc.tabBar.isHidden = tabBarHidden
++    // OneKey patch: keep UIKit's tab bar visibility state in sync on iOS 18+.
++    if #available(iOS 18.0, *) {
++      tbc.setTabBarHidden(tabBarHidden, animated: false)
++    } else {
++      tbc.tabBar.isHidden = tabBarHidden
++    }
+     tbc.tabBar.isUserInteractionEnabled = !tabBarHidden
