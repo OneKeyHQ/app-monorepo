@@ -129,9 +129,10 @@ export function AuthFailureCard({
 
   if (noteShown) {
     return (
-      <YStack gap="$6">
+      <YStack>
         {/* The NOTE beat carries no icon; its warning line wears
-            critical on the words' own metrics. */}
+            critical on the words' own metrics. The words block's own
+            bottom padding is the gap to the buttons. */}
         <StepText
           title={AUTH_NOTE_TEXT.title}
           sub={AUTH_NOTE_TEXT.sub}
@@ -165,38 +166,44 @@ export function AuthFailureCard({
       <Stack alignSelf="center" p="$4" borderRadius="$full" bg="$bgCritical">
         <Icon name={copy.icon} size="$10" color="$iconCritical" />
       </Stack>
-      <StepText title={copy.title} sub={copy.sub} animated={false} />
-      {checklist?.length ? <AuthChecklist items={checklist} /> : null}
-      {copy.action === 'support' && onSupport ? (
-        <Button
-          testID="device-stage-auth-support"
-          variant="primary"
-          size="large"
-          onPress={onSupport}
-        >
-          Support
-        </Button>
-      ) : null}
-      {copy.action === 'retry' ? (
-        <YStack gap="$2">
-          <Button
-            testID="device-stage-auth-retry"
-            variant="primary"
-            size="large"
-            onPress={onRetry}
-          >
-            Retry
-          </Button>
-          <Button
-            testID="device-stage-auth-note-open"
-            variant="secondary"
-            size="large"
-            onPress={showNote}
-          >
-            Continue anyway
-          </Button>
+      {/* The words block's own bottom padding is its gap to what
+          follows; the blocks after it keep the card's 24. */}
+      <YStack>
+        <StepText title={copy.title} sub={copy.sub} animated={false} />
+        <YStack gap="$6">
+          {checklist?.length ? <AuthChecklist items={checklist} /> : null}
+          {copy.action === 'support' && onSupport ? (
+            <Button
+              testID="device-stage-auth-support"
+              variant="primary"
+              size="large"
+              onPress={onSupport}
+            >
+              Support
+            </Button>
+          ) : null}
+          {copy.action === 'retry' ? (
+            <YStack gap="$2">
+              <Button
+                testID="device-stage-auth-retry"
+                variant="primary"
+                size="large"
+                onPress={onRetry}
+              >
+                Retry
+              </Button>
+              <Button
+                testID="device-stage-auth-note-open"
+                variant="secondary"
+                size="large"
+                onPress={showNote}
+              >
+                Continue anyway
+              </Button>
+            </YStack>
+          ) : null}
         </YStack>
-      ) : null}
+      </YStack>
     </YStack>
   );
 }

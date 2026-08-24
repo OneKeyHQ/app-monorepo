@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { Keyboard, useWindowDimensions } from 'react-native';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
@@ -9,6 +9,7 @@ import type {
   IDeviceStageProps,
   IDeviceStageStep,
 } from '@onekeyhq/components/src/composite/DeviceStage';
+import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
 
@@ -20,7 +21,26 @@ import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
  * its step is on. Each story file picks the buttons of its own flow
  * family; the Console story runs the whole vocabulary for mid-flight
  * flips across families.
+ *
+ * The driver also plays the live flows' close policy, so the stories
+ * show the way out the way the app will grant it: armed a few seconds
+ * into an ask, longer into a wait (the device may simply be slow), at
+ * once for the authenticity flow (its live dialog always has its
+ * close), and once armed, kept for the rest of the burst.
  */
+
+const CLOSE_ARM_ASK_MS = 3000;
+const CLOSE_ARM_WAIT_MS = 10_000;
+const WAIT_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
+  'connecting',
+  'processing',
+]);
+const AUTH_STEPS: ReadonlySet<IDeviceStageStep> = new Set([
+  'genuineCheck',
+  'authVerifying',
+  'authSuccess',
+  'authFailure',
+]);
 
 /* The authenticity demo's checklist data, the design's own example rows.
  * The certificate row shows the device serial (no link); the firmware
@@ -181,6 +201,30 @@ export function useStageDriver(
   }, [authFailureReason, go]);
   const handleAuthSupport = useCallback(() => {}, []);
   const handleAuthContinueAnyway = useCallback(() => go('off'), [go]);
+  // The close grant, on the live policy above: every step change
+  // restarts the arming timer until the grant lands; `off` revokes it.
+  const [closable, setClosable] = useState(false);
+  useEffect(() => {
+    if (step === 'off') {
+      setClosable(false);
+      return undefined;
+    }
+    if (closable) return undefined;
+    if (AUTH_STEPS.has(step)) {
+      setClosable(true);
+      return undefined;
+    }
+    const id = setTimeout(
+      () => setClosable(true),
+      WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
+    );
+    return () => clearTimeout(id);
+  }, [closable, step]);
+  const close = useCallback(() => {
+    // A dismissed form would otherwise leave its keyboard standing.
+    Keyboard.dismiss();
+    go('off');
+  }, [go]);
   return {
     step,
     go,
@@ -192,6 +236,7 @@ export function useStageDriver(
     goAuthFailure,
     stageProps: {
       step,
+      onClose: closable ? close : undefined,
       inputError,
       authChecklist: authRows,
       onAuthSupport: handleAuthSupport,
@@ -247,10 +292,12 @@ export function StepButton({
 }
 
 /** The demo host: the stage portals to the shell's canvas-wide mount
- * (the hardware-dialog level) on every platform; this holds the buttons,
- * and its minHeight (window minus a workbench-chrome allowance) keeps
- * the canvas — and so that mount — tall enough for the stage to anchor
- * to the bottom. */
+ * (the hardware-dialog level) on every platform, and its minHeight
+ * (window minus a workbench-chrome allowance) keeps the canvas — and so
+ * that mount — tall enough for the stage to anchor to the bottom. The
+ * stage is modal — its wall takes every touch on the canvas — so the
+ * driver's buttons ride the same portal, mounted after the stage and
+ * therefore above it: a bar floating along the canvas top. */
 export function StageHost({
   driver,
   props,
@@ -261,12 +308,29 @@ export function StageHost({
   children: ReactNode;
 }) {
   const { height } = useWindowDimensions();
-  return (
-    <Stack minHeight={height - 190}>
-      <XStack gap="$2" flexWrap="wrap">
+  const bar = useMemo(
+    () => (
+      <XStack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        p="$2"
+        gap="$2"
+        flexWrap="wrap"
+        pointerEvents="box-none"
+      >
         {children}
       </XStack>
+    ),
+    [children],
+  );
+  return (
+    <Stack minHeight={height - 190}>
       <DeviceStage {...props} {...driver.stageProps} />
+      <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+        {bar}
+      </Portal.Body>
     </Stack>
   );
 }
@@ -274,7 +338,6 @@ export function StageHost({
 /** The shared demo payloads and control shapes each family picks from. */
 export const DEMO = {
   deviceName: 'Pro 062B',
-  confirmContext: 'Description here...',
   confirmDetails: [
     {
       label: 'Address',
@@ -290,7 +353,7 @@ export const ARG_TYPES = {
   step: { table: { disable: true } },
   deviceType: {
     control: 'inline-radio',
-    options: ['classic', 'pro', 'slate'],
+    options: ['classic', 'mini', 'pro', 'touch', 'slate'],
   },
   passphraseMode: {
     control: 'inline-radio',
