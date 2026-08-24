@@ -165,7 +165,7 @@ describe('TradingViewNative shared chart scene', () => {
       chartSettings,
       chartType: 'candlestick',
       crosshair: { visible: true, x: 264.5, y: 80 },
-      currentPriceLabel: '104.00 00:12:34',
+      currentPriceLabel: '104.00',
       hasVolume: false,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -283,7 +283,7 @@ describe('TradingViewNative shared chart scene', () => {
       chartSettings,
       chartType: 'candlestick',
       crosshair: { visible: true, x: 264.5, y: 80 },
-      currentPriceLabel: '104.00 00:12:34',
+      currentPriceLabel: '104.00',
       hasVolume: false,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -304,8 +304,7 @@ describe('TradingViewNative shared chart scene', () => {
     });
     expect(
       scene.commands.find(
-        (command) =>
-          command.kind === 'text' && command.text === '104.00 00:12:34',
+        (command) => command.kind === 'text' && command.text === '104.00',
       ),
     ).toBeDefined();
     expect(

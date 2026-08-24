@@ -108,6 +108,7 @@ describe('MarketChartSettingsModal', () => {
     expect(props.onChange).toBeUndefined();
     expect(props.hiddenAppearanceSectionIds).toEqual(['events']);
     expect(props.hiddenOptionIds).toEqual([
+      'countdown',
       'depth',
       'futureEvents',
       'pastEvents',
@@ -145,6 +146,6 @@ describe('MarketChartSettingsModal', () => {
 
     expect(
       mockTradingViewChartSettings.mock.calls[0][0].hiddenOptionIds,
-    ).toEqual(['depth', 'futureEvents', 'pastEvents']);
+    ).toEqual(['countdown', 'depth', 'futureEvents', 'pastEvents']);
   });
 });
