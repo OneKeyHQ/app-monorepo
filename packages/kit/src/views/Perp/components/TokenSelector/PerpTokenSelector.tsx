@@ -383,11 +383,7 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent({
-  onLoadingChange,
-}: {
-  onLoadingChange: (isLoading: boolean) => void;
-}) {
+function BasePerpTokenSelectorContent() {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -530,7 +526,6 @@ function BasePerpTokenSelectorContent({
         selectorConfig ?? undefined,
       );
       try {
-        onLoadingChange(true);
         defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
           activeTab: displayActiveTab,
           token: symbol,
@@ -558,8 +553,6 @@ function BasePerpTokenSelectorContent({
         void closePopover?.();
       } catch (error) {
         console.error('Failed to switch token:', error);
-      } finally {
-        onLoadingChange(false);
       }
     },
     [
@@ -567,7 +560,6 @@ function BasePerpTokenSelectorContent({
       closePopover,
       actions,
       displayActiveTab,
-      onLoadingChange,
       selectorConfig,
       spotUniverses,
     ],
@@ -1332,16 +1324,8 @@ function BasePerpTokenSelectorContent({
   );
 }
 
-function PerpTokenSelectorContent({
-  isOpen,
-  onLoadingChange,
-}: {
-  isOpen: boolean;
-  onLoadingChange: (isLoading: boolean) => void;
-}) {
-  return isOpen ? (
-    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
-  ) : null;
+function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
+  return isOpen ? <BasePerpTokenSelectorContent /> : null;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1359,7 +1343,6 @@ function BasePerpTokenSelector() {
     dexLabel,
     mode,
   } = useActiveTradeDisplay();
-  const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
 
@@ -1484,21 +1467,16 @@ function BasePerpTokenSelector() {
               />
             ) : null}
             <Icon name="ChevronBottomOutline" size="$4" />
-            {isLoading ? <Spinner size="small" /> : null}
           </Badge>
         }
         renderContent={({ isOpen: isOpenProp }) => (
-          <PerpTokenSelectorContentMemo
-            isOpen={isOpenProp ?? false}
-            onLoadingChange={setIsLoading}
-          />
+          <PerpTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
         )}
       />
     ),
     [
       activePerpsAccount.walletType,
       isOpen,
-      isLoading,
       triggerLabel,
       activeCoin,
       baseName,

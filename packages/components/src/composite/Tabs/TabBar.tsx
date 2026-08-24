@@ -631,6 +631,7 @@ export interface ITabBarProps extends TabBarProps<string> {
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
   /** Aligns the selected item within a horizontal scrollable tab bar. */
   keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
 }
 
 export interface ITabBarItemProps {
@@ -758,6 +759,7 @@ export function TabBar({
   directTabPressAnimation = false,
   directTabPressAnimationMode = 'timing',
   keepFocusedTabVisible = false,
+  showsHorizontalScrollIndicator = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -773,6 +775,7 @@ export function TabBar({
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
   keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1375,7 +1378,7 @@ export function TabBar({
           pr="$4"
           contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
           renderItem={handleRenderItem as any}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         />
         {renderToolbar ? (
           <XStack>{renderToolbar({ focusedTab: currentTab })}</XStack>
