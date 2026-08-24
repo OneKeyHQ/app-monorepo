@@ -159,12 +159,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       // Version 0 and version 1 have incompatible wire formats, so dispatch explicitly.
       // Anything that is not version 1 stays on the version 0 path it has always used.
       if (messagePayload?.version === 1) {
+        const requiredSigners = messagePayload.requiredSigners.map((signer_) =>
+          bs58.decode(signer_),
+        );
+
+        // The spec requires the signer to be one of the required signers, and a signature
+        // from any other key satisfies nothing the message asks for. ProviderApiSolana
+        // rejects that request, but core is also reached directly (apps/cli).
+        const pubkey = await signer.getPubkey();
+        const isRequiredSigner = requiredSigners.some((item) =>
+          Buffer.from(item).equals(pubkey),
+        );
+        if (!isRequiredSigner) {
+          throw new OneKeyLocalError(
+            'sol offchain message: signer is not one of requiredSigners',
+          );
+        }
+
         const signedOffchainMessage =
           OffchainMessage.createOffChainMessageV1Bytes({
             message,
-            requiredSigners: messagePayload.requiredSigners.map((signer_) =>
-              bs58.decode(signer_),
-            ),
+            requiredSigners,
           });
         const [signature] = await signer.sign(
           Buffer.from(signedOffchainMessage),
