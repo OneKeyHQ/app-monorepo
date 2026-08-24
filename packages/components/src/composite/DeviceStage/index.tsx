@@ -1530,11 +1530,7 @@ export function DeviceStage({
         <View onLayout={panelMeasureHandlers.installBatch.words}>
           <StepText
             title={intl.formatMessage({ id: STEP_TEXT.installBatch.title })}
-            sub={
-              STEP_TEXT.installBatch.sub
-                ? intl.formatMessage({ id: STEP_TEXT.installBatch.sub })
-                : ''
-            }
+            sub={resolveStepSub(intl, 'installBatch')}
             animated={false}
           />
         </View>
