@@ -380,6 +380,8 @@ type IOneKeyIdAuthSnapshot = {
 };
 
 class ServicePrime extends ServiceBase {
+  private primeUserInfoFetchGeneration = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -4500,6 +4502,8 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
+    this.primeUserInfoFetchGeneration += 1;
+    const fetchGeneration = this.primeUserInfoFetchGeneration;
     await this.loginMutex.waitForUnlock();
     // Snapshot the RESOLVED source (not the raw persisted one): the
     // getActiveAuthToken() call below runs the self-healing resolver, which
@@ -4618,6 +4622,7 @@ class ServicePrime extends ServiceBase {
         this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
       ]);
       const isSameSession = Boolean(
+        fetchGeneration === this.primeUserInfoFetchGeneration &&
         currentAuthToken &&
         currentOneKeyIdAuthState !== 'loggedOut' &&
         currentUserInfo.isLoggedIn &&
@@ -4658,7 +4663,7 @@ class ServicePrime extends ServiceBase {
     if (!commitResult.committed) {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
-          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle changed before response commit, discarding response',
+          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle or fetch generation changed before response commit, discarding response',
       });
       return {
         userInfo: commitResult.userInfo,
@@ -5204,24 +5209,40 @@ class ServicePrime extends ServiceBase {
       createStateChangedError: createSessionChangedError,
     });
     const client = await this.getPrimeClient();
-    const result = await client
-      .post<IApiClientResponse<IPrimeRedemptionApiResponse>>(
-        '/prime/v1/redemption/redeem',
-        { code: redemptionCode },
-        this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
-      )
-      .catch((error: unknown) => {
-        // The dialog renders non-auth failures inline. Invalid-session errors
-        // keep the existing global toast and OneKey ID logout flow.
-        if (
-          error &&
-          typeof error === 'object' &&
-          !(error instanceof OneKeyErrorPrimeLoginInvalidToken)
-        ) {
-          (error as { autoToast?: boolean }).autoToast = false;
-        }
-        throw error;
+    const requestConfig =
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot);
+    let result: {
+      data: IApiClientResponse<IPrimeRedemptionApiResponse>;
+    };
+    try {
+      const profileResult = await client.get<
+        IApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', requestConfig);
+      if (
+        profileResult?.data?.data?.onekeyAccount?.onekeyUserId !==
+        expectedOneKeyUserId
+      ) {
+        throw createSessionChangedError();
+      }
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot: authSnapshot,
+        createStateChangedError: createSessionChangedError,
       });
+      result = await client.post<
+        IApiClientResponse<IPrimeRedemptionApiResponse>
+      >('/prime/v1/redemption/redeem', { code: redemptionCode }, requestConfig);
+    } catch (error) {
+      // The dialog renders non-auth failures inline. Invalid-session errors
+      // keep the existing global toast and OneKey ID logout flow.
+      if (
+        error &&
+        typeof error === 'object' &&
+        !(error instanceof OneKeyErrorPrimeLoginInvalidToken)
+      ) {
+        (error as { autoToast?: boolean }).autoToast = false;
+      }
+      throw error;
+    }
     const redemption = validatePrimeRedemptionResponse(result?.data?.data);
     await this.assertOneKeyIdAuthSnapshot({
       snapshot: authSnapshot,

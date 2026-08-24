@@ -40,7 +40,7 @@ const mockFetchPrimeUserInfo = jest.fn<
   [{ forceRefresh?: boolean }?]
 >();
 const mockDialogFooterClose = jest.fn<Promise<void>, []>();
-let mockThemeName: 'dark' | 'light' = 'light';
+const mockPrimeRedemptionResult = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -183,7 +183,7 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', { 'data-testid': 'success-lottie' }),
     SizableText: Container,
     Stack: Container,
-    useThemeName: () => mockThemeName,
+    useThemeName: () => 'light',
     useForm: jest.requireActual('react-hook-form').useForm,
     YStack: Container,
   };
@@ -205,6 +205,18 @@ jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   formatDateFns: (date: Date) => `formatted:${String(date.getTime())}`,
 }));
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        primeRedemptionResult: (...args: unknown[]) => {
+          mockPrimeRedemptionResult(...args);
+        },
+      },
+    },
+  },
+}));
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -214,7 +226,10 @@ function createDeferred<T>() {
 }
 
 function renderDialog() {
-  showPrimeRedemptionDialog({ expectedOneKeyUserId: 'user-a' });
+  showPrimeRedemptionDialog({
+    expectedOneKeyUserId: 'user-a',
+    isPrimeActiveBeforeRedeem: false,
+  });
   const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
   return render(config.renderContent as ReactElement);
 }
@@ -222,7 +237,6 @@ function renderDialog() {
 describe('PrimeRedemptionDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockThemeName = 'light';
     mockDialogShow.mockReturnValue({
       close: jest.fn(async () => undefined),
       getForm: () => undefined,
@@ -240,9 +254,6 @@ describe('PrimeRedemptionDialog', () => {
         name: ETranslations.redemption_enter_code_placeholder,
       }),
     ).toBeTruthy();
-    expect(
-      document.querySelector('[data-icon-name="OnekeyPrimeLightColored"]'),
-    ).toBeTruthy();
     const confirmButton = screen.getByRole('button', {
       name: ETranslations.redemption_redeem_button,
     });
@@ -252,15 +263,6 @@ describe('PrimeRedemptionDialog', () => {
     });
     expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
-  });
-
-  it('uses the Prime icon for the active theme', () => {
-    mockThemeName = 'dark';
-    renderDialog();
-
-    expect(
-      document.querySelector('[data-icon-name="OnekeyPrimeDarkColored"]'),
-    ).toBeTruthy();
   });
 
   it('blocks duplicate submissions while a redemption is in flight', async () => {
@@ -293,6 +295,7 @@ describe('PrimeRedemptionDialog', () => {
       });
       await deferred.promise;
     });
+    expect(mockPrimeRedemptionResult).toHaveBeenCalledTimes(1);
   });
 
   it('shows the success result and refreshes Prime state best-effort', async () => {
@@ -332,11 +335,13 @@ describe('PrimeRedemptionDialog', () => {
         .getAttribute('aria-live'),
     ).toBe('polite');
     expect(screen.getByTestId('success-lottie')).toBeTruthy();
-    expect(
-      document.querySelector('[data-icon-name="OnekeyPrimeLightColored"]'),
-    ).toBeTruthy();
     expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
       forceRefresh: true,
+    });
+    expect(mockPrimeRedemptionResult).toHaveBeenCalledWith({
+      result: 'success',
+      isPrimeActiveBeforeRedeem: false,
+      addedDays: 30,
     });
   });
 
@@ -363,6 +368,11 @@ describe('PrimeRedemptionDialog', () => {
     await waitFor(() => {
       expect(screen.getByText(serverMessage)).toBeTruthy();
     });
+    expect(mockPrimeRedemptionResult).toHaveBeenLastCalledWith({
+      result: 'failed',
+      isPrimeActiveBeforeRedeem: false,
+      errorCode: 90_506,
+    });
     expect(
       (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
         .value,
@@ -378,6 +388,12 @@ describe('PrimeRedemptionDialog', () => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
     expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(2);
+    expect(mockPrimeRedemptionResult).toHaveBeenLastCalledWith({
+      result: 'success',
+      isPrimeActiveBeforeRedeem: false,
+      addedDays: 30,
+    });
+    expect(mockPrimeRedemptionResult).toHaveBeenCalledTimes(2);
   });
 
   it('closes for an expired OneKey ID session without duplicating the toast inline', async () => {
@@ -400,5 +416,10 @@ describe('PrimeRedemptionDialog', () => {
       expect(mockDialogFooterClose).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByText(message)).toBeNull();
+    expect(mockPrimeRedemptionResult).toHaveBeenCalledWith({
+      result: 'failed',
+      isPrimeActiveBeforeRedeem: false,
+      errorCode: undefined,
+    });
   });
 });

@@ -1113,12 +1113,32 @@ describe('ServicePrime Prime redemption API', () => {
     return result;
   }
 
+  function mockRedemptionClient({
+    service,
+    post,
+    tokenOwnerOneKeyUserId = 'user-a',
+  }: {
+    service: ReturnType<typeof createRedemptionService>['service'];
+    post: jest.Mock;
+    tokenOwnerOneKeyUserId?: string;
+  }) {
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: { onekeyUserId: tokenOwnerOneKeyUserId },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    return get;
+  }
+
   it('redeems a trimmed code with the pinned OneKey ID session', async () => {
     const { service } = createRedemptionService();
     const post = jest.fn(async () => ({
       data: { data: redemptionResponse },
     }));
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const get = mockRedemptionClient({ service, post });
 
     await expect(
       service.apiRedeemPrimeCode({
@@ -1126,6 +1146,11 @@ describe('ServicePrime Prime redemption API', () => {
         expectedOneKeyUserId: 'user-a',
       }),
     ).resolves.toEqual(redemption);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
     expect(post).toHaveBeenCalledWith(
       '/prime/v1/redemption/redeem',
       { code: 'OKP-PJ37L-DYXWR' },
@@ -1140,7 +1165,7 @@ describe('ServicePrime Prime redemption API', () => {
   it('rejects an empty code without making a request', async () => {
     const { service } = createRedemptionService();
     const post = jest.fn();
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const get = mockRedemptionClient({ service, post });
 
     await expect(
       service.apiRedeemPrimeCode({
@@ -1148,6 +1173,26 @@ describe('ServicePrime Prime redemption API', () => {
         expectedOneKeyUserId: 'user-a',
       }),
     ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects before redeeming when the pinned token belongs to another user', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({
+      service,
+      post,
+      tokenOwnerOneKeyUserId: 'user-b',
+    });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).toHaveBeenCalledTimes(1);
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -1168,7 +1213,7 @@ describe('ServicePrime Prime redemption API', () => {
     async (_label, data) => {
       const { service } = createRedemptionService();
       const post = jest.fn(async () => ({ data: { data } }));
-      service.getPrimeClient = jest.fn(async () => ({ post }));
+      mockRedemptionClient({ service, post });
 
       await expect(
         service.apiRedeemPrimeCode({
@@ -1182,7 +1227,7 @@ describe('ServicePrime Prime redemption API', () => {
   it('rejects before the request when the logged-in user changed', async () => {
     const { service } = createRedemptionService();
     const post = jest.fn();
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const get = mockRedemptionClient({ service, post });
 
     await expect(
       service.apiRedeemPrimeCode({
@@ -1190,6 +1235,7 @@ describe('ServicePrime Prime redemption API', () => {
         expectedOneKeyUserId: 'user-b',
       }),
     ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -1203,7 +1249,7 @@ describe('ServicePrime Prime redemption API', () => {
       postStarted.resolve();
       return deferred.promise;
     });
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    mockRedemptionClient({ service, post });
 
     const redemptionPromise = service.apiRedeemPrimeCode({
       code: 'OKP-PJ37L-DYXWR',
@@ -1229,7 +1275,7 @@ describe('ServicePrime Prime redemption API', () => {
       postStarted.resolve();
       return deferred.promise;
     });
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    mockRedemptionClient({ service, post });
 
     const redemptionPromise = service.apiRedeemPrimeCode({
       code: 'OKP-PJ37L-DYXWR',
@@ -1255,7 +1301,7 @@ describe('ServicePrime Prime redemption API', () => {
       },
     });
     const post = jest.fn(async () => Promise.reject(error));
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    mockRedemptionClient({ service, post });
 
     await expect(
       service.apiRedeemPrimeCode({
@@ -1273,7 +1319,7 @@ describe('ServicePrime Prime redemption API', () => {
       message: '用户认证失败，请重试登录。',
     });
     const post = jest.fn(async () => Promise.reject(error));
-    service.getPrimeClient = jest.fn(async () => ({ post }));
+    mockRedemptionClient({ service, post });
 
     await expect(
       service.apiRedeemPrimeCode({
@@ -3992,6 +4038,59 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(result.serverUserInfo).toBeUndefined();
     expect(result.userInfo.onekeyUserId).toBe('user-a');
+  });
+
+  it('does not let an older fetch overwrite a newer Prime response', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue('commit-a');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token-a');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+
+    const olderResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const newerResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const olderFetchStarted = createDeferred();
+    const newerFetchStarted = createDeferred();
+    service.callApiFetchPrimeUserInfo = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        olderFetchStarted.resolve();
+        return olderResponse.promise;
+      })
+      .mockImplementationOnce(() => {
+        newerFetchStarted.resolve();
+        return newerResponse.promise;
+      });
+    const updateSpy = jest
+      .spyOn(service, 'updatePrimeAtomByServerUserInfo')
+      .mockResolvedValue({ primeSubscription: { isActive: true } as any });
+
+    const olderFetch = (service as any)._fetchPrimeUserInfo();
+    await olderFetchStarted.promise;
+    const newerFetch = (service as any)._fetchPrimeUserInfo();
+    await newerFetchStarted.promise;
+
+    newerResponse.resolve({ userId: 'user-a', isPrime: true });
+    await newerFetch;
+    olderResponse.resolve({ userId: 'user-a', isPrime: false });
+    await olderFetch;
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith({
+      serverUserInfo: { userId: 'user-a', isPrime: true },
+    });
   });
 });
 

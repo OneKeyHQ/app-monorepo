@@ -17,6 +17,7 @@ import {
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
@@ -28,8 +29,10 @@ type IPrimeRedemptionFormValues = {
 
 function PrimeRedemptionDialogContent({
   expectedOneKeyUserId,
+  isPrimeActiveBeforeRedeem,
 }: {
   expectedOneKeyUserId: string;
+  isPrimeActiveBeforeRedeem: boolean;
 }) {
   const intl = useIntl();
   const form = useForm<IPrimeRedemptionFormValues>({
@@ -74,13 +77,20 @@ function PrimeRedemptionDialogContent({
             expectedOneKeyUserId,
           },
         );
+        defaultLogger.prime.subscription.primeRedemptionResult({
+          result: 'success',
+          isPrimeActiveBeforeRedeem,
+          addedDays: result.addedDays,
+        });
         setRedemptionResult(result);
         void backgroundApiProxy.servicePrime
           .apiFetchPrimeUserInfo({ forceRefresh: true })
           .catch(() => undefined);
       } catch (error) {
         const apiError = error as {
+          code?: unknown;
           data?: {
+            code?: unknown;
             message?: unknown;
             translatedMessage?: unknown;
           };
@@ -88,6 +98,7 @@ function PrimeRedemptionDialogContent({
           message?: unknown;
           response?: {
             data?: {
+              code?: unknown;
               message?: unknown;
               translatedMessage?: unknown;
             };
@@ -97,6 +108,18 @@ function PrimeRedemptionDialogContent({
         const translatedMessage =
           apiError.data?.translatedMessage ?? responseData?.translatedMessage;
         const serverMessage = apiError.data?.message ?? responseData?.message;
+        const errorCodeCandidate =
+          apiError.data?.code ?? responseData?.code ?? apiError.code;
+        const errorCode =
+          Number.isSafeInteger(errorCodeCandidate) &&
+          Number(errorCodeCandidate) > 0
+            ? Number(errorCodeCandidate)
+            : undefined;
+        defaultLogger.prime.subscription.primeRedemptionResult({
+          result: 'failed',
+          isPrimeActiveBeforeRedeem,
+          errorCode,
+        });
         if (apiError.key === ETranslations.id_login_expired_description) {
           await close();
           return;
@@ -115,7 +138,7 @@ function PrimeRedemptionDialogContent({
         setIsSubmitting(false);
       }
     },
-    [expectedOneKeyUserId, form, intl],
+    [expectedOneKeyUserId, form, intl, isPrimeActiveBeforeRedeem],
   );
 
   if (redemptionResult) {
@@ -239,14 +262,17 @@ function PrimeRedemptionDialogContent({
 
 export function showPrimeRedemptionDialog({
   expectedOneKeyUserId,
+  isPrimeActiveBeforeRedeem,
 }: {
   expectedOneKeyUserId: string;
+  isPrimeActiveBeforeRedeem: boolean;
 }): IDialogInstance {
   return Dialog.show({
     showFooter: false,
     renderContent: (
       <PrimeRedemptionDialogContent
         expectedOneKeyUserId={expectedOneKeyUserId}
+        isPrimeActiveBeforeRedeem={isPrimeActiveBeforeRedeem}
       />
     ),
   });

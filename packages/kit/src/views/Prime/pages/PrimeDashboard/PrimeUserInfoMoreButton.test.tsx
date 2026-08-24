@@ -11,6 +11,7 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 const mockActionListClose = jest.fn();
 const mockShowPrimeRedemptionDialog = jest.fn();
+const mockPrimeRedemptionEntryClick = jest.fn();
 const mockUser: {
   displayEmail: string;
   onekeyUserId: string;
@@ -132,6 +133,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        primeRedemptionEntryClick: (...args: unknown[]) => {
+          mockPrimeRedemptionEntryClick(...args);
+        },
+      },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   __esModule: true,
   default: { openUrlExternal: jest.fn() },
@@ -168,6 +181,10 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
 
       expect(mockShowPrimeRedemptionDialog).toHaveBeenCalledWith({
         expectedOneKeyUserId: 'user-a',
+        isPrimeActiveBeforeRedeem: isPrimeActive,
+      });
+      expect(mockPrimeRedemptionEntryClick).toHaveBeenCalledWith({
+        isPrimeActiveBeforeRedeem: isPrimeActive,
       });
       expect(mockActionListClose).toHaveBeenCalled();
     },
