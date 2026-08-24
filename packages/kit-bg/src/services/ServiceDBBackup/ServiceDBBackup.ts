@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -159,6 +160,77 @@ class ServiceDBBackup extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async removeBackupHyperLiquidAgentCredentials({
+    credentialIds,
+  }: {
+    credentialIds?: string[];
+  } = {}) {
+    if (!this.canBackup()) {
+      return;
+    }
+
+    const credentialIdSet = credentialIds?.length
+      ? new Set(credentialIds)
+      : undefined;
+    const shouldRemove = (credentialId: string) =>
+      accountUtils.isHyperLiquidAgentCredentialId({ credentialId }) &&
+      (!credentialIdSet || credentialIdSet.has(credentialId));
+
+    try {
+      const nativeDb = (await this.backgroundApi.localDb
+        .readyDb) as IndexedDBAgent;
+      const backupDB = nativeDb.getIndexedByBucketName(
+        EIndexedDBBucketNames.backupAccount,
+      );
+      const backupCredentials: IDBCredential[] = await backupDB.getAll(
+        ELocalDBStoreNames.Credential,
+      );
+      const credentialIdsToRemove = backupCredentials
+        .map((credential) => credential.id)
+        .filter(shouldRemove);
+
+      if (credentialIdsToRemove.length) {
+        const backupTx = backupDB.transaction(
+          INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
+          'readwrite',
+        );
+        const credentialStore = backupTx.objectStore(
+          ELocalDBStoreNames.Credential,
+        );
+        await Promise.all(
+          credentialIdsToRemove.map((credentialId) =>
+            credentialStore?.delete(credentialId),
+          ),
+        );
+      }
+    } catch {
+      defaultLogger.app.error.log(
+        'Bucket backup HyperLiquid credential cleanup failed',
+      );
+    }
+
+    try {
+      // HyperLiquid agent credentials were introduced after bucket storage,
+      // so this legacy-DB branch is defensive cleanup, not a migration path.
+      const legacyCredentials = await legacyIndexedDb.getAll(
+        ELocalDBStoreNames.Credential,
+      );
+      const credentialIdsToRemove = legacyCredentials
+        .map((credential) => credential.id)
+        .filter(shouldRemove);
+      await Promise.all(
+        credentialIdsToRemove.map((credentialId) =>
+          legacyIndexedDb.delete(ELocalDBStoreNames.Credential, credentialId),
+        ),
+      );
+    } catch {
+      defaultLogger.app.error.log(
+        'Legacy backup HyperLiquid credential cleanup failed',
+      );
+    }
+  }
+
   _backupDatabaseDailyPromise: Promise<void> | undefined;
 
   @backgroundMethod()
@@ -184,6 +256,11 @@ class ServiceDBBackup extends ServiceBase {
     if (!this.canBackup()) {
       return;
     }
+
+    // Agent credentials are device-bound signing secrets. They must never be
+    // copied into the recovery backup, even when protected by LSE, because its
+    // local key material is intentionally not portable.
+    await this.removeBackupHyperLiquidAgentCredentials();
 
     // Data-safety gate. The daily backup overwrites the previous backup bucket
     // in place (migrateRecords uses put-by-id, see migrateRecordsFn.ts), so
@@ -256,8 +333,13 @@ class ServiceDBBackup extends ServiceBase {
         ELocalDBStoreNames.Account,
       );
 
-      const credentials: IDBCredential[] = await db.getAll(
-        ELocalDBStoreNames.Credential,
+      const credentials: IDBCredential[] = (
+        await db.getAll(ELocalDBStoreNames.Credential)
+      ).filter(
+        (credential) =>
+          !accountUtils.isHyperLiquidAgentCredentialId({
+            credentialId: credential.id,
+          }),
       );
 
       const devices: IDBDevice[] = await db.getAll(ELocalDBStoreNames.Device);

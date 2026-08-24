@@ -45,6 +45,7 @@ import {
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   classifyLocalSecretEnvelopeMigrationCandidate,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
+  deleteMmkvProfileKeyForLocalSecretEnvelope,
   detectLocalSecretEnvelopeRuntimePlatform,
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   isLocalSecretEnvelopeString,
@@ -504,6 +505,10 @@ async function removeLocalSecretEnvelopeLayerKey({
     });
     return;
   }
+  if (kind === 'mmkv-profile-key') {
+    await deleteMmkvProfileKeyForLocalSecretEnvelope({ keyRef });
+    return;
+  }
   if (kind === 'secure-storage') {
     await secureStorageInstance.removeSecureItem(keyRef);
     resetSecureStorageLocalSecretEnvelopeProbeCache();
@@ -758,14 +763,18 @@ class ServiceE2E extends ServiceBase {
       [];
     const supportedLayers = [...layersByKey.values()].filter(
       (layer) =>
-        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage',
+        layer.kind === 'indexeddb-cryptokey' ||
+        layer.kind === 'mmkv-profile-key' ||
+        layer.kind === 'secure-storage',
     );
     const hasSecureStorageLayer = supportedLayers.some(
       (layer) => layer.kind === 'secure-storage',
     );
     for (const layer of layersByKey.values()) {
       const isSupportedLayer =
-        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage';
+        layer.kind === 'indexeddb-cryptokey' ||
+        layer.kind === 'mmkv-profile-key' ||
+        layer.kind === 'secure-storage';
       if (!isSupportedLayer) {
         skippedUnsupportedLayers.push(layer);
       } else if (hasSecureStorageLayer && layer.kind !== 'secure-storage') {

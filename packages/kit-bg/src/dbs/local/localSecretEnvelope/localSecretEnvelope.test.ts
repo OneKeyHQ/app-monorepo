@@ -3,6 +3,7 @@ import {
   buildLocalSecretEnvelopeAadV1,
   buildLocalSecretEnvelopeProtectedHeaderV1,
   classifyLocalSecretEnvelopeMigrationCandidate,
+  isLocalSecretEnvelopeLayerTopologyDowngrade,
   parseLocalSecretEnvelopeV1,
   rewrapLocalSecretEnvelopeV1,
   serializeLocalSecretEnvelopeV1,
@@ -378,10 +379,36 @@ describe('localSecretEnvelope migration candidate classifier', () => {
     expect(
       classifyLocalSecretEnvelopeMigrationCandidate({
         dataType: 'credential',
-        recordId: 'hyperliquid-agent-1',
-        rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+        recordId: 'credential-1',
+        rawValue: '|UNKNOWN|payload',
       }),
     ).toEqual({ canMigrate: false, reason: 'unsupported_prefix' });
+  });
+
+  it('accepts HyperLiquid agent credentials without a password KDF payload', () => {
+    expect(
+      classifyLocalSecretEnvelopeMigrationCandidate({
+        dataType: 'credential',
+        recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+        rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+      }),
+    ).toMatchObject({
+      canMigrate: true,
+      innerPrefix:
+        LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+    });
+    expect(
+      classifyLocalSecretEnvelopeMigrationCandidate({
+        dataType: 'credential',
+        recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+        rawValue:
+          '|HLE|{"algorithm":"AES-256-GCM","ciphertext":"ciphertext","iv":"iv","version":1}',
+      }),
+    ).toMatchObject({
+      canMigrate: true,
+      innerPrefix:
+        LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential,
+    });
   });
 
   it('rejects mismatched credential ids and prefixes', async () => {
@@ -413,6 +440,92 @@ describe('localSecretEnvelope migration candidate classifier', () => {
 });
 
 describe('localSecretEnvelope wrapping pipeline', () => {
+  it('reads a legacy secureStorage-only envelope after adding the MMKV base layer', async () => {
+    const calls: string[] = [];
+    const mmkvAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'mmkv-profile-key:v1',
+      kind: 'mmkv-profile-key',
+    });
+    const secureStorageAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'secure-storage:v1',
+      kind: 'secure-storage',
+    });
+    const plaintext = '|RP|legacy-native-lse-payload';
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [secureStorageAdapter],
+      plaintext,
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const adapters = new Map(
+      [mmkvAdapter, secureStorageAdapter].map((adapter) => [
+        adapter.kind,
+        adapter,
+      ]),
+    );
+
+    expect(
+      parseLocalSecretEnvelopeV1(envelope).wrappingLayers.map(
+        (layer) => layer.kind,
+      ),
+    ).toEqual(['secure-storage']);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope,
+        expectedDataType: 'credential',
+        expectedRecordId: 'hd-1',
+        resolveLayerAdapter: (layer) => adapters.get(layer.kind),
+      }),
+    ).resolves.toBe(plaintext);
+  });
+
+  it('detects a layer-kind downgrade from a single-layer envelope', async () => {
+    const calls: string[] = [];
+    const baseAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'mmkv-profile-key:v1',
+      kind: 'mmkv-profile-key',
+    });
+    const secureStorageAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'secure-storage:v1',
+      kind: 'secure-storage',
+    });
+    const wrapWith = (layerAdapters: ILocalSecretEnvelopeLayerAdapter[]) =>
+      wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters,
+        plaintext: '|RP|local-secret-envelope-payload',
+        recordId: 'hd-1',
+        strength: 'secure-storage-bound',
+      });
+    const secureStorageOnly = await wrapWith([secureStorageAdapter]);
+    const baseOnly = await wrapWith([baseAdapter]);
+    const dualLayer = await wrapWith([baseAdapter, secureStorageAdapter]);
+
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: secureStorageOnly,
+        nextEnvelope: baseOnly,
+      }),
+    ).toBe(true);
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: secureStorageOnly,
+        nextEnvelope: dualLayer,
+      }),
+    ).toBe(false);
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: baseOnly,
+        nextEnvelope: dualLayer,
+      }),
+    ).toBe(false);
+  });
+
   it('wraps layers in order and unwraps them in reverse order', async () => {
     const calls: string[] = [];
     const adapters = [

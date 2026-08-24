@@ -306,8 +306,10 @@ export async function rewrapLocalSecretEnvelopeV1({
       iv: bufferUtils.bytesToHex(randomBytes(AES_GCM_NONCE_BYTES)),
     };
   });
+  // Re-encryption may also migrate the inner credential format (for example,
+  // HLP to HLE). Bind the protected header to the new prefix when known.
   const innerPrefix =
-    parsed.innerPrefix ?? getLocalSecretEnvelopeInnerPrefix(plaintext);
+    getLocalSecretEnvelopeInnerPrefix(plaintext) ?? parsed.innerPrefix;
   const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
     dataType: parsed.dataType,
     innerPrefix,
@@ -376,4 +378,22 @@ export async function rewrapLocalSecretEnvelopeV1({
     protectedHeader,
     ciphertext,
   });
+}
+
+export function isLocalSecretEnvelopeLayerTopologyDowngrade({
+  currentEnvelope,
+  nextEnvelope,
+}: {
+  currentEnvelope: string;
+  nextEnvelope: string;
+}): boolean {
+  const current = parseLocalSecretEnvelopeV1(currentEnvelope);
+  const next = parseLocalSecretEnvelopeV1(nextEnvelope);
+  const nextLayerKinds = new Set(
+    next.wrappingLayers.map((layer) => layer.kind),
+  );
+  return (
+    next.wrappingLayers.length < current.wrappingLayers.length ||
+    current.wrappingLayers.some((layer) => !nextLayerKinds.has(layer.kind))
+  );
 }

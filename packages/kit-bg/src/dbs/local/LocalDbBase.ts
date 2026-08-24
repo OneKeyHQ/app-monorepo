@@ -151,6 +151,13 @@ import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/ut
 import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
+import {
+  decryptHyperLiquidAgentCredentialWithSessionKey,
+  deriveHyperLiquidAgentSecretKey,
+  encryptHyperLiquidAgentCredentialWithSessionKey,
+  hyperLiquidAgentSecretSession,
+  isHyperLiquidAgentPasswordEncryptedCredential,
+} from './hyperLiquidAgentSecret';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
@@ -158,6 +165,7 @@ import {
   buildLocalSecretEnvelopeLayerAdapterResolver,
   classifyLocalSecretEnvelopeMigrationCandidate,
   cleanupLocalSecretEnvelopeLayerKeysBestEffort,
+  isLocalSecretEnvelopeLayerTopologyDowngrade,
   isLocalSecretEnvelopeString,
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
@@ -172,6 +180,7 @@ import type {
   ILocalSecretEnvelopeCredentialMigrationConfig,
   ILocalSecretEnvelopeLayerAdapter,
   ILocalSecretEnvelopeLayerAdapterResolver,
+  ILocalSecretEnvelopeLayerKind,
   ILocalSecretEnvelopeStrength,
 } from './localSecretEnvelope';
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
@@ -285,7 +294,7 @@ export type IUpdateDeviceStateResult =
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
-const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 1;
+const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 2;
 const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
   minute: 10,
 });
@@ -300,6 +309,11 @@ type IPreparedCredentialPasswordUpdate = {
   localSecretEnvelopeLayerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
   nextCredential: string;
   originalCredential: string;
+};
+
+type IHyperLiquidAgentPasswordUpdateKeys = {
+  newKey: CryptoKey;
+  oldKey: CryptoKey;
 };
 
 type ILocalSecretEnvelopeCredentialMigrationResult =
@@ -760,6 +774,14 @@ function isLocalPasswordCredentialPasswordUpdateCandidate({
   if (isLocalSecretEnvelopeString(rawCredential)) {
     try {
       const parsed = parseLocalSecretEnvelopeV1(rawCredential);
+      if (accountUtils.isHyperLiquidAgentCredentialId({ credentialId: id })) {
+        return (
+          parsed.dataType === 'credential' &&
+          parsed.recordId === id &&
+          parsed.innerPrefix ===
+            LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+        );
+      }
       return (
         parsed.dataType === 'credential' &&
         parsed.recordId === id &&
@@ -787,7 +809,8 @@ function isLocalPasswordCredentialRecordIdSupported(
     accountUtils.isHdWallet({ walletId: credentialId }) ||
     accountUtils.isTonMnemonicCredentialId(credentialId) ||
     accountUtils.isImportedAccount({ accountId: credentialId }) ||
-    credentialId.startsWith('imported')
+    credentialId.startsWith('imported') ||
+    accountUtils.isHyperLiquidAgentCredentialId({ credentialId })
   );
 }
 
@@ -812,6 +835,13 @@ function isLocalPasswordCredentialRecordIdSupportedForInnerPrefix({
     );
   }
 
+  if (
+    innerPrefix ===
+    LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+  ) {
+    return accountUtils.isHyperLiquidAgentCredentialId({ credentialId });
+  }
+
   return false;
 }
 
@@ -829,6 +859,13 @@ function getLocalPasswordCredentialInnerPrefix(
     )
   ) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;
+  }
+  if (
+    rawCredential.startsWith(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential,
+    )
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
   }
   return undefined;
 }
@@ -954,9 +991,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accounts: [],
       walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
       nextIds: {
-        'hiddenWalletNum': 1,
-        'accountGlobalNum': 1,
-        'accountHdIndex': 0,
+        hiddenWalletNum: 1,
+        accountGlobalNum: 1,
+        accountHdIndex: 0,
       },
       deprecated: false,
     };
@@ -1234,6 +1271,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  async buildRequiredLocalSecretEnvelopeLayerAdapterResolver({
+    requiredLayerKinds,
+  }: {
+    requiredLayerKinds: ILocalSecretEnvelopeLayerKind[];
+  }): Promise<ILocalSecretEnvelopeLayerAdapterResolver | undefined> {
+    return localSecretEnvelopeService.buildRequiredLayerAdapterResolver({
+      requiredLayerKinds,
+    });
+  }
+
   // Resolve a layer-adapter resolver that is guaranteed to cover EVERY layer
   // kind the given envelope requires to be unwrapped. An envelope intrinsically
   // declares its required layer kinds (wrappingLayers), so a transient
@@ -1279,6 +1326,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       localSecretEnvelopeService.clearCredentialMigrationConfigCache();
       resolver = await tryBuildResolver();
     }
+    if (
+      !resolver &&
+      requiredLayerKinds.length > 0 &&
+      requiredLayerKinds.every((kind) => kind === 'secure-storage')
+    ) {
+      // Older native and desktop releases could persist secureStorage-only
+      // envelopes. The mandatory-base rule applies to new writes; it must not
+      // prevent reading that historical topology when its persisted key is
+      // still available.
+      resolver =
+        await this.buildRequiredLocalSecretEnvelopeLayerAdapterResolver({
+          requiredLayerKinds,
+        });
+    }
     if (!resolver) {
       throw new LocalSecretEnvelopeUnavailable({
         message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
@@ -1287,6 +1348,65 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
     return resolver;
+  }
+
+  async buildCredentialForLocalSecretEnvelopeTopologyUpgrade({
+    credentialId,
+    originalCredential,
+    plaintext,
+    resolveLayerAdapter,
+  }: {
+    credentialId: string;
+    originalCredential: string;
+    plaintext: string;
+    resolveLayerAdapter: ILocalSecretEnvelopeLayerAdapterResolver;
+  }): Promise<{
+    credential: string;
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+  }> {
+    const originalEnvelope = parseLocalSecretEnvelopeV1(originalCredential);
+    const writeConfig =
+      await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+    const writeLayerKinds = new Set(
+      writeConfig?.layerAdapters.map((adapter) => adapter.kind) ?? [],
+    );
+    const canUpgradeSingleLayerEnvelope = Boolean(
+      originalEnvelope.wrappingLayers.length === 1 &&
+      writeConfig &&
+      writeConfig.layerAdapters.length > 1 &&
+      originalEnvelope.wrappingLayers.every((layer) =>
+        writeLayerKinds.has(layer.kind),
+      ),
+    );
+
+    if (canUpgradeSingleLayerEnvelope && writeConfig) {
+      try {
+        return {
+          credential: await wrapLocalSecretEnvelopeV1({
+            dataType: 'credential',
+            layerAdapters: writeConfig.layerAdapters,
+            plaintext,
+            recordId: credentialId,
+            strength: writeConfig.strength,
+          }),
+          layerAdapters: writeConfig.layerAdapters,
+        };
+      } catch {
+        // Preserve the readable legacy topology if adding the enhancement
+        // fails after capability probing. The wrapping helper already cleans
+        // any newly prepared per-record keys before this fallback runs.
+      }
+    }
+
+    return {
+      credential: await rewrapLocalSecretEnvelopeV1({
+        envelope: originalCredential,
+        expectedDataType: 'credential',
+        expectedRecordId: credentialId,
+        plaintext,
+        resolveLayerAdapter,
+      }),
+    };
   }
 
   async lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock(): Promise<void> {
@@ -1961,6 +2081,111 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async unlockHyperLiquidAgentSecretSession({
+    password,
+    migrateCredentials = true,
+    replaceSessionKey = false,
+  }: {
+    password: string;
+    migrateCredentials?: boolean;
+    replaceSessionKey?: boolean;
+  }): Promise<void> {
+    if (platformEnv.isNative) {
+      return;
+    }
+    if (replaceSessionKey || !hyperLiquidAgentSecretSession.isReady()) {
+      await hyperLiquidAgentSecretSession.unlock({ password });
+    }
+    if (migrateCredentials) {
+      try {
+        await this.migrateHyperLiquidAgentCredentialsToPasswordEncryption({
+          password,
+        });
+      } catch (error) {
+        await hyperLiquidAgentSecretSession.clear();
+        throw error;
+      }
+    }
+  }
+
+  async restoreHyperLiquidAgentSecretSession(): Promise<{
+    restored: boolean;
+    unlocked: boolean;
+  }> {
+    return hyperLiquidAgentSecretSession.restorePersistedSession();
+  }
+
+  async setHyperLiquidAgentSecretSessionUnlocked(
+    unlocked: boolean,
+  ): Promise<void> {
+    await hyperLiquidAgentSecretSession.setPersistedSessionUnlocked(unlocked);
+  }
+
+  async clearHyperLiquidAgentSecretSession(): Promise<void> {
+    if (!platformEnv.isNative) {
+      await hyperLiquidAgentSecretSession.clear();
+    }
+  }
+
+  async migrateHyperLiquidAgentCredentialsToPasswordEncryption({
+    password,
+  }: {
+    password: string;
+  }): Promise<void> {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const credentials = await this.getAllHyperLiquidAgentCredentials();
+    for (const rawCredential of credentials) {
+      let isPasswordEncrypted = false;
+      try {
+        if (isLocalSecretEnvelopeString(rawCredential.credential)) {
+          isPasswordEncrypted =
+            parseLocalSecretEnvelopeV1(rawCredential.credential).innerPrefix ===
+            LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
+        }
+        const innerCredential = isLocalSecretEnvelopeString(
+          rawCredential.credential,
+        )
+          ? await this.getCredentialInner({
+              credentialId: rawCredential.id,
+              markUnavailableForWalletRecovery: false,
+            })
+          : rawCredential;
+        isPasswordEncrypted =
+          isPasswordEncrypted ||
+          isHyperLiquidAgentPasswordEncryptedCredential(
+            innerCredential.credential,
+          );
+        const decryptedCredential = isPasswordEncrypted
+          ? await hyperLiquidAgentSecretSession.decryptCredential({
+              credential: innerCredential.credential,
+              recordId: rawCredential.id,
+            })
+          : await decryptHyperLiquidAgentCredential({
+              credential: innerCredential.credential,
+              password,
+            });
+        const isAlreadyMigrated =
+          isPasswordEncrypted &&
+          isLocalSecretEnvelopeString(rawCredential.credential);
+        if (decryptedCredential && !isAlreadyMigrated) {
+          await this.updateHyperLiquidAgentCredential({
+            credential: decryptedCredential,
+            expectedOriginalCredential: rawCredential.credential,
+          });
+        }
+      } catch (error) {
+        if (isPasswordEncrypted) {
+          throw error;
+        }
+        defaultLogger.app.error.log(
+          'HyperLiquid agent legacy credential migration failed',
+        );
+      }
+    }
+  }
+
   async addHyperLiquidAgentCredential({
     credential,
   }: {
@@ -1970,43 +2195,138 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       userAddress: credential.userAddress,
       agentName: credential.agentName,
     });
-    const credentialEncrypt = encryptHyperLiquidAgentCredential({
-      credential,
-    });
-    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [{ id: credentialId, credential: credentialEncrypt }],
+    const serializedCredential = platformEnv.isNative
+      ? encryptHyperLiquidAgentCredential({ credential })
+      : await hyperLiquidAgentSecretSession.encryptCredential({
+          credential,
+          recordId: credentialId,
+        });
+    const credentialToAddInfo =
+      await this.buildCredentialForLocalSecretEnvelopeWrite({
+        credential: serializedCredential,
+        credentialId,
+        markUnavailableForWalletRecovery: false,
+        requireLocalSecretEnvelope: true,
+        skipLocalPasswordKdfUpgradeCheck: true,
       });
-      return { credentialId };
-    });
+    try {
+      return await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [
+              {
+                id: credentialId,
+                credential: credentialToAddInfo.credential,
+              },
+            ],
+          });
+          return { credentialId };
+        },
+      );
+    } catch (error) {
+      if (credentialToAddInfo.layerAdapters?.length) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: credentialToAddInfo.credential,
+          layerAdapters: credentialToAddInfo.layerAdapters,
+        });
+      }
+      throw error;
+    }
   }
 
   async updateHyperLiquidAgentCredential({
     credential,
+    expectedOriginalCredential,
   }: {
     credential: ICoreHyperLiquidAgentCredential;
+    expectedOriginalCredential?: string;
   }) {
     const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
       userAddress: credential.userAddress,
       agentName: credential.agentName,
     });
-    const credentialEncrypt = encryptHyperLiquidAgentCredential({
-      credential,
-    });
-    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        ids: [credentialId],
-        updater: (record) => {
-          record.credential = credentialEncrypt;
-          return record;
+    const serializedCredential = platformEnv.isNative
+      ? encryptHyperLiquidAgentCredential({ credential })
+      : await hyperLiquidAgentSecretSession.encryptCredential({
+          credential,
+          recordId: credentialId,
+        });
+    const originalCredential = await this.getCredentialRaw(credentialId);
+    const compareAndSwapCredential =
+      expectedOriginalCredential ?? originalCredential.credential;
+    if (originalCredential.credential !== compareAndSwapCredential) {
+      throw new OneKeyLocalError(
+        'HyperLiquid agent credential changed during update',
+      );
+    }
+    let nextCredentialInfo: {
+      credential: string;
+      layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+    };
+
+    if (isLocalSecretEnvelopeString(originalCredential.credential)) {
+      const resolveLayerAdapter =
+        await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+          envelope: originalCredential.credential,
+        });
+      nextCredentialInfo =
+        await this.buildCredentialForLocalSecretEnvelopeTopologyUpgrade({
+          credentialId,
+          originalCredential: originalCredential.credential,
+          plaintext: serializedCredential,
+          resolveLayerAdapter,
+        });
+    } else {
+      nextCredentialInfo =
+        await this.buildCredentialForLocalSecretEnvelopeWrite({
+          credential: serializedCredential,
+          credentialId,
+          markUnavailableForWalletRecovery: false,
+          requireLocalSecretEnvelope: true,
+          skipLocalPasswordKdfUpgradeCheck: true,
+        });
+    }
+
+    try {
+      const result = await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            ids: [credentialId],
+            updater: (record) => {
+              if (record.credential !== compareAndSwapCredential) {
+                throw new OneKeyLocalError(
+                  'HyperLiquid agent credential changed during update',
+                );
+              }
+              record.credential = nextCredentialInfo.credential;
+              return record;
+            },
+          });
+          return { credentialId };
         },
-      });
-      return { credentialId };
-    });
+      );
+      if (nextCredentialInfo.layerAdapters?.length) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: originalCredential.credential,
+          layerAdapters: nextCredentialInfo.layerAdapters,
+        });
+      }
+      return result;
+    } catch (error) {
+      if (nextCredentialInfo.layerAdapters?.length) {
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope: nextCredentialInfo.credential,
+          layerAdapters: nextCredentialInfo.layerAdapters,
+        });
+      }
+      throw error;
+    }
   }
 
   async getHyperLiquidAgentCredential({
@@ -2022,14 +2342,42 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       userAddress,
       agentName,
     });
-    const credential = await this.getCredentialSafe(credentialId);
-    if (!credential) {
+    const rawCredential = await this.getCredentialSafe(credentialId);
+    if (!rawCredential) {
       return undefined;
     }
-    const credentialDecrypt = await decryptHyperLiquidAgentCredential({
-      credential: credential.credential,
-      password,
-    });
+    const credential = isLocalSecretEnvelopeString(rawCredential.credential)
+      ? await this.getCredentialInner({
+          credentialId,
+          markUnavailableForWalletRecovery: false,
+        })
+      : rawCredential;
+    const credentialDecrypt =
+      !platformEnv.isNative &&
+      isHyperLiquidAgentPasswordEncryptedCredential(credential.credential)
+        ? await hyperLiquidAgentSecretSession.decryptCredential({
+            credential: credential.credential,
+            recordId: credentialId,
+          })
+        : await decryptHyperLiquidAgentCredential({
+            credential: credential.credential,
+            password,
+          });
+    if (
+      credentialDecrypt &&
+      (!isLocalSecretEnvelopeString(rawCredential.credential) ||
+        (!platformEnv.isNative &&
+          !isHyperLiquidAgentPasswordEncryptedCredential(
+            credential.credential,
+          )))
+    ) {
+      // Return the private key only after legacy/plaintext storage has been
+      // durably upgraded to the platform's current protected format.
+      await this.updateHyperLiquidAgentCredential({
+        credential: credentialDecrypt,
+        expectedOriginalCredential: rawCredential.credential,
+      });
+    }
     return credentialDecrypt;
   }
 
@@ -2103,11 +2451,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async buildCredentialPasswordUpdate({
     credential,
+    hyperLiquidAgentPasswordUpdateKeys,
     oldPassword,
     newPassword,
     kdfParams,
   }: {
     credential: IDBCredentialBase;
+    hyperLiquidAgentPasswordUpdateKeys?: IHyperLiquidAgentPasswordUpdateKeys;
     oldPassword: string;
     newPassword: string;
     kdfParams: ILocalPasswordKdfParams;
@@ -2118,6 +2468,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let innerCredential = originalCredential;
     let localSecretEnvelopeResolver:
       | ILocalSecretEnvelopeLayerAdapterResolver
+      | undefined;
+    let localSecretEnvelopeLayerAdapters:
+      | ILocalSecretEnvelopeLayerAdapter[]
       | undefined;
 
     if (isOriginalLocalSecretEnvelope) {
@@ -2179,6 +2532,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         password: newPassword,
         ...kdfParams,
       });
+    } else if (
+      accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: credential.id,
+      }) &&
+      isHyperLiquidAgentPasswordEncryptedCredential(innerCredential)
+    ) {
+      if (!hyperLiquidAgentPasswordUpdateKeys) {
+        throw new OneKeyLocalError(
+          'HyperLiquid agent password update keys are unavailable',
+        );
+      }
+      const decryptedCredential =
+        await decryptHyperLiquidAgentCredentialWithSessionKey({
+          credential: innerCredential,
+          key: hyperLiquidAgentPasswordUpdateKeys.oldKey,
+          recordId: credential.id,
+        });
+      nextCredential = await encryptHyperLiquidAgentCredentialWithSessionKey({
+        credential: decryptedCredential,
+        key: hyperLiquidAgentPasswordUpdateKeys.newKey,
+        recordId: credential.id,
+      });
     }
 
     if (!nextCredential) {
@@ -2194,13 +2569,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         );
       }
       try {
-        nextCredential = await rewrapLocalSecretEnvelopeV1({
-          envelope: originalCredential,
-          expectedDataType: 'credential',
-          expectedRecordId: credential.id,
-          plaintext: nextCredential,
-          resolveLayerAdapter: localSecretEnvelopeResolver,
-        });
+        const updatedCredential =
+          await this.buildCredentialForLocalSecretEnvelopeTopologyUpgrade({
+            credentialId: credential.id,
+            originalCredential,
+            plaintext: nextCredential,
+            resolveLayerAdapter: localSecretEnvelopeResolver,
+          });
+        nextCredential = updatedCredential.credential;
+        localSecretEnvelopeLayerAdapters = updatedCredential.layerAdapters;
       } catch (error) {
         if (error instanceof LocalSecretEnvelopeUnavailable) {
           markCredentialLocalSecretEnvelopeUnavailableError(error);
@@ -2211,6 +2588,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     return {
       id: credential.id,
+      ...(localSecretEnvelopeLayerAdapters
+        ? { localSecretEnvelopeLayerAdapters }
+        : undefined),
       originalCredential,
       nextCredential,
     };
@@ -2231,10 +2611,45 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }),
     );
 
+    let hyperLiquidAgentPasswordUpdateKeys:
+      | IHyperLiquidAgentPasswordUpdateKeys
+      | undefined;
+    const hasHyperLiquidAgentCredential = credentials.some((credential) => {
+      if (isLocalSecretEnvelopeString(credential.credential)) {
+        try {
+          return (
+            parseLocalSecretEnvelopeV1(credential.credential).innerPrefix ===
+            LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+          );
+        } catch {
+          return false;
+        }
+      }
+      return isHyperLiquidAgentPasswordEncryptedCredential(
+        credential.credential,
+      );
+    });
+    if (hasHyperLiquidAgentCredential && !platformEnv.isNative) {
+      const [oldDerivedKey, newDerivedKey] = await Promise.all([
+        deriveHyperLiquidAgentSecretKey({ password: oldPassword }),
+        deriveHyperLiquidAgentSecretKey({ password: newPassword }),
+      ]);
+      try {
+        hyperLiquidAgentPasswordUpdateKeys = {
+          newKey: newDerivedKey.key,
+          oldKey: oldDerivedKey.key,
+        };
+      } finally {
+        oldDerivedKey.rawKey.fill(0);
+        newDerivedKey.rawKey.fill(0);
+      }
+    }
+
     return Promise.all(
       credentials.map((credential) =>
         this.buildCredentialPasswordUpdate({
           credential,
+          hyperLiquidAgentPasswordUpdateKeys,
           oldPassword,
           newPassword,
           kdfParams,
@@ -2514,6 +2929,47 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ids: credentials.map((item) => item.id),
       });
     });
+
+    const hyperLiquidAgentCredentialIds = credentials
+      .map((item) => item.id)
+      .filter((credentialId) =>
+        accountUtils.isHyperLiquidAgentCredentialId({ credentialId }),
+      );
+    if (hyperLiquidAgentCredentialIds.length) {
+      try {
+        await this.backgroundApi.serviceDBBackup.removeBackupHyperLiquidAgentCredentials(
+          {
+            credentialIds: hyperLiquidAgentCredentialIds,
+          },
+        );
+      } catch {
+        defaultLogger.app.error.log(
+          'HyperLiquid agent backup credential cleanup failed',
+        );
+      }
+    }
+
+    const localSecretEnvelopeCredentials = credentials.filter((item) =>
+      isLocalSecretEnvelopeString(item.credential),
+    );
+    if (localSecretEnvelopeCredentials.length) {
+      try {
+        const config =
+          await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+        if (config?.layerAdapters.length) {
+          await Promise.all(
+            localSecretEnvelopeCredentials.map((item) =>
+              cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+                envelope: item.credential,
+                layerAdapters: config.layerAdapters,
+              }),
+            ),
+          );
+        }
+      } catch {
+        // The database record is already gone; orphan-key cleanup is best-effort.
+      }
+    }
   }
 
   async getCredentialRaw(credentialId: string): Promise<IDBCredentialBase> {
@@ -2568,9 +3024,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async getCredentialInner({
     credentialId,
+    markUnavailableForWalletRecovery = true,
     resolveLayerAdapter,
   }: {
     credentialId: string;
+    markUnavailableForWalletRecovery?: boolean;
     resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
   }): Promise<IDBCredentialBase> {
     const credential = await this.getCredentialRaw(credentialId);
@@ -2595,7 +3053,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }),
       };
     } catch (error) {
-      if (error instanceof LocalSecretEnvelopeUnavailable) {
+      if (
+        markUnavailableForWalletRecovery &&
+        error instanceof LocalSecretEnvelopeUnavailable
+      ) {
         markCredentialLocalSecretEnvelopeUnavailableError(error);
       }
       throw error;
@@ -2683,9 +3144,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async buildCredentialForLocalSecretEnvelopeWrite({
     credential,
     credentialId,
+    markUnavailableForWalletRecovery = true,
+    requireLocalSecretEnvelope = false,
+    skipLocalPasswordKdfUpgradeCheck = false,
   }: {
     credential: string;
     credentialId: string;
+    markUnavailableForWalletRecovery?: boolean;
+    requireLocalSecretEnvelope?: boolean;
+    skipLocalPasswordKdfUpgradeCheck?: boolean;
   }): Promise<{
     credential: string;
     layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
@@ -2696,10 +3163,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rawValue: credential,
     });
     if (!candidate.canMigrate) {
+      if (requireLocalSecretEnvelope) {
+        throw new OneKeyLocalError(
+          `Credential cannot be protected by local secret envelope: reason=${candidate.reason}`,
+        );
+      }
       return { credential };
     }
 
-    if (!(await this.isLocalPasswordKdfLazyUpgradeCompleted())) {
+    if (
+      !skipLocalPasswordKdfUpgradeCheck &&
+      !(await this.isLocalPasswordKdfLazyUpgradeCompleted())
+    ) {
       return { credential };
     }
 
@@ -2709,13 +3184,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // Boundary already established: do NOT silently persist a non-LSE
       // credential that bypasses it. Fail fast with a retryable error so the
       // caller can retry once the platform layer recovers.
-      if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
+      if (
+        requireLocalSecretEnvelope ||
+        (await this.isLocalSecretEnvelopeCredentialMigrationCompleted())
+      ) {
         const error = new LocalSecretEnvelopeUnavailable({
           message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
             envelope: credential,
           }),
         });
-        markCredentialLocalSecretEnvelopeUnavailableError(error);
+        if (markUnavailableForWalletRecovery) {
+          markCredentialLocalSecretEnvelopeUnavailableError(error);
+        }
         throw error;
       }
       // Not migrated yet: graceful degradation; lazy migration wraps later.
@@ -2734,21 +3214,58 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         layerAdapters: config.layerAdapters,
       };
     } catch (error) {
-      console.error('localSecretEnvelopeCredentialOnWrite error', {
-        credentialId,
-        error,
-      });
-      if (error instanceof LocalSecretEnvelopeUnavailable) {
-        markCredentialLocalSecretEnvelopeUnavailableError(error);
-        throw error;
+      let wrapError = error;
+      if (config.layerAdapters.length > 1) {
+        // A layer can fail after its capability probe succeeded. Re-probe once
+        // using the bounded provider policy; if only the mandatory base layer
+        // remains healthy, this write may continue as single-layer LSE. The
+        // transaction-level topology guard below still blocks overwriting an
+        // existing dual-layer envelope with this degraded result.
+        localSecretEnvelopeService.clearCapabilityCache();
+        const retryConfig =
+          await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+        const originalBaseKind = config.layerAdapters[0]?.kind;
+        const canUseBaseOnlyFallback =
+          retryConfig?.layerAdapters.length === 1 &&
+          retryConfig.layerAdapters[0]?.kind === originalBaseKind;
+        if (canUseBaseOnlyFallback && retryConfig) {
+          try {
+            return {
+              credential: await wrapLocalSecretEnvelopeV1({
+                dataType: 'credential',
+                layerAdapters: retryConfig.layerAdapters,
+                plaintext: credential,
+                recordId: credentialId,
+                strength: retryConfig.strength,
+              }),
+              layerAdapters: retryConfig.layerAdapters,
+            };
+          } catch (fallbackError) {
+            wrapError = fallbackError;
+          }
+        }
       }
-      if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
+      defaultLogger.app.error.log(
+        'Local secret envelope credential wrap failed',
+      );
+      if (wrapError instanceof LocalSecretEnvelopeUnavailable) {
+        if (markUnavailableForWalletRecovery) {
+          markCredentialLocalSecretEnvelopeUnavailableError(wrapError);
+        }
+        throw wrapError;
+      }
+      if (
+        requireLocalSecretEnvelope ||
+        (await this.isLocalSecretEnvelopeCredentialMigrationCompleted())
+      ) {
         const unavailableError = new LocalSecretEnvelopeUnavailable({
           message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
             envelope: credential,
           }),
         });
-        markCredentialLocalSecretEnvelopeUnavailableError(unavailableError);
+        if (markUnavailableForWalletRecovery) {
+          markCredentialLocalSecretEnvelopeUnavailableError(unavailableError);
+        }
         throw unavailableError;
       }
       return { credential };
@@ -2804,7 +3321,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               originalCredential = record.credential;
               if (
                 isLocalSecretEnvelopeString(record.credential) &&
-                !isLocalSecretEnvelopeString(nextCredentialInfo.credential)
+                (!isLocalSecretEnvelopeString(nextCredentialInfo.credential) ||
+                  isLocalSecretEnvelopeLayerTopologyDowngrade({
+                    currentEnvelope: record.credential,
+                    nextEnvelope: nextCredentialInfo.credential,
+                  }))
               ) {
                 downgradeBlocked = true;
                 return record;
@@ -7780,6 +8301,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       ids: [importedCredentialId],
                       updater: (record) => {
                         replacedImportedCredential = record.credential;
+                        if (
+                          isLocalSecretEnvelopeString(record.credential) &&
+                          (!isLocalSecretEnvelopeString(
+                            importedCredentialToAdd,
+                          ) ||
+                            isLocalSecretEnvelopeLayerTopologyDowngrade({
+                              currentEnvelope: record.credential,
+                              nextEnvelope: importedCredentialToAdd,
+                            }))
+                        ) {
+                          throw new LocalSecretEnvelopeUnavailable({
+                            message:
+                              buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage(
+                                { envelope: record.credential },
+                              ),
+                          });
+                        }
                         if (record.credential !== importedCredentialToAdd) {
                           record.credential = importedCredentialToAdd;
                           didReplaceImportedCredential = true;
@@ -9657,9 +10195,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getAllHyperLiquidAgentCredentials(): Promise<IDBCredentialBase[]> {
-    const { records: allCredentials } = await this.getAllRecords({
-      name: ELocalDBStoreNames.Credential,
-    });
+    const allCredentials = await this.getAllCredentials();
 
     // Filter credentials that start with HYPERLIQUID_AGENT_CREDENTIAL_PREFIX
     return allCredentials.filter((credential) =>
