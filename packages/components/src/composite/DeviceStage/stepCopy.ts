@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 
+import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type {
@@ -136,8 +137,9 @@ export const AUTH_NOTE_TEXT = {
  *
  * Entries whose words carry runtime values (the pairing pitch, the
  * device-not-found pair, the high-index warning, the install steps)
- * resolve through their own resolvers below — the table's ids there are
- * the parameter-free fallbacks the Record's shape requires.
+ * resolve through their own resolvers below — the table keeps only
+ * their parameter-free ids, so a generic consumer never meets an
+ * unfilled placeholder.
  */
 export const STEP_TEXT: Record<
   IDeviceStageStep,
@@ -197,10 +199,7 @@ export const STEP_TEXT: Record<
   openApp: { title: ETranslations.hardware_third_party_app_not_open },
   unlockDevice: { title: ETranslations.hardware_third_party_device_locked },
   done: { title: ETranslations.global_done },
-  pairingCode: {
-    title: ETranslations.trezor_thp_pairing__title,
-    sub: ETranslations.trezor_thp_pairing__desc,
-  },
+  pairingCode: { title: ETranslations.trezor_thp_pairing__title },
   deviceNotFound: {
     title: ETranslations.device_stage_connect_device__title,
     sub: ETranslations.device_stage_connect_device__desc,
@@ -227,16 +226,14 @@ export const VENDOR_LABEL: Record<'ledger' | 'trezor', string> = {
   trezor: 'Trezor',
 };
 
-/** The app's own display name, for the pairing pitch that addresses it. */
-const APP_DISPLAY_NAME = 'OneKey Wallet';
-
 /** `connecting` worn by the vendor track: the board's own label — the
  * capsule has no device-name line there, so the title carries it. */
 export const VENDOR_CONNECTING_TEXT = {
   title: ETranslations.connecting_your_device,
 };
 
-/** `pairingCode`'s words: the pitch addresses the app and the brand. */
+/** `pairingCode`'s words: the pitch names the app by its THP handshake
+ * identity — the same name the Trezor's own screen shows. */
 export function resolvePairingCodeText(intl: IntlShape): {
   title: string;
   sub: string;
@@ -245,7 +242,7 @@ export function resolvePairingCodeText(intl: IntlShape): {
     title: intl.formatMessage({ id: STEP_TEXT.pairingCode.title }),
     sub: intl.formatMessage(
       { id: ETranslations.trezor_thp_pairing__desc },
-      { appName: APP_DISPLAY_NAME, device: VENDOR_LABEL.trezor },
+      { appName: TREZOR_THP_APP_NAME, device: VENDOR_LABEL.trezor },
     ),
   };
 }
@@ -259,14 +256,7 @@ export function resolveDeviceNotFoundText(
   sub: string;
 } {
   if (!vendor) {
-    return {
-      title: intl.formatMessage({
-        id: ETranslations.device_stage_connect_device__title,
-      }),
-      sub: intl.formatMessage({
-        id: ETranslations.device_stage_connect_device__desc,
-      }),
-    };
+    return resolveStageText(intl, 'deviceNotFound');
   }
   const label = VENDOR_LABEL[vendor];
   return {
@@ -307,9 +297,7 @@ export function resolveInstallText(
             { id: ETranslations.hardware_third_party_install_app__title },
             { appName },
           )
-        : intl.formatMessage({
-            id: ETranslations.device_stage_install_app__title,
-          }),
+        : intl.formatMessage({ id: STEP_TEXT.installConfirm.title }),
       sub: intl.formatMessage(
         { id: ETranslations.hardware_third_party_install_app__desc },
         { appName: appName ?? 'app' },
@@ -324,12 +312,8 @@ export function resolveInstallText(
           },
           { appName },
         )
-      : intl.formatMessage({
-          id: ETranslations.device_stage_install_app__title,
-        }),
-    sub: intl.formatMessage({
-      id: ETranslations.device_stage_processing__title,
-    }),
+      : intl.formatMessage({ id: STEP_TEXT.installing.title }),
+    sub: resolveStepSub(intl, 'installing'),
   };
 }
 
