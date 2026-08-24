@@ -60,7 +60,6 @@ import {
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
@@ -77,6 +76,7 @@ import {
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 interface IPreSwapDialogContentProps {
@@ -559,27 +559,18 @@ const PreSwapDialogContent = ({
           (item) => item.orderId === lastStep?.orderId,
         );
       }
-      if (
-        findStepItem &&
-        preSwapData?.swapType !== ESwapTabSwitchType.LIMIT &&
-        findStepItem.status !== ESwapTxHistoryStatus.PENDING
-      ) {
-        let stepStatus = ESwapStepStatus.PENDING;
-        if (findStepItem.status === ESwapTxHistoryStatus.SUCCESS) {
-          stepStatus = ESwapStepStatus.SUCCESS;
-        } else if (findStepItem.status === ESwapTxHistoryStatus.FAILED) {
-          stepStatus = ESwapStepStatus.FAILED;
-        }
+      if (findStepItem && preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
             preSwapData: ISwapPreSwapData;
           }) => {
             const newSteps = [...prevSteps.steps];
-            newSteps[newSteps.length - 1] = {
-              ...newSteps[newSteps.length - 1],
-              status: stepStatus,
-            };
+            newSteps[newSteps.length - 1] = reconcileSwapStepWithHistory({
+              step: newSteps[newSteps.length - 1],
+              historyStatus: (findStepItem as ISwapTxHistory).status,
+              txId: (findStepItem as ISwapTxHistory).txInfo.txId,
+            });
             return {
               ...prevSteps,
               steps: newSteps,

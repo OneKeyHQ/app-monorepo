@@ -4357,19 +4357,30 @@ class ServiceHardware extends ServiceBase {
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
       });
 
-      if (connectResult && connectResult.deviceId === expectedDeviceId) {
-        // Step 5: Update device in DB with BLE connectId
+      // Step 5: The identity read over the live connection decides which
+      // record owns this endpoint. The caller's expected id can be stale —
+      // a connectId-only caller resolves the pre-wipe record and the dialog
+      // derives its id from that record's frozen features, which can never
+      // match the live device — and requiring it to match would make this
+      // repair (and the stale-alias cleanup it carries) permanently
+      // unreachable on that path. V2 state projections only carry the raw
+      // `device_id` field.
+      const liveDeviceId = connectResult?.deviceId || connectResult?.device_id;
+      if (connectResult && liveDeviceId) {
         const device = await localDb.getDeviceByQuery({
           connectId,
-          featuresDeviceId: featuresDeviceId || undefined,
+          featuresDeviceId: liveDeviceId,
           features,
         });
 
         if (device) {
-          // Update device with BLE connectId using the dedicated function
-          await localDb.updateDeviceConnectId({
+          // The binding is persisted together with de-aliasing stale
+          // siblings (e.g. the pre-wipe record keeping the same USB serial)
+          // in one transaction, or the whole repair fails and retries.
+          await this.persistVerifiedBleConnectId({
             dbDeviceId: device.id,
             bleConnectId,
+            verifiedDeviceId: liveDeviceId,
           });
 
           return bleConnectId;
@@ -4466,6 +4477,37 @@ class ServiceHardware extends ServiceBase {
   }
 
   /**
+   * Persist a BLE binding whose device identity was just verified against
+   * the live device, atomically de-aliasing stale sibling records in the
+   * same transaction. Errors propagate on purpose: nothing is committed on
+   * failure, so the caller's bind path (pairing repair / silent bind) stays
+   * fully retryable — a binding committed without the cleanup would make
+   * the stale sibling shadow connectId-only lookups permanently.
+   */
+  private async persistVerifiedBleConnectId({
+    dbDeviceId,
+    bleConnectId,
+    verifiedDeviceId,
+  }: {
+    dbDeviceId: string;
+    bleConnectId: string;
+    verifiedDeviceId: string;
+  }) {
+    const { cleanedRecordIds } =
+      await localDb.updateDeviceBleConnectIdAndCleanStaleAliases({
+        dbDeviceId,
+        bleConnectId,
+        verifiedDeviceId,
+      });
+    if (cleanedRecordIds.length) {
+      defaultLogger.hardware.sdkLog.log(
+        'persistVerifiedBleConnectId: cleared stale sibling connect-id aliases',
+        JSON.stringify({ dbDeviceId, cleanedRecordIds }),
+      );
+    }
+  }
+
+  /**
    * Silently bind a live desktop BLE connectId held by the caller onto a
    * device record that lacks a BLE binding, so an in-progress BLE session
    * never raises the Bluetooth pairing dialog (OK-60091).
@@ -4555,9 +4597,10 @@ class ServiceHardware extends ServiceBase {
       const probedDeviceId =
         connectResult?.deviceId || connectResult?.device_id || '';
       if (probedDeviceId && probedDeviceId === expectedDeviceId) {
-        await localDb.updateDeviceConnectId({
+        await this.persistVerifiedBleConnectId({
           dbDeviceId: device.id,
           bleConnectId: connectId,
+          verifiedDeviceId: probedDeviceId,
         });
         return connectId;
       }
@@ -4597,9 +4640,24 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // A transport connect ID is already a precise device key. Do not let stale
-    // device info or legacy feature projections veto a valid USB/BLE ID match.
-    let device = await localDb.getDeviceByQuery({ connectId, vendor });
+    // A transport connect ID is a precise device key only while it is unique:
+    // a device wipe keeps the serial-based connectId on the stale record, so
+    // an identity-qualified match must win over the connectId-only match —
+    // otherwise reads resolve the stale record (no bleConnectId → pairing
+    // dialog) while BLE repairs write to the live one, looping forever. Stale
+    // device info must still never veto a valid USB/BLE ID match, hence the
+    // connectId-only fallback.
+    let device: IDBDevice | undefined;
+    if (featuresDeviceId) {
+      device = await localDb.getDeviceByQuery({
+        connectId,
+        featuresDeviceId,
+        vendor,
+      });
+    }
+    if (!device) {
+      device = await localDb.getDeviceByQuery({ connectId, vendor });
+    }
     if (!device && featuresDeviceId) {
       device = await localDb.getDeviceByQuery({
         featuresDeviceId,
