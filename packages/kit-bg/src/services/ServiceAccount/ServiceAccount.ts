@@ -3769,40 +3769,9 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        // resolvedFeatures already reflects the post-unlock snapshot refreshed
-        // above, but the XFP / address derivation calls inside
-        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
-        // the persistence queue once more and prefer the latest stored status.
-        let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
-        // Same gate as the post-unlock refresh above: attach-PIN is
-        // OneKey-specific, and an empty connectId must not reach the lookup.
-        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
-          try {
-            await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
-              connectIds: [
-                compatibleConnectId,
-                dbDevice.connectId,
-                dbDevice.deviceId,
-                seededDbDevice.deviceStateInfo?.identity.serialNo,
-              ],
-            });
-            const latestDbDevice =
-              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-                connectId,
-              });
-            const latestUnlockedAttachPin =
-              latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
-            if (typeof latestUnlockedAttachPin === 'boolean') {
-              isAttachPinMode = latestUnlockedAttachPin;
-            }
-          } catch {
-            // keep the resolved-features fallback
-          }
-        }
-
         return {
           ...dbWallet,
-          isAttachPinMode,
+          isAttachPinMode: resolvedFeatures.unlockedAttachPin,
         };
       },
       {
@@ -3945,7 +3914,7 @@ class ServiceAccount extends ServiceBase {
       existingState: params.deviceState,
       preserveWalletSession:
         !vendorProfile?.isThirdParty &&
-        params.connectProtocol === 'V1' &&
+        (params.connectProtocol === 'V1' || params.connectProtocol === 'V2') &&
         Boolean(passphraseState),
       isThirdParty: Boolean(vendorProfile?.isThirdParty),
       isMocked: Boolean(isMockedStandardHwWallet),
