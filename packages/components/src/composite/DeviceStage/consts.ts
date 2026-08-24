@@ -11,10 +11,10 @@ export const PORT_HEIGHT = 376;
 /**
  * The compact arrangement (the confirm step): the replica shrinks to a
  * full-body miniature. Scale is the flow spec's 80/290; the port height is
- * the whole scaled replica — width x the Slate shell's 1714/1084 aspect x
+ * the whole scaled replica — width x the Pro 2 shell's 1714/1084 aspect x
  * scale — so nothing is cropped and the foot dissolve sits below the box.
  *
- * Derived from the Slate, the model the flow was drawn against. The
+ * Derived from the Pro 2, the model the flow was drawn against. The
  * Classic and Pro are slightly taller for their width, so their miniatures
  * lose a few points of foot to the window here; deriving this per model
  * (each shell fixes its own aspect) is what that would take.
