@@ -217,13 +217,12 @@ export function PinPad({
   return (
     <YStack gap="$2">
       <YStack
-        px="$2"
-        py="$4"
+        p="$4"
         borderRadius="$4"
         borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor={shownError ? '$borderCritical' : '$borderSubdued'}
-        bg={shownError ? '$bgCriticalSubdued' : '$bgSubdued'}
+        bg={shownError ? '$bgCriticalSubdued' : '$blackA5'}
       >
         <Animated.View style={shakeStyle}>
           <XStack
@@ -256,7 +255,7 @@ export function PinPad({
                 color="$textSubdued"
                 textAlign="center"
               >
-                Match number positions on your device
+                Match the number positions on your device
               </SizableText>
             ) : null}
           </XStack>
