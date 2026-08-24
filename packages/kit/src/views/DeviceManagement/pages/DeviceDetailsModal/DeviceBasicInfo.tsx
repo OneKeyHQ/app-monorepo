@@ -153,7 +153,13 @@ function DeviceBasicInfo({
             size={avatarSize}
           />
         </XStack>
-        <YStack h="100%" pb="$1.5" justifyContent="space-between">
+        <YStack
+          h="100%"
+          pb="$1.5"
+          flex={1}
+          minWidth={0}
+          justifyContent="space-between"
+        >
           <XStack ml={-5} pr="$5">
             <DeviceWalletRenameButton textSize={titleTextSize} />
           </XStack>

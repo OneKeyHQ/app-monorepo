@@ -35,40 +35,22 @@ jest.mock('@onekeyhq/components', () => {
     ) : (
       <div>{children}</div>
     );
-  const SizableText = ({
-    children,
-    ellipsizeMode,
-    numberOfLines,
-    width,
-  }: {
-    children?: ReactNode;
-    ellipsizeMode?: string;
-    numberOfLines?: number;
-    width?: string | number;
-  }) => (
-    <span
-      data-ellipsize-mode={ellipsizeMode}
-      data-number-of-lines={numberOfLines}
-      data-width={width}
-    >
-      {children}
-    </span>
+  const SizableText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
   );
   const YStack = ({
     children,
     onPress,
-    width,
   }: {
     children?: ReactNode;
     onPress?: () => void;
-    width?: string | number;
   }) =>
     onPress ? (
-      <button type="button" data-width={width} onClick={onPress}>
+      <button type="button" onClick={onPress}>
         {children}
       </button>
     ) : (
-      <div data-width={width}>{children}</div>
+      <div>{children}</div>
     );
 
   return {
@@ -117,15 +99,15 @@ const inviteItem: ISwapInviteItem = {
 };
 
 describe('SwapInviteRecord', () => {
-  it('constrains long invite-code remarks to a single ellipsized line', () => {
-    render(<SwapInviteRecord item={inviteItem} variant="desktop" />);
+  it.each(['desktop', 'mobile'] as const)(
+    'hides invite-code remarks on %s invite history',
+    (variant) => {
+      render(<SwapInviteRecord item={inviteItem} variant={variant} />);
 
-    const remark = screen.getByText(LONG_REMARK);
-    expect(remark.getAttribute('data-number-of-lines')).toBe('1');
-    expect(remark.getAttribute('data-ellipsize-mode')).toBe('tail');
-    expect(remark.getAttribute('data-width')).toBe('100%');
-    expect(remark.parentElement?.getAttribute('data-width')).toBe('100%');
-  });
+      expect(screen.getByText('ONEKEY')).toBeTruthy();
+      expect(screen.queryByText(LONG_REMARK)).toBeNull();
+    },
+  );
 
   it('keeps desktop invite rows summary-only and non-expandable', () => {
     render(<SwapInviteRecord item={inviteItem} variant="desktop" />);

@@ -60,7 +60,7 @@ export interface ITradingViewChartControlsProps {
   showChartTypeToggle: boolean;
   showIndicatorPopover: boolean;
   showPriceMarketCapSelect: boolean;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   isControlsReady: boolean;
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
@@ -116,7 +116,7 @@ export const TradingViewChartControls = memo(
     showChartTypeToggle,
     showIndicatorPopover,
     showPriceMarketCapSelect,
-    maxSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     isControlsReady,
     intervalControlMode,
     layoutMode,
@@ -204,7 +204,7 @@ export const TradingViewChartControls = memo(
             title={indicatorsTitle}
             indicators={indicators}
             activeIndicatorValues={activeIndicatorValues}
-            maxSubIndicatorCount={maxSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onIndicatorPress={onIndicatorPress}
             onControlInteraction={onControlInteraction}
           />
@@ -228,7 +228,7 @@ export const TradingViewChartControls = memo(
       hasVisibleIndicators,
       indicators,
       indicatorsTitle,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onControlInteraction,
       onIndicatorPress,
       onShowIndicatorsDialog,

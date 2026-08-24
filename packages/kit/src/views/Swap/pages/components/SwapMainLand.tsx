@@ -1356,6 +1356,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           swapTypeSwitch={swapTypeSwitch}
+          routeSwapType={swapInitParams?.swapTabSwitchType}
           alerts={alerts}
           isWrapped={!!isWrapped}
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}

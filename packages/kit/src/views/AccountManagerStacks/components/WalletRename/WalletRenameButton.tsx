@@ -70,6 +70,7 @@ export function WalletRenameButton({
         py="$1"
         px="$1.5"
         flexShrink={1}
+        minWidth={0}
         alignItems="center"
         borderRadius="$2"
         {...(canRename && {
@@ -148,7 +149,7 @@ export function WalletRenameButton({
         })}
         {...rest}
       >
-        <SizableText size={textSize} pr="$1.5" numberOfLines={1}>
+        <SizableText size={textSize} pr="$1.5" numberOfLines={1} flexShrink={1}>
           {wallet?.name}
         </SizableText>
         {canRename ? (

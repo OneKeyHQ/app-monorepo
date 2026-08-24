@@ -57,7 +57,7 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   isControlsReady?: boolean;
   chartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   indicatorControlMode?: ITradingViewNativeIndicatorControlMode;
@@ -88,7 +88,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
-    maxSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     isControlsReady = true,
     chartTypeControlMode = 'toggle',
     indicatorControlMode = 'dialog',
@@ -161,7 +161,7 @@ export const TradingViewV2ChartControlsContainer = memo(
           !canToggleTradingViewNativeIndicatorOn({
             indicatorValue: indicator.value,
             activeIndicatorValues: currentActiveIndicatorValues,
-            maxSubIndicatorCount,
+            maxSelectableSubIndicatorCount,
           })
         ) {
           return;
@@ -175,7 +175,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       [
         getActiveIndicatorValues,
         handleNativeIndicatorSelect,
-        maxSubIndicatorCount,
+        maxSelectableSubIndicatorCount,
       ],
     );
 
@@ -189,7 +189,7 @@ export const TradingViewV2ChartControlsContainer = memo(
           <IndicatorListDialogContent
             indicators={indicators}
             resetLayout={resetLayout}
-            maxSubIndicatorCount={maxSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onSelect={handleNativeIndicatorSelect}
             onResetLayout={onResetLayout}
           />
@@ -199,7 +199,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       handleNativeIndicatorSelect,
       indicators,
       indicatorsTitle,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onControlInteraction,
       onResetLayout,
       resetLayout,
@@ -309,7 +309,7 @@ export const TradingViewV2ChartControlsContainer = memo(
         showChartTypeToggle={showChartTypeToggle}
         showIndicatorPopover={showIndicatorPopover}
         showPriceMarketCapSelect={showPriceMarketCapSelect}
-        maxSubIndicatorCount={maxSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}

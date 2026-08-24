@@ -61,14 +61,14 @@ describe('native indicator controls', () => {
       canToggleTradingViewNativeIndicatorOn({
         activeIndicatorValues,
         indicatorValue: 'UNKNOWN',
-        maxSubIndicatorCount: 1,
+        maxSelectableSubIndicatorCount: 1,
       }),
     ).toBe(true);
     expect(
       canToggleTradingViewNativeIndicatorOn({
         activeIndicatorValues,
         indicatorValue: 'MACD',
-        maxSubIndicatorCount: 1,
+        maxSelectableSubIndicatorCount: 1,
       }),
     ).toBe(false);
   });
@@ -127,14 +127,14 @@ describe('native indicator controls', () => {
     ).toEqual([['RSI', false]]);
   });
 
-  it('rejects back-to-back QuickBar additions after reaching the sub-indicator cap', async () => {
+  it('rejects QuickBar additions after reaching the selection cap', async () => {
     const onIndicatorSelect = jest.fn();
     const { result } = renderHook(() => {
       const nativeIndicatorState = useNativeIndicatorActiveValues(indicators);
       return useNativeIndicatorControls({
         nativeChartControlsConfig,
         nativeIndicatorState,
-        maxSubIndicatorCount: 4,
+        maxSelectableSubIndicatorCount: 4,
         onIndicatorSelect,
       });
     });
@@ -158,7 +158,7 @@ describe('native indicator controls', () => {
     ]);
   });
 
-  it('does not cap QuickBar additions when no sub-indicator cap is passed', async () => {
+  it('does not cap QuickBar additions without a selection cap', async () => {
     const onIndicatorSelect = jest.fn();
     const indicatorsWithFourActive = indicators.map((indicator, index) => ({
       ...indicator,
