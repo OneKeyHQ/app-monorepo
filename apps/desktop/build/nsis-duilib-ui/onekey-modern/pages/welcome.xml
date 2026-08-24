@@ -16,6 +16,7 @@
         <CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
       </HorizontalLayout>
       <VerticalLayout inset="145,22,145,18">
+        <Control />
         <HorizontalLayout height="66"><Control /><BrandMark width="66" height="66" brandcolor="{{color.brand}}" /><Control /></HorizontalLayout>
         <Control height="15" />
         <Label text="{{string.welcome.title}}" font="1" textcolor="{{color.textPrimary}}" height="38" align="center" />
@@ -24,26 +25,22 @@
         <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.welcome.start}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
         <Control height="5" />
         <HorizontalLayout height="34"><Control /><Button name="more-options" text="{{string.welcome.moreOptions}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="138" height="34" borderround="9,9" /><Control /></HorizontalLayout>
-        <VerticalLayout name="advanced-options" visible="false" height="142">
-          <Label text="{{string.scope.title}}" textcolor="{{color.textSecondary}}" height="25" />
+        <VerticalLayout name="advanced-options" visible="false" height="154">
+          <Label text="{{string.welcome.scopeLabel}}" textcolor="{{color.textSecondary}}" height="24" />
           <HorizontalLayout height="47">
-            <Button name="scope-current" text="{{string.scope.current.title}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brandSoft}}" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.brandSoft}}" bordercolor="{{color.brand}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="3" />
+            <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.recommended}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brandSoft}}" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.brandSoft}}" bordercolor="{{color.brand}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="3" />
             <Control width="10" />
             <Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="3" />
           </HorizontalLayout>
-          <HorizontalLayout height="22">
-            <Label text="{{string.scope.current.description}}" textcolor="{{color.textSecondary}}" align="center" />
-            <Control width="10" />
-            <Label text="{{string.scope.all.description}}" textcolor="{{color.textSecondary}}" align="center" />
-          </HorizontalLayout>
-          <Control height="4" />
+          <Control height="12" />
+          <Label text="{{string.welcome.pathLabel}}" textcolor="{{color.textSecondary}}" height="24" />
           <HorizontalLayout height="44" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,10,0">
             <Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" padding="9,0,0,0" />
             <Button name="browse" text="{{string.welcome.change}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="50" height="32" borderround="8,8" />
           </HorizontalLayout>
         </VerticalLayout>
-        <Label text="{{string.welcome.terms}}" textcolor="{{color.textSecondary}}" height="30" padding="0,9,0,0" align="center" />
         <Control />
+        <Label text="{{string.welcome.terms}}" textcolor="{{color.textSecondary}}" height="30" padding="0,9,0,0" align="center" />
       </VerticalLayout>
     </VerticalLayout>
   </Container>

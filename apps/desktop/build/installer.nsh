@@ -593,9 +593,25 @@ FunctionEnd
     ${EndIf}
 
   OneKeyModernWelcomeProceed:
-    nsis-duilib-ui::ShutdownHidden
-    Pop $0
-    StrCpy $OneKeyModernUiActive "0"
+    ${If} $OneKeyModernWasInstalled == "0"
+      nsis-duilib-ui::SetPage "installing"
+    ${Else}
+      nsis-duilib-ui::SetPage "upgrade"
+    ${EndIf}
+    Pop $OneKeyModernResult
+    ${If} $OneKeyModernResult == "ok"
+    ${AndIf} $OneKeyModernWasInstalled == "0"
+      nsis-duilib-ui::ResetProgress "0"
+      Pop $OneKeyModernResult
+    ${EndIf}
+    ${If} $OneKeyModernResult == "ok"
+      nsis-duilib-ui::Show
+      Pop $OneKeyModernResult
+    ${EndIf}
+    ${If} $OneKeyModernResult != "ok"
+      Goto OneKeyModernWelcomeFallback
+    ${EndIf}
+    StrCpy $OneKeyModernUiActive "1"
     ShowWindow $HWNDPARENT ${SW_HIDE}
     Abort
 
@@ -652,17 +668,22 @@ FunctionEnd
       StrCpy $INSTDIR "$OneKeyModernChosenDirectory"
     ${EndIf}
 
-    !insertmacro OneKeyModernExtractTheme
-    !insertmacro OneKeyModernSelectLocale
-    nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
-    Pop $OneKeyModernResult
-    ${If} $OneKeyModernResult == "ok"
-      ${If} $OneKeyModernAccepted == "1"
-        nsis-duilib-ui::SetPage "installing"
-      ${Else}
-        nsis-duilib-ui::SetPage "upgrade"
-      ${EndIf}
+    ${If} $OneKeyModernUiActive == "1"
+      nsis-duilib-ui::ConcealHost
       Pop $OneKeyModernResult
+    ${Else}
+      !insertmacro OneKeyModernExtractTheme
+      !insertmacro OneKeyModernSelectLocale
+      nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        ${If} $OneKeyModernAccepted == "1"
+          nsis-duilib-ui::SetPage "installing"
+        ${Else}
+          nsis-duilib-ui::SetPage "upgrade"
+        ${EndIf}
+        Pop $OneKeyModernResult
+      ${EndIf}
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
       nsis-duilib-ui::SetInstallDirectory "$INSTDIR"
