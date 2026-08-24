@@ -6,9 +6,12 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IKaspaRefTransaction } from './Vault';
 
+const MAX_UINT64 = '18446744073709551615';
+
 // Reads a uint64 refTx field. nullMeansZero=false for amounts (empty ≠ 0), true
 // for sequence/lockTime/gas — api.kaspa.org does send those as 0, so it is only
-// a guard. Past 2^53 the JSON parse already rounded it, so bail, not sign wrong.
+// a guard. A number has already been through JSON.parse and cannot be trusted past
+// 2^53; a string reached us intact, so it gets the real uint64 range.
 export function readRefTxUint64({
   value,
   field,
@@ -34,9 +37,11 @@ export function readRefTxUint64({
     return '0';
   }
   const parsed = new BigNumber(String(value));
-  if (!parsed.isInteger() || parsed.gt(Number.MAX_SAFE_INTEGER)) {
+  const limit =
+    typeof value === 'string' ? MAX_UINT64 : String(Number.MAX_SAFE_INTEGER);
+  if (!parsed.isInteger() || parsed.isNegative() || parsed.gt(limit)) {
     throw new OneKeyLocalError(
-      `kaspa refTx: ${field} ${String(value)} exceeds safe integer range`,
+      `kaspa refTx: ${field} ${String(value)} is not a uint64 we can trust`,
     );
   }
   return parsed.toFixed();

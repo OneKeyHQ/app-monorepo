@@ -81,7 +81,7 @@ describe('buildKaspaRefTx', () => {
     const amountTx = blockTx();
     amountTx.outputs[0].amount = Number.MAX_SAFE_INTEGER + 2;
     expect(() => buildKaspaRefTx({ tx: amountTx, networkId })).toThrow(
-      /exceeds safe integer range/,
+      /is not a uint64 we can trust/,
     );
 
     // A 2^64-1 sequence reaches us as 2^64: the nearest double, which is what
@@ -89,14 +89,39 @@ describe('buildKaspaRefTx', () => {
     const seqTx = blockTx();
     seqTx.inputs![0].sequence = 2 ** 64;
     expect(() => buildKaspaRefTx({ tx: seqTx, networkId })).toThrow(
-      /input\.sequence .* exceeds safe integer range/,
+      /input\.sequence .* is not a uint64 we can trust/,
+    );
+  });
+
+  it('keeps a lossless uint64 string the parse never touched', () => {
+    // A number past 2^53 was already rounded; a string was not, so it is read as sent.
+    const tx = blockTx();
+    tx.outputs[0].amount = '18446744073709551615';
+    expect(buildKaspaRefTx({ tx, networkId }).outputs[0].satoshis).toBe(
+      '18446744073709551615',
+    );
+  });
+
+  it('rejects a string past the uint64 range', () => {
+    const tx = blockTx();
+    tx.outputs[0].amount = '18446744073709551616';
+    expect(() => buildKaspaRefTx({ tx, networkId })).toThrow(
+      /is not a uint64 we can trust/,
+    );
+  });
+
+  it('rejects a negative value', () => {
+    const tx = blockTx();
+    tx.outputs[0].amount = -1;
+    expect(() => buildKaspaRefTx({ tx, networkId })).toThrow(
+      /is not a uint64 we can trust/,
     );
   });
 
   it('rejects a non-numeric value', () => {
     const tx = blockTx({ lockTime: 'not-a-number' });
     expect(() => buildKaspaRefTx({ tx, networkId })).toThrow(
-      /exceeds safe integer range/,
+      /is not a uint64 we can trust/,
     );
   });
 
