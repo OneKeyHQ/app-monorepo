@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Anchor, Button, SizableText, YStack } from '../../primitives';
 
@@ -17,7 +22,7 @@ import { PreferenceCapsule } from './PreferenceCapsule';
  * passphrase form's capsule grammar. Continue is the only action and
  * carries the choice out — the form's preference-upstream pattern;
  * stepping away is the surface's own dismissal (the no-standing-footer
- * rule). Copy is hardcoded for now; i18n lands stage-wide later.
+ * rule).
  */
 
 const PASSPHRASE_GUIDE_URL =
@@ -33,6 +38,7 @@ export function PassphraseIntro({
    * per activation to stand in for a remount's clean slate. */
   resetSignal?: number;
 }) {
+  const intl = useIntl();
   // The design's first-run default: keep the shortcut. Remembering the
   // person's previous choice is the integration layer's.
   const [keepShortcut, setKeepShortcut] = useState(true);
@@ -45,31 +51,48 @@ export function PassphraseIntro({
   return (
     <YStack gap="$4">
       <SizableText size="$bodyLg" color="$textSubdued">
-        A hidden wallet adds a{' '}
-        <SizableText size="$bodyLgMedium" color="$text">
-          passphrase
-        </SizableText>{' '}
-        to your recovery phrase to create a separate, secure wallet.
+        {intl.formatMessage(
+          { id: ETranslations.device_stage_passphrase_intro__desc },
+          {
+            // Keyed: react-intl hands the chunks back inside an array,
+            // so the element needs a stable key to keep React quiet.
+            strong: (chunks: ReactNode[]) => (
+              <SizableText key="strong" size="$bodyLgMedium" color="$text">
+                {chunks}
+              </SizableText>
+            ),
+          },
+        )}
       </SizableText>
       <SizableText size="$bodyLgMedium" color="$textCritical">
-        If you lose it, no one can recover it — or the funds in its wallet.
+        {intl.formatMessage({
+          id: ETranslations.device_stage_passphrase_loss__desc,
+        })}
       </SizableText>
       <SizableText size="$bodyLg" color="$textSubdued">
-        Make sure you understand{' '}
-        <Anchor
-          href={PASSPHRASE_GUIDE_URL}
-          size="$bodyLg"
-          color="$textSubdued"
-          showExternalIndicator={false}
-          textDecorationLine="underline"
-        >
-          how a passphrase works
-        </Anchor>{' '}
-        before continuing.
+        {intl.formatMessage(
+          { id: ETranslations.device_stage_passphrase_understand__desc },
+          {
+            link: (chunks: ReactNode[]) => (
+              <Anchor
+                key="link"
+                href={PASSPHRASE_GUIDE_URL}
+                size="$bodyLg"
+                color="$textSubdued"
+                showExternalIndicator={false}
+                textDecorationLine="underline"
+              >
+                {chunks}
+              </Anchor>
+            ),
+          },
+        )}
       </SizableText>
       <PreferenceCapsule
         testID="device-stage-passphrase-intro-keep-shortcut"
-        label="Keep a shortcut on the wallet list"
+        label={intl.formatMessage({
+          id: ETranslations.device_stage_passphrase_shortcut__title,
+        })}
         value={keepShortcut}
         onChange={setKeepShortcut}
       />
@@ -80,7 +103,7 @@ export function PassphraseIntro({
           size="large"
           onPress={handleContinue}
         >
-          Continue
+          {intl.formatMessage({ id: ETranslations.global_continue })}
         </Button>
       ) : null}
     </YStack>
