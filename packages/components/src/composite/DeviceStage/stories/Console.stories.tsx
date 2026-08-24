@@ -18,7 +18,6 @@ const meta = {
     step: 'off',
     deviceType: 'slate',
     deviceName: DEMO.deviceName,
-    confirmContext: DEMO.confirmContext,
     confirmDetails: DEMO.confirmDetails,
     qrValue: DEMO.qrValue,
     passphraseMode: 'verify',
