@@ -1,16 +1,20 @@
 import { ClassicDevice } from '../ClassicDevice';
+import { MiniDevice } from '../MiniDevice';
 import { ProDevice } from '../ProDevice';
 import { SlateDevice } from '../SlateDevice';
+import { TouchDevice } from '../TouchDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
+import type { IMiniDeviceScene } from '../MiniDevice';
 import type { IProDeviceScene } from '../ProDevice';
 import type { ISlateDeviceScene } from '../SlateDevice';
+import type { ITouchDeviceScene } from '../TouchDevice';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../ProDevice and ../SlateDevice are the per-model drawings behind it, not
- * a second way in. Call sites hold the model at runtime and fix the scenario
- * at build time:
+ * ../MiniDevice, ../ProDevice, ../TouchDevice and ../SlateDevice are the
+ * per-model drawings behind it, not a second way in. Call sites hold the
+ * model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -20,11 +24,15 @@ import type { ISlateDeviceScene } from '../SlateDevice';
  *
  * Only the routing is shared. The shells stay apart because they draw
  * different objects - the Classic carries noise, blurs, four physical keys
- * and a 256x128 OLED; the Pro has none of that and a 288x484 touchscreen;
- * the Slate is an edge-to-edge glass slab in a blurred-stroke metal frame -
+ * and a 256x128 OLED; the Mini is a white slab with a near-square OLED and
+ * four engraved membrane keys (its screens are the Classic's, re-laid);
+ * the Pro has none of that and a 288x484 touchscreen; the Touch is a
+ * slab with a wide bezel whose screen window runs the Pro's screens,
+ * scaled; the
+ * Slate is an edge-to-edge glass slab in a blurred-stroke metal frame -
  * and what they genuinely have in common already lives in ../deviceScene.
- * Live screen content, when something needs it, attaches per model at that
- * layer, where the canvas and the key presses are known.
+ * Live screen content, when something needs it, attaches per model at
+ * that layer, where the canvas and the key presses are known.
  */
 
 /**
@@ -54,13 +62,15 @@ export type IHardwareDeviceType =
  * what the physical device shows at that moment.
  */
 export type IHardwareDeviceScene = IClassicDeviceScene &
+  IMiniDeviceScene &
   IProDeviceScene &
+  ITouchDeviceScene &
   ISlateDeviceScene;
 
 export interface IHardwareDeviceProps {
   /**
-   * Model of the connected device. Models with no replica yet (mini, touch,
-   * unknown) render nothing, as does a missing device.
+   * Model of the connected device. A model with no replica (unknown)
+   * renders nothing, as does a missing device.
    */
   deviceType?: IHardwareDeviceType | null;
   /** Built-in scene. Omitted: a static device with a dark screen. */
@@ -91,20 +101,25 @@ export interface IHardwareDeviceProps {
 
 /**
  * The routing table: which models draw which replica. The Classic family
- * collapses onto one; models missing here (mini, touch, unknown) have no
- * replica and render nothing. Both the component and the swap timing
- * below read it, so "has a replica" is stated exactly once.
+ * collapses onto one; a model missing here (unknown) has no replica and
+ * renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
   Record<
     IHardwareDeviceType,
-    typeof ClassicDevice | typeof ProDevice | typeof SlateDevice
+    | typeof ClassicDevice
+    | typeof MiniDevice
+    | typeof ProDevice
+    | typeof TouchDevice
+    | typeof SlateDevice
   >
 > = {
   classic: ClassicDevice,
   classic1s: ClassicDevice,
   classicpure: ClassicDevice,
+  mini: MiniDevice,
   pro: ProDevice,
+  touch: TouchDevice,
   slate: SlateDevice,
 };
 

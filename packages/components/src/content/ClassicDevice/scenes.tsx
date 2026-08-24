@@ -10,7 +10,7 @@ import {
   PRESS_IDLE_TRACK,
   useOkPressDrive,
 } from './animation';
-import { EntryScreen } from './EntryScreen';
+import { EntryScreen, createEntryGeometry } from './EntryScreen';
 import {
   SCREEN_GLASS_H,
   SCREEN_GLASS_W,
@@ -28,7 +28,10 @@ import type {
  * on the shared presence registry contract (../deviceSceneHost). A scene
  * supplies its screen content on the 128x64 OLED canvas and steers the OK
  * key through the press drive; entrance, exit and the clock are the shared
- * machinery.
+ * machinery. The glyph vocabulary — the mark, the confirm skeleton's
+ * parts, the entry glyphs — is exported for the Mini, the family's other
+ * monochrome OLED, which lays the same scenes on its own glass
+ * (../MiniDevice/scenes).
  */
 export type IClassicDeviceScene =
   | 'connecting'
@@ -45,7 +48,7 @@ export type IClassicDeviceScene =
  * the Figma asset translated to its measured (13.333, 7.5) offset inside
  * the mark. */
 
-const LOGO_D =
+export const LOGO_D =
   'M28.333 1.66699H31.666V3.33301H35V5H36.666V8.33301H38.333V11.667H40V28.333H38.333V31.666H36.666V35H35V36.666H31.666V38.333H28.333V40H11.667V38.333H8.33301V36.666H5V35H3.33301V31.666H1.66699V28.333H0V11.667H1.66699V8.33301H3.33301V5H5V3.33301H8.33301V1.66699H11.667V0H28.333V1.66699Z' +
   'M23.333 20.834H25V22.5H26.666V29.167H25V30.834H23.333V32.5H16.666V30.834H15V29.167H13.333V22.5H15V20.834H16.666V19.167H23.333V20.834ZM18.333 24.167H16.666V27.5H18.333V29.167H21.666V27.5H23.333V24.167H21.666V22.5H18.333V24.167Z' +
   'M21.667 17.5H18.333V10.833H15V9.167H16.667V7.5H21.667V17.5Z';
@@ -154,7 +157,7 @@ function ConfirmScreen({ clock }: IDeviceSceneContentProps) {
  * loop-seam fade come from the shared entry vocabulary (./animation and
  * ./EntryScreen). */
 
-const DIAMOND_ENTERED = (
+export const DIAMOND_ENTERED = (
   <Rect
     x={-3.45}
     y={-3.45}
@@ -167,7 +170,7 @@ const DIAMOND_ENTERED = (
 );
 
 // Hollow diamond, sized so its outer edge matches the filled one.
-const DIAMOND_PENDING = (
+export const DIAMOND_PENDING = (
   <Rect
     x={-2.95}
     y={-2.95}
@@ -181,7 +184,7 @@ const DIAMOND_PENDING = (
 );
 
 // Asterisk: three crossed strokes (masked character).
-const ASTERISK_ENTERED = (
+export const ASTERISK_ENTERED = (
   <Path
     d="M0 -3.8L0 3.8M-3.29 -1.9L3.29 1.9M3.29 -1.9L-3.29 1.9"
     stroke="#fff"
@@ -192,15 +195,26 @@ const ASTERISK_ENTERED = (
 );
 
 // Underscore, sitting just below the row centre.
-const UNDERSCORE_PENDING = (
+export const UNDERSCORE_PENDING = (
   <Rect x={-3.5} y={2.3} width={7} height={1.6} rx={0.8} fill="#fff" />
 );
+
+// The Classic lights the grid at 2x on its 256x128 slot: the row centred
+// on the panel, the title's top at 20 on the glass (the slot starts 12
+// lower).
+const CLASSIC_ENTRY = createEntryGeometry({
+  unit: 2,
+  centerX: 64,
+  rowCy: 38.5,
+  titleTop: (20 - SCREEN_SLOT_TOP) / 2,
+});
 
 function EnterPinScreen({ clock }: IDeviceSceneContentProps) {
   useOkPressDrive(clock, ENTRY_OK_TRACK);
   return (
     <EntryScreen
       clock={clock}
+      geometry={CLASSIC_ENTRY}
       title="Enter PIN"
       enteredGlyph={DIAMOND_ENTERED}
       pendingGlyph={DIAMOND_PENDING}
@@ -213,6 +227,7 @@ function EnterPassphraseScreen({ clock }: IDeviceSceneContentProps) {
   return (
     <EntryScreen
       clock={clock}
+      geometry={CLASSIC_ENTRY}
       title="Enter Passphrase"
       enteredGlyph={ASTERISK_ENTERED}
       pendingGlyph={UNDERSCORE_PENDING}
