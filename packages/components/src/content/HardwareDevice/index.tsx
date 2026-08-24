@@ -1,18 +1,18 @@
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
+import { Pro2Device } from '../Pro2Device';
 import { ProDevice } from '../ProDevice';
-import { SlateDevice } from '../SlateDevice';
 import { TouchDevice } from '../TouchDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
+import type { IPro2DeviceScene } from '../Pro2Device';
 import type { IProDeviceScene } from '../ProDevice';
-import type { ISlateDeviceScene } from '../SlateDevice';
 import type { ITouchDeviceScene } from '../TouchDevice';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice, ../TouchDevice and ../SlateDevice are the
+ * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
  * per-model drawings behind it, not a second way in. Call sites hold the
  * model at runtime and fix the scenario at build time:
  *
@@ -29,7 +29,7 @@ import type { ITouchDeviceScene } from '../TouchDevice';
  * the Pro has none of that and a 288x484 touchscreen; the Touch is a
  * slab with a wide bezel whose screen window runs the Pro's screens,
  * scaled; the
- * Slate is an edge-to-edge glass slab in a blurred-stroke metal frame -
+ * Pro 2 is an edge-to-edge glass slab in a blurred-stroke metal frame -
  * and what they genuinely have in common already lives in ../deviceScene.
  * Live screen content, when something needs it, attaches per model at
  * that layer, where the canvas and the key presses are known.
@@ -40,9 +40,6 @@ import type { ITouchDeviceScene } from '../TouchDevice';
  * here rather than imported so @onekeyhq/components stays clear of the
  * hardware SDK; the enum's members assign to these literals, so callers pass
  * their `deviceType` straight through.
- *
- * 'slate' is the one local-only member: an in-design replica whose device
- * has no SDK enum value yet. It renames to the real value when one ships.
  */
 export type IHardwareDeviceType =
   | 'unknown'
@@ -52,7 +49,8 @@ export type IHardwareDeviceType =
   | 'mini'
   | 'touch'
   | 'pro'
-  | 'slate';
+  | 'pro2'
+  | 'neo';
 
 /**
  * The scenes every replica implements. Intersecting the per-device unions
@@ -65,7 +63,7 @@ export type IHardwareDeviceScene = IClassicDeviceScene &
   IMiniDeviceScene &
   IProDeviceScene &
   ITouchDeviceScene &
-  ISlateDeviceScene;
+  IPro2DeviceScene;
 
 export interface IHardwareDeviceProps {
   /**
@@ -101,8 +99,8 @@ export interface IHardwareDeviceProps {
 
 /**
  * The routing table: which models draw which replica. The Classic family
- * collapses onto one; a model missing here (unknown) has no replica and
- * renders nothing, so "has a replica" is stated exactly once.
+ * collapses onto one; a model missing here (unknown, neo) has no replica
+ * and renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
   Record<
@@ -111,7 +109,7 @@ const REPLICAS: Partial<
     | typeof MiniDevice
     | typeof ProDevice
     | typeof TouchDevice
-    | typeof SlateDevice
+    | typeof Pro2Device
   >
 > = {
   classic: ClassicDevice,
@@ -120,7 +118,7 @@ const REPLICAS: Partial<
   mini: MiniDevice,
   pro: ProDevice,
   touch: TouchDevice,
-  slate: SlateDevice,
+  pro2: Pro2Device,
 };
 
 export function HardwareDevice({

@@ -15,7 +15,7 @@ import {
   PIN_DOT_TRACKS,
   PIN_LOOP,
 } from './animation';
-import { SLATE_SCREEN_H, SLATE_SCREEN_W } from './shell';
+import { PRO2_SCREEN_H, PRO2_SCREEN_W } from './shell';
 
 import type {
   IDeviceSceneContentProps,
@@ -25,7 +25,7 @@ import type { ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * Built-in scenes of the Slate device, keyed by the name its `animation`
+ * Built-in scenes of the Pro 2 device, keyed by the name its `animation`
  * prop takes. enterPin, enterPassphrase and confirm are stills transcribed
  * 1:1 from their Figma frames (enterPin 20553:1290 and enterPassphrase
  * 35429:1320 authored at 480x813, scaled x0.6; confirm 20553:1265 authored
@@ -37,11 +37,11 @@ import type { SharedValue } from 'react-native-reanimated';
  * screen.
  *
  * A scene is nothing but screen content plus the SCENES registry entry
- * declaring how SlateDevice runs it; entrances, exits and the clock are
+ * declaring how Pro2Device runs it; entrances, exits and the clock are
  * the shared presence machinery (../deviceSceneHost), so no scene carries
  * transition code.
  */
-export type ISlateDeviceScene =
+export type IPro2DeviceScene =
   | 'connecting'
   | 'enterPin'
   | 'enterPassphrase'
@@ -89,8 +89,8 @@ const sceneStyles = StyleSheet.create({
     flex: 1,
   },
   wallpaper: {
-    width: SLATE_SCREEN_W,
-    height: SLATE_SCREEN_H,
+    width: PRO2_SCREEN_W,
+    height: PRO2_SCREEN_H,
   },
 });
 
@@ -360,8 +360,8 @@ function ConfirmScreen({ clock }: { clock: SharedValue<number> }) {
       {CONFIRM_SKELETON}
       <GlassSweep
         clock={clock}
-        width={SLATE_SCREEN_W}
-        height={SLATE_SCREEN_H}
+        width={PRO2_SCREEN_W}
+        height={PRO2_SCREEN_H}
         clipStyle={confirmStyles.sweepClip}
       />
     </View>
@@ -404,7 +404,7 @@ const passStyles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: PASS_PANEL_TOP,
-    width: SLATE_SCREEN_W,
+    width: PRO2_SCREEN_W,
     height: PASS_PANEL_H,
     borderTopLeftRadius: PASS_PANEL_R,
     borderTopRightRadius: PASS_PANEL_R,
@@ -418,7 +418,7 @@ const passStyles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: PASS_PANEL_TOP,
-    width: SLATE_SCREEN_W,
+    width: PRO2_SCREEN_W,
     height: PASS_PANEL_H,
     borderTopLeftRadius: PASS_PANEL_R,
     borderTopRightRadius: PASS_PANEL_R,
@@ -589,7 +589,7 @@ function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
       ))}
       <GlassSweep
         clock={clock}
-        width={SLATE_SCREEN_W}
+        width={PRO2_SCREEN_W}
         height={PASS_PANEL_H}
         clipStyle={passStyles.sweepClip}
       />
@@ -615,7 +615,7 @@ function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
  * Adding a scene is adding one entry; nothing else consults a scene by
  * name.
  */
-export const SCENES: Record<ISlateDeviceScene, IDeviceSceneSpec> = {
+export const SCENES: Record<IPro2DeviceScene, IDeviceSceneSpec> = {
   connecting: { content: ConnectingContent, defersEntry: true },
   enterPin: { content: PinScreen, loop: PIN_LOOP },
   enterPassphrase: { content: PassphraseScreen, loop: PASSPHRASE_LOOP },

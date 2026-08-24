@@ -12,7 +12,7 @@ import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Animation contract of the code-drawn Pro device: one track, the screen
- * content's opacity — the 2026-08-12 alignment onto the Slate's presence
+ * content's opacity — the 2026-08-12 alignment onto the Pro 2's presence
  * model. The screen has no wake or sleep and no powered-on glow layer:
  * "lighting up" is nothing more than content rendering in, and scenes stay
  * lit, looping only their light choreography. The Pro has no face keys, so
@@ -20,7 +20,7 @@ import type { SharedValue } from 'react-native-reanimated';
  *
  * The screen-power constants, the light tracks and the entry-schedule
  * generator live in ../deviceScene (the presence vocabulary, shared with
- * the SlateDevice); this file pins the Pro's own mark metrics into them.
+ * the Pro2Device); this file pins the Pro's own mark metrics into them.
  */
 export interface IProDeviceAnimation {
   /** 0 hidden .. 1 shown, opacity of the screenContent node. */
@@ -42,7 +42,7 @@ export const PRO_DEVICE_SCREEN_ON: IProDeviceAnimation = {
 const PIN_MARK_HALF_STEP = 8.5;
 
 /* enterPin: the 3x4 keypad wavefront, four entered marks (the marks row is
- * centered, so each landing nudges the cluster like on the Slate). */
+ * centered, so each landing nudges the cluster like on the Pro 2). */
 const PIN_ENTRY = entrySchedule(PIN_LIGHT_MS, 4, PIN_MARK_HALF_STEP);
 /** Scene loop for the registry (4800ms, resting on the complete row). */
 export const PIN_LOOP = PIN_ENTRY.loop;

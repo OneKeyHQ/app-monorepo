@@ -14,7 +14,7 @@ import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Shared scene machinery of the code-drawn hardware devices (ClassicDevice,
- * ProDevice, SlateDevice). A scene is a set of keyframe tracks evaluated
+ * ProDevice, Pro2Device). A scene is a set of keyframe tracks evaluated
  * against one sawtooth master clock, and every device's screen runs the
  * presence vocabulary below: the glass shows nothing but content, so
  * "lighting up" is content rendering in. Press/tap feel stays per-device.
@@ -119,7 +119,7 @@ export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
  * It lives on the glass, not on the content — a still stays a still and
  * the band passes over it, the way a reflection travels. Confirm plays
  * it across the whole screen on every device; enterPassphrase plays it
- * over the keyboard (clipped to the Slate's panel box, under the Pro's
+ * over the keyboard (clipped to the Pro 2's panel box, under the Pro's
  * gap grille - the Classic's entry scenes press keys instead). */
 
 /** Every scene's light holds this long before it starts to move. */

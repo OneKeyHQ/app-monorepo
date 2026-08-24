@@ -5,7 +5,7 @@ import { PIN_LIGHT_MS, SWEEP_TRAVEL_MS, entrySchedule } from '../deviceScene';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * Animation contract of the code-drawn Slate device: one track, the screen
+ * Animation contract of the code-drawn Pro 2 device: one track, the screen
  * content's opacity. Per the design ruling the glass itself stays pure
  * black at all times - there is no panel luminance layer, and "waking" is
  * nothing more than content rendering in (over pure black an opacity ramp
@@ -14,9 +14,9 @@ import type { SharedValue } from 'react-native-reanimated';
  *
  * The screen-power constants, the light tracks and the entry-schedule
  * generator live in ../deviceScene (the presence vocabulary, shared with
- * the ProDevice); this file pins the Slate's own mark metrics into them.
+ * the ProDevice); this file pins the Pro 2's own mark metrics into them.
  */
-export interface ISlateDeviceAnimation {
+export interface IPro2DeviceAnimation {
   /** 0 hidden .. 1 shown, opacity of the screenContent node. */
   screenContent: Readonly<SharedValue<number>>;
 }
@@ -25,10 +25,10 @@ const VALUE_OFF = makeMutable(0);
 const VALUE_ON = makeMutable(1);
 
 // Static fallbacks for animation-less usages, mirroring the sibling statics.
-export const SLATE_DEVICE_SCREEN_OFF: ISlateDeviceAnimation = {
+export const PRO2_DEVICE_SCREEN_OFF: IPro2DeviceAnimation = {
   screenContent: VALUE_OFF,
 };
-export const SLATE_DEVICE_SCREEN_ON: ISlateDeviceAnimation = {
+export const PRO2_DEVICE_SCREEN_ON: IPro2DeviceAnimation = {
   screenContent: VALUE_ON,
 };
 

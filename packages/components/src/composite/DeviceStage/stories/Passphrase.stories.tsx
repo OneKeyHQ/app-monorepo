@@ -16,7 +16,7 @@ const meta = {
   component: DeviceStage,
   args: {
     step: 'off',
-    deviceType: 'slate',
+    deviceType: 'pro2',
     deviceName: DEMO.deviceName,
     // The flow spec's plain entry shape; flip to 'create' for the
     // Add-hidden-wallet titling and its empty-entry refusal.
