@@ -41,6 +41,22 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * scene map; `authFailure` fronts an icon instead of the replica, worded
  * by `authFailureReason`, and its recoverable shapes gate "Continue
  * anyway" behind an in-card NOTE beat with its own Back.
+ *
+ * The rest of the vocabulary is the third-party track — Trezor and
+ * Ledger flows, worn by the same stage with `vendor` set. Those devices
+ * have no code-drawn replica, so their asks stay in the capsule (the
+ * model's product shot on the left, see `vendorModel`) and their card
+ * steps run app-input arrangements: `searching`/`confirmOnDevice`/
+ * `openApp`/`unlockDevice` are capsule beats mapped straight off the
+ * vendor SDKs' passive events; `done` is the burst's ✓ beat in the same
+ * capsule (third-party only for now — whether OneKey flows adopt it is
+ * an open call); `pairingCode` is Trezor THP's reverse handoff (the
+ * device shows a code, the person types it here); `deviceNotFound`,
+ * `btcHighIndex` and the install trio (`installConfirm` → `installing`,
+ * or `installBatch` for the queued shape) are the vendor decision and
+ * progress cards. The shared inputs — `pinOnApp` (the Trezor matrix is
+ * the same blind pad minus its 0 key), `passphraseOnApp`, `connecting`,
+ * `processing`, `error` — serve both tracks unchanged.
  */
 export type IDeviceStageStep =
   | 'off'
@@ -58,7 +74,22 @@ export type IDeviceStageStep =
   | 'authSuccess'
   | 'authFailure'
   | 'processing'
-  | 'error';
+  | 'error'
+  | 'searching'
+  | 'confirmOnDevice'
+  | 'openApp'
+  | 'unlockDevice'
+  | 'done'
+  | 'pairingCode'
+  | 'deviceNotFound'
+  | 'btcHighIndex'
+  | 'installConfirm'
+  | 'installing'
+  | 'installBatch';
+
+/** The third-party vendors the stage can dress for. Values match
+ * EHardwareVendor in @onekeyhq/shared/types/device. */
+export type IDeviceStageVendor = 'ledger' | 'trezor';
 
 /**
  * What went wrong, in stage vocabulary. Each reason picks the failure copy
@@ -103,9 +134,59 @@ export interface IAuthChecklistItem {
 }
 
 export interface IDeviceStageProps {
-  /** Model on stage. Models without a replica render an empty stage. */
-  deviceType: IHardwareDeviceType;
+  /** Model on stage. Models without a replica render an empty stage;
+   * third-party flows (`vendor` set) omit it — their devices have no
+   * code-drawn replica and the capsule wears the product shot instead. */
+  deviceType?: IHardwareDeviceType;
   step: IDeviceStageStep;
+  /**
+   * Dresses the stage for a third-party device: the capsule's left seat
+   * shows the vendor model's product shot (picked by `vendorModel`/
+   * `vendorModelName` through the shared avatar mapping, brand-generic
+   * fallback — Nano X / Safe 7 — when the model is unrecognized), and
+   * the capsule speaks the vendor track's labels. Two device facts are
+   * enforced here rather than left to driver wiring: the PIN pad wears
+   * the Trezor matrix (no 0 key, no on-device switch — the button
+   * devices that reach it cannot take the PIN themselves), and the
+   * passphrase form drops the OneKey-only attach-PIN exit (on-device
+   * entry stays — Trezor supports it). The driver knows the model from
+   * the device row it is operating; the stage never looks anything up.
+   */
+  vendor?: IDeviceStageVendor;
+  /** The vendor's model code (Ledger DMK code like `nanoX`/`stax`,
+   * Trezor internal model like `T3W1`) — the avatar mapping's first key. */
+  vendorModel?: string;
+  /** The vendor's human model name (`Safe 7`) — the mapping's fallback
+   * key when the code is absent. */
+  vendorModelName?: string;
+  /** The coin app the install steps talk about (`Ethereum`) — titles
+   * and rows of `installConfirm`/`installing`. */
+  appName?: string;
+  /** Live install progress, 0–100 — `installing`'s bar and the active
+   * row of `installBatch`. Real progress from the vendor SDK, never
+   * simulated. */
+  installProgress?: number;
+  /** The batch install queue, in order — `installBatch`'s checklist. */
+  installQueue?: string[];
+  /** Index of the app currently installing; rows before it show done,
+   * rows after wait. Defaults to 0. */
+  installActiveIndex?: number;
+  /** The BIP-44 path behind `btcHighIndex`'s warning copy. */
+  btcHighIndexPath?: string;
+  /** The account index parsed from that path. */
+  btcHighIndexAccountIndex?: number;
+  /** The `pairingCode` entry, confirmed — the code the person copied
+   * off the device's screen. Empty is refused inline before this fires. */
+  onPairingSubmit?: (code: string) => void;
+  /** `deviceNotFound`'s single action — the person has reconnected and
+   * unlocked the device; the driver retries. Omitted, no button. */
+  onDeviceNotFoundRetry?: () => void;
+  /** `btcHighIndex`'s single action — proceed with the non-standard
+   * index, one device confirmation per path. Omitted, no button. */
+  onBtcHighIndexConfirm?: () => void;
+  /** `installConfirm`'s single action — install the missing app. The
+   * driver answers by moving to `installing`. Omitted, no button. */
+  onInstallConfirm?: () => void;
   /**
    * The connected device's name (its Bluetooth model name) — the second
    * line under every step with the device in the picture, capsule and

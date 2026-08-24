@@ -164,7 +164,87 @@ export const STEP_TEXT: Record<
   },
   processing: { title: 'Processing…' },
   error: ERROR_TEXT.generic,
+  // The third-party track. Capsule labels ride the vendor SDKs' own
+  // vocabulary (the ratified board keeps their wording); the card steps
+  // with runtime words — vendor, app name, path — resolve below.
+  searching: { title: 'Searching for device…' },
+  confirmOnDevice: { title: 'Confirm on device' },
+  openApp: { title: 'Please open the correct app on your device' },
+  unlockDevice: { title: 'Please manually unlock the device.' },
+  done: { title: 'Done' },
+  pairingCode: {
+    title: 'Pair Trezor',
+    sub: 'Confirm OneKey Wallet is connecting to your Trezor, then enter the security code shown on the device.',
+  },
+  deviceNotFound: {
+    title: 'Connect device',
+    sub: 'Please connect and unlock your device, then press Confirm.',
+  },
+  btcHighIndex: {
+    title: 'Multiple device confirmations required',
+    sub: 'This account path is a non-standard derivation and needs extra confirmations on the device.',
+  },
+  installConfirm: { title: 'Install app' },
+  installing: { title: 'Installing app', sub: 'Processing…' },
+  installBatch: {
+    title: 'Get started',
+    sub: 'The current operation requires the Ledger apps listed below. Install them, then retry the operation.',
+  },
 };
+
+/** The vendors' display names, for the cards that address the brand. */
+export const VENDOR_LABEL: Record<'ledger' | 'trezor', string> = {
+  ledger: 'Ledger',
+  trezor: 'Trezor',
+};
+
+/** `connecting` worn by the vendor track: the board's own label — the
+ * capsule has no device-name line there, so the title carries it. */
+export const VENDOR_CONNECTING_TEXT = { title: 'Connecting your device' };
+
+/** `deviceNotFound`'s words, addressed to the brand. */
+export function resolveDeviceNotFoundText(vendor?: 'ledger' | 'trezor'): {
+  title: string;
+  sub: string;
+} {
+  if (!vendor) {
+    return {
+      title: STEP_TEXT.deviceNotFound.title,
+      sub: STEP_TEXT.deviceNotFound.sub ?? '',
+    };
+  }
+  const label = VENDOR_LABEL[vendor];
+  return {
+    title: `Connect ${label}`,
+    sub: `Please connect and unlock your ${label} device, then press Confirm.`,
+  };
+}
+
+/** `btcHighIndex`'s warning, current-UI verbatim, path and index in. */
+export function resolveBtcHighIndexSub(
+  path?: string,
+  accountIndex?: number,
+): string {
+  const index = accountIndex ?? '';
+  return `You're about to access a BIP44 account at index ${index} (path ${
+    path ?? ''
+  }). The Ledger Bitcoin App treats this as a non-standard derivation — each such path needs a separate manual confirmation on the device, with no batch exemption. If you don't need this index, cancel and use an index below 99.`;
+}
+
+/** The install steps' words around the app's name. */
+export function resolveInstallText(
+  step: 'installConfirm' | 'installing',
+  appName?: string,
+): { title: string; sub: string } {
+  const app = appName ?? 'app';
+  if (step === 'installConfirm') {
+    return {
+      title: `Install ${app}`,
+      sub: `"${app}" is not installed. Install it now?`,
+    };
+  }
+  return { title: `Installing ${app}`, sub: 'Processing…' };
+}
 
 /**
  * The steps whose second line is the device's own name — every step with
@@ -237,6 +317,19 @@ export const SCENE_ANIMATION: Record<
   authFailure: undefined,
   processing: undefined,
   error: undefined,
+  // The third-party track never lights the replica: those devices have
+  // no code-drawn twin, so no step maps to a scene.
+  searching: undefined,
+  confirmOnDevice: undefined,
+  openApp: undefined,
+  unlockDevice: undefined,
+  done: undefined,
+  pairingCode: undefined,
+  deviceNotFound: undefined,
+  btcHighIndex: undefined,
+  installConfirm: undefined,
+  installing: undefined,
+  installBatch: undefined,
 };
 
 /**
@@ -264,6 +357,21 @@ export const STEP_POSE: Record<
   authSuccess: 'card',
   authFailure: 'card',
   error: 'card',
+  // Third-party: the passive vendor events stay in the capsule — the
+  // person acts on the physical device, nothing is asked in the app —
+  // and `done` lands its ✓ there too; the decision, input and progress
+  // beats are cards.
+  searching: 'capsule',
+  confirmOnDevice: 'capsule',
+  openApp: 'capsule',
+  unlockDevice: 'capsule',
+  done: 'capsule',
+  pairingCode: 'card',
+  deviceNotFound: 'card',
+  btcHighIndex: 'card',
+  installConfirm: 'card',
+  installing: 'card',
+  installBatch: 'card',
 };
 
 /**
@@ -314,11 +422,23 @@ export function resolvePassphrasePanelText(
 }
 
 /** The capsule's words: the live step's title over the device's name —
- * both waiting beats have the device in the picture. */
+ * both waiting beats have the device in the picture. The vendor track
+ * speaks single labels (the board carries no device-name line there),
+ * with `connecting` reworded to say what the missing line said. */
 export function resolveCapsuleText(
   step: IDeviceStageStep,
   deviceName?: string,
+  vendor?: 'ledger' | 'trezor',
 ): { title: string; sub: string } {
+  if (vendor) {
+    return {
+      title:
+        step === 'connecting'
+          ? VENDOR_CONNECTING_TEXT.title
+          : STEP_TEXT[step].title,
+      sub: '',
+    };
+  }
   return {
     title: STEP_TEXT[step].title,
     sub: resolveStepSub(step, deviceName),
