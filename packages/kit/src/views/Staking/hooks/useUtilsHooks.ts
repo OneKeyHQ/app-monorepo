@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EOnChainHistoryTxStatus,
@@ -94,10 +94,11 @@ export function useTrackTokenAllowance({
         networkId,
         accountId,
         tokenAddress,
-        spenderAddress:
-          approveType === EApproveType.Permit
-            ? MorphoBundlerContract
-            : spenderAddress,
+        spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          networkId,
+          approveType,
+          approveSpenderAddress: spenderAddress,
+        }),
       }),
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );

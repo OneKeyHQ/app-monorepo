@@ -19,4 +19,9 @@ describe('Bitway Earn provider constants', () => {
   it('exposes the U Market token as Earn-capable', () => {
     expect(isSupportStaking('U')).toBe(true);
   });
+
+  it('exposes the vbUSDC Market token as Earn-capable', () => {
+    expect(normalizeToEarnSymbol('vbusdc')).toBe('vbUSDC');
+    expect(isSupportStaking('vbUSDC')).toBe(true);
+  });
 });

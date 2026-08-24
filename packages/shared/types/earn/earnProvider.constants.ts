@@ -108,6 +108,7 @@ export const isSupportStaking = (symbol: string) =>
     'CBBTC',
     'WBTC',
     'U',
+    'VBUSDC',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
