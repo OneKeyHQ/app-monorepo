@@ -32,7 +32,7 @@ export function showTradingViewChartSettingsDialog() {
     renderContent: (
       <TradingViewChartSettings
         onCancel={closeDialog}
-        onConfirm={closeDialog}
+        onConfirmSuccess={closeDialog}
       />
     ),
   });

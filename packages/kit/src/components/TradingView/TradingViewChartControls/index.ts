@@ -17,6 +17,7 @@ export type {
   ITradingViewNativeChartControlsConfigData,
   ITradingViewNativeChartTypeControlMode,
   ITradingViewNativeControlsLayoutMode,
+  ITradingViewNativeIndicatorSelection,
   ITradingViewNativeIndicatorControlMode,
   ITradingViewNativePriceMarketCapControlMode,
   ITradingViewPriceMarketCapMode,

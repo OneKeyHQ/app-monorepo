@@ -1,9 +1,14 @@
+// Canonical rebate module order: Hardware -> Perps -> Swap -> DeFi.
+// `Earn` and `Onchain` are both DeFi subjects (the backend uses either key),
+// so they stay adjacent at the tail with distinct ranks: equal ranks would make
+// their relative order depend on the API response order, which is exactly the
+// per-surface inconsistency this order table exists to remove.
 const COMMISSION_RATE_SUBJECT_ORDER: Record<string, number> = {
   HardwareSales: 0,
   Perp: 1,
-  Onchain: 2,
+  Swap: 2,
   Earn: 3,
-  Swap: 4,
+  Onchain: 4,
 };
 
 export function shouldShowInviteeDiscount(discount?: number) {

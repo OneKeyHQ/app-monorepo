@@ -61,6 +61,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   swapTypeSwitch: ESwapTabSwitchType;
+  routeSwapType?: ESwapTabSwitchType;
   alerts: {
     states: ISwapAlertState[];
     quoteId: string;
@@ -133,6 +134,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   quoteLoading,
   quoteEventFetching,
   swapTypeSwitch,
+  routeSwapType,
   alerts,
   isWrapped,
   onSelectRecentTokenPairs,
@@ -295,6 +297,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
+            routeSwapType={routeSwapType}
           />
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
@@ -399,6 +402,7 @@ const SwapOldSwapBridgeLimitContainer = ({
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
+                routeSwapType={routeSwapType}
               />
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />

@@ -3,8 +3,9 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
+const mockToOnBoardingPage = jest.fn();
 let mockPromiseResult: {
   result?: {
     totalBonus: string;
@@ -34,11 +35,18 @@ jest.mock('@onekeyhq/components', () => {
     React.createElement('div', null, children);
   const Button = ({
     children,
+    onPress,
     testID,
   }: {
     children?: ReactNode;
+    onPress?: () => void;
     testID?: string;
-  }) => React.createElement('button', { 'data-testid': testID }, children);
+  }) =>
+    React.createElement(
+      'button',
+      { 'data-testid': testID, onClick: onPress },
+      children,
+    );
   const Empty = ({
     title,
     description,
@@ -103,7 +111,7 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage',
   () => ({
-    useToOnBoardingPage: () => jest.fn(),
+    useToOnBoardingPage: () => mockToOnBoardingPage,
   }),
 );
 
@@ -135,6 +143,7 @@ import { InviteeRewardContent } from './InviteeRewardContent';
 
 describe('InviteeRewardContent', () => {
   beforeEach(() => {
+    mockToOnBoardingPage.mockReset();
     mockPromiseResult = {
       result: {
         totalBonus: '12',
@@ -159,9 +168,17 @@ describe('InviteeRewardContent', () => {
   });
 
   it('keeps the no-wallet state', () => {
-    render(<InviteeRewardContent walletAddress="" />);
+    const onBeforeNavigate = jest.fn();
+
+    render(
+      <InviteeRewardContent
+        walletAddress=""
+        onBeforeNavigate={onBeforeNavigate}
+      />,
+    );
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    expect(screen.getByTestId('perp-to-on-boarding-page-btn')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('perp-to-on-boarding-page-btn'));
+    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
   });
 });

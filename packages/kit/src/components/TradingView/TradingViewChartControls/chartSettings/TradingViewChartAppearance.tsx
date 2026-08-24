@@ -2,7 +2,15 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IIconProps } from '@onekeyhq/components';
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  LinearGradient,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   OKX_CHART_BG,
@@ -17,6 +25,10 @@ import {
   OkxChartSelectMock,
   OkxChartSolidSwatch,
 } from './TradingViewSettingsShared';
+import {
+  resolveTradingViewSettingsThemeColor,
+  useTradingViewSettingsThemeColors,
+} from './TradingViewSettingsThemeColors';
 
 import type {
   ITradingViewChartSettingsBackgroundStyle,
@@ -194,6 +206,15 @@ function OkxChartPriceSwatch({
   onChange: (upColor: string, downColor: string) => void;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const themeColors = useTradingViewSettingsThemeColors();
+  const resolvedUpColor = resolveTradingViewSettingsThemeColor(
+    upColor,
+    themeColors,
+  );
+  const resolvedDownColor = resolveTradingViewSettingsThemeColor(
+    downColor,
+    themeColors,
+  );
   const isPaletteOpen = open ?? uncontrolledOpen;
   const setIsPaletteOpen = (nextOpen: boolean) => {
     if (open === undefined) {
@@ -218,14 +239,20 @@ function OkxChartPriceSwatch({
         cursor="pointer"
         onPress={() => setIsPaletteOpen(!isPaletteOpen)}
       >
-        <Stack
+        <LinearGradient
           w={22}
           h={22}
           overflow="hidden"
           borderRadius={2}
-          style={{
-            background: `linear-gradient(45deg, ${downColor} 0 50%, ${upColor} 50% 100%)`,
-          }}
+          colors={[
+            resolvedDownColor,
+            resolvedDownColor,
+            resolvedUpColor,
+            resolvedUpColor,
+          ]}
+          locations={[0, 0.5, 0.5, 1]}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
         />
       </Stack>
 
@@ -249,8 +276,14 @@ function getOkxChartTrendColors(
   colorMode: ITradingViewChartSettingsColorMode,
   priceColorMode: ITradingViewChartSettingsPriceColorMode,
 ) {
-  const positiveColor = colorMode === 'modern' ? '#D6FF00' : OKX_CHART_UP;
-  const negativeColor = colorMode === 'modern' ? '#FF3CD9' : OKX_CHART_DOWN;
+  const positiveColor =
+    colorMode === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.brand
+      : OKX_CHART_UP;
+  const negativeColor =
+    colorMode === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.quaternary
+      : OKX_CHART_DOWN;
 
   if (priceColorMode === 'greenUpRedDown') {
     return {
@@ -358,15 +391,11 @@ export function AppearanceCandleSettingsContent({
           颜色设置
         </SizableText>
         <XStack gap={0} alignItems="center">
-          <Icon
-            name="ArrowTopOutline"
-            size="$4"
-            style={{ color: trendColors.upColor }}
-          />
+          <Icon name="ArrowTopOutline" size="$4" color={trendColors.upColor} />
           <Icon
             name="ArrowBottomOutline"
             size="$4"
-            style={{ color: trendColors.downColor }}
+            color={trendColors.downColor}
           />
           <Icon
             name="ChevronRightSmallOutline"
@@ -482,6 +511,7 @@ export function AppearanceCoordinatesSettingsContent({
             width={97}
             options={OKX_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getOkxChartLineStyleFromLabel}
             open={activeLatestPriceControl === 'style'}
             onOpenChange={(open) =>
               setActiveLatestPriceControl(open ? 'style' : undefined)
@@ -715,6 +745,7 @@ export function AppearanceLayoutSettingsContent({
             width={97}
             options={OKX_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getOkxChartLineStyleFromLabel}
             onChange={(label) =>
               onCrossLineStyleChange(getOkxChartLineStyleFromLabel(label))
             }
