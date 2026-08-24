@@ -3,7 +3,7 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 export const ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT = 36;
 export const ORDER_BOOK_SIDE_RATIO_GAP = 4;
 export const PERP_DESKTOP_CHART_MIN_HEIGHT = 360;
-export const PERP_DESKTOP_INFO_MIN_HEIGHT = 240;
+export const PERP_DESKTOP_INFO_MIN_HEIGHT = 300;
 
 const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
