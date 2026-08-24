@@ -103,7 +103,6 @@ export type ITradingViewNativeChartCandlePartSettings = {
 
 export type ITradingViewNativeChartSettingsOptions = {
   yAxis: boolean;
-  countdown: boolean;
   depth: boolean;
   priceChange: boolean;
   latestPrice: boolean;
@@ -166,7 +165,6 @@ export function createTradingViewNativeChartSettings(): ITradingViewNativeChartS
     },
     options: {
       yAxis: true,
-      countdown: true,
       depth: true,
       priceChange: true,
       latestPrice: true,

@@ -108,10 +108,6 @@ export function normalizeTradingViewNativeChartSettings(
     },
     options: {
       yAxis: normalizeBoolean(options.yAxis, fallback.options.yAxis),
-      countdown: normalizeBoolean(
-        options.countdown,
-        fallback.options.countdown,
-      ),
       depth: normalizeBoolean(options.depth, fallback.options.depth),
       priceChange: normalizeBoolean(
         options.priceChange,
@@ -330,8 +326,8 @@ export function getTradingViewChartSettingsValue(
         : section,
     ),
     options: {
+      ...value.options,
       yAxis: normalizedSettings.options.yAxis,
-      countdown: normalizedSettings.options.countdown,
       depth: normalizedSettings.options.depth,
       priceChange: normalizedSettings.options.priceChange,
       latestPrice: normalizedSettings.options.latestPrice,
@@ -380,7 +376,14 @@ export function getTradingViewNativeChartSettings({
       }),
     },
     options: {
-      ...value.options,
+      yAxis: value.options.yAxis,
+      depth: value.options.depth,
+      priceChange: value.options.priceChange,
+      latestPrice: value.options.latestPrice,
+      futureEvents: value.options.futureEvents,
+      pastEvents: value.options.pastEvents,
+      clickInteraction: value.options.clickInteraction,
+      crossLine: value.options.crossLine,
     },
     latestPriceLine: { ...value.latestPriceLine },
     background: {

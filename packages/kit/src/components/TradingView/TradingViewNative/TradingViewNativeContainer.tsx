@@ -35,13 +35,13 @@ import {
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
-import { getTradingViewNativeCurrentPriceDisplayLabel } from './utils/chartDisplaySettings';
 import {
   type ITradingViewNativeAnyIndicator,
   type ITradingViewNativeSubIndicator,
   TRADING_VIEW_NATIVE_SUB_INDICATORS,
   buildTradingViewNativeIndicatorSeries,
 } from './utils/chartIndicators';
+import { getTradingViewNativeCurrentPriceLabel } from './utils/chartLayout';
 import {
   resolveTradingViewNativeChartThemeColors,
   resolveTradingViewNativeMainIndicatorThemeColors,
@@ -187,7 +187,6 @@ export const TradingViewNativeContainer = memo(
     } | null>(null);
     const [chartWidth, setChartWidth] = useState(0);
     const [chartHeight, setChartHeight] = useState(0);
-    const [countdownNow, setCountdownNow] = useState(() => Date.now());
     const [subIndicatorCalculationCache] = useState(() =>
       createTradingViewNativeSubIndicatorCalculationCache(),
     );
@@ -374,30 +373,10 @@ export const TradingViewNativeContainer = memo(
     const sourceSymbol = source.kind === 'market' ? source.symbol : undefined;
     const sourceTokenAddress =
       source.kind === 'market' ? source.tokenAddress : undefined;
-    const shouldUpdateCountdown =
-      chartSettings.options.countdown &&
-      chartSettings.options.latestPrice &&
-      chartSettings.options.yAxis;
     const currentPriceLabel = useMemo(
-      () =>
-        getTradingViewNativeCurrentPriceDisplayLabel({
-          candleIntervalSeconds,
-          countdown: shouldUpdateCountdown,
-          now: countdownNow,
-          points,
-        }),
-      [candleIntervalSeconds, countdownNow, points, shouldUpdateCountdown],
+      () => getTradingViewNativeCurrentPriceLabel(points),
+      [points],
     );
-
-    useEffect(() => {
-      if (!shouldUpdateCountdown || points.length === 0) {
-        return undefined;
-      }
-
-      setCountdownNow(Date.now());
-      const timer = setInterval(() => setCountdownNow(Date.now()), 1000);
-      return () => clearInterval(timer);
-    }, [dataProviderKey, points.length, shouldUpdateCountdown]);
 
     useEffect(() => {
       emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
