@@ -1,3 +1,7 @@
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { QRCode } from '../../content/QRCode';
 import {
   Button,
@@ -56,6 +60,7 @@ export function QrPresent({
   value?: string;
   onNext?: () => void;
 }) {
+  const intl = useIntl();
   return (
     <YStack gap="$5">
       <YStack alignItems="center" py="$2">
@@ -80,11 +85,15 @@ export function QrPresent({
           <YStack gap="$1.5">
             <QrStep
               index={1}
-              text="Scan the QR code with your device to verify the details."
+              text={intl.formatMessage({
+                id: ETranslations.scan_qr_code_to_verify_details,
+              })}
             />
             <QrStep
               index={2}
-              text="Return when the QR code shows, tap 'Next', then scan it."
+              text={intl.formatMessage({
+                id: ETranslations.secure_qr_toast_scan_qr_code_on_device_text,
+              })}
             />
           </YStack>
           <Button
@@ -92,7 +101,7 @@ export function QrPresent({
             variant="primary"
             onPress={onNext}
           >
-            Next
+            {intl.formatMessage({ id: ETranslations.global_next })}
           </Button>
         </YStack>
       ) : null}
@@ -106,6 +115,7 @@ export function QrPresent({
  * and how it is framed.
  */
 export function QrScanFrame({ onBack }: { onBack?: () => void }) {
+  const intl = useIntl();
   return (
     <YStack alignItems="center" py="$2">
       <YStack
@@ -183,7 +193,9 @@ export function QrScanFrame({ onBack }: { onBack?: () => void }) {
           mt="$4"
           onPress={onBack}
         >
-          Show the code again
+          {intl.formatMessage({
+            id: ETranslations.device_stage_show_code_again__action,
+          })}
         </Button>
       ) : null}
     </YStack>
