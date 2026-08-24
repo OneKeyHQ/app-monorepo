@@ -342,6 +342,48 @@ index 44d3378..8e0cc1f 100644
      @Override
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
+diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
+index 95c0fcc..39c353d 100644
+--- a/node_modules/react-native-webview/apple/RNCWebView.mm
++++ b/node_modules/react-native-webview/apple/RNCWebView.mm
+@@ -45,6 +45,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
+ 
+ @implementation RNCWebView {
+     RNCWebViewImpl * _view;
++    NSDictionary * _sourceFromProps;
+ }
+ 
+ + (ComponentDescriptorProvider)componentDescriptorProvider
+@@ -56,6 +57,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
+ // Reproduce the idea from here: https://github.com/facebook/react-native/blob/8bd3edec88148d0ab1f225d2119435681fbbba33/React/Fabric/Mounting/ComponentViews/InputAccessory/RCTInputAccessoryComponentView.mm#L142
+ - (void)prepareForRecycle {
+     [super prepareForRecycle];
++    _sourceFromProps = nil;
+     [_view destroyWebView];
+ }
+ #endif // !TARGET_OS_OSX
+@@ -492,7 +494,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+     if (!newViewProps.newSource.method.empty()) {
+         [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
+     }
+-    [_view setSource:source];
++    // Keep imperative navigation from being reset by unrelated prop updates.
++    if (![_sourceFromProps isEqualToDictionary:source]) {
++        _sourceFromProps = [source copy];
++        [_view setSource:source];
++    }
+ 
+     [super updateProps:props oldProps:oldProps];
+ }
+@@ -520,7 +526,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+ }
+ 
+ - (void)loadUrl:(nonnull NSString *)url {
+-    // android only
++    [_view setSource:@{@"uri": url}];
+ }
+ 
+ - (void)postMessage:(nonnull NSString *)data {
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.h b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
 index 1f6bbfd..e4c9cd7 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.h

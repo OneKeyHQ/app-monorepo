@@ -607,7 +607,23 @@ function MobileBrowser() {
                   <Stack flex={1}>
                     {browserDashboardContent}
                     {platformEnv.isNativeAndroid ? (
-                      <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                      <Animated.View
+                        collapsable={false}
+                        pointerEvents={
+                          shouldShowRootWebPageLayer ? 'auto' : 'none'
+                        }
+                        accessibilityElementsHidden={
+                          !shouldShowRootWebPageLayer
+                        }
+                        importantForAccessibility={
+                          shouldShowRootWebPageLayer
+                            ? 'auto'
+                            : 'no-hide-descendants'
+                        }
+                        style={[styles.webPageLayer, webPageAnimatedStyle]}
+                      >
+                        <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                      </Animated.View>
                     ) : null}
                   </Stack>
                 </Stack>

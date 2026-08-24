@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { DEVICE, LOG_EVENT, UI_EVENT, UI_REQUEST } from '@onekeyfe/hd-core';
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -16,7 +16,10 @@ import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import localDb from '../../dbs/local/localDb';
-import { hardwareUiStateAtom } from '../../states/jotai/atoms';
+import {
+  hardwareUiStateAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHardware from './ServiceHardware';
 import serviceHardwareUtils from './serviceHardwareUtils';
@@ -79,6 +82,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getExistingDevice: jest.fn(),
     getDeviceSafe: jest.fn(),
     getDeviceByQuery: jest.fn(),
     updateDevice: jest.fn(),
@@ -114,7 +118,9 @@ jest.mock('../../states/jotai/atoms', () => {
     hardwareUiStateCompletedAtom: {
       set: jest.fn(async () => undefined),
     },
-    settingsPersistAtom: {},
+    settingsPersistAtom: {
+      get: jest.fn(async () => ({ instanceId: 'INSTANCE_ID' })),
+    },
   };
 });
 
@@ -299,32 +305,103 @@ describe('ServiceHardware SDK debug logging', () => {
 });
 
 describe('ServiceHardware wallet session compatibility', () => {
-  it('skips unavailable Pro2 firmware attestation', async () => {
-    const service = new ServiceHardware({
-      backgroundApi: {} as IBackgroundApi,
-    });
-    const getSDKInstanceSpy = jest.spyOn(service, 'getSDKInstance');
-
-    await expect(
-      service.firmwareAuthenticate({
-        device: {
-          connectId: 'PRO2_USB',
-          deviceType: EDeviceType.Pro2,
-        } as never,
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        skipVerification: true,
-        verified: false,
-      }),
-    );
-    expect(getSDKInstanceSpy).not.toHaveBeenCalled();
-  });
+  it.each([
+    { deviceType: EDeviceType.Pro2, connectId: 'PRO2_USB' },
+    { deviceType: EDeviceType.Neo, connectId: 'NEO_USB' },
+  ])(
+    'sends the same Pro-style UTF-8 challenge to the device and verify API for $deviceType',
+    async ({ deviceType, connectId }) => {
+      const instanceId = '94537ae5-32e9-4417-860a-1d37c8decb3e';
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId,
+      } as never);
+      const withHardwareProcessing = jest
+        .fn()
+        .mockImplementation(async (callback: () => Promise<unknown>) =>
+          callback(),
+        );
+      const closeHardwareUiStateDialog = jest.fn(async () => undefined);
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+          closeHardwareUiStateDialog,
+        },
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerifySpy = jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          cert: 'cert',
+          signature: 'signature',
+        },
+      });
+      const postMock = jest
+        .fn()
+        .mockResolvedValue({ data: { code: 0, message: 'OK' } });
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        post: postMock,
+      } as never);
+      jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+        deviceVerify: deviceVerifySpy,
+      } as never);
+      service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
+      await expect(
+        service.firmwareAuthenticate({
+          device: {
+            connectId,
+            deviceType,
+          } as never,
+        }),
+      ).resolves.toMatchObject({
+        verified: true,
+        result: { code: 0, message: 'OK' },
+        payload: {
+          cert: 'cert',
+          signature: 'signature',
+        },
+      });
+      expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
+      const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
+        dataHex: string;
+      };
+      const postArg = postMock.mock.calls[0]?.[1] as {
+        data: string;
+        deviceType: string;
+      };
+      const data = postArg?.data ?? '';
+      const [uuid, timestamp, random] = data.split('_');
+      expect(uuid).toBe(instanceId);
+      expect(uuid).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+      );
+      expect(Number.isNaN(Number(timestamp))).toBe(false);
+      expect(random).toMatch(/^[0-9A-Za-z]+$/);
+      expect(random).toHaveLength(12);
+      expect(deviceVerifyArg?.dataHex).toBe(
+        Buffer.from(data, 'utf8').toString('hex'),
+      );
+      expect(postMock).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/verify',
+        expect.objectContaining({
+          deviceType,
+          data: expect.stringMatching(
+            new RegExp(`^${instanceId}_\\d+_[0-9A-Za-z]{12}$`),
+          ),
+        }),
+      );
+      expect(closeHardwareUiStateDialog).toHaveBeenCalled();
+    },
+  );
 
   it('does not require unavailable Pro2 attestation before wallet creation', async () => {
     const service = new ServiceHardware({
       backgroundApi: {} as IBackgroundApi,
     });
+    jest.spyOn(localDb, 'getExistingDevice').mockResolvedValue(undefined);
 
     await expect(
       service.shouldAuthenticateFirmware({
@@ -334,7 +411,7 @@ describe('ServiceHardware wallet session compatibility', () => {
           deviceType: EDeviceType.Pro2,
         } as never,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it('uses the GetFeatures-only state scope for Classic-family firmware verification', async () => {
@@ -1864,51 +1941,104 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 });
 
 describe('ServiceHardware.fetchHardwareHomeScreen', () => {
-  it('uses Pro as the server device type for Pro 2', async () => {
-    const get = jest.fn().mockResolvedValue({
-      data: {
-        data: [
-          {
-            id: 'pro-wallpaper',
-            wallpaperType: 'default',
-            resType: 'system',
-            url: 'https://example.com/pro-wallpaper.png',
-            deviceTypes: [EDeviceType.Pro],
-          },
-        ],
-      },
-    });
-    const service = new ServiceHardware({
-      backgroundApi: {} as unknown as IBackgroundApi,
-    });
-    Object.defineProperty(service, 'getClient', {
-      value: jest.fn().mockResolvedValue({ get }),
-    });
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'requests %s homescreens with the native device type',
+    async (deviceType) => {
+      const get = jest.fn().mockResolvedValue({
+        data: {
+          data: [
+            {
+              id: `${deviceType}-wallpaper`,
+              wallpaperType: 'default',
+              resType: 'custom',
+              url: `https://example.com/${deviceType}-wallpaper.png`,
+              deviceTypes: [deviceType],
+            },
+            {
+              id: 'pro-wallpaper',
+              wallpaperType: 'default',
+              resType: 'system',
+              url: 'https://example.com/pro-wallpaper.png',
+              deviceTypes: [EDeviceType.Pro],
+            },
+          ],
+        },
+      });
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      Object.defineProperty(service, 'getClient', {
+        value: jest.fn().mockResolvedValue({ get }),
+      });
 
-    await expect(
-      service.fetchHardwareHomeScreen({
-        deviceType: EDeviceType.Pro2,
-        serialNumber: 'PR9999999999',
+      await expect(
+        service.fetchHardwareHomeScreen({
+          deviceType,
+          serialNumber: 'PR9999999999',
+          firmwareVersion: '1.0.0',
+        }),
+      ).resolves.toEqual([
+        {
+          id: `${deviceType}-wallpaper`,
+          wallpaperType: 'default',
+          resType: 'custom',
+          url: `https://example.com/${deviceType}-wallpaper.png`,
+          screenHex: undefined,
+          nameHex: undefined,
+        },
+      ]);
+      expect(get).toHaveBeenCalledWith('/utility/v1/wallet-homescreen/list', {
+        params: {
+          deviceType,
+          serialNumber: 'PR9999999999',
+          firmwareVersion: '1.0.0',
+        },
+      });
+    },
+  );
+});
+
+describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
+  it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
+    'requests firmware/detail with the native %s device type',
+    async (deviceType) => {
+      const get = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            firmwares: [],
+          },
+        },
+      });
+      const backgroundApi = {
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        get,
+      } as never);
+
+      await service.hardwareVerifyManager.fetchFirmwareVerifyHash({
+        deviceType,
         firmwareVersion: '1.0.0',
-      }),
-    ).resolves.toEqual([
-      {
-        id: 'pro-wallpaper',
-        wallpaperType: 'default',
-        resType: 'system',
-        url: 'https://example.com/pro-wallpaper.png',
-        screenHex: undefined,
-        nameHex: undefined,
-      },
-    ]);
-    expect(get).toHaveBeenCalledWith('/utility/v1/wallet-homescreen/list', {
-      params: {
-        deviceType: EDeviceType.Pro,
-        serialNumber: 'PR9999999999',
-        firmwareVersion: '1.0.0',
-      },
-    });
-  });
+        bluetoothVersion: '1.0.0',
+        bootloaderVersion: '1.0.0',
+        firmwareType: EFirmwareType.Universal,
+      });
+
+      expect(get).toHaveBeenCalledWith('/utility/v1/firmware/detail', {
+        params: {
+          deviceType,
+          system: '1.0.0',
+          bluetooth: '1.0.0',
+          bootloader: '1.0.0',
+          firmwareType: 'universal',
+        },
+      });
+    },
+  );
 });
 
 describe('ServiceHardware.cancel Pro2 operation', () => {

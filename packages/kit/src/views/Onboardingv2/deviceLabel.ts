@@ -6,7 +6,7 @@ export const getDeviceLabel = (
 ) => {
   const labels = deviceTypeItems.map((deviceType) => {
     switch (deviceType) {
-      // Protocol V2 variants share the OneKey Pro connection entry.
+      // Pro 2 / Neo are not public yet; keep the shared OneKey Pro USB copy.
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
       case EDeviceType.Neo:
@@ -25,6 +25,5 @@ export const getDeviceLabel = (
         return deviceType;
     }
   });
-  // Shared product variants collapse to one label; keep the copy free of duplicates.
   return Array.from(new Set(labels)).join(separator);
 };
