@@ -7,6 +7,7 @@ import { Dialog, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -23,6 +24,11 @@ import type {
   IShareImageGeneratorRef,
 } from './types';
 import type { IntlShape } from 'react-intl';
+
+// The preview never waits for the invite code, but an export should still
+// carry it. Bounded so a stalled referral lookup delays the action instead of
+// blocking it: past this the default link is used.
+const REFERRAL_WAIT_TIMEOUT_MS = 2000;
 
 interface IShareContentProps {
   data: IShareData;
@@ -56,9 +62,26 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     useShareActions(referralQrCodeUrl);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
+  const isReferralReadyRef = useRef(isReferralReady);
+  isReferralReadyRef.current = isReferralReady;
+  const waitForReferral = useCallback(
+    () =>
+      timerUtils.sleepUntil({
+        conditionFn: () => isReferralReadyRef.current,
+        until: REFERRAL_WAIT_TIMEOUT_MS,
+      }),
+    [],
+  );
+
+  const handleCopyLink = useCallback(async () => {
+    await waitForReferral();
+    copyLink();
+  }, [copyLink, waitForReferral]);
+
   const handleSaveImage = useCallback(async () => {
     setIsActionLoading(true);
     try {
+      await waitForReferral();
       const generator: IShareImageGeneratorRef | null = generatorRef.current;
       if (!generator) {
         Toast.error({ title: 'Failed to generate image' });
@@ -94,11 +117,12 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, intl]);
+  }, [saveImage, intl, waitForReferral]);
 
   const handleShareImage = useCallback(async () => {
     setIsActionLoading(true);
     try {
+      await waitForReferral();
       const generator: IShareImageGeneratorRef | null = generatorRef.current;
       if (!generator) {
         Toast.error({ title: 'Failed to generate image' });
@@ -114,11 +138,12 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage]);
+  }, [shareImage, waitForReferral]);
 
   const handleShareToX = useCallback(async () => {
     setIsActionLoading(true);
     try {
+      await waitForReferral();
       const generator: IShareImageGeneratorRef | null = generatorRef.current;
       if (!generator) {
         Toast.error({ title: 'Failed to generate image' });
@@ -138,7 +163,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareToX, config.customText, onClose]);
+  }, [shareToX, config.customText, onClose, waitForReferral]);
 
   const desktopLayout = (
     <YStack gap="$5">
@@ -167,7 +192,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
           onChange={setConfig}
           onSaveImage={handleSaveImage}
           onShareImage={handleShareImage}
-          onCopyLink={copyLink}
+          onCopyLink={handleCopyLink}
           onShareToX={handleShareToX}
           isLoading={isActionLoading}
         />
@@ -200,7 +225,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         onChange={setConfig}
         onSaveImage={handleSaveImage}
         onShareImage={handleShareImage}
-        onCopyLink={copyLink}
+        onCopyLink={handleCopyLink}
         onShareToX={handleShareToX}
         isLoading={isActionLoading}
         isMobile
