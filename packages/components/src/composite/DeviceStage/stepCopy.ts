@@ -145,10 +145,8 @@ export const STEP_TEXT: Record<
   // emphasized word — rich text the panel carries itself (see
   // PassphraseIntro).
   passphraseIntro: { title: 'Add hidden wallet' },
-  enterPassphrase: {
-    title: 'Enter passphrase on device',
-    sub: 'Each passphrase opens its own hidden wallet.',
-  },
+  // No sub for now — the right second line is still being decided.
+  enterPassphrase: { title: 'Enter passphrase on device' },
   passphraseOnApp: { title: 'Enter passphrase' },
   showQr: { title: 'Scan with your device' },
   scanQr: {
@@ -257,17 +255,17 @@ export function resolveInstallText(
 
 /**
  * The card steps that wear the device's name as the corner badge — the
- * ones where the person acts on the physical device, so the card names
+ * ones where the person acts on the connected device, so the card names
  * which device to reach for. The app-side inputs (PIN, passphrase, the
  * teach-first intro) and the outcome cards stay bare: the person acts
- * here, and the badge would name the wrong place.
+ * here, and the badge would name the wrong place. The air-gap pair is
+ * device-side but stays bare too — no live transport, so there is no
+ * Bluetooth name to wear.
  */
 export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
   new Set<IDeviceStageStep>([
     'enterPin',
     'enterPassphrase',
-    'showQr',
-    'scanQr',
     'confirm',
     'genuineCheck',
     'authVerifying',
