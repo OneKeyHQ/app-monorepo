@@ -1122,18 +1122,15 @@ export default class Vault extends VaultBase {
       // (display-basis allowance strings must never be re-encoded as raw
       // units — that would over-approve by the multiplier). This guard is
       // defense in depth behind those UI gates, not a reachable branch.
-      // Unlimited and revoke (allowance === 0) are multiplier-invariant, so
-      // they skip the lookup; every other path re-encodes a finite
-      // non-zero allowance and must pass this check.
+      // The multiplier comes from the same decode snapshot as the displayed
+      // action (no second token fetch that could diverge from it).
+      // Unlimited and revoke (allowance === 0) are multiplier-invariant and
+      // skip the check; every other path re-encodes a finite non-zero
+      // allowance and must not pass with a scaling multiplier.
       if (!isMaxUint256 && !allowanceBn.isZero()) {
-        const approveToken = await this.backgroundApi.serviceToken.getToken({
-          accountId: this.accountId,
-          networkId: this.networkId,
-          tokenIdOnNetwork: encodedTx.to,
-        });
         if (
           tokenRebaseUtils.isScalingBalanceMultiplier(
-            approveToken?.balanceMultiplier,
+            action.tokenApprove.balanceMultiplier,
           )
         ) {
           throw new OneKeyLocalError(
