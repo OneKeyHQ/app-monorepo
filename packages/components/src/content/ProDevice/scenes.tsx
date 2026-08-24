@@ -31,12 +31,12 @@ import type { SharedValue } from 'react-native-reanimated';
  * takes. Screen layouts are transcribed from the Pro Lottie files (confirm /
  * enter-pin / enter-passphrase, dark theme) with surface grays and the red
  * PIN backspace from real firmware screenshots; the choreography is the
- * shared presence vocabulary (../deviceScene), aligned with the Slate by
+ * shared presence vocabulary (../deviceScene), aligned with the Pro 2 by
  * design call (2026-08-12): no key is ever pressed — the keypad plays the
  * traveling sheen, the keyboard catches the glass sweep on its caps, the
  * confirm still takes the sweep across the whole screen, and the entered
  * marks land on their own. connecting shows the wallpaper the device idles
- * on (the Slate's asset, same by design call).
+ * on (the Pro 2's asset, same by design call).
  *
  * A scene is nothing but screen content plus the SCENES registry entry
  * declaring how ProDevice runs it; entrances, exits and the clock are the
@@ -58,7 +58,7 @@ export type IProDeviceScene =
 /* --------------------------- palette --------------------------- *
  * Key colors from the Lottie keyframes; surface grays and the red PIN
  * backspace from real firmware screenshots. Skeleton fills are the shared
- * confirm-still whites (the Slate's), baked into rgba. */
+ * confirm-still whites (the Pro 2's), baked into rgba. */
 
 const KEY_BG = '#1F1F21';
 const KEY_LIT = '#00FF33';
@@ -170,10 +170,10 @@ function EntryCounter({
 
 /* ------------------------- connecting ------------------------- *
  * The wallpaper the device idles on while the app reaches for it — the
- * same asset the Slate shows, by design call (one file, owned there along
+ * same asset the Pro 2 shows, by design call (one file, owned there along
  * with its decoded-size budget note), laid flat on the same 288x484. */
 
-const WALLPAPER_SOURCE = require('../SlateDevice/screen-connecting.png');
+const WALLPAPER_SOURCE = require('../Pro2Device/screen-connecting.png');
 
 function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
   return (
@@ -339,7 +339,7 @@ function PinScreen({ clock }: { clock: SharedValue<number> }) {
 
 /* ------------------------- confirm ------------------------- *
  * Confirmation scenarios are unbounded, so the design abstracts to the
- * shared skeleton structure (the Slate's): a two-line title block, three
+ * shared skeleton structure (the Pro 2's): a two-line title block, three
  * body lines, and the Cancel / Confirm pill pair on the bottom band — the
  * pills in the Pro firmware's own fills and geometry, label-less like the
  * rest of the still. Choreography: one gradient light crossing the glass

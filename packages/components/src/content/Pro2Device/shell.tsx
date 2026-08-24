@@ -13,12 +13,12 @@ import {
   Svg,
 } from 'react-native-svg';
 
-import { SLATE_DEVICE_SCREEN_OFF, SLATE_DEVICE_SCREEN_ON } from './animation';
+import { PRO2_DEVICE_SCREEN_OFF, PRO2_DEVICE_SCREEN_ON } from './animation';
 
-import type { ISlateDeviceAnimation } from './animation';
+import type { IPro2DeviceAnimation } from './animation';
 
 /**
- * PoC: code-drawn Slate device, 1:1 against Figma node 20496:27747 (the
+ * PoC: code-drawn Pro 2 device, 1:1 against Figma node 20496:27747 (the
  * fill revision of 20384:27728: the top and corner lights became painted
  * fills; every other layer is byte-identical between the two frames). Not
  * exported from the components barrel yet.
@@ -94,8 +94,8 @@ const DEVICE_H = px(FIGMA_H);
  * Screen content canvas. Content is laid out on this fixed grid and the slot
  * scales it into the physical screen cutout.
  */
-export const SLATE_SCREEN_W = 288;
-export const SLATE_SCREEN_H = 484;
+export const PRO2_SCREEN_W = 288;
+export const PRO2_SCREEN_H = 484;
 
 const styles = StyleSheet.create({
   frame: {
@@ -133,11 +133,11 @@ const styles = StyleSheet.create({
   // width; the 0.3pt of vertical overrun is clipped by the screen.
   screenSlot: {
     position: 'absolute',
-    left: (px(934) - SLATE_SCREEN_W) / 2,
-    top: (px(1568) - SLATE_SCREEN_H) / 2,
-    width: SLATE_SCREEN_W,
-    height: SLATE_SCREEN_H,
-    transform: [{ scale: px(934) / SLATE_SCREEN_W }],
+    left: (px(934) - PRO2_SCREEN_W) / 2,
+    top: (px(1568) - PRO2_SCREEN_H) / 2,
+    width: PRO2_SCREEN_W,
+    height: PRO2_SCREEN_H,
+    transform: [{ scale: px(934) / PRO2_SCREEN_W }],
   },
   // Side power button: #000 + white 20% = #333, outer corners r2, cap lights
   // at both ends (white 50%, offset/blur 2), 1px dark seam against the body.
@@ -428,7 +428,7 @@ const DeviceBody = memo(function DeviceBody({
   animation,
   screenContent,
 }: {
-  animation: ISlateDeviceAnimation;
+  animation: IPro2DeviceAnimation;
   screenContent?: ReactNode;
 }) {
   const slotStyle = useAnimatedStyle(
@@ -456,7 +456,7 @@ const DeviceBody = memo(function DeviceBody({
   );
 });
 
-export interface ISlateDeviceShellProps {
+export interface IPro2DeviceShellProps {
   /**
    * Rendered width in points. Height follows the fixed 1084:1714 aspect
    * ratio (553.4 at the default 350).
@@ -471,18 +471,18 @@ export interface ISlateDeviceShellProps {
    * Animation contract (see ./animation.ts). Omitted: a bare shell keeps the
    * screen dark; with screenContent it shows steady-on.
    */
-  animation?: ISlateDeviceAnimation;
+  animation?: IPro2DeviceAnimation;
 }
 
-export function SlateDeviceShell({
+export function Pro2DeviceShell({
   width = DEVICE_W,
   screenContent,
   animation,
-}: ISlateDeviceShellProps) {
+}: IPro2DeviceShellProps) {
   const scale = width / DEVICE_W;
   const resolvedAnimation =
     animation ??
-    (screenContent ? SLATE_DEVICE_SCREEN_ON : SLATE_DEVICE_SCREEN_OFF);
+    (screenContent ? PRO2_DEVICE_SCREEN_ON : PRO2_DEVICE_SCREEN_OFF);
   // Outer frame carries the true layout size (a transform is paint-only);
   // the inner view keeps the explicit 350x553 so transformOrigin resolves
   // against a stable frame. Same pattern as the sibling shells.

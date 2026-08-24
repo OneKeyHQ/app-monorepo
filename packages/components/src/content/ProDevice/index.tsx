@@ -22,7 +22,7 @@ export type { IProDeviceAnimation } from './animation';
  *   <ProDevice />                              static shell, screen dark
  *
  * Scenes run on the shared presence machinery (../deviceSceneHost), the
- * same way the Slate's do: content renders in as the whole of an entry,
+ * same way the Pro 2's do: content renders in as the whole of an entry,
  * stays lit while the scene is on, and a scene change plays the lit-to-lit
  * handover (callers sequence anything else after SCREEN_SWAP_MS, see
  * ../deviceScene). The shell chrome mounts once here; a scene change only
