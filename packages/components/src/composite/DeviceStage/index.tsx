@@ -57,6 +57,7 @@ import { QrPresent, QrScanFrame } from './QrPanels';
 import { ShimmerTitle } from './ShimmerTitle';
 import {
   COMPACT_STAGED_STEPS,
+  DEVICE_BADGE_STEPS,
   ERROR_TEXT,
   FULL_STAGED_STEPS,
   SCENE_ANIMATION,
@@ -191,6 +192,12 @@ const PANEL_WARM_MS = 475;
  * height spring carries the growth — under an opacity-only fade. */
 const CONFIRM_CARD_DELAY_MS = ARRANGE_MS + SCREEN_SWAP_MS + 80;
 const CONFIRM_CARD_IN_MS = 320;
+
+/** The confirm card's own inks. The stage is committed dark (STAGE_BG),
+ * so the risk colors are its own, not theme tokens — a light theme would
+ * otherwise pull the panels out from under the hardcoded white type. */
+const CONFIRM_DANGER_BG = 'rgba(255,80,70,0.13)';
+const CONFIRM_DANGER_INK = '#FF8D84';
 
 /**
  * The scenes the one standing device can play, every one parked built on
@@ -411,6 +418,10 @@ export function DeviceStage({
   deviceName,
   onClose,
   confirmDetails,
+  confirmMessage,
+  confirmDescription,
+  confirmDescriptionDanger,
+  confirmCount,
   qrValue,
   onQrNext,
   onQrBack,
@@ -755,12 +766,16 @@ export function DeviceStage({
 
   // Confirm's payload card, the last beat: mounted late so its space
   // lands in one piece (the height spring carries the growth), faded in
-  // alone once the geometry and the screen handover are done.
-  const hasConfirmDetails = Boolean(confirmDetails?.length);
+  // alone once the geometry and the screen handover are done. Any of the
+  // three content shapes summons it; the count pill rides its beat, it
+  // never calls the card up alone.
+  const hasConfirmContent = Boolean(
+    confirmDetails?.length || confirmMessage || confirmDescription,
+  );
   const [confirmCardShown, setConfirmCardShown] = useState(false);
   const confirmCardIn = useSharedValue(0);
   useEffect(() => {
-    if (shownStep !== 'confirm' || !hasConfirmDetails) {
+    if (shownStep !== 'confirm' || !hasConfirmContent) {
       setConfirmCardShown(false);
       confirmCardIn.value = 0;
       return undefined;
@@ -779,7 +794,7 @@ export function DeviceStage({
       });
     }, CONFIRM_CARD_DELAY_MS);
     return () => clearTimeout(id);
-  }, [confirmCardIn, hasConfirmDetails, reducedMotion, shownStep]);
+  }, [confirmCardIn, hasConfirmContent, reducedMotion, shownStep]);
 
   // The stage's own flow, aimed on the container's clock through onAim:
   // the replica gate, the staged port and miniature scale, and the
@@ -998,15 +1013,15 @@ export function DeviceStage({
     stageWordsRef.current = step;
   }
   const stageWordsStep = stageWordsRef.current;
-  const stageText = resolveStageText(stageWordsStep, deviceName);
-  const passphraseText = resolvePassphrasePanelText(passphraseMode, deviceName);
+  const stageText = resolveStageText(stageWordsStep);
+  const passphraseText = resolvePassphrasePanelText(passphraseMode);
   const appStepSub = useMemo(
     () => ({
-      pinOnApp: resolveStepSub('pinOnApp', deviceName),
-      showQr: resolveStepSub('showQr', deviceName),
-      scanQr: resolveStepSub('scanQr', deviceName),
+      pinOnApp: resolveStepSub('pinOnApp'),
+      showQr: resolveStepSub('showQr'),
+      scanQr: resolveStepSub('scanQr'),
     }),
-    [deviceName],
+    [],
   );
   // The third-party cards' runtime words: brand, app name, path.
   const deviceNotFoundText = useMemo(
@@ -1100,11 +1115,34 @@ export function DeviceStage({
         <Animated.View style={spacerFlowStyle} />
         <Animated.View style={wordsStyle}>
           <View onLayout={panelMeasureHandlers.stage.words}>
-            <StepText
-              title={stageText.title}
-              sub={stageText.sub}
-              animated={stageAnimated}
-            />
+            <XStack ai="flex-start" jc="space-between" gap="$3">
+              <Stack flexShrink={1}>
+                <StepText
+                  title={stageText.title}
+                  sub={stageText.sub}
+                  animated={stageAnimated}
+                />
+              </Stack>
+              {/* The count pill — this burst's place in a run — arrives
+                  on the payload card's own beat and fade, so the title
+                  and its furniture land together. */}
+              {confirmCount && confirmCardShown ? (
+                <Animated.View style={confirmCardStyle}>
+                  <Stack
+                    borderRadius="$full"
+                    borderWidth={1}
+                    borderColor="rgba(255,255,255,0.18)"
+                    px="$2.5"
+                    py="$0.5"
+                    mt="$1"
+                  >
+                    <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
+                      {`${confirmCount.current} / ${confirmCount.total}`}
+                    </SizableText>
+                  </Stack>
+                </Animated.View>
+              ) : null}
+            </XStack>
           </View>
         </Animated.View>
         <View onLayout={panelMeasureHandlers.stage.tail}>
@@ -1118,24 +1156,48 @@ export function DeviceStage({
           {confirmCardShown ? (
             <Animated.View style={confirmCardStyle}>
               <YStack
-                borderRadius="$4"
+                borderRadius="$6"
                 borderCurve="continuous"
-                bg="$neutral3"
+                bg={confirmDescriptionDanger ? CONFIRM_DANGER_BG : '$neutral4'}
                 px="$4"
                 py="$3"
                 gap="$3"
               >
                 {confirmDetails?.map((row) => (
-                  <YStack key={row.label} gap="$2">
+                  <YStack key={row.label} gap="$1">
                     <SizableText size="$bodySm" color="rgba(255,255,255,0.5)">
                       {row.label}
                     </SizableText>
                     <CardValue
                       value={row.value}
                       highlightEnds={row.highlightEnds}
+                      warning={row.warning}
                     />
                   </YStack>
                 ))}
+                {confirmMessage ? (
+                  <SizableText
+                    fontFamily="$monoMedium"
+                    fontSize={13}
+                    lineHeight={21}
+                    color="rgba(255,255,255,0.85)"
+                    numberOfLines={5}
+                  >
+                    {confirmMessage}
+                  </SizableText>
+                ) : null}
+                {confirmDescription ? (
+                  <SizableText
+                    size="$bodyMd"
+                    color={
+                      confirmDescriptionDanger
+                        ? CONFIRM_DANGER_INK
+                        : 'rgba(255,255,255,0.85)'
+                    }
+                  >
+                    {confirmDescription}
+                  </SizableText>
+                ) : null}
               </YStack>
             </Animated.View>
           ) : null}
@@ -1146,7 +1208,11 @@ export function DeviceStage({
       authChecklist,
       confirmCardShown,
       confirmCardStyle,
+      confirmCount,
+      confirmDescription,
+      confirmDescriptionDanger,
       confirmDetails,
+      confirmMessage,
       panelMeasureHandlers,
       spacerFlowStyle,
       stageAnimated,
@@ -1618,6 +1684,22 @@ export function DeviceStage({
     [capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
+  // The card's corner badge: the device's name at the top left, the
+  // close button's mirror — worn only by the device-side steps, where
+  // the person must reach for the physical device the badge names.
+  const cornerBadge = useMemo(() => {
+    if (!deviceName || !DEVICE_BADGE_STEPS.has(shownStep)) {
+      return null;
+    }
+    return (
+      <Stack borderRadius="$full" bg="$neutral4" px="$2.5" py="$1">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {deviceName}
+        </SizableText>
+      </Stack>
+    );
+  }, [deviceName, shownStep]);
+
   return (
     <MorphOverlay
       morph={morph}
@@ -1630,6 +1712,7 @@ export function DeviceStage({
       modal
       capsuleKey={capsuleText.title}
       capsule={capsule}
+      cornerBadge={cornerBadge}
       stageLayer={stageLayer}
       seats={seats}
     />

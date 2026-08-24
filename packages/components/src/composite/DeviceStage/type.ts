@@ -205,17 +205,45 @@ export interface IDeviceStageProps {
    */
   onClose?: () => void;
   /**
-   * Rows of the payload being approved — label over value, one card. It
-   * fades in once the compact confirm arrangement lands: the on-screen
-   * copy of what must be verified against the device. `highlightEnds`
-   * gives a value the receive page's address grammar (mono, grouped by
-   * four, first and last six characters highlighted).
+   * The confirm step's payload, three shapes — rows (`confirmDetails`),
+   * a text block (`confirmMessage`), or a description (`confirmDescription`)
+   * — one per burst, all on the same card and the same late fade-in.
+   * Copy rule for whichever shape rides in: the card is the app's half
+   * of a comparison, never a mirror of the device — say "check this
+   * against the device", never "this is what the device shows". The two
+   * renderings disagreeing is the ritual's whole point.
+   *
+   * Rows: label over value, one card — the on-screen copy of what must
+   * be verified against the device. `highlightEnds` gives a value the
+   * receive page's address grammar (mono, grouped by four, first and
+   * last six characters highlighted); `warning` inks the value amber
+   * (an unlimited allowance).
    */
   confirmDetails?: Array<{
     label: string;
     value: string;
     highlightEnds?: boolean;
+    warning?: boolean;
   }>;
+  /**
+   * The text-block shape: the signed original (a personal message), the
+   * very text the person pages through on the device. Long content
+   * truncates — the device screen stays the full read.
+   */
+  confirmMessage?: string;
+  /**
+   * The description shape: device actions with no payload to list — one
+   * line on what confirming does (enable passphrase, wipe). With
+   * `confirmDescriptionDanger` the panel inks destructive (wipe).
+   */
+  confirmDescription?: string;
+  confirmDescriptionDanger?: boolean;
+  /**
+   * The burst's place in a run of confirmations — approve-then-swap,
+   * batch sends — worn as a "current / total" pill beside the title, on
+   * the payload card's own beat. Confirm bursts only.
+   */
+  confirmCount?: { current: number; total: number };
   /**
    * Payload of the code the showQr step presents for the device to scan.
    * Multi-part rotation for large payloads belongs to the integration
