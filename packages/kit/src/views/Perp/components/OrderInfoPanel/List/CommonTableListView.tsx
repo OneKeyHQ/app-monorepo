@@ -890,14 +890,21 @@ export function CommonTableListView<T>({
       borderBottomColor={borderColor}
       bg={headerBgColor}
     >
+      {/* Content sizing must mirror the body scroller below, otherwise the
+          header stops at scrollableMinWidth while the body stretches and the
+          columns drift apart. */}
       <ScrollView
         ref={headerScrollViewRef}
         style={{ flex: 1 }}
         horizontal
         scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          minWidth: scrollableMinWidth,
+          flexGrow: 1,
+        }}
       >
-        <XStack py="$2" pl="$5" pr="$3" minWidth={scrollableMinWidth}>
+        <XStack flex={1} py="$2" pl="$5" pr="$3" minWidth={scrollableMinWidth}>
           {scrollableColumns.map((column, index) =>
             renderHeaderCell(column, index),
           )}
