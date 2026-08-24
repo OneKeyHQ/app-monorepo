@@ -46,6 +46,7 @@ import {
 import {
   getDexIndexByAssetId,
   getDexIndexByCoin,
+  isPerpsUniverseCacheComplete,
   toAssetId,
   toCtxIndex,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
@@ -84,17 +85,32 @@ const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
 let universesByDexCache: IPerpsUniverse[][] | undefined;
 let universesByDexInFlight: Promise<IPerpsUniverse[][] | undefined> | undefined;
 
+async function readCompletePerpsUniversesByDex() {
+  let { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  if (!isPerpsUniverseCacheComplete(universesByDex)) {
+    // Cold start can read SimpleDB before the metadata refresh lands. The
+    // refresh is single-flight and cold start already starts one, so this
+    // joins it rather than adding a request. Mirrors usePerpsFavorites.
+    await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+    ({ universesByDex } =
+      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse());
+  }
+  // An empty array is truthy, so caching an unfinished read would pin every
+  // later lookup to it and keep the strip flashing skeletons for the rest of
+  // the session. Leave it uncached and let the next call retry.
+  if (isPerpsUniverseCacheComplete(universesByDex)) {
+    universesByDexCache = universesByDex;
+  }
+  return universesByDex;
+}
+
 function loadPerpsUniversesByDex() {
   if (universesByDexCache) {
     return Promise.resolve(universesByDexCache);
   }
   if (!universesByDexInFlight) {
-    universesByDexInFlight = backgroundApiProxy.serviceHyperliquid
-      .getTradingUniverse()
-      .then(({ universesByDex }) => {
-        universesByDexCache = universesByDex;
-        return universesByDex;
-      })
+    universesByDexInFlight = readCompletePerpsUniversesByDex()
       // Every ticker-bar cell awaits this promise, so one rejection would
       // surface seven times over. The coin lookup degrades to the assetId
       // path on undefined, which is the pre-fix behavior.
@@ -973,7 +989,7 @@ const TickerBarFundingRateView = memo(
 TickerBarFundingRateView.displayName = 'TickerBarFundingRateView';
 
 function TickerBarFundingRate() {
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const assetCtx = useTickerBarPerpAssetCtx();
   const fundingRateStr = assetCtx?.ctx?.fundingRate || '0';
   const fundingRate = parseFloat(fundingRateStr);
   const fundingRatePercent = (fundingRate * 100).toFixed(4);

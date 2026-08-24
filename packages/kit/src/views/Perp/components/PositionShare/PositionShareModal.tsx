@@ -73,10 +73,18 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     [],
   );
 
+  // Both actions close over referralQrCodeUrl, so the instance captured when
+  // the button was pressed still carries the default link no matter how long
+  // the wait ran. Read the latest one after it, or waiting buys nothing.
+  const copyLinkRef = useRef(copyLink);
+  copyLinkRef.current = copyLink;
+  const shareToXRef = useRef(shareToX);
+  shareToXRef.current = shareToX;
+
   const handleCopyLink = useCallback(async () => {
     await waitForReferral();
-    copyLink();
-  }, [copyLink, waitForReferral]);
+    copyLinkRef.current();
+  }, [waitForReferral]);
 
   const handleSaveImage = useCallback(async () => {
     setIsActionLoading(true);
@@ -159,11 +167,11 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
         onClose();
       }
 
-      await shareToX(base64, config.customText);
+      await shareToXRef.current(base64, config.customText);
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareToX, config.customText, onClose, waitForReferral]);
+  }, [config.customText, onClose, waitForReferral]);
 
   const desktopLayout = (
     <YStack gap="$5">
