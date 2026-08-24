@@ -75,7 +75,7 @@ function ConnectingScreen({ clock }: IDeviceSceneContentProps) {
  * glyphs - the invariants of every confirm screen. The scene deliberately
  * presses nothing: this is the screen the user should read, and acting out
  * an OK press would perform the approval for them. The glass light passes
- * over the still instead, same as on the Pro and the Slate. */
+ * over the still instead, same as on the Pro and the Pro 2. */
 
 const CONFIRM_SKELETON = (
   <Svg width="100%" height="100%" viewBox="0 0 128 64" fill="none">
