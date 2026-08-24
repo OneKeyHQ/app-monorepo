@@ -20,7 +20,6 @@ import type { IKeyOfIcons } from '../../primitives';
 // renders its content in — one literal, shared, so they cannot drift.
 export const CONNECTING_TEXT = {
   title: 'Connecting…',
-  sub: 'Keep your device nearby.',
 };
 
 /**
@@ -124,7 +123,12 @@ export const AUTH_NOTE_TEXT = {
   back: 'Back',
 };
 
-/** Wallet grammar: an instruction-first title, one informative line under. */
+/**
+ * Wallet grammar: an instruction-first title, one line under. The steps
+ * with the device in the picture (see DEVICE_NAMED_STEPS) carry titles
+ * only here — their second line is the device's own name, resolved at
+ * runtime; the outcome cards keep a line of their own.
+ */
 export const STEP_TEXT: Record<
   IDeviceStageStep,
   { title: string; sub?: string }
@@ -134,34 +138,20 @@ export const STEP_TEXT: Record<
   // Titles name the place only when it is not here: the app is where the
   // person already is, so app-side steps stay bare and device-side steps
   // carry "on device" — the one fact that changes when a step hops sides.
-  enterPin: { title: 'Enter PIN on device', sub: 'Unlock your device.' },
-  // No sub on purpose: the pad's strip carries the teaching line.
+  enterPin: { title: 'Enter PIN on device' },
   pinOnApp: { title: 'Enter PIN' },
   // The teach-first beat titles itself after the flow it opens (the live
   // dialog's own name). No sub on purpose: the definition line needs an
   // emphasized word — rich text the panel carries itself (see
   // PassphraseIntro).
   passphraseIntro: { title: 'Add hidden wallet' },
-  enterPassphrase: {
-    title: 'Enter passphrase on device',
-    sub: 'Each passphrase opens its own hidden wallet.',
-  },
-  // No sub on purpose: the form's bullets carry the character rules.
+  enterPassphrase: { title: 'Enter passphrase on device' },
   passphraseOnApp: { title: 'Enter passphrase' },
-  // No sub: the panel's numbered steps carry the air-gap instructions.
   showQr: { title: 'Scan with your device' },
-  scanQr: {
-    title: 'Scan your device screen',
-    sub: 'Aim at the code your device is showing.',
-  },
+  scanQr: { title: 'Scan your device screen' },
   confirm: { title: 'Confirm on device' },
-  genuineCheck: {
-    title: 'Genuine check',
-    sub: 'Confirm on your device to verify its authenticity and secure your connection.',
-  },
-  // The sub is the legacy single-check shape's; a checklist on show
-  // retires it (resolveStageText suppresses it when one is present).
-  authVerifying: { title: 'Verifying device', sub: 'Please wait...' },
+  genuineCheck: { title: 'Genuine check' },
+  authVerifying: { title: 'Verifying device' },
   authSuccess: {
     title: 'Verification successful',
     sub: "Your device is now officially verified! You're all set to enjoy a secure and seamless experience.",
@@ -172,17 +162,49 @@ export const STEP_TEXT: Record<
     title: AUTH_FAILURE_TEXT.unknown.title,
     sub: AUTH_FAILURE_TEXT.unknown.sub,
   },
-  // No sub: the waiting capsule speaks this one line by itself.
   processing: { title: 'Processing…' },
   error: ERROR_TEXT.generic,
 };
+
+/**
+ * The steps whose second line is the device's own name — every step with
+ * the device in the picture, waits and asks alike, the flow spec's
+ * connecting-capsule pairing made the rule. The outcome cards (the
+ * authenticity landing and failures, the error) and the teach-first
+ * intro keep their own words.
+ */
+export const DEVICE_NAMED_STEPS: ReadonlySet<IDeviceStageStep> =
+  new Set<IDeviceStageStep>([
+    'connecting',
+    'processing',
+    'enterPin',
+    'pinOnApp',
+    'enterPassphrase',
+    'passphraseOnApp',
+    'showQr',
+    'scanQr',
+    'confirm',
+    'genuineCheck',
+    'authVerifying',
+  ]);
+
+/** A step's second line: the device's name where the device is in the
+ * picture, the step's own line otherwise — empty when neither exists. */
+export function resolveStepSub(
+  step: IDeviceStageStep,
+  deviceName?: string,
+): string {
+  return (
+    (DEVICE_NAMED_STEPS.has(step) ? deviceName : STEP_TEXT[step].sub) ?? ''
+  );
+}
 
 /**
  * The passphrase step's other name: creating a hidden wallet titles the
  * step after the flow it performs — the live Add-hidden-wallet dialog's
  * title — while plain entry keeps the step's own words above.
  */
-export const PASSPHRASE_CREATE_TEXT: { title: string; sub?: string } = {
+export const PASSPHRASE_CREATE_TEXT = {
   title: 'Add hidden wallet',
 };
 
@@ -263,40 +285,42 @@ export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
   'authSuccess',
 ];
 
-/**
- * The stage seat's words, resolved: confirm swaps its sub for the live
- * operation context, and a checklist on show retires authVerifying's
- * legacy "Please wait..." line — the progress rows speak instead.
- */
+/** The stage seat's words, resolved: the step's title over the device's
+ * name (every staged step has the device in the picture). */
 export function resolveStageText(
   step: IDeviceStageStep,
-  options: { confirmContext?: string; hasChecklist: boolean },
+  deviceName?: string,
 ): { title: string; sub: string } {
-  const text = STEP_TEXT[step];
-  let sub = (step === 'confirm' ? options.confirmContext : text.sub) ?? '';
-  if (step === 'authVerifying' && options.hasChecklist) {
-    sub = '';
-  }
-  return { title: text.title, sub };
+  return {
+    title: STEP_TEXT[step].title,
+    sub: resolveStepSub(step, deviceName),
+  };
 }
 
 /** The passphrase panel's words: create mode titles the step after the
- * flow it performs, plain entry keeps the step's own words. */
-export function resolvePassphrasePanelText(mode?: 'create' | 'verify'): {
-  title: string;
-  sub?: string;
-} {
-  return mode === 'create' ? PASSPHRASE_CREATE_TEXT : STEP_TEXT.passphraseOnApp;
+ * flow it performs, plain entry keeps the step's own title; the device's
+ * name sits under either. */
+export function resolvePassphrasePanelText(
+  mode: 'create' | 'verify' | undefined,
+  deviceName?: string,
+): { title: string; sub: string } {
+  return {
+    title:
+      mode === 'create'
+        ? PASSPHRASE_CREATE_TEXT.title
+        : STEP_TEXT.passphraseOnApp.title,
+    sub: resolveStepSub('passphraseOnApp', deviceName),
+  };
 }
 
-/** The capsule's words: always the live step's title, with the device's
- * name as the second line while connecting (the flow spec's pairing). */
+/** The capsule's words: the live step's title over the device's name —
+ * both waiting beats have the device in the picture. */
 export function resolveCapsuleText(
   step: IDeviceStageStep,
   deviceName?: string,
-): { title: string; sub?: string } {
+): { title: string; sub: string } {
   return {
     title: STEP_TEXT[step].title,
-    sub: step === 'connecting' ? deviceName : undefined,
+    sub: resolveStepSub(step, deviceName),
   };
 }

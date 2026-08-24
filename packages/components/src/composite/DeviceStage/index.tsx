@@ -19,6 +19,7 @@ import {
   CARD,
   CARD_IN_START,
   MorphOverlay,
+  PILL,
   PILL_OUT_END,
   STAGE_BG,
   arrangeEase,
@@ -48,6 +49,7 @@ import {
   resolveCapsuleText,
   resolvePassphrasePanelText,
   resolveStageText,
+  resolveStepSub,
 } from './stepCopy';
 import { StepText, TEXT_OUT_MS } from './StepText';
 
@@ -66,8 +68,8 @@ import type { LayoutChangeEvent } from 'react-native';
  * is simply not there, and entrances appear at their pose; `connecting`
  * and `processing` are capsule-class — waiting beats worn as the
  * flow-spec pill (device thumbnail, sweeping live title, the device's
- * name while connecting); every other step is card-class, its height
- * hugging that step's own content.
+ * name under it); every other step is card-class, its height hugging
+ * that step's own content.
  *
  * The replica is ONE standing device across every pose — the capsule's
  * thumbnail is the same instance worn small, its scenes a troupe parked
@@ -83,17 +85,24 @@ import type { LayoutChangeEvent } from 'react-native';
  * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
  * pose flip ever builds native views mid-animation.
  *
+ * The stage is modal without a scrim: while it is there the app behind
+ * takes no touch — the person stays with the device — and nothing dims
+ * (the design leaves the overlay layer off here). Dismissal is the
+ * container's (close button, drag, tap outside) behind one grant —
+ * `onClose` — that the driver times; see IDeviceStageProps.
+ *
  * Still out of scope until ratified: presence in/out for real
- * integration, drag gestures, and accessibility focus.
+ * integration, and accessibility focus.
  */
 
-/** The capsule row, to the flow spec: the connecting-state device — the
- * same replica, worn thumbnail-small — beside a live title (and the
- * device's name while connecting). The row's paddings ARE the capsule's
- * measured size. */
+/** The capsule row, to the design's chip: the connecting-state device —
+ * the same replica, worn thumbnail-small — beside a live title over the
+ * device's name. The row is the capsule's content, inside the
+ * container's own capsule padding (PILL.pad); the row plus that padding
+ * is the capsule's measured size. */
 const CAPSULE_ROW = {
-  paddingX: 24,
-  paddingY: 14,
+  /** The content's own inset inside the capsule padding. */
+  paddingX: 8,
   /** Thumbnail box the mini replica centers in. */
   thumbBox: 40,
   /** The mini replica's width — the spec's ~25pt device at stage aspect. */
@@ -102,11 +111,12 @@ const CAPSULE_ROW = {
   gap: 12,
 };
 
-/** First-frame stand-in for the words block, corrected by its first
- * layout report — the card's height target is plain arithmetic over its
- * blocks (see the flow metrics in the component), so only the measured
- * blocks need estimates. */
-const WORDS_ESTIMATED_HEIGHT = 64;
+/** First-frame stand-in for the words block (title, line, the block's
+ * own bottom padding), corrected by its first layout report — the
+ * card's height target is plain arithmetic over its blocks (see the
+ * flow metrics in the component), so only the measured blocks need
+ * estimates. */
+const WORDS_ESTIMATED_HEIGHT = 72;
 
 /**
  * The panel troupe, the scene troupe's twin on the card side: every
@@ -178,6 +188,19 @@ const SEAT_SWAP_AT = 0.35;
  * its first layout report. */
 const DEVICE_ESTIMATED_HEIGHT = 560;
 
+/**
+ * The replica layer's opacity floor while the device belongs on stage:
+ * at a true 0 iOS evicts the subtree from the compositor, and the next
+ * non-zero frame pays the whole replica's first composite again — the
+ * capsule->card flight crosses exactly such a gap (the pill-side fade
+ * ends at PILL_OUT_END, the staged side only starts at CARD_IN_START),
+ * so the repay landed mid-bloom as a one-frame hitch (device-visible;
+ * the 2026-08-21 triage). A hair above zero is invisible and keeps the
+ * layers alive. Steps that genuinely clear the stage (replicaShown 0)
+ * still rest at true 0 and release the memory.
+ */
+const REPLICA_HOLD_ALPHA = 0.004;
+
 /** The stage fog, painted over the device's foot: the container's face
  * is always opaque STAGE_BG, so a fade derived from the same triplet
  * composites pixel-identically and the morph carries no masked view.
@@ -205,10 +228,27 @@ function arrangementOf(step: IDeviceStageStep): string {
   return REPLICA_PORT[step] ? 'stage' : step;
 }
 
-/** Words tucked into the device foot (full stage) vs clear below (the
- * confirm miniature) — the stage's own spacing grammar. */
-const WORDS_TUCK_MARGIN = -60;
-const WORDS_CLEAR_MARGIN = 20;
+/**
+ * The staged row, to the design: the replica stands `top` under the
+ * content's top edge; on the full stage the words begin `fullHeight`
+ * under it — inside the port's fogged foot, the device running on
+ * behind them — while the confirm miniature's row ends `bottom` under
+ * the scaled device and the words sit clear below.
+ */
+const STAGE_ROW = {
+  top: 16,
+  fullHeight: 355,
+  bottom: 24,
+};
+/** Where the replica layer's top sits on the face. */
+const REPLICA_TOP = CARD.padTop + STAGE_ROW.top;
+/** The words' margin over the spacer, per port: the full stage tucks
+ * them into the foot, the miniature clears them. */
+function wordsMarginFor(port: number): number {
+  return port === PORT_HEIGHT
+    ? STAGE_ROW.fullHeight - STAGE_ROW.top - PORT_HEIGHT
+    : STAGE_ROW.bottom;
+}
 
 const styles = StyleSheet.create({
   // The standing replica, anchored where every staged step seats it; the
@@ -216,7 +256,7 @@ const styles = StyleSheet.create({
   // panels lay out around a replica they never contain.
   replicaLayer: {
     position: 'absolute',
-    top: CARD.padTop,
+    top: REPLICA_TOP,
     left: '50%',
     marginLeft: -REPLICA_WIDTH / 2,
     width: REPLICA_WIDTH,
@@ -298,7 +338,7 @@ export function DeviceStage({
   step,
   deviceType,
   deviceName,
-  confirmContext,
+  onClose,
   confirmDetails,
   qrValue,
   onQrNext,
@@ -319,6 +359,26 @@ export function DeviceStage({
   inputError,
 }: IDeviceStageProps) {
   const pose = STEP_POSE[step];
+  // While the box is in flight the screen holds still: the triage
+  // (2026-08-21) caught the UI thread freezing once per capsule<->card
+  // morph, in the flight's own window, scaling with the scene's paint
+  // (the Slate's worst) — the incoming scene's first lighting is one
+  // large main-thread composite, and paying it mid-flight is the stutter.
+  // (A shouldRasterizeIOS freeze was tried first and made it worse: the
+  // raster's own on/off each cost a full offscreen pass.) So the pose
+  // flight defers the screen handover the way the confirm shrink always
+  // has — the scene holds until the geometry has landed (see sceneStep
+  // below). Render-phase state write on purpose: the hold must ship in
+  // the same commit that starts the springs.
+  const [poseInFlight, setPoseInFlight] = useState(false);
+  const prevPoseForFlightRef = useRef(pose);
+  if (prevPoseForFlightRef.current !== pose) {
+    prevPoseForFlightRef.current = pose;
+    if (!poseInFlight) {
+      setPoseInFlight(true);
+    }
+  }
+  const handleGeometrySettled = useCallback(() => setPoseInFlight(false), []);
   const morph = useMorphOverlay<IDeviceStageStep>({
     value: step,
     pose,
@@ -449,12 +509,8 @@ export function DeviceStage({
   // height target is plain arithmetic over the blocks — and it moves
   // only when the shown step does: on the empty beat of a crossing, or
   // live inside the stage.
-  const spacerTarget = shownPort ?? 0;
-  let wordsMarginTarget = 0;
-  if (shownPort) {
-    wordsMarginTarget =
-      shownPort === PORT_HEIGHT ? WORDS_TUCK_MARGIN : WORDS_CLEAR_MARGIN;
-  }
+  const spacerTarget = shownPort ? STAGE_ROW.top + shownPort : 0;
+  const wordsMarginTarget = shownPort ? wordsMarginFor(shownPort) : 0;
   // While the card is on show `activeArrangement` IS the shown
   // arrangement; under the other poses the card height goes unused.
   const shownPanel = panelMeasures[activeArrangement];
@@ -466,11 +522,11 @@ export function DeviceStage({
     (shownPanel?.words ?? WORDS_ESTIMATED_HEIGHT) +
     (shownPanel?.tail ?? 0);
 
-  // What the replica plays, on the stage's own lag: while the confirm
-  // arrangement is moving the scene holds until the geometry has
-  // landed; every other change hands over right away. The capsule side
-  // always plays connecting — the thumbnail IS the connecting-state
-  // device.
+  // What the replica plays, on the stage's own lag: while the geometry
+  // is moving — a pose flight, or the confirm arrangement's port move —
+  // the scene holds until it has landed; a change on a resting box hands
+  // over right away. The capsule side always plays connecting — the
+  // thumbnail IS the connecting-state device.
   const [sceneStep, setSceneStep] = useState(shownStep);
   const scenePortRef = useRef(shownPort);
   useEffect(() => {
@@ -479,18 +535,29 @@ export function DeviceStage({
     );
     scenePortRef.current = shownPort;
     if (sceneStep === shownStep) return undefined;
-    if (reducedMotion || !geometryMoves) {
+    if (reducedMotion) {
+      setSceneStep(shownStep);
+      return undefined;
+    }
+    // A pose flight ends with the settled signal, and this effect re-runs
+    // on the flag's fall — the handover starts the moment the box rests.
+    if (poseInFlight) return undefined;
+    if (!geometryMoves) {
       setSceneStep(shownStep);
       return undefined;
     }
     const id = setTimeout(() => setSceneStep(shownStep), ARRANGE_MS);
     return () => clearTimeout(id);
-  }, [reducedMotion, sceneStep, shownPort, shownStep]);
+  }, [poseInFlight, reducedMotion, sceneStep, shownPort, shownStep]);
+  // The glass follows the HELD step, not the live pose: during a pose
+  // flight (either direction) it keeps playing what it was playing, and
+  // the handover — the one expensive first lighting — always lands on a
+  // resting box. Held card steps play their own screens (off-stage card
+  // steps map to no scene — dark); everything else is the connecting
+  // device, the capsule's own face.
   let activeScene: IStageScene | undefined = 'connecting';
-  if (pose === 'card') {
-    activeScene = REPLICA_PORT[sceneStep]
-      ? (SCENE_ANIMATION[sceneStep] as IStageScene | undefined)
-      : undefined;
+  if (STEP_POSE[sceneStep] === 'card') {
+    activeScene = SCENE_ANIMATION[sceneStep] as IStageScene | undefined;
   }
   // The instant-entry grant: an arrival whose reveal the presenter
   // carries (the device coming back from a step that hid it, or the
@@ -652,25 +719,34 @@ export function DeviceStage({
   const replicaLayerStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
       return {
-        opacity: interpolate(
-          progress.value,
-          [0, PILL_OUT_END],
-          [1, 0],
-          Extrapolation.CLAMP,
+        opacity: Math.max(
+          interpolate(
+            progress.value,
+            [0, PILL_OUT_END],
+            [1, 0],
+            Extrapolation.CLAMP,
+          ),
+          REPLICA_HOLD_ALPHA,
         ),
-        transform: [{ translateY: -CARD.padTop }],
+        transform: [{ translateY: -REPLICA_TOP }],
       };
     }
+    const staged =
+      replicaShown.value *
+      swapFade.value *
+      interpolate(
+        progress.value,
+        [CARD_IN_START, 1],
+        [0, 1],
+        Extrapolation.CLAMP,
+      );
     return {
+      // The floor only while the device belongs on stage — an off-stage
+      // step's 0 stays 0, so its layer is really released.
       opacity:
-        replicaShown.value *
-        swapFade.value *
-        interpolate(
-          progress.value,
-          [CARD_IN_START, 1],
-          [0, 1],
-          Extrapolation.CLAMP,
-        ),
+        replicaShown.value === 0
+          ? staged
+          : Math.max(staged, REPLICA_HOLD_ALPHA),
       transform: [{ translateY: 0 }],
     };
   }, [progress, replicaShown, swapFade]);
@@ -691,6 +767,7 @@ export function DeviceStage({
         transform: [
           {
             translateX:
+              PILL.pad +
               CAPSULE_ROW.paddingX +
               CAPSULE_ROW.thumbBox / 2 -
               morphWidth.value / 2,
@@ -766,11 +843,16 @@ export function DeviceStage({
     stageWordsRef.current = step;
   }
   const stageWordsStep = stageWordsRef.current;
-  const stageText = resolveStageText(stageWordsStep, {
-    confirmContext,
-    hasChecklist: Boolean(authChecklist?.length),
-  });
-  const passphraseText = resolvePassphrasePanelText(passphraseMode);
+  const stageText = resolveStageText(stageWordsStep, deviceName);
+  const passphraseText = resolvePassphrasePanelText(passphraseMode, deviceName);
+  const appStepSub = useMemo(
+    () => ({
+      pinOnApp: resolveStepSub('pinOnApp', deviceName),
+      showQr: resolveStepSub('showQr', deviceName),
+      scanQr: resolveStepSub('scanQr', deviceName),
+    }),
+    [deviceName],
+  );
   const stageAnimated = activeArrangement === 'stage' && !reducedMotion;
   const passphraseAnimated =
     activeArrangement === 'passphraseOnApp' && !reducedMotion;
@@ -835,28 +917,21 @@ export function DeviceStage({
               surface, its rows advanced by the driver; its presence
               flips on the words' beat (see stageChecklistShown). */}
           {stageChecklistShown && authChecklist?.length ? (
-            <YStack mt="$6">
-              <AuthChecklist items={authChecklist} />
-            </YStack>
+            <AuthChecklist items={authChecklist} />
           ) : null}
           {confirmCardShown ? (
             <Animated.View style={confirmCardStyle}>
               <YStack
-                mt="$6"
-                borderRadius="$3"
+                borderRadius="$4"
                 borderCurve="continuous"
-                bg="rgba(255,255,255,0.06)"
-                px="$3"
+                bg="$neutral3"
+                px="$4"
                 py="$3"
                 gap="$3"
               >
                 {confirmDetails?.map((row) => (
                   <YStack key={row.label} gap="$2">
-                    <SizableText
-                      fontSize={13}
-                      lineHeight={16}
-                      color="$textSubdued"
-                    >
+                    <SizableText size="$bodySm" color="rgba(255,255,255,0.5)">
                       {row.label}
                     </SizableText>
                     <CardValue
@@ -888,21 +963,30 @@ export function DeviceStage({
     () => (
       <YStack>
         <Stack onLayout={panelMeasureHandlers.pinOnApp.words}>
-          <StepText title={STEP_TEXT.pinOnApp.title} sub="" animated={false} />
+          <StepText
+            title={STEP_TEXT.pinOnApp.title}
+            sub={appStepSub.pinOnApp}
+            animated={false}
+          />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.pinOnApp.tail}>
-          <YStack mt="$4">
-            <PinPad
-              onSubmit={onPinSubmit}
-              onSwitchToDevice={onSwitchToDevice}
-              error={inputError}
-              resetSignal={pinEpoch}
-            />
-          </YStack>
+          <PinPad
+            onSubmit={onPinSubmit}
+            onSwitchToDevice={onSwitchToDevice}
+            error={inputError}
+            resetSignal={pinEpoch}
+          />
         </Stack>
       </YStack>
     ),
-    [inputError, onPinSubmit, onSwitchToDevice, panelMeasureHandlers, pinEpoch],
+    [
+      appStepSub.pinOnApp,
+      inputError,
+      onPinSubmit,
+      onSwitchToDevice,
+      panelMeasureHandlers,
+      pinEpoch,
+    ],
   );
   const passphraseIntroPanel = useMemo(
     () => (
@@ -915,12 +999,10 @@ export function DeviceStage({
           />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.passphraseIntro.tail}>
-          <YStack mt="$4">
-            <PassphraseIntro
-              onContinue={onPassphraseIntroContinue}
-              resetSignal={introEpoch}
-            />
-          </YStack>
+          <PassphraseIntro
+            onContinue={onPassphraseIntroContinue}
+            resetSignal={introEpoch}
+          />
         </Stack>
       </YStack>
     ),
@@ -932,21 +1014,19 @@ export function DeviceStage({
         <Stack onLayout={panelMeasureHandlers.passphraseOnApp.words}>
           <StepText
             title={passphraseText.title}
-            sub={passphraseText.sub ?? ''}
+            sub={passphraseText.sub}
             animated={passphraseAnimated}
           />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.passphraseOnApp.tail}>
-          <YStack mt="$4">
-            <PassphraseForm
-              mode={passphraseMode}
-              onSubmit={onPassphraseSubmit}
-              onSwitchToDevice={onSwitchToDevice}
-              onAttachPin={onPassphraseAttachPin}
-              error={inputError}
-              resetSignal={passphraseEpoch}
-            />
-          </YStack>
+          <PassphraseForm
+            mode={passphraseMode}
+            onSubmit={onPassphraseSubmit}
+            onSwitchToDevice={onSwitchToDevice}
+            onAttachPin={onPassphraseAttachPin}
+            error={inputError}
+            resetSignal={passphraseEpoch}
+          />
         </Stack>
       </YStack>
     ),
@@ -966,16 +1046,18 @@ export function DeviceStage({
     () => (
       <YStack>
         <Stack onLayout={panelMeasureHandlers.showQr.words}>
-          <StepText title={STEP_TEXT.showQr.title} sub="" animated={false} />
+          <StepText
+            title={STEP_TEXT.showQr.title}
+            sub={appStepSub.showQr}
+            animated={false}
+          />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.showQr.tail}>
-          <YStack mt="$4">
-            <QrPresent value={qrValue} onNext={onQrNext} />
-          </YStack>
+          <QrPresent value={qrValue} onNext={onQrNext} />
         </Stack>
       </YStack>
     ),
-    [onQrNext, panelMeasureHandlers, qrValue],
+    [appStepSub.showQr, onQrNext, panelMeasureHandlers, qrValue],
   );
   const scanQrPanel = useMemo(
     () => (
@@ -983,18 +1065,16 @@ export function DeviceStage({
         <Stack onLayout={panelMeasureHandlers.scanQr.words}>
           <StepText
             title={STEP_TEXT.scanQr.title}
-            sub={STEP_TEXT.scanQr.sub ?? ''}
+            sub={appStepSub.scanQr}
             animated={false}
           />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.scanQr.tail}>
-          <YStack mt="$4">
-            <QrScanFrame onBack={onQrBack} />
-          </YStack>
+          <QrScanFrame onBack={onQrBack} />
         </Stack>
       </YStack>
     ),
-    [onQrBack, panelMeasureHandlers],
+    [appStepSub.scanQr, onQrBack, panelMeasureHandlers],
   );
   const authFailurePanel = useMemo(
     () => (
@@ -1037,15 +1117,13 @@ export function DeviceStage({
         </Stack>
         <Stack onLayout={panelMeasureHandlers.error.tail}>
           {onErrorAction ? (
-            <YStack mt="$5">
-              <Button
-                testID="device-stage-error-action"
-                variant="primary"
-                onPress={onErrorAction}
-              >
-                {errorCopy.action}
-              </Button>
-            </YStack>
+            <Button
+              testID="device-stage-error-action"
+              variant="primary"
+              onPress={onErrorAction}
+            >
+              {errorCopy.action}
+            </Button>
           ) : null}
         </Stack>
       </YStack>
@@ -1139,9 +1217,7 @@ export function DeviceStage({
   const capsule = useMemo(
     () => (
       <XStack
-        pl={CAPSULE_ROW.paddingX}
-        pr={CAPSULE_ROW.paddingX}
-        py={CAPSULE_ROW.paddingY}
+        px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
       >
@@ -1158,7 +1234,7 @@ export function DeviceStage({
             {capsuleText.title}
           </ShimmerTitle>
           {capsuleText.sub ? (
-            <SizableText fontSize={13} lineHeight={20} color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {capsuleText.sub}
             </SizableText>
           ) : null}
@@ -1175,6 +1251,9 @@ export function DeviceStage({
       cardContentMeasured={shownPanelMeasured}
       heightArrangeToken={shownPort}
       onAim={handleAim}
+      onDismiss={onClose}
+      onGeometrySettled={handleGeometrySettled}
+      modal
       capsuleKey={capsuleText.title}
       capsule={capsule}
       stageLayer={stageLayer}

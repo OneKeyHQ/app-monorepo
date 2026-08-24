@@ -34,9 +34,14 @@ export const TEXT_IN_MS = SWAP_IN_MS;
 const TEXT_OUT_RISE = 14;
 const TEXT_IN_DROP = 18;
 
+// The design's title-and-description block: 4pt between the two lines
+// and a fixed 16pt under the block — whatever follows (a keypad, a form,
+// a payload card, a button) sits straight against it, and a block that
+// ends the column leaves that same air above the card's chin.
 const styles = StyleSheet.create({
   textBlock: {
-    gap: 6,
+    gap: 4,
+    paddingBottom: 16,
   },
 });
 
@@ -100,7 +105,7 @@ export function StepText({
     <Animated.View style={style}>
       <SizableText size="$heading2xl">{shown.title}</SizableText>
       {shown.sub ? (
-        <SizableText fontSize={15} lineHeight={21} color={subColor}>
+        <SizableText size="$bodyMd" color={subColor}>
           {shown.sub}
         </SizableText>
       ) : null}
