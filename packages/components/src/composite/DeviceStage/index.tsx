@@ -10,12 +10,20 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import {
+  ThirdPartyWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
 import { SCREEN_SWAP_MS, easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
   Button,
   Haptics,
+  Icon,
+  Image,
   ImpactFeedbackStyle,
   SizableText,
   Stack,
@@ -54,16 +62,24 @@ import {
   SCENE_ANIMATION,
   STEP_POSE,
   STEP_TEXT,
+  resolveBtcHighIndexSub,
   resolveCapsuleText,
+  resolveDeviceNotFoundText,
+  resolveInstallText,
   resolvePassphrasePanelText,
   resolveStageText,
   resolveStepSub,
 } from './stepCopy';
 import { StepText, TEXT_OUT_MS } from './StepText';
+import {
+  InstallChecklist,
+  InstallProgress,
+  PairingCodeForm,
+} from './ThirdPartyPanels';
 
 import type { IDeviceStageProps, IDeviceStageStep } from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
-import type { LayoutChangeEvent } from 'react-native';
+import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
 /**
  * The device stage: the whole hardware-interaction vocabulary played on
@@ -119,6 +135,16 @@ const CAPSULE_ROW = {
   gap: 12,
 };
 
+/** The capsule's ratified cap: 288 all in. PILL padding, the row's own
+ * inset, the thumb box and the gap leave the words this much — long
+ * vendor labels wrap to a second line inside it. */
+const CAPSULE_TEXT_MAX_WIDTH =
+  288 -
+  PILL.pad * 2 -
+  CAPSULE_ROW.paddingX * 2 -
+  CAPSULE_ROW.thumbBox -
+  CAPSULE_ROW.gap;
+
 /** First-frame stand-in for the words block (title, line, the block's
  * own bottom padding), corrected by its first layout report — the
  * card's height target is plain arithmetic over its blocks (see the
@@ -149,6 +175,12 @@ const CARD_ARRANGEMENTS = [
   'scanQr',
   'authFailure',
   'error',
+  'pairingCode',
+  'deviceNotFound',
+  'btcHighIndex',
+  'installConfirm',
+  'installing',
+  'installBatch',
 ] as const;
 type ICardArrangement = (typeof CARD_ARRANGEMENTS)[number];
 const PANEL_WARM_MS = 475;
@@ -356,7 +388,9 @@ function fireStepHaptic(
   step: IDeviceStageStep,
   arrival: 'landing' | 'crossing',
 ) {
-  if (step === 'authSuccess') {
+  // `done` is the one capsule arrival that carries news rather than a
+  // wait — the burst's ✓ beat — so it buzzes like the outcome cards.
+  if (step === 'authSuccess' || step === 'done') {
     Haptics.success();
     return;
   }
@@ -394,6 +428,19 @@ export function DeviceStage({
   onPassphraseAttachPin,
   onSwitchToDevice,
   inputError,
+  vendor,
+  vendorModel,
+  vendorModelName,
+  appName,
+  installProgress,
+  installQueue,
+  installActiveIndex,
+  btcHighIndexPath,
+  btcHighIndexAccountIndex,
+  onPairingSubmit,
+  onDeviceNotFoundRetry,
+  onBtcHighIndexConfirm,
+  onInstallConfirm,
 }: IDeviceStageProps) {
   const pose = STEP_POSE[step];
   // While the box is in flight the screen holds still: the triage
@@ -428,8 +475,9 @@ export function DeviceStage({
       landingHapticArmedRef.current = false;
       // Only a card landing speaks — the ask arriving under the hand.
       // An outcome card landing straight off a flight buzzes its news
-      // instead of the impact (one haptic per transition).
-      if (STEP_POSE[stepRef.current] === 'card') {
+      // instead of the impact (one haptic per transition). The `done`
+      // capsule is the one non-card arrival with news of its own.
+      if (STEP_POSE[stepRef.current] === 'card' || stepRef.current === 'done') {
         fireStepHaptic(stepRef.current, 'landing');
       }
     }
@@ -465,6 +513,12 @@ export function DeviceStage({
     }
     prevShownForHapticRef.current = shownStep;
     if (poseInFlight) {
+      return;
+    }
+    // The `done` capsule buzzes its ✓ even off a capsule label swap —
+    // the one non-card arrival that is news, not a wait.
+    if (shownStep === 'done') {
+      fireStepHaptic(shownStep, 'crossing');
       return;
     }
     if (STEP_POSE[prev] !== 'card' || STEP_POSE[shownStep] !== 'card') {
@@ -549,6 +603,7 @@ export function DeviceStage({
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
   const passphraseEpoch = panelEpochsRef.current.passphraseOnApp ?? 0;
   const authFailureEpoch = panelEpochsRef.current.authFailure ?? 0;
+  const pairingEpoch = panelEpochsRef.current.pairingCode ?? 0;
 
   // Every seat reports its own words and tail blocks. The map is what
   // lets a crossing truly land content and height target together: the
@@ -947,6 +1002,40 @@ export function DeviceStage({
     }),
     [deviceName],
   );
+  // The third-party cards' runtime words: brand, app name, path.
+  const deviceNotFoundText = useMemo(
+    () => resolveDeviceNotFoundText(vendor),
+    [vendor],
+  );
+  const btcHighIndexSub = useMemo(
+    () => resolveBtcHighIndexSub(btcHighIndexPath, btcHighIndexAccountIndex),
+    [btcHighIndexAccountIndex, btcHighIndexPath],
+  );
+  const installConfirmText = useMemo(
+    () => resolveInstallText('installConfirm', appName),
+    [appName],
+  );
+  const installingText = useMemo(
+    () => resolveInstallText('installing', appName),
+    [appName],
+  );
+  // The capsule's vendor seat: the model's product shot off the shared
+  // avatar mapping, brand-generic fallback when the model is unknown —
+  // never the wrong brand.
+  const vendorImageSource = useMemo(() => {
+    if (!vendor) {
+      return undefined;
+    }
+    const key = getThirdPartyDeviceAvatarImage({
+      vendor:
+        vendor === 'ledger' ? EHardwareVendor.ledger : EHardwareVendor.trezor,
+      vendorModel,
+      vendorModelName,
+      fallback: vendor === 'ledger' ? 'LedgerNanoX' : 'TrezorSafe7',
+    });
+    // The avatar table's values are bare require() results (untyped).
+    return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
+  }, [vendor, vendorModel, vendorModelName]);
   const stageAnimated = activeArrangement === 'stage' && !reducedMotion;
   const passphraseAnimated =
     activeArrangement === 'passphraseOnApp' && !reducedMotion;
@@ -981,13 +1070,20 @@ export function DeviceStage({
   // size springs always aim at true capsule content. Render-time ref
   // write on purpose: the read is in the same pass and the write is
   // idempotent.
-  const capsuleTextRef = useRef(resolveCapsuleText('connecting', deviceName));
+  const capsuleTextRef = useRef(
+    resolveCapsuleText('connecting', deviceName, vendor),
+  );
+  // The capsule's glyph seat freezes on the same clock as its words: the
+  // vendor's product shot for the device beats, the ✓ for `done`.
+  const capsuleGlyphRef = useRef<'device' | 'done'>('device');
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    capsuleTextRef.current = resolveCapsuleText(step, deviceName);
+    capsuleTextRef.current = resolveCapsuleText(step, deviceName, vendor);
+    capsuleGlyphRef.current = vendor && step === 'done' ? 'done' : 'device';
   }
   const capsuleText = capsuleTextRef.current;
+  const capsuleGlyph = capsuleGlyphRef.current;
 
   /* The parked columns, one per arrangement — each element memoized on
    * its own inputs, so a step change re-renders only the seats it
@@ -1064,11 +1160,16 @@ export function DeviceStage({
           />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.pinOnApp.tail}>
+          {/* A vendor pinOnApp is the Trezor matrix by definition (Ledger
+              never asks the app for a PIN): nine positions, and no
+              on-device switch — the button devices that reach this step
+              cannot take the PIN themselves, whatever the driver wires. */}
           <PinPad
             onSubmit={onPinSubmit}
-            onSwitchToDevice={onSwitchToDevice}
+            onSwitchToDevice={vendor ? undefined : onSwitchToDevice}
             error={inputError}
             resetSignal={pinEpoch}
+            noZeroKey={Boolean(vendor)}
           />
         </Stack>
       </YStack>
@@ -1080,6 +1181,7 @@ export function DeviceStage({
       onSwitchToDevice,
       panelMeasureHandlers,
       pinEpoch,
+      vendor,
     ],
   );
   const passphraseIntroPanel = useMemo(
@@ -1113,11 +1215,14 @@ export function DeviceStage({
           />
         </Stack>
         <Stack onLayout={panelMeasureHandlers.passphraseOnApp.tail}>
+          {/* The attach-PIN exit is OneKey firmware's own feature — no
+              vendor device has it, whatever the driver wires. On-device
+              entry stays: Trezor supports it. */}
           <PassphraseForm
             mode={passphraseMode}
             onSubmit={onPassphraseSubmit}
             onSwitchToDevice={onSwitchToDevice}
-            onAttachPin={onPassphraseAttachPin}
+            onAttachPin={vendor ? undefined : onPassphraseAttachPin}
             error={inputError}
             resetSignal={passphraseEpoch}
           />
@@ -1134,6 +1239,7 @@ export function DeviceStage({
       passphraseEpoch,
       passphraseMode,
       passphraseText,
+      vendor,
     ],
   );
   const showQrPanel = useMemo(
@@ -1224,6 +1330,144 @@ export function DeviceStage({
     ),
     [errorAnimated, errorCopy, onErrorAction, panelMeasureHandlers],
   );
+  const pairingCodePanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.pairingCode.words}>
+          <StepText
+            title={STEP_TEXT.pairingCode.title}
+            sub={STEP_TEXT.pairingCode.sub ?? ''}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.pairingCode.tail}>
+          <PairingCodeForm
+            onSubmit={onPairingSubmit}
+            resetSignal={pairingEpoch}
+          />
+        </Stack>
+      </YStack>
+    ),
+    [onPairingSubmit, pairingEpoch, panelMeasureHandlers],
+  );
+  const deviceNotFoundPanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.deviceNotFound.words}>
+          <StepText
+            title={deviceNotFoundText.title}
+            sub={deviceNotFoundText.sub}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.deviceNotFound.tail}>
+          {onDeviceNotFoundRetry ? (
+            <Button
+              testID="device-stage-device-not-found-confirm"
+              variant="primary"
+              size="large"
+              onPress={onDeviceNotFoundRetry}
+            >
+              Confirm
+            </Button>
+          ) : null}
+        </Stack>
+      </YStack>
+    ),
+    [deviceNotFoundText, onDeviceNotFoundRetry, panelMeasureHandlers],
+  );
+  const btcHighIndexPanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.btcHighIndex.words}>
+          <StepText
+            title={STEP_TEXT.btcHighIndex.title}
+            sub={btcHighIndexSub}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.btcHighIndex.tail}>
+          {onBtcHighIndexConfirm ? (
+            <Button
+              testID="device-stage-btc-high-index-confirm"
+              variant="primary"
+              size="large"
+              onPress={onBtcHighIndexConfirm}
+            >
+              Confirm
+            </Button>
+          ) : null}
+        </Stack>
+      </YStack>
+    ),
+    [btcHighIndexSub, onBtcHighIndexConfirm, panelMeasureHandlers],
+  );
+  const installConfirmPanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.installConfirm.words}>
+          <StepText
+            title={installConfirmText.title}
+            sub={installConfirmText.sub}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.installConfirm.tail}>
+          {onInstallConfirm ? (
+            <Button
+              testID="device-stage-install-confirm"
+              variant="primary"
+              size="large"
+              onPress={onInstallConfirm}
+            >
+              Install
+            </Button>
+          ) : null}
+        </Stack>
+      </YStack>
+    ),
+    [installConfirmText, onInstallConfirm, panelMeasureHandlers],
+  );
+  const installingPanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.installing.words}>
+          <StepText
+            title={installingText.title}
+            sub={installingText.sub}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.installing.tail}>
+          <InstallProgress appName={appName} percent={installProgress} />
+        </Stack>
+      </YStack>
+    ),
+    [appName, installProgress, installingText, panelMeasureHandlers],
+  );
+  const installBatchPanel = useMemo(
+    () => (
+      <YStack>
+        <Stack onLayout={panelMeasureHandlers.installBatch.words}>
+          <StepText
+            title={STEP_TEXT.installBatch.title}
+            sub={STEP_TEXT.installBatch.sub ?? ''}
+            animated={false}
+          />
+        </Stack>
+        <Stack onLayout={panelMeasureHandlers.installBatch.tail}>
+          {installQueue?.length ? (
+            <InstallChecklist
+              queue={installQueue}
+              activeIndex={installActiveIndex}
+              percent={installProgress}
+            />
+          ) : null}
+        </Stack>
+      </YStack>
+    ),
+    [installActiveIndex, installProgress, installQueue, panelMeasureHandlers],
+  );
   const panelByArrangement: Record<ICardArrangement, ReactNode> = useMemo(
     () => ({
       stage: stagePanel,
@@ -1234,10 +1478,22 @@ export function DeviceStage({
       scanQr: scanQrPanel,
       authFailure: authFailurePanel,
       error: errorPanel,
+      pairingCode: pairingCodePanel,
+      deviceNotFound: deviceNotFoundPanel,
+      btcHighIndex: btcHighIndexPanel,
+      installConfirm: installConfirmPanel,
+      installing: installingPanel,
+      installBatch: installBatchPanel,
     }),
     [
       authFailurePanel,
+      btcHighIndexPanel,
+      deviceNotFoundPanel,
       errorPanel,
+      installBatchPanel,
+      installConfirmPanel,
+      installingPanel,
+      pairingCodePanel,
       passphraseIntroPanel,
       passphrasePanel,
       pinPanel,
@@ -1264,7 +1520,7 @@ export function DeviceStage({
     () => (
       <Stack onLayout={handleDeviceLayout}>
         <HardwareDevice
-          deviceType={deviceType}
+          deviceType={deviceType ?? 'unknown'}
           animation={activeScene}
           warmScenes={builtScenes}
           width={REPLICA_WIDTH}
@@ -1319,9 +1575,27 @@ export function DeviceStage({
           wears the thumbnail arrangement over this box — the
           connecting-state device itself, never a second instance.
           Living outside the keyed row, it also never rebuilds when the
-          capsule's words swap. */}
-        <Stack width={CAPSULE_ROW.thumbBox} height={CAPSULE_ROW.thumbBox} />
-        <YStack>
+          capsule's words swap. The vendor track fills the same box
+          itself — a product shot, or the ✓ on `done` — since those
+          devices have no replica to seat here. */}
+        <Stack
+          width={CAPSULE_ROW.thumbBox}
+          height={CAPSULE_ROW.thumbBox}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {capsuleGlyph === 'done' ? (
+            <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />
+          ) : null}
+          {capsuleGlyph === 'device' && vendorImageSource ? (
+            <Image
+              source={vendorImageSource}
+              width={CAPSULE_ROW.thumbBox}
+              height={CAPSULE_ROW.thumbBox}
+            />
+          ) : null}
+        </Stack>
+        <YStack maxWidth={CAPSULE_TEXT_MAX_WIDTH}>
           {/* The sweep rests with the capsule: hidden poses neither pay
             its per-frame band nor resume it mid-glide. */}
           <ShimmerTitle paused={pose !== 'capsule'}>
@@ -1335,7 +1609,7 @@ export function DeviceStage({
         </YStack>
       </XStack>
     ),
-    [capsuleText, pose],
+    [capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
   return (
