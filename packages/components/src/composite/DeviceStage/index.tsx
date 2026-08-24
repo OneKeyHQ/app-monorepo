@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -10,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
@@ -67,6 +69,7 @@ import {
   resolveCapsuleText,
   resolveDeviceNotFoundText,
   resolveInstallText,
+  resolvePairingCodeText,
   resolvePassphrasePanelText,
   resolveStageText,
   resolveStepSub,
@@ -1005,6 +1008,7 @@ export function DeviceStage({
   // the one changing. App seats own their words outright; the pieces
   // that vary (the passphrase title, the error copy) snap while parked,
   // as StepText animates on the active seat alone.
+  const intl = useIntl();
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
   const stageWordsRef = useRef<IDeviceStageStep>(
     REPLICA_PORT[step] ? step : 'enterPin',
@@ -1013,33 +1017,35 @@ export function DeviceStage({
     stageWordsRef.current = step;
   }
   const stageWordsStep = stageWordsRef.current;
-  const stageText = resolveStageText(stageWordsStep);
-  const passphraseText = resolvePassphrasePanelText(passphraseMode);
+  const stageText = resolveStageText(intl, stageWordsStep);
+  const passphraseText = resolvePassphrasePanelText(intl, passphraseMode);
   const appStepSub = useMemo(
     () => ({
-      pinOnApp: resolveStepSub('pinOnApp'),
-      showQr: resolveStepSub('showQr'),
-      scanQr: resolveStepSub('scanQr'),
+      pinOnApp: resolveStepSub(intl, 'pinOnApp'),
+      showQr: resolveStepSub(intl, 'showQr'),
+      scanQr: resolveStepSub(intl, 'scanQr'),
     }),
-    [],
+    [intl],
   );
   // The third-party cards' runtime words: brand, app name, path.
   const deviceNotFoundText = useMemo(
-    () => resolveDeviceNotFoundText(vendor),
-    [vendor],
+    () => resolveDeviceNotFoundText(intl, vendor),
+    [intl, vendor],
   );
   const btcHighIndexSub = useMemo(
-    () => resolveBtcHighIndexSub(btcHighIndexPath, btcHighIndexAccountIndex),
-    [btcHighIndexAccountIndex, btcHighIndexPath],
+    () =>
+      resolveBtcHighIndexSub(intl, btcHighIndexPath, btcHighIndexAccountIndex),
+    [btcHighIndexAccountIndex, btcHighIndexPath, intl],
   );
   const installConfirmText = useMemo(
-    () => resolveInstallText('installConfirm', appName),
-    [appName],
+    () => resolveInstallText(intl, 'installConfirm', appName),
+    [appName, intl],
   );
   const installingText = useMemo(
-    () => resolveInstallText('installing', appName),
-    [appName],
+    () => resolveInstallText(intl, 'installing', appName),
+    [appName, intl],
   );
+  const pairingCodeText = useMemo(() => resolvePairingCodeText(intl), [intl]);
   // The capsule's vendor seat: the model's product shot off the shared
   // avatar mapping, brand-generic fallback when the model is unknown —
   // never the wrong brand.
@@ -1092,7 +1098,7 @@ export function DeviceStage({
   // write on purpose: the read is in the same pass and the write is
   // idempotent.
   const capsuleTextRef = useRef(
-    resolveCapsuleText('connecting', deviceName, vendor),
+    resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
   // vendor's product shot for the device beats, the ✓ for `done`.
@@ -1100,7 +1106,7 @@ export function DeviceStage({
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    capsuleTextRef.current = resolveCapsuleText(step, deviceName, vendor);
+    capsuleTextRef.current = resolveCapsuleText(intl, step, deviceName, vendor);
     capsuleGlyphRef.current = vendor && step === 'done' ? 'done' : 'device';
   }
   const capsuleText = capsuleTextRef.current;
@@ -1226,7 +1232,7 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.pinOnApp.words}>
           <StepText
-            title={STEP_TEXT.pinOnApp.title}
+            title={intl.formatMessage({ id: STEP_TEXT.pinOnApp.title })}
             sub={appStepSub.pinOnApp}
             animated={false}
           />
@@ -1249,6 +1255,7 @@ export function DeviceStage({
     [
       appStepSub.pinOnApp,
       inputError,
+      intl,
       onPinSubmit,
       onSwitchToDevice,
       panelMeasureHandlers,
@@ -1261,7 +1268,7 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.passphraseIntro.words}>
           <StepText
-            title={STEP_TEXT.passphraseIntro.title}
+            title={intl.formatMessage({ id: STEP_TEXT.passphraseIntro.title })}
             sub=""
             animated={false}
           />
@@ -1274,7 +1281,7 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [introEpoch, onPassphraseIntroContinue, panelMeasureHandlers],
+    [intl, introEpoch, onPassphraseIntroContinue, panelMeasureHandlers],
   );
   const passphrasePanel = useMemo(
     () => (
@@ -1319,7 +1326,7 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.showQr.words}>
           <StepText
-            title={STEP_TEXT.showQr.title}
+            title={intl.formatMessage({ id: STEP_TEXT.showQr.title })}
             sub={appStepSub.showQr}
             animated={false}
           />
@@ -1329,14 +1336,14 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [appStepSub.showQr, onQrNext, panelMeasureHandlers, qrValue],
+    [appStepSub.showQr, intl, onQrNext, panelMeasureHandlers, qrValue],
   );
   const scanQrPanel = useMemo(
     () => (
       <YStack>
         <View onLayout={panelMeasureHandlers.scanQr.words}>
           <StepText
-            title={STEP_TEXT.scanQr.title}
+            title={intl.formatMessage({ id: STEP_TEXT.scanQr.title })}
             sub={appStepSub.scanQr}
             animated={false}
           />
@@ -1346,7 +1353,7 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [appStepSub.scanQr, onQrBack, panelMeasureHandlers],
+    [appStepSub.scanQr, intl, onQrBack, panelMeasureHandlers],
   );
   const authFailurePanel = useMemo(
     () => (
@@ -1382,8 +1389,8 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.error.words}>
           <StepText
-            title={errorCopy.title}
-            sub={errorCopy.sub}
+            title={intl.formatMessage({ id: errorCopy.title })}
+            sub={intl.formatMessage({ id: errorCopy.sub })}
             animated={errorAnimated}
           />
         </View>
@@ -1394,21 +1401,21 @@ export function DeviceStage({
               variant="primary"
               onPress={onErrorAction}
             >
-              {errorCopy.action}
+              {intl.formatMessage({ id: errorCopy.action })}
             </Button>
           ) : null}
         </View>
       </YStack>
     ),
-    [errorAnimated, errorCopy, onErrorAction, panelMeasureHandlers],
+    [errorAnimated, errorCopy, intl, onErrorAction, panelMeasureHandlers],
   );
   const pairingCodePanel = useMemo(
     () => (
       <YStack>
         <View onLayout={panelMeasureHandlers.pairingCode.words}>
           <StepText
-            title={STEP_TEXT.pairingCode.title}
-            sub={STEP_TEXT.pairingCode.sub ?? ''}
+            title={pairingCodeText.title}
+            sub={pairingCodeText.sub}
             animated={false}
           />
         </View>
@@ -1420,7 +1427,7 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [onPairingSubmit, pairingEpoch, panelMeasureHandlers],
+    [onPairingSubmit, pairingCodeText, pairingEpoch, panelMeasureHandlers],
   );
   const deviceNotFoundPanel = useMemo(
     () => (
@@ -1440,20 +1447,20 @@ export function DeviceStage({
               size="large"
               onPress={onDeviceNotFoundRetry}
             >
-              Confirm
+              {intl.formatMessage({ id: ETranslations.global_confirm })}
             </Button>
           ) : null}
         </View>
       </YStack>
     ),
-    [deviceNotFoundText, onDeviceNotFoundRetry, panelMeasureHandlers],
+    [deviceNotFoundText, intl, onDeviceNotFoundRetry, panelMeasureHandlers],
   );
   const btcHighIndexPanel = useMemo(
     () => (
       <YStack>
         <View onLayout={panelMeasureHandlers.btcHighIndex.words}>
           <StepText
-            title={STEP_TEXT.btcHighIndex.title}
+            title={intl.formatMessage({ id: STEP_TEXT.btcHighIndex.title })}
             sub={btcHighIndexSub}
             animated={false}
           />
@@ -1466,13 +1473,13 @@ export function DeviceStage({
               size="large"
               onPress={onBtcHighIndexConfirm}
             >
-              Confirm
+              {intl.formatMessage({ id: ETranslations.global_confirm })}
             </Button>
           ) : null}
         </View>
       </YStack>
     ),
-    [btcHighIndexSub, onBtcHighIndexConfirm, panelMeasureHandlers],
+    [btcHighIndexSub, intl, onBtcHighIndexConfirm, panelMeasureHandlers],
   );
   const installConfirmPanel = useMemo(
     () => (
@@ -1492,13 +1499,13 @@ export function DeviceStage({
               size="large"
               onPress={onInstallConfirm}
             >
-              Install
+              {intl.formatMessage({ id: ETranslations.global_install })}
             </Button>
           ) : null}
         </View>
       </YStack>
     ),
-    [installConfirmText, onInstallConfirm, panelMeasureHandlers],
+    [installConfirmText, intl, onInstallConfirm, panelMeasureHandlers],
   );
   const installingPanel = useMemo(
     () => (
@@ -1522,8 +1529,12 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.installBatch.words}>
           <StepText
-            title={STEP_TEXT.installBatch.title}
-            sub={STEP_TEXT.installBatch.sub ?? ''}
+            title={intl.formatMessage({ id: STEP_TEXT.installBatch.title })}
+            sub={
+              STEP_TEXT.installBatch.sub
+                ? intl.formatMessage({ id: STEP_TEXT.installBatch.sub })
+                : ''
+            }
             animated={false}
           />
         </View>
@@ -1538,7 +1549,13 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [installActiveIndex, installProgress, installQueue, panelMeasureHandlers],
+    [
+      installActiveIndex,
+      installProgress,
+      installQueue,
+      intl,
+      panelMeasureHandlers,
+    ],
   );
   const panelByArrangement: Record<ICardArrangement, ReactNode> = useMemo(
     () => ({
