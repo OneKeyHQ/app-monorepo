@@ -39,10 +39,12 @@ const styles = StyleSheet.create({
 function MobileBrowserContent({
   id,
   isBrowserContentVisible,
+  keepInactiveWebViewMounted,
   onScroll,
 }: {
   id: string;
   isBrowserContentVisible: boolean;
+  keepInactiveWebViewMounted: boolean;
   onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
@@ -91,8 +93,11 @@ function MobileBrowserContent({
 
   // Derive the mount decision synchronously so the very first activation mounts
   // the WebView in the same commit (isCurrent flips true) instead of rendering
-  // one blank frame while waiting for the hasBeenShown effect to run.
-  const shouldMountWebView = hasBeenShown || isCurrent;
+  // one blank frame while waiting for the hasBeenShown effect to run. When the
+  // iPad Browser segment is hidden, retain only the active WebView instead of
+  // keeping the full LRU window resident.
+  const shouldMountWebView =
+    (hasBeenShown || isCurrent) && (isActive || keepInactiveWebViewMounted);
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
