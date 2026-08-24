@@ -42,7 +42,7 @@ function MessageExtraInfoSol({
   // only required signer there is nothing to add: it is already shown above. Decided by
   // comparing addresses rather than by counting, so a lone signer that is NOT this account
   // still shows up, which is exactly the case worth surfacing.
-  const requiredSigners = payload.requiredSigners ?? [];
+  const { requiredSigners } = payload;
   const accountAddress = account?.address;
   const requiresOnlyThisAccount =
     requiredSigners.length > 0 &&
