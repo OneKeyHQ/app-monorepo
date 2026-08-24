@@ -14,10 +14,11 @@ import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 const meta = {
   title: 'Composite/DeviceStage/AirGap',
   component: DeviceStage,
+  // No deviceName: an air-gapped device has no live transport, so the
+  // flow never knows a Bluetooth name to show.
   args: {
     step: 'off',
     deviceType: 'pro2',
-    deviceName: DEMO.deviceName,
     qrValue: DEMO.qrValue,
   },
   argTypes: {
