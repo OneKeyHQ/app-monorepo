@@ -63,6 +63,13 @@ export function buildKaspaRefTx({
   if (!Array.isArray(tx.outputs) || tx.outputs.length === 0) {
     throw new OneKeyLocalError(`kaspa refTx: no outputs for ${txId}`);
   }
+  // The refTx stream carries no sigOpCount, so the device recomputes the id with the
+  // default. KeyringHardware reads the real count for the tx being signed, so a prev tx
+  // that spent a P2SH or multisig input would not reproduce — bail like the v1 gate does.
+  if ((tx.inputs ?? []).some((input) => Number(input.sigOpCount ?? 1) !== 1)) {
+    throw new OneKeyLocalError(`kaspa refTx: unsupported sigOpCount in ${txId}`);
+  }
+
   const uint64 = (
     value: number | string | null | undefined,
     field: string,

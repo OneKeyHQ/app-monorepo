@@ -125,6 +125,26 @@ describe('buildKaspaRefTx', () => {
     );
   });
 
+  it('rejects a prev tx whose input carries a non-default sigOpCount', () => {
+    // The refTx stream cannot carry sigOpCount, so the device would recompute a
+    // different id and refuse to sign, with no fallback left at that point.
+    const tx = blockTx();
+    tx.inputs![0].sigOpCount = 3;
+    expect(() => buildKaspaRefTx({ tx, networkId })).toThrow(
+      /unsupported sigOpCount/,
+    );
+  });
+
+  it('accepts the default sigOpCount, whether it is sent or omitted', () => {
+    const sent = blockTx();
+    sent.inputs![0].sigOpCount = 1;
+    expect(() => buildKaspaRefTx({ tx: sent, networkId })).not.toThrow();
+
+    const omitted = blockTx();
+    delete omitted.inputs![0].sigOpCount;
+    expect(() => buildKaspaRefTx({ tx: omitted, networkId })).not.toThrow();
+  });
+
   it('accepts a coinbase prev tx, which has no inputs', () => {
     const r = buildKaspaRefTx({ tx: blockTx({ inputs: null }), networkId });
     expect(r.inputs).toEqual([]);
