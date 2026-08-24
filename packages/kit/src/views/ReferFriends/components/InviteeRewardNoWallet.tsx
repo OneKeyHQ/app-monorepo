@@ -5,7 +5,13 @@ import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/us
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export function InviteeRewardNoWallet({ testID }: { testID: string }) {
+export function InviteeRewardNoWallet({
+  testID,
+  onBeforeNavigate,
+}: {
+  testID: string;
+  onBeforeNavigate?: () => void | Promise<void>;
+}) {
   const intl = useIntl();
   const toOnBoardingPage = useToOnBoardingPage();
 
@@ -23,8 +29,9 @@ export function InviteeRewardNoWallet({ testID }: { testID: string }) {
       <Button
         testID={testID}
         mt="$5"
-        onPress={() => {
-          void toOnBoardingPage();
+        onPress={async () => {
+          await onBeforeNavigate?.();
+          await toOnBoardingPage();
         }}
       >
         {intl.formatMessage({

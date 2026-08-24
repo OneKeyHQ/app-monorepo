@@ -21,6 +21,7 @@ const mockCreatePaint = jest.fn(() => ({
   setAntiAlias: jest.fn(),
   setColor: jest.fn(),
   setPathEffect: jest.fn(),
+  setShader: jest.fn(),
   setStrokeCap: jest.fn(),
   setStrokeJoin: jest.fn(),
   setStrokeWidth: jest.fn(),
@@ -32,6 +33,7 @@ const mockPath = {
   lineTo: jest.fn(),
   moveTo: jest.fn(),
 };
+const mockGradientShader = { dispose: jest.fn() };
 const mockCanvas = {
   clipRect: jest.fn(),
   drawCircle: jest.fn(),
@@ -72,6 +74,7 @@ jest.mock('@shopify/react-native-skia', () => ({
     Paint: () => mockCreatePaint(),
     Path: { Make: () => mockPath },
     PathEffect: { MakeDash: jest.fn() },
+    Shader: { MakeLinearGradient: jest.fn(() => mockGradientShader) },
     XYWHRect: (x: number, y: number, width: number, height: number) => ({
       height,
       width,
@@ -81,6 +84,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   },
   StrokeCap: { Round: 1, Square: 2 },
   StrokeJoin: { Bevel: 1, Round: 2 },
+  TileMode: { Clamp: 0 },
   createPicture: (
     draw: (canvas: typeof mockCanvas) => void,
     pictureSize?: { height: number; width: number },
@@ -323,5 +327,38 @@ describe('TradingViewNative Skia scene renderer', () => {
         opacity: 0.5,
       }),
     ).not.toBe(implicitDefaults);
+  });
+
+  it('draws and disposes a vertical gradient background', () => {
+    const resources = createResources();
+    mockBuildTradingViewNativeChartScene.mockReturnValue(
+      createScene({
+        commands: [
+          {
+            colors: ['#010203', '#040506'],
+            kind: 'linearGradientRect',
+            rect: { height: 100, width: 200, x: 0, y: 0 },
+          },
+        ],
+      }),
+    );
+
+    createPicture(resources);
+
+    expect(
+      jest.requireMock('@shopify/react-native-skia').Skia.Shader
+        .MakeLinearGradient,
+    ).toHaveBeenCalledWith(
+      { x: 0, y: 0 },
+      { x: 0, y: 100 },
+      ['#010203', '#040506'],
+      null,
+      0,
+    );
+    expect(mockCanvas.drawRect).toHaveBeenCalledWith(
+      { height: 100, width: 200, x: 0, y: 0 },
+      expect.any(Object),
+    );
+    expect(mockGradientShader.dispose).toHaveBeenCalledTimes(1);
   });
 });

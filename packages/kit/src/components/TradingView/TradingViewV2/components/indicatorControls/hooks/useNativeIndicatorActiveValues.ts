@@ -132,29 +132,31 @@ export function getTradingViewNativeSubIndicatorCountForSnapshot({
   return getTradingViewNativeSubIndicatorCountFromOptions(configIndicators);
 }
 
-function normalizeTradingViewNativeMaxSubIndicatorCount(
-  maxSubIndicatorCount: number | undefined,
+function normalizeTradingViewNativeMaxSelectableSubIndicatorCount(
+  maxSelectableSubIndicatorCount: number | undefined,
 ) {
-  return typeof maxSubIndicatorCount === 'number' &&
-    Number.isFinite(maxSubIndicatorCount)
-    ? Math.max(0, Math.floor(maxSubIndicatorCount))
+  return typeof maxSelectableSubIndicatorCount === 'number' &&
+    Number.isFinite(maxSelectableSubIndicatorCount)
+    ? Math.max(0, Math.floor(maxSelectableSubIndicatorCount))
     : undefined;
 }
 
 export function canToggleTradingViewNativeIndicatorOn({
   indicatorValue,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
 }: {
   indicatorValue: string;
   activeIndicatorValues: ReadonlySet<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
 }) {
-  const normalizedMaxSubIndicatorCount =
-    normalizeTradingViewNativeMaxSubIndicatorCount(maxSubIndicatorCount);
+  const normalizedMaxSelectableSubIndicatorCount =
+    normalizeTradingViewNativeMaxSelectableSubIndicatorCount(
+      maxSelectableSubIndicatorCount,
+    );
 
   if (
-    normalizedMaxSubIndicatorCount === undefined ||
+    normalizedMaxSelectableSubIndicatorCount === undefined ||
     !isTradingViewNativeSubIndicator(indicatorValue) ||
     activeIndicatorValues.has(indicatorValue)
   ) {
@@ -163,7 +165,7 @@ export function canToggleTradingViewNativeIndicatorOn({
 
   return (
     getTradingViewNativeSubIndicatorCount(activeIndicatorValues) <
-    normalizedMaxSubIndicatorCount
+    normalizedMaxSelectableSubIndicatorCount
   );
 }
 
@@ -300,12 +302,12 @@ export function useNativeIndicatorActiveValues(
 export function useNativeIndicatorControls({
   nativeChartControlsConfig,
   nativeIndicatorState,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorSelect,
 }: {
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
 }) {
   const {
@@ -331,9 +333,9 @@ export function useNativeIndicatorControls({
       canToggleTradingViewNativeIndicatorOn({
         indicatorValue,
         activeIndicatorValues: getActiveIndicatorValues(),
-        maxSubIndicatorCount,
+        maxSelectableSubIndicatorCount,
       }),
-    [getActiveIndicatorValues, maxSubIndicatorCount],
+    [getActiveIndicatorValues, maxSelectableSubIndicatorCount],
   );
 
   const handleIndicatorPress = useCallback(
@@ -343,7 +345,7 @@ export function useNativeIndicatorControls({
         !canToggleTradingViewNativeIndicatorOn({
           indicatorValue: indicator.value,
           activeIndicatorValues: currentActiveIndicatorValues,
-          maxSubIndicatorCount,
+          maxSelectableSubIndicatorCount,
         })
       ) {
         return;
@@ -355,7 +357,7 @@ export function useNativeIndicatorControls({
     },
     [
       getActiveIndicatorValues,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onIndicatorSelect,
       updateActiveIndicatorValue,
     ],

@@ -1,4 +1,8 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type {
+  ITradingViewNativeIndicatorLineStyle,
+  ITradingViewNativeIndicatorSettingsItem,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 export const TRADING_VIEW_NATIVE_INDICATORS = [
   'MA',
@@ -25,6 +29,12 @@ export interface ITradingViewNativeIndicatorSeries {
   key: string;
   kind: 'line' | 'points';
   paint: ITradingViewNativeIndicatorPaint;
+  style?: {
+    color: string;
+    lineStyle: ITradingViewNativeIndicatorLineStyle;
+    lineWidth: number;
+    opacity: number;
+  };
   values: Array<number | null>;
 }
 
@@ -35,6 +45,7 @@ export interface ITradingViewNativeIndicatorPriceRange {
 
 export type ITradingViewNativeIndicatorSeriesBuilder = (
   points: readonly IMarketTokenKLineDataPoint[],
+  settings?: ITradingViewNativeIndicatorSettingsItem,
 ) => ITradingViewNativeIndicatorSeries[];
 
 export function isTradingViewNativeIndicator(

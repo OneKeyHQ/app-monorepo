@@ -1,4 +1,5 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeIndicatorSettingsItem } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   isTradingViewNativeFiniteValue,
@@ -50,10 +51,12 @@ export function calculateTradingViewNativeExponentialMovingAverage(
 
 export function buildTradingViewNativeEmaSeries(
   points: readonly IMarketTokenKLineDataPoint[],
+  settings?: ITradingViewNativeIndicatorSettingsItem,
 ) {
   return buildTradingViewNativeMovingAverageSeries({
     calculate: calculateTradingViewNativeExponentialMovingAverage,
     indicator: 'EMA',
     points,
+    settings,
   });
 }

@@ -1,4 +1,13 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeIndicatorSettingsItem } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { TRADING_VIEW_NATIVE_INDICATOR_SAR_COLOR } from '../../chartConstants';
+
+import {
+  getTradingViewNativeIndicatorLine,
+  getTradingViewNativeIndicatorParameter,
+  getTradingViewNativeIndicatorSeriesStyle,
+} from './seriesSettings';
 
 import type { ITradingViewNativeIndicatorSeries } from './types';
 
@@ -127,14 +136,41 @@ export function calculateTradingViewNativeParabolicSar(
 
 export function buildTradingViewNativeSarSeries(
   points: readonly IMarketTokenKLineDataPoint[],
+  settings?: ITradingViewNativeIndicatorSettingsItem,
 ): ITradingViewNativeIndicatorSeries[] {
+  const line = getTradingViewNativeIndicatorLine(settings, 'sar', {
+    color: TRADING_VIEW_NATIVE_INDICATOR_SAR_COLOR,
+    enabled: true,
+    period: 0,
+    style: 'solid',
+  });
+  if (!line.enabled) {
+    return [];
+  }
   return [
     {
       indicator: 'SAR',
       key: 'sar',
       kind: 'points',
       paint: 'indicatorSarPoint',
-      values: calculateTradingViewNativeParabolicSar(points),
+      style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
+      values: calculateTradingViewNativeParabolicSar(points, {
+        accelerationMax: getTradingViewNativeIndicatorParameter(
+          settings,
+          'accelerationMax',
+          SAR_ACCELERATION_MAX,
+        ),
+        accelerationStart: getTradingViewNativeIndicatorParameter(
+          settings,
+          'accelerationStart',
+          SAR_ACCELERATION_START,
+        ),
+        accelerationStep: getTradingViewNativeIndicatorParameter(
+          settings,
+          'accelerationStep',
+          SAR_ACCELERATION_STEP,
+        ),
+      }),
     },
   ];
 }
