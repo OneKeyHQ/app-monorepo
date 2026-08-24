@@ -3,8 +3,16 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import {
+  useMarketTradingViewChartSettingsPersistAtom,
+  useMarketTradingViewIndicatorSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
+
+import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import {
   emitTradingViewNativeDebugEvent,
   getTradingViewNativeDebugErrorMessage,
@@ -15,19 +23,30 @@ import {
   getTradingViewNativeKLineIntervalForTimeRange,
 } from './data/tradingViewNativeIntervals';
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
+import {
+  getTradingViewNativeActiveMainIndicators,
+  getTradingViewNativeIndicatorSettingsValue,
+  getTradingViewNativeMainIndicatorSettings,
+  getTradingViewNativeSubIndicatorInstances,
+  normalizeTradingViewNativeIndicatorSettings,
+  reconcileTradingViewNativeIndicatorActiveState,
+  updateTradingViewNativeIndicatorActiveState,
+} from './indicatorSettingsAdapter';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
 import {
-  DEFAULT_TRADING_VIEW_NATIVE_INDICATORS,
   type ITradingViewNativeAnyIndicator,
-  type ITradingViewNativeIndicator,
   type ITradingViewNativeSubIndicator,
   TRADING_VIEW_NATIVE_SUB_INDICATORS,
   buildTradingViewNativeIndicatorSeries,
-  isTradingViewNativeIndicator,
-  isTradingViewNativeSubIndicator,
 } from './utils/chartIndicators';
+import { getTradingViewNativeCurrentPriceLabel } from './utils/chartLayout';
+import {
+  resolveTradingViewNativeChartThemeColors,
+  resolveTradingViewNativeMainIndicatorThemeColors,
+  resolveTradingViewNativeSubIndicatorThemeColors,
+} from './utils/chartThemeColors';
 import {
   buildTradingViewNativeSubIndicatorRenderPanes,
   calculateTradingViewNativeSubIndicatorsWithCache,
@@ -43,13 +62,14 @@ import type {
 import type { ITradingViewNativeViewportTarget } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewChartControls/calendarControls/CalendarPanelPopover';
+import type { ITradingViewNativeIndicatorSelection } from '../TradingViewChartControls/types';
 import type { LayoutChangeEvent } from 'react-native';
 
 export function updateTradingViewNativeSubIndicatorInstances(
   currentInstances: ITradingViewNativeSubIndicatorInstanceConfig[],
   indicator: ITradingViewNativeSubIndicator,
   desiredActive: boolean,
-  maxNativeSubIndicatorCount?: number,
+  maxSelectableSubIndicatorCount?: number,
 ): ITradingViewNativeSubIndicatorInstanceConfig[] {
   const existingIndex = currentInstances.findIndex(
     (instance) => instance.indicator === indicator,
@@ -73,18 +93,18 @@ export function updateTradingViewNativeSubIndicatorInstances(
     return currentInstances;
   }
 
-  const normalizedMaxSubIndicatorCount =
-    typeof maxNativeSubIndicatorCount === 'number' &&
-    Number.isFinite(maxNativeSubIndicatorCount)
-      ? Math.max(0, Math.floor(maxNativeSubIndicatorCount))
+  const normalizedMaxSelectableSubIndicatorCount =
+    typeof maxSelectableSubIndicatorCount === 'number' &&
+    Number.isFinite(maxSelectableSubIndicatorCount)
+      ? Math.max(0, Math.floor(maxSelectableSubIndicatorCount))
       : undefined;
   const visibleInstanceCount = currentInstances.reduce(
     (count, instance) => (instance.isVisible !== false ? count + 1 : count),
     0,
   );
   if (
-    normalizedMaxSubIndicatorCount !== undefined &&
-    visibleInstanceCount >= normalizedMaxSubIndicatorCount
+    normalizedMaxSelectableSubIndicatorCount !== undefined &&
+    visibleInstanceCount >= normalizedMaxSelectableSubIndicatorCount
   ) {
     return currentInstances;
   }
@@ -126,7 +146,7 @@ export const TradingViewNativeContainer = memo(
     source,
     enableNativeChartSettings,
     initialRightOffset,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
@@ -139,6 +159,23 @@ export const TradingViewNativeContainer = memo(
     onPriceUpdate,
   }: ITradingViewNativeProps) => {
     const intl = useIntl();
+    const themeColors = useTradingViewSettingsThemeColors();
+    const [storedChartSettings] =
+      useMarketTradingViewChartSettingsPersistAtom();
+    const [indicatorSettings, setIndicatorSettings] =
+      useMarketTradingViewIndicatorSettingsPersistAtom();
+    const normalizedChartSettings = useMemo(
+      () => normalizeTradingViewNativeChartSettings(storedChartSettings),
+      [storedChartSettings],
+    );
+    const chartSettings = useMemo(
+      () =>
+        resolveTradingViewNativeChartThemeColors(
+          normalizedChartSettings,
+          themeColors,
+        ),
+      [normalizedChartSettings, themeColors],
+    );
     const onPriceUpdateRef = useRef(onPriceUpdate);
     const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
       undefined,
@@ -150,14 +187,76 @@ export const TradingViewNativeContainer = memo(
     } | null>(null);
     const [chartWidth, setChartWidth] = useState(0);
     const [chartHeight, setChartHeight] = useState(0);
-    const [activeMainIndicatorValues, setActiveMainIndicatorValues] = useState<
-      Set<ITradingViewNativeIndicator>
-    >(() => new Set(DEFAULT_TRADING_VIEW_NATIVE_INDICATORS));
-    const [subIndicatorInstances, setSubIndicatorInstances] = useState<
-      ITradingViewNativeSubIndicatorInstanceConfig[]
-    >([]);
     const [subIndicatorCalculationCache] = useState(() =>
       createTradingViewNativeSubIndicatorCalculationCache(),
+    );
+    const normalizedIndicatorSettings = useMemo(
+      () => normalizeTradingViewNativeIndicatorSettings(indicatorSettings),
+      [indicatorSettings],
+    );
+    const indicatorSettingsValue = useMemo(
+      () =>
+        getTradingViewNativeIndicatorSettingsValue(normalizedIndicatorSettings),
+      [normalizedIndicatorSettings],
+    );
+    const mainIndicatorSettingsSnapshot = useMemo(
+      () => ({
+        schemaVersion: normalizedIndicatorSettings.schemaVersion,
+        mainIndicators: normalizedIndicatorSettings.mainIndicators,
+        subIndicators: [],
+      }),
+      [
+        normalizedIndicatorSettings.mainIndicators,
+        normalizedIndicatorSettings.schemaVersion,
+      ],
+    );
+    const subIndicatorSettingsSnapshot = useMemo(
+      () => ({
+        schemaVersion: normalizedIndicatorSettings.schemaVersion,
+        mainIndicators: [],
+        subIndicators: normalizedIndicatorSettings.subIndicators,
+      }),
+      [
+        normalizedIndicatorSettings.schemaVersion,
+        normalizedIndicatorSettings.subIndicators,
+      ],
+    );
+    const activeMainIndicatorValues = useMemo(
+      () =>
+        getTradingViewNativeActiveMainIndicators(mainIndicatorSettingsSnapshot),
+      [mainIndicatorSettingsSnapshot],
+    );
+    const unresolvedMainIndicatorSettings = useMemo(
+      () =>
+        getTradingViewNativeMainIndicatorSettings(
+          mainIndicatorSettingsSnapshot,
+        ),
+      [mainIndicatorSettingsSnapshot],
+    );
+    const mainIndicatorSettings = useMemo(
+      () =>
+        resolveTradingViewNativeMainIndicatorThemeColors(
+          unresolvedMainIndicatorSettings,
+          themeColors,
+        ),
+      [themeColors, unresolvedMainIndicatorSettings],
+    );
+    const mainIndicatorSettingsKey = useMemo(
+      () => stableStringify(mainIndicatorSettings),
+      [mainIndicatorSettings],
+    );
+    const unresolvedSubIndicatorInstances = useMemo(
+      () =>
+        getTradingViewNativeSubIndicatorInstances(subIndicatorSettingsSnapshot),
+      [subIndicatorSettingsSnapshot],
+    );
+    const subIndicatorInstances = useMemo(
+      () =>
+        resolveTradingViewNativeSubIndicatorThemeColors(
+          unresolvedSubIndicatorInstances,
+          themeColors,
+        ),
+      [themeColors, unresolvedSubIndicatorInstances],
     );
     const activeIndicatorValues = useMemo(() => {
       const values = new Set<string>(activeMainIndicatorValues);
@@ -216,9 +315,10 @@ export const TradingViewNativeContainer = memo(
       () =>
         buildTradingViewNativeIndicatorSeries({
           activeIndicatorValues: activeMainIndicatorValues,
+          indicatorSettings: mainIndicatorSettings,
           points,
         }),
-      [activeMainIndicatorValues, points],
+      [activeMainIndicatorValues, mainIndicatorSettings, points],
     );
     const visibleSubIndicatorInstances = useMemo(
       () =>
@@ -273,6 +373,10 @@ export const TradingViewNativeContainer = memo(
     const sourceSymbol = source.kind === 'market' ? source.symbol : undefined;
     const sourceTokenAddress =
       source.kind === 'market' ? source.tokenAddress : undefined;
+    const currentPriceLabel = useMemo(
+      () => getTradingViewNativeCurrentPriceLabel(points),
+      [points],
+    );
 
     useEffect(() => {
       emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
@@ -403,34 +507,33 @@ export const TradingViewNativeContainer = memo(
 
     const handleIndicatorChange = useCallback(
       (indicator: ITradingViewNativeAnyIndicator, desiredActive: boolean) => {
-        if (isTradingViewNativeIndicator(indicator)) {
-          setActiveMainIndicatorValues((currentValues) => {
-            if (currentValues.has(indicator) === desiredActive) {
-              return currentValues;
-            }
-            const nextValues = new Set(currentValues);
-            if (desiredActive) {
-              nextValues.add(indicator);
-            } else {
-              nextValues.delete(indicator);
-            }
-            return nextValues;
-          });
-          return;
-        }
-
-        if (isTradingViewNativeSubIndicator(indicator)) {
-          setSubIndicatorInstances((currentInstances) =>
-            updateTradingViewNativeSubIndicatorInstances(
-              currentInstances,
-              indicator,
-              desiredActive,
-              maxNativeSubIndicatorCount,
-            ),
-          );
-        }
+        void setIndicatorSettings((currentSettings) =>
+          updateTradingViewNativeIndicatorActiveState({
+            active: desiredActive,
+            indicator,
+            maxSelectableSubIndicatorCount,
+            settings: currentSettings,
+          }),
+        );
       },
-      [maxNativeSubIndicatorCount],
+      [maxSelectableSubIndicatorCount, setIndicatorSettings],
+    );
+    const handleIndicatorSelectionConfirm = useCallback(
+      ({
+        activeIndicatorValues: selectedIndicatorValues,
+        replaceMainIndicators,
+        replaceSubIndicators,
+      }: ITradingViewNativeIndicatorSelection) => {
+        void setIndicatorSettings((currentSettings) =>
+          reconcileTradingViewNativeIndicatorActiveState({
+            activeIndicatorValues: selectedIndicatorValues,
+            replaceMainIndicators,
+            replaceSubIndicators,
+            settings: currentSettings,
+          }),
+        );
+      },
+      [setIndicatorSettings],
     );
 
     const handleCalendarPanelSubmit = useCallback(
@@ -534,7 +637,8 @@ export const TradingViewNativeContainer = memo(
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           activeIndicatorValues={activeIndicatorValues}
-          maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
+          indicatorSettingsValue={indicatorSettingsValue}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
@@ -542,6 +646,8 @@ export const TradingViewNativeContainer = memo(
           onChartSwitch={onChartSwitch}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
+          onIndicatorSettingsConfirm={setIndicatorSettings}
+          onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
           onFullscreenChange={
@@ -552,10 +658,13 @@ export const TradingViewNativeContainer = memo(
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
+            chartSettings={chartSettings}
             chartType={chartType}
             chartPictureVersion={chartPictureVersion}
+            currentPriceLabel={currentPriceLabel}
             hasVolume={false}
             indicatorSeries={indicatorSeries}
+            indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}

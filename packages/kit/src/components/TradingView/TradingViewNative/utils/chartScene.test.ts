@@ -1,4 +1,5 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
@@ -140,6 +141,181 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
+  it('applies persisted display settings to the shared render scene', () => {
+    const chartSettings = createTradingViewNativeChartSettings();
+    chartSettings.background = {
+      style: 'gradient',
+      colors: ['#010203', '#040506'],
+    };
+    chartSettings.grid.style = 'none';
+    chartSettings.options.yAxis = false;
+    chartSettings.options.crossLine = false;
+    chartSettings.options.latestPrice = false;
+    chartSettings.options.priceChange = false;
+    chartSettings.candles.body.enabled = false;
+    chartSettings.candles.wick.enabled = false;
+    chartSettings.candles.border = {
+      enabled: true,
+      upColor: '#112233',
+      downColor: '#445566',
+    };
+
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartSettings,
+      chartType: 'candlestick',
+      crosshair: { visible: true, x: 264.5, y: 80 },
+      currentPriceLabel: '104.00',
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(scene.commands[0]).toEqual({
+      colors: ['#010203', '#040506'],
+      kind: 'linearGradientRect',
+      rect: { height: 240, width: 320, x: 0, y: 0 },
+    });
+    expect(scene.priceAxisWidth).toBe(0);
+    expect(scene.crosshairPointIndex).toBeNull();
+    expect(
+      scene.commands.some(
+        (command) => 'paint' in command && command.paint === 'gridLine',
+      ),
+    ).toBe(false);
+    expect(
+      scene.commands.some(
+        (command) =>
+          'paint' in command &&
+          (command.paint === 'upCurrentPriceLine' ||
+            command.paint === 'downCurrentPriceLine'),
+      ),
+    ).toBe(false);
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'text' && command.text.includes('(+5.05%)'),
+      ),
+    ).toBe(false);
+    expect(
+      scene.commands.flatMap((command) =>
+        command.kind === 'rect' &&
+        command.customPaintId?.startsWith('chart.candle.')
+          ? [command.customPaintId]
+          : [],
+      ),
+    ).toEqual([
+      'chart.candle.border.up',
+      'chart.candle.border.down',
+      'chart.candle.border.up',
+    ]);
+    expect(scene.customPaintStyles['chart.candle.border.up']).toMatchObject({
+      color: '#112233',
+      drawStyle: 'stroke',
+    });
+  });
+
+  it('does not layer a matching translucent border over the candle body', () => {
+    const chartSettings = createTradingViewNativeChartSettings();
+    chartSettings.candles.body = {
+      enabled: true,
+      downColor: 'rgba(200, 0, 0, 0.5)',
+      upColor: 'rgba(0, 160, 80, 0.5)',
+    };
+    chartSettings.candles.border = {
+      ...chartSettings.candles.body,
+      enabled: true,
+    };
+
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartSettings,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const candlePaintIds = scene.commands.flatMap((command) =>
+      command.kind === 'rect' &&
+      command.customPaintId?.startsWith('chart.candle.')
+        ? [command.customPaintId]
+        : [],
+    );
+
+    expect(candlePaintIds).toEqual(
+      expect.arrayContaining([
+        'chart.candle.body.up',
+        'chart.candle.body.down',
+      ]),
+    );
+    expect(candlePaintIds.some((paintId) => paintId.includes('.border.'))).toBe(
+      false,
+    );
+  });
+
+  it('styles the latest price, grid, and crosshair from settings', () => {
+    const chartSettings = createTradingViewNativeChartSettings();
+    chartSettings.grid = {
+      style: 'horizontal',
+      horizontalColor: '#111111',
+      verticalColor: '#222222',
+    };
+    chartSettings.crossLine = { color: '#ABCDEF', style: 'solid' };
+    chartSettings.latestPriceLine = {
+      upColor: '#123456',
+      downColor: '#654321',
+      style: 'solid',
+    };
+
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartSettings,
+      chartType: 'candlestick',
+      crosshair: { visible: true, x: 264.5, y: 80 },
+      currentPriceLabel: '104.00',
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(scene.customPaintStyles['chart.crosshair']).toMatchObject({
+      color: '#ABCDEF',
+      dash: undefined,
+    });
+    expect(scene.customPaintStyles['chart.latestPrice.line.up']).toMatchObject({
+      color: '#123456',
+      dash: undefined,
+    });
+    expect(
+      scene.commands.find(
+        (command) => command.kind === 'text' && command.text === '104.00',
+      ),
+    ).toBeDefined();
+    expect(
+      scene.commands.some(
+        (command) =>
+          'customPaintId' in command &&
+          command.customPaintId === 'chart.grid.vertical',
+      ),
+    ).toBe(false);
+  });
+
   it('renders active overlays and includes Bollinger bands in auto scale', () => {
     const indicatorPoints = Array.from({ length: 25 }, (_, index) => {
       const close = index < 10 ? 0 : 100;
@@ -186,12 +362,62 @@ describe('TradingViewNative shared chart scene', () => {
         'indicatorOrangeStroke',
         'indicatorPinkStroke',
         'indicatorCyanStroke',
-        'indicatorDarkOrangeStroke',
         'indicatorSarPoint',
       ]),
     );
     expect(priceAxisText).toContain('-50.00');
     expect(Math.max(...priceAxisText.map(Number))).toBeGreaterThan(101);
+  });
+
+  it('uses configured main-indicator paint styles', () => {
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['MA']),
+      indicatorSettings: {
+        MA: {
+          active: true,
+          id: 'MA',
+          lines: {
+            'line:0': {
+              color: '#123456',
+              enabled: true,
+              period: 2,
+              style: 'dashed',
+            },
+          },
+          parameters: {},
+          transparency: 25,
+        },
+      },
+      points: POINTS,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const customPaintId = 'chart.mainIndicator.MA.ma-1';
+
+    expect(scene.customPaintStyles[customPaintId]).toMatchObject({
+      color: '#123456',
+      dash: [6, 4],
+      opacity: 0.75,
+      strokeWidth: 1,
+    });
+    expect(
+      scene.commands.some(
+        (command) =>
+          'customPaintId' in command && command.customPaintId === customPaintId,
+      ),
+    ).toBe(true);
   });
 
   it('uses the previous close for the selected bar change', () => {

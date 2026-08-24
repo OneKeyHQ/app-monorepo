@@ -124,7 +124,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
   ({
     nativeChartControlsConfig,
     nativeIndicatorState,
-    maxSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     splitSections = false,
     onIndicatorSelect,
     onControlInteraction,
@@ -132,7 +132,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
   }: {
     nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
     nativeIndicatorState: ITradingViewNativeIndicatorState;
-    maxSubIndicatorCount?: number;
+    maxSelectableSubIndicatorCount?: number;
     splitSections?: boolean;
     onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
     onControlInteraction?: () => void;
@@ -188,7 +188,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     } = useNativeIndicatorControls({
       nativeChartControlsConfig,
       nativeIndicatorState,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onIndicatorSelect,
     });
 

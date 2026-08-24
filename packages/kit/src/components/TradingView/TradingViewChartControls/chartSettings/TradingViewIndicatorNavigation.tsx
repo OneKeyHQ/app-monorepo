@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   ScrollView,
@@ -8,8 +10,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS } from './TradingViewSettingsMockState';
 import {
   OKX_CHART_BG,
   OKX_CHART_DIVIDER,
@@ -33,19 +35,33 @@ const OKX_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
 export function OkxIndicatorScopeTabs({
   value,
   indicators,
+  maxActiveSubIndicatorCount,
   onChange,
 }: {
   value: ITradingViewSettingsMockIndicatorScope;
   indicators: ITradingViewSettingsMockIndicator[];
+  maxActiveSubIndicatorCount: number | null;
   onChange: (value: ITradingViewSettingsMockIndicatorScope) => void;
 }) {
+  const intl = useIntl();
   const activeSubIndicatorCount = indicators.filter(
     (indicator) => indicator.scope === 'sub' && indicator.active,
   ).length;
+  const subIndicatorCountLabel =
+    maxActiveSubIndicatorCount === null
+      ? `${activeSubIndicatorCount}`
+      : `${activeSubIndicatorCount}/${maxActiveSubIndicatorCount}`;
   const tabs = [
-    { label: '主图指标', value: 'main' as const },
     {
-      label: `副图指标 (${activeSubIndicatorCount}/${TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS})`,
+      label: intl.formatMessage({
+        id: ETranslations.market_main_chart_indicators,
+      }),
+      value: 'main' as const,
+    },
+    {
+      label: `${intl.formatMessage({
+        id: ETranslations.market_sub_chart_indicators,
+      })} (${subIndicatorCountLabel})`,
       value: 'sub' as const,
     },
   ];

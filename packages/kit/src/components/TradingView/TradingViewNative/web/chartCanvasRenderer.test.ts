@@ -6,11 +6,13 @@ import type {
 } from '../utils/chartScene';
 
 function createCanvasContext() {
+  const gradient = { addColorStop: jest.fn() };
   return {
     arc: jest.fn(),
     beginPath: jest.fn(),
     clip: jest.fn(),
     closePath: jest.fn(),
+    createLinearGradient: jest.fn(() => gradient),
     drawImage: jest.fn(),
     fill: jest.fn(),
     fillRect: jest.fn(),
@@ -28,9 +30,11 @@ function createCanvasContext() {
     save: jest.fn(),
     setLineDash: jest.fn(),
     stroke: jest.fn(),
+    strokeRect: jest.fn(),
     strokeStyle: '',
     textAlign: 'left',
     textBaseline: 'alphabetic',
+    gradient,
   };
 }
 
@@ -173,5 +177,55 @@ describe('TradingViewNative web canvas scene renderer', () => {
     expect(context.clip).toHaveBeenCalledTimes(1);
     expect(context.save).toHaveBeenCalledTimes(2);
     expect(context.restore).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws gradient backgrounds and stroked candle borders', () => {
+    const context = createCanvasContext();
+    const commands: ITradingViewNativeChartSceneCommand[] = [
+      {
+        colors: ['#010203', '#040506'],
+        kind: 'linearGradientRect',
+        rect: { height: 20, width: 30, x: 1, y: 2 },
+      },
+      {
+        customPaintId: 'candle.border',
+        height: 10,
+        kind: 'rect',
+        paint: 'up',
+        width: 4,
+        x: 5,
+        y: 6,
+      },
+    ];
+
+    drawTradingViewNativeCanvasScene({
+      colors,
+      commands,
+      context: context as unknown as CanvasRenderingContext2D,
+      customPaintStyles: {
+        'candle.border': {
+          color: '#123456',
+          drawStyle: 'stroke',
+          opacity: 1,
+          strokeWidth: 2,
+        },
+      },
+      watermarkImage: null,
+    });
+
+    expect(context.createLinearGradient).toHaveBeenCalledWith(1, 2, 1, 22);
+    expect(context.gradient.addColorStop).toHaveBeenNthCalledWith(
+      1,
+      0,
+      '#010203',
+    );
+    expect(context.gradient.addColorStop).toHaveBeenNthCalledWith(
+      2,
+      1,
+      '#040506',
+    );
+    expect(context.strokeRect).toHaveBeenCalledWith(5, 6, 4, 10);
+    expect(context.strokeStyle).toBe('#123456');
+    expect(context.lineWidth).toBe(2);
   });
 });
