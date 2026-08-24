@@ -42,11 +42,13 @@ const FUNDING_POSITIVE_COLOR = '#31E72F';
 const FUNDING_NEGATIVE_COLOR = '#EF4444';
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 const FUNDING_CHART_AREA_FILL_ALPHA = 0.18;
-const DESKTOP_TOOLTIP_WIDTH = 240;
-const MOBILE_TOOLTIP_WIDTH = 168;
-const MOBILE_CUMULATIVE_TOOLTIP_WIDTH = 192;
+const DESKTOP_TOOLTIP_WIDTH = 200;
+const MOBILE_TOOLTIP_WIDTH = 144;
+const MOBILE_CUMULATIVE_TOOLTIP_WIDTH = 160;
 const TOOLTIP_HEIGHT = 72;
 const CUMULATIVE_TOOLTIP_HEIGHT = 92;
+const MOBILE_TOOLTIP_HEIGHT = 52;
+const MOBILE_CUMULATIVE_TOOLTIP_HEIGHT = 72;
 const TOOLTIP_PADDING = 8;
 const DESKTOP_CHART_PANEL_HEIGHT = 364;
 const MOBILE_CHART_PANEL_HEIGHT = 384;
@@ -170,14 +172,32 @@ function FundingChartLegend({
   );
 }
 
-function FundingTooltipRow({ label, value }: { label: string; value: number }) {
+function FundingTooltipRow({
+  isMobile,
+  label,
+  value,
+}: {
+  isMobile: boolean;
+  label: string;
+  value: number;
+}) {
   return (
-    <XStack gap="$3" justifyContent="space-between">
-      <SizableText size="$bodyXs" color="$textSubdued">
+    <XStack gap={isMobile ? '$2' : '$3'} justifyContent="space-between">
+      <SizableText
+        flex={1}
+        minWidth={0}
+        size="$bodyXs"
+        lineHeight={isMobile ? 14 : undefined}
+        color="$textSubdued"
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
         {label}
       </SizableText>
       <SizableText
-        size="$bodySmMedium"
+        flexShrink={0}
+        size={isMobile ? '$bodyXsMedium' : '$bodySmMedium'}
+        lineHeight={isMobile ? 14 : undefined}
         color="$text"
         fontVariant={['tabular-nums']}
       >
@@ -190,6 +210,7 @@ function FundingTooltipRow({ label, value }: { label: string; value: number }) {
 function FundingChartPanel({
   data,
   label,
+  tooltipLabel,
   description,
   interval,
   onIntervalChange,
@@ -205,6 +226,7 @@ function FundingChartPanel({
 }: {
   data: IMarketTokenChart;
   label: string;
+  tooltipLabel: string;
   description: string;
   interval: IPerpFundingChartInterval;
   onIntervalChange: (interval: IPerpFundingChartInterval) => void;
@@ -294,6 +316,14 @@ function FundingChartPanel({
     preferredTooltipWidth,
     Math.max(0, chartSize.width - TOOLTIP_PADDING * 2),
   );
+  let tooltipHeight = periodFundingRateData
+    ? CUMULATIVE_TOOLTIP_HEIGHT
+    : TOOLTIP_HEIGHT;
+  if (isMobile) {
+    tooltipHeight = periodFundingRateData
+      ? MOBILE_CUMULATIVE_TOOLTIP_HEIGHT
+      : MOBILE_TOOLTIP_HEIGHT;
+  }
   const tooltipPosition =
     hoveredData && tooltipWidth > 0
       ? getPerpFundingTooltipPosition({
@@ -302,9 +332,7 @@ function FundingChartPanel({
           chartWidth: chartSize.width,
           chartHeight: chartSize.height,
           tooltipWidth,
-          tooltipHeight: periodFundingRateData
-            ? CUMULATIVE_TOOLTIP_HEIGHT
-            : TOOLTIP_HEIGHT,
+          tooltipHeight,
           leftPriceScaleWidth: priceScaleMinimumWidth,
           offset: 10,
           padding: TOOLTIP_PADDING,
@@ -404,7 +432,7 @@ function FundingChartPanel({
             top={tooltipPosition.top}
             width={tooltipWidth}
             px={isMobile ? '$2' : '$3'}
-            py="$2"
+            py={isMobile ? '$1' : '$2'}
             gap="$1"
             bg="$bg"
             borderRadius="$2"
@@ -414,20 +442,28 @@ function FundingChartPanel({
           >
             <SizableText
               size="$bodyXs"
+              lineHeight={isMobile ? 14 : undefined}
               color="$textDisabled"
               fontVariant={['tabular-nums']}
+              numberOfLines={1}
+              ellipsizeMode="tail"
             >
               {dateTimeFormatter.format(new Date(hoveredData.time * 1000))}
             </SizableText>
             {hoveredData.periodFundingRate !== undefined ? (
               <FundingTooltipRow
+                isMobile={isMobile}
                 label={intl.formatMessage({
-                  id: ETranslations.perp_funding_rate__title,
+                  id: ETranslations.perp_funding_rate_short__title,
                 })}
                 value={hoveredData.periodFundingRate}
               />
             ) : null}
-            <FundingTooltipRow label={label} value={hoveredData.value} />
+            <FundingTooltipRow
+              isMobile={isMobile}
+              label={tooltipLabel}
+              value={hoveredData.value}
+            />
           </YStack>
         ) : null}
       </YStack>
@@ -543,6 +579,9 @@ export function PerpFundingChart({
               label={intl.formatMessage({
                 id: ETranslations.perp_funding_rate_history__title,
               })}
+              tooltipLabel={intl.formatMessage({
+                id: ETranslations.perp_funding_rate_short__title,
+              })}
               description={intl.formatMessage({
                 id: ETranslations.perp_funding_rate_chart__desc,
               })}
@@ -564,6 +603,9 @@ export function PerpFundingChart({
               data={cumulativeFundingRateData}
               label={intl.formatMessage({
                 id: ETranslations.perp_cumulative_funding_rate__title,
+              })}
+              tooltipLabel={intl.formatMessage({
+                id: ETranslations.perp_cumulative_funding_rate_short__title,
               })}
               description={intl.formatMessage({
                 id: ETranslations.perp_cumulative_funding_rate_chart__desc,
