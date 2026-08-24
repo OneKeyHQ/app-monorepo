@@ -74,7 +74,7 @@ import type { IProDeviceAnimation } from './animation';
  *
  * Animation attaches through two optional props: `screenContent` fills the
  * 288x484 touchscreen, `animation` (see ./animation.ts) drives the screen
- * content's opacity - the presence model shared with the Slate, so there
+ * content's opacity - the presence model shared with the Pro 2, so there
  * is no wake glow layer. Tap feedback lives inside scene screen content -
  * the Pro has no face keys. Everything animated is opacity only.
  */

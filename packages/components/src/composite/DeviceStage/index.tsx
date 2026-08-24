@@ -457,7 +457,7 @@ export function DeviceStage({
   // While the box is in flight the screen holds still: the triage
   // (2026-08-21) caught the UI thread freezing once per capsule<->card
   // morph, in the flight's own window, scaling with the scene's paint
-  // (the Slate's worst) — the incoming scene's first lighting is one
+  // (the Pro 2's worst) — the incoming scene's first lighting is one
   // large main-thread composite, and paying it mid-flight is the stutter.
   // (A shouldRasterizeIOS freeze was tried first and made it worse: the
   // raster's own on/off each cost a full offscreen pass.) So the pose
