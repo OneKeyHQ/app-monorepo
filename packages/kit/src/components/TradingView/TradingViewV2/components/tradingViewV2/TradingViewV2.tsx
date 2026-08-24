@@ -127,7 +127,8 @@ interface IBaseTradingViewV2Props {
   enableNativeChartControls?: boolean;
   enableNativeChartSettings?: boolean;
   enableNativeIntervalSelector?: boolean;
-  maxNativeSubIndicatorCount?: number;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   // `null` means the WebView controls configuration is not ready.
   onNativeSubIndicatorCountChange?: (
     count: number | null,
@@ -199,7 +200,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enableNativeChartControls: enableNativeChartControlsProp,
     enableNativeChartSettings = false,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     onNativeSubIndicatorCountChange,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
@@ -693,7 +694,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       <TradingViewNativeIndicatorQuickBar
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
-        maxSubIndicatorCount={maxNativeSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         splitSections={nativeControlsLayoutMode === 'mobile'}
         onIndicatorSelect={handleNativeIndicatorSelect}
         onControlInteraction={handleNativeControlInteraction}
@@ -703,7 +704,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enableNativeChartControls,
     handleNativeControlInteraction,
     handleNativeIndicatorSelect,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     nativeChartControlsConfig,
     nativeIndicatorState,
     nativeControlsLayoutMode,
@@ -796,7 +797,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
-          maxSubIndicatorCount={maxNativeSubIndicatorCount}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}

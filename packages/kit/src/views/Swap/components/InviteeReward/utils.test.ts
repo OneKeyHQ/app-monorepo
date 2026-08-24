@@ -1,7 +1,7 @@
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  getSwapInviteeRewardActionPlacement,
+  getSwapActivityHubActionPlacement,
   loadSwapInviteeReward,
 } from './utils';
 
@@ -20,7 +20,7 @@ const rewardData = {
   history: [],
 };
 
-describe('getSwapInviteeRewardActionPlacement', () => {
+describe('getSwapActivityHubActionPlacement', () => {
   test.each([
     {
       expected: 'desktopHeader',
@@ -37,25 +37,24 @@ describe('getSwapInviteeRewardActionPlacement', () => {
       swapTypeSwitch: ESwapTabSwitchType.BRIDGE,
     },
     {
-      expected: 'swapHeader',
+      expected: 'settings',
       isDesktop: true,
       isMediumLayout: true,
       isModal: false,
       swapTypeSwitch: ESwapTabSwitchType.SWAP,
     },
     {
-      expected: 'swapHeader',
+      expected: 'settings',
       isDesktop: false,
       isMediumLayout: false,
       isModal: false,
       swapTypeSwitch: ESwapTabSwitchType.SWAP,
     },
     {
-      expected: 'mobileSettings',
+      expected: 'settings',
       isDesktop: false,
       isMediumLayout: true,
       isModal: false,
-      isNative: true,
       swapTypeSwitch: ESwapTabSwitchType.SWAP,
     },
     {
@@ -88,23 +87,37 @@ describe('getSwapInviteeRewardActionPlacement', () => {
       isModal: false,
       swapTypeSwitch: ESwapTabSwitchType.LIMIT,
     },
+    {
+      expected: 'hidden',
+      isDesktop: false,
+      isMediumLayout: true,
+      isModal: false,
+      pendingRouteSwapType: ESwapTabSwitchType.LIMIT,
+      swapTypeSwitch: ESwapTabSwitchType.SWAP,
+    },
+    {
+      expected: 'settings',
+      isDesktop: false,
+      isMediumLayout: true,
+      isModal: false,
+      pendingRouteSwapType: ESwapTabSwitchType.SWAP,
+      swapTypeSwitch: ESwapTabSwitchType.LIMIT,
+    },
   ])(
-    'places the action in $expected for the current surface',
+    'places the action in $expected when desktop=$isDesktop medium=$isMediumLayout modal=$isModal type=$swapTypeSwitch pending=$pendingRouteSwapType',
     ({
       expected,
       isDesktop,
       isMediumLayout,
       isModal,
-      isNative,
       pendingRouteSwapType,
       swapTypeSwitch,
     }) => {
       expect(
-        getSwapInviteeRewardActionPlacement({
+        getSwapActivityHubActionPlacement({
           isDesktop,
           isMediumLayout,
           isModal,
-          isNative,
           pendingRouteSwapType,
           swapTypeSwitch,
         }),

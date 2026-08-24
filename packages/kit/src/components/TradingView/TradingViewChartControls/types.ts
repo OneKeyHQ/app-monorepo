@@ -16,6 +16,12 @@ export interface ITradingViewIndicatorOption {
   active?: boolean;
 }
 
+export interface ITradingViewNativeIndicatorSelection {
+  activeIndicatorValues: ReadonlySet<string>;
+  replaceMainIndicators: boolean;
+  replaceSubIndicators: boolean;
+}
+
 export interface ITradingViewChartTypeOption {
   label: string;
   value: number;

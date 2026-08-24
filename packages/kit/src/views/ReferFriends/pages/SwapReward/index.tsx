@@ -702,7 +702,7 @@ function SwapRewardPageWrapper() {
     <Page>
       <ReferFriendsDetailHeader
         title={intl.formatMessage({
-          id: ETranslations.global_trade,
+          id: ETranslations.swap_referral_link__title,
         })}
         toolbar={toolbar}
       />
