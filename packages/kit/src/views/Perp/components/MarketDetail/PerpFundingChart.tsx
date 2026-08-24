@@ -18,6 +18,7 @@ import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { usePerpFundingHistory } from '../../hooks/usePerpMarketDetail';
@@ -56,6 +57,7 @@ const DESKTOP_CHART_FONT_SIZE = 11;
 const MOBILE_CHART_FONT_SIZE = 9;
 const DESKTOP_PRICE_SCALE_MINIMUM_WIDTH = 64;
 const MOBILE_PRICE_SCALE_MINIMUM_WIDTH = 48;
+const EMPTY_FUNDING_HISTORY: IFundingHistoryRecord[] = [];
 
 function formatFundingPercent(value: number) {
   const normalizedValue = Math.abs(value) < 0.000_000_1 ? 0 : value;
@@ -499,7 +501,7 @@ export function PerpFundingChart({
   useEffect(() => {
     setStopPolling(!isActive);
   }, [isActive, setStopPolling]);
-  const nextHistory = fundingHistory.result ?? [];
+  const nextHistory = fundingHistory.result ?? EMPTY_FUNDING_HISTORY;
   const stableHistoryRef = useRef(nextHistory);
   if (!isEqual(stableHistoryRef.current, nextHistory)) {
     stableHistoryRef.current = nextHistory;
