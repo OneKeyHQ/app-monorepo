@@ -32,6 +32,7 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
 
+import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
 import {
   getPrimeSubscriptionManagementTarget,
   resolvePrimeSubscriptionManagementTarget,
@@ -215,6 +216,23 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   return (
     <>
       {userInfoView}
+
+      <ActionList.Item
+        testID={PrimeTestIDs.redemptionMenuItem}
+        label={intl.formatMessage({
+          id: ETranslations.prime_redeem__action,
+        })}
+        icon="TicketOutline"
+        onClose={handleActionListClose}
+        onPress={(close) => {
+          close();
+          if (currentOneKeyUserId) {
+            showPrimeRedemptionDialog({
+              expectedOneKeyUserId: currentOneKeyUserId,
+            });
+          }
+        }}
+      />
 
       {/* Shown for every Prime user immediately — waiting for the channel
        routing data (Infini lookup / RevenueCat manage url) made the item pop
