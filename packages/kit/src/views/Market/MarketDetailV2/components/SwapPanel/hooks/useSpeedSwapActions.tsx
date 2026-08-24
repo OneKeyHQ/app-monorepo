@@ -3304,7 +3304,25 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    if (!isReviewDialogOpen) {
+      appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    }
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    };
+  }, [isReviewDialogOpen, quoteEventHandler]);
+
+  useEffect(() => {
+    if (isReviewDialogOpen) {
+      cleanQuoteInterval();
+      const quoteRequestId = quoteRequestIdRef.current;
+      if (quoteRequestId) {
+        closeQuoteEvent(quoteRequestId);
+      }
+    }
+  }, [cleanQuoteInterval, closeQuoteEvent, isReviewDialogOpen]);
+
+  useEffect(() => {
     return () => {
       appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       cleanQuoteInterval();
@@ -3338,6 +3356,9 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
+    if (isReviewDialogOpen) {
+      return;
+    }
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced || 0,
     );
@@ -3390,6 +3411,7 @@ export function useSpeedSwapActions(props: {
     fromToken.contractAddress,
     fromToken.networkId,
     fromTokenAmountDebounced,
+    isReviewDialogOpen,
     isWrapped,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
