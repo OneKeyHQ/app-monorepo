@@ -273,13 +273,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  backdropTap: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   // Shadow lives on the outer shell; the inner face clips. iOS clips a
   // layer's shadow together with its content when overflow is hidden, so
   // one view cannot both cast and clip.
@@ -348,6 +341,14 @@ const styles = StyleSheet.create({
     width: GRABBER.width,
     height: GRABBER.height,
     borderRadius: GRABBER.height / 2,
+  },
+  cardBadge: {
+    position: 'absolute',
+    top: CLOSE.inset,
+    left: CLOSE.inset,
+    height: CLOSE.size,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   cardClose: {
     position: 'absolute',
@@ -643,22 +644,23 @@ export interface IMorphOverlayProps<T> {
   /**
    * The person's way out, and the switch for every dismissal at once:
    * given, the card wears its close button and follows a downward drag
-   * (release past half the card, or with momentum, dismisses), the
-   * capsule wears its trailing close button, and a scrim on show closes
-   * on tap; absent, none of those exist and the stage can only be left
-   * by the driver. When to grant it is the driver's policy (the
-   * hardware flows arm it on a timer). A dismissing drag has already
-   * started the exit when this fires — the driver must answer by moving
-   * the content to the hidden pose.
+   * (release past half the card, or with momentum, dismisses), and the
+   * capsule wears its trailing close button; absent, none of those
+   * exist and the stage can only be left by the driver. Tapping outside
+   * never dismisses — a stray tap must not cancel a device operation.
+   * When to grant it is the driver's policy (the hardware flows arm it
+   * on a timer). A dismissing drag has already started the exit when
+   * this fires — the driver must answer by moving the content to the
+   * hidden pose.
    */
   onDismiss?: () => void;
   /**
    * Whether the app behind is blocked while the shell is there. On, an
    * invisible wall takes every touch outside the shell — the person
-   * stays with the overlay until it leaves — and with `onDismiss`
-   * granted a tap on it dismisses, the way a tap outside a modal sheet
-   * does. Off, the app behind stays live — the system sheet's undimmed,
-   * non-modal mode.
+   * stays with the overlay until it leaves; the wall itself never
+   * dismisses (the system sheet's own rule — only the drag and the
+   * close button do). Off, the app behind stays live — the system
+   * sheet's undimmed, non-modal mode.
    */
   modal?: boolean;
   /**
@@ -681,6 +683,11 @@ export interface IMorphOverlayProps<T> {
    * — the capsule itself never moves. */
   capsuleKey: string;
   capsule: ReactNode;
+  /** The card's other corner seat: a small badge absolute at the top
+   * left, the close button's mirror (the stage names the device there).
+   * Rides the toolbar band, so it fades with the card window. Null
+   * renders nothing. */
+  cornerBadge?: ReactNode;
   /** Optional layer between the face and the card seats — content that
    * must composite under the seats but over the face (DeviceStage's
    * standing replica). */
@@ -703,6 +710,7 @@ export function MorphOverlay<T>({
   scrim = false,
   capsuleKey,
   capsule,
+  cornerBadge,
   stageLayer,
   seats,
 }: IMorphOverlayProps<T>) {
@@ -1072,21 +1080,16 @@ export function MorphOverlay<T>({
     <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
       <Stack style={layerStyle} pointerEvents="box-none">
         {blocking ? (
-          // The wall blocks the app whenever the shell is there; with
-          // the grant, its tap is a dismissal. It stands down the moment
-          // the shell starts leaving, so it never outlives the exit.
+          // The wall blocks the app whenever the shell is there, and is
+          // deliberately NOT a dismissal surface: a stray tap outside
+          // must never cancel a device operation mid-flight — the close
+          // button and the drag are the intentional exits. It stands
+          // down the moment the shell starts leaving, so it never
+          // outlives the exit.
           <Animated.View
             style={backdropStyle}
             pointerEvents={pose === 'hidden' ? 'none' : 'auto'}
-          >
-            {dismissible ? (
-              <Stack
-                testID="morph-overlay-backdrop"
-                style={styles.backdropTap}
-                onPress={dismiss}
-              />
-            ) : null}
-          </Animated.View>
+          />
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={shellStyle}>
@@ -1125,6 +1128,14 @@ export function MorphOverlay<T>({
                       the way desktop prompt cards do. */}
                   {phonePosture ? (
                     <Stack style={styles.grabber} bg="$neutral6" />
+                  ) : null}
+                  {cornerBadge ? (
+                    <Animated.View
+                      style={styles.cardBadge}
+                      entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
+                    >
+                      {cornerBadge}
+                    </Animated.View>
                   ) : null}
                   {dismissible ? (
                     <Animated.View
