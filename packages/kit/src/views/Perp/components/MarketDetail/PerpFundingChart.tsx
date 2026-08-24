@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import { colord } from 'colord';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  ScrollView,
   SizableText,
   Spinner,
   XStack,
@@ -461,10 +463,12 @@ export function PerpFundingChart({
   useEffect(() => {
     setStopPolling(!isActive);
   }, [isActive, setStopPolling]);
-  const history = useMemo(
-    () => fundingHistory.result ?? [],
-    [fundingHistory.result],
-  );
+  const nextHistory = fundingHistory.result ?? [];
+  const stableHistoryRef = useRef(nextHistory);
+  if (!isEqual(stableHistoryRef.current, nextHistory)) {
+    stableHistoryRef.current = nextHistory;
+  }
+  const history = stableHistoryRef.current;
   const fundingRateData = useMemo<IMarketTokenChart>(
     () =>
       buildPerpFundingChartData(history, fundingInterval).map(
@@ -509,22 +513,15 @@ export function PerpFundingChart({
     fundingHistory.isLoading !== false && fundingRateData.length === 0;
   const isEmpty =
     fundingHistory.isLoading === false && fundingRateData.length < 2;
-  return (
+  const content = (
     <YStack
-      flex={isMobile ? undefined : 1}
-      minHeight={0}
       width="100%"
       pl={isMobile ? '$2' : '$5'}
       pr="$5"
       pt={isMobile ? '$5' : '$6'}
       pb="$4"
     >
-      <YStack
-        flex={isMobile ? undefined : 1}
-        minHeight={0}
-        alignItems="stretch"
-        justifyContent="flex-start"
-      >
+      <YStack alignItems="stretch" justifyContent="flex-start">
         {isInitialLoading ? <Spinner size="large" /> : null}
         {isEmpty ? (
           <SizableText textAlign="center" color="$textSubdued">
@@ -589,5 +586,22 @@ export function PerpFundingChart({
         ) : null}
       </YStack>
     </YStack>
+  );
+
+  if (isMobile) {
+    return content;
+  }
+
+  return (
+    <ScrollView
+      testID="perp-funding-chart-scroll-view"
+      flex={1}
+      minHeight={0}
+      nestedScrollEnabled
+      showsVerticalScrollIndicator
+      contentContainerStyle={{ flexGrow: 1 }}
+    >
+      {content}
+    </ScrollView>
   );
 }
