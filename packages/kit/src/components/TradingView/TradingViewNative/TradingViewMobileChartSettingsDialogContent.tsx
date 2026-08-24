@@ -19,20 +19,16 @@ import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter'
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
-  'yAxis' | 'countdown'
+  'yAxis'
 >;
 
-const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
-  'yAxis',
-  'countdown',
-];
+const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = ['yAxis'];
 
 const OPTION_TRANSLATION_IDS: Record<
   keyof IQuickSettingOptions,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
-  countdown: ETranslations.market_chart_settings__countdown,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
