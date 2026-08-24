@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
@@ -10,6 +12,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input } from '../../forms/Input';
@@ -83,9 +87,6 @@ const SHAKE_STEP_MS = 50;
 const DOT_IN = FadeIn.duration(MARK_IN_MS).easing(easeOutFn);
 const DOT_SLIDE = LinearTransition.duration(MARK_IN_MS).easing(easeOutFn);
 
-/** Refusing an empty confirm: a prompt in place of a disabled key. */
-const EMPTY_PIN_PROMPT = 'Enter your PIN first.';
-
 // Memoized: `onKey` is stable (its value rides a ref), so a keypress
 // re-renders the dots strip alone instead of all twelve keys' Tamagui
 // style resolution on the same JS beat as the dot's layout transition.
@@ -154,6 +155,7 @@ export function PinPad({
   resetSignal,
   noZeroKey,
 }: IPinPadProps) {
+  const intl = useIntl();
   const [value, setValue] = useState('');
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -230,8 +232,14 @@ export function PinPad({
     [value.length],
   );
   const externalError = error && !errorRetired ? error : undefined;
+  // Refusing an empty confirm: a prompt in place of a disabled key.
   const shownError =
-    externalError ?? (emptyPrompt ? EMPTY_PIN_PROMPT : undefined);
+    externalError ??
+    (emptyPrompt
+      ? intl.formatMessage({
+          id: ETranslations.device_stage_enter_pin_first__msg,
+        })
+      : undefined);
   return (
     <YStack gap="$2">
       <YStack
@@ -273,7 +281,9 @@ export function PinPad({
                 color="$textSubdued"
                 textAlign="center"
               >
-                Match the number positions on device
+                {intl.formatMessage({
+                  id: ETranslations.device_stage_pin_keypad__desc,
+                })}
               </SizableText>
             ) : null}
           </XStack>
@@ -308,7 +318,7 @@ export function PinPad({
         >
           <Icon size="$5" name="SwitchHorOutline" color="$iconSubdued" />
           <SizableText size="$bodyLg" color="$textSubdued">
-            Enter on device
+            {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
           </SizableText>
         </XStack>
       ) : null}
@@ -320,10 +330,6 @@ export function PinPad({
 const PASSPHRASE_MAX_LENGTH = 50;
 // eslint-disable-next-line no-control-regex
 const PASSPHRASE_CHARSET = /^[\x20-\x7E]*$/;
-
-/** Refusing an empty create: a prompt in place of a disabled button —
- * the same ratified grammar as the PIN pad's empty confirm. */
-const EMPTY_PASSPHRASE_PROMPT = 'Enter your passphrase first.';
 
 export interface IPassphraseFormProps {
   /**
@@ -366,8 +372,7 @@ export interface IPassphraseFormProps {
  * switch-to-device action on its trailing edge, masked entry with an eye
  * toggle, the two character-rule bullets (the allowed-characters detail
  * folded into an external link), then Confirm, and — when the device
- * supports it — the attach-PIN alternative under an OR rule. All copy is
- * the live flow's English, verbatim.
+ * supports it — the attach-PIN alternative under an OR rule.
  */
 export function PassphraseForm({
   mode = 'verify',
@@ -377,6 +382,7 @@ export function PassphraseForm({
   error,
   resetSignal,
 }: IPassphraseFormProps) {
+  const intl = useIntl();
   const [value, setValue] = useState('');
   const [secure, setSecure] = useState(true);
   // The live flow's first-run default: keep the wallet. Remembering the
@@ -404,20 +410,35 @@ export function PassphraseForm({
     setValidationError(undefined);
   }, []);
   const handleConfirm = useCallback(() => {
+    // Refusing an empty create: a prompt in place of a disabled button —
+    // the same ratified grammar as the PIN pad's empty confirm.
     if (mode === 'create' && !value.length) {
-      setValidationError(EMPTY_PASSPHRASE_PROMPT);
+      setValidationError(
+        intl.formatMessage({
+          id: ETranslations.device_stage_enter_passphrase_first__msg,
+        }),
+      );
       return;
     }
     if (value.length > PASSPHRASE_MAX_LENGTH) {
-      setValidationError('passphrase supports a maximum of 50 characters');
+      setValidationError(
+        intl.formatMessage(
+          { id: ETranslations.hardware_passphrase_enter_too_long },
+          { 0: PASSPHRASE_MAX_LENGTH },
+        ),
+      );
       return;
     }
     if (!PASSPHRASE_CHARSET.test(value)) {
-      setValidationError('Contains unsupported characters');
+      setValidationError(
+        intl.formatMessage({
+          id: ETranslations.hardware_unsupported_passphrase_characters,
+        }),
+      );
       return;
     }
     onSubmit?.(value, exitOptions);
-  }, [exitOptions, mode, onSubmit, value]);
+  }, [exitOptions, intl, mode, onSubmit, value]);
   const handleSwitchToDevice = useCallback(() => {
     onSwitchToDevice?.(exitOptions);
   }, [exitOptions, onSwitchToDevice]);
@@ -440,7 +461,9 @@ export function PassphraseForm({
       <YStack gap="$3">
         <YStack gap="$2.5">
           <XStack alignItems="center" justifyContent="space-between">
-            <SizableText size="$bodyMdMedium">Passphrase</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({ id: ETranslations.global_passphrase })}
+            </SizableText>
             {onSwitchToDevice ? (
               <Button
                 testID="device-stage-passphrase-switch-on-device"
@@ -449,7 +472,9 @@ export function PassphraseForm({
                 icon="SwitchHorOutline"
                 onPress={handleSwitchToDevice}
               >
-                Enter on device
+                {intl.formatMessage({
+                  id: ETranslations.global_enter_on_device,
+                })}
               </Button>
             ) : null}
           </XStack>
@@ -473,15 +498,21 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              Letters, numbers &amp; symbols (
-              <Anchor
-                href="https://www.ascii-code.com/"
-                size="$bodyMd"
-                color="$textSubdued"
-              >
-                Details
-              </Anchor>
-              )
+              {intl.formatMessage(
+                { id: ETranslations.device_stage_allowed_characters__desc },
+                {
+                  link: (chunks: ReactNode[]) => (
+                    <Anchor
+                      key="link"
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
+                      {chunks}
+                    </Anchor>
+                  ),
+                },
+              )}
             </SizableText>
           </XStack>
           <XStack gap="$1" alignItems="flex-start">
@@ -489,7 +520,9 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              Max 50 characters
+              {intl.formatMessage({
+                id: ETranslations.passphrase_character_limit,
+              })}
             </SizableText>
           </XStack>
         </YStack>
@@ -506,7 +539,9 @@ export function PassphraseForm({
       {mode === 'create' ? (
         <PreferenceCapsule
           testID="device-stage-passphrase-keep-accessible"
-          label="Keep wallet after closing app"
+          label={intl.formatMessage({
+            id: ETranslations.device_stage_keep_wallet__title,
+          })}
           value={keepAccessible}
           onChange={setKeepAccessible}
         />
@@ -517,7 +552,7 @@ export function PassphraseForm({
         size="large"
         onPress={handleConfirm}
       >
-        Confirm
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
       {onAttachPin ? (
         <YStack gap="$5">
@@ -534,7 +569,7 @@ export function PassphraseForm({
               borderColor="$borderSubdued"
             />
             <SizableText size="$bodyMd" color="$textSubdued">
-              OR
+              {intl.formatMessage({ id: ETranslations.global_or })}
             </SizableText>
             <Stack
               flex={1}
@@ -549,7 +584,9 @@ export function PassphraseForm({
             size="large"
             onPress={handleAttachPin}
           >
-            Enter Hidden Wallet PIN
+            {intl.formatMessage({
+              id: ETranslations.global_enter_hidden_wallet_pin,
+            })}
           </Button>
         </YStack>
       ) : null}
