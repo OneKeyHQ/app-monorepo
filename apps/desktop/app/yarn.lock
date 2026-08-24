@@ -40,7 +40,6 @@ __metadata:
     passport-desktop: "npm:0.1.2"
     passport-desktop-win32-x64-msvc: "npm:0.1.2"
     systeminformation: "npm:5.31.6"
-    tr46: "npm:0.0.3"
     validator: "npm:13.15.23"
   languageName: unknown
   linkType: soft
@@ -2046,13 +2045,6 @@ __metadata:
   dependencies:
     is-number: "npm:^7.0.0"
   checksum: 10/10dda13571e1f5ad37546827e9b6d4252d2e0bc176c24a101252153ef435d83696e2557fe128c4678e4e78f5f01e83711c703eef9814eb12dab028580d45980a
-  languageName: node
-  linkType: hard
-
-"tr46@npm:0.0.3":
-  version: 0.0.3
-  resolution: "tr46@npm:0.0.3"
-  checksum: 10/8f1f5aa6cb232f9e1bdc86f485f916b7aa38caee8a778b378ffec0b70d9307873f253f5cbadbe2955ece2ac5c83d0dc14a77513166ccd0a0c7fe197e21396695
   languageName: node
   linkType: hard
 

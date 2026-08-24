@@ -57,6 +57,7 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
@@ -600,17 +601,9 @@ function handleDeepLinkUrl(
   isColdStartup?: boolean,
 ) {
   // Validate deep link scheme before forwarding to renderer
-  if (url) {
-    const allowedSchemes = [
-      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
-      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
-      'ethereum:',
-    ];
-    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
-    if (!isAllowed) {
-      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
-      return;
-    }
+  if (url && !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+    return;
   }
 
   const eventData: IDesktopOpenUrlEventData = {
@@ -917,9 +910,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
   if ((isWin || isMac) && !isSoftRestart) {
-    // Keep only command line / deep linked arguments
-    const deeplinkingUrl = process.argv[1];
-    handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
+    if (deeplinkingUrl) {
+      handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    }
   }
 
   browserWindow.webContents.on('unresponsive', () => {
@@ -1712,7 +1706,7 @@ if (!singleInstance && !process.mas) {
 
       // Handle deep link arguments for all platforms
       // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = argv[1];
+      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
