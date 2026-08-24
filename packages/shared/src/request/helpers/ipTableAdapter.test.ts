@@ -150,6 +150,87 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
   });
 
+  test('does no preflight work for an already aborted request', async () => {
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+    controller.abort();
+
+    await expect(adapter(config)).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+
+    expect(mockedIsSniSupported).not.toHaveBeenCalled();
+    expect(mockedIsProxyActiveForUrl).not.toHaveBeenCalled();
+    expect(
+      mockedRequestHelper.getDevSettingsPersistAtom,
+    ).not.toHaveBeenCalled();
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('aborts immediately while proxy preflight is pending', async () => {
+    let resolvePreflight: ((value: boolean) => void) | undefined;
+    mockedIsProxyActiveForUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreflight = resolve;
+        }),
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolvePreflight?.(false);
+  });
+
+  test('aborts immediately while IP selection is pending', async () => {
+    let resolveDevSettings:
+      | ((value: { settings: Record<string, never> }) => void)
+      | undefined;
+    mockedRequestHelper.getDevSettingsPersistAtom.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDevSettings = resolve;
+        }) as never,
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://pending.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    for (let index = 0; index < 4; index += 1) {
+      // Allow the resolved proxy preflight to advance into IP selection.
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(mockedRequestHelper.getDevSettingsPersistAtom).toHaveBeenCalled();
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolveDevSettings?.({ settings: {} });
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   test('keeps legacy SNI path when proxy preflight capability is missing', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(null);
     mockedSniRequest.mockResolvedValue({
@@ -397,6 +478,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
         ip: BUILTIN_CN_IPS[0],
         hostname: 'data.onekey.so',
       }),
+      { signal: undefined },
     );
   });
 

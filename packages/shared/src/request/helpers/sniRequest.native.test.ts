@@ -1,7 +1,7 @@
-import {
-  cancelRequest as nativeCancelRequest,
-  request as nativeSniRequest,
-} from '@onekeyfe/react-native-sni-connect';
+import { request as nativeSniRequest } from '@onekeyfe/react-native-sni-connect';
+import { NativeModules } from 'react-native';
+
+import { defaultLogger } from '../../logger/logger';
 
 import { sniRequest } from './sniRequest.native';
 
@@ -12,10 +12,19 @@ import type {
 } from '../types/ipTable';
 
 jest.mock('@onekeyfe/react-native-sni-connect', () => ({
-  cancelRequest: jest.fn(),
   isProxyActiveForUrl: jest.fn(),
   request: jest.fn(),
 }));
+
+jest.mock('react-native', () => {
+  const sniConnect = {
+    cancelRequest: jest.fn(),
+  };
+  return {
+    NativeModules: { SniConnect: sniConnect },
+    TurboModuleRegistry: { get: jest.fn(() => sniConnect) },
+  };
+});
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -36,9 +45,15 @@ jest.mock('../../utils/miscUtils', () => ({
 const mockedNativeRequest = nativeSniRequest as jest.MockedFunction<
   typeof nativeSniRequest
 >;
-const mockedNativeCancelRequest = nativeCancelRequest as jest.MockedFunction<
-  typeof nativeCancelRequest
->;
+type NativeCancelRequest = (requestId: string) => Promise<{ success: boolean }>;
+const mockedSniConnectModule = NativeModules.SniConnect as {
+  cancelRequest?: jest.MockedFunction<NativeCancelRequest>;
+};
+const mockedNativeCancelRequest =
+  mockedSniConnectModule.cancelRequest as jest.MockedFunction<NativeCancelRequest>;
+const mockedRequestLogger = defaultLogger.ipTable.request as unknown as {
+  warn: jest.Mock;
+};
 
 function buildSniRequestConfig(): ISniRequestConfig {
   return {
@@ -161,5 +176,43 @@ describe('sniRequest.native AbortController compatibility', () => {
     controller.abort();
 
     expect(mockedNativeCancelRequest).not.toHaveBeenCalled();
+  });
+
+  test('reports when an older native binary cannot cancel the transport', async () => {
+    mockedNativeRequest.mockImplementation(() => new Promise(() => undefined));
+    delete mockedSniConnectModule.cancelRequest;
+    const controller = new AbortController();
+    let resolveCancelSettled:
+      | ((value: ISniRequestCancelSettledResult) => void)
+      | undefined;
+    const cancelSettled = new Promise<ISniRequestCancelSettledResult>(
+      (resolve) => {
+        resolveCancelSettled = resolve;
+      },
+    );
+
+    const responsePromise = sniRequest(buildSniRequestConfig(), {
+      signal: controller.signal,
+      onCancelSettled: (result) => resolveCancelSettled?.(result),
+    });
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    await expect(cancelSettled).resolves.toEqual({
+      requestId: 'native-generated-request-id',
+      status: 'rejected',
+      error: expect.objectContaining({
+        message: 'Native SNI cancellation is unavailable',
+      }),
+    });
+    const warning = mockedRequestLogger.warn.mock.calls
+      .map(([entry]) => String(entry.info))
+      .join('\n');
+    expect(warning).toContain('event=sni_adapter_capability');
+    expect(warning).toContain('capability=cancel_request');
+    expect(warning).toContain('available=false');
+    expect(warning).toContain('decision=transport_may_continue');
   });
 });

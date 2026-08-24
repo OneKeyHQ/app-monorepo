@@ -796,10 +796,13 @@ async function runSniRequestFlow(page) {
     );
   }
   const queuePanelText = await queuePanel.textContent();
-  assert(
-    queuePanelText.includes('Fixed target') &&
-      queuePanelText.includes('wallet.onekeytest.com') &&
-      queuePanelText.includes('/health'),
+  assert.equal(
+    (
+      await page
+        .locator('[data-testid="desktop-sni-queue-fixed-target"]')
+        .textContent()
+    ).trim(),
+    'wallet.onekeytest.com (104.18.31.39)/health',
     'desktop SNI QA page should display its fixed first-party target',
   );
   assert(

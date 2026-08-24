@@ -550,7 +550,12 @@ export class SniRequestLimiter {
   private pendingRequests: SniRequestLimiterWaiter[] = [];
 
   private getKey(hostname: string, ip: string): string {
-    return `${hostname.toLowerCase()}|${ip}`;
+    const address = ipaddr.isValid(ip) ? ipaddr.parse(ip) : null;
+    const canonicalIp =
+      address?.kind() === 'ipv6'
+        ? address.toNormalizedString()
+        : (address?.toString() ?? ip);
+    return `${hostname.toLowerCase()}|${canonicalIp}`;
   }
 
   private hasCapacity(key: string): boolean {

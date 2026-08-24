@@ -318,6 +318,35 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     });
   });
 
+  test('uses one limiter bucket for equivalent IPv6 representations', async () => {
+    const limiter = new SniRequestLimiter(2, 1);
+    const releaseActive = await limiter.acquire(
+      'Example.com',
+      '2001:4860:4860:0:0:0:0:8888',
+    );
+    let queuedStarted = false;
+    const queuedReleasePromise = limiter
+      .acquire('example.com', '2001:4860:4860::8888')
+      .then((release) => {
+        queuedStarted = true;
+        return release;
+      });
+
+    await flushMicrotasks();
+    expect(queuedStarted).toBe(false);
+    expect(limiter.snapshot('example.com', '2001:4860:4860::8888')).toEqual({
+      activeRequests: 1,
+      activeRequestsForPair: 1,
+      pendingRequests: 1,
+      pendingRequestsForPair: 1,
+    });
+
+    releaseActive();
+    const queuedRelease = await queuedReleasePromise;
+    expect(queuedStarted).toBe(true);
+    queuedRelease();
+  });
+
   test('exposes the live 16 active plus pending limiter state in development', async () => {
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
     const limiter = getRequestLimiter(api);

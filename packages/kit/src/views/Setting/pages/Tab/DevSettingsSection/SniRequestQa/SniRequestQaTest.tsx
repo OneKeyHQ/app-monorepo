@@ -67,7 +67,11 @@ export function SniRequestQaTest() {
             <SizableText size="$headingSm">
               Fixed first-party target
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText
+              testID="desktop-sni-queue-fixed-target"
+              size="$bodySm"
+              color="$textSubdued"
+            >
               {SNI_QA_FIXED_TARGET.hostname} ({SNI_QA_FIXED_TARGET.ip})
               {SNI_QA_FIXED_TARGET.path}
             </SizableText>

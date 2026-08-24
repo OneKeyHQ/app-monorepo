@@ -19,6 +19,39 @@ class SniRequestCancelledError extends Error {
   }
 }
 
+type SniRequestAbortSignal = ISniRequestOptions['signal'];
+
+export function throwIfSniRequestAborted(signal: SniRequestAbortSignal): void {
+  if (signal?.aborted) {
+    throw new SniRequestCancelledError();
+  }
+}
+
+export async function raceSniRequestWithAbort<T>(
+  operation: Promise<T>,
+  signal: SniRequestAbortSignal,
+): Promise<T> {
+  throwIfSniRequestAborted(signal);
+  if (typeof signal?.addEventListener !== 'function') {
+    return operation;
+  }
+
+  let rejectForAbort: (error: SniRequestCancelledError) => void = () =>
+    undefined;
+  const abortPromise = new Promise<never>((_resolve, reject) => {
+    rejectForAbort = reject;
+  });
+  const handleAbort = () => rejectForAbort(new SniRequestCancelledError());
+  signal.addEventListener('abort', handleAbort, { once: true });
+
+  try {
+    throwIfSniRequestAborted(signal);
+    return await Promise.race([operation, abortPromise]);
+  } finally {
+    signal.removeEventListener?.('abort', handleAbort);
+  }
+}
+
 export async function executeSniRequestWithAbort<T>(
   config: ISniRequestConfig,
   options: ISniRequestOptions | undefined,
@@ -26,9 +59,7 @@ export async function executeSniRequestWithAbort<T>(
   cancel: SniRequestCanceller,
 ): Promise<T> {
   const signal = options?.signal;
-  if (signal?.aborted) {
-    throw new SniRequestCancelledError();
-  }
+  throwIfSniRequestAborted(signal);
 
   const requestId = config.requestId ?? generateUUID();
   const requestConfig: ISniRequestConfig = {

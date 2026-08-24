@@ -4,11 +4,12 @@ import {
   type SniConnectOptionalBodyMethod,
   type SniConnectRequest,
   type SniConnectRequiredBodyMethod,
-  cancelRequest as nativeCancelRequest,
   isProxyActiveForUrl as nativeIsProxyActiveForUrl,
   request as nativeSniRequest,
 } from '@onekeyfe/react-native-sni-connect';
+import { NativeModules, TurboModuleRegistry } from 'react-native';
 
+import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 
 import { safeSniLogValue } from './sniLogRedaction';
@@ -71,7 +72,7 @@ export async function sniRequest(
     config,
     options,
     (requestConfig) => nativeSniRequest(buildNativeSniRequest(requestConfig)),
-    nativeCancelRequest,
+    (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
   const multiValueHeaders = (
     response as typeof response & {
@@ -88,6 +89,50 @@ export async function sniRequest(
     multiValueHeaders,
     body: response.data,
   };
+}
+
+type SniConnectNativeModule = {
+  cancelRequest?: (requestId: string) => Promise<{ success: boolean }>;
+};
+
+function getSniConnectNativeModule(): SniConnectNativeModule | null {
+  return (
+    (TurboModuleRegistry.get('SniConnect') as SniConnectNativeModule | null) ??
+    (NativeModules.SniConnect as SniConnectNativeModule | undefined) ??
+    null
+  );
+}
+
+async function cancelNativeSniRequest(
+  requestId: string,
+  hostname: string,
+): Promise<{ success: boolean }> {
+  const nativeModule = getSniConnectNativeModule();
+  const cancelRequest = nativeModule?.cancelRequest;
+  if (typeof cancelRequest !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'native',
+      capability: 'cancel_request',
+      available: false,
+      decision: 'transport_may_continue',
+      hostname,
+    });
+    throw new OneKeyLocalError('Native SNI cancellation is unavailable');
+  }
+
+  try {
+    return await cancelRequest.call(nativeModule, requestId);
+  } catch (error) {
+    logAdapterCapability('error', {
+      adapter: 'native',
+      capability: 'cancel_request',
+      available: true,
+      decision: 'transport_may_continue',
+      hostname,
+      errorMessage: getErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 class SniInvalidConfigError extends Error {
