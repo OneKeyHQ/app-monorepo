@@ -7,11 +7,13 @@ const path = require('path');
 const { build } = require('esbuild');
 const glob = require('glob');
 
-const pkg = require('../app/package.json');
+const {
+  electronSource,
+  getDesktopMainEsbuildResolveOptions,
+} = require('./desktopMainEsbuildConfig');
 
 const isProduction = process.env.NODE_ENV === 'production';
 console.log('building for', isProduction ? 'production' : 'development');
-const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
@@ -109,76 +111,17 @@ console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
+  ...getDesktopMainEsbuildResolveOptions(),
+  // entryPoints is x's named-entry object ({ app: appBootstrap.ts, preload, ... }
+  // → dist/app.js). platform/bundle/target/loader/alias/external/tsconfig come
+  // from the shared getDesktopMainEsbuildResolveOptions() spread above (single
+  // source of truth, also used by the native-messaging-host bundling smoke
+  // check). metafile and the locale-json externalization plugin are
+  // real-build-only and stay here.
   entryPoints,
-  platform: 'node',
-  bundle: true,
-  target: 'node16',
   metafile: !!process.env.ESBUILD_METAFILE,
   plugins: [externalizeLocaleJsonPlugin],
-  loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
-  // Help esbuild locate missing dependencies.
-  alias: {
-    '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
-    'react-native': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-mock',
-    ),
-    '@react-native-async-storage/async-storage': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-async-storage-mock',
-    ),
-    'react-native-mmkv': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-mmkv-desktop-main',
-    ),
-    '@sentry/react-native': path.join(
-      __dirname,
-      '../../desktop/app/libs/sentry-react-native-mock',
-    ),
-    'react-native-uuid': path.join(
-      __dirname,
-      '../../../node_modules/react-native-uuid/dist',
-    ),
-    'axios': path.join(
-      __dirname,
-      '../../../node_modules/axios/dist/esm/axios.js',
-    ),
-  },
-  external: [
-    'electron',
-    '@stoprocent/noble',
-    '@stoprocent/bluetooth-hci-socket',
-    'bufferutil',
-    'utf-8-validate',
-    // Perf: keep these heavy, non-critical deps OUT of app.js so V8 does not
-    // parse them on every cold start. They are shipped as node_modules inside
-    // the asar (see app/package.json dependencies) and required on demand.
-    // @sentry/electron (~4.3MB) pulls the whole Sentry Node SDK + OpenTelemetry
-    // backend instrumentations; systeminformation/iconv-lite are only needed for
-    // specific, non-boot-critical features.
-    '@sentry/electron',
-    'systeminformation',
-    'iconv-lite',
-    // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
-    // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
-    // XML stack, js-yaml) out of app.js parse.
-    'electron-updater',
-    'adm-zip',
-    // Tier 2: large lookup-table deps reached transitively via node-fetch /
-    // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
-    // FOOTGUN: these three are *transitive* — no app code imports them directly.
-    // esbuild leaves a bare `require('<name>')` and only ONE copy ships in the
-    // asar, so the shipped version is whatever is pinned in app/package.json, NOT
-    // what yarn.lock resolves for the real consumers. When bumping node-fetch /
-    // whatwg-url / the http stack, re-check that these pins still match the
-    // resolved transitive versions, or the asar will ship a mismatched copy.
-    'tr46',
-    'mime-db',
-    'validator',
-    ...Object.keys(pkg.dependencies),
-  ],
-  tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
     'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),

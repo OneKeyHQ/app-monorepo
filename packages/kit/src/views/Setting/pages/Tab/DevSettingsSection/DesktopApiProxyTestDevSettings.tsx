@@ -5,6 +5,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+const DESKTOP_KEYCHAIN_TEST_KEY = 'onekey-dev-settings-desktop-keychain-test';
+
 export default function DesktopApiProxyTestDevSettings() {
   const [devToolsEnabled, setDevToolsEnabled] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState('en-US');
@@ -511,6 +513,66 @@ export default function DesktopApiProxyTestDevSettings() {
     }
   }, []);
 
+  const testDesktopKeychainRoundTrip = useCallback(async () => {
+    let shouldCleanup = false;
+    let debugMessage: Record<string, unknown> = {};
+    try {
+      const value = `desktop-keychain-direct:${Date.now()}`;
+      await globalThis.desktopApiProxy.keychain.setItem({
+        key: DESKTOP_KEYCHAIN_TEST_KEY,
+        value,
+        enableSync: false,
+        label: 'OneKey Desktop Dev Settings Test',
+        description: 'Temporary keychain item written by desktop dev settings.',
+      });
+      shouldCleanup = true;
+      const hasItem = await globalThis.desktopApiProxy.keychain.hasItem({
+        key: DESKTOP_KEYCHAIN_TEST_KEY,
+      });
+      const item = await globalThis.desktopApiProxy.keychain.getItem({
+        key: DESKTOP_KEYCHAIN_TEST_KEY,
+      });
+      debugMessage = {
+        key: DESKTOP_KEYCHAIN_TEST_KEY,
+        value,
+        hasItem,
+        item,
+        matched: item?.value === value,
+      };
+    } catch (error) {
+      debugMessage = { error: (error as Error)?.message };
+    } finally {
+      if (shouldCleanup) {
+        try {
+          await globalThis.desktopApiProxy.keychain.removeItem({
+            key: DESKTOP_KEYCHAIN_TEST_KEY,
+          });
+        } catch (error) {
+          debugMessage.cleanupError = (error as Error)?.message;
+        }
+      }
+    }
+    Dialog.debugMessage({
+      debugMessage,
+    });
+  }, []);
+
+  const testDesktopSecureStorageAvailable = useCallback(async () => {
+    try {
+      const result =
+        await globalThis.desktopApiProxy.storage.isSecureStorageAvailable();
+      Dialog.debugMessage({
+        debugMessage: {
+          available: result,
+        },
+      });
+    } catch (error) {
+      Dialog.debugMessage({
+        debugMessage: { error: (error as Error)?.message },
+      });
+    }
+  }, []);
+
   if (!platformEnv.isDesktop) {
     return (
       <YStack p="$4">
@@ -524,7 +586,7 @@ export default function DesktopApiProxyTestDevSettings() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="DesktopApiProxyTestDevSettings" />
+      <Page.Header title="DesktopApiProxy Test" />
       <YStack gap="$2">
         {/* System Module Tests */}
         <ListItem
@@ -827,6 +889,30 @@ export default function DesktopApiProxyTestDevSettings() {
           subtitle="Delete item from secure storage"
           drillIn
           onPress={testSecureDelItem}
+        />
+
+        <ListItem
+          title="Desktop Keychain Direct Tests"
+          titleProps={{ color: '$textInfo', size: '$headingLg' }}
+        />
+
+        <ListItem
+          title="keychain set/get/remove round trip"
+          subtitle="Writes a temporary non-sync keychain item"
+          drillIn
+          onPress={testDesktopKeychainRoundTrip}
+        />
+
+        <ListItem
+          title="Desktop SecureStorage Direct Tests"
+          titleProps={{ color: '$textInfo', size: '$headingLg' }}
+        />
+
+        <ListItem
+          title="check desktop secureStorage support"
+          subtitle="Check Electron safeStorage availability"
+          drillIn
+          onPress={testDesktopSecureStorageAvailable}
         />
 
         {/* Webview Module Tests */}

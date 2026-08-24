@@ -6,7 +6,6 @@ import {
   keychainRemoveItem,
   keychainSetItem,
 } from '@onekeyfe/electron-mac-icloud';
-import _logger from 'electron-log/main';
 
 import { DESKTOP_ICLOUD_CONTAINER_ID } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -17,9 +16,9 @@ import type { IDesktopApi } from './instance/IDesktopApi';
 export type IKeychainSetItemParams = {
   key: string;
   value: string;
-  enableSync?: boolean; // Optional, defaults to true for iCloud sync
-  label?: string; // Optional, friendly name displayed in Keychain Access app
-  description?: string; // Optional, description for the keychain item
+  enableSync?: boolean;
+  label?: string;
+  description?: string;
 };
 
 export type IKeychainGetItemParams = {
@@ -39,22 +38,33 @@ export type IKeychainHasItemParams = {
   key: string;
 };
 
+function ensureDesktopKeychainSupported() {
+  if (process.platform !== 'darwin') {
+    throw new OneKeyLocalError('Keychain is only available on macOS');
+  }
+}
+
+function setupDesktopKeychainContainer() {
+  ensureDesktopKeychainSupported();
+  cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
+}
+
 /**
- * Desktop Keychain API - Secure Keychain access with app sandboxing and iCloud sync
+ * Desktop Keychain API - Secure Keychain access with app sandboxing and optional iCloud sync
  *
  * This implementation uses native Swift KeychainHelper which provides:
  * - TRUE app sandboxing via Bundle ID (other apps CANNOT access)
- * - iCloud Keychain synchronization for cross-device data sharing
+ * - Optional iCloud Keychain synchronization for cross-device data sharing
  * - Full compatibility with iOS KeychainModule.swift
  *
  * Security Features:
  * ✅ Bundle ID-based app isolation (system-level security)
- * ✅ iCloud Keychain sync (automatically syncs to user's other Apple devices)
+ * ✅ Optional iCloud Keychain sync (opt in with enableSync)
  * ✅ Compatible with iOS for seamless data sharing across Desktop and Mobile
  * ✅ Other applications CANNOT access these keychain items
  *
  * Platform Support:
- * - macOS: Full support with iCloud sync
+ * - macOS: Full support with optional iCloud sync
  * - Windows/Linux: Not supported (throws error)
  *
  * Use Cases:
@@ -69,29 +79,25 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
 
   desktopApi: IDesktopApi;
 
-  ensureMacOS() {
-    if (process.platform !== 'darwin') {
-      throw new OneKeyLocalError('Keychain is only available on macOS');
-    }
-  }
-
   /**
-   * Store an item securely in Keychain with iCloud sync
+   * Store an item securely in Keychain with optional iCloud sync
    *
    * Data is stored with:
    * - Bundle ID-based app isolation (true sandboxing)
-   * - iCloud Keychain sync enabled by default
+   * - iCloud Keychain sync disabled by default
    * - Accessible only when device is unlocked
    *
    * @param params.key - Keychain account identifier
    * @param params.value - Data to store (will be encrypted by macOS)
-   * @param params.enableSync - Enable iCloud sync (default: true)
+   * @param params.enableSync - Enable iCloud sync (default: false)
    * @returns Promise<boolean> - true if successful
    */
   async setItem(params: IKeychainSetItemParams): Promise<void> {
-    this.ensureMacOS();
-    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
-    return keychainSetItem(params);
+    setupDesktopKeychainContainer();
+    return keychainSetItem({
+      ...params,
+      enableSync: params.enableSync ?? false,
+    });
   }
 
   /**
@@ -105,8 +111,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
   async getItem(
     params: IKeychainGetItemParams,
   ): Promise<IKeychainGetItemResult> {
-    this.ensureMacOS();
-    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
+    setupDesktopKeychainContainer();
     return keychainGetItem({ key: params.key });
   }
 
@@ -119,8 +124,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    * @returns Promise<boolean> - true if successful
    */
   async removeItem(params: IKeychainRemoveItemParams): Promise<void> {
-    this.ensureMacOS();
-    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
+    setupDesktopKeychainContainer();
     return keychainRemoveItem({ key: params.key });
   }
 
@@ -131,8 +135,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    * @returns Promise<boolean> - true if item exists
    */
   async hasItem(params: IKeychainHasItemParams): Promise<boolean> {
-    this.ensureMacOS();
-    cloudkitSetContainerID(DESKTOP_ICLOUD_CONTAINER_ID);
+    setupDesktopKeychainContainer();
     return keychainHasItem({ key: params.key });
   }
 
@@ -145,7 +148,7 @@ class DesktopApiKeychain implements IAppleKeyChainStorage {
    * @returns Promise<boolean> - true if iCloud Keychain sync is available
    */
   async isICloudSyncEnabled(): Promise<boolean> {
-    this.ensureMacOS();
+    ensureDesktopKeychainSupported();
     return keychainIsICloudSyncEnabled();
   }
 }

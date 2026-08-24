@@ -26,7 +26,8 @@ function findPackageJsonFiles(rootDir) {
       // `.worktrees/`) are not part of the monorepo and must not be compared.
       return (
         !relativePath.startsWith('.worktree/') &&
-        !relativePath.startsWith('.worktrees/')
+        !relativePath.startsWith('.worktrees/') &&
+        !relativePath.startsWith('ignore/')
       );
     });
 }

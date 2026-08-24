@@ -22,16 +22,28 @@ export class AppleKeyChainStorage implements IAppleKeyChainStorage {
   async setItem({
     key,
     value,
+    enableSync,
     label,
     description,
   }: {
     key: string;
     value: string;
+    enableSync?: boolean;
     label?: string;
     description?: string;
   }): Promise<void> {
     const keychainModule = this.getKeychainModule();
-    await keychainModule.setItem({ key, value, label, description });
+    await keychainModule.setItem({
+      key,
+      value,
+      // Default iCloud sync OFF (opt-in) here in the shared layer so the
+      // default is identical across platforms. Otherwise omitting enableSync
+      // would yield false on desktop (DesktopApiKeychain defaults it) but the
+      // iOS native module's own default (true) on iOS — a platform asymmetry.
+      enableSync: enableSync ?? false,
+      label,
+      description,
+    });
   }
 
   async getItem({
