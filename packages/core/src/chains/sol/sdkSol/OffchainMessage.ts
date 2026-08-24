@@ -17,6 +17,8 @@ import type {
 const OFFCM_MAX_LEDGER_LEN = 1212;
 // Max length of version 0 off-chain message
 const OFFCM_MAX_V0_LEN = 65_515;
+// Version 1 has no length prefix and no ceiling in the spec; this bounds the body anyway.
+const OFFCM_MAX_V1_LEN = 1024 * 1024;
 
 function isValidUTF8(data: Uint8Array): boolean {
   const length = data.length;
@@ -365,6 +367,11 @@ export class OffchainMessage {
     }
     if (requiredSigners.length > 255) {
       throw new OneKeyLocalError('At most 255 required signers are allowed');
+    }
+    if (Buffer.byteLength(message, 'utf8') > OFFCM_MAX_V1_LEN) {
+      throw new OneKeyLocalError(
+        `Message exceeds the maximum (${OFFCM_MAX_V1_LEN} bytes) for version 1`,
+      );
     }
     for (const signer of requiredSigners) {
       if (signer.length !== 32) {

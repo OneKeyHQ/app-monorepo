@@ -216,6 +216,26 @@ describe('OffchainMessage.createOffChainMessage', () => {
       ).toThrow('Required signers must be unique');
     });
 
+    it('should reject a body past the version 1 ceiling', () => {
+      const oversized = 'a'.repeat(1024 * 1024 + 1);
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1({
+          message: oversized,
+          requiredSigners: [key(1)],
+        }),
+      ).toThrow('exceeds the maximum');
+    });
+
+    it('should accept a body at the version 1 ceiling', () => {
+      const atLimit = 'a'.repeat(1024 * 1024);
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1Bytes({
+          message: atLimit,
+          requiredSigners: [key(1)],
+        }),
+      ).not.toThrow();
+    });
+
     it('should reject a signer that is not 32 bytes', () => {
       expect(() =>
         OffchainMessage.createOffChainMessageV1({

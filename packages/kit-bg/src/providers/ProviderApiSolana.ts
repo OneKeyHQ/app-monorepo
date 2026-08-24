@@ -65,6 +65,10 @@ function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
   return decoded;
 }
 
+// The spec sets no ceiling; this only keeps a dapp from handing the signer an unbounded body.
+const MAX_OFFCHAIN_MESSAGE_V1_BYTES = 1024 * 1024;
+const MAX_OFFCHAIN_MESSAGE_V1_SIGNERS = 255;
+
 // Versions the wallet actually implements. Anything else must be rejected: an unknown version
 // otherwise falls into the version 0 branch, and hardware and QR never pass a message version
 // down, so they would sign it as version 0 bytes the dapp cannot verify.
@@ -328,6 +332,16 @@ class ProviderApiSolana extends ProviderApiBase {
       if (!isArray(requiredSigners) || requiredSigners.length === 0) {
         throw web3Errors.rpc.invalidParams(
           'requiredSigners must be a non-empty array',
+        );
+      }
+      if (requiredSigners.length > MAX_OFFCHAIN_MESSAGE_V1_SIGNERS) {
+        throw web3Errors.rpc.invalidParams(
+          `requiredSigners must hold at most ${MAX_OFFCHAIN_MESSAGE_V1_SIGNERS} public keys`,
+        );
+      }
+      if (Buffer.byteLength(message, 'utf8') > MAX_OFFCHAIN_MESSAGE_V1_BYTES) {
+        throw web3Errors.rpc.invalidParams(
+          `message must be at most ${MAX_OFFCHAIN_MESSAGE_V1_BYTES} bytes`,
         );
       }
       // Never trust the dapp. The spec requires requiredSigners to "contain the public key of
