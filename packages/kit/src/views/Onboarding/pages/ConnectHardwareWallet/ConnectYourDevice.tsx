@@ -48,6 +48,7 @@ import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/use
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -1403,9 +1404,17 @@ export function ConnectYourDevicePage() {
     }) => {
       setIsChecking(true);
 
-      void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
-        connectId: device.connectId ?? '',
-      });
+      const showDeviceProcessLoadingDialog = () =>
+        backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
+          connectId: device.connectId ?? '',
+        });
+      if (platformEnv.isNativeIOS) {
+        await hardwareUiStateDialogLifecycle.openAndWait(
+          showDeviceProcessLoadingDialog,
+        );
+      } else {
+        void showDeviceProcessLoadingDialog();
+      }
 
       let features: IOneKeyDeviceFeatures | undefined;
       let deviceState: IOneKeyDeviceState;

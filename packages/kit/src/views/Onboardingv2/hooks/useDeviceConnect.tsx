@@ -1037,9 +1037,17 @@ export function useDeviceConnect({
         connectProtocol: resolvedConnectProtocol,
       });
       const currentDevice = getActiveDevice() ?? device;
-      void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
-        connectId: currentDevice.connectId ?? '',
-      });
+      const showDeviceProcessLoadingDialog = () =>
+        backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
+          connectId: currentDevice.connectId ?? '',
+        });
+      if (platformEnv.isNativeIOS) {
+        await hardwareUiStateDialogLifecycle.openAndWait(
+          showDeviceProcessLoadingDialog,
+        );
+      } else {
+        void showDeviceProcessLoadingDialog();
+      }
 
       let features: IOneKeyDeviceFeatures | undefined;
       let deviceState: IOneKeyDeviceState;
