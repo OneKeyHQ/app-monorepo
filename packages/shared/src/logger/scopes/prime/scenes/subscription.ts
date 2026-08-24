@@ -178,6 +178,37 @@ export class PrimeSubscriptionScene extends BaseScene {
     };
   }
 
+  /** Track when a logged-in user opens the Prime redemption dialog. */
+  @LogToServer()
+  public primeRedemptionEntryClick({
+    isPrimeActiveBeforeRedeem,
+  }: {
+    isPrimeActiveBeforeRedeem: boolean;
+  }) {
+    return { isPrimeActiveBeforeRedeem };
+  }
+
+  /** Track the user-visible result without sending the redemption code. */
+  @LogToServer()
+  public primeRedemptionResult({
+    result,
+    isPrimeActiveBeforeRedeem,
+    addedDays,
+    errorCode,
+  }: {
+    result: 'success' | 'failed';
+    isPrimeActiveBeforeRedeem: boolean;
+    addedDays?: number;
+    errorCode?: number;
+  }) {
+    return {
+      result,
+      isPrimeActiveBeforeRedeem,
+      addedDays,
+      errorCode,
+    };
+  }
+
   /**
    * Prime subscribe button click
    * Triggered when user taps the subscribe button on PrimeDashboard, before the
