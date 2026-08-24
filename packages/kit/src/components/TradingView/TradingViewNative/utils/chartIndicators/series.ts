@@ -1,4 +1,8 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type {
+  ITradingViewNativeIndicatorSettingsItem,
+  ITradingViewNativeMainIndicatorId,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import { buildTradingViewNativeBollSeries } from './boll';
 import { buildTradingViewNativeEmaSeries } from './ema';
@@ -24,16 +28,28 @@ const INDICATOR_SERIES_BUILDERS = {
 
 export function buildTradingViewNativeIndicatorSeries({
   activeIndicatorValues,
+  indicatorSettings,
   points,
 }: {
   activeIndicatorValues: ReadonlySet<string>;
+  indicatorSettings?: Partial<
+    Record<
+      ITradingViewNativeMainIndicatorId,
+      ITradingViewNativeIndicatorSettingsItem
+    >
+  >;
   points: readonly IMarketTokenKLineDataPoint[];
 }): ITradingViewNativeIndicatorSeries[] {
   const series: ITradingViewNativeIndicatorSeries[] = [];
 
   for (const indicator of TRADING_VIEW_NATIVE_INDICATORS) {
     if (activeIndicatorValues.has(indicator)) {
-      series.push(...INDICATOR_SERIES_BUILDERS[indicator](points));
+      series.push(
+        ...INDICATOR_SERIES_BUILDERS[indicator](
+          points,
+          indicatorSettings?.[indicator],
+        ),
+      );
     }
   }
 

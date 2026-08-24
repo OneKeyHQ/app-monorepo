@@ -69,7 +69,8 @@ export interface ITradingViewNativeProps {
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
-  maxNativeSubIndicatorCount?: number;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
