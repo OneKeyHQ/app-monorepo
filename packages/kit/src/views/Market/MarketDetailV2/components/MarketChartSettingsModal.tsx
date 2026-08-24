@@ -22,6 +22,7 @@ const NATIVE_HIDDEN_APPEARANCE_SECTION_IDS = [
   ITradingViewChartSettingsProps['hiddenAppearanceSectionIds']
 >;
 const NATIVE_HIDDEN_OPTION_IDS = [
+  'countdown',
   'depth',
   'futureEvents',
   'pastEvents',
