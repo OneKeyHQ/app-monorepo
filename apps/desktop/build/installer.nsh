@@ -27,9 +27,9 @@ Var OneKeyModernIsInner
   Var OneKeyModernAccepted
   Var OneKeyModernStartAppArgs
 
-# Snapshot the registry-backed state after electron-builder has resolved it in
-# initMultiUser. Command-line /allusers and /currentuser flags affect the
-# effective mode, but do not turn a fresh installation into an upgrade.
+# Read the persisted installation state independently from initMultiUser's
+# effective mode. A fresh install still receives a default directory there,
+# which must not be mistaken for an existing installation.
 !macro customInit
   StrCpy $OneKeyModernInstallScope ""
   StrCpy $OneKeyModernExplicitScope ""
@@ -43,8 +43,10 @@ Var OneKeyModernIsInner
   StrCpy $OneKeyModernChosenDirectory ""
   StrCpy $OneKeyModernPerUserChosenDirectory ""
   StrCpy $OneKeyModernPerMachineChosenDirectory ""
-  StrCpy $OneKeyModernPerUserDirectory "$perUserInstallationFolder"
-  StrCpy $OneKeyModernPerMachineDirectory "$perMachineInstallationFolder"
+  StrCpy $OneKeyModernPerUserDirectory ""
+  StrCpy $OneKeyModernPerMachineDirectory ""
+  ReadRegStr $OneKeyModernPerUserDirectory HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ReadRegStr $OneKeyModernPerMachineDirectory HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
 
   ${If} ${UAC_IsInnerInstance}
     StrCpy $OneKeyModernIsInner "1"
@@ -55,13 +57,19 @@ Var OneKeyModernIsInner
     StrCpy $OneKeyModernIsAdmin "1"
   ${EndIf}
 
-  ${If} $perUserInstallationFolder != ""
+  ${If} $OneKeyModernPerUserDirectory != ""
+  ${AndIf} ${FileExists} "$OneKeyModernPerUserDirectory\${UNINSTALL_FILENAME}"
     StrCpy $OneKeyModernHadPerUser "1"
     StrCpy $OneKeyModernWasInstalled "1"
+  ${Else}
+    StrCpy $OneKeyModernPerUserDirectory ""
   ${EndIf}
-  ${If} $perMachineInstallationFolder != ""
+  ${If} $OneKeyModernPerMachineDirectory != ""
+  ${AndIf} ${FileExists} "$OneKeyModernPerMachineDirectory\${UNINSTALL_FILENAME}"
     StrCpy $OneKeyModernHadPerMachine "1"
     StrCpy $OneKeyModernWasInstalled "1"
+  ${Else}
+    StrCpy $OneKeyModernPerMachineDirectory ""
   ${EndIf}
 
   ${GetParameters} $0
@@ -274,7 +282,8 @@ FunctionEnd
       Pop $0
       StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
-    ${ElseIf} $OneKeyModernUninstallAccepted != "1"
+    ${ElseIfNot} ${Silent}
+    ${AndIf} $OneKeyModernUninstallAccepted != "1"
       !insertmacro OneKeyModernExtractTheme
       !insertmacro OneKeyModernSelectLocale
       nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
