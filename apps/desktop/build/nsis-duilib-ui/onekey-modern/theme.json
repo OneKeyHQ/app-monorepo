@@ -17,6 +17,7 @@
     "installing": "pages/installing.xml",
     "confirmExit": "pages/confirm-exit.xml",
     "finish": "pages/finish.xml",
+    "uninstallWelcome": "pages/uninstall-welcome.xml",
     "uninstalling": "pages/uninstalling.xml",
     "uninstallFinish": "pages/uninstall-finish.xml",
     "uninstallError": "pages/uninstall-error.xml",

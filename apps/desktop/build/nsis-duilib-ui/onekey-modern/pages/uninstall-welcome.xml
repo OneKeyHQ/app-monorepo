@@ -15,16 +15,17 @@
         <Control width="6" />
         <CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
       </HorizontalLayout>
-      <VerticalLayout inset="145,70,145,34">
-        <HorizontalLayout height="82"><Control /><SuccessMark width="82" height="82" accentcolor="{{color.brand}}" inkcolor="{{color.textPrimary}}" /><Control /></HorizontalLayout>
-        <Control height="22" />
-        <Label text="{{string.finish.title}}" font="1" textcolor="{{color.textPrimary}}" height="44" align="center" />
-        <Label text="{{string.finish.subtitle}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
-        <Control height="34" />
-        <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.finish.launch}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
+      <VerticalLayout inset="180,54,180,44">
+        <HorizontalLayout height="82"><Control /><BrandMark width="82" height="82" brandcolor="{{color.brand}}" /><Control /></HorizontalLayout>
         <Control height="28" />
-        <Label text="{{string.finish.safeHint}}" textcolor="{{color.textSecondary}}" height="26" align="center" />
-        <Label text="OneKey {{runtime.version}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
+        <Label text="{{string.uninstall.confirmTitle}}" font="1" textcolor="{{color.textPrimary}}" height="42" align="center" />
+        <Label text="{{string.uninstall.confirmSubtitle}}" textcolor="{{color.textSecondary}}" height="54" align="center" />
+        <Control height="24" />
+        <HorizontalLayout height="48">
+          <Button name="cancel" text="{{string.uninstall.cancel}}" textcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" hotbordercolor="{{color.brand}}" bordersize="1" borderround="11,11" font="3" />
+          <Control width="14" />
+          <Button name="primary" text="{{string.uninstall.confirm}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" borderround="11,11" font="3" />
+        </HorizontalLayout>
         <Control />
       </VerticalLayout>
     </VerticalLayout>

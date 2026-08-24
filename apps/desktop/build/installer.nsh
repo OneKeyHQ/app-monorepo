@@ -9,6 +9,7 @@
 Var OneKeyModernUiActive
 Var OneKeyModernLocale
 Var OneKeyModernResult
+Var OneKeyModernIsInner
 
 !ifndef BUILD_UNINSTALLER
   Var OneKeyModernInstallScope
@@ -17,9 +18,13 @@ Var OneKeyModernResult
   Var OneKeyModernHadPerMachine
   Var OneKeyModernExplicitScope
   Var OneKeyModernDisabled
-  Var OneKeyModernIsInner
+  Var OneKeyModernIsAdmin
   Var OneKeyModernPerUserDirectory
   Var OneKeyModernPerMachineDirectory
+  Var OneKeyModernPerUserChosenDirectory
+  Var OneKeyModernPerMachineChosenDirectory
+  Var OneKeyModernChosenDirectory
+  Var OneKeyModernAccepted
   Var OneKeyModernStartAppArgs
 
 # Snapshot the registry-backed state after electron-builder has resolved it in
@@ -29,15 +34,25 @@ Var OneKeyModernResult
   StrCpy $OneKeyModernInstallScope ""
   StrCpy $OneKeyModernExplicitScope ""
   StrCpy $OneKeyModernDisabled "0"
+  StrCpy $OneKeyModernIsAdmin "0"
   StrCpy $OneKeyModernHadPerUser "0"
   StrCpy $OneKeyModernHadPerMachine "0"
   StrCpy $OneKeyModernWasInstalled "0"
   StrCpy $OneKeyModernIsInner "0"
+  StrCpy $OneKeyModernAccepted "0"
+  StrCpy $OneKeyModernChosenDirectory ""
+  StrCpy $OneKeyModernPerUserChosenDirectory ""
+  StrCpy $OneKeyModernPerMachineChosenDirectory ""
   StrCpy $OneKeyModernPerUserDirectory "$perUserInstallationFolder"
   StrCpy $OneKeyModernPerMachineDirectory "$perMachineInstallationFolder"
 
   ${If} ${UAC_IsInnerInstance}
     StrCpy $OneKeyModernIsInner "1"
+    !insertmacro UAC_AsUser_GetGlobal $OneKeyModernAccepted $OneKeyModernAccepted
+    !insertmacro UAC_AsUser_GetGlobal $OneKeyModernChosenDirectory $OneKeyModernChosenDirectory
+  ${EndIf}
+  ${If} ${UAC_IsAdmin}
+    StrCpy $OneKeyModernIsAdmin "1"
   ${EndIf}
 
   ${If} $perUserInstallationFolder != ""
@@ -57,6 +72,29 @@ Var OneKeyModernResult
   ${GetOptions} $0 "/currentuser" $1
   ${IfNot} ${Errors}
     StrCpy $OneKeyModernExplicitScope "current"
+  ${EndIf}
+
+  # Fresh-install preview paths are display-only until the hidden install-mode
+  # page authoritatively resolves the selected scope. Only an explicitly
+  # browsed directory is written back after that page.
+  ${If} $OneKeyModernPerUserDirectory == ""
+    StrCpy $OneKeyModernPerUserDirectory "$LocalAppData\Programs\${APP_FILENAME}"
+  ${EndIf}
+  ${If} $OneKeyModernPerMachineDirectory == ""
+    StrCpy $0 "$PROGRAMFILES"
+    !ifdef APP_64
+      ${If} ${RunningX64}
+        StrCpy $0 "$PROGRAMFILES64"
+      ${EndIf}
+    !endif
+    !ifdef MENU_FILENAME
+      StrCpy $0 "$0\${MENU_FILENAME}"
+    !endif
+    StrCpy $OneKeyModernPerMachineDirectory "$0\${APP_FILENAME}"
+  ${EndIf}
+
+  ${If} $OneKeyModernExplicitScope != ""
+    StrCpy $OneKeyModernAccepted "1"
   ${EndIf}
 !macroend
 
@@ -157,8 +195,63 @@ FunctionEnd
 
 !ifdef BUILD_UNINSTALLER
 
-  !macro customUnInstall
+  Var OneKeyModernUninstallAccepted
+  !define removeDefaultUninstallWelcomePage
+  !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
+  Function un.OneKeyModernOnGuiInit
     ${IfNot} ${Silent}
+    ${AndIf} $OneKeyModernUiActive == "1"
+      ShowWindow $HWNDPARENT ${SW_HIDE}
+    ${EndIf}
+  FunctionEnd
+
+  Function un.OneKeyModernUninstallInstFilesPre
+    ${If} $OneKeyModernUiActive == "1"
+      nsis-duilib-ui::ConcealHost
+      Pop $OneKeyModernResult
+      ShowWindow $HWNDPARENT ${SW_HIDE}
+    ${EndIf}
+  FunctionEnd
+
+  Function un.OneKeyModernUninstallInstFilesShow
+    ${If} $OneKeyModernUiActive == "1"
+      nsis-duilib-ui::ConcealHost
+      Pop $OneKeyModernResult
+      ShowWindow $HWNDPARENT ${SW_HIDE}
+    ${EndIf}
+  FunctionEnd
+
+  !macro customUninstallInstFilesPage
+    !define MUI_PAGE_CUSTOMFUNCTION_PRE un.OneKeyModernUninstallInstFilesPre
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.OneKeyModernUninstallInstFilesShow
+    !insertmacro MUI_UNPAGE_INSTFILES
+  !macroend
+
+  # The uninstaller path identifies the exact per-user or per-machine entry
+  # launched by Windows, so the native scope page never needs to be displayed.
+  !macro customInstallMode
+    ${If} $EXEDIR == $perMachineInstallationFolder
+      StrCpy $isForceMachineInstall "1"
+    ${ElseIf} $EXEDIR == $perUserInstallationFolder
+      StrCpy $isForceCurrentInstall "1"
+    ${EndIf}
+  !macroend
+
+  # This hook runs before initMultiUser can elevate a per-machine uninstall.
+  # The modern confirmation therefore remains the first visible frame.
+  !macro customUnPreInit
+    StrCpy $OneKeyModernUiActive "0"
+    StrCpy $OneKeyModernIsInner "0"
+    StrCpy $OneKeyModernUninstallAccepted "0"
+    ${If} ${UAC_IsInnerInstance}
+      StrCpy $OneKeyModernIsInner "1"
+      !insertmacro UAC_AsUser_GetGlobal $OneKeyModernUninstallAccepted $OneKeyModernUninstallAccepted
+    ${EndIf}
+
+    ${IfNot} ${Silent}
+    ${AndIf} $OneKeyModernUninstallAccepted == "1"
+      # The elevated inner process owns a different native host. Conceal it and
+      # recreate the modern progress page before initMultiUser can display it.
       !insertmacro OneKeyModernExtractTheme
       !insertmacro OneKeyModernSelectLocale
       nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
@@ -174,11 +267,108 @@ FunctionEnd
       ${If} $OneKeyModernResult == "ok"
         StrCpy $OneKeyModernUiActive "1"
         ShowWindow $HWNDPARENT ${SW_HIDE}
+        Goto OneKeyModernUnPreInitDone
+      ${EndIf}
+
+      nsis-duilib-ui::Shutdown
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
+      ShowWindow $HWNDPARENT ${SW_SHOW}
+    ${ElseIf} $OneKeyModernUninstallAccepted != "1"
+      !insertmacro OneKeyModernExtractTheme
+      !insertmacro OneKeyModernSelectLocale
+      nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::SetPage "uninstallWelcome"
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        StrCpy $OneKeyModernUiActive "1"
+        ShowWindow $HWNDPARENT ${SW_HIDE}
+        nsis-duilib-ui::WaitForEvent
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult == "primary"
+          StrCpy $OneKeyModernUninstallAccepted "1"
+          nsis-duilib-ui::SetPage "uninstalling"
+          Pop $OneKeyModernResult
+          ${If} $OneKeyModernResult == "ok"
+            nsis-duilib-ui::Show
+            Pop $OneKeyModernResult
+          ${EndIf}
+          ${If} $OneKeyModernResult == "ok"
+            ShowWindow $HWNDPARENT ${SW_HIDE}
+            Goto OneKeyModernUnPreInitDone
+          ${EndIf}
+        ${Else}
+          nsis-duilib-ui::ShutdownHidden
+          Pop $0
+          StrCpy $OneKeyModernUiActive "0"
+          Quit
+        ${EndIf}
+      ${EndIf}
+
+      nsis-duilib-ui::Shutdown
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
+      ShowWindow $HWNDPARENT ${SW_SHOW}
+    ${EndIf}
+
+  OneKeyModernUnPreInitDone:
+  !macroend
+
+  !macro customUnInit
+    ${IfNot} ${Silent}
+    ${AndIf} $OneKeyModernUninstallAccepted == "1"
+      ${If} $OneKeyModernUiActive != "1"
+        !insertmacro OneKeyModernExtractTheme
+        !insertmacro OneKeyModernSelectLocale
+        nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult == "ok"
+          StrCpy $OneKeyModernUiActive "1"
+        ${EndIf}
       ${Else}
-        StrCpy $OneKeyModernUiActive "0"
+        StrCpy $OneKeyModernResult "ok"
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::SetPage "uninstalling"
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult == "ok"
+        StrCpy $OneKeyModernUiActive "1"
+        ShowWindow $HWNDPARENT ${SW_HIDE}
+      ${Else}
         nsis-duilib-ui::Shutdown
         Pop $0
         ShowWindow $HWNDPARENT ${SW_SHOW}
+      ${EndIf}
+    ${EndIf}
+  !macroend
+
+  !macro customUnInstall
+    ${If} $OneKeyModernUiActive == "1"
+      nsis-duilib-ui::SetPage "uninstalling"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+      ${EndIf}
+      ${If} $OneKeyModernResult != "ok"
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+        ShowWindow $HWNDPARENT ${SW_SHOW}
+      ${Else}
+        ShowWindow $HWNDPARENT ${SW_HIDE}
       ${EndIf}
     ${EndIf}
   !macroend
@@ -243,13 +433,16 @@ FunctionEnd
 !else
 
   !macro customWelcomePage
-    Page custom OneKeyModernScopeStart
+    !insertmacro OneKeyModernWelcomeFunction
+    Page custom OneKeyModernWelcomeStart
   !macroend
 
-  # This page runs after initMultiUser resolved both registry locations, but
-  # before electron-builder's hidden install-mode page performs elevation.
-  Function OneKeyModernScopeStart
+  # One modern page owns the fresh-install decision. Quick install defaults to
+  # the current user; advanced scope and directory choices expand in place.
+  !macro OneKeyModernWelcomeFunction
+  Function OneKeyModernWelcomeStart
     ${If} ${Silent}
+    ${OrIf} $OneKeyModernDisabled == "1"
       Abort
     ${EndIf}
     ${If} $OneKeyModernIsInner == "1"
@@ -271,7 +464,7 @@ FunctionEnd
       ${If} $OneKeyModernWasInstalled == "1"
         nsis-duilib-ui::SetPage "upgradeScope"
       ${Else}
-        nsis-duilib-ui::SetPage "scope"
+        nsis-duilib-ui::SetPage "welcome"
       ${EndIf}
       Pop $OneKeyModernResult
     ${EndIf}
@@ -288,33 +481,133 @@ FunctionEnd
       Pop $OneKeyModernResult
     ${EndIf}
     ${If} $OneKeyModernResult == "ok"
+      StrCpy $OneKeyModernUiActive "1"
       ShowWindow $HWNDPARENT ${SW_HIDE}
     ${Else}
       nsis-duilib-ui::Shutdown
       Pop $0
       StrCpy $OneKeyModernDisabled "1"
+      StrCpy $OneKeyModernUiActive "0"
       ShowWindow $HWNDPARENT ${SW_SHOW}
       Abort
     ${EndIf}
 
+  OneKeyModernWelcomeLoop:
     nsis-duilib-ui::WaitForEvent
     Pop $OneKeyModernResult
-    ${If} $OneKeyModernResult == "scope-current"
-      StrCpy $OneKeyModernInstallScope "current"
-    ${ElseIf} $OneKeyModernResult == "scope-all"
-      StrCpy $OneKeyModernInstallScope "all"
-    ${Else}
-      nsis-duilib-ui::Shutdown
+    ${If} $OneKeyModernResult == "browse-current"
+      ${If} $OneKeyModernWasInstalled == "1"
+        Goto OneKeyModernWelcomeLoop
+      ${EndIf}
+      ClearErrors
+      nsDialogs::SelectFolderDialog "$(^DirText)" "$OneKeyModernPerUserDirectory"
       Pop $0
+      ${IfNot} ${Errors}
+      ${AndIf} $0 != ""
+      ${AndIf} $0 != "error"
+        StrCpy $OneKeyModernPerUserDirectory "$0"
+        StrCpy $OneKeyModernPerUserChosenDirectory "$0"
+        nsis-duilib-ui::SetPerUserInstallDirectory "$0"
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult != "ok"
+          Goto OneKeyModernWelcomeFallback
+        ${EndIf}
+      ${EndIf}
+      nsis-duilib-ui::Show
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult != "ok"
+        Goto OneKeyModernWelcomeFallback
+      ${EndIf}
+      ShowWindow $HWNDPARENT ${SW_HIDE}
+      Goto OneKeyModernWelcomeLoop
+    ${ElseIf} $OneKeyModernResult == "browse-all"
+      ${If} $OneKeyModernWasInstalled == "1"
+        Goto OneKeyModernWelcomeLoop
+      ${EndIf}
+      ClearErrors
+      nsDialogs::SelectFolderDialog "$(^DirText)" "$OneKeyModernPerMachineDirectory"
+      Pop $0
+      ${IfNot} ${Errors}
+      ${AndIf} $0 != ""
+      ${AndIf} $0 != "error"
+        StrCpy $OneKeyModernPerMachineDirectory "$0"
+        StrCpy $OneKeyModernPerMachineChosenDirectory "$0"
+        nsis-duilib-ui::SetPerMachineInstallDirectory "$0"
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult != "ok"
+          Goto OneKeyModernWelcomeFallback
+        ${EndIf}
+      ${EndIf}
+      nsis-duilib-ui::Show
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult != "ok"
+        Goto OneKeyModernWelcomeFallback
+      ${EndIf}
+      ShowWindow $HWNDPARENT ${SW_HIDE}
+      Goto OneKeyModernWelcomeLoop
+    ${ElseIf} $OneKeyModernResult == "primary-current"
+    ${OrIf} $OneKeyModernResult == "scope-current"
+      StrCpy $OneKeyModernInstallScope "current"
+      ${If} $OneKeyModernWasInstalled == "0"
+        StrCpy $OneKeyModernAccepted "1"
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerUserChosenDirectory"
+      ${EndIf}
+      Goto OneKeyModernWelcomeProceed
+    ${ElseIf} $OneKeyModernResult == "primary-all"
+    ${OrIf} $OneKeyModernResult == "scope-all"
+      StrCpy $OneKeyModernInstallScope "all"
+      ${If} $OneKeyModernWasInstalled == "0"
+        StrCpy $OneKeyModernAccepted "1"
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerMachineChosenDirectory"
+      ${EndIf}
+
+      ${If} $OneKeyModernIsAdmin != "1"
+        nsis-duilib-ui::Hide
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult != "ok"
+          Goto OneKeyModernWelcomeFallback
+        ${EndIf}
+        !insertmacro UAC_RunElevated
+        ${If} $0 == 0
+        ${AndIf} $1 == 1
+          Quit
+        ${EndIf}
+        ${If} $0 == 0
+        ${AndIf} $3 != 0
+          Goto OneKeyModernWelcomeProceed
+        ${EndIf}
+        nsis-duilib-ui::Show
+        Pop $OneKeyModernResult
+        ${If} $OneKeyModernResult != "ok"
+          Goto OneKeyModernWelcomeFallback
+        ${EndIf}
+        ShowWindow $HWNDPARENT ${SW_HIDE}
+        Goto OneKeyModernWelcomeLoop
+      ${EndIf}
+      Goto OneKeyModernWelcomeProceed
+    ${Else}
+      nsis-duilib-ui::ShutdownHidden
+      Pop $0
+      StrCpy $OneKeyModernUiActive "0"
       Quit
     ${EndIf}
 
-    nsis-duilib-ui::Shutdown
+  OneKeyModernWelcomeProceed:
+    nsis-duilib-ui::ShutdownHidden
     Pop $0
     StrCpy $OneKeyModernUiActive "0"
     ShowWindow $HWNDPARENT ${SW_HIDE}
     Abort
+
+  OneKeyModernWelcomeFallback:
+    nsis-duilib-ui::Shutdown
+    Pop $0
+    StrCpy $OneKeyModernUiActive "0"
+    StrCpy $OneKeyModernDisabled "1"
+    ShowWindow $HWNDPARENT ${SW_SHOW}
+    Abort
   FunctionEnd
+  !macroend
 
   !macro customPageAfterChangeDir
     Page custom OneKeyModernInstallStart
@@ -345,14 +638,18 @@ FunctionEnd
     !insertmacro MUI_PAGE_FINISH
   !macroend
 
-  # This page deliberately runs after the hidden install-mode page. At this
-  # point $INSTDIR contains the selected scope's registry/default path, so a
-  # fresh directory choice cannot be overwritten by setInstallModePerUser or
-  # setInstallModePerAllUsers. Upgrade paths remain read-only.
+  # This page runs after the hidden install-mode page. Its default path and
+  # scope remain authoritative; only a non-empty directory explicitly chosen
+  # on the modern welcome page is written back here.
   Function OneKeyModernInstallStart
     ${If} ${Silent}
     ${OrIf} $OneKeyModernDisabled == "1"
       Abort
+    ${EndIf}
+
+    ${If} $OneKeyModernWasInstalled == "0"
+    ${AndIf} $OneKeyModernChosenDirectory != ""
+      StrCpy $INSTDIR "$OneKeyModernChosenDirectory"
     ${EndIf}
 
     !insertmacro OneKeyModernExtractTheme
@@ -360,10 +657,10 @@ FunctionEnd
     nsis-duilib-ui::Init "$PLUGINSDIR\onekey-modern" "$OneKeyModernLocale" "${VERSION}"
     Pop $OneKeyModernResult
     ${If} $OneKeyModernResult == "ok"
-      ${If} $OneKeyModernWasInstalled == "1"
-        nsis-duilib-ui::SetPage "upgrade"
+      ${If} $OneKeyModernAccepted == "1"
+        nsis-duilib-ui::SetPage "installing"
       ${Else}
-        nsis-duilib-ui::SetPage "welcome"
+        nsis-duilib-ui::SetPage "upgrade"
       ${EndIf}
       Pop $OneKeyModernResult
     ${EndIf}
@@ -382,25 +679,18 @@ FunctionEnd
       Goto OneKeyModernInstallFallback
     ${EndIf}
 
-  OneKeyModernWelcomeLoop:
+    ${If} $OneKeyModernAccepted == "1"
+      nsis-duilib-ui::ResetProgress "0"
+      Pop $OneKeyModernResult
+      ${If} $OneKeyModernResult == "ok"
+        Abort
+      ${EndIf}
+      Goto OneKeyModernInstallFallback
+    ${EndIf}
+
     nsis-duilib-ui::WaitForEvent
     Pop $OneKeyModernResult
-    ${If} $OneKeyModernResult == "browse"
-      ${If} $OneKeyModernWasInstalled == "1"
-        Goto OneKeyModernWelcomeLoop
-      ${EndIf}
-      nsDialogs::SelectFolderDialog "$(^DirText)" "$INSTDIR"
-      Pop $0
-      ${If} $0 != ""
-        StrCpy $INSTDIR "$0"
-        nsis-duilib-ui::SetInstallDirectory "$INSTDIR"
-        Pop $OneKeyModernResult
-        ${If} $OneKeyModernResult != "ok"
-          Goto OneKeyModernInstallFallback
-        ${EndIf}
-      ${EndIf}
-      Goto OneKeyModernWelcomeLoop
-    ${ElseIf} $OneKeyModernResult == "primary"
+    ${If} $OneKeyModernResult == "primary"
       nsis-duilib-ui::ResetProgress "0"
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult == "ok"
@@ -412,8 +702,9 @@ FunctionEnd
       ${EndIf}
       Goto OneKeyModernInstallFallback
     ${Else}
-      nsis-duilib-ui::Shutdown
+      nsis-duilib-ui::ShutdownHidden
       Pop $0
+      StrCpy $OneKeyModernUiActive "0"
       Quit
     ${EndIf}
 

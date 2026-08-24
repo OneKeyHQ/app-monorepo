@@ -11,9 +11,9 @@
         <BrandMark width="28" height="28" brandcolor="{{color.brand}}" />
         <Label text="OneKey" font="2" textcolor="{{color.textPrimary}}" width="82" padding="9,0,0,0" />
         <Label name="version" text="{{runtime.version}}" textcolor="{{color.textSecondary}}" />
-        <Button name="minbtn" text="—" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" width="36" height="34" borderround="10,10" />
+        <CaptionButton name="minbtn" kind="minimize" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
         <Control width="6" />
-        <Button name="closebtn" text="×" textcolor="{{color.textSecondary}}" hottextcolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" width="36" height="34" borderround="10,10" font="2" />
+        <CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
       </HorizontalLayout>
       <VerticalLayout inset="155,54,155,44">
         <GlassPanel height="370" bkcolor="{{color.heroSurface}}" bordercolor="{{color.border}}" bordersize="1" borderround="18,18" inset="52,38,52,36">
