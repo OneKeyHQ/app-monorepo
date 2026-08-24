@@ -1,4 +1,5 @@
 {
+  "confirmExit.title":"OneKey 설치를 종료할까요?","confirmExit.description":"설치가 아직 진행 중입니다. 지금 종료하면 완료되지 않을 수 있습니다.","confirmExit.stay":"설치 계속","confirmExit.confirm":"설치 종료",
   "window.close": "닫기", "window.minimize": "최소화",
   "install.title": "OneKey 설치 중", "install.subtitle": "애플리케이션 구성 요소를 준비하는 중…", "install.status": "업데이트를 준비하는 중…", "install.cancel": "취소", "install.version": "버전 {version}",
   "finish.title": "설치 완료", "finish.subtitle": "OneKey를 사용할 준비가 되었습니다", "finish.launch": "OneKey 열기",

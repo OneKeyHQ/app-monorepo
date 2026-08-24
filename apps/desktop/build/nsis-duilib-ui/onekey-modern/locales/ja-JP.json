@@ -1,4 +1,5 @@
 {
+  "confirmExit.title":"OneKey セットアップを終了しますか？","confirmExit.description":"インストールはまだ進行中です。今終了すると、完了しない可能性があります。","confirmExit.stay":"インストールを続行","confirmExit.confirm":"インストールを終了",
   "window.close": "閉じる", "window.minimize": "最小化",
   "install.title": "OneKey をインストールしています", "install.subtitle": "アプリケーションのコンポーネントを準備しています…", "install.status": "アップデートを準備しています…", "install.cancel": "キャンセル", "install.version": "バージョン {version}",
   "finish.title": "インストール完了", "finish.subtitle": "OneKey を使用できます", "finish.launch": "OneKey を開く",

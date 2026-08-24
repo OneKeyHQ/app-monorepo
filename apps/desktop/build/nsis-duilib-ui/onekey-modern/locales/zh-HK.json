@@ -1,6 +1,10 @@
 {
   "window.close": "關閉",
   "window.minimize": "最小化",
+  "confirmExit.title": "要退出 OneKey 安裝程式嗎？",
+  "confirmExit.description": "安裝仍在進行中。現在退出可能會令安裝不完整。",
+  "confirmExit.stay": "繼續安裝",
+  "confirmExit.confirm": "退出安裝",
   "install.title": "正在安裝 OneKey",
   "install.subtitle": "正在準備應用程式元件…",
   "install.status": "正在準備更新…",
