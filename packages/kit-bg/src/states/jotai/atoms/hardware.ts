@@ -48,6 +48,9 @@ export type IHardwareUiPayload = {
   // firmware update progress
   firmwareProgress?: number;
   firmwareProgressType?: 'transferData' | 'installingFirmware';
+  firmwareInstallTargetId?: number;
+  firmwareInstallPhase?: 'prepare' | 'install' | 'verify';
+  firmwareInstallPhaseProgress?: number;
   // generic device data transfer progress
   deviceProgress?: {
     progress?: number;
