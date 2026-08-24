@@ -21,4 +21,3 @@ echo "Syncing web-build to iOS assets..."
 rsync -r -c -v ./web-build/ ../mobile/ios/OneKeyWallet/web-embed/
 
 echo "Postbuild completed successfully."
-

@@ -24,4 +24,20 @@ describe('hardware vendor profile', () => {
       getVendorProfile(EHardwareVendor.ledger).addAccountDefaultNetworkMode,
     ).toBe('ledgerAppAware');
   });
+
+  it('requires a seed check on connectId match only for Ledger', () => {
+    // Only Ledger matches by connectId, so only it needs the seed gate.
+    expect(
+      getVendorProfile(EHardwareVendor.onekey)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(false);
+    expect(
+      getVendorProfile(EHardwareVendor.trezor)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(false);
+    expect(
+      getVendorProfile(EHardwareVendor.ledger)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(true);
+  });
 });

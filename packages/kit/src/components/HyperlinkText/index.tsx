@@ -83,6 +83,16 @@ export function HyperlinkText({
 
   const theIntl = scoped ? getDefaultIntl() : intl;
 
+  // Clamping belongs to the wrapper element only. Spreading it onto the tag
+  // elements too is what made rich text fall apart on web: Tamagui's Text turns
+  // `numberOfLines >= 2` into `display: -webkit-box`, so a nested <bold>/<red>
+  // stopped being inline and broke onto a line of its own, with the runs before
+  // and after it on separate lines again. `ellipse` carries the same kind of
+  // overflow styling, so it is withheld as well. Native is unaffected — its
+  // text engine clamps nested Text without any of this — which is why the
+  // symptom only shows on web and desktop.
+  const { numberOfLines, ellipse, ...inlineTextProps } = basicTextProps;
+
   const text = useMemo(
     () =>
       translationId || defaultMessage
@@ -98,7 +108,7 @@ export function HyperlinkText({
                 const isActionIdString = typeof actionId === 'string';
                 return (
                   <SizableText
-                    {...basicTextProps}
+                    {...inlineTextProps}
                     {...actionTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
@@ -118,7 +128,7 @@ export function HyperlinkText({
                 const isLinkString = typeof link === 'string';
                 return (
                   <SizableText
-                    {...basicTextProps}
+                    {...inlineTextProps}
                     textDecorationLine="underline"
                     {...urlTextProps}
                     cursor="pointer"
@@ -150,7 +160,7 @@ export function HyperlinkText({
               },
               subscripts: ([string]) => (
                 <SizableText
-                  {...basicTextProps}
+                  {...inlineTextProps}
                   fontSize={scriptFontSize}
                   {...subscriptsTextProps}
                 >
@@ -159,7 +169,7 @@ export function HyperlinkText({
               ),
               underline: ([string]) => (
                 <SizableText
-                  {...basicTextProps}
+                  {...inlineTextProps}
                   {...underlineTextProps}
                   textDecorationLine="underline"
                 >
@@ -168,7 +178,7 @@ export function HyperlinkText({
               ),
               bold: ([string]) => (
                 <SizableText
-                  {...basicTextProps}
+                  {...inlineTextProps}
                   {...boldTextProps}
                   fontWeight="600"
                 >
@@ -182,27 +192,27 @@ export function HyperlinkText({
               // a caller that needs an arbitrary color. The tokens are
               // theme-aware, so these follow light/dark on their own.
               red: ([string]) => (
-                <SizableText {...basicTextProps} color="$textCritical">
+                <SizableText {...inlineTextProps} color="$textCritical">
                   {string}
                 </SizableText>
               ),
               green: ([string]) => (
-                <SizableText {...basicTextProps} color="$textSuccess">
+                <SizableText {...inlineTextProps} color="$textSuccess">
                   {string}
                 </SizableText>
               ),
               yellow: ([string]) => (
-                <SizableText {...basicTextProps} color="$textCaution">
+                <SizableText {...inlineTextProps} color="$textCaution">
                   {string}
                 </SizableText>
               ),
               blue: ([string]) => (
-                <SizableText {...basicTextProps} color="$textInfo">
+                <SizableText {...inlineTextProps} color="$textInfo">
                   {string}
                 </SizableText>
               ),
               grey: ([string]) => (
-                <SizableText {...basicTextProps} color="$textSubdued">
+                <SizableText {...inlineTextProps} color="$textSubdued">
                   {string}
                 </SizableText>
               ),
@@ -211,7 +221,7 @@ export function HyperlinkText({
                   {chunks.map((chunk, index) =>
                     typeof chunk === 'string' ? (
                       <SizableText
-                        {...basicTextProps}
+                        {...inlineTextProps}
                         {...textProps}
                         key={index}
                       >
@@ -232,7 +242,7 @@ export function HyperlinkText({
       theIntl,
       values,
       children,
-      basicTextProps,
+      inlineTextProps,
       actionTextProps,
       onAction,
       urlTextProps,

@@ -26,6 +26,18 @@ export class FirmwareUpdateDetectMap {
 
   firstDetectTimeSpan = timerUtils.getTimeDurationMs({ minute: 1 });
 
+  getNextDetectDelay({ connectId }: { connectId: string }) {
+    const now = Date.now();
+    const firstDetectDelay =
+      this.firstDetectTimeSpan - (now - this.firstDetectAt);
+    const lastDetectAt = this.detectMapCache[connectId]?.lastDetectAt;
+    const repeatedDetectDelay = lastDetectAt
+      ? this.detectTimeSpan - (now - lastDetectAt)
+      : 0;
+
+    return Math.max(0, firstDetectDelay, repeatedDetectDelay);
+  }
+
   shouldDetect({ connectId }: { connectId: string }) {
     const now = Date.now();
 

@@ -41,6 +41,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Stored `avatarProvider` in `keylessDetails` during avatar repair and updated avatar rendering to prefer `avatarProvider` before falling back to `keylessProvider`.
 **Catchable by**: Section 4: Type definitions changed -> all consumers updated
 
+## Case: BLE pairing dialog shown while device already paired and communicating
+**Date**: 2026-08-13 | **Platforms**: Desktop (macOS/Windows desktop BLE)
+**Symptom**: Creating a wallet over Bluetooth showed the "Pairing with your device" dialog mid-flow (OK-60091) even though the device was OS-paired and actively communicating on a live Noble session; the dialog's repair then re-scanned and "discovered" the very connectId the caller passed in.
+**Root Cause**: `getCompatibleConnectId` triggered the USB→BLE pairing repair purely from DB bookkeeping (device record missing `bleConnectId` — recreated that way by a USB wallet creation after wallet removal deleted the record), never recognizing the caller's incoming connectId as the live BLE endpoint. DB binding state is neither necessary nor sufficient evidence of OS pairing state.
+**Fix**: Before the dialog fallback, silently verify and persist the caller-held connectId, gated by runtime evidence: id differs from the record's USB identifiers, carried real device traffic within 60s (stamped by DEVICE.STATE/DEVICE.CONNECT, invalidated on DEVICE.DISCONNECT), probed with silentMode (no global error dialog from error constructors), a bounded 10s timeout, and the session's remembered protocol pinned (forced re-detection sends a V2 Ping into an active V1 session, which the device may not answer — SDK error 713); the probed deviceId must match before persisting.
+**Catchable by**: NEW — not covered (interactive dialog triggered from persistence bookkeeping instead of live transport evidence)
+
 ## Case: Perps stuck on "Loading tokens..." after IndexedDB blob corruption
 **Date**: 2026-08-11 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
 **Symptom**: Desktop 6.5.0 user's Perps chart and token selector permanently stuck on "Loading tokens..." across restarts; realtime prices kept updating; mobile unaffected (OK-59997).

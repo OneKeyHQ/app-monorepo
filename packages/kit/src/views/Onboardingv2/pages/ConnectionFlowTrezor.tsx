@@ -24,7 +24,10 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  ThirdPartyWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -281,11 +284,23 @@ export default function TrezorConnectionFlow() {
   // --- Device list data ---
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: ThirdPartyWalletAvatarImages.trezor,
-        device: item,
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const vendorFields = item as SearchDevice & {
+          vendorModel?: string;
+          vendorModelName?: string;
+        };
+        return {
+          title: item.name,
+          src: ThirdPartyWalletAvatarImages.trezor,
+          device: item,
+          avatarImg: getThirdPartyDeviceAvatarImage({
+            vendor: EHardwareVendor.trezor,
+            vendorModel: vendorFields.vendorModel,
+            vendorModelName: vendorFields.vendorModelName,
+            fallback: 'trezor',
+          }),
+        };
+      }),
     [searchedDevices],
   );
 
@@ -309,6 +324,26 @@ export default function TrezorConnectionFlow() {
     async (data: IConnectYourDeviceItem) => {
       if (!data.device) return;
       await ensureStopScan();
+
+      // The fused scan forced the usbOrBle default; pin the picked device's
+      // real transport, or a BLE device keeps a stale WEBUSB and later
+      // resolves the wrong connectId.
+      const transportLabel = getTrezorDeviceTransportLabel(data.device);
+      const selectedChannel =
+        transportLabel === 'BLE'
+          ? EConnectDeviceChannel.bluetooth
+          : EConnectDeviceChannel.usbOrBle;
+      try {
+        const correctedTransportType =
+          await getForceTransportType(selectedChannel);
+        if (correctedTransportType) {
+          await backgroundApiProxy.serviceHardware.setForceTransportType({
+            forceTransportType: correctedTransportType,
+          });
+        }
+      } catch {
+        // Transport pinning is best-effort; never block device selection.
+      }
 
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
@@ -498,7 +533,10 @@ export default function TrezorConnectionFlow() {
                       }}
                       userSelect="none"
                     >
-                      <WalletAvatar wallet={undefined} img="trezor" />
+                      <WalletAvatar
+                        wallet={undefined}
+                        img={data.avatarImg ?? 'trezor'}
+                      />
                       <ListItem.Text primary={data.device?.name} flex={1} />
                     </ListItem>
                   ))}

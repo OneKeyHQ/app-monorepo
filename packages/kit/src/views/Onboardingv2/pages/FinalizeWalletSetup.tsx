@@ -57,6 +57,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -266,6 +267,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
+  const connectProtocol = route?.params?.connectProtocol;
   const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
@@ -592,26 +594,44 @@ function FinalizeWalletSetupPage({
             let featuresForCreate = {
               device_id: thirdPartyDevice?.deviceId || '',
               vendor: deviceData.vendor,
-            } as IOneKeyDeviceFeatures;
+            } as unknown as IOneKeyDeviceFeatures;
             if (
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
             ) {
+              // After a BLE onboarding the DB's main connectId is the deviceId,
+              // which a BLE session cannot resolve (noble connect timeout).
+              // Idempotent when the input is already a BLE address.
+              const compatibleConnectId =
+                await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
+                  {
+                    connectId: thirdPartyDevice.connectId,
+                    featuresDeviceId: thirdPartyDevice.deviceId,
+                    vendor: deviceData.vendor,
+                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                  },
+                );
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
                     vendor: deviceData.vendor,
-                    connectId: thirdPartyDevice.connectId,
+                    connectId:
+                      compatibleConnectId || thirdPartyDevice.connectId,
                   },
                 );
               const connectedFeatures = connected.success
                 ? connected.payload.features
                 : undefined;
+              const legacyConnectedFeatures = connectedFeatures as
+                | {
+                    device_id?: string;
+                  }
+                | undefined;
               const connectedDeviceId =
                 connected.success &&
                 (connected.payload.deviceId ||
-                  (typeof connectedFeatures?.device_id === 'string'
-                    ? connectedFeatures.device_id
+                  (typeof legacyConnectedFeatures?.device_id === 'string'
+                    ? legacyConnectedFeatures.device_id
                     : ''));
               if (!connected.success) {
                 throw getTrezorConnectFailureError(
@@ -620,16 +640,12 @@ function FinalizeWalletSetupPage({
                   intl,
                 );
               }
-              if (!connectedDeviceId) {
-                throw new OneKeyLocalError({
-                  message: intl.formatMessage({
-                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
-                  }),
-                });
-              }
-              // Device has no seed yet — block creation and prompt the user to
-              // set it up first (we can't drive third-party device setup).
-              if (connectedFeatures?.initialized === false) {
+              // No firmware or no seed yet: no device_id exists, so check this
+              // before the device_id guard to show the real reason.
+              if (
+                connectedFeatures?.firmware_present === false ||
+                connectedFeatures?.initialized === false
+              ) {
                 await trackHardwareWalletConnection({
                   status: 'failure',
                   deviceType: thirdPartyDevice.deviceType,
@@ -652,10 +668,17 @@ function FinalizeWalletSetupPage({
                 });
                 return;
               }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                  }),
+                });
+              }
               featuresForCreate = {
                 ...connectedFeatures,
                 device_id: connectedDeviceId,
-              } as IOneKeyDeviceFeatures;
+              } as unknown as IOneKeyDeviceFeatures;
               const rawThirdPartyDevice = (
                 thirdPartyDevice as SearchDevice & {
                   raw?: Record<string, unknown>;
@@ -718,6 +741,7 @@ function FinalizeWalletSetupPage({
           goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
           await connectDevice(deviceData.device as SearchDevice);
           await createHWWallet({
+            connectProtocol,
             device: deviceData.device as SearchDevice,
             isFirmwareVerified,
           });
@@ -768,6 +792,7 @@ function FinalizeWalletSetupPage({
     shouldAutoResetKeylessPinAfterRestore,
     connectDevice,
     createHWWallet,
+    connectProtocol,
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
     hardwareTransportType,
@@ -804,6 +829,14 @@ function FinalizeWalletSetupPage({
   );
 
   const retrySetup = useCallback(() => {
+    // A Safe 7 mints a fresh BLE address each time it re-enters pairing mode, so
+    // the connectId in `deviceData` is dead once an attempt ends — go back and
+    // re-scan instead of retrying it. Other vendors keep in-place retry.
+    if (deviceData?.vendor === EHardwareVendor.trezor) {
+      setSetupError(undefined);
+      navigation.pop();
+      return;
+    }
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
@@ -818,7 +851,7 @@ function FinalizeWalletSetupPage({
     // instead of being short-circuited.
     created.current = false;
     void createWallet();
-  }, [createWallet, initialStep]);
+  }, [createWallet, initialStep, deviceData?.vendor, navigation]);
 
   const { gtMd } = useMedia();
   const theme = useTheme();

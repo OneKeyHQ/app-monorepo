@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
@@ -93,6 +94,8 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Kill switch for fast failover under extreme network conditions.
+  disableIpTableFailover?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
@@ -169,6 +172,7 @@ export const {
       usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      disableIpTableFailover: false, // Fast failover enabled by default
       useFastPbkdf2NativeBackend: false,
     },
   },
@@ -192,6 +196,8 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
+  pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -218,8 +224,23 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    pro2ForceUpdateTargets: [],
+    pro2ForceUpdateOnceTargets: [],
   },
 });
+
+// Firmware update dev settings only take effect while global developer mode is
+// enabled; callers outside ServiceDevSetting must go through this gate too.
+export async function getGatedFirmwareUpdateDevSetting<
+  T extends IFirmwareUpdateDevSettingsKeys,
+>(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
+  const dev = await devSettingsPersistAtom.get();
+  if (!dev.enabled) {
+    return undefined;
+  }
+  const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
+  return fwDev[key];
+}
 
 export type INotificationsDevSettings = {
   showMessagePushSource?: boolean;

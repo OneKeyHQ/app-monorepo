@@ -1089,6 +1089,49 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
+  it('preserves a deprecated wallet during init and auto-select', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const deprecatedWallet = { id: 'hd-1', deprecated: true } as IWallet;
+    const indexedAccount = {
+      id: 'hd-1--0',
+      walletId: 'hd-1',
+    } as IIndexedAccount;
+    mockGetSelectedAccountsMap.mockResolvedValue({ 0: selectedAccount });
+    mockGetWalletSafe.mockResolvedValue(deprecatedWallet);
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: deprecatedWallet,
+        indexedAccount,
+        network: { id: selectedAccount.networkId } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject(selectedAccount);
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockGetAllHdHwQrWallets).not.toHaveBeenCalled();
+  });
+
   it('syncs home when storage init clears an unavailable home-sync source wallet', async () => {
     const staleHomeSelection = {
       ...defaultSelectedAccount(),

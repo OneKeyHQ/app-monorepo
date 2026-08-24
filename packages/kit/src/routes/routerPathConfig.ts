@@ -2,6 +2,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EDAppConnectionModal,
+  EModalFirmwareUpdateRoutes,
   EModalReferFriendsRoutes,
   EModalRewardCenterRoutes,
   EModalRoutes,
@@ -58,6 +59,10 @@ const appUpdatePathConfig = [
     name: EAppUpdateRoutes.UpdatePreview,
     rewrite: '/preview',
   }),
+];
+
+const firmwareUpdatePathConfig = [
+  route({ name: EModalFirmwareUpdateRoutes.ChangeLog }),
 ];
 
 const stakingPathConfig = [
@@ -133,6 +138,10 @@ const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
     name: EModalRoutes.AppUpdateModal,
     rewrite: '/update',
     children: appUpdatePathConfig,
+  }),
+  [EModalRoutes.FirmwareUpdateModal]: route({
+    name: EModalRoutes.FirmwareUpdateModal,
+    children: firmwareUpdatePathConfig,
   }),
   [EModalRoutes.StakingModal]: route({
     name: EModalRoutes.StakingModal,

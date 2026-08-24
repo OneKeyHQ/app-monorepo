@@ -50,7 +50,73 @@ export interface IIpTableRuntime {
   selections: {
     [domain: string]: string; // Currently selected IP for each domain
   };
+  /**
+   * Best IP measured by the most recent speed test per domain, recorded even
+   * when the final selection chose the domain. Used for fast failover when
+   * the direct domain starts failing real traffic.
+   */
+  lastBestIp?: {
+    [domain: string]: string;
+  };
+  /** Provenance of the last successfully verified CDN config */
+  lastVerified?: {
+    at: number;
+    version: number;
+    generatedAt: string;
+    /** FNV-1a correlation hash of the canonical signed payload (not a security hash) */
+    payloadHash: string;
+  };
 }
+
+// ==================== Endpoint Decision (pure selection logic) ====================
+
+export interface IIpTableEndpointDecisionInput {
+  /** Average latency of direct-domain probe; Infinity = all probes failed */
+  domainLatency: number;
+  /** ip -> average latency; Infinity = that ip failed all probes */
+  ipLatencies: Record<string, number>;
+  /** undefined = never selected; '' = domain selected; other = selected ip */
+  currentSelection: string | undefined;
+  /** true when real traffic on direct domain hit the failover threshold */
+  domainFailingRealTraffic: boolean;
+  strictMode: boolean;
+  /** e.g. 0.3 — candidate must be 30% faster to displace current endpoint */
+  improvementThreshold: number;
+}
+
+export type IIpTableEndpointDecision =
+  | {
+      action: 'select_ip';
+      ip: string;
+      reason:
+        | 'strict'
+        | 'domain_probe_failed'
+        | 'domain_failing'
+        | 'faster'
+        | 'sticky';
+    }
+  | {
+      action: 'select_domain';
+      reason: 'all_ip_failed' | 'competitive' | 'sticky' | 'faster';
+    }
+  | { action: 'no_change'; reason: 'all_failed' };
+
+// ==================== Signature Verification (structured result) ====================
+
+export type IIpTableSignatureVerifyFailureReason =
+  | 'missing_signature'
+  | 'verifier_load_failed'
+  | 'malformed_signature'
+  | 'signer_mismatch'
+  | 'unexpected_error';
+
+export type IIpTableSignatureVerifyResult =
+  | { ok: true; recoveredAddress: string }
+  | {
+      ok: false;
+      reason: IIpTableSignatureVerifyFailureReason;
+      errorMessage?: string;
+    };
 
 /**
  * IP Table configuration with runtime state

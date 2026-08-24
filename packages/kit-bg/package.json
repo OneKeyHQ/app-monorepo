@@ -8,7 +8,11 @@
     "fflate": "0.8.2",
     "idb": "^7.1.1",
     "ipaddr.js": "^2.3.0",
-    "miscreant": "^0.3.2"
+    "miscreant": "^0.3.2",
+    "yauzl": "2.10.0"
+  },
+  "devDependencies": {
+    "@types/yauzl": "2.10.3"
   },
   "scripts": {
     "keyless:mock-server:build": "tsc -p tsconfig.keyless-mock-server.json",

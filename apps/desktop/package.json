@@ -9,7 +9,7 @@
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./app/build && rimraf ./app/dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./app/build && rimraf ./app/dist && rimraf ./node_modules/.cache",
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev",
-    "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn dev:rspack",
+    "start:rspack": "cross-env NODE_OPTIONS=\"--max-old-space-size=16384\" yarn dev:rspack",
     "install-app-deps": "electron-builder install-app-deps && node scripts/apply-runtime-patches.js && node scripts/verify-runtime-patches.js",
     "dev": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:rspack": "npx concurrently \"yarn build:main:dev\" \"yarn dev:renderer:rspack\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
