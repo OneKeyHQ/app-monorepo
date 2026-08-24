@@ -51,6 +51,15 @@ const PIN_KEY_ROWS = [
   ['delete', '0', 'confirm'],
 ] as const;
 
+/** The Trezor matrix: the same blind pad minus its 0 — Trezor PINs are
+ * nine positions, so the slot between delete and confirm stays empty. */
+const PIN_KEY_ROWS_NO_ZERO = [
+  ['7', '8', '9'],
+  ['4', '5', '6'],
+  ['1', '2', '3'],
+  ['delete', '', 'confirm'],
+] as const;
+
 type IPinKeyValue = (typeof PIN_KEY_ROWS)[number][number];
 
 const KEY_HOVER = { bg: '$bgStrongHover' } as const;
@@ -133,6 +142,9 @@ export interface IPinPadProps {
    * provide. Presenters that remount per visit just leave it unset.
    */
   resetSignal?: number;
+  /** The Trezor matrix shape: nine positions, no 0 key — the slot
+   * between delete and confirm renders empty. */
+  noZeroKey?: boolean;
 }
 
 export function PinPad({
@@ -140,6 +152,7 @@ export function PinPad({
   onSwitchToDevice,
   error,
   resetSignal,
+  noZeroKey,
 }: IPinPadProps) {
   const [value, setValue] = useState('');
   const valueRef = useRef(value);
@@ -266,11 +279,16 @@ export function PinPad({
           </XStack>
         </Animated.View>
       </YStack>
-      {PIN_KEY_ROWS.map((row) => (
+      {(noZeroKey ? PIN_KEY_ROWS_NO_ZERO : PIN_KEY_ROWS).map((row) => (
         <XStack key={row[0]} gap="$2">
-          {row.map((key) => (
-            <PinKey key={key} value={key} onKey={handleKey} />
-          ))}
+          {row.map((key, keyIndex) =>
+            key === '' ? (
+              // The Trezor matrix's empty slot: space held, no key face.
+              <Stack key={`blank-${keyIndex}`} flex={1} h="$14" />
+            ) : (
+              <PinKey key={key} value={key} onKey={handleKey} />
+            ),
+          )}
         </XStack>
       ))}
       {onSwitchToDevice ? (
