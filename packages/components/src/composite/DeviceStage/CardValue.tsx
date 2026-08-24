@@ -8,24 +8,33 @@ import { SizableText } from '../../primitives';
  * grouped by four, the first and last six characters highlighted. */
 const CARD_GROUP_SIZE = 4;
 const CARD_HIGHLIGHT_ENDS = 6;
+// bodyMd's metrics on the mono face — the size tokens have no mono
+// variants, so the pairing is spelled out.
 const CARD_MONO = {
-  fontSize: 16,
-  lineHeight: 24,
+  fontSize: 14,
+  lineHeight: 20,
   fontFamily: '$monoMedium',
 } as const;
 
+/** The warning value's ink — the stage is committed dark, so the amber
+ * is its own, not a theme token (see the card's own inks in ./index). */
+const WARN_INK = '#E8B341';
+
 /**
- * A payload card row's value, shared by both stage engines. With
- * `highlightEnds` it takes the receive page's address grammar: mono,
- * grouped by four, the first and last six characters highlighted — what
- * the person compares against the device.
+ * A payload card row's value, shared by both stage engines — bodyMd
+ * metrics either way. With `highlightEnds` it takes the receive page's
+ * address grammar: mono, grouped by four, the first and last six
+ * characters highlighted — what the person compares against the device.
+ * `warning` inks the value amber (an unlimited allowance).
  */
 export function CardValue({
   value,
   highlightEnds,
+  warning,
 }: {
   value: string;
   highlightEnds?: boolean;
+  warning?: boolean;
 }) {
   const parts = useMemo(() => {
     if (!highlightEnds || value.length <= CARD_HIGHLIGHT_ENDS * 2) {
@@ -47,8 +56,15 @@ export function CardValue({
     };
   }, [highlightEnds, value]);
   if (!parts) {
+    // One line only — long raw data truncates; the address grammar
+    // below is the one value allowed to wrap (it is the compare
+    // artifact, so no character may go missing).
     return (
-      <SizableText fontSize={15} lineHeight={24}>
+      <SizableText
+        size="$bodyMd"
+        color={warning ? WARN_INK : undefined}
+        numberOfLines={1}
+      >
         {value}
       </SizableText>
     );

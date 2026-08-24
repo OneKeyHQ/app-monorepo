@@ -124,10 +124,10 @@ export const AUTH_NOTE_TEXT = {
 };
 
 /**
- * Wallet grammar: an instruction-first title, one line under. The steps
- * with the device in the picture (see DEVICE_NAMED_STEPS) carry titles
- * only here — their second line is the device's own name, resolved at
- * runtime; the outcome cards keep a line of their own.
+ * Wallet grammar: an instruction-first title, one informative line
+ * under. The device's own name rides the second line nowhere anymore —
+ * on the device-side card steps it wears the corner badge instead (see
+ * DEVICE_BADGE_STEPS), and the capsule keeps it as its own second line.
  */
 export const STEP_TEXT: Record<
   IDeviceStageStep,
@@ -138,20 +138,29 @@ export const STEP_TEXT: Record<
   // Titles name the place only when it is not here: the app is where the
   // person already is, so app-side steps stay bare and device-side steps
   // carry "on device" — the one fact that changes when a step hops sides.
-  enterPin: { title: 'Enter PIN on device' },
+  enterPin: { title: 'Enter PIN on device', sub: 'Unlock your device.' },
   pinOnApp: { title: 'Enter PIN' },
   // The teach-first beat titles itself after the flow it opens (the live
   // dialog's own name). No sub on purpose: the definition line needs an
   // emphasized word — rich text the panel carries itself (see
   // PassphraseIntro).
   passphraseIntro: { title: 'Add hidden wallet' },
-  enterPassphrase: { title: 'Enter passphrase on device' },
+  enterPassphrase: {
+    title: 'Enter passphrase on device',
+    sub: 'Each passphrase opens its own hidden wallet.',
+  },
   passphraseOnApp: { title: 'Enter passphrase' },
   showQr: { title: 'Scan with your device' },
-  scanQr: { title: 'Scan your device screen' },
+  scanQr: {
+    title: 'Scan your device screen',
+    sub: 'Aim at the code your device is showing.',
+  },
   confirm: { title: 'Confirm on device' },
-  genuineCheck: { title: 'Genuine check' },
-  authVerifying: { title: 'Verifying device' },
+  genuineCheck: {
+    title: 'Genuine check',
+    sub: 'Confirm on your device to verify its authenticity and secure your connection.',
+  },
+  authVerifying: { title: 'Verifying device', sub: 'Please wait...' },
   authSuccess: {
     title: 'Verification successful',
     sub: "Your device is now officially verified! You're all set to enjoy a secure and seamless experience.",
@@ -247,20 +256,16 @@ export function resolveInstallText(
 }
 
 /**
- * The steps whose second line is the device's own name — every step with
- * the device in the picture, waits and asks alike, the flow spec's
- * connecting-capsule pairing made the rule. The outcome cards (the
- * authenticity landing and failures, the error) and the teach-first
- * intro keep their own words.
+ * The card steps that wear the device's name as the corner badge — the
+ * ones where the person acts on the physical device, so the card names
+ * which device to reach for. The app-side inputs (PIN, passphrase, the
+ * teach-first intro) and the outcome cards stay bare: the person acts
+ * here, and the badge would name the wrong place.
  */
-export const DEVICE_NAMED_STEPS: ReadonlySet<IDeviceStageStep> =
+export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
   new Set<IDeviceStageStep>([
-    'connecting',
-    'processing',
     'enterPin',
-    'pinOnApp',
     'enterPassphrase',
-    'passphraseOnApp',
     'showQr',
     'scanQr',
     'confirm',
@@ -268,15 +273,9 @@ export const DEVICE_NAMED_STEPS: ReadonlySet<IDeviceStageStep> =
     'authVerifying',
   ]);
 
-/** A step's second line: the device's name where the device is in the
- * picture, the step's own line otherwise — empty when neither exists. */
-export function resolveStepSub(
-  step: IDeviceStageStep,
-  deviceName?: string,
-): string {
-  return (
-    (DEVICE_NAMED_STEPS.has(step) ? deviceName : STEP_TEXT[step].sub) ?? ''
-  );
+/** A step's second line: its own informative line, empty when none. */
+export function resolveStepSub(step: IDeviceStageStep): string {
+  return STEP_TEXT[step].sub ?? '';
 }
 
 /**
@@ -393,36 +392,39 @@ export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
   'authSuccess',
 ];
 
-/** The stage seat's words, resolved: the step's title over the device's
- * name (every staged step has the device in the picture). */
-export function resolveStageText(
-  step: IDeviceStageStep,
-  deviceName?: string,
-): { title: string; sub: string } {
+/** The stage seat's words, resolved: the step's title over its own line
+ * (the device's name lives on the corner badge now). */
+export function resolveStageText(step: IDeviceStageStep): {
+  title: string;
+  sub: string;
+} {
   return {
     title: STEP_TEXT[step].title,
-    sub: resolveStepSub(step, deviceName),
+    sub: resolveStepSub(step),
   };
 }
 
 /** The passphrase panel's words: create mode titles the step after the
- * flow it performs, plain entry keeps the step's own title; the device's
- * name sits under either. */
+ * flow it performs, plain entry keeps the step's own title. No second
+ * line — the app-side input is where the person acts, and the form's
+ * own furniture carries the teaching. */
 export function resolvePassphrasePanelText(
   mode: 'create' | 'verify' | undefined,
-  deviceName?: string,
-): { title: string; sub: string } {
+): {
+  title: string;
+  sub: string;
+} {
   return {
     title:
       mode === 'create'
         ? PASSPHRASE_CREATE_TEXT.title
         : STEP_TEXT.passphraseOnApp.title,
-    sub: resolveStepSub('passphraseOnApp', deviceName),
+    sub: resolveStepSub('passphraseOnApp'),
   };
 }
 
 /** The capsule's words: the live step's title over the device's name —
- * both waiting beats have the device in the picture. The vendor track
+ * the flow spec's connecting-capsule pairing, kept. The vendor track
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. */
 export function resolveCapsuleText(
@@ -441,6 +443,6 @@ export function resolveCapsuleText(
   }
   return {
     title: STEP_TEXT[step].title,
-    sub: resolveStepSub(step, deviceName),
+    sub: deviceName ?? '',
   };
 }
