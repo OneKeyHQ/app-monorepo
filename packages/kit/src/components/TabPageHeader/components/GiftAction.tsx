@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub';
+import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub/ActivityHubAction';
 import { useShowEarnInviteeReward } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/hooks/useShowEarnInviteeReward';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 

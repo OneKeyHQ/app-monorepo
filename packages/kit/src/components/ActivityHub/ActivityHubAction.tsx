@@ -5,13 +5,18 @@ import { useIntl } from 'react-intl';
 import type { IButtonProps } from '@onekeyhq/components';
 import { Popover, useMedia } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ActivityHubContent } from './ActivityHubContent';
 import { getActivityHubLayout } from './layout';
 
 import type { IActivityHubCampaign, IActivityHubSource } from './types';
+
+const LazyActivityHubContent = LazyLoad(async () => {
+  const { ActivityHubContent } = await import('./ActivityHubContent');
+  return { default: ActivityHubContent };
+});
 
 export function ActivityHubAction({
   source,
@@ -80,7 +85,7 @@ export function ActivityHubAction({
         )
       }
       renderContent={({ closePopover }) => (
-        <ActivityHubContent
+        <LazyActivityHubContent
           source={source}
           copyAsUrl={copyAsUrl}
           closePopover={closePopover}

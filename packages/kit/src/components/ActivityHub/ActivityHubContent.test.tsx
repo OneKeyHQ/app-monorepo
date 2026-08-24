@@ -199,7 +199,7 @@ describe('ActivityHubContent', () => {
     },
   ])(
     'pairs the width and tile basis of $host',
-    ({ isNative, campaigns, width, basis }) => {
+    async ({ isNative, campaigns, width, basis }) => {
       platformEnv.isNative = isNative;
 
       render(
@@ -212,7 +212,7 @@ describe('ActivityHubContent', () => {
       );
 
       expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({ width });
-      expect(getShortcutBasis()).toBe(basis);
+      await waitFor(() => expect(getShortcutBasis()).toBe(basis));
     },
   );
 

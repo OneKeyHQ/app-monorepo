@@ -4,10 +4,15 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, useInTabDialog, useMedia } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EarnInviteeRewardContent } from '../EarnInviteeRewardContent';
+const LazyEarnInviteeRewardContent = LazyLoad(async () => {
+  const { EarnInviteeRewardContent } =
+    await import('../EarnInviteeRewardContent');
+  return { default: EarnInviteeRewardContent };
+});
 
 export function useShowEarnInviteeReward() {
   const intl = useIntl();
@@ -19,7 +24,7 @@ export function useShowEarnInviteeReward() {
 
   const showEarnInviteeReward = useCallback(() => {
     const content = (
-      <EarnInviteeRewardContent
+      <LazyEarnInviteeRewardContent
         accountId={account?.id}
         indexedAccountId={indexedAccount?.id}
       />
