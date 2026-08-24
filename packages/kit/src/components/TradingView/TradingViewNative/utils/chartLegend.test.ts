@@ -7,24 +7,34 @@ import {
   getTradingViewNativeVolumeAxisLabel,
 } from './chartLegend';
 
+const CANDLE_LABELS = {
+  close: '收',
+  high: '高',
+  low: '低',
+  open: '开',
+};
+
 describe('TradingViewNative chart legend', () => {
   it('builds colored price and volume values from an up candle', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 123.456_789,
-        h: 125,
-        l: 119.5,
-        o: 120,
-        t: 1,
-        v: 1_250_000,
-      }),
+      getTradingViewNativeChartLegend(
+        {
+          c: 123.456_789,
+          h: 125,
+          l: 119.5,
+          o: 120,
+          t: 1,
+          v: 1_250_000,
+        },
+        CANDLE_LABELS,
+      ),
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: 'O', value: '120.00' },
-        { label: 'H', value: '125.00' },
-        { label: 'L', value: '119.50' },
-        { label: 'C', value: '123.46' },
+        { label: '开', value: '120.00' },
+        { label: '高', value: '125.00' },
+        { label: '低', value: '119.50' },
+        { label: '收', value: '123.46' },
         {
           label: '',
           value: '+3.45679 (+2.88%)',
@@ -37,14 +47,17 @@ describe('TradingViewNative chart legend', () => {
 
   it('uses the down direction when the candle closes below its open', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 9,
-        h: 11,
-        l: 8,
-        o: 10,
-        t: 1,
-        v: 500,
-      }).isUp,
+      getTradingViewNativeChartLegend(
+        {
+          c: 9,
+          h: 11,
+          l: 8,
+          o: 10,
+          t: 1,
+          v: 500,
+        },
+        CANDLE_LABELS,
+      ).isUp,
     ).toBe(false);
   });
 
@@ -59,6 +72,7 @@ describe('TradingViewNative chart legend', () => {
           t: 1,
           v: 500,
         },
+        CANDLE_LABELS,
         'line',
       ),
     ).toEqual({
@@ -81,6 +95,7 @@ describe('TradingViewNative chart legend', () => {
         t: 1,
         v: 10,
       },
+      CANDLE_LABELS,
       'candlestick',
       100,
     );

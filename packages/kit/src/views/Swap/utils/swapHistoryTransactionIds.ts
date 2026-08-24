@@ -2,6 +2,7 @@ import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.co
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -12,6 +13,20 @@ const SECOND_TRANSACTION_ID_HIDDEN_STATUSES = new Set([
   ESwapTxHistoryStatus.CANCELED,
   ESwapTxHistoryStatus.CANCELING,
 ]);
+
+const REFUND_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
+  ESwapCrossChainStatus.REFUNDING,
+  ESwapCrossChainStatus.REFUNDED,
+  ESwapCrossChainStatus.REFUND_FAILED,
+]);
+
+export function isSwapHistoryRefundStatus(
+  crossChainStatus?: ESwapCrossChainStatus,
+) {
+  return Boolean(
+    crossChainStatus && REFUND_CROSS_CHAIN_STATUSES.has(crossChainStatus),
+  );
+}
 
 export type ISwapHistoryTransactionIdKind =
   | 'transaction'
@@ -74,6 +89,9 @@ export function getSwapHistoryTransactionIdRows(
     getTransactionId(item.swapOrderHash?.toTxHash) ??
     getTransactionId(item.txInfo.receiverTransactionId);
   const refundTransactionId = getTransactionId(item.swapOrderHash?.refundHash);
+  const shouldShowRefundTransaction = Boolean(
+    refundTransactionId && isSwapHistoryRefundStatus(item.crossChainStatus),
+  );
 
   const isStandardSwapHistory =
     !item.protocol || item.protocol === EProtocolOfExchange.SWAP;
@@ -91,7 +109,9 @@ export function getSwapHistoryTransactionIdRows(
 
   if (!sourceTransactionId) {
     return buildSingleTransactionIdRow({
-      transactionId: targetTransactionId ?? refundTransactionId,
+      transactionId:
+        targetTransactionId ??
+        (shouldShowRefundTransaction ? refundTransactionId : undefined),
       networkId: targetTransactionId ? toNetworkId : fromNetworkId,
       showExplorer: true,
     });
@@ -108,13 +128,16 @@ export function getSwapHistoryTransactionIdRows(
     isCrossChain ||
     isKnownDualTransactionIdProvider ||
     Boolean(targetTransactionId) ||
-    Boolean(refundTransactionId);
+    shouldShowRefundTransaction;
 
   if (!shouldUseDualTransactionIdLayout) {
+    // Same-chain single-hash swaps link to the explorer from the hash row,
+    // matching the cross-chain layout; the modal then hides the explorer
+    // entry next to the order status automatically.
     return buildSingleTransactionIdRow({
       transactionId: sourceTransactionId,
       networkId: fromNetworkId,
-      showExplorer: false,
+      showExplorer: true,
     });
   }
 
@@ -125,7 +148,7 @@ export function getSwapHistoryTransactionIdRows(
     showExplorer: true,
   };
 
-  if (refundTransactionId) {
+  if (shouldShowRefundTransaction) {
     return [
       sourceRow,
       {

@@ -49,6 +49,7 @@ import { slicePathTemplate } from '../../utils';
 import {
   btcForkVersionBytesToBuffer,
   buildBtcXpubSegwitAsync,
+  findBtcSighashNoneInput,
   getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
@@ -746,6 +747,16 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     inputsToSign: ITxInputToSign[];
     signOnly?: boolean;
   }) {
+    const sighashNoneInput = findBtcSighashNoneInput({
+      psbt,
+      inputsToSign,
+    });
+    if (sighashNoneInput) {
+      throw new OneKeyLocalError(
+        `SIGHASH_NONE is not supported for input ${sighashNoneInput.index}`,
+      );
+    }
+
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
       const signer = this.pickSigner(signers, input.address);

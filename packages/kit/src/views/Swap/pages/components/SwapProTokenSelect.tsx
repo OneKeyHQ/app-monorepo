@@ -20,6 +20,7 @@ import {
   StockMarketStatusBadge,
   StockSourceLogo,
 } from '../../../Market/components/PerpsBadges';
+import { SwapTestIDs } from '../../testIDs';
 
 interface ISwapProTokenSelector {
   onSelectTokenClick: () => void;
@@ -56,6 +57,7 @@ const SwapProTokenSelector = ({
   }
   return (
     <XStack
+      testID={SwapTestIDs.proTokenSelector}
       gap="$2"
       bg="$bgApp"
       cursor="pointer"

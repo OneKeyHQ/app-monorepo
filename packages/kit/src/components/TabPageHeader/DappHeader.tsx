@@ -15,6 +15,7 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import {
@@ -27,6 +28,10 @@ import { WebSettingsTrigger } from './components/WebAccountPanel/WebSettingsTrig
 import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
+
+// Reference-stable: PageHeader diffs options shallowly before setOptions, so
+// a fresh style object every render would re-trigger navigation updates.
+const transparentHeaderStyle = { backgroundColor: 'transparent' };
 
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const intl = useIntl();
@@ -41,8 +46,11 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+      },
     });
-  }, [navigation]);
+  }, [navigation, tabRoute]);
 
   return (
     <XStack ai="center" gap="$3" $gtMd={{ gap: '$5' }}>
@@ -100,9 +108,7 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         headerShown
         headerTitleAlign="center"
         headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
+        headerStyle={transparentHeaderStyle}
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}

@@ -55,7 +55,11 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
-
+const FirmwareUpdatePro2DevSettings = LazyLoadPage(async () => {
+  const { PageFirmwareUpdatePro2DevSettings } =
+    await import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings');
+  return { default: PageFirmwareUpdatePro2DevSettings };
+});
 const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
 );
@@ -123,6 +127,13 @@ const ExportCustomNetworkConfig = LazyLoadPage(
 const NotificationsSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'),
+);
+
+const OfficialChannels = LazyLoadPage(
+  () =>
+    import(
+      /* webpackChunkName: "settings-sub-pages" */ '@onekeyhq/kit/src/views/Setting/pages/OfficialChannels'
+    ),
 );
 
 const ManageAccountActivity = LazyLoadPage(
@@ -244,6 +255,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: FirmwareUpdateDevSettings,
   },
   {
+    name: EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+    component: FirmwareUpdatePro2DevSettings,
+  },
+  {
     name: EModalSettingRoutes.SettingDevAppUpdateModal,
     component: DevAppUpdateModalSettingModal,
   },
@@ -302,6 +317,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingNotifications,
     component: NotificationsSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingOfficialChannels,
+    component: OfficialChannels,
   },
   {
     name: EModalSettingRoutes.SettingManageAccountActivity,

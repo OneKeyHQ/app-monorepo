@@ -6,6 +6,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { SegmentControl, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
@@ -13,6 +14,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
 import LimitOrderList from '../components/LimitOrderList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -23,6 +25,8 @@ const LimitOrderListModal = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const isFocused = useRouteIsFocused();
+  useSwapLimitOrdersVisibilityRefresh({ enabled: isFocused });
   const [limitOrderSelectedTab, setLimitOrderSelectedTab] = useState<
     'open' | 'history'
   >('open');

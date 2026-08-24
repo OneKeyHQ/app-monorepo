@@ -123,6 +123,7 @@ function createNativeIndicatorState(): ITradingViewNativeIndicatorState {
   return {
     activeIndicatorValues,
     isInitialized: true,
+    sourceIndicators: nativeChartControlsConfig.indicators,
     getActiveIndicatorValues: () => activeIndicatorValues,
     updateActiveIndicatorValue: jest.fn(),
   };

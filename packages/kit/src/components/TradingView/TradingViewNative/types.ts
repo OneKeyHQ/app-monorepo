@@ -5,6 +5,13 @@ import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIn
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartType = 'candlestick' | 'line';
 
+export interface ITradingViewNativeCandleLabels {
+  close: string;
+  high: string;
+  low: string;
+  open: string;
+}
+
 export type ITradingViewNativeSource =
   | {
       kind: 'hyperliquid';
@@ -47,13 +54,28 @@ export interface ITradingViewNativeIntervalChangeData {
   toInterval: ITradingViewNativeChartInterval;
 }
 
+export type ITradingViewNativeInitialRightOffset =
+  | {
+      type: 'chartWidthPercentage';
+      value: number;
+    }
+  | {
+      type: 'pointCount';
+      value: number;
+    };
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
+  isChartSwitchDisabled?: boolean;
+  onChartSwitch?: () => void;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;

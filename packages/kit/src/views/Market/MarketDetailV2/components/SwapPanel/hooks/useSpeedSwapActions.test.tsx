@@ -1,21 +1,42 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
-import BigNumber from 'bignumber.js';
+import { type ReactNode, useMemo } from 'react';
 
-import type { ISwapReviewGasInfoEntry } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import {
+  act,
+  renderHook as testingLibraryRenderHook,
+  waitFor,
+} from '@testing-library/react';
+import BigNumber from 'bignumber.js';
+import { createStore } from 'jotai';
+
+import {
+  ProviderJotaiContextSwap,
+  swapQuoteActionLockAtom,
+  swapQuoteEventCompletedAtom,
+  swapQuoteFetchingAtom,
+  swapQuoteListAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import type {
+  ISwapReviewGasInfoEntry,
+  ISwapReviewState,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
+  IFetchBuildTxResponse,
+  IFetchQuoteResult,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapQuoteSource,
+  ESwapStepType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -67,6 +88,16 @@ const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
     params: IFetchSwapNativeTokenConfigParams,
   ) => Promise<{ networkId: string; reserveGas: string }>
 > = jest.fn();
+const mockFetchQuotesEvents: jest.MockedFunction<
+  (params: unknown) => Promise<void>
+> = jest.fn();
+const mockFetchBuildTx: jest.MockedFunction<
+  (params: unknown) => Promise<IFetchBuildTxResponse | undefined>
+> = jest.fn();
+const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
+const mockCancelFetchQuoteEvents: jest.MockedFunction<
+  (quoteRequestId?: string) => Promise<void>
+> = jest.fn();
 const mockSetInAppNotificationAtom = jest.fn();
 const mockNavigationToTxConfirm = jest.fn();
 const mockNetAccountRun = jest.fn();
@@ -104,6 +135,7 @@ let mockCurrencyInfo = {
   id: 'usd',
   symbol: '$',
 };
+let mockSwapStore: ReturnType<typeof createStore>;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -119,6 +151,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
+      fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
+      fetchBuildTx: (params: unknown) => mockFetchBuildTx(params),
+      closeApproving: () => mockCloseApproving(),
+      cancelFetchQuoteEvents: (quoteRequestId?: string) =>
+        mockCancelFetchQuoteEvents(quoteRequestId),
     },
   },
 }));
@@ -161,6 +198,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  settingsAtom: {
+    get: jest.fn().mockResolvedValue({ swapIncognitoMode: false }),
+  },
   useInAppNotificationAtom: () => [
     mockInAppNotificationAtomState,
     mockSetInAppNotificationAtom,
@@ -174,6 +214,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useCurrencyPersistAtom: () => [
     {
       currencyMap: {},
+    },
+  ],
+  useSettingsAtom: () => [
+    {
+      swapIncognitoMode: false,
     },
   ],
 }));
@@ -331,12 +376,29 @@ function createHookProps({
     },
     tradeType: ESwapDirection.BUY,
     fromTokenAmount: '0',
-    provider: 'onekey',
-    spenderAddress: '0xspender',
     slippage: 0.5,
     antiMEV: false,
   };
 }
+
+function SwapContextWrapper({ children }: { children?: ReactNode }) {
+  const store = useMemo(() => {
+    const nextStore = createStore();
+    mockSwapStore = nextStore;
+    return nextStore;
+  }, []);
+  return (
+    <ProviderJotaiContextSwap store={store}>
+      {children}
+    </ProviderJotaiContextSwap>
+  );
+}
+
+const renderSwapHook: typeof testingLibraryRenderHook = (render, options) =>
+  testingLibraryRenderHook(render, {
+    ...options,
+    wrapper: SwapContextWrapper,
+  } as never);
 
 describe('parseMarketTokenBalance', () => {
   it.each([null, '', 'NaN', 'Infinity', '-Infinity', 'invalid', '-1'])(
@@ -374,6 +436,13 @@ describe('useSpeedSwapActions', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
     mockFetchSwapNativeTokenConfig.mockReset();
+    mockFetchQuotesEvents.mockReset();
+    mockFetchQuotesEvents.mockResolvedValue();
+    mockFetchBuildTx.mockReset();
+    mockCloseApproving.mockReset();
+    mockCloseApproving.mockResolvedValue();
+    mockCancelFetchQuoteEvents.mockReset();
+    mockCancelFetchQuoteEvents.mockResolvedValue();
     mockSetInAppNotificationAtom.mockReset();
     mockNavigationToTxConfirm.mockReset();
     mockNetAccountRun.mockReset();
@@ -450,7 +519,7 @@ describe('useSpeedSwapActions', () => {
       },
     );
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderSwapHook(
       ({ tradeToken }: { tradeToken: ISwapTokenBase }) =>
         useSpeedSwapActions(
           createHookProps({
@@ -520,6 +589,105 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('re-requests the provider quote when a stock live-open state changes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { rerender } = renderSwapHook(
+      ({ stockIsOpen }: { stockIsOpen?: boolean }) =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          stockIsOpen,
+        }),
+      {
+        initialProps: {
+          stockIsOpen: false,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ source: ESwapQuoteSource.MARKET }),
+    );
+
+    rerender({ stockIsOpen: true });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('opens signed quote review without building before the signature', async () => {
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+      ),
+    );
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+    const signedQuote: IFetchQuoteResult = {
+      protocol: EProtocolOfExchange.SWAP,
+      info: {
+        provider: 'oneInchFusion',
+        providerName: '1inch Fusion',
+      },
+      fromTokenInfo: quoteRequest.fromToken ?? usdcToken,
+      toTokenInfo: quoteRequest.toToken ?? btcToken,
+      fromAmount: '1',
+      toAmount: '0.00001',
+      swapShouldSignedData: {
+        unSignedInfo: {
+          origin: 'https://app.onekey.so',
+          scope: 'swap',
+          signedType: 'eth_signTypedData_v4' as never,
+        },
+        oneInchFusionOrder: {
+          makerAddress: '0xuser',
+          typedData: {} as never,
+        },
+      },
+    };
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), [signedQuote]);
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteReadyForReview).toBe(true);
+    });
+
+    let reviewState: ISwapReviewState | undefined;
+    await act(async () => {
+      reviewState = await result.current.prepareMarketSwapReview();
+    });
+
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(reviewState?.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.SIGN_MESSAGE,
+    ]);
+  });
+
   it('clears a previous token balance while the next balance is loading', async () => {
     const nextBalanceRequest = createDeferred<ISwapToken[]>();
 
@@ -543,7 +711,7 @@ describe('useSpeedSwapActions', () => {
       },
     );
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderSwapHook(
       ({ tradeToken }: { tradeToken: ISwapTokenBase }) =>
         useSpeedSwapActions(
           createHookProps({
@@ -591,7 +759,9 @@ describe('useSpeedSwapActions', () => {
         : Promise.resolve([]),
     );
 
-    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions(createHookProps()),
+    );
 
     await waitFor(() => {
       expect(result.current.fetchBalanceLoading).toBe(false);
@@ -609,7 +779,9 @@ describe('useSpeedSwapActions', () => {
       ),
     );
 
-    const { result } = renderHook(() => useSpeedSwapActions(createHookProps()));
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions(createHookProps()),
+    );
 
     await waitFor(() => {
       expect(result.current.fetchBalanceLoading).toBe(false);
@@ -624,7 +796,7 @@ describe('useSpeedSwapActions', () => {
       ),
     );
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: wethToken,
@@ -655,7 +827,7 @@ describe('useSpeedSwapActions', () => {
       ),
     );
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: wethToken,
@@ -679,9 +851,11 @@ describe('useSpeedSwapActions', () => {
 
     latestBalance = '0.5';
 
-    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
-      'insufficient_balance_title',
-    );
+    await act(async () => {
+      await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+        'insufficient_balance_title',
+      );
+    });
   });
 
   it('checks rebuilt amount plus gas before signing a wrapped transaction', async () => {
@@ -712,7 +886,7 @@ describe('useSpeedSwapActions', () => {
       return [];
     });
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: wethToken,
@@ -736,9 +910,11 @@ describe('useSpeedSwapActions', () => {
 
     latestBalance = '1.1';
 
-    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
-      'insufficient_balance_title',
-    );
+    await act(async () => {
+      await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+        'insufficient_balance_title',
+      );
+    });
     expect(mockSendMarketDirectUnsignedTxs).toHaveBeenCalledWith(
       expect.objectContaining({
         validateFinalGasInfos: expect.any(Function),
@@ -783,7 +959,7 @@ describe('useSpeedSwapActions', () => {
       return [];
     });
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: ethToken,
@@ -805,9 +981,11 @@ describe('useSpeedSwapActions', () => {
       });
     });
 
-    await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
-      'insufficient_balance_title',
-    );
+    await act(async () => {
+      await expect(result.current.sendMarketWrappedTx()).rejects.toThrow(
+        'insufficient_balance_title',
+      );
+    });
     expect(
       mockFetchSwapTokenDetails.mock.calls.some(
         ([params]) => params.accountId && !params.contractAddress,
@@ -830,7 +1008,7 @@ describe('useSpeedSwapActions', () => {
         ([params]) => params.accountId,
       );
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderSwapHook(
       ({
         marketToken,
         tradeToken,
@@ -912,7 +1090,7 @@ describe('useSpeedSwapActions', () => {
       },
     );
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: btcToken,
@@ -983,7 +1161,7 @@ describe('useSpeedSwapActions', () => {
         ([params]) => params.accountId,
       );
 
-    const { rerender } = renderHook(
+    const { rerender } = renderSwapHook(
       ({ marketPrice }: { marketPrice: string }) =>
         useSpeedSwapActions({
           ...createHookProps({
@@ -1076,7 +1254,7 @@ describe('useSpeedSwapActions', () => {
       },
     );
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: {
@@ -1116,7 +1294,7 @@ describe('useSpeedSwapActions', () => {
       refetch: jest.fn(),
     });
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderSwapHook(
       ({ revision }: { revision: number }) => {
         void revision;
         return useSpeedSwapActions(
@@ -1186,7 +1364,7 @@ describe('useSpeedSwapActions', () => {
       refetch: jest.fn(),
     });
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: {
@@ -1270,7 +1448,7 @@ describe('useSpeedSwapActions', () => {
       },
     );
 
-    const { result } = renderHook(() =>
+    const { result } = renderSwapHook(() =>
       useSpeedSwapActions(
         createHookProps({
           marketToken: {

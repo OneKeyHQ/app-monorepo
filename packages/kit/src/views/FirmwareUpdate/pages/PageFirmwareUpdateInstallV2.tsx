@@ -28,6 +28,7 @@ import {
 import { FirmwareInstallingViewV2 } from '../componentsV2/FirmwareInstallingViewV2';
 import { FirmwareUpdateAlertInfoMessage } from '../componentsV2/FirmwareUpdateAlertInfoMessage';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
 function PageFirmwareUpdateInstallV2() {
   const route = useAppRoute<
@@ -40,6 +41,18 @@ function PageFirmwareUpdateInstallV2() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: async () => {
+      await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+      if (result?.originalConnectId) {
+        await backgroundApiProxy.serviceHardware.cancel({
+          connectId: result.originalConnectId,
+          forceDeviceResetToHome: true,
+        });
+      }
+    },
+  });
   const [isDoneInternal, setIsDoneInternal] = useState(false);
   const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
   const needOnboarding =
@@ -152,19 +165,7 @@ function PageFirmwareUpdateInstallV2() {
   ]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
-        }
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout
         containerStyle={{
           py: '0',

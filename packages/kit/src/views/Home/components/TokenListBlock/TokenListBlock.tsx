@@ -103,6 +103,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
@@ -111,6 +112,7 @@ import {
 import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
+  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
@@ -137,10 +139,15 @@ import {
   evaluateWalletAssetStatus,
   getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
+  shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import {
+  countFundedHardwarePortfolioTokens,
+  selectHardwarePortfolioTokens,
+} from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -243,6 +250,7 @@ function TokenListBlock({
       accountName,
       network,
       wallet,
+      device,
       indexedAccount,
       isOthersWallet,
       deriveInfo,
@@ -1687,7 +1695,7 @@ function TokenListBlock({
     // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
     // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
     const snapshot = await buildAuthoritativeSnapshot();
-    if (isStaleOwnerRequest()) {
+    if (!snapshot || isStaleOwnerRequest()) {
       return;
     }
 
@@ -1838,6 +1846,70 @@ function TokenListBlock({
         worth: snapshot.accountsWorth,
         createAtNetworkWorth: snapshot.createAtNetworkWorth,
       });
+
+      if (
+        assetStatusCurrency &&
+        isProtocolV2ProductType(device?.deviceType) &&
+        wallet &&
+        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        !accountUtils.isQrWallet({ walletId: wallet.id })
+      ) {
+        const flattenedAggregateTokenMap = flattenAggregateTokensMap(
+          snapshot.aggregateTokenMap,
+        );
+        const portfolioTokenMap = {
+          ...snapshot.mergeTokenListMap,
+          ...flattenedAggregateTokenMap,
+        };
+        const portfolioTokens = selectHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
+          ...cellsNonZeroInputs,
+        });
+        // keepDefault includes zero-balance natives so the device matches Home.
+        // The empty-snapshot defer still needs a strict funded count, otherwise
+        // incomplete aggregation would upload those defaults too early.
+        const fundedTokenCount = countFundedHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: portfolioTokens,
+        });
+
+        if (
+          !shouldDeferEmptyHardwarePortfolioSync({
+            aggregationComplete: assetStatusAggregationComplete,
+            totalTokenCount: fundedTokenCount,
+          })
+        ) {
+          void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+            {
+              accountAddress: account?.address,
+              accountId: account?.id,
+              accountName,
+              aggregateTokenMap: flattenedAggregateTokenMap,
+              deviceConnectId:
+                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+              indexedAccountId: indexedAccount?.id,
+              indexedAccountIndex: indexedAccount?.index,
+              indexedAccountName: indexedAccount?.name,
+              networkId: network?.id,
+              ownerAccountId: allNetworksResult[0].ownerAccountId,
+              ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+              totalFiat: snapshot.createAtNetworkWorth,
+              totalFiatCurrency: assetStatusCurrency,
+              totalTokenCount: portfolioTokens.length,
+              tokenMap: {
+                ...snapshot.mergeTokenListMap,
+                ...snapshot.riskyTokenListMap,
+                ...flattenedAggregateTokenMap,
+              },
+              tokens: portfolioTokens,
+              walletId: wallet.id,
+              walletType: wallet.type,
+            },
+          );
+        }
+      }
     }
 
     // Authoritative ingest (facade, design §2): ingest the FULL merged
@@ -1865,9 +1937,17 @@ function TokenListBlock({
       isRefreshing: false,
     });
   }, [
+    account?.address,
     account?.id,
     account?.indexedAccountId,
+    accountName,
+    cellsNonZeroInputs,
+    device?.connectId,
+    device?.deviceType,
+    device?.id,
     indexedAccount?.id,
+    indexedAccount?.index,
+    indexedAccount?.name,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
@@ -1876,6 +1956,7 @@ function TokenListBlock({
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
+    wallet,
   ]);
 
   // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED
@@ -2763,7 +2844,7 @@ function TokenListBlock({
           showLpTokensOnly ? false : !!network?.isAllNetworks
         }
         deferTokenManagement={!!network?.isAllNetworks}
-        manageTokenEnabled={manageTokenEnabled && !showLpTokensOnly}
+        manageTokenEnabled={Boolean(manageTokenEnabled && !showLpTokensOnly)}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}

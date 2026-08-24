@@ -848,6 +848,7 @@ export function useTrayDataProvider() {
                         type: 'perps',
                         perpsCoin: item.perpsCoin,
                         maxLeverage: coin.maxLeverage,
+                        dexLabel: parsedCoin.dexLabel || parsedDisplay.dexLabel,
                         subtitle: getTokenSubtitle(
                           coin.name || item.perpsCoin || '',
                           tokenSearchAliases,

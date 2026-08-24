@@ -210,7 +210,23 @@ const BorrowHomeContent = memo(
         earnAccount.data?.accountAddress,
       ],
     );
-    const hasAlerts = Boolean(alerts.length) || showNoAddressWarning;
+    const hasAlertsNow = Boolean(alerts.length) || showNoAddressWarning;
+    // The two alert sources settle independently (reserves + health factor),
+    // and each re-run briefly drops its result, so this flag flips more than
+    // once during a single load. Every flip swaps Overview's $10 bottom
+    // spacing for the alert block's own margins — a ~32pt gap that opens
+    // below Claimable Rewards and is taken back again.
+    //
+    // Hold the last settled answer while a load is in flight, so the layout
+    // moves once, when the data is actually final.
+    const lastSettledHasAlertsRef = useRef(false);
+    const isBorrowDataSettled = borrowDataStatus === EBorrowDataStatus.Ready;
+    if (isBorrowDataSettled) {
+      lastSettledHasAlertsRef.current = hasAlertsNow;
+    }
+    const hasAlerts = isBorrowDataSettled
+      ? hasAlertsNow
+      : lastSettledHasAlertsRef.current;
 
     const refreshEarnAccount = earnAccount.refresh;
     const refreshReserves = reserves.refresh;

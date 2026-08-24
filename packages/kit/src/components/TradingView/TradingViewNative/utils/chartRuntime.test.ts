@@ -14,6 +14,84 @@ describe('TradingViewNative chart runtime', () => {
     });
   });
 
+  it('accepts a chart-width percentage as initial configuration', () => {
+    expect(
+      createTradingViewNativeChartRuntimeState({
+        initialRightOffset: {
+          type: 'chartWidthPercentage',
+          value: 5,
+        },
+      }).viewport,
+    ).toEqual({
+      initialRightOffset: {
+        type: 'chartWidthPercentage',
+        value: 5,
+      },
+      initialRightOffsetResolved: true,
+      offset: 0,
+      zoomScale: 1,
+    });
+  });
+
+  it('resolves the default from the first measured chart width only', () => {
+    const state = createTradingViewNativeChartRuntimeState();
+    const measuredState = reduceTradingViewNativeChartRuntime(state, {
+      type: 'initialWidthMeasured',
+      width: 500,
+    });
+    const resizedState = reduceTradingViewNativeChartRuntime(measuredState, {
+      type: 'initialWidthMeasured',
+      width: 1000,
+    });
+
+    expect(measuredState.viewport).toEqual({
+      initialRightOffset: { type: 'pointCount', value: 2 },
+      initialRightOffsetResolved: true,
+      offset: 0,
+      zoomScale: 1,
+    });
+    expect(resizedState).toBe(measuredState);
+  });
+
+  it('does not reset a user-adjusted viewport to the initial right offset', () => {
+    const state = createTradingViewNativeChartRuntimeState({
+      initialRightOffset: { type: 'pointCount', value: 2 },
+    });
+    const pannedState = reduceTradingViewNativeChartRuntime(state, {
+      chartWidth: 100,
+      hideCrosshair: false,
+      offset: 10,
+      pointCount: 40,
+      type: 'panMoved',
+      zoomScale: 1,
+    });
+    const updatedState = reduceTradingViewNativeChartRuntime(pannedState, {
+      appendedPointCount: 1,
+      chartWidth: 100,
+      pointCount: 41,
+      type: 'dataUpdated',
+    });
+
+    expect(state.viewport).toEqual({
+      initialRightOffset: { type: 'pointCount', value: 2 },
+      initialRightOffsetResolved: true,
+      offset: 0,
+      zoomScale: 1,
+    });
+    expect(pannedState.viewport).toEqual({
+      initialRightOffset: { type: 'pointCount', value: 2 },
+      initialRightOffsetResolved: true,
+      offset: 10,
+      zoomScale: 1,
+    });
+    expect(updatedState.viewport).toEqual({
+      initialRightOffset: { type: 'pointCount', value: 2 },
+      initialRightOffsetResolved: true,
+      offset: 16,
+      zoomScale: 1,
+    });
+  });
+
   it('preserves a historical viewport when candles are appended', () => {
     const state = {
       crosshair: { visible: false, x: 0, y: 0 },

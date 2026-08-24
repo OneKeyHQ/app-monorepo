@@ -903,10 +903,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
     const wallet = await serviceAccount.getWalletSafe({ walletId });
     const isMissingWallet = !wallet;
-    const isDeprecatedOrMocked = Boolean(
-      wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
-    );
-    return isMissingWallet || isDeprecatedOrMocked;
+    return isMissingWallet || Boolean(wallet?.isMocked);
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
@@ -1391,6 +1388,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         confirmRequestId,
       );
 
+      let wallet: IDBWallet | undefined;
+      try {
+        wallet = await serviceAccount.getWalletSafe({ walletId });
+      } catch {
+        return false;
+      }
+      if (!wallet || wallet.isMocked) {
+        return false;
+      }
+      if (
+        this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
+        confirmRequestId
+      ) {
+        return false;
+      }
+
       const accountNetworkId: string =
         forceSelectToNetworkId ||
         this.getAutoSelectNetworkIdForAccount.call(set, {
@@ -1436,7 +1449,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
         confirmRequestId
       ) {
-        return;
+        return false;
       }
 
       const newSelectedAccount: IAccountSelectorSelectedAccount = {
@@ -1546,6 +1559,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccountId: indexedAccount?.id,
         othersWalletAccountId: othersWalletAccount?.id,
       });
+      return true;
     },
   );
 
@@ -2178,15 +2192,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const shouldCreateHiddenWalletOnly = Boolean(
-            params?.features?.passphrase_protection,
-          );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
                 ...params,
-                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
+                isMockedStandardHwWallet: true,
                 skipDeviceCancel: true,
               },
               {
@@ -2194,56 +2205,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               },
             );
 
-          let hiddenWalletCreatedResult:
-            | {
-                wallet: IDBWallet;
-                indexedAccount: IDBIndexedAccount | undefined;
-              }
-            | undefined;
-          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
-          if (device && shouldCreateHiddenWalletOnly) {
-            // wait previous action done, wait device ready
-            if (!params.hideCheckingDeviceLoading) {
-              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
-                {
-                  connectId: device.connectId,
-                },
-              );
-            }
-            await timerUtils.wait(100);
+          if (!device) {
+            throw new OneKeyLocalError(
+              'Unable to create hidden wallet without a hardware device',
+            );
+          }
 
-            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
-              set,
+          // wait previous action done, wait device ready
+          if (!params.hideCheckingDeviceLoading) {
+            await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
               {
-                walletId: wallet.id,
-                skipDeviceCancel: true,
-                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+                connectId: device.connectId,
               },
             );
           }
+          await timerUtils.wait(100);
+
+          const hiddenWalletCreatedResult =
+            await this.createHWHiddenWallet.call(set, {
+              walletId: wallet.id,
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
 
           await serviceAccount.restoreTempCreatedWallet({
             walletId: wallet.id,
           });
-          if (!hiddenWalletCreatedResult) {
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-
           return {
             isOverrideWallet,
             wallet,
             indexedAccount,
-            hidden: hiddenWalletCreatedResult
-              ? {
-                  wallet: hiddenWalletCreatedResult?.wallet,
-                  indexedAccount: hiddenWalletCreatedResult?.indexedAccount,
-                }
-              : undefined,
+            hidden: {
+              wallet: hiddenWalletCreatedResult.wallet,
+              indexedAccount: hiddenWalletCreatedResult.indexedAccount,
+            },
           };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
@@ -3557,14 +3552,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
-        // Mocked / deprecated wallets are no longer user-facing — treat them
-        // as needing replacement so the auto-select loop runs and either picks
-        // the next valid wallet or resets to undefined (OK-51091).
+        // Mocked wallets need replacement. Deprecated wallets remain readable.
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
-          accountUtils.isWalletDeprecatedOrMocked(wallet) ||
+          wallet.isMocked ||
           !isAccountExist;
 
         if (shouldAutoSelectNextAccount) {
@@ -3621,7 +3614,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (
             !selectedWalletId ||
             !hasIndexedAccounts ||
-            accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+            selectedWallet?.isMocked
           ) {
             let shouldSelectHdHwWallet = true;
             if (
@@ -3683,10 +3676,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccountNew.focusedWallet = selectedWalletId;
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
-              if (
-                !selectedWallet ||
-                accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
-              ) {
+              if (!selectedWallet || selectedWallet.isMocked) {
                 defaultLogger.accountSelector.autoSelect.resetSelectedWalletToUndefined(
                   {
                     selectedAccount: selectedAccountNew,
@@ -3810,7 +3800,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             if (
               !finalWallet ||
-              accountUtils.isWalletDeprecatedOrMocked(finalWallet) ||
+              finalWallet.isMocked ||
               (await serviceAccount.isTempWalletRemoved({
                 wallet: finalWallet,
               }))

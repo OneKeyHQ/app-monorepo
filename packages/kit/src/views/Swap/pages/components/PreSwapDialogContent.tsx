@@ -14,6 +14,7 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Button,
+  Dialog,
   Divider,
   HeightTransition,
   Icon,
@@ -34,8 +35,11 @@ import {
 import {
   filterSwapHistoryPendingList,
   useInAppNotificationAtom,
+  useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -52,10 +56,10 @@ import type {
 import {
   ESwapApproveTransactionStatus,
   ESwapLimitOrderStatus,
+  ESwapSlippageSegmentKey,
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
@@ -66,8 +70,13 @@ import PreSwapInfoGroup, {
 import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
+import {
+  type ISwapReviewSlippageSaveScope,
+  SwapReviewSlippageEditor,
+} from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 interface IPreSwapDialogContentProps {
@@ -87,6 +96,10 @@ interface IPreSwapDialogContentProps {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
+  saveSlippageForFutureOrders?: (
+    slippagePercentage: number,
+  ) => Promise<void> | void;
 }
 
 const PreSwapDialogContent = ({
@@ -98,8 +111,16 @@ const PreSwapDialogContent = ({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  rebuildReviewWithSlippage,
+  saveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
+  const [, setSettings] = useSettingsAtom();
+  const [slippageEditorOpen, setSlippageEditorOpen] = useState(false);
+  const [slippageSavingScope, setSlippageSavingScope] = useState<
+    ISwapReviewSlippageSaveScope | undefined
+  >(undefined);
+  const isMountedRef = useRef(true);
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
@@ -147,6 +168,11 @@ const PreSwapDialogContent = ({
   const initializedCustomNetworkFeeOptionKeyRef = useRef(
     customNetworkFeeOptionKey,
   );
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   useEffect(() => {
     customNetworkFeeOptionRef.current = customNetworkFeeOption;
 
@@ -304,6 +330,55 @@ const PreSwapDialogContent = ({
       preSwapData?.stepBeforeActionsError,
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
+    ],
+  );
+
+  const handleSlippageEditorOpenChange = useCallback(
+    (open: boolean) => {
+      if (!slippageSavingScope) {
+        setSlippageEditorOpen(open);
+      }
+    },
+    [slippageSavingScope],
+  );
+  const handleSaveSlippage = useCallback(
+    async (scope: ISwapReviewSlippageSaveScope, slippagePercentage: number) => {
+      if (!rebuildReviewWithSlippage || slippageSavingScope) {
+        return;
+      }
+
+      setSlippageSavingScope(scope);
+      try {
+        await rebuildReviewWithSlippage(slippagePercentage);
+        if (!isMountedRef.current) {
+          return;
+        }
+        if (scope === 'future') {
+          if (saveSlippageForFutureOrders) {
+            await saveSlippageForFutureOrders(slippagePercentage);
+          } else {
+            setSettings((prev) => ({
+              ...prev,
+              swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+              swapSlippagePercentageCustomValue: slippagePercentage,
+            }));
+          }
+        }
+        setSlippageEditorOpen(false);
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      } finally {
+        if (isMountedRef.current) {
+          setSlippageSavingScope(undefined);
+        }
+      }
+    },
+    [
+      rebuildReviewWithSlippage,
+      saveSlippageForFutureOrders,
+      setSettings,
+      slippageSavingScope,
     ],
   );
 
@@ -484,27 +559,18 @@ const PreSwapDialogContent = ({
           (item) => item.orderId === lastStep?.orderId,
         );
       }
-      if (
-        findStepItem &&
-        preSwapData?.swapType !== ESwapTabSwitchType.LIMIT &&
-        findStepItem.status !== ESwapTxHistoryStatus.PENDING
-      ) {
-        let stepStatus = ESwapStepStatus.PENDING;
-        if (findStepItem.status === ESwapTxHistoryStatus.SUCCESS) {
-          stepStatus = ESwapStepStatus.SUCCESS;
-        } else if (findStepItem.status === ESwapTxHistoryStatus.FAILED) {
-          stepStatus = ESwapStepStatus.FAILED;
-        }
+      if (findStepItem && preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
             preSwapData: ISwapPreSwapData;
           }) => {
             const newSteps = [...prevSteps.steps];
-            newSteps[newSteps.length - 1] = {
-              ...newSteps[newSteps.length - 1],
-              status: stepStatus,
-            };
+            newSteps[newSteps.length - 1] = reconcileSwapStepWithHistory({
+              step: newSteps[newSteps.length - 1],
+              historyStatus: (findStepItem as ISwapTxHistory).status,
+              txId: (findStepItem as ISwapTxHistory).txInfo.txId,
+            });
             return {
               ...prevSteps,
               steps: newSteps,
@@ -564,6 +630,16 @@ const PreSwapDialogContent = ({
       );
     }
   }, [lastStep?.status, swapSteps.steps.length]);
+  const supportSlippageRebuild = Boolean(
+    rebuildReviewWithSlippage &&
+    preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
+      .supportRebuildTx &&
+    !preSwapData?.unSupportSlippage &&
+    swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
+    !showResultContent,
+  );
+  const showMobileSlippageEditor =
+    platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
 
   const actionBtnTest = useMemo(() => {
     if (preSwapData?.isHWAndExBatchTransfer) {
@@ -595,8 +671,45 @@ const PreSwapDialogContent = ({
     quoteResult?.allowanceResult?.shouldResetApprove,
   ]);
 
+  if (showMobileSlippageEditor) {
+    return (
+      <>
+        <Dialog.Header showExitButton={false}>
+          <XStack
+            testID="swap-review-slippage-back"
+            alignItems="center"
+            gap="$2"
+            cursor="pointer"
+            onPress={() => handleSlippageEditorOpenChange(false)}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$6" color="$icon" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.trade_silp_edit_slippage,
+              })}
+            </Dialog.Title>
+          </XStack>
+        </Dialog.Header>
+        <HeightTransition initialHeight={355}>
+          <Stack pt="$2">
+            <SwapReviewSlippageEditor
+              initialValue={preSwapData.slippage ?? 0}
+              savingScope={slippageSavingScope}
+              showTitle={false}
+              onSave={handleSaveSlippage}
+            />
+          </Stack>
+        </HeightTransition>
+      </>
+    );
+  }
+
   return (
     <HeightTransition initialHeight={355}>
+      <Dialog.Header
+        title={intl.formatMessage({ id: ETranslations.global_review_order })}
+        showExitButton={!slippageSavingScope}
+      />
       {showResultContent && swapSteps.steps.length > 0 ? (
         <PreSwapConfirmResult
           onConfirm={onDone}
@@ -609,7 +722,9 @@ const PreSwapDialogContent = ({
           {/* You pay */}
           <YStack gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
+              {intl.formatMessage({
+                id: ETranslations.swap_review_you_pay,
+              })}
             </SizableText>
 
             {/* From token item */}
@@ -708,6 +823,16 @@ const PreSwapDialogContent = ({
                       customNetworkFeeOptionRef.current?.label
                     }
                     networkFeeSelectValue={networkFeeSelectValue}
+                    slippageEditor={
+                      supportSlippageRebuild
+                        ? {
+                            open: slippageEditorOpen,
+                            savingScope: slippageSavingScope,
+                            onOpenChange: handleSlippageEditorOpenChange,
+                            onSave: handleSaveSlippage,
+                          }
+                        : undefined
+                    }
                   />
                   {/* Primary button */}
                   <Button

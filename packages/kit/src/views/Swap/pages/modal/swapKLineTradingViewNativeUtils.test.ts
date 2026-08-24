@@ -19,11 +19,10 @@ function buildToken(overrides: Partial<ISwapToken> = {}): ISwapToken {
 }
 
 describe('Swap K-line TradingViewNative source', () => {
-  it('uses Hyperliquid for native BTC when the token detail configures it', () => {
+  it('uses the native BTC Swap whitelist before token detail loads', () => {
     const source = getSwapKLineTradingViewNativeSource({
-      perpsInfo: { hlTicker: 'BTC' },
+      isTokenMarketInfoLoading: true,
       token: buildToken(),
-      websocketConfig: { kline: true, txs: true },
     });
 
     expect(source).toEqual({
@@ -78,13 +77,20 @@ describe('Swap K-line TradingViewNative source', () => {
     });
   });
 
-  it('waits for native BTC metadata before choosing its provider', () => {
+  it('uses the native HyperEVM Swap whitelist independently of Market', () => {
     expect(
       getSwapKLineTradingViewNativeSource({
         isTokenMarketInfoLoading: true,
-        token: buildToken(),
+        token: buildToken({
+          networkId: 'evm--999',
+          symbol: 'HYPE',
+        }),
       }),
-    ).toBeUndefined();
+    ).toEqual({
+      kind: 'hyperliquid',
+      coin: '@107',
+      environment: 'mainnet',
+    });
   });
 
   it('keeps chart fallback ownership out of the Swap source', () => {
@@ -105,7 +111,7 @@ describe('Swap K-line TradingViewNative source', () => {
       realtime: 'disabled',
     });
     expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:ETH',
+      'market:evm--1:0xabc',
     );
   });
 

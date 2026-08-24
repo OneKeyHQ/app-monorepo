@@ -208,18 +208,22 @@ export const defaultEffectiveFeePayer = 'user' as IGasPayer;
 
 // `effectiveFeePayerAtom` is the authoritative "who pays the fee" signal the
 // UI renders from (sponsor badges, free copy, fee hiding). It mirrors the
-// server's `payer` field with two narrow overrides to `'user'`:
-//   - when a custom RPC is active (all sponsors disabled), and
-//   - when the server indicates `'gasAccount'` while gas account is
+// server's `payer` field with narrow overrides:
+//   - `'user'` when a custom RPC is active (all sponsors disabled),
+//   - `'user'` when the server indicates `'gasAccount'` while gas account is
 //     temporarily disabled after a fallback (the gas-account path only;
-//     a concurrent `'megafuel'` payer still surfaces).
+//     a concurrent `'megafuel'` payer still surfaces), and
+//   - when megafuel is suppressed for Private Send, a server `'megafuel'`
+//     payer falls through to `'gasAccount'` if an eligible quote exists,
+//     otherwise `'user'`.
 //
 // This is intentionally separate from `gasAccountUiState.selectedPayer` below:
 //   - `effectiveFeePayer` drives *display* (can be `'megafuel'` even when gas
 //     account quote exists — megafuel wins UI-wise).
 //   - `selectedPayer` drives *submit wiring* (whether to attach `quoteId` /
 //     `idempotencyKey` to the broadcast request).
-// Keep them aligned in TxFeeInfo's estimate handler.
+// Both derive from `resolveSponsorPayerState` in TxFeeInfo's estimate handler
+// so they stay aligned by construction.
 export const { atom: effectiveFeePayerAtom, use: useEffectiveFeePayerAtom } =
   contextAtom<IGasPayer>(defaultEffectiveFeePayer);
 
@@ -230,6 +234,8 @@ export const defaultGasAccountUiState = {
   selectedPayer: 'user' as const,
   lockedUserNonce: undefined as number | undefined,
   idempotencyKey: '',
+  gasAccountScenarioReason: undefined as string | undefined,
+  sponsorDisabledByCustomRpc: false,
 };
 
 export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
@@ -240,6 +246,8 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     selectedPayer: 'user' | 'gasAccount';
     lockedUserNonce?: number;
     idempotencyKey: string;
+    gasAccountScenarioReason?: string;
+    sponsorDisabledByCustomRpc: boolean;
   }>({ ...defaultGasAccountUiState });
 
 export const {

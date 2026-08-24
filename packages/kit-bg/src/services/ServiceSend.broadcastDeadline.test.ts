@@ -199,6 +199,9 @@ function makeService() {
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
     broadcastTransaction: jest.fn().mockResolvedValue({ txid: '0xtxid' }),
     checkShouldRetryBroadcastTx: jest.fn().mockResolvedValue(false),
+    refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
+      Promise.resolve(tx),
+    ),
   };
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
@@ -1011,6 +1014,78 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       expect.objectContaining({
         broadcastDeadline: 1000,
         beforeBroadcastAction,
+      }),
+    );
+  });
+
+  test('threads Gas Account state through a single-tx Private Send', async () => {
+    const { service } = makeService();
+    const signAndSendSpy = jest
+      .spyOn(service, 'signAndSendTransaction')
+      .mockResolvedValue(signedTx);
+    jest
+      .spyOn(service, 'buildDecodedTx')
+      .mockResolvedValue({ actions: [] } as unknown as IDecodedTx);
+    const gasAccountUiState: IGasAccountUiState = {
+      selectedPayer: 'gasAccount',
+      gasAccountQuote: {
+        quoteId: 'quote-id',
+        maxFee: '1',
+        expiresAt: '1970-01-01T00:00:01.000Z',
+      },
+      idempotencyKey: 'gas-account:quote-id',
+    };
+
+    await service.batchSignAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTxs: [unsignedTx],
+      signOnly: false,
+      transferPayload: { isPrivateSend: true } as ITransferPayload,
+      gasAccountUiState,
+      gasAccountSubmitId: 'submit-id',
+    });
+
+    expect(signAndSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gasAccountUiState,
+        gasAccountSubmitId: 'submit-id',
+        isPrivateSend: true,
+      }),
+    );
+  });
+
+  test('still strips Gas Account state for multi-tx batches', async () => {
+    const { service } = makeService();
+    const signAndSendSpy = jest
+      .spyOn(service, 'signAndSendTransaction')
+      .mockResolvedValue(signedTx);
+    jest
+      .spyOn(service, 'buildDecodedTx')
+      .mockResolvedValue({ actions: [] } as unknown as IDecodedTx);
+
+    await service.batchSignAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTxs: [unsignedTx, unsignedTx],
+      signOnly: false,
+      transferPayload: undefined,
+      gasAccountUiState: {
+        selectedPayer: 'gasAccount',
+        gasAccountQuote: {
+          quoteId: 'quote-id',
+          maxFee: '1',
+          expiresAt: '1970-01-01T00:00:01.000Z',
+        },
+      },
+      gasAccountSubmitId: 'submit-id',
+    });
+
+    expect(signAndSendSpy).toHaveBeenCalledTimes(2);
+    expect(signAndSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gasAccountUiState: undefined,
+        gasAccountSubmitId: undefined,
       }),
     );
   });

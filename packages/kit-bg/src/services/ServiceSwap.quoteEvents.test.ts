@@ -40,7 +40,10 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 }));
 
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import ServiceSwap from './ServiceSwap';
 
@@ -68,11 +71,12 @@ function createService() {
       },
     },
   });
+  const getUri = jest.fn(() => 'https://example.com/swap/v1/quote/events');
   jest.spyOn(service, 'getDenySingleSwapProvider').mockResolvedValue(undefined);
   jest.spyOn(service, 'getClient').mockResolvedValue({
-    getUri: jest.fn(() => 'https://example.com/swap/v1/quote/events'),
+    getUri,
   } as never);
-  return service;
+  return { getUri, service };
 }
 
 function createQuoteParams(quoteRequestId: string) {
@@ -106,8 +110,8 @@ describe('ServiceSwap quote event request ownership', () => {
     delete globalMockBag.__swapQuoteEventSources;
   });
 
-  it('does not let an older preparation or cancellation replace the active stream', async () => {
-    const service = createService();
+  it('keeps independently owned quote streams active', async () => {
+    const { service } = createService();
     let resolveFirstPreparation: ((value: undefined) => void) | undefined;
     const firstPreparation = new Promise<undefined>((resolve) => {
       resolveFirstPreparation = resolve;
@@ -130,11 +134,58 @@ describe('ServiceSwap quote event request ownership', () => {
     resolveFirstPreparation?.(undefined);
     await firstRequest;
 
-    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(1);
+    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(2);
+    const firstEventSource = globalMockBag.__swapQuoteEventSources?.[1];
     await service.cancelFetchQuoteEvents('quote-request-1');
     expect(activeEventSource?.close).not.toHaveBeenCalled();
+    expect(firstEventSource?.close).toHaveBeenCalledTimes(1);
 
     await service.cancelFetchQuoteEvents('quote-request-2');
     expect(activeEventSource?.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a request while it is still preparing without affecting another request', async () => {
+    const { service } = createService();
+    let resolveFirstPreparation: ((value: undefined) => void) | undefined;
+    const firstPreparation = new Promise<undefined>((resolve) => {
+      resolveFirstPreparation = resolve;
+    });
+    jest
+      .spyOn(service, 'getDenyCrossChainProvider')
+      .mockReturnValueOnce(firstPreparation)
+      .mockResolvedValue(undefined);
+
+    const firstRequest = service.fetchQuotesEvents(
+      createQuoteParams('quote-request-1'),
+    );
+    await Promise.resolve();
+    await service.cancelFetchQuoteEvents('quote-request-1');
+    await service.fetchQuotesEvents(createQuoteParams('quote-request-2'));
+
+    resolveFirstPreparation?.(undefined);
+    await firstRequest;
+
+    expect(globalMockBag.__swapQuoteEventSources).toHaveLength(1);
+    const activeEventSource = globalMockBag.__swapQuoteEventSources?.[0];
+    expect(activeEventSource?.close).not.toHaveBeenCalled();
+  });
+
+  it('forwards the Market source to the quote event request', async () => {
+    const { getUri, service } = createService();
+
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('market-quote-request'),
+      source: ESwapQuoteSource.MARKET,
+    });
+
+    expect(getUri).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/swap/v1/quote/events',
+        params: expect.objectContaining({
+          source: 'Market',
+        }),
+      }),
+    );
+    await service.cancelFetchQuoteEvents('market-quote-request');
   });
 });

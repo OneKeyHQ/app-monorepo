@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import { Dimensions, type LayoutChangeEvent } from 'react-native';
+import {
+  Dimensions,
+  type LayoutChangeEvent,
+  useWindowDimensions,
+} from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -29,9 +40,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import {
+  EModalPerpRoutes,
+  type IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAppRoute } from '../../../hooks/useAppRoute';
+import { PerpFundingChart } from '../components/MarketDetail/PerpFundingChart';
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
@@ -55,6 +71,7 @@ import {
 import {
   type IMobilePerpMarketTab,
   getMobilePerpMarketPageScrollState,
+  getMobilePerpMarketPagerHeight,
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
@@ -68,11 +85,13 @@ const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
 }> = [
   { key: 'orderbook', translationId: ETranslations.market_chart },
   { key: 'info', translationId: ETranslations.global_info },
+  { key: 'funding', translationId: ETranslations.perp_position_funding },
 ];
 
 const MOBILE_PERP_MARKET_TAB_INDEX_MAP: Record<IMobilePerpMarketTab, number> = {
   orderbook: 0,
   info: 1,
+  funding: 2,
 };
 
 function MobilePerpMarketTabBarItem({
@@ -105,6 +124,8 @@ function MobilePerpMarketTabBarItem({
     >
       <SizableText
         size="$headingXs"
+        textTransform="none"
+        letterSpacing={0}
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {tab.label ||
@@ -117,9 +138,11 @@ function MobilePerpMarketTabBarItem({
 }
 
 function MobilePerpMarketTabBar({
+  items,
   activeTab,
   onChange,
 }: {
+  items: typeof MOBILE_PERP_MARKET_TAB_ITEMS;
   activeTab: IMobilePerpMarketTab;
   onChange: (tab: IMobilePerpMarketTab) => void;
 }) {
@@ -133,7 +156,7 @@ function MobilePerpMarketTabBar({
         contentContainerStyle={{ minWidth: '100%' }}
       >
         <XStack minWidth="100%">
-          {MOBILE_PERP_MARKET_TAB_ITEMS.map((tab, index) => (
+          {items.map((tab, index) => (
             <MobilePerpMarketTabBarItem
               key={tab.key}
               tab={tab}
@@ -145,6 +168,26 @@ function MobilePerpMarketTabBar({
         </XStack>
       </ScrollView>
     </XStack>
+  );
+}
+
+function MobilePerpMarketPageContent({
+  children,
+  useIntrinsicHeight,
+  onContentLayout,
+}: {
+  children: ReactNode;
+  useIntrinsicHeight: boolean;
+  onContentLayout: (event: LayoutChangeEvent) => void;
+}) {
+  if (useIntrinsicHeight) {
+    return <YStack onLayout={onContentLayout}>{children}</YStack>;
+  }
+
+  return (
+    <ScrollView flex={1} minHeight={0} showsVerticalScrollIndicator={false}>
+      {children}
+    </ScrollView>
   );
 }
 
@@ -234,12 +277,25 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
+  const route = useAppRoute<
+    IModalPerpParamList,
+    EModalPerpRoutes.MobilePerpMarket
+  >();
+  const initialTab = route.params?.initialTab ?? 'orderbook';
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
   const navigation = useAppNavigation();
-  const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
-  const [hasInfoTabMounted, setHasInfoTabMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>(initialTab);
+  const [hasInfoTabMounted, setHasInfoTabMounted] = useState(
+    initialTab === 'info',
+  );
+  const [hasFundingTabMounted, setHasFundingTabMounted] = useState(
+    initialTab === 'funding',
+  );
+  const [pageContentHeights, setPageContentHeights] = useState<
+    Partial<Record<IMobilePerpMarketTab, number>>
+  >({});
   const [
     isTradingViewInteractionOverlayOpen,
     setIsTradingViewInteractionOverlayOpen,
@@ -277,7 +333,18 @@ function MobilePerpMarket() {
     }
     return Dimensions.get('window').width;
   }, [containerWidth, pageWidth]);
+  const initialPagerContentOffsetRef = useRef({
+    x: effectivePageWidth * MOBILE_PERP_MARKET_TAB_INDEX_MAP[initialTab],
+    y: 0,
+  });
   const marketDetailDisplayName = mode === 'spot' ? baseName : displayName;
+  const mobileMarketTabItems = useMemo(
+    () =>
+      mode === 'perp'
+        ? MOBILE_PERP_MARKET_TAB_ITEMS
+        : MOBILE_PERP_MARKET_TAB_ITEMS.filter((item) => item.key !== 'funding'),
+    [mode],
+  );
   const resolvedMarketDetail = usePerpResolvedMarketDetail({
     coin: activeTradeInstrument.coin,
     displayName: marketDetailDisplayName,
@@ -309,10 +376,38 @@ function MobilePerpMarket() {
   ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
-
+  const { height: windowHeight } = useWindowDimensions();
+  // Android native tabs measure the inline SUB page by intrinsic content, so
+  // its flex-only chart needs an explicit viewport bound to avoid collapsing.
+  const splitDetailPageMinHeight =
+    isSplitDetailActive && platformEnv.isNativeAndroid
+      ? windowHeight
+      : undefined;
+  const useIntrinsicPagerHeight =
+    !platformEnv.isNativeIOS && !isSplitDetailActive;
+  const activePagerHeight = getMobilePerpMarketPagerHeight({
+    activeTab,
+    pageHeights: pageContentHeights,
+    useIntrinsicHeight: useIntrinsicPagerHeight,
+  });
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewInteractionOverlayOpen(isOpen);
   }, []);
+
+  const handlePageContentLayout = useCallback(
+    (tab: IMobilePerpMarketTab, event: LayoutChangeEvent) => {
+      const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+      if (nextHeight <= 0) {
+        return;
+      }
+      setPageContentHeights((currentHeights) =>
+        currentHeights[tab] === nextHeight
+          ? currentHeights
+          : { ...currentHeights, [tab]: nextHeight },
+      );
+    },
+    [],
+  );
 
   const renderHeaderTitle = useCallback(() => {
     let pairLabel: string;
@@ -372,10 +467,20 @@ function MobilePerpMarket() {
       if (tab === 'info') {
         setHasInfoTabMounted(true);
       }
+      if (tab === 'funding') {
+        setHasFundingTabMounted(true);
+      }
       scrollToTab(tab);
     },
     [scrollToTab],
   );
+
+  useEffect(() => {
+    if (mode !== 'perp' && activeTab === 'funding') {
+      setActiveTab('orderbook');
+      scrollToTab('orderbook', false);
+    }
+  }, [activeTab, mode, scrollToTab]);
 
   const handleContainerLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -415,16 +520,18 @@ function MobilePerpMarket() {
           activeTab,
           effectivePageWidth,
           hasInfoTabMounted,
+          hasFundingTabMounted,
         });
         layoutRectsRef.current[name] = rect;
       }
     },
-    [activeTab, effectivePageWidth, hasInfoTabMounted],
+    [activeTab, effectivePageWidth, hasFundingTabMounted, hasInfoTabMounted],
   );
 
   useEffect(() => {
     tracePerpsMobileLayout('mobileMarket.state', {
       activeTab,
+      hasFundingTabMounted,
       hasInfoTabMounted,
       effectivePageWidth,
       activeCoin: activeTradeInstrument.coin,
@@ -436,6 +543,7 @@ function MobilePerpMarket() {
     activeTab,
     activeTradeInstrument.coin,
     effectivePageWidth,
+    hasFundingTabMounted,
     hasInfoTabMounted,
     marketDetailDisplayName,
     mode,
@@ -537,6 +645,18 @@ function MobilePerpMarket() {
       resolvedMarketDetail,
     ],
   );
+  const fundingContent = useMemo(
+    () =>
+      hasFundingTabMounted && mode === 'perp' ? (
+        <PerpFundingChart
+          key={activeTradeInstrument.coin}
+          coin={activeTradeInstrument.coin}
+          isActive={activeTab === 'funding'}
+          variant="mobile"
+        />
+      ) : null,
+    [activeTab, activeTradeInstrument.coin, hasFundingTabMounted, mode],
+  );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
   const { pageScrollContainerEnabled, pageNativeScrollEnabled } =
@@ -558,7 +678,7 @@ function MobilePerpMarket() {
       scrollProps={pageScrollProps}
     >
       {pageHeader}
-      <Page.Body p="$0">
+      <Page.Body p="$0" minHeight={splitDetailPageMinHeight}>
         {inlineHeader}
         <YStack
           flex={1}
@@ -571,23 +691,28 @@ function MobilePerpMarket() {
           }
         >
           <MobilePerpMarketTabBar
+            items={mobileMarketTabItems}
             activeTab={activeTab}
             onChange={handleChangeActiveTab}
           />
           <ScrollView
             ref={scrollViewRef}
             horizontal
-            flex={1}
-            minHeight={0}
+            contentOffset={initialPagerContentOffsetRef.current}
+            flex={useIntrinsicPagerHeight ? undefined : 1}
+            height={activePagerHeight}
+            minHeight={useIntrinsicPagerHeight ? undefined : 0}
             scrollEnabled={false}
             showsHorizontalScrollIndicator={false}
             bounces={false}
-            contentContainerStyle={{ minHeight: '100%' }}
+            contentContainerStyle={
+              useIntrinsicPagerHeight ? undefined : { minHeight: '100%' }
+            }
             onLayout={(event) => handleTraceLayout('horizontalPager', event)}
           >
             <YStack
               w={effectivePageWidth}
-              flex={1}
+              flex={useIntrinsicPagerHeight ? undefined : 1}
               minHeight={0}
               {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
               onLayout={(event) => handleTraceLayout('orderbookPage', event)}
@@ -636,7 +761,11 @@ function MobilePerpMarket() {
                   </Tabs.Tab>
                 </Tabs.Container>
               ) : (
-                <YStack flex={1} minHeight={0}>
+                <YStack
+                  onLayout={(event) =>
+                    handlePageContentLayout('orderbook', event)
+                  }
+                >
                   {marketHeaderContent}
                   {orderBookContent}
                 </YStack>
@@ -644,19 +773,38 @@ function MobilePerpMarket() {
             </YStack>
             <YStack
               w={effectivePageWidth}
-              flex={1}
+              flex={useIntrinsicPagerHeight ? undefined : 1}
               minHeight={0}
               {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
               onLayout={(event) => handleTraceLayout('infoPage', event)}
             >
               {hasInfoTabMounted ? (
-                <ScrollView
-                  flex={1}
-                  minHeight={0}
-                  showsVerticalScrollIndicator={false}
+                <MobilePerpMarketPageContent
+                  useIntrinsicHeight={useIntrinsicPagerHeight}
+                  onContentLayout={(event) =>
+                    handlePageContentLayout('info', event)
+                  }
                 >
                   {infoContent}
-                </ScrollView>
+                </MobilePerpMarketPageContent>
+              ) : null}
+            </YStack>
+            <YStack
+              w={effectivePageWidth}
+              flex={useIntrinsicPagerHeight ? undefined : 1}
+              minHeight={0}
+              {...(isSplitDetailActive ? { overflow: 'hidden' } : null)}
+              onLayout={(event) => handleTraceLayout('fundingPage', event)}
+            >
+              {fundingContent ? (
+                <MobilePerpMarketPageContent
+                  useIntrinsicHeight={useIntrinsicPagerHeight}
+                  onContentLayout={(event) =>
+                    handlePageContentLayout('funding', event)
+                  }
+                >
+                  {fundingContent}
+                </MobilePerpMarketPageContent>
               ) : null}
             </YStack>
           </ScrollView>

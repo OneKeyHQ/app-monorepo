@@ -5,8 +5,9 @@
 
 import type { ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapInviteItem } from '@onekeyhq/shared/src/referralCode/type';
 
 jest.mock('react-intl', () => ({
@@ -20,35 +21,37 @@ jest.mock('react-native', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const Stack = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  );
-  const SizableText = ({
+  const Stack = ({
     children,
-    ellipsizeMode,
-    numberOfLines,
-    width,
+    onPress,
   }: {
     children?: ReactNode;
-    ellipsizeMode?: string;
-    numberOfLines?: number;
-    width?: string | number;
-  }) => (
-    <span
-      data-ellipsize-mode={ellipsizeMode}
-      data-number-of-lines={numberOfLines}
-      data-width={width}
-    >
-      {children}
-    </span>
+    onPress?: () => void;
+  }) =>
+    onPress ? (
+      <button type="button" onClick={onPress}>
+        {children}
+      </button>
+    ) : (
+      <div>{children}</div>
+    );
+  const SizableText = ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
   );
   const YStack = ({
     children,
-    width,
+    onPress,
   }: {
     children?: ReactNode;
-    width?: string | number;
-  }) => <div data-width={width}>{children}</div>;
+    onPress?: () => void;
+  }) =>
+    onPress ? (
+      <button type="button" onClick={onPress}>
+        {children}
+      </button>
+    ) : (
+      <div>{children}</div>
+    );
 
   return {
     Badge: Stack,
@@ -65,23 +68,6 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   Currency: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-}));
-
-jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
-  openTransactionDetailsUrl: jest.fn(),
-}));
-
-jest.mock('../hooks/useSwapRecordDetails', () => ({
-  useSwapRecordDetails: () => ({
-    hasError: false,
-    isLoading: false,
-    records: undefined,
-    retry: jest.fn(),
-  }),
-}));
-
-jest.mock('./SwapRewardStatusBadge', () => ({
-  SwapRewardStatusBadge: () => null,
 }));
 
 import { SwapInviteRecord } from './SwapInviteRecord';
@@ -113,20 +99,38 @@ const inviteItem: ISwapInviteItem = {
 };
 
 describe('SwapInviteRecord', () => {
-  it('constrains long invite-code remarks to a single ellipsized line', () => {
-    render(
-      <SwapInviteRecord
-        item={inviteItem}
-        query={{}}
-        status={undefined}
-        variant="desktop"
-      />,
-    );
+  it.each(['desktop', 'mobile'] as const)(
+    'hides invite-code remarks on %s invite history',
+    (variant) => {
+      render(<SwapInviteRecord item={inviteItem} variant={variant} />);
 
-    const remark = screen.getByText(LONG_REMARK);
-    expect(remark.getAttribute('data-number-of-lines')).toBe('1');
-    expect(remark.getAttribute('data-ellipsize-mode')).toBe('tail');
-    expect(remark.getAttribute('data-width')).toBe('100%');
-    expect(remark.parentElement?.getAttribute('data-width')).toBe('100%');
+      expect(screen.getByText('ONEKEY')).toBeTruthy();
+      expect(screen.queryByText(LONG_REMARK)).toBeNull();
+    },
+  );
+
+  it('keeps desktop invite rows summary-only and non-expandable', () => {
+    render(<SwapInviteRecord item={inviteItem} variant="desktop" />);
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText(ETranslations.global_transaction_id)).toBeNull();
+  });
+
+  it('expands only aggregate fields on mobile', () => {
+    render(<SwapInviteRecord item={inviteItem} variant="mobile" />);
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(
+      screen.getByText(ETranslations.referral_perps_invited_at),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(ETranslations.referral_perps_first_trade),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(ETranslations.referral_perps_onekey_fee),
+    ).toBeTruthy();
+    expect(screen.queryByText(ETranslations.global_transaction_id)).toBeNull();
+    expect(screen.queryByText(ETranslations.earn_period)).toBeNull();
   });
 });

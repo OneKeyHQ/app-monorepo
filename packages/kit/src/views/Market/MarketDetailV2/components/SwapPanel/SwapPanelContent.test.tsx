@@ -34,6 +34,14 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem',
+  () => ({
+    __esModule: true,
+    default: () => <div data-testid="provider-info" />,
+  }),
+);
+
 jest.mock('./hooks/useSwapAnalytics', () => ({
   useSwapAnalytics: () => ({
     setAmountEnterType: setAmountEnterTypeMock,
@@ -93,7 +101,11 @@ jest.mock('./components/MarketPresetSelector', () => ({
 }));
 
 jest.mock('./components/ActionButton', () => ({
-  ActionButton: (props: { onPress: () => void; disabled?: boolean }) => {
+  ActionButton: (props: {
+    onPress: () => void;
+    onSwapAction?: () => void;
+    disabled?: boolean;
+  }) => {
     const { disabled, onPress } = props;
     actionButtonMock(props);
     return (
@@ -171,7 +183,9 @@ function createProps(): ISwapPanelContentProps {
       decimals: 8,
       isNative: false,
     },
-    speedCheckError: '',
+    quoteListLength: 0,
+    onOpenProviderList: jest.fn(),
+    quoteError: '',
   };
 }
 
@@ -197,8 +211,18 @@ describe('SwapPanelContent', () => {
     );
 
     fireEvent.click(screen.getByTestId('action-button'));
+    const actionProps = actionButtonMock.mock.lastCall?.[0] as {
+      onSwapAction?: () => void;
+    };
+    actionProps.onSwapAction?.();
 
     expect(props.onSwap).toHaveBeenCalledTimes(1);
+    expect(logSwapActionMock).toHaveBeenCalledWith({
+      tradeType: props.swapPanel.tradeType,
+      networkId: props.swapPanel.networkId,
+      paymentToken: props.swapPanel.paymentToken,
+      marketToken: props.currentMarketToken,
+    });
   });
 
   it('routes wrapped pairs through the wrapped review handler', () => {
@@ -210,6 +234,25 @@ describe('SwapPanelContent', () => {
     fireEvent.click(screen.getByTestId('action-button'));
 
     expect(props.onWrappedSwap).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes an expired quote action to refresh without opening review', () => {
+    const props = createProps();
+    props.isRefreshQuote = true;
+    props.onRefreshQuote = jest.fn();
+
+    render(<SwapPanelContent {...props} />);
+
+    fireEvent.click(screen.getByTestId('action-button'));
+
+    expect(props.onRefreshQuote).toHaveBeenCalledTimes(1);
+    expect(props.onSwap).not.toHaveBeenCalled();
+    expect(actionButtonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isRefreshQuote: true,
+        onSwapAction: undefined,
+      }),
+    );
   });
 
   it('disables the preview entry while loading', () => {
@@ -224,10 +267,10 @@ describe('SwapPanelContent', () => {
     expect(actionButtonMock).toHaveBeenCalledWith(
       expect.objectContaining({
         disabled: true,
+        loading: true,
       }),
     );
   });
-
   it('disables the preview entry without showing loading for guarded states', () => {
     const props = createProps();
     props.isActionDisabled = true;

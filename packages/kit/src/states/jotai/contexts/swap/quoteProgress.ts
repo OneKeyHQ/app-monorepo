@@ -306,18 +306,23 @@ export function isSwapQuoteInputAmountMatched({
 }
 
 export function shouldOfferSwapQuoteRefresh({
+  hasValidQuoteInput,
   isRefreshQuote,
   quoteResultNoMatch,
   quoteResultNoMatchDebounced,
   quoteLoading,
   quoteEventFetching,
 }: {
+  hasValidQuoteInput: boolean;
   isRefreshQuote: boolean;
   quoteResultNoMatch: boolean;
   quoteResultNoMatchDebounced: boolean;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (!hasValidQuoteInput) {
+    return false;
+  }
   if (isRefreshQuote) {
     return true;
   }
@@ -327,6 +332,26 @@ export function shouldOfferSwapQuoteRefresh({
     !quoteEventFetching &&
     quoteResultNoMatch &&
     quoteResultNoMatchDebounced
+  );
+}
+
+export function isSwapQuoteInputAmountValid({
+  quoteKind,
+  fromTokenAmount,
+  toTokenAmount,
+  hasTokenPair,
+}: {
+  quoteKind: ESwapQuoteKind;
+  fromTokenAmount: { value: string; isInput: boolean };
+  toTokenAmount: { value: string; isInput: boolean };
+  hasTokenPair: boolean;
+}) {
+  const inputAmount =
+    quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount;
+  const amount = new BigNumber(inputAmount.value);
+
+  return Boolean(
+    hasTokenPair && inputAmount.isInput && amount.isFinite() && amount.gt(0),
   );
 }
 
@@ -510,6 +535,44 @@ export function isSwapQuoteFromCurrentEvent({
     return quote.eventId === quoteEventTotalCount.eventId;
   }
   return !quoteLoading && !quoteEventFetching;
+}
+
+/**
+ * Proof that the selected quote belongs to the active quote round for the
+ * current inputs. Pair equality alone cannot provide this, and neither can
+ * event membership plus a lock match on their own: quoteAction's starting
+ * interval clears the event id and writes the new lock BEFORE runQuoteEvent
+ * flips the loading flags, so a retained previous quote would pass the
+ * no-event-id fallback while the freshly written lock matches the current
+ * input. That interval is identified by actionLock with no event id yet and
+ * counts as unproven.
+ */
+export function isSwapQuoteProvenForCurrentRequest({
+  quote,
+  quoteEventTotalCount,
+  quoteLoading,
+  quoteEventFetching,
+  quoteActionLocked,
+  requestMatchesCurrentInput,
+}: {
+  quote?: IFetchQuoteResult;
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+  quoteActionLocked: boolean;
+  requestMatchesCurrentInput: boolean;
+}) {
+  if (quoteActionLocked && !quoteEventTotalCount.eventId) {
+    return false;
+  }
+  return (
+    isSwapQuoteFromCurrentEvent({
+      quote,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+    }) && requestMatchesCurrentInput
+  );
 }
 
 export function selectSwapPreviousActionableQuote({

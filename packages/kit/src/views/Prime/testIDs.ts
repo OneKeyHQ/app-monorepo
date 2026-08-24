@@ -2,6 +2,9 @@ export const PrimeTestIDs = {
   // --- Prime Dashboard ---
   primeHeaderBtn: 'headerRightPrimeButton', // preserve existing
   userInfoMoreBtn: 'prime-user-info-more-btn',
+  redemptionMenuItem: 'prime-redemption-menu-item',
+  redemptionCodeInput: 'prime-redemption-code-input',
+  redemptionSuccess: 'prime-redemption-success',
 
   // --- Login Email Dialog ---
   emailInput: 'prime-email-input',

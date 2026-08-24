@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Icon,
   Image,
   SizableText,
@@ -29,19 +28,21 @@ import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
-const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
-  <XStack
-    borderRadius="$1"
-    bg="$bgInfo"
-    justifyContent="center"
-    alignItems="center"
-    px="$1.5"
-  >
-    <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
-      {leverage}x
-    </SizableText>
-  </XStack>
-));
+const LeverageBadge = memo(
+  ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
+    <XStack
+      borderRadius="$1"
+      bg="$bgInfo"
+      justifyContent="center"
+      alignItems="center"
+      px={compact ? '$1' : '$1.5'}
+    >
+      <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
+        {leverage}x
+      </SizableText>
+    </XStack>
+  ),
+);
 LeverageBadge.displayName = 'LeverageBadge';
 
 function getPerpDexDescriptionId(dexLabel?: string) {
@@ -75,25 +76,17 @@ const PerpDexBadge = memo(
     const label = dexLabel.toLowerCase();
     const description = intl.formatMessage({ id: descriptionId });
     const badgeText = (
-      <SizableText
-        color="$textInfo"
-        fontSize={10}
-        {...(!compact && { lineHeight: 16 })}
-      >
+      <SizableText color="$textInfo" fontSize={10} lineHeight={16}>
         {label}
       </SizableText>
     );
-    const badge = compact ? (
-      <Badge radius="$1" bg="$bgInfo" px="$1" py={0} testID={testID}>
-        {badgeText}
-      </Badge>
-    ) : (
+    const badge = (
       <XStack
         borderRadius="$1"
         bg="$bgInfo"
         justifyContent="center"
         alignItems="center"
-        px="$1.5"
+        px={compact ? '$1' : '$1.5'}
         testID={testID}
       >
         {badgeText}
@@ -270,10 +263,13 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   EUSMarketStatusVariant,
   {
     icon: IKeyOfIcons;
-    titleId: ETranslations;
     bg: IColorTokens;
     color: IColorTokens;
-  }
+  } & (
+    | { titleId: ETranslations; title?: undefined }
+    // Language-neutral numeral labels (e.g. "24/7") need no translation key.
+    | { title: string; titleId?: undefined }
+  )
 > = {
   [EUSMarketStatusVariant.PreMarket]: {
     icon: 'SunriseOutline',
@@ -305,11 +301,17 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
     bg: '$bgStrong',
     color: '$textSubdued',
   },
-  [EUSMarketStatusVariant.ClosedTradable]: {
-    icon: 'ClockSnoozeOutline',
-    titleId: ETranslations.trading_hours_closed_tradable,
+  [EUSMarketStatusVariant.Open247]: {
+    icon: 'ClockTimeHistoryOutline',
+    title: '24/7',
     bg: '$bgStrong',
     color: '$textSubdued',
+  },
+  [EUSMarketStatusVariant.AwaitingOpen]: {
+    icon: 'StopwatchOutline',
+    titleId: ETranslations.label_market_awaiting_open,
+    bg: '$bgCaution',
+    color: '$textCaution',
   },
   [EUSMarketStatusVariant.Halted]: {
     icon: 'PauseOutline',
@@ -322,8 +324,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
 /**
  * Market status chip for tokenized stocks (see OK-58043). Only Ondo tokens
  * follow the US-session model, so only they get a chip (sessions, closed,
- * halted, "Closed · Tradable" for 7×24 instruments); other issuers (e.g.
- * xStocks run 7×24 with no open/closed distinction) show no badge at all.
+ * halted); other issuers (e.g. xStocks run 7×24 with no open/closed
+ * distinction) show no badge at all. The chip describes the underlying
+ * market only — it no longer implies whether trading is disabled (OK-58986).
  * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
@@ -338,11 +341,13 @@ const StockIsOpenBadge = memo(
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
+    // Every isOpen === true resolution (paused or not) may need the backend
+    // status — the 60s poll is also what re-runs the memo below, unfreezing
+    // gap-transient variants once the gap ends. Other isOpen values resolve
+    // clock-free (Closed / Halted / no chip), so skip the fetch for them.
     const marketStatus = useUSMarketStatus({
-      enabled:
-        isOndoUSMarketStock(source) && isOpen === true && isPaused !== true,
+      enabled: isOndoUSMarketStock(source) && isOpen === true,
     });
-
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(
@@ -372,7 +377,9 @@ const StockIsOpenBadge = memo(
       >
         <Icon name={chip.icon} size="$3" color={chip.color} />
         <SizableText fontSize={10} color={chip.color} lineHeight={16}>
-          {intl.formatMessage({ id: chip.titleId })}
+          {chip.titleId !== undefined
+            ? intl.formatMessage({ id: chip.titleId })
+            : chip.title}
         </SizableText>
       </XStack>
     );

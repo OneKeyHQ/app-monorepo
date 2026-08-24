@@ -19,27 +19,24 @@ function shouldShowSwapInviteeRewardAction({
   );
 }
 
-export type ISwapInviteeRewardActionPlacement =
+export type ISwapActivityHubActionPlacement =
   | 'desktopHeader'
-  | 'mobileSettings'
-  | 'swapHeader'
+  | 'settings'
   | 'hidden';
 
-export function getSwapInviteeRewardActionPlacement({
+export function getSwapActivityHubActionPlacement({
   isDesktop,
   isMediumLayout,
   isModal,
-  isNative,
   pendingRouteSwapType,
   swapTypeSwitch,
 }: {
   isDesktop: boolean;
   isMediumLayout: boolean;
   isModal?: boolean;
-  isNative?: boolean;
   pendingRouteSwapType?: ESwapTabSwitchType;
   swapTypeSwitch?: ESwapTabSwitchType;
-}): ISwapInviteeRewardActionPlacement {
+}): ISwapActivityHubActionPlacement {
   if (
     !shouldShowSwapInviteeRewardAction({
       isModal,
@@ -49,11 +46,9 @@ export function getSwapInviteeRewardActionPlacement({
     return 'hidden';
   }
 
-  if (isNative) {
-    return 'mobileSettings';
-  }
-
-  return isDesktop && !isMediumLayout ? 'desktopHeader' : 'swapHeader';
+  // Only the wide desktop header has room for its own gift button; every other
+  // surface reaches the activity hub through the Swap settings sheet.
+  return isDesktop && !isMediumLayout ? 'desktopHeader' : 'settings';
 }
 
 interface ISwapInviteeWalletInfo {

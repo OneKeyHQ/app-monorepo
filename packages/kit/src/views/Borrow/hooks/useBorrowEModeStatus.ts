@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
@@ -50,6 +51,9 @@ export const useBorrowEModeStatus = ({
     [accountId, enabled, marketAddress, networkId, provider],
   );
   const canRequestStatus = Boolean(requestParams);
+  const swrKey = requestParams
+    ? swrKeys.borrowEModeStatus(requestParams)
+    : undefined;
   const {
     result: scopedResult,
     run,
@@ -89,6 +93,9 @@ export const useBorrowEModeStatus = ({
       checkIsFocused: true,
       revalidateOnFocus: true,
       undefinedResultIfError: true,
+      swrKey,
+      swrShouldPersist: (result) =>
+        result?.state === 'resolved' && Boolean(result.eModeStatus),
     },
   );
 

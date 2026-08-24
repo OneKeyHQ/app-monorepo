@@ -37,6 +37,7 @@ export default function ClearAppCache() {
       customRpc: false,
       customNetworkFee: false,
       serverNetworks: false,
+      perpsData: false,
     } as IClearCacheOnAppState,
   });
   const { copyText } = useClipboard();
@@ -171,6 +172,13 @@ export default function ClearAppCache() {
                   />
                 </Form.Field>
               )}
+              <Form.Field name="perpsData">
+                <Checkbox
+                  label={intl.formatMessage({
+                    id: ETranslations.global_perp,
+                  })}
+                />
+              </Form.Field>
             </YStack>
           </Form>
         </Stack>

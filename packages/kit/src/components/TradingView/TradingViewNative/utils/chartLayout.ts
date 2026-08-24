@@ -7,6 +7,7 @@ import {
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP,
@@ -75,6 +76,7 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  mainChartBottom: number;
   maxPrice: number;
   maxVolume: number;
   minPrice: number;
@@ -288,9 +290,9 @@ function getTradingViewNativePriceAxisCandidateLabel(price: number) {
       MAX_TO_FIXED_FRACTION_DIGITS
     ) {
       label = compactTradingViewNativePriceLeadingZeros(
-        `${price < 0 ? '-' : ''}0.${'0'.repeat(
-          leadingZeroCount,
-        )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`,
+        `${price < 0 ? '-' : ''}0.${'0'.repeat(leadingZeroCount)}${'8'.repeat(
+          PRICE_SIGNIFICANT_FRACTION_DIGITS,
+        )}`,
       );
     }
   }
@@ -848,8 +850,10 @@ export function getTradingViewNativeTimeAxisLayout({
 }
 
 export function getTradingViewNativeChartLayout({
+  additionalPriceRange,
   candleIntervalSeconds,
   chartType = 'candlestick',
+  contentBottomInset = 0,
   hasVolume,
   height,
   minimumTimeTickIndexSpacing,
@@ -858,8 +862,13 @@ export function getTradingViewNativeChartLayout({
   visiblePointRange,
   width,
 }: {
+  additionalPriceRange?: {
+    maxPrice: number;
+    minPrice: number;
+  } | null;
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
+  contentBottomInset?: number;
   hasVolume: boolean;
   height: number;
   minimumTimeTickIndexSpacing: number;
@@ -873,22 +882,48 @@ export function getTradingViewNativeChartLayout({
   const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
   const priceAxisX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
   const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  const normalizedContentBottomInset = Number.isFinite(contentBottomInset)
+    ? Math.max(contentBottomInset, 0)
+    : 0;
+  const mainChartBottom = Math.max(
+    timeAxisY - normalizedContentBottomInset,
+    TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  );
   const contentHeight =
-    timeAxisY -
+    mainChartBottom -
     TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
     TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   if (!points.length || chartWidth <= 0 || contentHeight <= 0) {
     return null;
   }
 
-  const visiblePriceRange = getTradingViewNativePriceRange({
+  const visiblePointPriceRange = getTradingViewNativePriceRange({
     ...visiblePointRange,
     chartType,
     points,
   });
-  if (!visiblePriceRange) {
+  if (!visiblePointPriceRange) {
     return null;
   }
+
+  const hasValidAdditionalPriceRange = Boolean(
+    additionalPriceRange &&
+    Number.isFinite(additionalPriceRange.maxPrice) &&
+    Number.isFinite(additionalPriceRange.minPrice) &&
+    additionalPriceRange.maxPrice >= additionalPriceRange.minPrice,
+  );
+  const visiblePriceRange = hasValidAdditionalPriceRange
+    ? {
+        maxPrice: Math.max(
+          visiblePointPriceRange.maxPrice,
+          additionalPriceRange?.maxPrice ?? visiblePointPriceRange.maxPrice,
+        ),
+        minPrice: Math.min(
+          visiblePointPriceRange.minPrice,
+          additionalPriceRange?.minPrice ?? visiblePointPriceRange.minPrice,
+        ),
+      }
+    : visiblePointPriceRange;
 
   const volumeHeight = hasVolume ? contentHeight * VOLUME_HEIGHT_RATIO : 0;
   const priceChartHeight = Math.max(
@@ -900,12 +935,24 @@ export function getTradingViewNativeChartLayout({
   if (priceChartHeight <= 0) {
     return null;
   }
-  const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
+  const volumeBottom =
+    mainChartBottom - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const volumeTop = volumeBottom - volumeHeight;
   const { maxPrice, minPrice } = visiblePriceRange;
   const priceRange = maxPrice - minPrice;
   const priceTickCount =
-    priceRange === 0 ? 1 : TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
+    priceRange === 0
+      ? 1
+      : Math.min(
+          Math.max(
+            Math.floor(
+              priceChartHeight /
+                TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
+            ) + 1,
+            1,
+          ),
+          TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
+        );
   const priceTicks = Array.from(
     { length: priceTickCount },
     (_, index): ITradingViewNativePriceTick => {
@@ -953,6 +1000,7 @@ export function getTradingViewNativeChartLayout({
   }).ticks;
 
   return {
+    mainChartBottom,
     maxPrice,
     maxVolume,
     minPrice,

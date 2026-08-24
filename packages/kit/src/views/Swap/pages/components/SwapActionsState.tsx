@@ -41,7 +41,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { isSwapQuoteRequestForCurrentInput } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
+  isSwapQuoteProvenForCurrentRequest,
+  isSwapQuoteRequestForCurrentInput,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -64,10 +67,12 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSettledSwapRecipientRequired } from '../../hooks/useSettledSwapRecipientRequired';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
+import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -112,7 +117,8 @@ const SwapActionsState = ({
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
-  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventTotalCount, setSwapQuoteEventTotalCount] =
+    useSwapQuoteEventTotalCountAtom();
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -205,24 +211,25 @@ const SwapActionsState = ({
   // `actionLock`/`quoteEventCompleted` keep the request-starting interval
   // (lock written, fetching flag not yet set while `closeApproving` awaits)
   // counted as pending.
+  const quoteRequestMatchesCurrentInput = isSwapQuoteRequestForCurrentInput({
+    currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
+    currentAddress: swapFromAddressInfo?.address,
+    currentReceivingAddress: swapToAddressInfo?.address,
+    currentSwapType: swapTypeSwitch,
+    fromAmount: fromTokenAmount.value,
+    toAmount: toTokenAmount.value,
+    fromToken,
+    toToken,
+    quoteKind: quoteActionLock?.kind ?? ESwapQuoteKind.SELL,
+    quoteRequest: quoteActionLock,
+  });
   const isQuoteSettledWithoutResult =
     !currentQuoteRes &&
     !quoteLoading &&
     !quoteEventFetching &&
     !quoteActionLock.actionLock &&
     quoteEventCompleted &&
-    isSwapQuoteRequestForCurrentInput({
-      currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
-      currentAddress: swapFromAddressInfo?.address,
-      currentReceivingAddress: swapToAddressInfo?.address,
-      currentSwapType: swapTypeSwitch,
-      fromAmount: fromTokenAmount.value,
-      toAmount: toTokenAmount.value,
-      fromToken,
-      toToken,
-      quoteKind: quoteActionLock?.kind ?? ESwapQuoteKind.SELL,
-      quoteRequest: quoteActionLock,
-    });
+    quoteRequestMatchesCurrentInput;
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
   if (currentQuoteRes || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
@@ -230,20 +237,55 @@ const SwapActionsState = ({
   const providerSupportReceiveAddressSettled =
     settledProviderSupportRef.current;
 
+  // Hold the "recipient required" verdict the same way as provider support
+  // above: the action button's shouldEnterRecipient flips false during every
+  // quote refresh/loading window, which would collapse and re-expand the
+  // recipient entry on each quote cycle. Adopt a new verdict only when a
+  // quote settles and the target address resolution is ready, so the row
+  // keeps its pre-quote state while quoting and only moves when the settled
+  // outcome actually changed. (OK-58326)
+  const recipientRequiredSettled = useSettledSwapRecipientRequired({
+    swapType: swapTypeSwitch,
+    fromToken,
+    toToken,
+    sourceAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
+    // Raw selection atom: the hook itself rejects a retained quote whose
+    // token pair no longer matches the current selection.
+    quoteResult: currentQuoteRes,
+    // Active-request proof: see isSwapQuoteProvenForCurrentRequest for why
+    // event membership, the lock match, and the request-starting interval all
+    // have to be checked together.
+    quoteProvenForCurrentInput: isSwapQuoteProvenForCurrentRequest({
+      quote: currentQuoteRes,
+      quoteEventTotalCount,
+      quoteLoading,
+      quoteEventFetching,
+      quoteActionLocked: Boolean(quoteActionLock.actionLock),
+      requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
+    }),
+    quoteSettledWithoutResult: isQuoteSettledWithoutResult,
+    isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+    hasTargetAddress: Boolean(swapToAddressInfo.address),
+    noConnectWallet: Boolean(swapActionState.noConnectWallet),
+  });
+
   const shouldShowRecipient = useMemo(
     () =>
-      !!(
-        (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
-          swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-          !swapIncognitoMode) &&
-        swapEnableRecipientAddress &&
-        providerSupportReceiveAddressSettled &&
-        fromToken &&
-        toToken
-      ),
+      shouldShowSwapRecipientEntry({
+        swapType: swapTypeSwitch,
+        incognitoMode: swapIncognitoMode,
+        recipientAddressSettingOn: swapEnableRecipientAddress,
+        recipientRequired: recipientRequiredSettled,
+        providerSupportReceiveAddress: Boolean(
+          providerSupportReceiveAddressSettled,
+        ),
+        hasFromToken: Boolean(fromToken),
+        hasToToken: Boolean(toToken),
+      }),
     [
       swapIncognitoMode,
       swapEnableRecipientAddress,
+      recipientRequiredSettled,
       providerSupportReceiveAddressSettled,
       fromToken,
       swapTypeSwitch,
@@ -382,7 +424,7 @@ const SwapActionsState = ({
         swapFromAddressInfo?.accountInfo?.account?.id,
         undefined,
         undefined,
-        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        quoteActionLock.kind ?? currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
         swapToAddressInfo?.address,
         swapIncognitoMode,
@@ -400,6 +442,7 @@ const SwapActionsState = ({
     onOpenRecipientAddress,
     onPreSwap,
     quoteAction,
+    quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,

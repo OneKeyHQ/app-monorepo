@@ -61,6 +61,8 @@ import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -127,6 +129,7 @@ import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
+import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -482,6 +485,9 @@ const BaseDevSettingsSection = () => {
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
+  const remoteTradingViewUrl = devSettings.settings?.useTradingViewTestUrl
+    ? TRADING_VIEW_URL_TEST
+    : TRADING_VIEW_URL;
   const mockTradingViewKLineEmptyEnabled =
     devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
   const rawMockTradingViewKLineEmptyIntervals =
@@ -839,7 +845,7 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
       },
       {
         key: 'devtools',
@@ -881,7 +887,7 @@ const BaseDevSettingsSection = () => {
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
         keywords:
-          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL',
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL 使用TradingView测试域名 TradingViewNative 事件日志 event log',
       },
       {
         key: 'galleries',
@@ -1056,6 +1062,18 @@ const BaseDevSettingsSection = () => {
                             void backgroundApiProxy.serviceApp.restartApp();
                           }, 300);
                         }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1243,9 +1261,17 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
+
+                      <SectionLoggerParityItem />
 
                       {platformEnv.isNativeAndroid ? (
                         <SectionPressItem
@@ -1445,18 +1471,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="ShieldOutline"
-                        name="disableIpTableFailover"
-                        title="禁用 IP 快速故障切换"
-                        subtitle={
-                          devSettings.settings?.disableIpTableFailover
-                            ? '域名失败时不自动切换到 IP'
-                            : '域名连续失败时自动切换到 IP (默认)'
-                        }
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1651,6 +1665,18 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        searchKeywords="Pro2 firmware boot app coprocessor resource SE force update"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
                           );
                         }}
                       />
@@ -2207,24 +2233,50 @@ const BaseDevSettingsSection = () => {
 
                       <SectionFieldItem
                         icon="TradeOutline"
+                        name="useTradingViewTestUrl"
+                        title="使用 TradingView 测试域名"
+                        subtitle={remoteTradingViewUrl}
+                      >
+                        <Switch
+                          testID="dev-settings-use-tradingview-test-url"
+                          size={ESwitchSize.small}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="TradeOutline"
                         name="useLocalTradingViewUrl"
                         title="使用本地 TradingView URL"
                         subtitle={
                           devSettings.settings?.useLocalTradingViewUrl
                             ? localTradingViewUrlSubtitle
-                            : 'https://tradingview.onekeytest.com/'
+                            : remoteTradingViewUrl
                         }
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
-                        name="useTradingViewNativeInMarketDetail"
-                        title="Use TradingViewNative in Market Detail"
-                        subtitle="关闭时继续使用 TradingViewV2"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
+                      {platformEnv.isWeb ? (
+                        <SearchFilterItem keywords="TradingViewNative event log debug panel 事件日志 调试窗口">
+                          <ListItem
+                            icon="CodeOutline"
+                            title="显示 TradingViewNative 事件日志"
+                            subtitle="关闭浮窗会同步关闭此开关"
+                          >
+                            <Switch
+                              size={ESwitchSize.small}
+                              value={
+                                devSettings.settings
+                                  ?.showTradingViewNativeDebugPanel ?? false
+                              }
+                              onChange={(value) => {
+                                void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                                  'showTradingViewNativeDebugPanel',
+                                  value,
+                                );
+                              }}
+                            />
+                          </ListItem>
+                        </SearchFilterItem>
+                      ) : null}
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"
