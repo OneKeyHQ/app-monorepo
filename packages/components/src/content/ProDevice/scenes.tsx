@@ -42,6 +42,12 @@ import type { SharedValue } from 'react-native-reanimated';
  * declaring how ProDevice runs it; entrances, exits and the clock are the
  * shared presence machinery (../deviceSceneHost), so no scene carries
  * transition code.
+ *
+ * The Touch shows these same screens (../TouchDevice), on a panel of a
+ * different black: the one place a scene paints the bare panel itself —
+ * the passphrase keyboard's grille — takes that color from
+ * `createScenes`, and everything else composites over whatever the shell
+ * put under it.
  */
 export type IProDeviceScene =
   | 'connecting'
@@ -582,18 +588,20 @@ const GRILLE_D = `M0 0H${KB_REGION_W}V${KB_REGION_H}H0Z${KB_KEYS.map(
   grilleHole,
 ).join('')}`;
 
-const GRILLE = (
-  <Svg
-    pointerEvents="none"
-    width={KB_REGION_W}
-    height={KB_REGION_H}
-    viewBox={`0 0 ${KB_REGION_W} ${KB_REGION_H}`}
-    fill="none"
-    style={passStyles.grille}
-  >
-    <Path d={GRILLE_D} fill={PRO_SCREEN_BG} fillRule="evenodd" />
-  </Svg>
-);
+function grille(surface: string) {
+  return (
+    <Svg
+      pointerEvents="none"
+      width={KB_REGION_W}
+      height={KB_REGION_H}
+      viewBox={`0 0 ${KB_REGION_W} ${KB_REGION_H}`}
+      fill="none"
+      style={passStyles.grille}
+    >
+      <Path d={GRILLE_D} fill={surface} fillRule="evenodd" />
+    </Svg>
+  );
+}
 
 const PASS_TITLE = (
   <SizableText
@@ -609,7 +617,13 @@ const PASS_TITLE = (
   </SizableText>
 );
 
-function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
+function PassphraseScreen({
+  clock,
+  grilleNode,
+}: {
+  clock: SharedValue<number>;
+  grilleNode: ReactNode;
+}) {
   return (
     <View style={sceneStyles.screen}>
       {PASS_TITLE}
@@ -636,7 +650,7 @@ function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
         height={KB_REGION_H}
         clipStyle={passStyles.sweepClip}
       />
-      {GRILLE}
+      {grilleNode}
     </View>
   );
 }
@@ -646,11 +660,22 @@ function PassphraseScreen({ clock }: { clock: SharedValue<number> }) {
 /**
  * The scene registry — the one table every per-scene trait lives in.
  * Adding a scene is adding one entry; nothing else consults a scene by
- * name.
+ * name. Built per panel color (see the header): a shell calls this once
+ * at module scope with the black its screen composites over.
  */
-export const SCENES: Record<IProDeviceScene, IDeviceSceneSpec> = {
-  connecting: { content: ConnectingContent, defersEntry: true },
-  enterPin: { content: PinScreen, loop: PIN_LOOP },
-  enterPassphrase: { content: PassphraseScreen, loop: PASSPHRASE_LOOP },
-  confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },
-};
+export function createScenes(
+  surface: string,
+): Record<IProDeviceScene, IDeviceSceneSpec> {
+  const grilleNode = grille(surface);
+  const PassphraseContent = ({ clock }: IDeviceSceneContentProps) => (
+    <PassphraseScreen clock={clock} grilleNode={grilleNode} />
+  );
+  return {
+    connecting: { content: ConnectingContent, defersEntry: true },
+    enterPin: { content: PinScreen, loop: PIN_LOOP },
+    enterPassphrase: { content: PassphraseContent, loop: PASSPHRASE_LOOP },
+    confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },
+  };
+}
+
+export const SCENES = createScenes(PRO_SCREEN_BG);

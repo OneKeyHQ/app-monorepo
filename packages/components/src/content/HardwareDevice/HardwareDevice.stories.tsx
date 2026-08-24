@@ -42,13 +42,15 @@ export const Playground: Story = {};
 
 // How the app calls it: the scenario is fixed here, the model arrives with
 // the connected device. The Classic family shares one replica, and a model
-// without one (mini) renders nothing rather than a placeholder.
+// without one (unknown) renders nothing rather than a placeholder.
 const ROUTED: IHardwareDeviceType[] = [
   'classic',
   'classicpure',
-  'pro',
-  'slate',
   'mini',
+  'pro',
+  'touch',
+  'slate',
+  'unknown',
 ];
 
 export const ByDeviceType: Story = {
@@ -87,6 +89,16 @@ export const Sizes: Story = {
         <HardwareDevice deviceType="slate" width={80} />
         <HardwareDevice deviceType="slate" width={160} />
         <HardwareDevice deviceType="slate" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="mini" width={80} />
+        <HardwareDevice deviceType="mini" width={160} />
+        <HardwareDevice deviceType="mini" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="touch" width={80} />
+        <HardwareDevice deviceType="touch" width={160} />
+        <HardwareDevice deviceType="touch" width={240} />
       </XStack>
     </YStack>
   ),
