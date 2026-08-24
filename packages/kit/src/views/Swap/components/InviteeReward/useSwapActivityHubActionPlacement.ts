@@ -7,35 +7,25 @@ import { jotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/jotaiCon
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapInviteeRewardActionButton } from './SwapInviteeRewardActionButton';
-import { getSwapInviteeRewardActionPlacement } from './utils';
+import { getSwapActivityHubActionPlacement } from './utils';
 
 interface IRouteSwapTypeState {
   routeSwapType?: ESwapTabSwitchType;
   pendingRouteSwapType?: ESwapTabSwitchType;
 }
 
-export function useSwapInviteeRewardActionPlacement({
-  isDesktop,
-  isMediumLayout,
-  isNative,
+// The route tab and the swap store converge asynchronously (the mount-time
+// switch in SwapHeaderContainer is delayed, and warm navigation goes through
+// useSwapGlobal), so the route wins until the store catches up. Surfaces that
+// already sit inside the swap provider read the store themselves and only need
+// this reconciliation.
+export function useSwapActivityHubPendingRouteSwapType({
   routeSwapType,
+  swapTypeSwitch,
 }: {
-  isDesktop: boolean;
-  isMediumLayout: boolean;
-  isNative: boolean;
   routeSwapType?: ESwapTabSwitchType;
+  swapTypeSwitch?: ESwapTabSwitchType;
 }) {
-  const swapStore = useMemo(
-    () =>
-      jotaiContextStore.prepareStoreForImmediateUse({
-        storeName: EJotaiContextStoreNames.swap,
-      }),
-    [],
-  );
-  const swapTypeSwitch = useAtomValue(swapTypeSwitchAtom(), {
-    store: swapStore,
-  });
   const [routeSwapTypeState, setRouteSwapTypeState] =
     useState<IRouteSwapTypeState>(() => ({
       routeSwapType,
@@ -66,20 +56,37 @@ export function useSwapInviteeRewardActionPlacement({
     }
   }, [routeSwapType, routeSwapTypeState, swapTypeSwitch]);
 
-  return getSwapInviteeRewardActionPlacement({
+  return pendingRouteSwapType;
+}
+
+export function useSwapActivityHubActionPlacement({
+  isDesktop,
+  isMediumLayout,
+  routeSwapType,
+}: {
+  isDesktop: boolean;
+  isMediumLayout: boolean;
+  routeSwapType?: ESwapTabSwitchType;
+}) {
+  const swapStore = useMemo(
+    () =>
+      jotaiContextStore.prepareStoreForImmediateUse({
+        storeName: EJotaiContextStoreNames.swap,
+      }),
+    [],
+  );
+  const swapTypeSwitch = useAtomValue(swapTypeSwitchAtom(), {
+    store: swapStore,
+  });
+  const pendingRouteSwapType = useSwapActivityHubPendingRouteSwapType({
+    routeSwapType,
+    swapTypeSwitch,
+  });
+
+  return getSwapActivityHubActionPlacement({
     isDesktop,
     isMediumLayout,
-    isNative,
     pendingRouteSwapType,
     swapTypeSwitch,
   });
-}
-
-export function SwapInviteeRewardHeaderAction() {
-  return (
-    <SwapInviteeRewardActionButton
-      testID="swap-invitee-reward-top-nav-button"
-      icon="GiftOutline"
-    />
-  );
 }

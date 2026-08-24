@@ -281,7 +281,7 @@ describe('SwapReward refresh feedback', () => {
     mockRouteFocused = true;
   });
 
-  it('uses the Trade product name in the reward page title', async () => {
+  it('uses the Swap product name in the reward page title', async () => {
     mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
     mockGetSwapInvites.mockResolvedValue(invites);
 
@@ -290,7 +290,7 @@ describe('SwapReward refresh feedback', () => {
 
     expect(mockReferFriendsDetailHeader).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: ETranslations.global_trade,
+        title: ETranslations.swap_referral_link__title,
       }),
     );
   });

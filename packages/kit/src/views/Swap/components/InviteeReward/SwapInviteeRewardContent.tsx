@@ -15,6 +15,8 @@ interface ISwapInviteeRewardContentProps {
   accountId?: string;
   currentEvmAddress?: string;
   isMobile?: boolean;
+  // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
+  onBeforeNavigate?: () => void | Promise<void>;
 }
 
 function UnsupportedWalletState() {
@@ -56,6 +58,7 @@ export function SwapInviteeRewardContent({
   accountId,
   currentEvmAddress,
   isMobile,
+  onBeforeNavigate,
 }: ISwapInviteeRewardContentProps) {
   const { result, isLoading, run } = usePromiseResult(
     async () => {
@@ -87,7 +90,12 @@ export function SwapInviteeRewardContent({
   );
 
   if (!accountId) {
-    return <InviteeRewardNoWallet testID="swap-invitee-reward-onboarding" />;
+    return (
+      <InviteeRewardNoWallet
+        testID="swap-invitee-reward-onboarding"
+        onBeforeNavigate={onBeforeNavigate}
+      />
+    );
   }
 
   if (result?.status === 'unsupported') {

@@ -19,6 +19,7 @@ import {
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
+import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,6 +55,28 @@ function openExtensionReferralInExpandTab(path: string, params?: object) {
       params,
     })
     .then(closeExtensionPopupAfterExpandTabOpen);
+}
+
+const EMPTY_SHARE_SOURCE_CONFIG: IInvitePostConfig['locales']['Earn'] = {
+  title: '',
+  subtitle: '',
+  for_you: { title: '', subtitle: '' },
+  for_your_friend: { title: '', subtitle: '' },
+};
+
+// Earn is the fallback copy: Perps / Swap locales are optional on the config.
+function getInviteShareSourceConfig({
+  source,
+  postConfig,
+}: {
+  source: IReferralShareSource;
+  postConfig?: IInvitePostConfig;
+}): IInvitePostConfig['locales']['Earn'] {
+  return (
+    postConfig?.locales[source] ??
+    postConfig?.locales.Earn ??
+    EMPTY_SHARE_SOURCE_CONFIG
+  );
 }
 
 export function useToReferFriendsModalByRootNavigation() {
@@ -261,7 +284,7 @@ export const useReferFriends = () => {
     async (
       _onSuccess?: () => void,
       _onFail?: () => void,
-      source: 'Earn' | 'Perps' = 'Earn',
+      source: IReferralShareSource = 'Earn',
       copyAsUrl = false,
     ) => {
       const [isLogin, postConfig] = await Promise.all([
@@ -290,15 +313,7 @@ export const useReferFriends = () => {
           await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
       }
 
-      const sourceConfig: IInvitePostConfig['locales']['Earn'] =
-        source === 'Perps' && postConfig?.locales.Perps
-          ? postConfig.locales.Perps
-          : (postConfig?.locales.Earn ?? {
-              title: '',
-              subtitle: '',
-              for_you: { title: '', subtitle: '' },
-              for_your_friend: { title: '', subtitle: '' },
-            });
+      const sourceConfig = getInviteShareSourceConfig({ source, postConfig });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({
