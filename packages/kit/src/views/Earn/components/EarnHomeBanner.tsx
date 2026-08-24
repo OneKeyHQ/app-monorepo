@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import {
-  BlurView,
   Carousel,
   Image,
   SizableText,
@@ -34,59 +31,10 @@ const BANNER_DRAG_RELEASE_TIMEOUT = 1500;
 // tokens, so they keep tracking each other on Android's small-screen uiScale.
 const BANNER_CONTAINER_PADDING = '$3';
 const BANNER_SHADOW_ROOM = '$2';
-// Figma gives the bottom bar as Hug 56px, which py $2 + icon $10 + py $2
-// reproduces exactly. Pinning it as a floor as well keeps the bar the same
-// height on an icon-less slide, so it does not jump as the carousel pages.
-const BANNER_INFO_HEIGHT = 56;
-// Dark frosted material. A frosted pane is blur *plus* a tint layer, never
-// plain transparency, so the bar always has a color — the only question is
-// which. The two options are not symmetric: a Light material is "add white
-// behind the glass" and collapses to flat mid-grey over the dark ops artwork
-// shipping today, while a dark pane keeps light copy legible over both dark
-// and light artwork. So one dark material serves every banner and no
-// per-banner configuration is needed.
-// The Dark suffix is required rather than cosmetic: the un-suffixed
-// `systemUltraThinMaterial` is the *adaptive* material on iOS and would swing
-// light in light mode, and expo-blur's Android port re-buckets the tints so
-// the whole Light family collapses back to LIGHT (rgba(249,249,249,0.78)),
-// while the Dark family keeps its own values.
-const BANNER_INFO_GLASS_MATERIAL = 'systemUltraThinMaterialDark' as const;
-// How much of the material is applied. On iOS this is the effect animator's
-// fraction, on Android it scales both the blur radius and the overlay alpha —
-// on both it is the one knob that goes *thinner* than the thinnest material.
-const BANNER_INFO_GLASS_INTENSITY = 55;
-// Optional veil above the material, kept as the readability escape hatch.
-// Off by default: it lands on top of the blur, so any non-zero value trades
-// the pane's transparency away. Unusually bright artwork can raise this to a
-// low-alpha black (0.1-0.2) rather than reaching for the material again.
-const BANNER_INFO_GLASS_TINT = 'transparent';
-// Specular highlight along the bar's top edge — the strongest "this is glass"
-// cue in Apple's materials. Without it the pane reads as translucent plastic
-// no matter how good the blur is.
-const BANNER_INFO_GLASS_EDGE = 'rgba(255,255,255,0.22)';
-// Half of $bodyMdMedium's extra leading (20 - 14 = 6), which iOS places
-// entirely above the glyphs. Paint-only, so no script can be clipped by it.
-const BANNER_BUTTON_LABEL_NUDGE = {
-  transform: [{ translateY: -1.5 }],
-} as const;
-// Matches the admin dashboard BannerPreview text-shadow so copy stays
-// readable on both light and dark background images. Not in Figma: the design
-// only ever shows the one hand-picked artwork, ops can upload any image.
-const BANNER_IMAGE_COPY_SHADOW = {
-  textShadowColor: 'rgba(0,0,0,0.45)',
-  textShadowRadius: 4,
-  textShadowOffset: { width: 0, height: 1 },
-} as const;
-// Figma default text colors (double fallback: prefer server-configured
-// colors, fall back to these when absent)
+// Figma default image copy colors. The server can override these per banner.
 const BANNER_DEFAULT_COLORS = {
   imageTitle: 'rgba(0,0,0,1)',
   imageSubtitle: 'rgba(0,0,0,1)',
-  // Light copy to match the dark glass pane. These are only the fallback: an
-  // admin-configured titleColor/subtitleColor still wins, so a slide whose
-  // artwork needs something else can still be hand-tuned.
-  title: 'rgba(255,255,255,0.95)',
-  subtitle: 'rgba(255,255,255,0.65)',
 } as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
@@ -107,6 +55,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     handleDeepLinkUrl({ url: item.href });
   }, [item.href, item.hrefType]);
 
+  const hasBrandLabel = Boolean(item.icon || item.title);
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 
   return (
@@ -153,8 +102,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             }
           : undefined)}
       >
-        {/* Background image fills the card (OK-58503: the bottom bar floats
-            over the image instead of splitting the card vertically) */}
+        {/* Background image fills the card. */}
         <YStack position="absolute" top={0} right={0} left={0} bottom={0}>
           <Image
             w="100%"
@@ -164,27 +112,46 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             skeleton={<Stack w="100%" h="100%" bg="$bgSubdued" />}
           />
         </YStack>
-        <Stack flex={1} />
-        {/* Campaign copy at the image's bottom-left. Long i18n copy: line
-            clamp + wrapping so it never overflows the card. Color double
-            fallback: prefer admin-configured colors, else Figma default dark;
-            a light shadow keeps it readable on light/dark images (OK-58503). */}
+        {hasBrandLabel ? (
+          <YStack
+            position="absolute"
+            top={0}
+            left={0}
+            p={10}
+            bg="$bg"
+            borderBottomRightRadius="$3"
+          >
+            <XStack gap="$1" ai="center">
+              {item.icon ? (
+                <Image
+                  src={item.icon}
+                  w="$4"
+                  h="$4"
+                  borderRadius="$1"
+                  resizeMode="cover"
+                />
+              ) : null}
+              {item.title ? (
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </SizableText>
+              ) : null}
+            </XStack>
+          </YStack>
+        ) : null}
+        {/* Figma places campaign copy in the image centre, below the brand
+            label. Image copy is intentionally shadow-free on every backdrop. */}
         {hasImageCopy ? (
-          // Figma: padding 12, gap 10. The gap prop is $0.5, not $2.5,
-          // because the prop only adds to what line-height already
-          // contributes: $headingLg is 18/24 and $bodyMd is 14/20, so the two
-          // half-leadings alone already separate the glyph boxes. Product
-          // signed off on the measured-on-device value over the annotation.
-          // pr stays wider than the design's 12 so a long localized title
-          // breaks before it reaches the artwork's focal point — Figma only
-          // ever shows the short English copy.
-          <YStack px="$3" pb="$3" gap="$0.5" pr="$8">
+          <YStack position="absolute" top={76} left="$3" right="$3" gap="$1">
             {item.imageTitle ? (
               <SizableText
                 size="$headingLg"
                 color={item.imageTitleColor || BANNER_DEFAULT_COLORS.imageTitle}
                 numberOfLines={2}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.imageTitle}
               </SizableText>
@@ -196,126 +163,12 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                   item.imageSubtitleColor || BANNER_DEFAULT_COLORS.imageSubtitle
                 }
                 numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.imageSubtitle}
               </SizableText>
             ) : null}
           </YStack>
         ) : null}
-        {/* Bottom bar: flush to the bottom + frosted glass. Two separate
-            reasons this used to render as a flat grey strip, both fixed here:
-            the veil must sit *above* the blur (`bg` on a BlurView lands on the
-            wrapper the native blur samples as its backdrop, so the blur only
-            ever saw flat white), and the tint must be a system material rather
-            than the legacy heavy `light` style — see the constants up top. */}
-        {/* Square top corners, bottom corners follow the card radius. Set the
-            bottom radii explicitly instead of relying on parent clipping: on
-            iOS the BlurView (native UIVisualEffectView) may ignore the RN
-            parent's overflow hidden and leak square corners (product feedback) */}
-        <BlurView
-          intensity={BANNER_INFO_GLASS_INTENSITY}
-          // BlurView defaults tint to the app theme name ('light' / 'dark'),
-          // both of which are the legacy heavy styles. Pin the material.
-          tint={BANNER_INFO_GLASS_MATERIAL}
-          minHeight={BANNER_INFO_HEIGHT}
-          borderBottomLeftRadius="$3"
-          borderBottomRightRadius="$3"
-          overflow="hidden"
-          contentStyle={{ flex: 1 }}
-        >
-          {/* Figma: padding 8/12, gap 12, height Hug 56 */}
-          <XStack
-            flex={1}
-            minHeight={BANNER_INFO_HEIGHT}
-            bg={BANNER_INFO_GLASS_TINT}
-            px="$3"
-            py="$2"
-            gap="$3"
-            ai="center"
-          >
-            {item.icon ? (
-              // The bar is a fixed 56pt with $2 padding, so $10 filled the
-              // 40pt content box edge to edge with no breathing room.
-              <Image
-                src={item.icon}
-                w="$8"
-                h="$8"
-                borderRadius="$2"
-                resizeMode="contain"
-              />
-            ) : null}
-            {/* Same shadow the image copy carries. An ultra-thin pane only
-                darkens a bright photo so far, and titleColor/subtitleColor are
-                admin-configurable, so the shadow is what keeps this copy
-                legible on artwork the design never saw. */}
-            <YStack flex={1} minWidth={0} jc="center">
-              <SizableText
-                size="$bodyMdMedium"
-                color={item.titleColor || BANNER_DEFAULT_COLORS.title}
-                numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
-              >
-                {item.title}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
-                numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
-              >
-                {item.subtitle}
-              </SizableText>
-            </YStack>
-            {item.button && item.href ? (
-              <XStack
-                testID={EarnTestIDs.bannerButton(item.bannerId)}
-                role="button"
-                flexShrink={0}
-                ai="center"
-                jc="center"
-                // Figma Button/Small/Primary: 47 x 30, padding 11 / 5 (the 5
-                // includes the component's 1px border). Height is pinned
-                // rather than derived from padding so the label can keep its
-                // natural line box — see the label below.
-                px={11}
-                h={30}
-                borderRadius="$full"
-                bg="$bgPrimary"
-                cursor="pointer"
-                pressStyle={{ bg: '$bgPrimaryActive' }}
-                onPress={handlePress}
-              >
-                <SizableText
-                  size="$bodyMdMedium"
-                  color="$textInverse"
-                  numberOfLines={1}
-                  // OK-60303: iOS puts $bodyMdMedium's 6pt of extra leading
-                  // (14/20) above the glyphs, so centring the line box still
-                  // leaves the label low in the pill. Collapsing lineHeight to
-                  // the font size fixed the offset but made the line box
-                  // shorter than the glyphs' own ascent+descent, which clipped
-                  // the top of taller scripts — CJK most visibly. Keep Figma's
-                  // line box and correct the offset in paint instead:
-                  // translateY does not participate in layout, so it cannot
-                  // clip and cannot be re-centred away by alignItems.
-                  style={BANNER_BUTTON_LABEL_NUDGE}
-                >
-                  {item.button}
-                </SizableText>
-              </XStack>
-            ) : null}
-          </XStack>
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h={StyleSheet.hairlineWidth}
-            bg={BANNER_INFO_GLASS_EDGE}
-            pointerEvents="none"
-          />
-        </BlurView>
       </YStack>
     </YStack>
   );

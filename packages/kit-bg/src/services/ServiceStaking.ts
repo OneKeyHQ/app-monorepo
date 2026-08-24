@@ -27,6 +27,7 @@ import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   IEarnAvailableAssetV2,
+  IEarnBannerTheme,
   IEarnPageBannerListItem,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
@@ -1556,12 +1557,19 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+  async getEarnPageBannerList({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<IEarnPageBannerListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
       data: IEarnPageBannerListItem[];
     }>('/earn/v1/banner/list');
-    const list = response.data.data;
+    // The common request interceptor sends the same active theme to the
+    // server. Keep this local guard as well so a malformed or stale response
+    // cannot be rendered or persisted under the current theme cache key.
+    const list = response.data.data.filter((banner) => banner.theme === theme);
     // Persist so the next cold start paints at the right height instead of
     // expanding once this request lands (OK-60299).
     //
@@ -1580,14 +1588,20 @@ class ServiceStaking extends ServiceBase {
     void (async () => {
       try {
         const previous =
-          await this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
+          await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(
+            theme,
+          );
         if (
-          stringUtils.stableStringify(previous) ===
-          stringUtils.stableStringify(list)
+          previous.isThemeScoped &&
+          stringUtils.stableStringify(previous.list) ===
+            stringUtils.stableStringify(list)
         ) {
           return;
         }
-        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList(list);
+        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList({
+          theme,
+          pageBannerList: list,
+        });
       } catch {
         // A cache write must never surface to the caller.
       }
@@ -1596,8 +1610,12 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnPageBannerListFromCache(): Promise<IEarnPageBannerListItem[]> {
-    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
+  async getEarnPageBannerListFromCache({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<IEarnPageBannerListItem[]> {
+    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList(theme);
   }
 
   @backgroundMethod()
