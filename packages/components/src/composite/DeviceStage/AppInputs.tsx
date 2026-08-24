@@ -16,6 +16,7 @@ import { Input } from '../../forms/Input';
 import {
   Anchor,
   Button,
+  Haptics,
   Icon,
   SizableText,
   Stack,
@@ -179,6 +180,10 @@ export function PinPad({
 
   const handleKey = useCallback(
     (key: IPinKeyValue) => {
+      // Every key answers the finger with the lightest tick: the pad is
+      // blind and the eyes are on the device's screen, so the tactile
+      // ack does the confirmation vision can't.
+      Haptics.selection();
       if (key === 'delete') {
         setValue((v) => v.slice(0, -1));
         return;
@@ -255,7 +260,7 @@ export function PinPad({
                 color="$textSubdued"
                 textAlign="center"
               >
-                Match the number positions on your device
+                Match the number positions on device
               </SizableText>
             ) : null}
           </XStack>

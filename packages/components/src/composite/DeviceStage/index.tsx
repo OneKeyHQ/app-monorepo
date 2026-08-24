@@ -13,7 +13,15 @@ import Animated, {
 import { SCREEN_SWAP_MS, easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
-import { Button, SizableText, Stack, XStack, YStack } from '../../primitives';
+import {
+  Button,
+  Haptics,
+  ImpactFeedbackStyle,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
 import {
   ARRANGE_MS,
   CARD,
@@ -334,6 +342,35 @@ function useWarmRoster<T extends string>({
   return built;
 }
 
+/**
+ * The stage's haptic grammar (expo-haptics maps the same calls onto
+ * Android): notification-class for the outcome cards, one impact for
+ * the card landing with an ask, the lightest tick for in-card
+ * progress. Everything else stays silent — the capsule appearing,
+ * returning to it, and the dismissals are attention released, not
+ * demanded — matching the system sheets' own restraint. The primitive
+ * itself gates every fire on the app's haptics setting, and is a no-op
+ * off the phones.
+ */
+function fireStepHaptic(
+  step: IDeviceStageStep,
+  arrival: 'landing' | 'crossing',
+) {
+  if (step === 'authSuccess') {
+    Haptics.success();
+    return;
+  }
+  if (step === 'authFailure' || step === 'error') {
+    Haptics.error();
+    return;
+  }
+  if (arrival === 'landing') {
+    Haptics.impact(ImpactFeedbackStyle.Medium);
+    return;
+  }
+  Haptics.selection();
+}
+
 export function DeviceStage({
   step,
   deviceType,
@@ -372,13 +409,31 @@ export function DeviceStage({
   // the same commit that starts the springs.
   const [poseInFlight, setPoseInFlight] = useState(false);
   const prevPoseForFlightRef = useRef(pose);
+  // Armed by the pose change, consumed by the first settle: the landing
+  // haptic must fire exactly once per flight, and the settled signal is
+  // level, not edge — at rest every aim pass reports settled again.
+  const landingHapticArmedRef = useRef(false);
   if (prevPoseForFlightRef.current !== pose) {
     prevPoseForFlightRef.current = pose;
+    landingHapticArmedRef.current = true;
     if (!poseInFlight) {
       setPoseInFlight(true);
     }
   }
-  const handleGeometrySettled = useCallback(() => setPoseInFlight(false), []);
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const handleGeometrySettled = useCallback(() => {
+    setPoseInFlight(false);
+    if (landingHapticArmedRef.current) {
+      landingHapticArmedRef.current = false;
+      // Only a card landing speaks — the ask arriving under the hand.
+      // An outcome card landing straight off a flight buzzes its news
+      // instead of the impact (one haptic per transition).
+      if (STEP_POSE[stepRef.current] === 'card') {
+        fireStepHaptic(stepRef.current, 'landing');
+      }
+    }
+  }, []);
   const morph = useMorphOverlay<IDeviceStageStep>({
     value: step,
     pose,
@@ -396,6 +451,45 @@ export function DeviceStage({
   const hidden = pose === 'hidden';
 
   const shownPort = REPLICA_PORT[shownStep];
+
+  // The in-card progress tick: a card-to-card crossing is the flow
+  // moving under the person's eyes (often while they watch the device,
+  // not the phone), marked on the swap beat. Pose flights are excluded
+  // on both ends — their landing owns the arrival — and capsule label
+  // swaps are waits trading places: silent.
+  const prevShownForHapticRef = useRef(shownStep);
+  useEffect(() => {
+    const prev = prevShownForHapticRef.current;
+    if (prev === shownStep) {
+      return;
+    }
+    prevShownForHapticRef.current = shownStep;
+    if (poseInFlight) {
+      return;
+    }
+    if (STEP_POSE[prev] !== 'card' || STEP_POSE[shownStep] !== 'card') {
+      return;
+    }
+    fireStepHaptic(shownStep, 'crossing');
+  }, [poseInFlight, shownStep]);
+  // A refused entry — inputError arriving — is a failure under the
+  // person's fingers: the error buzz in sync with the panel's own
+  // refusal beat. Change-driven like the panels' clearing effects, so
+  // the driver re-sending the same words is a no-op here too.
+  const prevInputErrorRef = useRef(inputError);
+  useEffect(() => {
+    const prev = prevInputErrorRef.current;
+    prevInputErrorRef.current = inputError;
+    if (!inputError || inputError === prev) {
+      return;
+    }
+    if (
+      stepRef.current === 'pinOnApp' ||
+      stepRef.current === 'passphraseOnApp'
+    ) {
+      Haptics.error();
+    }
+  }, [inputError]);
 
   // Which seat the card lights: the last card-class arrangement, frozen
   // through capsule poses so a flip never swaps the fading content
