@@ -7,6 +7,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import DefaultBulkExportHistoryDateRangeSelector from './BulkExportHistoryDateRangeSelector';
 import NativeBulkExportHistoryDateRangeSelector from './BulkExportHistoryDateRangeSelector.native';
 
+let mockIsNarrow = false;
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: () => 'Select date range',
@@ -136,6 +138,7 @@ jest.mock('@onekeyhq/components', () => {
         type="button"
       />
     ),
+    useMedia: () => ({ md: mockIsNarrow }),
   };
 });
 
@@ -144,6 +147,10 @@ const options = [
   { label: 'Últimos 3 meses', value: 'last3Months' },
   { label: 'Personalizado', value: 'custom' },
 ];
+
+beforeEach(() => {
+  mockIsNarrow = false;
+});
 
 describe('NativeBulkExportHistoryDateRangeSelector', () => {
   it('shows the complete selected value and all choices in a native select', () => {
@@ -240,7 +247,30 @@ describe('NativeBulkExportHistoryDateRangeSelector', () => {
 });
 
 describe('DefaultBulkExportHistoryDateRangeSelector', () => {
-  it('keeps SegmentControl and its disabled state on non-native targets', () => {
+  it('uses Select on narrow non-native targets', () => {
+    mockIsNarrow = true;
+    const onChange = jest.fn();
+    render(
+      <DefaultBulkExportHistoryDateRangeSelector
+        value="last3Months"
+        options={options}
+        onChange={onChange}
+        testID="date-range"
+      />,
+    );
+
+    expect(screen.queryByLabelText('Segment control')).toBeNull();
+    expect(screen.getByTestId('date-range').textContent).toBe(
+      'Últimos 3 meses',
+    );
+
+    fireEvent.click(screen.getByTestId('date-range'));
+    fireEvent.click(screen.getByTestId('select-item-custom'));
+
+    expect(onChange).toHaveBeenCalledWith('custom');
+  });
+
+  it('keeps SegmentControl and its disabled state on wide non-native targets', () => {
     const onChange = jest.fn();
     render(
       <DefaultBulkExportHistoryDateRangeSelector
