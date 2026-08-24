@@ -30,6 +30,28 @@ export {
 export const SWAP_COLD_START_HOME_SCENE_NAME =
   'home' as EAccountSelectorSceneName;
 
+export function resolveSwapTokenNetworkLogoURI({
+  swapNetworks,
+  token,
+}: {
+  swapNetworks: ISwapNetwork[];
+  token?: ISwapToken;
+}) {
+  return (
+    swapNetworks.find((network) => network.networkId === token?.networkId)
+      ?.logoURI ?? token?.networkLogoURI
+  );
+}
+
+export function sanitizeSwapSelectedTokenColdStartSnapshot(token?: ISwapToken) {
+  if (!token?.networkLogoURI) {
+    return token;
+  }
+  const stableToken = { ...token };
+  delete stableToken.networkLogoURI;
+  return stableToken;
+}
+
 type ISwapSelectedAccountKeySource = {
   walletId?: string;
   indexedAccountId?: string;

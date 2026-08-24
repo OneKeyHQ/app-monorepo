@@ -6,7 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
-import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import {
+  buildSwapDefaultSelectedTokensForNetwork,
+  resolveSwapTokenNetworkLogoURI,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
@@ -96,6 +99,7 @@ import {
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
+  sanitizeSwapProSelectTokenSnapshot,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
@@ -699,19 +703,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // If token is not provided: load from db, if db is empty, use defaultToken
   setSwapProSelectToken = contextAtomMethod(
     async (get, set, token?: ISwapToken, defaultToken?: ISwapToken) => {
-      // Remove realtime properties before saving to db
-      const getTokenForStorage = (t: ISwapToken): ISwapToken => {
-        const {
-          balanceParsed,
-          price,
-          fiatValue,
-          reservationValue,
-          accountAddress,
-          ...rest
-        } = t;
-        return rest;
-      };
-
       const setSelectedToken = (nextToken: ISwapToken) => {
         const currentToken = get(swapProSelectTokenAtom());
         const isSameToken =
@@ -734,7 +725,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (token) {
         setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-          getTokenForStorage(token),
+          sanitizeSwapProSelectTokenSnapshot(token),
         );
       } else {
         const savedToken =
@@ -744,7 +735,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else if (defaultToken) {
           setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-            getTokenForStorage(defaultToken),
+            sanitizeSwapProSelectTokenSnapshot(defaultToken),
           );
         }
       }
@@ -938,7 +929,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
       }
-      await this.syncNetworksSort.call(set, token.networkId);
       const needChangeToToken = this.needChangeToken({
         token,
         swapTypeSwitchValue,
@@ -950,6 +940,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } else {
         set(swapSelectFromTokenAtom(), token);
       }
+      await this.syncNetworksSort.call(set, token.networkId);
     },
   );
 
@@ -974,8 +965,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      await this.syncNetworksSort.call(set, token.networkId);
       set(swapSelectToTokenAtom(), token);
+      await this.syncNetworksSort.call(set, token.networkId);
     },
   );
 
@@ -3488,7 +3479,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         normalizedType === ESwapTabSwitchType.LIMIT &&
         currentToToken
       ) {
-        void this.setSwapProSelectToken.call(set, currentToToken);
+        const networkLogoURI = resolveSwapTokenNetworkLogoURI({
+          swapNetworks: get(swapNetworks()),
+          token: currentToToken,
+        });
+        void this.setSwapProSelectToken.call(
+          set,
+          networkLogoURI === currentToToken.networkLogoURI
+            ? currentToToken
+            : { ...currentToToken, networkLogoURI },
+        );
       }
       if (
         platformEnv.isNative &&

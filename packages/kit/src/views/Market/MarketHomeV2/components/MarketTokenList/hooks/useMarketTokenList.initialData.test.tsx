@@ -2,6 +2,7 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swrCacheUtils,
   swrKeys,
@@ -26,6 +27,10 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -114,8 +119,13 @@ function createResponse(
 }
 
 describe('useMarketTokenList initial data', () => {
+  const mutablePlatformEnv = platformEnv as {
+    isNative: boolean;
+    isWeb: boolean;
+  };
   const cacheKey = swrKeys.marketHomeTokenList({
     networkId: 'evm--1',
+    locale: 'en-US',
     sortBy: 'v24hUSD',
     sortType: 'desc',
     pageSize: 20,
@@ -125,6 +135,12 @@ describe('useMarketTokenList initial data', () => {
   const mockFetchMarketTokenList = jest.mocked(fetchMarketTokenListForPlatform);
 
   beforeEach(() => {
+    Object.defineProperty(globalThis, 'cancelIdleCallback', {
+      configurable: true,
+      value: jest.fn(),
+    });
+    mutablePlatformEnv.isNative = false;
+    mutablePlatformEnv.isWeb = true;
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenList.mockReset();
@@ -180,5 +196,40 @@ describe('useMarketTokenList initial data', () => {
     expect(swrCacheUtils.get<IMarketTokenListResponse>(cacheKey)).toMatchObject(
       remoteResponse,
     );
+  });
+
+  it('replays native SWR rows synchronously without using the web seed path', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    const cachedResponse = createResponse('0xcached', 'Cached Token', 'CACHED');
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    const renderedTokenIds: string[][] = [];
+
+    swrCacheUtils.set(cacheKey, cachedResponse);
+    mockFetchMarketTokenList.mockReturnValueOnce(remoteRequest.promise);
+
+    function Probe() {
+      const result = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      renderedTokenIds.push(result.data.map((item) => item.id));
+      return null;
+    }
+
+    render(<Probe />);
+
+    expect(renderedTokenIds[0]).toEqual(['0xcached']);
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: 'evm--1',
+          page: 1,
+          type: 'trending',
+        }),
+        undefined,
+      );
+    });
   });
 });

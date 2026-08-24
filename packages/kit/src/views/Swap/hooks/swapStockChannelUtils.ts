@@ -167,8 +167,6 @@ export function buildStockPayTokenDisplaySeed(token: ISwapToken): ISwapToken {
     isNative: token.isNative,
     symbol: token.symbol,
     name: token.name,
-    logoURI: token.logoURI,
-    networkLogoURI: token.networkLogoURI,
   };
 }
 

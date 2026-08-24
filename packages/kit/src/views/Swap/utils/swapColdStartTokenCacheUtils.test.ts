@@ -19,6 +19,8 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  resolveSwapTokenNetworkLogoURI,
+  sanitizeSwapSelectedTokenColdStartSnapshot,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldHandleSwapColdStartHomeAccountUpdate,
@@ -103,6 +105,42 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('resolves each token network logo from its own network identity', () => {
+    const swapNetworks = [
+      {
+        networkId: 'evm--1',
+        logoURI: 'https://example.com/eth.png',
+      },
+      {
+        networkId: 'evm--56',
+        logoURI: 'https://example.com/bsc.png',
+      },
+    ] as ISwapNetwork[];
+
+    expect(
+      resolveSwapTokenNetworkLogoURI({
+        swapNetworks,
+        token: {
+          networkId: 'evm--56',
+          networkLogoURI: 'https://example.com/eth.png',
+        } as ISwapToken,
+      }),
+    ).toBe('https://example.com/bsc.png');
+  });
+
+  it('removes the derived network URL but keeps the selected token URL', () => {
+    expect(
+      sanitizeSwapSelectedTokenColdStartSnapshot({
+        networkId: 'evm--56',
+        logoURI: 'https://example.com/btcb.png',
+        networkLogoURI: 'https://example.com/eth.png',
+      } as ISwapToken),
+    ).toEqual({
+      networkId: 'evm--56',
+      logoURI: 'https://example.com/btcb.png',
+    });
+  });
+
   it('preserves swap user input when selected tokens and from amount are present', () => {
     expect(
       shouldPreserveSwapUserInputOnAccountSwitch({

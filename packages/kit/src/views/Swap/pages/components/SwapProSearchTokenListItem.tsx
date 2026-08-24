@@ -48,6 +48,8 @@ const SwapProSearchTokenListItem = ({
           uris={logoUrls}
           size="lg"
           networkId={network}
+          tokenAddress={address}
+          isNative={isNative}
         />
       }
     >

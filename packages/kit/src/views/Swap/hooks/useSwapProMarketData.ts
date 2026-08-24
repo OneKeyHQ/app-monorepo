@@ -5,6 +5,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -47,6 +48,9 @@ type ISwapProMarketDataState = {
 };
 
 const SWAP_PRO_TRANSACTION_LIMIT = 10;
+const swapProMarketDataCache = new LRUCache<string, ISwapProMarketDataState>({
+  max: 20,
+});
 const MARKET_TRANSACTIONS_POLLING_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
@@ -81,6 +85,7 @@ function useSwapProMarketDataFeed({
   const canUseMarketWebSocket = Boolean(
     source === 'market' && enableMarketWebSocket && tokenAddress,
   );
+  const cachedFeedState = swapProMarketDataCache.get(feedKey);
   const { result: feedResult } = usePromiseResult<ISwapProMarketDataFeedResult>(
     async () => {
       if (!enabled || !networkId || !source) {
@@ -138,7 +143,8 @@ function useSwapProMarketDataFeed({
     feedKey,
     feedResult,
     source,
-    hasLoadedSource: feedResult?.feedKey === feedKey,
+    hasLoadedSource:
+      feedResult?.feedKey === feedKey || cachedFeedState !== undefined,
   };
 }
 
@@ -253,14 +259,20 @@ function useSwapProMarketDataState({
   feedResult: ISwapProMarketDataFeedResult | undefined;
 }) {
   const [marketDataState, setMarketDataState] =
-    useState<ISwapProMarketDataState>({
-      feedKey,
-      transactions: [],
-    });
+    useState<ISwapProMarketDataState>(
+      () =>
+        swapProMarketDataCache.get(feedKey) ?? {
+          feedKey,
+          transactions: [],
+        },
+    );
   const currentMarketDataState: ISwapProMarketDataState =
     marketDataState.feedKey === feedKey
       ? marketDataState
-      : { feedKey, transactions: [] };
+      : (swapProMarketDataCache.get(feedKey) ?? {
+          feedKey,
+          transactions: [],
+        });
   const currentMarketDataStateRef = useRef(currentMarketDataState);
   const activeFeedKeyRef = useRef(feedKey);
   currentMarketDataStateRef.current = currentMarketDataState;
@@ -283,6 +295,7 @@ function useSwapProMarketDataState({
       ),
     };
     currentMarketDataStateRef.current = nextState;
+    swapProMarketDataCache.set(feedKey, nextState);
     setMarketDataState(nextState);
   }, [feedKey, feedResult]);
 
@@ -306,6 +319,7 @@ function useSwapProMarketDataState({
         ),
       };
       currentMarketDataStateRef.current = nextState;
+      swapProMarketDataCache.set(feedKey, nextState);
       setMarketDataState(nextState);
     },
     [feedKey],

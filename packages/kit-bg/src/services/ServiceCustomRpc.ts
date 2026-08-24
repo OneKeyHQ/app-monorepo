@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  buildNetworkImageIdentity,
+  replaceIdentityImageUrlFromBackground,
+} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -382,6 +386,10 @@ class ServiceCustomRpc extends ServiceBase {
       skipSaveLocalSyncItem,
       skipEventEmit,
     });
+    replaceIdentityImageUrlFromBackground({
+      identity: buildNetworkImageIdentity(networkId),
+      url: networkInfo.logoURI,
+    });
   }
 
   @backgroundMethod()
@@ -485,6 +493,10 @@ class ServiceCustomRpc extends ServiceBase {
         skipEventEmit,
       });
     }
+    replaceIdentityImageUrlFromBackground({
+      identity: buildNetworkImageIdentity(params.networkId),
+      url: '',
+    });
   }
 
   @backgroundMethod()

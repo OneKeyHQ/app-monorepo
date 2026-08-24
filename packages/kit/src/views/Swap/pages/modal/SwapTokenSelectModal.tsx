@@ -58,6 +58,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -187,7 +188,13 @@ function useStockMetadata({
   }
   const request = requestRef.current;
   const tokenKey = request.tokenKey;
-  const { result, isLoading } = usePromiseResult<IStockMetadataResult>(
+  const stockMetadataSwrKey =
+    enabled && tokenKey
+      ? swrKeys.swapStockSelectorMetadata({
+          scope: `${requestLocale}:${tokenKey}`,
+        })
+      : undefined;
+  const { result } = usePromiseResult<IStockMetadataResult>(
     async () => {
       if (!enabled || !tokenKey) {
         return {
@@ -228,6 +235,8 @@ function useStockMetadata({
         tokenKey: '',
       },
       watchLoading: enabled,
+      swrKey: stockMetadataSwrKey,
+      swrShouldPersist: (value) => value.tokenKey === tokenKey,
     },
   );
 
@@ -236,7 +245,6 @@ function useStockMetadata({
     pending: isSwapStockMetadataPending({
       isSwapStockSelectTarget: enabled,
       resolvedStockMetadataTokenKey: result.tokenKey,
-      stockMetadataLoading: isLoading,
       stockMetadataTokenKey: tokenKey,
     }),
   };
@@ -879,6 +887,9 @@ const SwapTokenSelectPage = ({
       const tokenItem: ITokenListItemProps = {
         isSearch: isSwapStockSelectTarget ? false : !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
+        networkId: rawItem.networkId,
+        tokenAddress: rawItem.contractAddress,
+        tokenIsNative: rawItem.isNative,
         tokenName: isSwapStockSelectTarget
           ? getSwapStockTokenDisplayName({
               stock,

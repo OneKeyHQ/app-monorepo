@@ -11,6 +11,12 @@ import {
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  buildMarketImageIdentity,
+  buildNetworkImageIdentity,
+  buildTokenImageIdentity,
+  persistIdentityImageUrlsFromBackground,
+} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
@@ -77,6 +83,28 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
 type IFetchMarketTokenListOptions = {
   forceRemote?: boolean;
 };
+
+function persistMarketTokenImageUrls({
+  fallbackNetworkId,
+  tokens,
+}: {
+  fallbackNetworkId?: string;
+  tokens?: IMarketTokenListItem[];
+}) {
+  if (!tokens?.length) {
+    return;
+  }
+  persistIdentityImageUrlsFromBackground(
+    tokens.map((token) => ({
+      identity: buildTokenImageIdentity({
+        contractAddress: token.address,
+        isNative: token.isNative,
+        networkId: token.networkId || fallbackNetworkId,
+      }),
+      url: token.logoUrl,
+    })),
+  );
+}
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
@@ -206,6 +234,10 @@ class ServiceMarketV2 extends ServiceBase {
       },
     });
     const { data } = response.data;
+    persistMarketTokenImageUrls({
+      fallbackNetworkId: networkId,
+      tokens: data.list,
+    });
     return data;
   }
 
@@ -259,6 +291,19 @@ class ServiceMarketV2 extends ServiceBase {
           : {}),
       },
     );
+    const token = response.data?.data?.token;
+    if (token) {
+      persistIdentityImageUrlsFromBackground([
+        {
+          identity: buildTokenImageIdentity({
+            contractAddress: token.address || tokenAddress,
+            isNative: token.isNative,
+            networkId: token.networkId || networkId,
+          }),
+          url: token.logoUrl,
+        },
+      ]);
+    }
     return response.data;
   }
 
@@ -280,6 +325,17 @@ class ServiceMarketV2 extends ServiceBase {
         normalizedTicker,
         locale,
       );
+    } else {
+      persistIdentityImageUrlsFromBackground([
+        {
+          identity: buildMarketImageIdentity({
+            identity: normalizedTicker,
+            locale,
+            scope: 'stock',
+          }),
+          url: detail.logoUrl,
+        },
+      ]);
     }
     return detail;
   }
@@ -291,6 +347,12 @@ class ServiceMarketV2 extends ServiceBase {
         data: IMarketChainsResponse;
       }>('/utility/v2/market/chains');
       const { data } = response.data;
+      persistIdentityImageUrlsFromBackground(
+        data.list.map((network) => ({
+          identity: buildNetworkImageIdentity(network.networkId),
+          url: network.logoUrl,
+        })),
+      );
       return data;
     },
     {
@@ -315,6 +377,24 @@ class ServiceMarketV2 extends ServiceBase {
           },
         },
       );
+      const config = response.data?.data;
+      persistIdentityImageUrlsFromBackground([
+        ...(config?.networkList ?? []).map((network) => ({
+          identity: buildNetworkImageIdentity(network.networkId),
+          url: network.logoUrl,
+        })),
+        ...[
+          ...(config?.recommendTokens ?? []),
+          ...(config?.searchRecommendTokens ?? []),
+        ].map((token) => ({
+          identity: buildTokenImageIdentity({
+            contractAddress: token.contractAddress,
+            isNative: token.isNative,
+            networkId: token.chainId,
+          }),
+          url: token.logo,
+        })),
+      ]);
       return response.data;
     },
     {
@@ -572,6 +652,19 @@ class ServiceMarketV2 extends ServiceBase {
 
     // If all tokens are cached, return immediately
     if (missingTokens.length === 0) {
+      persistIdentityImageUrlsFromBackground(
+        cachedResults.map((item, index) => {
+          const token = tokenAddressList[index];
+          return {
+            identity: buildTokenImageIdentity({
+              contractAddress: token?.contractAddress,
+              isNative: token?.isNative,
+              networkId: token?.chainId,
+            }),
+            url: item?.logoUrl,
+          };
+        }),
+      );
       return { list: cachedResults };
     }
 
@@ -628,6 +721,20 @@ class ServiceMarketV2 extends ServiceBase {
         cachedResults[originalIndex] = item;
       }
     });
+
+    persistIdentityImageUrlsFromBackground(
+      cachedResults.map((item, index) => {
+        const token = tokenAddressList[index];
+        return {
+          identity: buildTokenImageIdentity({
+            contractAddress: token?.contractAddress,
+            isNative: token?.isNative,
+            networkId: token?.chainId,
+          }),
+          url: item?.logoUrl,
+        };
+      }),
+    );
 
     return { list: cachedResults };
   }

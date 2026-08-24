@@ -88,6 +88,7 @@ describe('SWR cache keys', () => {
     expect(
       swrKeys.marketHomeTokenList({
         networkId: '',
+        locale: 'en-US',
         sortBy: 'v24hUSD',
         sortType: 'desc',
         pageSize: 20,
@@ -95,10 +96,11 @@ describe('SWR cache keys', () => {
         type: 'trending',
         timeFrame: '2',
       }),
-    ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:trending:2');
+    ).toBe('marketHomeTokenList:v2::en-US:v24hUSD:desc:20:5000:trending:2');
     expect(
       swrKeys.marketHomeTokenList({
         networkId: '',
+        locale: 'zh-CN',
         sortBy: 'v24hUSD',
         sortType: 'desc',
         pageSize: 20,
@@ -107,13 +109,29 @@ describe('SWR cache keys', () => {
         category: 'tech',
         timeFrame: '2',
       }),
-    ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:stocks:2:tech');
+    ).toBe('marketHomeTokenList:v2::zh-CN:v24hUSD:desc:20:5000:stocks:2:tech');
     expect(
       swrKeys.swapStockTokenDetail({
         tokenScope: 'evm--1:0xstock',
       }),
     ).toBe('swapStockTokenDetail:v1:evm--1:0xstock');
     expect(swrKeys.swapHistoryPreviewList()).toBe('swapHistoryPreviewList');
+    expect(swrKeys.swapKLineStableChecks({ scope: 'from|to' })).toBe(
+      'swapKLineStableChecks:v1:from|to',
+    );
+    expect(
+      swrKeys.swapKLineTokenMarketInfo({ tokenScope: 'evm--1:__native__' }),
+    ).toBe('swapKLineTokenMarketInfo:v1:evm--1:__native__');
+    expect(
+      swrKeys.swapStockChartCoinGeckoId({
+        tokenScope: 'evm--1:0xstock',
+      }),
+    ).toBe('swapStockChartCoinGeckoId:v1:evm--1:0xstock');
+    expect(
+      swrKeys.swapStockSelectorMetadata({
+        scope: 'en-US:evm--1:0xstock',
+      }),
+    ).toBe('swapStockSelectorMetadata:v1:en-US:evm--1:0xstock');
     expect(
       swrKeys.swapStockChart({
         networkId: 'evm--1',

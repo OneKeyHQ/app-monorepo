@@ -374,7 +374,7 @@ export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
  */
 export const contextAtomSnapshotRegistry = new Map<
   string,
-  { atom: () => any }
+  { atom: () => any; transform?: (value: unknown) => unknown }
 >();
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -420,6 +420,9 @@ function getScopedColdStartSnapshotValue({
 
 /** Latest values of all coldStartCache atoms, updated on every use() call */
 const coldStartValuesMap = new Map<string, unknown>();
+
+/** Raw atom references corresponding to the serialized values above. */
+const coldStartSourceValuesMap = new Map<string, unknown>();
 
 /** Keys that changed since last MMKV flush */
 function coldStartLog(msg: string) {
@@ -839,6 +842,11 @@ export function purgeOldColdStartRuntimeKeys(suffix: string): void {
       coldStartValuesMap.delete(key);
     }
   }
+  for (const key of coldStartSourceValuesMap.keys()) {
+    if (key.endsWith(suffix)) {
+      coldStartSourceValuesMap.delete(key);
+    }
+  }
   for (const key of coldStartDirtyKeys) {
     if (key.endsWith(suffix)) {
       coldStartDirtyKeys.delete(key);
@@ -874,7 +882,7 @@ export function hydrateContextColdStartCacheForProvider({
         | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
-      { atom: atomBuilder },
+      { atom: atomBuilder, transform },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
       const recentAccountSelectorCached =
@@ -900,16 +908,18 @@ export function hydrateContextColdStartCacheForProvider({
         });
         const atomInstance = atomBuilder();
         const currentValue = store.get(atomInstance);
+        const safeCached = transform ? transform(cached) : cached;
         const nextValue =
           typeof currentValue === 'object' &&
           currentValue !== null &&
-          typeof cached === 'object' &&
-          cached !== null
-            ? { ...(currentValue as any), ...(cached as any) }
-            : cached;
+          typeof safeCached === 'object' &&
+          safeCached !== null
+            ? { ...(currentValue as any), ...(safeCached as any) }
+            : safeCached;
 
         store.set(atomInstance, nextValue);
         coldStartValuesMap.set(scopedCacheKey, nextValue);
+        coldStartSourceValuesMap.set(scopedCacheKey, nextValue);
         coldStartLog(`hydrate: ${scopedCacheKey}`);
         if (
           typedCacheKey ===
@@ -952,10 +962,12 @@ export function contextAtomBase<Value>({
   useColdStartScopeKey,
   coldStartCache,
   coldStartCacheKey,
+  coldStartCacheTransform,
 }: {
   initialValue: Value;
   coldStartCache?: boolean;
   coldStartCacheKey?: IContextAtomColdStartCacheKey;
+  coldStartCacheTransform?: (value: Value) => Value;
   useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
@@ -995,13 +1007,21 @@ export function contextAtomBase<Value>({
           coldStartScopeKey,
           coldStartCacheKey: cacheKey,
         });
-        const currentValue = result[0];
-        if (!coldStartValuesMap.has(scopedCacheKey)) {
+        const sourceValue = result[0];
+        if (!coldStartSourceValuesMap.has(scopedCacheKey)) {
+          const currentValue = coldStartCacheTransform
+            ? coldStartCacheTransform(sourceValue)
+            : sourceValue;
+          coldStartSourceValuesMap.set(scopedCacheKey, sourceValue);
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           coldStartLog(`init: ${scopedCacheKey}`);
           return result;
         }
-        if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
+        if (coldStartSourceValuesMap.get(scopedCacheKey) !== sourceValue) {
+          const currentValue = coldStartCacheTransform
+            ? coldStartCacheTransform(sourceValue)
+            : sourceValue;
+          coldStartSourceValuesMap.set(scopedCacheKey, sourceValue);
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           patchGlobalColdStartSnapshot({
             scopedKey: scopedCacheKey,
@@ -1017,6 +1037,9 @@ export function contextAtomBase<Value>({
   if (activeColdStartCacheKey) {
     contextAtomSnapshotRegistry.set(activeColdStartCacheKey, {
       atom: atomBuilder,
+      transform: coldStartCacheTransform
+        ? (value) => coldStartCacheTransform(value as Value)
+        : undefined,
     });
   }
 

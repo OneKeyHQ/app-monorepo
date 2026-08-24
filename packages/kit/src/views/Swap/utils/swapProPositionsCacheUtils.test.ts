@@ -215,7 +215,7 @@ describe('swapProPositionsCacheUtils', () => {
     ).toBeLessThanOrEqual(SWAP_PRO_POSITIONS_CACHE_MAX_TOTAL_TOKENS);
   });
 
-  it('drops an oversized display token without mutating the runtime token', () => {
+  it('keeps an oversized logo out of the owner-scoped position snapshot', () => {
     const token = {
       ...buildToken(1),
       logoURI: `https://example.com/${'界'.repeat(
@@ -233,7 +233,8 @@ describe('swapProPositionsCacheUtils', () => {
       },
     });
 
-    expect(cache.byOwner.owner).toBeUndefined();
+    expect(cache.byOwner.owner.tokens).toHaveLength(1);
+    expect(cache.byOwner.owner.tokens[0]).not.toHaveProperty('logoURI');
     expect(new TextEncoder().encode(token.logoURI).byteLength).toBeGreaterThan(
       SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
     );

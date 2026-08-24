@@ -38,6 +38,7 @@ function renderPopularTradingTokenIdentity(
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
       networkId={record.perpsCoin ? undefined : record.chainId}
+      isNative={record.isNative}
       symbol={record.symbol}
       address={record.contractAddress}
       showVolume={showVolume}

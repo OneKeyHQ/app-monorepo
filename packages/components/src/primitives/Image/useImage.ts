@@ -18,10 +18,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  cacheAndRetainImageRef,
   deleteCachedImagePath,
   getCachedImagePath,
-  getCachedImageRef,
+  getCachedImageRefInfo,
+  hasExactCachedImageRef,
   refreshCachedImagePath,
+  refreshCachedImageRef,
   releaseCachedImageRef,
   retainCachedImageRef,
 } from './cache';
@@ -31,28 +34,42 @@ interface IUseImageOptions extends ImageLoadOptions {
   onSuccess?: (image: ImageRef) => void;
 }
 
+type ILoadedImage = {
+  cacheUri?: string;
+  sourceUri?: string;
+  imageRef: ImageRef;
+  requestKey: string;
+};
+
 export function useImage(
   source: ImageSource | string | number | undefined,
   options: IUseImageOptions = {},
   dependencies: DependencyList = [],
+  logicalCacheKey?: string,
 ): {
   image: ImageRef | ImageSource | null;
   reFetchImage: () => void;
 } {
-  const [image, setImage] = useState<ImageRef | null>(null);
+  const [loadedImage, setLoadedImage] = useState<ILoadedImage | null>(null);
   const resolvedSource = useMemo(() => {
     return resolveSource(source);
   }, [source]);
-  const cachedImageRef = useMemo(() => {
-    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
+  const imageCacheKey = logicalCacheKey ?? resolvedSource?.uri;
+  const imageRequestKey = `${imageCacheKey ?? ''}\u0000${
+    resolvedSource?.uri ?? ''
+  }`;
+  const image =
+    loadedImage?.requestKey === imageRequestKey ? loadedImage.imageRef : null;
+  const cachedImageRefInfo = useMemo(() => {
+    if (!resolvedSource?.uri || !/^https?:\/\//.test(resolvedSource.uri)) {
       return null;
     }
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    const imageUri = resolvedSource?.uri;
-    return getCachedImageRef(imageUri) ?? null;
-  }, [resolvedSource?.uri]);
+    return getCachedImageRefInfo(imageCacheKey, resolvedSource?.uri) ?? null;
+  }, [imageCacheKey, resolvedSource?.uri]);
+  const cachedImageRef = cachedImageRefInfo?.imageRef ?? null;
 
   const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
@@ -60,11 +77,11 @@ export function useImage(
         uri: resolvedSource.uri,
       };
     }
+    if (platformEnv.isNativeAndroid) {
+      return resolvedSource;
+    }
     if (cachedImageRef) {
       return cachedImageRef;
-    }
-    if (platformEnv.isNativeAndroid) {
-      return null;
     }
     const imageUri = resolvedSource?.uri;
     const cachedPath = getCachedImagePath(imageUri);
@@ -74,7 +91,7 @@ export function useImage(
       };
     }
     return null;
-  }, [cachedImageRef, resolvedSource?.uri]);
+  }, [cachedImageRef, resolvedSource]);
 
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,
@@ -85,28 +102,52 @@ export function useImage(
   // We're doing some asynchronous action in this effect, so we should keep track
   // if the effect was already cleaned up. In that case, the async action shouldn't change the state.
   const isEffectValid = useRef(true);
+  const loadRequestIdRef = useRef(0);
 
   const loadImage = useCallback(() => {
+    loadRequestIdRef.current += 1;
+    const loadRequestId = loadRequestIdRef.current;
+    if (platformEnv.isNativeAndroid) {
+      setLoadedImage(null);
+      return;
+    }
     if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
-      setImage(null);
+      setLoadedImage(null);
       return;
     }
     Image.loadAsync(resolvedSource, optionsRef.current)
       .then((remoteImage) => {
-        if (isEffectValid.current) {
+        if (
+          isEffectValid.current &&
+          loadRequestId === loadRequestIdRef.current
+        ) {
           optionsRef.current.onSuccess?.(remoteImage);
-          setImage(remoteImage);
           const uri = resolvedSource?.uri;
+          const cachedRef =
+            uri && imageCacheKey
+              ? cacheAndRetainImageRef(imageCacheKey, remoteImage, uri)
+              : undefined;
+          setLoadedImage({
+            cacheUri: cachedRef ? imageCacheKey : undefined,
+            sourceUri: cachedRef ? uri : undefined,
+            imageRef: cachedRef ?? remoteImage,
+            requestKey: imageRequestKey,
+          });
           if (uri) {
             void refreshCachedImagePath(uri);
           }
+        } else {
+          remoteImage.release();
         }
       })
       .catch((error) => {
-        if (!isEffectValid.current) {
+        if (
+          !isEffectValid.current ||
+          loadRequestId !== loadRequestIdRef.current
+        ) {
           return;
         }
-        setImage(null);
+        setLoadedImage(null);
         if (optionsRef.current.onError) {
           optionsRef.current.onError(error, loadImage);
         } else {
@@ -119,9 +160,8 @@ export function useImage(
           console.error(error);
         }
       });
-  }, [resolvedSource]);
+  }, [imageCacheKey, imageRequestKey, resolvedSource]);
 
-  const fetchImageTimesLimit = useRef(0);
   const reFetchImage = useCallback(() => {
     if (!resolvedSource) {
       return;
@@ -130,7 +170,6 @@ export function useImage(
       deleteCachedImagePath(resolvedSource?.uri);
     }
     if (isEffectValid.current) {
-      fetchImageTimesLimit.current += 1;
       loadImage();
     }
   }, [loadImage, resolvedSource]);
@@ -138,50 +177,82 @@ export function useImage(
   // Track the current ImageRef for proper lifecycle management.
   // Using a ref avoids the closure capture bug where the effect cleanup
   // would release a stale image value instead of the current one.
-  const currentImageRef = useRef<ImageRef | null>(null);
+  const currentLoadedImage = useRef<ILoadedImage | null>(null);
 
   // Release the previous ImageRef when the image state changes.
   // This ensures each ImageRef is released exactly once, only after
   // it has been replaced by a new one (preventing use-after-free).
   useEffect(() => {
-    currentImageRef.current = image;
+    currentLoadedImage.current = loadedImage;
     return () => {
-      if (currentImageRef.current) {
-        currentImageRef.current.release();
-        currentImageRef.current = null;
+      const currentImage = currentLoadedImage.current;
+      if (currentImage?.cacheUri) {
+        releaseCachedImageRef(
+          currentImage.cacheUri,
+          currentImage.sourceUri,
+          currentImage.imageRef,
+        );
+      } else if (currentImage) {
+        currentImage.imageRef.release();
       }
+      currentLoadedImage.current = null;
     };
-  }, [image]);
+  }, [loadedImage]);
+
+  useEffect(() => {
+    if (!cachedImageRefInfo || !imageCacheKey) {
+      return;
+    }
+    const retainedImageRef = retainCachedImageRef(
+      imageCacheKey,
+      cachedImageRefInfo.sourceUri,
+      cachedImageRefInfo.imageRef,
+    );
+    if (retainedImageRef !== cachedImageRefInfo.imageRef) {
+      return;
+    }
+    return () => {
+      releaseCachedImageRef(
+        imageCacheKey,
+        cachedImageRefInfo.sourceUri,
+        cachedImageRefInfo.imageRef,
+      );
+    };
+  }, [cachedImageRefInfo, imageCacheKey]);
 
   useEffect(() => {
     const imageUri = resolvedSource?.uri;
-    if (!cachedImageRef || !imageUri) {
+    if (!imageUri || cachedImageRef || !getCachedImagePath(imageUri)) {
       return;
     }
-    retainCachedImageRef(imageUri);
-    return () => {
-      releaseCachedImageRef(imageUri);
-    };
-  }, [cachedImageRef, resolvedSource?.uri]);
+    void refreshCachedImageRef(imageUri, optionsRef.current, imageCacheKey);
+  }, [cachedImageRef, imageCacheKey, resolvedSource?.uri]);
 
   useEffect(() => {
     isEffectValid.current = true;
     if (cachedImage) {
-      return;
+      setLoadedImage(null);
+      if (
+        cachedImageRef &&
+        imageCacheKey &&
+        resolvedSource?.uri &&
+        !hasExactCachedImageRef(imageCacheKey, resolvedSource.uri)
+      ) {
+        loadImage();
+      }
+    } else {
+      loadImage();
     }
-    loadImage();
     return () => {
       isEffectValid.current = false;
+      loadRequestIdRef.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);
 
   return useMemo(() => {
     return {
-      image:
-        fetchImageTimesLimit.current > 0 && image
-          ? image
-          : cachedImage || image,
+      image: image || cachedImage,
       reFetchImage,
     };
   }, [cachedImage, image, reFetchImage]);

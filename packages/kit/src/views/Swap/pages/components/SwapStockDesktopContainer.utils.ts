@@ -102,6 +102,23 @@ export function isStockMarketPanelLoadingStage(
   );
 }
 
+export function shouldDeferStockInitialContent({
+  channelStage,
+  startedWithoutContent,
+}: {
+  channelStage: ESwapStockChannelStage;
+  startedWithoutContent: boolean;
+}) {
+  if (!startedWithoutContent) {
+    return false;
+  }
+  return (
+    channelStage === ESwapStockChannelStage.InitializingStock ||
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    channelStage === ESwapStockChannelStage.InitializingPayToken
+  );
+}
+
 export function shouldShowStockMarketHeaderSkeleton({
   channelStage,
   hasStockIdentity,

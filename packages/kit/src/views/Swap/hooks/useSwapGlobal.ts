@@ -73,6 +73,7 @@ import {
   getSwapSelectedTokensHomeAccountSyncAction,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
+  resolveSwapTokenNetworkLogoURI,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
@@ -1246,9 +1247,10 @@ export function useSwapInit(params?: ISwapInitParams) {
         const defaultFromTokenWithLogo = defaultFromToken
           ? {
               ...defaultFromToken,
-              networkLogoURI: isAllNet
-                ? defaultFromToken.networkLogoURI
-                : netInfo?.logoURI,
+              networkLogoURI: resolveSwapTokenNetworkLogoURI({
+                swapNetworks: swapNetworksRef.current,
+                token: defaultFromToken,
+              }),
             }
           : undefined;
         if (defaultFromToken) {
@@ -1259,9 +1261,10 @@ export function useSwapInit(params?: ISwapInitParams) {
         if (defaultToToken) {
           setToToken({
             ...defaultToToken,
-            networkLogoURI: isAllNet
-              ? defaultToToken.networkLogoURI
-              : netInfo?.logoURI,
+            networkLogoURI: resolveSwapTokenNetworkLogoURI({
+              swapNetworks: swapNetworksRef.current,
+              token: defaultToToken,
+            }),
           });
           didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultToToken.networkId);

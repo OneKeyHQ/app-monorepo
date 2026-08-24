@@ -5,6 +5,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  buildTokenImageIdentity,
+  persistIdentityImageUrlsFromBackground,
+} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -29,6 +33,19 @@ import { type IDBCloudSyncItem } from '../dbs/local/types';
 import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
+
+function persistMarketSearchTokenImageUrls(tokens: IMarketSearchV2Token[]) {
+  persistIdentityImageUrlsFromBackground(
+    tokens.map((token) => ({
+      identity: buildTokenImageIdentity({
+        contractAddress: token.address,
+        isNative: token.isNative,
+        networkId: token.network,
+      }),
+      url: token.logoUrl,
+    })),
+  );
+}
 
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
@@ -68,7 +85,9 @@ class ServiceMarket extends ServiceBase {
       }>('/utility/v2/market/trending', {
         headers: { 'x-onekey-request-currency': 'usd' },
       });
-      return response.data.data ?? [];
+      const tokens = response.data.data ?? [];
+      persistMarketSearchTokenImageUrls(tokens);
+      return tokens;
     },
     {
       promise: true,
@@ -238,6 +257,7 @@ class ServiceMarket extends ServiceBase {
     });
     const { data } = response.data;
     if (Array.isArray(data) && data.length) {
+      persistMarketSearchTokenImageUrls(data);
       return data;
     }
     return [];

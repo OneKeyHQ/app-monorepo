@@ -27,6 +27,7 @@ import appStorage, {
 } from '@onekeyhq/shared/src/storage/appStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { resetIdentityImageUrlCacheState } from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -136,6 +137,7 @@ class ServiceApp extends ServiceBase {
     } catch {
       console.error('coldStartCacheStorage.clearAll() error');
     }
+    resetIdentityImageUrlCacheState();
     defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
 
     await timerUtils.wait(100);

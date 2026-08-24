@@ -86,6 +86,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import {
+  buildMarketImageIdentity,
+  resolveIdentityImageUrl,
+} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swrCacheUtils,
@@ -169,6 +173,7 @@ import {
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
+  shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -293,7 +298,9 @@ function useStockChartCoinGeckoId({
 }) {
   const tokenDetailCoinGeckoId =
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
-  const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
+  const tokenScope = networkId
+    ? `${networkId}:${tokenAddress?.trim().toLowerCase() || '__native__'}`
+    : '';
   const { result } = usePromiseResult<
     IStockChartCoinGeckoIdLookupResult | undefined
   >(
@@ -322,7 +329,10 @@ function useStockChartCoinGeckoId({
     [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
-      undefinedResultIfReRun: true,
+      swrKey: tokenScope
+        ? swrKeys.swapStockChartCoinGeckoId({ tokenScope })
+        : undefined,
+      swrShouldPersist: (value) => value?.tokenScope === tokenScope,
     },
   );
 
@@ -1102,9 +1112,11 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 function StockAmountInput({
   fetchLoading,
   amountInputState,
+  deferInitialContent,
   storeName,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
+  deferInitialContent: boolean;
 }) {
   const intl = useIntl();
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -1181,7 +1193,7 @@ function StockAmountInput({
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
 
-  if (shouldRenderSkeleton) {
+  if (shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
   }
 
@@ -1251,7 +1263,11 @@ function StockAmountInput({
           justifyContent: 'flex-end',
           loading: showTokenSelectorLoading,
           selectedTokenImageUri: inputToken?.logoURI,
+          selectedTokenNetworkId: inputToken?.networkId,
+          selectedTokenAddress: inputToken?.contractAddress,
+          selectedTokenIsNative: inputToken?.isNative,
           selectedNetworkImageUri: inputTokenNetworkLogoURI,
+          selectedNetworkId: inputToken?.networkId,
           selectedTokenSymbol: inputToken?.symbol,
           showNetworkIconBorder: false,
           disabled:
@@ -1318,6 +1334,11 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
+  const deferInitialAmountContent = shouldDeferStockInitialContent({
+    channelStage: stockChannel.channelStage,
+    startedWithoutContent: startedWithoutAmountInputRef.current,
+  });
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   // The desktop modal action renders through Page.Footer. Keep its portal
@@ -1366,6 +1387,7 @@ function StockTradeTicket({
         <StockAmountInput
           fetchLoading={fetchLoading}
           amountInputState={amountInputState}
+          deferInitialContent={deferInitialAmountContent}
           storeName={storeName}
         />
         <StockEstimatedReceive
@@ -1529,13 +1551,32 @@ function StockMarketTokenHeader({
     channelStage,
     hasTokenData: Boolean(stock || tokenSubtitle),
   });
-  const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
+  const stockTicker =
+    tokenDetail?.stock?.underlyingAssetTicker ??
+    currentStockToken?.stock?.underlyingAssetTicker;
+  const tokenImageUri = resolveIdentityImageUrl({
+    identity: buildMarketImageIdentity({
+      identity: stockTicker,
+      locale: intl.locale,
+      scope: 'stock',
+    }),
+    ownerUrl: currentStockToken?.logoURI ?? tokenDetail?.logoUrl,
+  });
+  const tokenAddress =
+    currentStockToken?.contractAddress ?? tokenDetail?.address;
+  const tokenIsNative = currentStockToken?.isNative ?? tokenDetail?.isNative;
+  const startedWithoutHeaderContentRef = useRef(!currentStockToken);
+  const deferInitialHeaderContent = shouldDeferStockInitialContent({
+    channelStage,
+    startedWithoutContent: startedWithoutHeaderContentRef.current,
+  });
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
   if (
+    deferInitialHeaderContent ||
     shouldShowStockMarketHeaderSkeleton({
       channelStage,
       hasStockIdentity: Boolean(currentStockToken),
@@ -1551,6 +1592,9 @@ function StockMarketTokenHeader({
       tokenImageUris={
         currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
       }
+      networkId={stockTokenNetworkId}
+      tokenAddress={tokenAddress}
+      tokenIsNative={tokenIsNative}
       recyclingKey={tokenImageUri}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
@@ -2153,6 +2197,20 @@ function StockMobilePositionsSection({
     supportNetworksList,
     supportNetworksReady,
   );
+  const startedWithoutPositionsContentRef = useRef<boolean | undefined>(
+    undefined,
+  );
+  if (
+    startedWithoutPositionsContentRef.current === undefined &&
+    hasPositionOwner
+  ) {
+    startedWithoutPositionsContentRef.current =
+      !hasCachedPositionSnapshot && !isLiveTokenListForCurrentOwner;
+  }
+  const deferInitialPositionsContent = shouldDeferStockInitialContent({
+    channelStage: stockChannel.channelStage,
+    startedWithoutContent: startedWithoutPositionsContentRef.current === true,
+  });
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -2246,6 +2304,7 @@ function StockMobilePositionsSection({
             hasPositionOwner={hasPositionOwner}
             hasCachedTokenSnapshot={hasCachedPositionSnapshot}
             isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+            deferInitialContent={deferInitialPositionsContent}
             stockOnly
             hideSearch
           />

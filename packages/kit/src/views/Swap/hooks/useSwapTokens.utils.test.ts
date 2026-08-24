@@ -4,6 +4,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   buildServerAuthoritativeSearchResults,
   releaseSwapTokenListFetchEffectKey,
+  shouldShowSwapTokenListLoading,
 } from './useSwapTokens.utils';
 
 describe('releaseSwapTokenListFetchEffectKey', () => {
@@ -58,5 +59,43 @@ describe('buildServerAuthoritativeSearchResults', () => {
 
   it('returns an empty list for empty server results', () => {
     expect(buildServerAuthoritativeSearchResults([])).toEqual([]);
+  });
+});
+
+describe('shouldShowSwapTokenListLoading', () => {
+  it('keeps the exact cached list visible while its request revalidates', () => {
+    expect(
+      shouldShowSwapTokenListLoading({
+        hasCurrentScopeSnapshot: true,
+        isAllNetworkListReady: true,
+        isSupportAccountsReady: true,
+        isTokenListFetchSettled: false,
+        isTokenListFetching: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows loading when a changed identity has no matching snapshot', () => {
+    expect(
+      shouldShowSwapTokenListLoading({
+        hasCurrentScopeSnapshot: false,
+        isAllNetworkListReady: true,
+        isSupportAccountsReady: false,
+        isTokenListFetchSettled: false,
+        isTokenListFetching: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('treats a settled empty snapshot as ready', () => {
+    expect(
+      shouldShowSwapTokenListLoading({
+        hasCurrentScopeSnapshot: true,
+        isAllNetworkListReady: true,
+        isSupportAccountsReady: true,
+        isTokenListFetchSettled: true,
+        isTokenListFetching: false,
+      }),
+    ).toBe(false);
   });
 });

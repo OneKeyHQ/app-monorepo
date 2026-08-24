@@ -74,6 +74,7 @@ interface ISwapProPositionsListProps {
   hasPositionOwner: boolean;
   hasCachedTokenSnapshot?: boolean;
   isLiveTokenListForCurrentOwner: boolean;
+  deferInitialContent?: boolean;
   // Stock context: only show stock tokens, and hide the "find your token" footer.
   stockOnly?: boolean;
   hideSearch?: boolean;
@@ -99,6 +100,7 @@ const SwapProPositionsList = ({
   hasPositionOwner,
   hasCachedTokenSnapshot,
   isLiveTokenListForCurrentOwner,
+  deferInitialContent,
   stockOnly,
   hideSearch,
 }: ISwapProPositionsListProps) => {
@@ -277,6 +279,7 @@ const SwapProPositionsList = ({
   const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
   if (
+    deferInitialContent ||
     (hasPositionOwner &&
       !isLiveTokenListForCurrentOwner &&
       !hasCachedTokenSnapshot) ||

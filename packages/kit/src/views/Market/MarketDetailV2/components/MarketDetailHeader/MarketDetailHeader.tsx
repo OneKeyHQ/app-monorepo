@@ -118,6 +118,9 @@ export function MarketDetailHeader({
           tokenImageUri={tokenDetail?.logoUrl}
           tokenImageUris={stableLogoUrls}
           networkImageUri={networkLogoUri}
+          networkId={networkId}
+          tokenAddress={tokenDetail?.address}
+          tokenIsNative={isNative}
           fallbackIcon="CryptoCoinOutline"
         />
         <YStack flexShrink={1} minWidth={0}>
@@ -198,6 +201,8 @@ export function MarketDetailHeader({
       tokenDetail?.address,
       stableLogoUrls,
       networkLogoUri,
+      networkId,
+      isNative,
       isOverlayPage,
       onPressTokenSelector,
       handleCopyAddress,
@@ -293,6 +298,9 @@ export function MarketDetailHeader({
               tokenImageUri={tokenDetail?.logoUrl}
               tokenImageUris={stableLogoUrls}
               networkImageUri={networkLogoUri}
+              networkId={networkId}
+              tokenAddress={tokenDetail?.address}
+              tokenIsNative={isNative}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack>

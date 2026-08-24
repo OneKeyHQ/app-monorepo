@@ -262,8 +262,6 @@ describe('swapStockChannelUtils', () => {
       isNative: undefined,
       symbol: 'USDT',
       name: undefined,
-      logoURI: 'https://example.com/usdt.png',
-      networkLogoURI: 'https://example.com/bsc.png',
     });
   });
 

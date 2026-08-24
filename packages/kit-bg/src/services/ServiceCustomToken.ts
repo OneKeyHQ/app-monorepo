@@ -2,6 +2,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  buildTokenImageIdentity,
+  persistIdentityImageUrlsFromBackground,
+} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   ECustomTokenStatus,
@@ -308,7 +312,18 @@ class ServiceCustomToken extends ServiceBase {
       networkId,
       ...searchParams,
     });
-    return response.data.data ?? [];
+    const tokens = response.data.data ?? [];
+    persistIdentityImageUrlsFromBackground(
+      tokens.map((token) => ({
+        identity: buildTokenImageIdentity({
+          contractAddress: token.info.address,
+          isNative: token.info.isNative,
+          networkId: token.info.networkId || networkId,
+        }),
+        url: token.info.logoURI,
+      })),
+    );
+    return tokens;
   }
 
   @backgroundMethod()

@@ -16,6 +16,7 @@ import {
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -191,6 +192,36 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockMarketHeaderSkeleton({
         channelStage: ESwapStockChannelStage.MissingStock,
         hasStockIdentity: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('coordinates cold Stock content until the channel finishes initializing', () => {
+    expect(
+      [
+        ESwapStockChannelStage.InitializingStock,
+        ESwapStockChannelStage.CheckingMarketStatus,
+        ESwapStockChannelStage.InitializingPayToken,
+      ].map((channelStage) =>
+        shouldDeferStockInitialContent({
+          channelStage,
+          startedWithoutContent: true,
+        }),
+      ),
+    ).toEqual([true, true, true]);
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.Ready,
+        startedWithoutContent: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps warm Stock display content visible while the channel revalidates', () => {
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        startedWithoutContent: false,
       }),
     ).toBe(false);
   });

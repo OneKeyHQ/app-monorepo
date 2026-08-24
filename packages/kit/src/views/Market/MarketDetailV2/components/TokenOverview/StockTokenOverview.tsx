@@ -9,7 +9,8 @@ import { StockStatSections } from '../StockStatSections';
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 
 export function StockTokenOverview() {
-  const { tokenDetail, isStockToken } = useTokenDetail();
+  const { tokenDetail, isStockToken, networkId, tokenAddress, isNative } =
+    useTokenDetail();
   const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
     useStockSecurityStats(tokenDetail?.stock);
 
@@ -20,7 +21,13 @@ export function StockTokenOverview() {
   return (
     <Stack gap="$2" px="$5" pt="$5" pb="$3">
       <XStack alignItems="center" gap="$3" mb="$3">
-        <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
+        <Token
+          size="lg"
+          tokenImageUri={tokenDetail.logoUrl}
+          networkId={networkId}
+          tokenAddress={tokenAddress}
+          tokenIsNative={isNative}
+        />
         <Stack flex={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">
             {tokenDetail.symbol}

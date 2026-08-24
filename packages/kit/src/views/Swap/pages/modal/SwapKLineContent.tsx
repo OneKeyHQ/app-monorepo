@@ -41,6 +41,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -168,6 +169,10 @@ function useSwapKLineTokenMarketInfo(
         : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      swrKey: tokenKey
+        ? swrKeys.swapKLineTokenMarketInfo({ tokenScope: tokenKey })
+        : undefined,
+      swrShouldPersist: (value) => value?.status === 'success',
     },
   );
 
@@ -327,6 +332,7 @@ function useSwapKLineStableTokenChecks({
 }) {
   const fromStableTokenKey = getSwapKLineStableTokenKey(fromToken);
   const toStableTokenKey = getSwapKLineStableTokenKey(toToken);
+  const stableTokenChecksScope = `${fromStableTokenKey}|${toStableTokenKey}`;
   const fromStableTokenIdentity = useMemo(
     () =>
       fromStableTokenKey
@@ -392,7 +398,12 @@ function useSwapKLineStableTokenChecks({
       checkIsFocused: false,
       watchLoading: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
+      swrKey:
+        fromToken || toToken
+          ? swrKeys.swapKLineStableChecks({
+              scope: stableTokenChecksScope,
+            })
+          : undefined,
     },
   );
 

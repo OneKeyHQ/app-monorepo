@@ -454,6 +454,9 @@ const SwapInputContainer = ({
           justifyContent: 'flex-end',
           loading: showTokenSelectorSkeleton,
           selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+          selectedTokenNetworkId: tokenSelectorDisplayToken?.networkId,
+          selectedTokenAddress: tokenSelectorDisplayToken?.contractAddress,
+          selectedTokenIsNative: tokenSelectorDisplayToken?.isNative,
           selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
           onPress: () => {
             onSelectToken(direction);

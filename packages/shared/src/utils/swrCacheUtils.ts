@@ -306,6 +306,10 @@ const NS = {
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
   swapHistoryPreviewList: 'swapHistoryPreviewList',
+  swapKLineStableChecks: 'swapKLineStableChecks',
+  swapKLineTokenMarketInfo: 'swapKLineTokenMarketInfo',
+  swapStockChartCoinGeckoId: 'swapStockChartCoinGeckoId',
+  swapStockSelectorMetadata: 'swapStockSelectorMetadata',
   swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
@@ -549,6 +553,7 @@ export const swrKeys = {
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
   marketHomeTokenList: ({
     networkId,
+    locale,
     sortBy,
     sortType,
     pageSize,
@@ -558,6 +563,7 @@ export const swrKeys = {
     timeFrame,
   }: {
     networkId: string;
+    locale: string;
     sortBy?: string;
     sortType?: string;
     pageSize?: number;
@@ -568,8 +574,9 @@ export const swrKeys = {
   }) => {
     const parts = [
       NS.marketHomeTokenList,
-      'v1',
+      'v2',
       networkId,
+      locale,
       sortBy ?? '',
       sortType ?? '',
       pageSize ?? '',
@@ -640,6 +647,14 @@ export const swrKeys = {
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
+  swapKLineStableChecks: ({ scope }: { scope: string }) =>
+    [NS.swapKLineStableChecks, 'v1', scope].join(':'),
+  swapKLineTokenMarketInfo: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapKLineTokenMarketInfo, 'v1', tokenScope].join(':'),
+  swapStockChartCoinGeckoId: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockChartCoinGeckoId, 'v1', tokenScope].join(':'),
+  swapStockSelectorMetadata: ({ scope }: { scope: string }) =>
+    [NS.swapStockSelectorMetadata, 'v1', scope].join(':'),
   swapStockChart: ({
     networkId,
     tokenAddress,
