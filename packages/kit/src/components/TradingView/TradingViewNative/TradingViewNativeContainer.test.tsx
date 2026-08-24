@@ -1213,6 +1213,9 @@ describe('TradingViewNativeContainer', () => {
       source: 'history',
       timestamp: historyPoint.t,
     });
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ currentPriceLabel: '100.00' }),
+    );
 
     handlePriceUpdate.mockClear();
     dateNowSpy.mockReturnValue(2500);

@@ -18,7 +18,7 @@ describe('TradingViewNative chart settings adapter', () => {
     ).toEqual(createTradingViewChartSettingsValue());
   });
 
-  it('round-trips chart settings including the y-axis option', () => {
+  it('round-trips supported chart settings without the countdown option', () => {
     const currentSettings = createTradingViewNativeChartSettings();
     currentSettings.options.yAxis = false;
     const value = getTradingViewChartSettingsValue(currentSettings);
@@ -31,6 +31,7 @@ describe('TradingViewNative chart settings adapter', () => {
       body.upColor = '#112233';
     }
     value.options.yAxis = true;
+    value.options.countdown = false;
     value.options.latestPrice = false;
     value.latestPriceLine.upColor = '#123456';
     value.latestPriceLine.downColor = '#654321';
@@ -43,6 +44,7 @@ describe('TradingViewNative chart settings adapter', () => {
     });
 
     expect(nextSettings.options.yAxis).toBe(true);
+    expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
     expect(nextSettings.latestPriceLine).toEqual({
       ...currentSettings.latestPriceLine,
@@ -95,7 +97,6 @@ describe('TradingViewNative chart settings adapter', () => {
       candles: null,
       options: {
         yAxis: false,
-        countdown: 'yes',
       },
       latestPriceLine: {
         upColor: '#123456',
