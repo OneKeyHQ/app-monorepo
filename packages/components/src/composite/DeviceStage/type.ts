@@ -106,14 +106,23 @@ export interface IDeviceStageProps {
   /** Model on stage. Models without a replica render an empty stage. */
   deviceType: IHardwareDeviceType;
   step: IDeviceStageStep;
-  /** The connected device's name — the connecting capsule's second line. */
+  /**
+   * The connected device's name (its Bluetooth model name) — the second
+   * line under every step with the device in the picture, capsule and
+   * card alike: the waits, the asks, the confirm. The outcome cards and
+   * the teach-first intro keep their own words.
+   */
   deviceName?: string;
   /**
-   * One line of operation context under the confirm title — what the person
-   * is about to approve, e.g. "Send 0.1 ETH". The current toast shows
-   * nothing, which is the gap this line exists to close.
+   * The person's way out of the stage. Given, the surface wears its close
+   * button and follows a downward drag; absent, it cannot be dismissed at
+   * all. When to grant it is the driver's policy — the live hardware flows
+   * arm it on a timer (a few seconds into an ask, longer into a wait) and
+   * keep it armed for the rest of the burst; the authenticity flow arms it
+   * from the start. The driver answers a dismissal by moving `step` to
+   * `off` — the exit is already under way when this fires.
    */
-  confirmContext?: string;
+  onClose?: () => void;
   /**
    * Rows of the payload being approved — label over value, one card. It
    * fades in once the compact confirm arrangement lands: the on-screen
@@ -150,12 +159,10 @@ export interface IDeviceStageProps {
   /** Words the error step speaks. Omitted, it falls back to a generic line. */
   errorReason?: IDeviceStageErrorReason;
   /**
-   * The authenticity checklist, shown under the words on `authVerifying`
-   * (its presence also retires that step's "Please wait..." line — the
-   * legacy single-check shape keeps it), on `authSuccess` when the
-   * checklist flow is what succeeded, and inside `authFailure` for the
-   * unofficial-firmware reason, failed row marked. Omitted, the steps
-   * play their checklist-less shapes.
+   * The authenticity checklist, shown under the words on `authVerifying`,
+   * on `authSuccess` when the checklist flow is what succeeded, and
+   * inside `authFailure` for the unofficial-firmware reason, failed row
+   * marked. Omitted, the steps play their checklist-less shapes.
    */
   authChecklist?: IAuthChecklistItem[];
   /** Words and furniture the authFailure step wears. Defaults to 'unknown'. */
