@@ -105,6 +105,26 @@ export function drawTradingViewNativeCanvasScene({
         context.restore();
         break;
       }
+      case 'linearGradientRect': {
+        const gradient = context.createLinearGradient(
+          command.rect.x,
+          command.rect.y,
+          command.rect.x,
+          command.rect.y + command.rect.height,
+        );
+        gradient.addColorStop(0, command.colors[0]);
+        gradient.addColorStop(1, command.colors[1]);
+        context.save();
+        context.fillStyle = gradient;
+        context.fillRect(
+          command.rect.x,
+          command.rect.y,
+          command.rect.width,
+          command.rect.height,
+        );
+        context.restore();
+        break;
+      }
       case 'polygon': {
         const firstPoint = command.points[0];
         if (!firstPoint) {
@@ -164,8 +184,19 @@ export function drawTradingViewNativeCanvasScene({
         );
         context.save();
         context.globalAlpha = paint.opacity;
-        context.fillStyle = paint.color;
-        context.fillRect(command.x, command.y, command.width, command.height);
+        if (paint.drawStyle === 'stroke') {
+          context.strokeStyle = paint.color;
+          context.lineWidth = paint.strokeWidth ?? 1;
+          context.strokeRect(
+            command.x,
+            command.y,
+            command.width,
+            command.height,
+          );
+        } else {
+          context.fillStyle = paint.color;
+          context.fillRect(command.x, command.y, command.width, command.height);
+        }
         context.restore();
         break;
       }

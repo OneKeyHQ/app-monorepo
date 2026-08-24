@@ -1,3 +1,5 @@
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+
 export type ITradingViewSettingsMockAppearanceSectionId =
   | 'candles'
   | 'coordinates'
@@ -106,6 +108,7 @@ export type ITradingViewChartSettingsPriceColorMode =
   | 'redUpGreenDown';
 
 export type ITradingViewChartSettingsOptions = {
+  yAxis: boolean;
   countdown: boolean;
   depth: boolean;
   priceChange: boolean;
@@ -158,22 +161,22 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
           id: 'body',
           label: 'Body',
           enabled: true,
-          upColor: '#219D46',
-          downColor: '#C33759',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
         {
           id: 'border',
           label: 'Border',
           enabled: true,
-          upColor: '#219D46',
-          downColor: '#C33759',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
         {
           id: 'wick',
           label: 'Wick',
           enabled: true,
-          upColor: '#219D46',
-          downColor: '#C33759',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
       ],
     },
@@ -186,15 +189,15 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
           id: 'crosshair',
           label: 'Crosshair',
           enabled: true,
-          upColor: '#8A8D97',
-          downColor: '#8A8D97',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.crosshair,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.crosshair,
         },
         {
           id: 'price-label',
           label: 'Price label',
           enabled: true,
-          upColor: '#23A55A',
-          downColor: '#D94B7A',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
       ],
     },
@@ -207,15 +210,15 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
           id: 'orders',
           label: 'Orders',
           enabled: true,
-          upColor: '#F5A524',
-          downColor: '#5AC8FA',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.warning,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         },
         {
           id: 'fills',
           label: 'Fills',
           enabled: false,
-          upColor: '#23A55A',
-          downColor: '#D94B7A',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
       ],
     },
@@ -228,15 +231,15 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
           id: 'background',
           label: 'Background',
           enabled: true,
-          upColor: '#151517',
-          downColor: '#232529',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.background,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.backgroundSubdued,
         },
         {
           id: 'grid',
           label: 'Grid',
           enabled: true,
-          upColor: '#2A2D32',
-          downColor: '#2A2D32',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.grid,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.grid,
         },
       ],
     },
@@ -270,7 +273,7 @@ function createVolumeIndicator({
         label: 'VOL',
         enabled: true,
         period: 0,
-        color: '#FFA726',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.warning,
         style: 'solid',
         showCheckbox: false,
         showPeriod: false,
@@ -281,7 +284,7 @@ function createVolumeIndicator({
         label: 'MA1',
         enabled: scope !== 'sub',
         period: 5,
-        color: '#EC407A',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: true,
@@ -292,7 +295,7 @@ function createVolumeIndicator({
         label: 'MA2',
         enabled: scope !== 'sub',
         period: 10,
-        color: '#27C6DA',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: true,
@@ -321,12 +324,12 @@ function createMovingAverageIndicator({
 }): ITradingViewSettingsMockIndicator {
   const periods = [5, 10, 20, 30, 60, 120];
   const colors = [
-    '#FF9D22',
-    '#E9386F',
-    '#23BFD5',
-    '#F27206',
-    '#734DBA',
-    '#76C079',
+    TRADING_VIEW_NATIVE_THEME_COLORS.brand,
+    TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
+    TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
+    TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+    TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+    TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
   ];
   return {
     id,
@@ -342,7 +345,7 @@ function createMovingAverageIndicator({
       label: `${linePrefix}${index + 1}`,
       enabled: index < 3,
       period,
-      color: colors[index] ?? '#FF9D22',
+      color: colors[index] ?? TRADING_VIEW_NATIVE_THEME_COLORS.brand,
       style: 'solid',
       showCheckbox: true,
       showPeriod: true,
@@ -384,7 +387,7 @@ function createMovingAverageConvergenceDivergenceIndicator({
         label: 'DIF',
         enabled: true,
         period: 0,
-        color: '#FFA726',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.warning,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -395,7 +398,7 @@ function createMovingAverageConvergenceDivergenceIndicator({
         label: 'DEA',
         enabled: true,
         period: 0,
-        color: '#EC407A',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -406,7 +409,7 @@ function createMovingAverageConvergenceDivergenceIndicator({
         label: 'MACD',
         enabled: true,
         period: 0,
-        color: '#27C6DA',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -441,7 +444,7 @@ function createAverageLineIndicator({
         label: 'AVL',
         enabled: true,
         period: 0,
-        color: '#FF9D22',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.brand,
         style: 'solid',
         showCheckbox: false,
         showPeriod: false,
@@ -480,7 +483,7 @@ function createPriceBandIndicator({
         label: 'BOLL',
         enabled: true,
         period: 0,
-        color: '#F27206',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -491,7 +494,7 @@ function createPriceBandIndicator({
         label: 'UB',
         enabled: true,
         period: 0,
-        color: '#FF9D22',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -502,7 +505,7 @@ function createPriceBandIndicator({
         label: 'LB',
         enabled: true,
         period: 0,
-        color: '#FF9D22',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -513,7 +516,7 @@ function createPriceBandIndicator({
         label: '背景',
         enabled: true,
         period: 0,
-        color: '#3A2A1E',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.backgroundSubdued,
         colorPattern: 'checker',
         style: 'solid',
         showCheckbox: true,
@@ -552,7 +555,7 @@ function createParabolicStopAndReverseIndicator({
         label: 'SAR',
         enabled: true,
         period: 0,
-        color: '#27C6DA',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
         style: 'solid',
         showCheckbox: false,
         showPeriod: false,
@@ -592,7 +595,7 @@ function createSuperTrendIndicator({
         label: '上升趋势',
         enabled: true,
         period: 0,
-        color: '#43A646',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -603,7 +606,7 @@ function createSuperTrendIndicator({
         label: '背景',
         enabled: true,
         period: 0,
-        color: '#1E3D23',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
         colorPattern: 'checker',
         style: 'solid',
         showCheckbox: true,
@@ -615,7 +618,7 @@ function createSuperTrendIndicator({
         label: '下降趋势',
         enabled: true,
         period: 0,
-        color: '#F02F3C',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         style: 'solid',
         showCheckbox: true,
         showPeriod: false,
@@ -626,7 +629,7 @@ function createSuperTrendIndicator({
         label: '背景',
         enabled: true,
         period: 0,
-        color: '#3A2028',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
         colorPattern: 'checker',
         style: 'solid',
         showCheckbox: true,
@@ -662,7 +665,7 @@ function createVolumeWeightedAveragePriceIndicator({
         label: '长度',
         enabled: true,
         period: 14,
-        color: '#23BFD5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
         style: 'solid',
         showCheckbox: false,
         showPeriod: true,
@@ -698,7 +701,7 @@ function createSupportResistanceIndicator({
         label: '压力线',
         enabled: true,
         period: 0,
-        color: '#E9386F',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
         style: 'solid',
         secondaryStyle: 'dashed',
         showCheckbox: false,
@@ -711,7 +714,7 @@ function createSupportResistanceIndicator({
         label: '支撑线',
         enabled: true,
         period: 0,
-        color: '#FF9D22',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
         style: 'solid',
         secondaryStyle: 'dashed',
         showCheckbox: false,
@@ -748,7 +751,7 @@ function createOpenInterestIndicator({
         label: 'OI',
         enabled: true,
         period: 0,
-        color: '#5191F5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         style: 'solid',
         showCheckbox: false,
         showPeriod: false,
@@ -786,14 +789,14 @@ function createLongShortRatioIndicator({
     lines: [
       {
         label: 'Ratio',
-        color: '#F27206',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
         showCheckbox: true,
         showPeriod: false,
         showStyle: true,
       },
       {
         label: '净多仓',
-        color: '#76C079',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         showCheckbox: false,
         showPeriod: false,
         showStyle: false,
@@ -801,7 +804,7 @@ function createLongShortRatioIndicator({
       },
       {
         label: '净空仓',
-        color: '#A13EB4',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
         showCheckbox: false,
         showPeriod: false,
         showStyle: false,
@@ -833,7 +836,7 @@ function createTakerBuySellIndicator({
     lines: [
       {
         label: 'Buy',
-        color: '#76C079',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         showCheckbox: false,
         showPeriod: false,
         showStyle: false,
@@ -841,7 +844,7 @@ function createTakerBuySellIndicator({
       },
       {
         label: 'Sell',
-        color: '#A13EB4',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
         showCheckbox: false,
         showPeriod: false,
         showStyle: false,
@@ -851,13 +854,13 @@ function createTakerBuySellIndicator({
   });
 }
 
-const OKX_INDICATOR_LINE_COLORS = [
-  '#FFA726',
-  '#EC407A',
-  '#27C6DA',
-  '#E65000',
-  '#734DBA',
-  '#76C079',
+const DEFAULT_INDICATOR_LINE_COLORS = [
+  TRADING_VIEW_NATIVE_THEME_COLORS.brand,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
+  TRADING_VIEW_NATIVE_THEME_COLORS.quinary,
 ];
 
 type ITradingViewSettingsMockTechnicalLineConfig = {
@@ -919,7 +922,9 @@ function createTechnicalIndicator({
       period: line.period ?? 0,
       color:
         line.color ??
-        OKX_INDICATOR_LINE_COLORS[index % OKX_INDICATOR_LINE_COLORS.length],
+        DEFAULT_INDICATOR_LINE_COLORS[
+          index % DEFAULT_INDICATOR_LINE_COLORS.length
+        ],
       style: line.style ?? 'solid',
       colorPattern: line.colorPattern,
       showCheckbox: line.showCheckbox ?? true,
@@ -1055,7 +1060,7 @@ function createRsiIndicator({
       {
         label: 'UB',
         period: 70,
-        color: '#3279F5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         showStyle: false,
         secondaryStyle: 'dashed',
         showSecondaryStyle: true,
@@ -1063,14 +1068,14 @@ function createRsiIndicator({
       {
         label: 'LB',
         period: 30,
-        color: '#3279F5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         showStyle: false,
         secondaryStyle: 'dashed',
         showSecondaryStyle: true,
       },
       {
         label: '背景',
-        color: 'rgba(50, 121, 245, 0.08)',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimarySubdued,
         colorPattern: 'checker',
         showPeriod: false,
         showStyle: false,
@@ -1141,12 +1146,15 @@ function createSubPriceBandIndicator({
     description:
       '该指标根据价格的变化创建了一个价格通道，展示了价格波动以及潜在的反转点。UB 和 LB 分别代表布林通道的上限和下限。',
     lines: [
-      { label: 'BOLL', color: '#E65000' },
-      { label: 'UB', color: '#FFA726' },
-      { label: 'LB', color: '#FFA726' },
+      {
+        label: 'BOLL',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary,
+      },
+      { label: 'UB', color: TRADING_VIEW_NATIVE_THEME_COLORS.quinary },
+      { label: 'LB', color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary },
       {
         label: '背景',
-        color: '#3A2A1E',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.backgroundSubdued,
         colorPattern: 'checker',
         showStyle: false,
       },
@@ -1574,21 +1582,21 @@ const DEFAULT_INDICATORS: ITradingViewSettingsMockIndicator[] = [
       { label: 'MFI' },
       {
         label: 'OB',
-        color: '#3279F5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         showStyle: false,
         secondaryStyle: 'dashed',
         showSecondaryStyle: true,
       },
       {
         label: 'OS',
-        color: '#3279F5',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary,
         showStyle: false,
         secondaryStyle: 'dashed',
         showSecondaryStyle: true,
       },
       {
         label: '背景',
-        color: 'rgba(50, 121, 245, 0.08)',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimarySubdued,
         colorPattern: 'checker',
         showStyle: false,
       },
@@ -1640,8 +1648,8 @@ function cloneIndicators() {
     opacityColors: indicator.opacityColors
       ? { ...indicator.opacityColors }
       : {
-          upColor: '#219D46',
-          downColor: '#C33759',
+          upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         },
     parameters: indicator.parameters?.map((parameter) => ({ ...parameter })),
     lines: indicator.lines.map((line) => ({ ...line })),
@@ -1653,6 +1661,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
     schemaVersion: TRADING_VIEW_SETTINGS_SCHEMA_VERSION,
     appearanceSections: cloneAppearanceSections(),
     options: {
+      yAxis: true,
       countdown: true,
       depth: true,
       priceChange: true,
@@ -1663,21 +1672,24 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
       crossLine: true,
     },
     latestPriceLine: {
-      upColor: '#219D46',
-      downColor: '#C33759',
+      upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+      downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
       style: 'dashed',
     },
     background: {
       style: 'solid',
-      colors: ['#000000', '#171717'],
+      colors: [
+        TRADING_VIEW_NATIVE_THEME_COLORS.background,
+        TRADING_VIEW_NATIVE_THEME_COLORS.backgroundSubdued,
+      ],
     },
     grid: {
       style: 'both',
-      horizontalColor: '#171717',
-      verticalColor: '#171717',
+      horizontalColor: TRADING_VIEW_NATIVE_THEME_COLORS.grid,
+      verticalColor: TRADING_VIEW_NATIVE_THEME_COLORS.grid,
     },
     crossLine: {
-      color: '#BFC3CF',
+      color: TRADING_VIEW_NATIVE_THEME_COLORS.crosshair,
       style: 'dashed',
     },
     colorMode: 'classic',
@@ -1726,6 +1738,9 @@ export function toggleTradingViewSettingsMockIndicator(
   indicatorId: string,
   active: boolean,
   activeSubIndicatorOrder?: readonly string[],
+  maxActiveSubIndicatorCount:
+    | number
+    | null = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
 ): ITradingViewIndicatorSettingsValue {
   const targetIndicator = state.indicators.find(
     (indicator) => indicator.id === indicatorId,
@@ -1759,18 +1774,35 @@ export function toggleTradingViewSettingsMockIndicator(
     ? normalizeTradingViewActiveSubIndicators(
         nextState,
         activeSubIndicatorOrder,
+        maxActiveSubIndicatorCount,
       )
     : nextState;
+}
+
+export function normalizeTradingViewMaxActiveSubIndicatorCount(
+  value: number | null,
+) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : null;
 }
 
 export function normalizeTradingViewActiveSubIndicators(
   state: ITradingViewIndicatorSettingsValue,
   activeSubIndicatorOrder?: readonly string[],
+  maxActiveSubIndicatorCount:
+    | number
+    | null = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
 ): ITradingViewIndicatorSettingsValue {
+  const normalizedMaxActiveSubIndicatorCount =
+    normalizeTradingViewMaxActiveSubIndicatorCount(maxActiveSubIndicatorCount);
   const activeSubIndicators = state.indicators.filter(
     (indicator) => indicator.scope === 'sub' && indicator.active,
   );
-  if (activeSubIndicators.length <= TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS) {
+  if (
+    normalizedMaxActiveSubIndicatorCount === null ||
+    activeSubIndicators.length <= normalizedMaxActiveSubIndicatorCount
+  ) {
     return state;
   }
 
@@ -1785,7 +1817,13 @@ export function normalizeTradingViewActiveSubIndicators(
   ).filter((indicatorId) => activeSubIndicatorIds.has(indicatorId));
 
   const retainedActiveSubIndicatorIds = new Set(
-    orderedActiveSubIndicatorIds.slice(-TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS),
+    orderedActiveSubIndicatorIds.slice(
+      Math.max(
+        0,
+        orderedActiveSubIndicatorIds.length -
+          normalizedMaxActiveSubIndicatorCount,
+      ),
+    ),
   );
   return {
     ...state,
@@ -1804,11 +1842,16 @@ export function normalizeTradingViewActiveSubIndicators(
 
 export function toggleTradingViewSettingsMockLine(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   lineId: string,
   enabled: boolean,
 ): ITradingViewIndicatorSettingsValue {
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const lines = indicator.lines.map((line) => {
       if (line.id !== lineId) {
@@ -1841,11 +1884,16 @@ export function toggleTradingViewSettingsMockLine(
 
 export function updateTradingViewSettingsMockLineColor(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   lineId: string,
   color: string,
 ): ITradingViewIndicatorSettingsValue {
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const lines = indicator.lines.map((line) => {
       if (line.id !== lineId) {
@@ -1878,12 +1926,19 @@ export function updateTradingViewSettingsMockLineColor(
 
 export function updateTradingViewSettingsMockLinePeriod(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   lineId: string,
   period: number,
 ): ITradingViewIndicatorSettingsValue {
-  const nextPeriod = Number.isFinite(period) ? Math.max(0, period) : 0;
+  const nextPeriod = Number.isFinite(period)
+    ? Math.max(1, Math.floor(period))
+    : 1;
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const lines = indicator.lines.map((line) => {
       if (line.id !== lineId) {
@@ -1916,11 +1971,16 @@ export function updateTradingViewSettingsMockLinePeriod(
 
 export function updateTradingViewSettingsMockLineStyle(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   lineId: string,
   style: ITradingViewSettingsMockLineStyle,
 ): ITradingViewIndicatorSettingsValue {
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const lines = indicator.lines.map((line) => {
       if (line.id !== lineId) {
@@ -1953,11 +2013,16 @@ export function updateTradingViewSettingsMockLineStyle(
 
 export function updateTradingViewSettingsMockLineSecondaryStyle(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   lineId: string,
   secondaryStyle: ITradingViewSettingsMockLineStyle,
 ): ITradingViewIndicatorSettingsValue {
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const lines = indicator.lines.map((line) => {
       if (line.id !== lineId) {
@@ -2031,8 +2096,8 @@ export function updateTradingViewSettingsMockIndicatorOpacityColor(
     }
 
     const opacityColors = indicator.opacityColors ?? {
-      upColor: '#219D46',
-      downColor: '#C33759',
+      upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+      downColor: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
     };
     const colorKey = role === 'up' ? 'upColor' : 'downColor';
     if (opacityColors[colorKey] === color) {
@@ -2059,11 +2124,16 @@ export function updateTradingViewSettingsMockIndicatorOpacityColor(
 
 export function updateTradingViewSettingsMockIndicatorParameter(
   state: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
   parameterId: string,
   value: number,
 ): ITradingViewIndicatorSettingsValue {
   let changed = false;
   const indicators = state.indicators.map((indicator) => {
+    if (indicator.id !== indicatorId) {
+      return indicator;
+    }
+
     let indicatorChanged = false;
     const parameters = indicator.parameters?.map((parameter) => {
       if (parameter.id !== parameterId) {

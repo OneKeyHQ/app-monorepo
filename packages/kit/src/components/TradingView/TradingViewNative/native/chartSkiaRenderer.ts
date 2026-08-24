@@ -13,6 +13,7 @@ import {
   Skia,
   StrokeCap,
   StrokeJoin,
+  TileMode,
   createPicture,
 } from '@shopify/react-native-skia';
 
@@ -240,6 +241,32 @@ function drawTradingViewNativeSkiaCommands({
           }),
         );
         break;
+      case 'linearGradientRect': {
+        const paint = Skia.Paint();
+        const shader = Skia.Shader.MakeLinearGradient(
+          { x: command.rect.x, y: command.rect.y },
+          {
+            x: command.rect.x,
+            y: command.rect.y + command.rect.height,
+          },
+          command.colors.map((color) => Skia.Color(color)),
+          null,
+          TileMode.Clamp,
+        );
+        paint.setShader(shader);
+        canvas.drawRect(
+          Skia.XYWHRect(
+            command.rect.x,
+            command.rect.y,
+            command.rect.width,
+            command.rect.height,
+          ),
+          paint,
+        );
+        shader.dispose();
+        paint.dispose();
+        break;
+      }
       case 'polygon':
       case 'polyline': {
         const firstPoint = command.points[0];

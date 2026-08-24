@@ -3,6 +3,7 @@ import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
+  shouldReplaceTradingViewNativeIndicatorSeries,
 } from './TradingViewNativeChart';
 
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
@@ -213,5 +214,35 @@ describe('TradingViewNativeChart sub-indicator realtime updates', () => {
       }),
     ).toBe(runtimePanes);
     expect(runtimePanes[0].series[0].values).toEqual([null, 45, 50]);
+  });
+});
+
+describe('TradingViewNativeChart main-indicator updates', () => {
+  const previous = {
+    chartPictureVersion: 1,
+    pointCount: 100,
+    seriesKey: 'ma-1|ma-2',
+    settingsKey: '{"MA":{"period":5}}',
+  };
+
+  it('replaces the full series when indicator settings change', () => {
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: {
+          ...previous,
+          settingsKey: '{"MA":{"period":7}}',
+        },
+        previous,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the realtime latest-value update when settings are unchanged', () => {
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: previous,
+        previous,
+      }),
+    ).toBe(false);
   });
 });
