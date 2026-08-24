@@ -35,6 +35,7 @@ import { getDisplayCornerRadius } from '@onekeyhq/shared/src/utils/displayCorner
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -169,6 +170,11 @@ export const CARD = {
   pad: 24,
   padTop: 26,
   bottomPad: 28,
+  /** The wide-posture cap — the desktop dialog's own content width (see
+   * Dialog's MAX_CONTENT_WIDTH). Phone-posture windows never cap: the
+   * card tracks the screen edges the way the system sheet itself does,
+   * whatever the phone's width. */
+  maxWidth: 400,
 };
 
 /** The toolbar's furniture: the system sheet's own grabber, and the
@@ -255,6 +261,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
+  },
+  // The wide posture's anchor: the shell hangs from the top edge.
+  layerTop: {
+    justifyContent: 'flex-start',
   },
   backdrop: {
     position: 'absolute',
@@ -713,7 +723,18 @@ export function MorphOverlay<T>({
   const { width: screenWidth } = useWindowDimensions();
   const keyboard = useAnimatedKeyboard();
   const themeName = useThemeName();
-  const cardWidth = screenWidth - CARD.margin * 2;
+  const media = useMedia();
+  // The posture switch, on the Dialog's own sheet↔panel line (md, a
+  // phone-class window): phone posture rests the shell on the bottom
+  // edge — the sheet grammar, thumb and keyboard territory — while a
+  // wide window (iPad, desktop, a wide web tab) hangs it from the top,
+  // where the notification grammar lives. One boundary, two faces: the
+  // anchor flips, and the card's width cap applies only to the wide
+  // side.
+  const phonePosture = media.md;
+  const cardWidth = phonePosture
+    ? screenWidth - CARD.margin * 2
+    : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
   const blocking = modal || scrim;
@@ -860,19 +881,23 @@ export function MorphOverlay<T>({
         .enabled(dragEnabled)
         .activeOffsetY([-DRAG_ACTIVATION_PT, DRAG_ACTIVATION_PT])
         .onUpdate((event) => {
+          // The dismissing direction is the anchored edge's own: down on
+          // the bottom, up off the top. Normalized here, the rest of the
+          // math never knows which way the shell hangs.
+          const drag = phonePosture ? event.translationY : -event.translationY;
           const travel = height.value + lift.value + EXIT_OVERSHOOT;
-          const pull =
-            event.translationY >= 0
-              ? event.translationY
-              : -rubberBand(-event.translationY, height.value);
+          const pull = drag >= 0 ? drag : -rubberBand(-drag, height.value);
           presence.value = 1 - pull / travel;
         })
         .onEnd((event) => {
+          const drag = phonePosture ? event.translationY : -event.translationY;
+          const dragVelocity = phonePosture
+            ? event.velocityY
+            : -event.velocityY;
           const travel = height.value + lift.value + EXIT_OVERSHOOT;
           // Finger velocity, in presence units per second.
-          const velocity = -event.velocityY / travel;
-          const projected =
-            event.translationY + event.velocityY * DRAG_PROJECTION_S;
+          const velocity = -dragVelocity / travel;
+          const projected = drag + dragVelocity * DRAG_PROJECTION_S;
           if (projected > height.value * DRAG_DISMISS_FRACTION) {
             presence.value = withSpring(0, { ...MORPH_SPRING, velocity });
             runOnJS(dismiss)();
@@ -886,7 +911,7 @@ export function MorphOverlay<T>({
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
-    [dismiss, dragEnabled, height, lift, presence],
+    [dismiss, dragEnabled, height, lift, phonePosture, presence],
   );
 
   // Size and position ride separate styles on purpose: the size worklet
@@ -904,26 +929,27 @@ export function MorphOverlay<T>({
     }),
     [height, radius, width],
   );
-  const positionStyle = useAnimatedStyle(
-    () => ({
-      // Being-there, the sheet's own door: exits sink the whole shell
-      // below the bottom edge, entrances rise from there — opaque all
-      // the way, like a presented sheet. The lift and the keyboard's own
-      // spring ride the same axis, so app-side inputs stay above it
-      // frame for frame. A drag pulls presence under 1 (and a breath
-      // over it, rubber-banded), so the finger rides this same line.
+  const positionStyle = useAnimatedStyle(() => {
+    // Being-there, the shell's door, spoken off the anchored edge: on
+    // the bottom (phone posture) exits sink below it — the presented
+    // sheet's own move — and the lift and the keyboard's spring ride
+    // the same axis, so app-side inputs stay above it frame for frame.
+    // Hung from the top (wide posture) the same door opens upward, the
+    // notification's move, and the keyboard never collides. A drag
+    // pulls presence under 1 (and a breath over it, rubber-banded), so
+    // the finger rides this same line either way.
+    const travel =
+      (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
+    return {
       transform: [
         {
-          translateY:
-            (1 - presence.value) *
-              (height.value + lift.value + EXIT_OVERSHOOT) -
-            lift.value -
-            keyboard.height.value,
+          translateY: phonePosture
+            ? travel - lift.value - keyboard.height.value
+            : lift.value - travel,
         },
       ],
-    }),
-    [height, keyboard, lift, presence],
-  );
+    };
+  }, [height, keyboard, lift, phonePosture, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike.
   const scrimFadeStyle = useAnimatedStyle(
@@ -1027,6 +1053,10 @@ export function MorphOverlay<T>({
     () => [styles.cardContent, cardCenter, cardFadeStyle],
     [cardCenter, cardFadeStyle],
   );
+  const layerStyle = useMemo(
+    () => (phonePosture ? styles.layer : [styles.layer, styles.layerTop]),
+    [phonePosture],
+  );
   const toolbarStyle = useMemo(
     () => [styles.toolbar, cardCenter, toolbarFadeStyle],
     [cardCenter, toolbarFadeStyle],
@@ -1040,7 +1070,7 @@ export function MorphOverlay<T>({
     // presentation) opened underneath the stage; at dialog level,
     // presentations cover it the way they cover the system sheet.
     <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
-      <Stack style={styles.layer} pointerEvents="box-none">
+      <Stack style={layerStyle} pointerEvents="box-none">
         {blocking ? (
           // The wall blocks the app whenever the shell is there; with
           // the grant, its tap is a dismissal. It stands down the moment
@@ -1089,7 +1119,13 @@ export function MorphOverlay<T>({
                   style={toolbarStyle}
                   pointerEvents={pose === 'card' ? 'box-none' : 'none'}
                 >
-                  <Stack style={styles.grabber} bg="$neutral6" />
+                  {/* The grabber is the sheet grammar's handle — phone
+                      posture only. A top-hung card dismisses by its
+                      close button (and an upward drag, undecorated),
+                      the way desktop prompt cards do. */}
+                  {phonePosture ? (
+                    <Stack style={styles.grabber} bg="$neutral6" />
+                  ) : null}
                   {dismissible ? (
                     <Animated.View
                       style={styles.cardClose}
