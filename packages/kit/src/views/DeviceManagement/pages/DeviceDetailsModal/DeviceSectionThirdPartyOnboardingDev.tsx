@@ -12,7 +12,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { showThirdPartyAccountNameSyncDialog } from '@onekeyhq/kit/src/views/Onboardingv2/components/ThirdPartyDevicePostAddDialog';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IThirdPartyAccountNameLocalAccount,
   IThirdPartyAccountNameSelectedDevice,
@@ -24,7 +23,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ListItemGroup } from '../ListItemGroup';
 
-type ILocalVerificationStatus = 'idle' | 'pending' | 'verified' | 'failed';
 type INameSyncStatus = 'idle' | 'pending' | 'done' | 'failed';
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -285,9 +283,6 @@ function AccountNameSourceInventory({
 
 function DeviceSectionThirdPartyOnboardingDev() {
   const [device] = useDeviceAtom();
-  const [verificationStatus, setVerificationStatus] =
-    useState<ILocalVerificationStatus>('idle');
-  const [verificationError, setVerificationError] = useState('');
   const [nameSyncStatus, setNameSyncStatus] = useState<INameSyncStatus>('idle');
   const [nameSyncError, setNameSyncError] = useState('');
   const [sourceAccountCount, setSourceAccountCount] = useState(0);
@@ -296,69 +291,6 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const vendor = device?.vendor;
   const isThirdParty =
     vendor === EHardwareVendor.trezor || vendor === EHardwareVendor.ledger;
-
-  const handleLocalVerify = useCallback(async () => {
-    if (!device || !isThirdParty || verificationStatus === 'pending') {
-      return;
-    }
-    setVerificationStatus('pending');
-    setVerificationError('');
-    try {
-      // Ledger USB connectIds are per-session UUIDs. Passing no target lets
-      // the SDK reuse its one active session, or safely discover the sole
-      // attached Ledger after an app restart instead of chasing a stale DB id.
-      const connectId =
-        vendor === EHardwareVendor.ledger
-          ? ''
-          : device.usbConnectId ||
-            device.connectId ||
-            device.bleConnectId ||
-            '';
-      if (!connectId && vendor !== EHardwareVendor.ledger) {
-        throw new OneKeyLocalError('请重新连接设备后再执行设备验真。');
-      }
-      const result =
-        await backgroundApiProxy.serviceThirdPartyDeviceReward.runLocalMockThirdPartyDeviceClaim(
-          {
-            vendor,
-            connectId,
-            dbDeviceId: device.id,
-          },
-        );
-      setVerificationStatus('verified');
-      Dialog.show({
-        icon: 'BadgeVerifiedSolid',
-        title: '本地设备验真通过',
-        description: [
-          vendor === EHardwareVendor.trezor
-            ? 'SDK 已让当前连接的 Trezor 对全新挑战值完成认证，并通过原厂验真。'
-            : '应用内置的本地模拟服务已完成 Ledger 官方原厂验真，并获取物理设备的原厂验真标识。',
-          '',
-          `验真方式：${
-            result.verificationMode === 'trezor-sdk-genuine-check'
-              ? 'Trezor 官方原厂验真'
-              : 'Ledger 官方原厂验真'
-          }`,
-          `原厂设备验真标识：${result.deviceId}`,
-          vendor === EHardwareVendor.trezor
-            ? `挑战值：${result.challengeHex}`
-            : `本地领取随机数：${result.challengeHex}`,
-          `领取结果：${
-            result.status === 'issued' ? '首次签发' : '已领取，返回原券'
-          }`,
-          `测试券码：${result.voucher.code}`,
-          `券状态：${result.voucher.status}`,
-          '',
-          '这只是本地集成测试。正式环境必须由服务端发起或见证设备验真，验真通过后才能发放真实优惠券。',
-        ].join('\n'),
-        onConfirmText: '完成',
-      });
-    } catch (error) {
-      const message = getErrorMessage(error, '本地设备验真失败');
-      setVerificationStatus('failed');
-      setVerificationError(message);
-    }
-  }, [device, isThirdParty, vendor, verificationStatus]);
 
   const handleNameInventory = useCallback(async () => {
     if (!device || !isThirdParty || nameSyncStatus === 'pending') {
@@ -454,15 +386,6 @@ function DeviceSectionThirdPartyOnboardingDev() {
     return null;
   }
 
-  const verifySubtitle = {
-    idle:
-      vendor === EHardwareVendor.trezor
-        ? '使用全新挑战值执行真实的 Trezor 官方原厂验真'
-        : '执行真实的 Ledger 官方原厂验真并读取原厂设备验真标识',
-    pending: '正在等待设备响应…',
-    verified: '真实设备证明已通过 · 已生成本地测试券',
-    failed: verificationError || '验真失败 · 点按重试',
-  }[verificationStatus];
   const nameSyncSubtitle = {
     idle:
       vendor === EHardwareVendor.ledger
@@ -480,22 +403,11 @@ function DeviceSectionThirdPartyOnboardingDev() {
       title="开发者调试 · 第三方硬件接入"
     >
       <ListItem
-        icon="LinkOutline"
-        title="1. 本地模拟领取（真实设备验真）"
-        subtitle={verifySubtitle}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        isLoading={verificationStatus === 'pending'}
-        disabled={verificationStatus === 'pending'}
-        onPress={handleLocalVerify}
-        testID="third-party-onboarding-local-verify"
-      />
-      <ListItem
         icon="EditOutline"
         title={
           vendor === EHardwareVendor.trezor
-            ? '2. 对比 Trezor Suite 比特币账户名称'
-            : '2. 对比 Ledger Live 以太坊账户名称'
+            ? '1. 对比 Trezor Suite 比特币账户名称'
+            : '1. 对比 Ledger Live 以太坊账户名称'
         }
         subtitle={nameSyncSubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
@@ -507,7 +419,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
       />
       <ListItem
         icon="PlayOutline"
-        title="3. 预览账户名称同步弹窗"
+        title="2. 预览账户名称同步弹窗"
         subtitle={
           vendor === EHardwareVendor.ledger
             ? '打开建钱包后的那个同步弹窗：默认全部勾选，一个地址对应多个名称时可选择'

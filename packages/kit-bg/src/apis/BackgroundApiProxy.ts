@@ -85,7 +85,6 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
-import type ServiceThirdPartyDeviceReward from '../services/ServiceThirdPartyDeviceReward';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
@@ -340,12 +339,6 @@ class BackgroundApiProxy
 
   get serviceHardwareUI(): ServiceHardwareUI {
     return this.getProxyService<ServiceHardwareUI>('serviceHardwareUI');
-  }
-
-  get serviceThirdPartyDeviceReward(): ServiceThirdPartyDeviceReward {
-    return this.getProxyService<ServiceThirdPartyDeviceReward>(
-      'serviceThirdPartyDeviceReward',
-    );
   }
 
   get serviceThirdPartyHardware(): ServiceThirdPartyHardware {

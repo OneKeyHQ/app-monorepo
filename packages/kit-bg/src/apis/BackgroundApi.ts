@@ -20,7 +20,6 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
-import type ServiceThirdPartyDeviceReward from '../services/ServiceThirdPartyDeviceReward';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -520,16 +519,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHardwareUI', { value });
-    return value;
-  }
-
-  get serviceThirdPartyDeviceReward(): ServiceThirdPartyDeviceReward {
-    const Service =
-      require('../services/ServiceThirdPartyDeviceReward') as typeof import('../services/ServiceThirdPartyDeviceReward');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceThirdPartyDeviceReward', { value });
     return value;
   }
 
