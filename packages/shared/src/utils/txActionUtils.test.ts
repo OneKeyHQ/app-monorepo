@@ -16,6 +16,7 @@ import {
   checkDecodedTxHasScalingBalanceMultiplier,
   collectDecodedTxInvolvedAddresses,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
+  mergeServerAddressRiskTagsIntoComponents,
 } from './txActionUtils';
 
 const defaultLocal = appLocale.intl.locale;
@@ -323,5 +324,90 @@ describe('checkDecodedTxHasScalingBalanceMultiplier', () => {
         actions: [],
       } as unknown as IDecodedTx),
     ).toBe(false);
+  });
+});
+
+describe('mergeServerAddressRiskTagsIntoComponents', () => {
+  function buildAddressComponent(
+    address: string,
+    tags: IDisplayComponentAddress['tags'] = [],
+  ): IDisplayComponentAddress {
+    return {
+      type: EParseTxComponentType.Address,
+      label: 'To',
+      address,
+      tags,
+    };
+  }
+
+  const riskTag = {
+    value: 'Scam address',
+    displayType: 'critical',
+  } as IDisplayComponentAddress['tags'][number];
+  const infoTag = {
+    value: 'Uniswap',
+    displayType: 'success',
+  } as IDisplayComponentAddress['tags'][number];
+
+  it('copies server risk tags onto the matching local address (case-insensitive)', () => {
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0xABCDEF')],
+      serverComponents: [buildAddressComponent('0xabcdef', [riskTag, infoTag])],
+    });
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([riskTag]);
+  });
+
+  it('leaves non-matching and non-address components untouched', () => {
+    const tokenComponent = {
+      type: EParseTxComponentType.Token,
+    } as unknown as IDisplayComponentAddress;
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0x1111'), tokenComponent],
+      serverComponents: [buildAddressComponent('0x2222', [riskTag])],
+    });
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([]);
+    expect(merged[1]).toBe(tokenComponent);
+  });
+
+  it('returns local components unchanged when the server has no risk tags', () => {
+    const localComponents = [buildAddressComponent('0x1111')];
+    expect(
+      mergeServerAddressRiskTagsIntoComponents({
+        localComponents,
+        serverComponents: [buildAddressComponent('0x1111', [infoTag])],
+      }),
+    ).toBe(localComponents);
+    expect(
+      mergeServerAddressRiskTagsIntoComponents({
+        localComponents,
+        serverComponents: undefined,
+      }),
+    ).toBe(localComponents);
+  });
+
+  it('dedupes repeated server tags for the same address', () => {
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0x1111')],
+      serverComponents: [
+        buildAddressComponent('0x1111', [riskTag]),
+        buildAddressComponent('0x1111', [riskTag]),
+      ],
+    });
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([riskTag]);
+  });
+
+  it('keeps existing local tags and appends only missing server risk tags', () => {
+    const localTag = {
+      value: 'My label',
+      displayType: 'warning',
+    } as IDisplayComponentAddress['tags'][number];
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0x1111', [localTag, riskTag])],
+      serverComponents: [buildAddressComponent('0x1111', [riskTag])],
+    });
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([
+      localTag,
+      riskTag,
+    ]);
   });
 });

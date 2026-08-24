@@ -225,6 +225,73 @@ export function checkDecodedTxHasScalingBalanceMultiplier(
   });
 }
 
+// Address-tag severities that must survive a local-display replacement.
+// Mirrors SecurityCheckCard's RISK_BADGE_TYPES (kit cannot be imported here).
+const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
+  'warning',
+  'critical',
+]);
+
+// When the signature-confirm service replaces server display components with
+// locally decoded ones (scaled-UI forced-local path), the local Address
+// components carry `tags: []`. The server may flag a risky counterparty ONLY
+// via `Address.tags` without emitting `display.alerts`, so dropping the tags
+// would let SecurityCheckCard render "No issues" for a flagged address. Merge
+// the server's risk tags back onto matching local Address components.
+export function mergeServerAddressRiskTagsIntoComponents({
+  localComponents,
+  serverComponents,
+}: {
+  localComponents: IDisplayComponent[];
+  serverComponents: IDisplayComponent[] | undefined;
+}): IDisplayComponent[] {
+  const riskTagsByAddress = new Map<string, IDisplayComponentAddress['tags']>();
+  for (const component of serverComponents ?? []) {
+    if (component.type === EParseTxComponentType.Address) {
+      const riskTags = (component.tags ?? []).filter((tag) =>
+        ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+      );
+      if (riskTags.length > 0 && component.address) {
+        const key = component.address.toLowerCase();
+        const existing = riskTagsByAddress.get(key) ?? [];
+        const existingKeys = new Set(
+          existing.map((tag) => `${tag.displayType}:${tag.value}`),
+        );
+        riskTagsByAddress.set(key, [
+          ...existing,
+          ...riskTags.filter(
+            (tag) => !existingKeys.has(`${tag.displayType}:${tag.value}`),
+          ),
+        ]);
+      }
+    }
+  }
+  if (riskTagsByAddress.size === 0) {
+    return localComponents;
+  }
+  return localComponents.map((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return component;
+    }
+    const serverRiskTags = component.address
+      ? riskTagsByAddress.get(component.address.toLowerCase())
+      : undefined;
+    if (!serverRiskTags?.length) {
+      return component;
+    }
+    const existingTagKeys = new Set(
+      (component.tags ?? []).map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    const mergedTags = [
+      ...(component.tags ?? []),
+      ...serverRiskTags.filter(
+        (tag) => !existingTagKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ];
+    return { ...component, tags: mergedTags };
+  });
+}
+
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&

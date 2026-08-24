@@ -14,6 +14,7 @@ import {
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
   convertDecodedTxActionsToSignatureConfirmTxDisplayTitle,
   convertNetworkToSignatureConfirmNetwork,
+  mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
@@ -453,9 +454,20 @@ class ServiceSignatureConfirm extends ServiceBase {
         ? getPermit2ServerDisplayExtras(parsedTx?.display)
         : undefined;
 
+      // The server may flag a risky counterparty only via `Address.tags`
+      // (no `display.alerts`); local Address components carry `tags: []`,
+      // so merge the server risk tags back or SecurityCheckCard would
+      // report "No issues" for a flagged address on the rebase-forced path.
+      const rebaseMergedComponents = isRebaseForcedLocal
+        ? mergeServerAddressRiskTagsIntoComponents({
+            localComponents: txDisplayComponents,
+            serverComponents: parsedTx?.display?.components,
+          })
+        : txDisplayComponents;
+
       decodedTx.txDisplay = {
         title: '',
-        components: [...txDisplayComponents, ...serverSimulationComponents],
+        components: [...rebaseMergedComponents, ...serverSimulationComponents],
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,
