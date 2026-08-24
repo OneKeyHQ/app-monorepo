@@ -45,3 +45,22 @@ export function shouldSkipAmountInputForNFT({
 }) {
   return !!(isNFT && nft && nft.collectionType !== ENFTType.ERC1155);
 }
+
+export function getSendAddressRiskCheckButtonState({
+  currentNetworkId,
+  supportNetworkId,
+  isSupported,
+  resolvedAddress,
+  isPending,
+}: {
+  currentNetworkId: string;
+  supportNetworkId: string;
+  isSupported: boolean;
+  resolvedAddress?: string;
+  isPending?: boolean;
+}) {
+  if (supportNetworkId !== currentNetworkId) return 'loading';
+  if (!isSupported) return 'hidden';
+  if (!resolvedAddress?.trim() || isPending) return 'disabled';
+  return 'enabled';
+}

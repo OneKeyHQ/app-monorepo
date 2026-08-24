@@ -1,6 +1,7 @@
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import {
+  getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
@@ -79,5 +80,48 @@ describe('recipientSelectionUtils', () => {
         nft: { collectionType: ENFTType.ERC721 },
       }),
     ).toBe(false);
+  });
+
+  it('resolves address risk check button states', () => {
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--1',
+        supportNetworkId: 'evm--1',
+        isSupported: false,
+        resolvedAddress: '0xabc',
+      }),
+    ).toBe('hidden');
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--137',
+        supportNetworkId: 'evm--1',
+        isSupported: true,
+        resolvedAddress: '0xabc',
+      }),
+    ).toBe('loading');
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--1',
+        supportNetworkId: 'evm--1',
+        isSupported: true,
+      }),
+    ).toBe('disabled');
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--1',
+        supportNetworkId: 'evm--1',
+        isSupported: true,
+        resolvedAddress: '0xabc',
+        isPending: true,
+      }),
+    ).toBe('disabled');
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--1',
+        supportNetworkId: 'evm--1',
+        isSupported: true,
+        resolvedAddress: '0xabc',
+      }),
+    ).toBe('enabled');
   });
 });
