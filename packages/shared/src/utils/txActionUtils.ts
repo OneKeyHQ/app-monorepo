@@ -237,7 +237,11 @@ const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
 // components carry `tags: []`. The server may flag a risky counterparty ONLY
 // via `Address.tags` without emitting `display.alerts`, so dropping the tags
 // would let SecurityCheckCard render "No issues" for a flagged address. Merge
-// the server's risk tags back onto matching local Address components.
+// the server's risk tags back onto matching local Address components, and
+// preserve risk-tagged server Address rows that have no local counterpart
+// (the server may flag an address the local decoder never renders, e.g. the
+// token contract on a plain transfer) by appending them verbatim — Address
+// rows carry no amounts, so raw-basis contamination is impossible.
 export function mergeServerAddressRiskTagsIntoComponents({
   localComponents,
   serverComponents,
@@ -245,31 +249,47 @@ export function mergeServerAddressRiskTagsIntoComponents({
   localComponents: IDisplayComponent[];
   serverComponents: IDisplayComponent[] | undefined;
 }): IDisplayComponent[] {
-  const riskTagsByAddress = new Map<string, IDisplayComponentAddress['tags']>();
-  for (const component of serverComponents ?? []) {
-    if (component.type === EParseTxComponentType.Address) {
-      const riskTags = (component.tags ?? []).filter((tag) =>
+  const serverRiskAddressComponents = (serverComponents ?? []).filter(
+    (component): component is IDisplayComponentAddress =>
+      component.type === EParseTxComponentType.Address &&
+      Boolean(component.address) &&
+      (component.tags ?? []).some((tag) =>
         ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
-      );
-      if (riskTags.length > 0 && component.address) {
-        const key = component.address.toLowerCase();
-        const existing = riskTagsByAddress.get(key) ?? [];
-        const existingKeys = new Set(
-          existing.map((tag) => `${tag.displayType}:${tag.value}`),
-        );
-        riskTagsByAddress.set(key, [
-          ...existing,
-          ...riskTags.filter(
-            (tag) => !existingKeys.has(`${tag.displayType}:${tag.value}`),
-          ),
-        ]);
-      }
-    }
-  }
-  if (riskTagsByAddress.size === 0) {
+      ),
+  );
+  if (serverRiskAddressComponents.length === 0) {
     return localComponents;
   }
-  return localComponents.map((component) => {
+
+  const riskTagsByAddress = new Map<string, IDisplayComponentAddress['tags']>();
+  for (const component of serverRiskAddressComponents) {
+    const riskTags = (component.tags ?? []).filter((tag) =>
+      ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+    );
+    const key = component.address.toLowerCase();
+    const existing = riskTagsByAddress.get(key) ?? [];
+    const existingKeys = new Set(
+      existing.map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    riskTagsByAddress.set(key, [
+      ...existing,
+      ...riskTags.filter(
+        (tag) => !existingKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ]);
+  }
+
+  const localAddressKeys = new Set(
+    localComponents
+      .filter(
+        (component): component is IDisplayComponentAddress =>
+          component.type === EParseTxComponentType.Address &&
+          Boolean(component.address),
+      )
+      .map((component) => component.address.toLowerCase()),
+  );
+
+  const merged = localComponents.map((component) => {
     if (component.type !== EParseTxComponentType.Address) {
       return component;
     }
@@ -290,6 +310,12 @@ export function mergeServerAddressRiskTagsIntoComponents({
     ];
     return { ...component, tags: mergedTags };
   });
+
+  const unmatchedServerRiskComponents = serverRiskAddressComponents.filter(
+    (component) => !localAddressKeys.has(component.address.toLowerCase()),
+  );
+
+  return [...merged, ...unmatchedServerRiskComponents];
 }
 
 export function isSendNativeTokenAction(action: IDecodedTxAction) {

@@ -410,4 +410,34 @@ describe('mergeServerAddressRiskTagsIntoComponents', () => {
       riskTag,
     ]);
   });
+
+  it('preserves a risky server address with no local counterpart as a component', () => {
+    const serverRow: IDisplayComponentAddress = {
+      type: EParseTxComponentType.Address,
+      label: 'Token contract',
+      address: '0xC0FFEE',
+      tags: [riskTag, infoTag],
+    };
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0x1111')],
+      serverComponents: [serverRow],
+    });
+    expect(merged).toHaveLength(2);
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([]);
+    expect(merged[1]).toBe(serverRow);
+  });
+
+  it('does not append benign-only or locally matched server addresses', () => {
+    const merged = mergeServerAddressRiskTagsIntoComponents({
+      localComponents: [buildAddressComponent('0x1111')],
+      serverComponents: [
+        // matched risky row: merged into the local component, never appended
+        buildAddressComponent('0X1111', [riskTag]),
+        // benign-only row with no local counterpart: dropped
+        buildAddressComponent('0x2222', [infoTag]),
+      ],
+    });
+    expect(merged).toHaveLength(1);
+    expect((merged[0] as IDisplayComponentAddress).tags).toEqual([riskTag]);
+  });
 });
