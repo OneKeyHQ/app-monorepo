@@ -1,25 +1,25 @@
 import { useSceneScreen, useSceneTroupe } from '../deviceSceneHost';
 
 import { SCENES } from './scenes';
-import { SlateDeviceShell } from './shell';
+import { Pro2DeviceShell } from './shell';
 
-import type { ISlateDeviceAnimation } from './animation';
-import type { ISlateDeviceScene } from './scenes';
-import type { ISlateDeviceShellProps } from './shell';
+import type { IPro2DeviceAnimation } from './animation';
+import type { IPro2DeviceScene } from './scenes';
+import type { IPro2DeviceShellProps } from './shell';
 
-export type { ISlateDeviceScene } from './scenes';
-export type { ISlateDeviceAnimation } from './animation';
+export type { IPro2DeviceScene } from './scenes';
+export type { IPro2DeviceAnimation } from './animation';
 
 /**
- * Code-drawn Slate device. Reached through ../HardwareDevice, which is what
+ * Code-drawn Pro 2 device. Reached through ../HardwareDevice, which is what
  * call sites use; this layer is where the device's own scenes and screen
  * live.
  *
- *   <SlateDevice animation="connecting" />       the idle wallpaper
- *   <SlateDevice animation="enterPin" />         the keypad loop
- *   <SlateDevice animation="enterPassphrase" />  the ASCII keyboard loop
- *   <SlateDevice animation="confirm" />          the light sweep
- *   <SlateDevice />                              static shell, screen dark
+ *   <Pro2Device animation="connecting" />       the idle wallpaper
+ *   <Pro2Device animation="enterPin" />         the keypad loop
+ *   <Pro2Device animation="enterPassphrase" />  the ASCII keyboard loop
+ *   <Pro2Device animation="confirm" />          the light sweep
+ *   <Pro2Device />                              static shell, screen dark
  *
  * The glass stays pure black; "lighting up" is only content rendering onto
  * it, and every scene enters that way — one shared entrance, exit and
@@ -30,18 +30,18 @@ export type { ISlateDeviceAnimation } from './animation';
  * plays the swap: the outgoing content fades off, then the incoming scene
  * renders in — one continuous move, no waiting built in (callers sequence
  * anything else after SCREEN_SWAP_MS, see ../deviceScene). `animation`
- * also accepts a custom ISlateDeviceAnimation contract (see ./animation.ts)
+ * also accepts a custom IPro2DeviceAnimation contract (see ./animation.ts)
  * paired with your own `screenContent` on the 288x484 canvas.
  */
-export interface ISlateDeviceProps extends Omit<
-  ISlateDeviceShellProps,
+export interface IPro2DeviceProps extends Omit<
+  IPro2DeviceShellProps,
   'animation'
 > {
   /**
    * A built-in scene name, or a custom animation contract. With a scene name
    * the scene supplies the screen, so `screenContent` is ignored.
    */
-  animation?: ISlateDeviceScene | ISlateDeviceAnimation;
+  animation?: IPro2DeviceScene | IPro2DeviceAnimation;
   /**
    * The next entry arrives already lit — granted per arrival by presenters
    * that carry the entrance themselves (see ../deviceSceneHost).
@@ -60,17 +60,17 @@ export interface ISlateDeviceProps extends Omit<
    * and carry the fades themselves; while the list is non-empty it
    * replaces the single-scene swap grammar (see ../deviceSceneHost).
    */
-  warmScenes?: readonly ISlateDeviceScene[];
+  warmScenes?: readonly IPro2DeviceScene[];
 }
 
-export function SlateDevice({
+export function Pro2Device({
   width,
   animation,
   screenContent,
   instantEntry,
   paused,
   warmScenes,
-}: ISlateDeviceProps) {
+}: IPro2DeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
@@ -91,7 +91,7 @@ export function SlateDevice({
   );
   if (troupe.slot) {
     return (
-      <SlateDeviceShell
+      <Pro2DeviceShell
         width={width}
         animation={troupe.animation}
         screenContent={troupe.slot}
@@ -100,7 +100,7 @@ export function SlateDevice({
   }
   if (displayed) {
     return (
-      <SlateDeviceShell
+      <Pro2DeviceShell
         width={width}
         animation={sceneAnimation}
         screenContent={slot}
@@ -110,7 +110,7 @@ export function SlateDevice({
   // Anything else counts as dark: the bare shell is dark, and whether a
   // custom contract lights the glass is its caller's business.
   return (
-    <SlateDeviceShell
+    <Pro2DeviceShell
       width={width}
       animation={typeof animation === 'string' ? undefined : animation}
       screenContent={typeof animation === 'string' ? undefined : screenContent}
