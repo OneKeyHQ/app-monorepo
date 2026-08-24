@@ -83,6 +83,9 @@ export enum EFirmwareAuthenticationDialogContentType {
   defective_firmware_detected = 'defective_firmware_detected',
 }
 
+const FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG =
+  'firmwareVerifySkipDeviceCancel';
+
 function useFirmwareVerifyBase({
   device,
   skipDeviceCancel,
@@ -204,10 +207,14 @@ function useFirmwareVerifyBase({
         case HardwareErrorCode.ActionCancelled:
         case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
-          void dialogInstance.close();
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
           break;
         case HardwareErrorCode.BleUnavailableWhileUsbConnected:
-          void dialogInstance.close();
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
           break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
@@ -1071,14 +1078,16 @@ export function useFirmwareVerifyDialog() {
         return;
       }
 
-      const onCloseFn = async () => {
+      const onCloseFn = async (extra?: { flag?: string }) => {
         await onClose?.();
         setIsLoading(false);
         if (device.connectId) {
           await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
             {
               connectId: device.connectId,
-              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
+              skipDeviceCancel:
+                extra?.flag === FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+              deviceType: device.deviceType,
             },
           );
         }
@@ -1100,7 +1109,7 @@ export function useFirmwareVerifyDialog() {
           shouldUseNewAuthenticateVersion,
         );
       } catch (error) {
-        await onCloseFn();
+        await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
         throw error;
       } finally {
         // await backgroundApiProxy.serviceApp.hideDialogLoading();
@@ -1118,14 +1127,15 @@ export function useFirmwareVerifyDialog() {
             device={device}
             onContinue={async ({ checked }) => {
               await onVerified?.({ checked });
-              await firmwareAuthenticationDialog.close();
+              await firmwareAuthenticationDialog.close({
+                flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+              });
               await onContinue({ checked });
             }}
             onDevSkipVerificationPress={onDevSkipVerificationPress || noop}
             useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),
-        onCancel: onCloseFn,
         onClose: onCloseFn,
       });
     },
