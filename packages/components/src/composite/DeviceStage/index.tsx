@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -624,6 +624,12 @@ export function DeviceStage({
     },
     [],
   );
+  // Every measuring wrapper in this file is a plain react-native View,
+  // never a Tamagui Stack: on web, Tamagui's onLayout reads
+  // getBoundingClientRect — the rect AFTER ancestor transforms — while
+  // RN(-web)'s reads the layout frame. These blocks sit under animated
+  // scales (the card's entrance, the thumbnail seat), so only the
+  // transform-blind reading matches the native numbers.
   const panelMeasureHandlers = useMemo(() => {
     const handlers = {} as Record<
       ICardArrangement,
@@ -1093,15 +1099,15 @@ export function DeviceStage({
       <YStack>
         <Animated.View style={spacerFlowStyle} />
         <Animated.View style={wordsStyle}>
-          <Stack onLayout={panelMeasureHandlers.stage.words}>
+          <View onLayout={panelMeasureHandlers.stage.words}>
             <StepText
               title={stageText.title}
               sub={stageText.sub}
               animated={stageAnimated}
             />
-          </Stack>
+          </View>
         </Animated.View>
-        <Stack onLayout={panelMeasureHandlers.stage.tail}>
+        <View onLayout={panelMeasureHandlers.stage.tail}>
           {/* The authenticity checklist rides the staged words the way
               confirm's payload card does — under them, on the same
               surface, its rows advanced by the driver; its presence
@@ -1133,7 +1139,7 @@ export function DeviceStage({
               </YStack>
             </Animated.View>
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [
@@ -1152,14 +1158,14 @@ export function DeviceStage({
   const pinPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.pinOnApp.words}>
+        <View onLayout={panelMeasureHandlers.pinOnApp.words}>
           <StepText
             title={STEP_TEXT.pinOnApp.title}
             sub={appStepSub.pinOnApp}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.pinOnApp.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.pinOnApp.tail}>
           {/* A vendor pinOnApp is the Trezor matrix by definition (Ledger
               never asks the app for a PIN): nine positions, and no
               on-device switch — the button devices that reach this step
@@ -1171,7 +1177,7 @@ export function DeviceStage({
             resetSignal={pinEpoch}
             noZeroKey={Boolean(vendor)}
           />
-        </Stack>
+        </View>
       </YStack>
     ),
     [
@@ -1187,19 +1193,19 @@ export function DeviceStage({
   const passphraseIntroPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.passphraseIntro.words}>
+        <View onLayout={panelMeasureHandlers.passphraseIntro.words}>
           <StepText
             title={STEP_TEXT.passphraseIntro.title}
             sub=""
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.passphraseIntro.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.passphraseIntro.tail}>
           <PassphraseIntro
             onContinue={onPassphraseIntroContinue}
             resetSignal={introEpoch}
           />
-        </Stack>
+        </View>
       </YStack>
     ),
     [introEpoch, onPassphraseIntroContinue, panelMeasureHandlers],
@@ -1207,14 +1213,14 @@ export function DeviceStage({
   const passphrasePanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.passphraseOnApp.words}>
+        <View onLayout={panelMeasureHandlers.passphraseOnApp.words}>
           <StepText
             title={passphraseText.title}
             sub={passphraseText.sub}
             animated={passphraseAnimated}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.passphraseOnApp.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.passphraseOnApp.tail}>
           {/* The attach-PIN exit is OneKey firmware's own feature — no
               vendor device has it, whatever the driver wires. On-device
               entry stays: Trezor supports it. */}
@@ -1226,7 +1232,7 @@ export function DeviceStage({
             error={inputError}
             resetSignal={passphraseEpoch}
           />
-        </Stack>
+        </View>
       </YStack>
     ),
     [
@@ -1245,16 +1251,16 @@ export function DeviceStage({
   const showQrPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.showQr.words}>
+        <View onLayout={panelMeasureHandlers.showQr.words}>
           <StepText
             title={STEP_TEXT.showQr.title}
             sub={appStepSub.showQr}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.showQr.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.showQr.tail}>
           <QrPresent value={qrValue} onNext={onQrNext} />
-        </Stack>
+        </View>
       </YStack>
     ),
     [appStepSub.showQr, onQrNext, panelMeasureHandlers, qrValue],
@@ -1262,16 +1268,16 @@ export function DeviceStage({
   const scanQrPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.scanQr.words}>
+        <View onLayout={panelMeasureHandlers.scanQr.words}>
           <StepText
             title={STEP_TEXT.scanQr.title}
             sub={appStepSub.scanQr}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.scanQr.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.scanQr.tail}>
           <QrScanFrame onBack={onQrBack} />
-        </Stack>
+        </View>
       </YStack>
     ),
     [appStepSub.scanQr, onQrBack, panelMeasureHandlers],
@@ -1282,7 +1288,7 @@ export function DeviceStage({
         {/* The card fronts its icon above its own words, NOTE beat
             included, so the whole column is the words block; the tail
             stands empty. */}
-        <Stack onLayout={panelMeasureHandlers.authFailure.words}>
+        <View onLayout={panelMeasureHandlers.authFailure.words}>
           <AuthFailureCard
             reason={authFailureReason}
             checklist={authChecklist}
@@ -1291,8 +1297,8 @@ export function DeviceStage({
             onContinueAnyway={onAuthContinueAnyway}
             resetSignal={authFailureEpoch}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.authFailure.tail} />
+        </View>
+        <View onLayout={panelMeasureHandlers.authFailure.tail} />
       </YStack>
     ),
     [
@@ -1308,14 +1314,14 @@ export function DeviceStage({
   const errorPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.error.words}>
+        <View onLayout={panelMeasureHandlers.error.words}>
           <StepText
             title={errorCopy.title}
             sub={errorCopy.sub}
             animated={errorAnimated}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.error.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.error.tail}>
           {onErrorAction ? (
             <Button
               testID="device-stage-error-action"
@@ -1325,7 +1331,7 @@ export function DeviceStage({
               {errorCopy.action}
             </Button>
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [errorAnimated, errorCopy, onErrorAction, panelMeasureHandlers],
@@ -1333,19 +1339,19 @@ export function DeviceStage({
   const pairingCodePanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.pairingCode.words}>
+        <View onLayout={panelMeasureHandlers.pairingCode.words}>
           <StepText
             title={STEP_TEXT.pairingCode.title}
             sub={STEP_TEXT.pairingCode.sub ?? ''}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.pairingCode.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.pairingCode.tail}>
           <PairingCodeForm
             onSubmit={onPairingSubmit}
             resetSignal={pairingEpoch}
           />
-        </Stack>
+        </View>
       </YStack>
     ),
     [onPairingSubmit, pairingEpoch, panelMeasureHandlers],
@@ -1353,14 +1359,14 @@ export function DeviceStage({
   const deviceNotFoundPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.deviceNotFound.words}>
+        <View onLayout={panelMeasureHandlers.deviceNotFound.words}>
           <StepText
             title={deviceNotFoundText.title}
             sub={deviceNotFoundText.sub}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.deviceNotFound.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.deviceNotFound.tail}>
           {onDeviceNotFoundRetry ? (
             <Button
               testID="device-stage-device-not-found-confirm"
@@ -1371,7 +1377,7 @@ export function DeviceStage({
               Confirm
             </Button>
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [deviceNotFoundText, onDeviceNotFoundRetry, panelMeasureHandlers],
@@ -1379,14 +1385,14 @@ export function DeviceStage({
   const btcHighIndexPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.btcHighIndex.words}>
+        <View onLayout={panelMeasureHandlers.btcHighIndex.words}>
           <StepText
             title={STEP_TEXT.btcHighIndex.title}
             sub={btcHighIndexSub}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.btcHighIndex.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.btcHighIndex.tail}>
           {onBtcHighIndexConfirm ? (
             <Button
               testID="device-stage-btc-high-index-confirm"
@@ -1397,7 +1403,7 @@ export function DeviceStage({
               Confirm
             </Button>
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [btcHighIndexSub, onBtcHighIndexConfirm, panelMeasureHandlers],
@@ -1405,14 +1411,14 @@ export function DeviceStage({
   const installConfirmPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.installConfirm.words}>
+        <View onLayout={panelMeasureHandlers.installConfirm.words}>
           <StepText
             title={installConfirmText.title}
             sub={installConfirmText.sub}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.installConfirm.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.installConfirm.tail}>
           {onInstallConfirm ? (
             <Button
               testID="device-stage-install-confirm"
@@ -1423,7 +1429,7 @@ export function DeviceStage({
               Install
             </Button>
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [installConfirmText, onInstallConfirm, panelMeasureHandlers],
@@ -1431,16 +1437,16 @@ export function DeviceStage({
   const installingPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.installing.words}>
+        <View onLayout={panelMeasureHandlers.installing.words}>
           <StepText
             title={installingText.title}
             sub={installingText.sub}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.installing.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.installing.tail}>
           <InstallProgress appName={appName} percent={installProgress} />
-        </Stack>
+        </View>
       </YStack>
     ),
     [appName, installProgress, installingText, panelMeasureHandlers],
@@ -1448,14 +1454,14 @@ export function DeviceStage({
   const installBatchPanel = useMemo(
     () => (
       <YStack>
-        <Stack onLayout={panelMeasureHandlers.installBatch.words}>
+        <View onLayout={panelMeasureHandlers.installBatch.words}>
           <StepText
             title={STEP_TEXT.installBatch.title}
             sub={STEP_TEXT.installBatch.sub ?? ''}
             animated={false}
           />
-        </Stack>
-        <Stack onLayout={panelMeasureHandlers.installBatch.tail}>
+        </View>
+        <View onLayout={panelMeasureHandlers.installBatch.tail}>
           {installQueue?.length ? (
             <InstallChecklist
               queue={installQueue}
@@ -1463,7 +1469,7 @@ export function DeviceStage({
               percent={installProgress}
             />
           ) : null}
-        </Stack>
+        </View>
       </YStack>
     ),
     [installActiveIndex, installProgress, installQueue, panelMeasureHandlers],
@@ -1518,7 +1524,7 @@ export function DeviceStage({
   // reach the device is a dependency, so a real change still rebuilds.
   const deviceLayer = useMemo(
     () => (
-      <Stack onLayout={handleDeviceLayout}>
+      <View onLayout={handleDeviceLayout}>
         <HardwareDevice
           deviceType={deviceType ?? 'unknown'}
           animation={activeScene}
@@ -1527,7 +1533,7 @@ export function DeviceStage({
           instantEntry={sceneEntryInstant}
           paused={hidden}
         />
-      </Stack>
+      </View>
     ),
     [
       activeScene,
