@@ -4,6 +4,9 @@ const path = require('path');
 const {
   electronUpdaterRuntimePatchFiles,
 } = require('./electron-updater-runtime-patch-files');
+const {
+  thirdPartyRuntimePatchPackages,
+} = require('./third-party-runtime-patch-files');
 
 function failVerification(message) {
   process.stderr.write(`${message}\n`);
@@ -111,3 +114,68 @@ for (const relativePath of electronUpdaterRuntimePatchFiles) {
 process.stdout.write(
   `Verified electron-updater ${runtimePackage.version} runtime patch.\n`,
 );
+
+for (const {
+  packageName,
+  relativePaths,
+  requiredMarkers,
+} of thirdPartyRuntimePatchPackages) {
+  const runtimeRoot = path.join(__dirname, '../app/node_modules', packageName);
+  const runtimeJsonPath = path.join(runtimeRoot, 'package.json');
+  let workspaceJsonPath;
+  try {
+    workspaceJsonPath = path.join(
+      path.dirname(
+        require.resolve(packageName, {
+          paths: [desktopPackageRoot],
+        }),
+      ),
+      'package.json',
+    );
+  } catch {
+    failVerification(
+      `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
+    );
+  }
+  const workspaceRoot = path.dirname(workspaceJsonPath);
+  const runtimeMetadata = readPackageMetadata(
+    runtimeJsonPath,
+    `Runtime ${packageName} package metadata`,
+  );
+  const workspaceMetadata = readPackageMetadata(
+    workspaceJsonPath,
+    `Workspace ${packageName} package metadata`,
+  );
+  if (runtimeMetadata.version !== workspaceMetadata.version) {
+    failVerification(
+      `${packageName} version mismatch: runtime=${runtimeMetadata.version}, workspace=${workspaceMetadata.version}.`,
+    );
+  }
+  for (const relativePath of relativePaths) {
+    const runtimeFilePath = path.join(runtimeRoot, relativePath);
+    const workspaceFilePath = path.join(workspaceRoot, relativePath);
+    const runtimeFileContent = readRequiredFile(
+      runtimeFilePath,
+      `Runtime ${packageName} file ${relativePath}`,
+    );
+    const workspaceFileContent = readRequiredFile(
+      workspaceFilePath,
+      `Workspace ${packageName} file ${relativePath}`,
+    );
+    for (const marker of requiredMarkers) {
+      if (!runtimeFileContent.includes(marker)) {
+        failVerification(
+          `Runtime ${packageName} patch is missing marker "${marker}" in ${runtimeFilePath}.`,
+        );
+      }
+    }
+    if (runtimeFileContent !== workspaceFileContent) {
+      failVerification(
+        `Packaged runtime ${packageName} patch differs from the workspace patch: ${relativePath}.`,
+      );
+    }
+  }
+  process.stdout.write(
+    `Verified ${packageName} ${runtimeMetadata.version} runtime patch.\n`,
+  );
+}
