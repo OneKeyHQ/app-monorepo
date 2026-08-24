@@ -1,5 +1,7 @@
 import type { ComponentProps } from 'react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import type {
   IAuthFailureReason,
   IDeviceStageErrorReason,
@@ -7,19 +9,22 @@ import type {
 } from './type';
 import type { HardwareDevice } from '../../content/HardwareDevice';
 import type { IKeyOfIcons } from '../../primitives';
+import type { IntlShape } from 'react-intl';
 
 /**
  * The stage's vocabulary: which steps exist, what they say, what pose
  * and scene they wear — plus the resolution rules for the words that
- * vary at runtime. Pure data and pure functions; how the stage plays
- * them is the engine's own business (see ./index).
+ * vary at runtime. The tables hold translation ids; the resolvers turn
+ * them into words through the caller's `intl`, so the copy follows the
+ * app's locale. Pure data and pure functions; how the stage plays them
+ * is the engine's own business (see ./index).
  */
 
 // `off` has no words of its own: searching is part of connecting, so the
 // copy is in place from the first frame and holds still while the screen
-// renders its content in — one literal, shared, so they cannot drift.
+// renders its content in — one id, shared, so they cannot drift.
 export const CONNECTING_TEXT = {
-  title: 'Connecting…',
+  title: ETranslations.device_stage_connecting__title,
 };
 
 /**
@@ -28,84 +33,84 @@ export const CONNECTING_TEXT = {
  */
 export const ERROR_TEXT: Record<
   IDeviceStageErrorReason | 'generic',
-  { title: string; sub: string; action: string }
+  { title: ETranslations; sub: ETranslations; action: ETranslations }
 > = {
   rejected: {
-    title: 'Canceled on device',
-    sub: 'The request was declined on the device.',
-    action: 'Try again',
+    title: ETranslations.device_stage_canceled_on_device__title,
+    sub: ETranslations.device_stage_canceled_on_device__desc,
+    action: ETranslations.global_try_again,
   },
   pinInvalid: {
-    title: 'Wrong PIN',
-    sub: 'The PIN did not match the device.',
-    action: 'Re-enter PIN',
+    title: ETranslations.device_stage_wrong_pin__title,
+    sub: ETranslations.device_stage_wrong_pin__desc,
+    action: ETranslations.device_stage_reenter_pin__action,
   },
   disconnected: {
-    title: 'Device disconnected',
-    sub: 'Check the connection, then try again.',
-    action: 'Reconnect',
+    title: ETranslations.hardware_third_party_device_disconnected,
+    sub: ETranslations.device_stage_disconnected__desc,
+    action: ETranslations.device_stage_reconnect__action,
   },
   busy: {
-    title: 'Device is busy',
-    sub: 'Another operation is still running.',
-    action: 'Try again',
+    title: ETranslations.device_stage_device_busy__title,
+    sub: ETranslations.device_stage_device_busy__desc,
+    action: ETranslations.global_try_again,
   },
   generic: {
-    title: 'Something went wrong',
-    sub: 'Try again in a moment.',
-    action: 'Try again',
+    title: ETranslations.device_stage_generic_error__title,
+    sub: ETranslations.device_stage_generic_error__desc,
+    action: ETranslations.global_try_again,
   },
 };
 
 /**
- * The authenticity flow's failure copy, live-dialog verbatim (the design
- * drops the old error-code suffixes). `action` picks the card's exits:
- * 'support' is terminal — one Support button; 'retry' is recoverable —
- * Retry plus the Continue-anyway gate (see AUTH_NOTE_TEXT). The icon
- * fronts the card where the staged steps front the replica.
+ * The authenticity flow's failure copy, the live dialog's own keys (the
+ * design drops the old error-code suffixes). `action` picks the card's
+ * exits: 'support' is terminal — one Support button; 'retry' is
+ * recoverable — Retry plus the Continue-anyway gate (see AUTH_NOTE_TEXT).
+ * The icon fronts the card where the staged steps front the replica.
  */
 export const AUTH_FAILURE_TEXT: Record<
   IAuthFailureReason,
   {
-    title: string;
-    sub: string;
+    title: ETranslations;
+    sub: ETranslations;
     icon: IKeyOfIcons;
     action: 'support' | 'retry';
   }
 > = {
   unofficialDevice: {
-    title: 'Unofficial device detected',
-    sub: 'Your device could not be verified as official. Please contact us immediately.',
+    title: ETranslations.device_auth_unofficial_device_detected,
+    sub: ETranslations.device_auth_unofficial_device_detected_help_text,
     icon: 'ErrorSolid',
     action: 'support',
   },
   unofficialFirmware: {
-    title: 'Unofficial device detected',
-    sub: 'Your device could not be verified as official. Please contact us immediately.',
+    title: ETranslations.device_auth_unofficial_device_detected,
+    sub: ETranslations.device_auth_unofficial_device_detected_help_text,
     icon: 'ErrorSolid',
     action: 'support',
   },
   defective: {
-    title: 'For your security, this device has been temporarily disabled',
-    sub: 'We’ve identified that this device may belong to an early batch. To protect your assets, its use in the OneKey client has been suspended. Please contact customer support for a replacement.',
+    title: ETranslations.hardware_defective_firmware_error_title,
+    sub: ETranslations.hardware_defective_firmware_error,
     icon: 'ErrorSolid',
     action: 'support',
   },
   network: {
-    title: 'Network error',
-    sub: 'Check your connection and retry',
+    title: ETranslations.global_network_error,
+    sub: ETranslations.global_network_error_help_text,
     icon: 'GlobusSolid',
     action: 'retry',
   },
   unknown: {
-    title: 'Unknown error',
-    sub: 'An unexpected error occurred. Please try again.',
+    title: ETranslations.global_unknown_error,
+    sub: ETranslations.global_unknown_error_retry_message,
     icon: 'ErrorSolid',
     action: 'retry',
   },
   unavailable: {
-    title: 'Verification temporarily unavailable',
-    sub: "Currently, we're unable to verify your device due to server issues. Please try again later.",
+    title: ETranslations.device_auth_temporarily_unavailable,
+    sub: ETranslations.device_auth_temporarily_unavailable_help_text,
     icon: 'ServerSolid',
     action: 'retry',
   },
@@ -117,10 +122,10 @@ export const AUTH_FAILURE_TEXT: Record<
  * real exit, Back returns to the failure.
  */
 export const AUTH_NOTE_TEXT = {
-  title: 'NOTE!',
-  sub: "We're currently unable to verify your device. Continuing may pose security risks.",
-  confirm: 'I understand',
-  back: 'Back',
+  title: ETranslations.device_stage_auth_note__title,
+  sub: ETranslations.device_auth_continue_anyway_warning_message,
+  confirm: ETranslations.global_i_understand,
+  back: ETranslations.global_back,
 };
 
 /**
@@ -128,40 +133,53 @@ export const AUTH_NOTE_TEXT = {
  * under. The device's own name rides the second line nowhere anymore —
  * on the device-side card steps it wears the corner badge instead (see
  * DEVICE_BADGE_STEPS), and the capsule keeps it as its own second line.
+ *
+ * Entries whose words carry runtime values (the pairing pitch, the
+ * device-not-found pair, the high-index warning, the install steps)
+ * resolve through their own resolvers below — the table's ids there are
+ * the parameter-free fallbacks the Record's shape requires.
  */
 export const STEP_TEXT: Record<
   IDeviceStageStep,
-  { title: string; sub?: string }
+  { title: ETranslations; sub?: ETranslations }
 > = {
   off: CONNECTING_TEXT,
   connecting: CONNECTING_TEXT,
   // Titles name the place only when it is not here: the app is where the
   // person already is, so app-side steps stay bare and device-side steps
   // carry "on device" — the one fact that changes when a step hops sides.
-  enterPin: { title: 'Enter PIN on device', sub: 'Unlock your device.' },
-  pinOnApp: { title: 'Enter PIN' },
+  enterPin: {
+    title: ETranslations.enter_pin_enter_on_device,
+    sub: ETranslations.device_stage_enter_pin_on_device__desc,
+  },
+  pinOnApp: { title: ETranslations.device_stage_enter_pin__title },
   // The teach-first beat titles itself after the flow it opens (the live
   // dialog's own name). No sub on purpose: the definition line needs an
   // emphasized word — rich text the panel carries itself (see
   // PassphraseIntro).
-  passphraseIntro: { title: 'Add hidden wallet' },
+  passphraseIntro: { title: ETranslations.global_add_hidden_wallet },
   // No sub for now — the right second line is still being decided.
-  enterPassphrase: { title: 'Enter passphrase on device' },
-  passphraseOnApp: { title: 'Enter passphrase' },
-  showQr: { title: 'Scan with your device' },
+  enterPassphrase: {
+    title: ETranslations.device_stage_enter_passphrase_on_device__title,
+  },
+  passphraseOnApp: { title: ETranslations.global_enter_passphrase },
+  showQr: { title: ETranslations.device_stage_show_qr__title },
   scanQr: {
-    title: 'Scan your device screen',
-    sub: 'Aim at the code your device is showing.',
+    title: ETranslations.device_stage_scan_qr__title,
+    sub: ETranslations.device_stage_scan_qr__desc,
   },
-  confirm: { title: 'Confirm on device' },
+  confirm: { title: ETranslations.global_confirm_on_device },
   genuineCheck: {
-    title: 'Genuine check',
-    sub: 'Confirm on your device to verify its authenticity and secure your connection.',
+    title: ETranslations.device_auth_request_title,
+    sub: ETranslations.device_auth_request_desc,
   },
-  authVerifying: { title: 'Verifying device', sub: 'Please wait...' },
+  authVerifying: {
+    title: ETranslations.device_auth_verifying_title,
+    sub: ETranslations.device_auth_verifying_desc,
+  },
   authSuccess: {
-    title: 'Verification successful',
-    sub: "Your device is now officially verified! You're all set to enjoy a secure and seamless experience.",
+    title: ETranslations.device_auth_successful_title,
+    sub: ETranslations.device_auth_successful_desc,
   },
   // The step's real words come off AUTH_FAILURE_TEXT by reason; this is
   // the Record's required fallback, matching the 'unknown' shape.
@@ -169,88 +187,150 @@ export const STEP_TEXT: Record<
     title: AUTH_FAILURE_TEXT.unknown.title,
     sub: AUTH_FAILURE_TEXT.unknown.sub,
   },
-  processing: { title: 'Processing…' },
+  processing: { title: ETranslations.device_stage_processing__title },
   error: ERROR_TEXT.generic,
   // The third-party track. Capsule labels ride the vendor SDKs' own
   // vocabulary (the ratified board keeps their wording); the card steps
   // with runtime words — vendor, app name, path — resolve below.
-  searching: { title: 'Searching for device…' },
-  confirmOnDevice: { title: 'Confirm on device' },
-  openApp: { title: 'Please open the correct app on your device' },
-  unlockDevice: { title: 'Please manually unlock the device.' },
-  done: { title: 'Done' },
+  searching: { title: ETranslations.hardware_searching_for_device },
+  confirmOnDevice: { title: ETranslations.global_confirm_on_device },
+  openApp: { title: ETranslations.hardware_third_party_app_not_open },
+  unlockDevice: { title: ETranslations.hardware_third_party_device_locked },
+  done: { title: ETranslations.global_done },
   pairingCode: {
-    title: 'Pair Trezor',
-    sub: 'Confirm OneKey Wallet is connecting to your Trezor, then enter the security code shown on the device.',
+    title: ETranslations.trezor_thp_pairing__title,
+    sub: ETranslations.trezor_thp_pairing__desc,
   },
   deviceNotFound: {
-    title: 'Connect device',
-    sub: 'Please connect and unlock your device, then press Confirm.',
+    title: ETranslations.device_stage_connect_device__title,
+    sub: ETranslations.device_stage_connect_device__desc,
   },
   btcHighIndex: {
-    title: 'Multiple device confirmations required',
-    sub: 'This account path is a non-standard derivation and needs extra confirmations on the device.',
+    title: ETranslations.hardware_third_party_btc_high_index_confirm_title,
+    sub: ETranslations.device_stage_btc_high_index__desc,
   },
-  installConfirm: { title: 'Install app' },
-  installing: { title: 'Installing app', sub: 'Processing…' },
+  installConfirm: { title: ETranslations.device_stage_install_app__title },
+  installing: {
+    title: ETranslations.device_stage_install_app__title,
+    sub: ETranslations.device_stage_processing__title,
+  },
   installBatch: {
-    title: 'Get started',
-    sub: 'The current operation requires the Ledger apps listed below. Install them, then retry the operation.',
+    title: ETranslations.global_get_started,
+    sub: ETranslations.hardware_third_party_app_install_required_desc,
   },
 };
 
-/** The vendors' display names, for the cards that address the brand. */
+/** The vendors' display names, for the cards that address the brand.
+ * Brand names, not translations. */
 export const VENDOR_LABEL: Record<'ledger' | 'trezor', string> = {
   ledger: 'Ledger',
   trezor: 'Trezor',
 };
 
+/** The app's own display name, for the pairing pitch that addresses it. */
+const APP_DISPLAY_NAME = 'OneKey Wallet';
+
 /** `connecting` worn by the vendor track: the board's own label — the
  * capsule has no device-name line there, so the title carries it. */
-export const VENDOR_CONNECTING_TEXT = { title: 'Connecting your device' };
+export const VENDOR_CONNECTING_TEXT = {
+  title: ETranslations.connecting_your_device,
+};
+
+/** `pairingCode`'s words: the pitch addresses the app and the brand. */
+export function resolvePairingCodeText(intl: IntlShape): {
+  title: string;
+  sub: string;
+} {
+  return {
+    title: intl.formatMessage({ id: STEP_TEXT.pairingCode.title }),
+    sub: intl.formatMessage(
+      { id: ETranslations.trezor_thp_pairing__desc },
+      { appName: APP_DISPLAY_NAME, device: VENDOR_LABEL.trezor },
+    ),
+  };
+}
 
 /** `deviceNotFound`'s words, addressed to the brand. */
-export function resolveDeviceNotFoundText(vendor?: 'ledger' | 'trezor'): {
+export function resolveDeviceNotFoundText(
+  intl: IntlShape,
+  vendor?: 'ledger' | 'trezor',
+): {
   title: string;
   sub: string;
 } {
   if (!vendor) {
     return {
-      title: STEP_TEXT.deviceNotFound.title,
-      sub: STEP_TEXT.deviceNotFound.sub ?? '',
+      title: intl.formatMessage({
+        id: ETranslations.device_stage_connect_device__title,
+      }),
+      sub: intl.formatMessage({
+        id: ETranslations.device_stage_connect_device__desc,
+      }),
     };
   }
   const label = VENDOR_LABEL[vendor];
   return {
-    title: `Connect ${label}`,
-    sub: `Please connect and unlock your ${label} device, then press Confirm.`,
+    title: intl.formatMessage(
+      { id: ETranslations.device_stage_connect_vendor__title },
+      { vendor: label },
+    ),
+    sub: intl.formatMessage(
+      { id: ETranslations.device_stage_connect_vendor__desc },
+      { vendor: label },
+    ),
   };
 }
 
 /** `btcHighIndex`'s warning, current-UI verbatim, path and index in. */
 export function resolveBtcHighIndexSub(
+  intl: IntlShape,
   path?: string,
   accountIndex?: number,
 ): string {
-  const index = accountIndex ?? '';
-  return `You're about to access a BIP44 account at index ${index} (path ${
-    path ?? ''
-  }). The Ledger Bitcoin App treats this as a non-standard derivation — each such path needs a separate manual confirmation on the device, with no batch exemption. If you don't need this index, cancel and use an index below 99.`;
+  return intl.formatMessage(
+    { id: ETranslations.hardware_third_party_btc_high_index_confirm_desc },
+    { accountIndex: accountIndex ?? '', path: path ?? '' },
+  );
 }
 
-/** The install steps' words around the app's name. */
+/** The install steps' words around the app's name. Without a name the
+ * title falls back to the bare form and the sentence names it "app". */
 export function resolveInstallText(
+  intl: IntlShape,
   step: 'installConfirm' | 'installing',
   appName?: string,
 ): { title: string; sub: string } {
-  const app = appName ?? 'app';
   if (step === 'installConfirm') {
     return {
-      title: `Install ${app}`,
-      sub: `"${app}" is not installed. Install it now?`,
+      title: appName
+        ? intl.formatMessage(
+            { id: ETranslations.hardware_third_party_install_app__title },
+            { appName },
+          )
+        : intl.formatMessage({
+            id: ETranslations.device_stage_install_app__title,
+          }),
+      sub: intl.formatMessage(
+        { id: ETranslations.hardware_third_party_install_app__desc },
+        { appName: appName ?? 'app' },
+      ),
     };
   }
-  return { title: `Installing ${app}`, sub: 'Processing…' };
+  return {
+    title: appName
+      ? intl.formatMessage(
+          {
+            id: ETranslations.hardware_third_party_install_app_in_progress__title,
+          },
+          { appName },
+        )
+      : intl.formatMessage({
+          id: ETranslations.device_stage_install_app__title,
+        }),
+    sub: intl.formatMessage({
+      id: ETranslations.device_stage_processing__title,
+    }),
+  };
 }
 
 /**
@@ -272,8 +352,12 @@ export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
   ]);
 
 /** A step's second line: its own informative line, empty when none. */
-export function resolveStepSub(step: IDeviceStageStep): string {
-  return STEP_TEXT[step].sub ?? '';
+export function resolveStepSub(
+  intl: IntlShape,
+  step: IDeviceStageStep,
+): string {
+  const sub = STEP_TEXT[step].sub;
+  return sub ? intl.formatMessage({ id: sub }) : '';
 }
 
 /**
@@ -282,7 +366,7 @@ export function resolveStepSub(step: IDeviceStageStep): string {
  * title — while plain entry keeps the step's own words above.
  */
 export const PASSPHRASE_CREATE_TEXT = {
-  title: 'Add hidden wallet',
+  title: ETranslations.global_add_hidden_wallet,
 };
 
 /**
@@ -392,13 +476,16 @@ export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
 
 /** The stage seat's words, resolved: the step's title over its own line
  * (the device's name lives on the corner badge now). */
-export function resolveStageText(step: IDeviceStageStep): {
+export function resolveStageText(
+  intl: IntlShape,
+  step: IDeviceStageStep,
+): {
   title: string;
   sub: string;
 } {
   return {
-    title: STEP_TEXT[step].title,
-    sub: resolveStepSub(step),
+    title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+    sub: resolveStepSub(intl, step),
   };
 }
 
@@ -407,40 +494,47 @@ export function resolveStageText(step: IDeviceStageStep): {
  * line — the app-side input is where the person acts, and the form's
  * own furniture carries the teaching. */
 export function resolvePassphrasePanelText(
+  intl: IntlShape,
   mode: 'create' | 'verify' | undefined,
 ): {
   title: string;
   sub: string;
 } {
   return {
-    title:
-      mode === 'create'
-        ? PASSPHRASE_CREATE_TEXT.title
-        : STEP_TEXT.passphraseOnApp.title,
-    sub: resolveStepSub('passphraseOnApp'),
+    title: intl.formatMessage({
+      id:
+        mode === 'create'
+          ? PASSPHRASE_CREATE_TEXT.title
+          : STEP_TEXT.passphraseOnApp.title,
+    }),
+    sub: resolveStepSub(intl, 'passphraseOnApp'),
   };
 }
 
 /** The capsule's words: the live step's title over the device's name —
  * the flow spec's connecting-capsule pairing, kept. The vendor track
  * speaks single labels (the board carries no device-name line there),
- * with `connecting` reworded to say what the missing line said. */
+ * with `connecting` reworded to say what the missing line said. Only
+ * capsule-pose steps reach here, so the titles are parameter-free. */
 export function resolveCapsuleText(
+  intl: IntlShape,
   step: IDeviceStageStep,
   deviceName?: string,
   vendor?: 'ledger' | 'trezor',
 ): { title: string; sub: string } {
   if (vendor) {
     return {
-      title:
-        step === 'connecting'
-          ? VENDOR_CONNECTING_TEXT.title
-          : STEP_TEXT[step].title,
+      title: intl.formatMessage({
+        id:
+          step === 'connecting'
+            ? VENDOR_CONNECTING_TEXT.title
+            : STEP_TEXT[step].title,
+      }),
       sub: '',
     };
   }
   return {
-    title: STEP_TEXT[step].title,
+    title: intl.formatMessage({ id: STEP_TEXT[step].title }),
     sub: deviceName ?? '',
   };
 }
