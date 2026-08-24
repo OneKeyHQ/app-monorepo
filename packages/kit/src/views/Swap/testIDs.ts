@@ -20,8 +20,7 @@ export const SwapTestIDs = {
   kLineChart: 'swap-kline-chart',
   kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
-  inviteeRewardButton: 'swap-invitee-reward-button',
-  inviteeRewardSettingsItem: 'swap-invitee-reward-settings-item',
+  activityHubSettingsItem: 'swap-activity-hub-settings-item',
 
   // Slippage
   slippageSelector: 'swap-slippage-selector',

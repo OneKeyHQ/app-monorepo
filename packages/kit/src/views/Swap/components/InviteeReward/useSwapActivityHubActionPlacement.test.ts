@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 /* eslint-disable import/first */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -25,19 +22,18 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   },
 }));
 
-jest.mock('./SwapInviteeRewardActionButton', () => ({
-  SwapInviteeRewardActionButton: () => null,
-}));
-
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapInviteeRewardActionPlacement } from './SwapInviteeRewardHeaderAction';
+import {
+  useSwapActivityHubActionPlacement,
+  useSwapActivityHubPendingRouteSwapType,
+} from './useSwapActivityHubActionPlacement';
 
 function getUseAtomValueMock() {
   return jest.requireMock('jotai').useAtomValue as jest.Mock;
 }
 
-describe('useSwapInviteeRewardActionPlacement', () => {
+describe('useSwapActivityHubActionPlacement', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -48,10 +44,9 @@ describe('useSwapInviteeRewardActionPlacement', () => {
 
     const { result, rerender } = renderHook(
       ({ routeSwapType }: { routeSwapType?: ESwapTabSwitchType }) =>
-        useSwapInviteeRewardActionPlacement({
+        useSwapActivityHubActionPlacement({
           isDesktop: true,
           isMediumLayout: false,
-          isNative: false,
           routeSwapType,
         }),
       {
@@ -82,10 +77,9 @@ describe('useSwapInviteeRewardActionPlacement', () => {
 
     const { result, rerender } = renderHook(
       ({ routeSwapType }: { routeSwapType?: ESwapTabSwitchType }) =>
-        useSwapInviteeRewardActionPlacement({
+        useSwapActivityHubActionPlacement({
           isDesktop: true,
           isMediumLayout: false,
-          isNative: false,
           routeSwapType,
         }),
       {
@@ -102,5 +96,30 @@ describe('useSwapInviteeRewardActionPlacement', () => {
     });
 
     expect(result.current).toBe('hidden');
+  });
+});
+
+describe('useSwapActivityHubPendingRouteSwapType', () => {
+  it('keeps the route type until the caller store catches up', () => {
+    const { result, rerender } = renderHook(
+      ({ swapTypeSwitch }: { swapTypeSwitch: ESwapTabSwitchType }) =>
+        useSwapActivityHubPendingRouteSwapType({
+          routeSwapType: ESwapTabSwitchType.LIMIT,
+          swapTypeSwitch,
+        }),
+      {
+        initialProps: {
+          swapTypeSwitch: ESwapTabSwitchType.SWAP,
+        },
+      },
+    );
+
+    expect(result.current).toBe(ESwapTabSwitchType.LIMIT);
+
+    act(() => {
+      rerender({ swapTypeSwitch: ESwapTabSwitchType.LIMIT });
+    });
+
+    expect(result.current).toBeUndefined();
   });
 });
