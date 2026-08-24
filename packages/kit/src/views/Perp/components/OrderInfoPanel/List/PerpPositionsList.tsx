@@ -175,7 +175,7 @@ function PerpPositionsList({
           id: ETranslations.perp_position_tp_sl,
         }),
         minWidth: 140,
-        align: 'center',
+        align: 'left',
         flex: 1,
       },
       {

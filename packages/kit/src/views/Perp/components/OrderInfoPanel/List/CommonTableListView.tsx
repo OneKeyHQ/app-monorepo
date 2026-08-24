@@ -55,6 +55,11 @@ import {
 } from '../../../utils/mobileLayoutTrace';
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+  getPerpDesktopTableFixedSectionWidth,
+} from '../utils/tableLayout';
 
 import type {
   LayoutChangeEvent,
@@ -483,6 +488,10 @@ export function CommonTableListView<T>({
       ),
     [fixedColumns],
   );
+  const fixedSectionWidth = useMemo(
+    () => getPerpDesktopTableFixedSectionWidth(fixedMinWidth),
+    [fixedMinWidth],
+  );
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
@@ -904,14 +913,27 @@ export function CommonTableListView<T>({
           flexGrow: 1,
         }}
       >
-        <XStack flex={1} py="$2" pl="$5" pr="$3" minWidth={scrollableMinWidth}>
+        <XStack
+          flex={1}
+          py="$2"
+          pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+          pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
+          minWidth={scrollableMinWidth}
+        >
           {scrollableColumns.map((column, index) =>
             renderHeaderCell(column, index),
           )}
         </XStack>
       </ScrollView>
       {hasFixedColumns ? (
-        <XStack py="$2" px="$3" minWidth={fixedMinWidth}>
+        <XStack
+          py="$2"
+          pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+          pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
+          width={fixedSectionWidth}
+          minWidth={fixedSectionWidth}
+          flexShrink={0}
+        >
           {fixedColumns.map((column, index) => renderHeaderCell(column, index))}
         </XStack>
       ) : null}
@@ -967,7 +989,9 @@ export function CommonTableListView<T>({
       {/* Fixed columns */}
       {hasFixedColumns ? (
         <YStack
-          minWidth={fixedMinWidth}
+          width={fixedSectionWidth}
+          minWidth={fixedSectionWidth}
+          flexShrink={0}
           cursor="default"
           bg="$bgApp"
           $platform-web={{

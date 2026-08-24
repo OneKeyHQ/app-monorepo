@@ -66,6 +66,10 @@ import {
   getTwapHistoryEventTimeMs,
   normalizeEpochMs,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import {
   CommonTableListView,
@@ -492,8 +496,8 @@ function TwapActiveRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
@@ -787,8 +791,8 @@ function TwapHistoryRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
@@ -1110,8 +1114,8 @@ function TwapFillRow({
     <XStack
       flex={1}
       py="$1.5"
-      pl="$5"
-      pr="$3"
+      pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+      pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
       alignItems="center"
       backgroundColor={bgColor}
       onHoverIn={() => onHoverChange?.(index)}
