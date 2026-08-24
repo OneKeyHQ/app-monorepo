@@ -16,7 +16,7 @@ const meta = {
   component: DeviceStage,
   args: {
     step: 'off',
-    deviceType: 'slate',
+    deviceType: 'pro2',
     deviceName: DEMO.deviceName,
     authFailureReason: 'unofficialDevice',
   },

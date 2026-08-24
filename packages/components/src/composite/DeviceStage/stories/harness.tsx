@@ -337,7 +337,7 @@ export function StageHost({
 
 /** The shared demo payloads and control shapes each family picks from. */
 export const DEMO = {
-  deviceName: 'Pro 062B',
+  deviceName: 'Pro2 6136',
   confirmDetails: [
     {
       label: 'Address',
@@ -353,7 +353,7 @@ export const ARG_TYPES = {
   step: { table: { disable: true } },
   deviceType: {
     control: 'inline-radio',
-    options: ['classic', 'mini', 'pro', 'touch', 'slate'],
+    options: ['classic', 'mini', 'pro', 'touch', 'pro2'],
   },
   passphraseMode: {
     control: 'inline-radio',

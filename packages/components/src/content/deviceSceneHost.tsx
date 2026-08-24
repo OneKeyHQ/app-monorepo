@@ -29,7 +29,7 @@ import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Shared scene-hosting machinery of the presence-model devices
- * (ClassicDevice, ProDevice, SlateDevice): the registry contract a
+ * (ClassicDevice, ProDevice, Pro2Device): the registry contract a
  * device's scenes fill in, the
  * screen-presence engine that runs entrances, exits and the clock, and the
  * two light components every scene choreography is built from. The
@@ -232,7 +232,7 @@ const SWEEP_TRAVEL_FACTOR = 0.75;
  * running on. The paint box keeps the carrier's aspect ratio, so the
  * axis and locations are unchanged, and a smooth ramp magnifies
  * losslessly. Confirm plays the sweep across the whole screen;
- * enterPassphrase over the keyboard (the Slate clips it to its panel
+ * enterPassphrase over the keyboard (the Pro 2 clips it to its panel
  * box, the Pro paints its gap grille back over it).
  */
 export function GlassSweep({

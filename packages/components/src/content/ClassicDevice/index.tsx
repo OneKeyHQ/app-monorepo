@@ -27,7 +27,7 @@ export type { IClassicDeviceAnimation } from './animation';
  *   <ClassicDevice />                              static shell, screen dark
  *
  * Scenes run on the shared presence machinery (../deviceSceneHost), the
- * same way the Pro's and the Slate's do: content renders in as the whole of
+ * same way the Pro's and the Pro 2's do: content renders in as the whole of
  * an entry, stays lit while the scene is on, and a scene change plays the
  * lit-to-lit handover (callers sequence anything else after SCREEN_SWAP_MS,
  * see ../deviceScene). The panel's faint glow rides the same opacity, so
