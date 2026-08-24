@@ -1,4 +1,7 @@
 /* eslint-disable no-template-curly-in-string */
+const {
+  getElectronLanguages,
+} = require('./scripts/resolve-electron-languages');
 const { getPath } = require('./scripts/utils');
 
 require('../../development/env');
@@ -12,6 +15,7 @@ const baseElectronBuilderConfig = {
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
+  'electronLanguages': getElectronLanguages(),
   'buildVersion': process.env.BUILD_NUMBER,
   'directories': {
     'output': 'build-electron',
