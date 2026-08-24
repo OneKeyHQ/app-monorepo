@@ -14,6 +14,7 @@ type IWalletHardwareIdentity = {
   associatedDeviceInfo?: {
     vendor?: EHardwareVendor;
     deviceId?: string;
+    uuid?: string;
     connectId?: string;
     usbConnectId?: string;
     bleConnectId?: string;
@@ -27,6 +28,23 @@ export function getWebUsbConnectedDeviceKey(
     return undefined;
   }
   return device.serialNumber || undefined;
+}
+
+export function buildHardwareConnectedDeviceKeys({
+  backgroundIdentityKeys,
+  webUsbDevices,
+}: {
+  backgroundIdentityKeys: readonly string[];
+  webUsbDevices: readonly IUsbDeviceIdentity[];
+}): Set<string> {
+  const connectedDeviceKeys = new Set(backgroundIdentityKeys);
+  for (const device of webUsbDevices) {
+    const key = getWebUsbConnectedDeviceKey(device);
+    if (key) {
+      connectedDeviceKeys.add(key);
+    }
+  }
+  return connectedDeviceKeys;
 }
 
 export function getWalletHardwareConnectionKeys(
@@ -43,7 +61,7 @@ export function getWalletHardwareConnectionKeys(
   const keys =
     vendor === EHardwareVendor.trezor
       ? [device.connectId, device.usbConnectId, device.bleConnectId]
-      : [device.deviceId];
+      : [device.deviceId, device.uuid, device.usbConnectId, device.connectId];
   return [...new Set(keys.filter((key): key is string => Boolean(key)))];
 }
 

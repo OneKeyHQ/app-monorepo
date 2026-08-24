@@ -34,6 +34,8 @@ export type IPerpsDepositTokenRouteItem = {
 
 export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Account';
 
+export type IMobilePerpMarketTab = 'orderbook' | 'info' | 'funding';
+
 export type IUnifoldSourceSelectorResult =
   | {
       requestId: string;
@@ -52,7 +54,9 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }
     | undefined;
-  [EModalPerpRoutes.MobilePerpMarket]: undefined;
+  [EModalPerpRoutes.MobilePerpMarket]:
+    | { initialTab?: IMobilePerpMarketTab }
+    | undefined;
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {

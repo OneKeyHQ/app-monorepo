@@ -15,12 +15,16 @@ import { OneKeyHardwareError } from './hardwareErrors';
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
+  ThirdPartyHwErrorCode.NetworkError;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
 export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
+// Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
+export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -112,7 +116,7 @@ export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
     this.vendor = props?.vendor;
   }
 
-  override code = ThirdPartyHwErrorCode.NetworkError;
+  override code = THIRD_PARTY_HW_NETWORK_ERROR_CODE;
 }
 
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
@@ -139,6 +143,25 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UserAborted;
+}
+
+/**
+ * The user cancelled BLE pairing while it was still waiting on the OS pairing
+ * window. Kept apart from ThirdPartyUserAborted so the pairing flow can be told
+ * from a generic in-app cancel; both stay silent and share the cancel copy until
+ * this gets its own string.
+ */
+export class ThirdPartyBlePairingCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE;
 }
 
 export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  type HardwareConnectProtocol,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -16,22 +19,25 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type {
   IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
@@ -43,16 +49,28 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
+import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
-import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { bootloaderModeDialogManager } from '../../FirmwareUpdate/hooks/bootloaderModeDialogManager';
+import {
+  type IBootloaderModeDialogHost,
+  useFirmwareUpdateActions,
+} from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
+import {
+  EHardwareWalletCreationMode,
+  getWalletCreationDeviceState,
+  resolveAutomaticWalletCreationMode,
+  shouldCheckExistingStandardWallet,
+} from '../../Onboarding/pages/ConnectHardwareWallet/walletCreationMode';
 import {
   getForceTransportType,
   getHardwareCommunicationTypeString,
   trackHardwareWalletConnection,
 } from '../utils';
 
+import { resolveFirmwareReconnectDevice } from './firmwareReconnectUtils';
 import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -107,9 +125,9 @@ async function createLedgerHwWallet({
       device,
       hideCheckingDeviceLoading: true,
       features: {
-        device_id: device.deviceId || '',
+        deviceId: device.deviceId || '',
         vendor,
-      } as IOneKeyDeviceFeatures,
+      } as unknown as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
       defaultIsTemp: true,
       vendor,
@@ -132,10 +150,12 @@ async function createLedgerHwWallet({
 
 export function useDeviceConnect({
   setCurrentDevice,
+  getBootloaderDialogHost,
 }: {
   setCurrentDevice?: React.Dispatch<
     React.SetStateAction<SearchDevice | undefined>
   >;
+  getBootloaderDialogHost?: () => IBootloaderModeDialogHost | undefined;
 } = {}) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -200,18 +220,35 @@ export function useDeviceConnect({
     async (
       device: SearchDevice,
       hardwareCallContext?: EHardwareCallContext,
+      connectProtocol?: HardwareConnectProtocol,
+      forceProtocolDetection?: boolean,
+      forceFeaturesRefresh?: boolean,
     ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
+          connectProtocol,
           device,
+          forceFeaturesRefresh,
+          forceProtocolDetection,
           hardwareCallContext,
         });
-        activeDeviceRef.current = { ...device };
+        const confirmedConnectProtocol =
+          features?.protocol === 'V1' || features?.protocol === 'V2'
+            ? features.protocol
+            : undefined;
+        const connectedDevice: SearchDevice = {
+          ...device,
+          ...(confirmedConnectProtocol
+            ? { connectProtocol: confirmedConnectProtocol }
+            : {}),
+        };
+        activeDeviceRef.current = connectedDevice;
         activeFeaturesRef.current = features ?? null;
+        setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
-        if (error instanceof OneKeyHardwareError) {
+        if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
@@ -234,11 +271,18 @@ export function useDeviceConnect({
         throw error;
       }
     },
-    [ensureStopScan],
+    [ensureStopScan, setCurrentDevice],
   );
 
   const ensureActiveConnection = useCallback(
-    async (device: SearchDevice, options?: { forceReconnect?: boolean }) => {
+    async (
+      device: SearchDevice,
+      options?: {
+        connectProtocol?: HardwareConnectProtocol;
+        forceProtocolDetection?: boolean;
+        forceReconnect?: boolean;
+      },
+    ) => {
       // If device was in bootloader mode, force reconnect to get fresh features
       const shouldForceReconnect =
         options?.forceReconnect || wasInBootloaderModeRef.current;
@@ -248,11 +292,10 @@ export function useDeviceConnect({
         isSameHardware(device, activeDeviceRef.current) &&
         activeFeaturesRef.current
       ) {
+        await bootloaderModeDialogManager.close();
         return activeFeaturesRef.current;
       }
 
-      // Clear bootloader mode flag when reconnecting
-      wasInBootloaderModeRef.current = false;
       let hardwareCallContext: EHardwareCallContext | undefined;
       let isBootMode = false;
       if (
@@ -264,9 +307,30 @@ export function useDeviceConnect({
         isBootMode = true;
       }
 
-      const features = await connectDevice(device, hardwareCallContext);
-      // If device was in bootloader mode and connectId is empty, search for the updated device
-      if (device.connectId === '' && isBootMode && !features?.bootloader_mode) {
+      const features = await connectDevice(
+        device,
+        hardwareCallContext,
+        options?.connectProtocol,
+        options?.forceProtocolDetection,
+        Boolean(shouldForceReconnect),
+      );
+      let isConnectedBootloaderMode = false;
+      if (features) {
+        isConnectedBootloaderMode =
+          await deviceUtils.isBootloaderModeByFeatures({ features });
+        wasInBootloaderModeRef.current = isConnectedBootloaderMode;
+        if (!isConnectedBootloaderMode) {
+          await bootloaderModeDialogManager.close();
+        }
+      }
+      const hasPlaceholderConnectId =
+        !device.connectId || /^0+$/.test(device.connectId);
+      if (
+        hasPlaceholderConnectId &&
+        isBootMode &&
+        features &&
+        !isConnectedBootloaderMode
+      ) {
         const searchedDevices =
           await backgroundApiProxy.serviceHardware.searchDevices();
         if (searchedDevices.success && searchedDevices.payload.length === 1) {
@@ -280,6 +344,53 @@ export function useDeviceConnect({
       return features;
     },
     [connectDevice, isSameHardware, setCurrentDevice],
+  );
+
+  const rebindDeviceAfterFirmwareUpdate = useCallback(
+    async (
+      previousDevice: SearchDevice,
+      onConnectId?: (connectId: string) => void,
+    ) => {
+      wasInBootloaderModeRef.current = true;
+      await ensureStopScan();
+      const searchedDevices =
+        await backgroundApiProxy.serviceHardware.searchDevices();
+      if (!searchedDevices.success) {
+        throw new OneKeyLocalError(
+          'Unable to search for device after firmware update',
+        );
+      }
+
+      const result = await resolveFirmwareReconnectDevice({
+        previousDevice,
+        devices: searchedDevices.payload,
+        getFeatures: (connectId) =>
+          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              retryCount: 1,
+              skipWebDevicePrompt: true,
+            },
+          }),
+        onConnectId,
+      });
+      activeDeviceRef.current = { ...result.device };
+      activeFeaturesRef.current = result.features;
+      wasInBootloaderModeRef.current = false;
+      await bootloaderModeDialogManager.close();
+      setCurrentDevice?.(result.device);
+      defaultLogger.hardware.sdkLog.log(
+        'Firmware reconnect succeeded',
+        JSON.stringify({
+          deviceType: result.device.deviceType,
+          commType: result.device.commType,
+          connectIdChanged:
+            previousDevice.connectId !== result.device.connectId,
+        }),
+      );
+      return result;
+    },
+    [ensureStopScan, setCurrentDevice],
   );
 
   const getActiveDevice = useCallback(() => {
@@ -457,11 +568,21 @@ export function useDeviceConnect({
       }
 
       let connectionFailureTracked = false;
+      let bootloaderDialogShown = false;
       let forceTransportType: EHardwareTransportType | undefined;
+      const confirmedConnectProtocol = device.connectProtocol;
       try {
-        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: device.connectId ?? '',
-        });
+        const showCheckingDeviceDialog = () =>
+          backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+            connectId: device.connectId ?? '',
+          });
+        if (platformEnv.isNativeIOS) {
+          await hardwareUiStateDialogLifecycle.openAndWait(
+            showCheckingDeviceDialog,
+          );
+        } else {
+          void showCheckingDeviceDialog();
+        }
 
         const handleBootloaderMode = async (existsFirmware: boolean) => {
           // Set bootloader mode flag so retry will force reconnect
@@ -496,11 +617,26 @@ export function useDeviceConnect({
             return usbPrepareResult.connectId ?? device.connectId ?? undefined;
           };
 
+          // Wait until the hardware dialog has left the global iOS overlay before
+          // mounting the page-owned bootloader dialog.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(async () =>
+              backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+                connectId: device.connectId ?? undefined,
+                skipDeviceCancel: true,
+                skipDelayClose: true,
+                reason: 'open bootloader mode dialog',
+              }),
+            );
+          }
+
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
             onBeforeUpdate: prepareUSBForUpdate,
+            dialogHost: getBootloaderDialogHost?.(),
           });
+          bootloaderDialogShown = true;
           console.log('Device is in bootloader mode', device);
           // Bootloader mode hands off to the firmware-update flow, so the throw
           // below is not a connection failure — suppress the catch-block tracking.
@@ -525,19 +661,22 @@ export function useDeviceConnect({
           }
         }
 
-        // Set global transport type based on selected channel before connecting
-        if (tabValue === EConnectDeviceChannel.bluetooth) {
-          forceTransportType = EHardwareTransportType.DesktopWebBle;
-        } else {
-          forceTransportType = await getForceTransportType(tabValue);
-        }
+        // Select transport for the current platform; native Bluetooth requires BLE.
+        forceTransportType = await getForceTransportType(tabValue, {
+          connectProtocol: confirmedConnectProtocol,
+        });
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,
           });
         }
 
-        const features = await ensureActiveConnection(device);
+        const features = await ensureActiveConnection(
+          device,
+          confirmedConnectProtocol
+            ? { connectProtocol: confirmedConnectProtocol }
+            : { forceProtocolDetection: true },
+        );
         // Get the latest device reference after connection (it may have been updated)
         const latestDevice = getActiveDevice() ?? device;
 
@@ -593,23 +732,47 @@ export function useDeviceConnect({
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...latestDevice,
-              deviceId: latestDevice.deviceId || features.device_id,
+              deviceId: deviceUtils.getRawDeviceId({
+                device: latestDevice,
+                features,
+              }),
             },
           });
 
         if (shouldAuthenticateFirmware) {
-          void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-            connectId: latestDevice.connectId ?? '',
-            hardClose: false,
-            skipDelayClose: true,
-            deviceResetToHome: false,
-          });
+          const closeCheckingDialogForVerify = async () =>
+            backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId: latestDevice.connectId ?? '',
+              hardClose: false,
+              skipDelayClose: true,
+              deviceResetToHome: false,
+            });
+          // Same handoff rule as the bootloader dialog above: wait until the
+          // hardware checking dialog has fully left the global iOS overlay
+          // before mounting the firmware verify dialog. Mounting while the old
+          // Sheet is still exiting can strand its overlay above the new dialog,
+          // and after a few genuine-check retries every tap gets swallowed.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(
+              closeCheckingDialogForVerify,
+            );
+          } else {
+            void closeCheckingDialogForVerify();
+          }
           let isVerified: boolean | undefined;
           const result = await new Promise<IFirmwareVerifyResult>(
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
                 device: latestDevice,
                 features,
+                // iOS only, matching the closeAndWait gate above: the page
+                // portal sits below the global overlay on every platform, so
+                // without the awaited close an in-page dialog would sit under
+                // the exiting checking sheet on Android/desktop. Those
+                // platforms keep the global host (pre-existing behavior).
+                dialogHost: platformEnv.isNativeIOS
+                  ? getBootloaderDialogHost?.()
+                  : undefined,
                 onVerified: ({ checked }: { checked: boolean }) => {
                   isVerified = checked;
                   setTimeout(() => {
@@ -677,7 +840,8 @@ export function useDeviceConnect({
         // }
 
         return {
-          verified: true,
+          verified: false,
+          skipVerification: true,
           device: latestDevice,
           payload: {
             deviceType: latestDevice.deviceType,
@@ -690,8 +854,11 @@ export function useDeviceConnect({
           },
         };
       } catch (error) {
-        // Clear force transport type on device connection error
-        void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        // The hardware dialog was already closed before the bootloader dialog
+        // mounted. A late cleanup write here can race with that handoff on iOS.
+        if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
+          void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        }
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error
@@ -717,17 +884,8 @@ export function useDeviceConnect({
       showFirmwareVerifyDialog,
       prepareUSBConnect,
       getActiveDevice,
+      getBootloaderDialogHost,
     ],
-  );
-
-  const extractDeviceState = useCallback(
-    (features: IOneKeyDeviceFeatures) => ({
-      unlockedAttachPin: features.unlocked_attach_pin,
-      unlocked: features.unlocked,
-      passphraseEnabled: Boolean(features.passphrase_protection),
-      deviceId: features.device_id,
-    }),
-    [],
   );
 
   const closeDialogAndReturn = useCallback(
@@ -741,62 +899,35 @@ export function useDeviceConnect({
     [],
   );
 
-  type IWalletCreationStrategy = {
-    createHiddenWalletOnly: boolean;
-    createStandardWalletOnly: boolean;
-  };
-
   const determineWalletCreationStrategy = useCallback(
     async (
-      deviceState: ReturnType<typeof extractDeviceState>,
+      deviceState: IOneKeyDeviceState,
       device: SearchDevice,
-    ): Promise<IWalletCreationStrategy | null> => {
-      if (!deviceState.unlocked) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
-      }
-
-      if (deviceState.unlockedAttachPin) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      const existsStandardWallet =
-        await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
-          connectId: device.connectId ?? '',
-          deviceId: deviceState.deviceId ?? '',
-        });
-
-      if (existsStandardWallet) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      if (!deviceState.passphraseEnabled) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+    ): Promise<EHardwareWalletCreationMode | null> => {
+      const existsStandardWallet = shouldCheckExistingStandardWallet(
+        deviceState,
+      )
+        ? await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
+            connectId: device.connectId ?? '',
+            deviceId:
+              deviceState.identity.deviceId ??
+              deviceUtils.getRawDeviceId({ device }),
+          })
+        : false;
+      const automaticMode = resolveAutomaticWalletCreationMode({
+        state: deviceState,
+        existsStandardWallet,
+      });
+      if (automaticMode) {
+        return automaticMode;
       }
 
       const walletType = await showSelectAddWalletTypeDialog();
       if (walletType === 'Standard') {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+        return EHardwareWalletCreationMode.Standard;
       }
       if (walletType === 'Hidden') {
-        return {
-          createHiddenWalletOnly: true,
-          createStandardWalletOnly: false,
-        };
+        return EHardwareWalletCreationMode.Hidden;
       }
 
       return null;
@@ -807,10 +938,11 @@ export function useDeviceConnect({
   const createHwWallet = useCallback(
     async (
       device: SearchDevice,
-      strategy: IWalletCreationStrategy,
+      walletMode: EHardwareWalletCreationMode,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
-      deviceState?: ReturnType<typeof extractDeviceState>,
+      deviceState?: IOneKeyDeviceState,
+      connectProtocol?: HardwareConnectProtocol,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -819,11 +951,13 @@ export function useDeviceConnect({
           device,
           hideCheckingDeviceLoading: true,
           features,
+          deviceState,
+          connectProtocol,
           isFirmwareVerified,
           defaultIsTemp: true,
-          isAttachPinMode: deviceState?.unlockedAttachPin,
+          isAttachPinMode: deviceState?.status.unlockedAttachPin ?? undefined,
         };
-        if (strategy.createStandardWalletOnly) {
+        if (walletMode === EHardwareWalletCreationMode.Standard) {
           await actions.current.createHWWalletWithoutHidden(params);
         } else {
           await actions.current.createHWWalletWithHidden(params);
@@ -839,7 +973,11 @@ export function useDeviceConnect({
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: features.device_id || device.deviceId || '',
+          deviceId: deviceUtils.getRawDeviceId({
+            device,
+            features,
+            deviceState,
+          }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
@@ -870,10 +1008,12 @@ export function useDeviceConnect({
       device,
       isFirmwareVerified,
       vendor,
+      connectProtocol,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       vendor?: EHardwareVendor;
+      connectProtocol?: HardwareConnectProtocol;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
       // connection/features flow and create wallet directly.
@@ -888,31 +1028,39 @@ export function useDeviceConnect({
         });
       }
 
-      await ensureActiveConnection(device);
+      const cachedProtocol = getActiveDeviceFeatures()?.protocol;
+      const resolvedConnectProtocol =
+        cachedProtocol === 'V1' || cachedProtocol === 'V2'
+          ? cachedProtocol
+          : connectProtocol;
+      await ensureActiveConnection(device, {
+        connectProtocol: resolvedConnectProtocol,
+      });
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: currentDevice.connectId ?? '',
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
+      let deviceState: IOneKeyDeviceState;
 
       try {
-        features =
-          await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
-            connectId: currentDevice.connectId ?? '',
-          });
+        deviceState = await getWalletCreationDeviceState({
+          serviceHardware: backgroundApiProxy.serviceHardware,
+          connectId: currentDevice.connectId ?? '',
+          connectProtocol: resolvedConnectProtocol,
+        });
+        features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         throw error;
       }
 
-      const deviceState = extractDeviceState(features);
       const strategy = await determineWalletCreationStrategy(
         deviceState,
         currentDevice,
       );
 
-      console.log('Current hardware wallet State', deviceState, strategy);
       if (!strategy) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         throw new OneKeyLocalError({
@@ -928,12 +1076,13 @@ export function useDeviceConnect({
         features,
         isFirmwareVerified,
         deviceState,
+        resolvedConnectProtocol,
       );
     },
     [
       ensureActiveConnection,
       getActiveDevice,
-      extractDeviceState,
+      getActiveDeviceFeatures,
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,
@@ -953,6 +1102,7 @@ export function useDeviceConnect({
       onSelectAddWalletType,
       createHWWallet: onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     }),
@@ -962,6 +1112,7 @@ export function useDeviceConnect({
       verifyHardware,
       onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     ],
@@ -971,35 +1122,41 @@ export function useDeviceConnect({
 export const useConnectDeviceError = (
   onError: (errorMessageId: ETranslations) => void,
 ) => {
-  const uiRequestCallback = throttle(
-    ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
-      if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
-        onError(ETranslations.onboarding_enable_bluetooth);
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
-      ) {
-        onError(
-          platformEnv.isNativeIOS
-            ? ETranslations.feedback_try_toggling_bluetooth
-            : ETranslations.feedback_try_repairing_device_in_settings,
-        );
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
-      ) {
-        onError(ETranslations.device_not_connected);
-      }
-    },
-    2500,
-  );
-  appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
-  return () => {
-    appEventBus.off(
+  useEffect(() => {
+    const uiRequestCallback = throttle(
+      ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+        if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+          onError(ETranslations.onboarding_enable_bluetooth);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+        ) {
+          onError(
+            platformEnv.isNativeIOS
+              ? ETranslations.feedback_try_toggling_bluetooth
+              : ETranslations.feedback_try_repairing_device_in_settings,
+          );
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+        ) {
+          onError(ETranslations.device_not_connected);
+        }
+      },
+      2500,
+    );
+    appEventBus.on(
       EAppEventBusNames.RequestHardwareUIDialog,
       uiRequestCallback,
     );
-  };
+    return () => {
+      uiRequestCallback.cancel();
+      appEventBus.off(
+        EAppEventBusNames.RequestHardwareUIDialog,
+        uiRequestCallback,
+      );
+    };
+  }, [onError]);
 };
 
 export enum EBluetoothStatus {

@@ -271,7 +271,9 @@ export interface ISwapToken extends ISwapTokenBase {
 
   isPopular?: boolean;
   isWrapped?: boolean;
-  subtitles?: string;
+  // `/swap-tokens` returns localized aliases as an array; keep the legacy
+  // string shape while both service responses share this DTO.
+  subtitles?: string | string[];
   stock?: IMarketStockInfo;
 
   freeFeeObject?: IFreeFeeObject;

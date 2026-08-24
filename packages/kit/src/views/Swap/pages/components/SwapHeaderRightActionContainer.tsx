@@ -78,12 +78,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  SwapInviteeRewardActionButton,
-  useSwapInviteeRewardAction,
-} from '../../components/InviteeReward/SwapInviteeRewardActionButton';
-import { SwapInviteeRewardSettingsItem } from '../../components/InviteeReward/SwapInviteeRewardSettingsItem';
-import { getSwapInviteeRewardActionPlacement } from '../../components/InviteeReward/utils';
+import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
+import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
+import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
+import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
@@ -298,12 +296,11 @@ const SwapSlippageCustomContent = ({
 };
 
 const SwapSettingsDialogContent = ({
-  inviteeRewardAction,
+  activityHubAction,
   marketPresetSettings,
 }: {
-  inviteeRewardAction?: {
-    onShow: () => void;
-    title: string;
+  activityHubAction?: {
+    onOpenInviteeReward: () => void;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
@@ -510,12 +507,11 @@ const SwapSettingsDialogContent = ({
             />
           </>
         ) : null}
-        {inviteeRewardAction ? (
+        {activityHubAction ? (
           <>
             <Divider />
-            <SwapInviteeRewardSettingsItem
-              onShowSwapInviteeReward={inviteeRewardAction.onShow}
-              title={inviteeRewardAction.title}
+            <SwapActivityHubSettingsItem
+              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
             />
           </>
         ) : null}
@@ -657,9 +653,8 @@ type ISwapSettingsHeaderButtonProps = {
   iconColor?: ColorTokens;
   compact?: boolean;
   showCustomSlippageValue?: boolean;
-  inviteeRewardAction?: {
-    onShow: () => void;
-    title: string;
+  activityHubAction?: {
+    onOpenInviteeReward: () => void;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
@@ -670,7 +665,7 @@ export function SwapSettingsHeaderButton({
   iconColor,
   compact,
   showCustomSlippageValue,
-  inviteeRewardAction,
+  activityHubAction,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -721,7 +716,7 @@ export function SwapSettingsHeaderButton({
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
-            inviteeRewardAction={inviteeRewardAction}
+            activityHubAction={activityHubAction}
             marketPresetSettings={marketPresetSettings}
           />
         </SwapProviderMirror>
@@ -733,7 +728,7 @@ export function SwapSettingsHeaderButton({
       }),
       showFooter: true,
     });
-  }, [intl, inviteeRewardAction, marketPresetSettings, swapStoreName]);
+  }, [activityHubAction, intl, marketPresetSettings, swapStoreName]);
 
   if (slippageTitle) {
     return (
@@ -776,22 +771,23 @@ export function SwapSettingsHeaderButton({
   );
 }
 
-function SwapSettingsHeaderButtonWithInviteeRewardAction(
-  props: Omit<ISwapSettingsHeaderButtonProps, 'inviteeRewardAction'>,
+// The reward action needs the active account, so it is resolved here in the page
+// tree and handed to the settings dialog, which renders outside of it.
+function SwapSettingsHeaderButtonWithActivityHub(
+  props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const { showSwapInviteeReward, title } = useSwapInviteeRewardAction();
-  const inviteeRewardAction = useMemo(
+  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const activityHubAction = useMemo(
     () => ({
-      onShow: showSwapInviteeReward,
-      title,
+      onOpenInviteeReward: showSwapInviteeReward,
     }),
-    [showSwapInviteeReward, title],
+    [showSwapInviteeReward],
   );
 
   return (
     <SwapSettingsHeaderButton
       {...props}
-      inviteeRewardAction={inviteeRewardAction}
+      activityHubAction={activityHubAction}
     />
   );
 }
@@ -802,12 +798,14 @@ const SwapHeaderRightActionContainer = ({
   iconColor,
   compact,
   marketPresetSettings,
+  routeSwapType,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  routeSwapType?: ESwapTabSwitchType;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -867,17 +865,23 @@ const SwapHeaderRightActionContainer = ({
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
-  const swapInviteeRewardActionPlacement = getSwapInviteeRewardActionPlacement({
+  // Settings is the only hub entry outside the wide desktop header, so it has to
+  // resolve its placement from the same route/store reconciliation the header
+  // uses — otherwise the hub can linger on Limit/Stock (or be missing on Swap)
+  // until the route-driven tab switch lands in the store.
+  const pendingRouteSwapType = useSwapActivityHubPendingRouteSwapType({
+    routeSwapType,
+    swapTypeSwitch,
+  });
+  const swapActivityHubActionPlacement = getSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),
     isMediumLayout: md,
     isModal: pageType === EPageType.modal,
-    isNative: Boolean(platformEnv.isNative),
+    pendingRouteSwapType,
     swapTypeSwitch,
   });
-  const showSwapInviteeRewardAction =
-    swapInviteeRewardActionPlacement === 'swapHeader';
-  const showSwapInviteeRewardSettingsItem =
-    swapInviteeRewardActionPlacement === 'mobileSettings';
+  const showActivityHubInSettings =
+    swapActivityHubActionPlacement === 'settings';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -1000,20 +1004,9 @@ const SwapHeaderRightActionContainer = ({
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
       <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
-        {showSwapInviteeRewardAction ? (
-          <SwapInviteeRewardActionButton
-            testID={SwapTestIDs.inviteeRewardButton}
-            icon="GiftOutline"
-            iconProps={{
-              size: resolvedIconSize,
-              color: iconColor ?? '$icon',
-            }}
-            size={resolvedButtonSize}
-          />
-        ) : null}
         {kLineButton}
-        {showSwapInviteeRewardSettingsItem ? (
-          <SwapSettingsHeaderButtonWithInviteeRewardAction
+        {showActivityHubInSettings ? (
+          <SwapSettingsHeaderButtonWithActivityHub
             pageType={pageType}
             iconSize={iconSize}
             iconColor={iconColor}

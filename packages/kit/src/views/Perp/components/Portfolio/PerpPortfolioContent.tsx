@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountAtom,
@@ -282,6 +283,7 @@ function PerpPortfolioContentComponent({
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
   const theme = useTheme();
+  const timeZone = useDeviceTimeZone();
   const { showDepositWithdrawModal, isDepositDisabled } =
     useShowDepositWithdrawModal('portfolio');
   const portfolioPalette = useMemo(
@@ -678,8 +680,9 @@ function PerpPortfolioContentComponent({
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
+        timeZone,
       }),
-    [intl],
+    [intl, timeZone],
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
@@ -908,6 +911,8 @@ function PerpPortfolioContentComponent({
             showLastValue={isPnl}
             showLastPointMarker={isPnl ? undefined : false}
             pulseLastPoint={!isPnl}
+            timeZone={timeZone}
+            locale={intl.locale}
           />
         </YStack>
       )}

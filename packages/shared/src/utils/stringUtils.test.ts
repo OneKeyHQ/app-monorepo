@@ -1,9 +1,32 @@
-import stringUtils, { stableStringify } from './stringUtils';
+import stringUtils, {
+  isAsciiAlphanumericWithSpaces,
+  stableStringify,
+} from './stringUtils';
 
 test('stableStringify', () => {
   expect(stableStringify({ a: '1', b: '2' })).toBe(
     stableStringify({ b: '2', a: '1' }),
   );
+});
+
+describe('isAsciiAlphanumericWithSpaces', () => {
+  test.each(['OneKeyPro2', 'OneKey Pro 2', 'ONEKEY', 'onekey', '123456'])(
+    '%s is valid',
+    (value) => {
+      expect(isAsciiAlphanumericWithSpaces(value)).toBe(true);
+    },
+  );
+
+  test.each([
+    '',
+    'OneKey-Pro2',
+    'OneKey_Pro2',
+    'OneKey　Pro2',
+    '一键',
+    '１２３',
+  ])('%s is invalid', (value) => {
+    expect(isAsciiAlphanumericWithSpaces(value)).toBe(false);
+  });
 });
 
 describe('isValidEmail', () => {

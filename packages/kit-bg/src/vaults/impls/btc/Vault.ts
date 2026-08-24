@@ -1343,17 +1343,13 @@ export default class VaultBtc extends VaultBase {
   );
 
   async _collectUTXOsInfoByApi() {
-    const inscriptionProtection =
-      await this.backgroundApi.serviceSetting.getInscriptionProtection();
-    const checkInscriptionProtectionEnabled =
-      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+    const withCheckInscription =
+      await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
         {
           networkId: this.networkId,
           accountId: this.accountId,
         },
       );
-    const withCheckInscription =
-      checkInscriptionProtectionEnabled && inscriptionProtection;
     return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
   }
 
@@ -1453,17 +1449,13 @@ export default class VaultBtc extends VaultBase {
   );
 
   async _collectClaimedUtxosInfo() {
-    const inscriptionProtection =
-      await this.backgroundApi.serviceSetting.getInscriptionProtection();
-    const checkInscriptionProtectionEnabled =
-      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+    const withCheckInscription =
+      await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
         {
           networkId: this.networkId,
           accountId: this.accountId,
         },
       );
-    const withCheckInscription =
-      checkInscriptionProtectionEnabled && inscriptionProtection;
     return this._collectClaimedUtxosWithCache(withCheckInscription);
   }
 

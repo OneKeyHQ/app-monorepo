@@ -7,6 +7,7 @@ import platformEnv from '../platformEnv';
 import { CDN_SIGNER_ADDRESS } from '../request/constants/ipTableDefaults';
 
 import type {
+  IIpTableConfigWithRuntime,
   IIpTableRemoteConfig,
   IIpTableSignatureVerifyResult,
 } from '../request/types/ipTable';
@@ -85,6 +86,38 @@ export function isValidIpTableRemoteConfigShape(
     }
   }
   return true;
+}
+
+export function getOrderedIpTableCandidates(options: {
+  hostname: string;
+  configWithRuntime: IIpTableConfigWithRuntime;
+  configKey?: string;
+  exactHostOnly?: boolean;
+  maxCandidates?: number;
+}): string[] {
+  const hostname = options.hostname.toLowerCase().replace(/\.$/u, '');
+  const configKey =
+    options.configKey ??
+    (options.exactHostOnly
+      ? hostname
+      : hostname.split('.').slice(-2).join('.'));
+  const endpoints =
+    options.configWithRuntime.config.domains[configKey]?.endpoints ?? [];
+  const endorsedIps = new Set(endpoints.map((endpoint) => endpoint.ip));
+  const candidates = [
+    options.configWithRuntime.runtime?.selections?.[configKey],
+    options.configWithRuntime.runtime?.lastBestIp?.[configKey],
+    ...endpoints
+      .toSorted((left, right) => right.weight - left.weight)
+      .map((endpoint) => endpoint.ip),
+  ].filter(
+    (ip): ip is string =>
+      typeof ip === 'string' && ip.length > 0 && endorsedIps.has(ip),
+  );
+  return [...new Set(candidates)].slice(
+    0,
+    options.maxCandidates ?? candidates.length,
+  );
 }
 
 function logVerifyEvent(
