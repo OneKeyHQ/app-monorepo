@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { Input } from '../../forms/Input';
 import {
   Button,
@@ -18,9 +22,6 @@ import {
  * checklist. Real progress from the vendor SDK, never simulated.
  */
 
-/** Refusing an empty confirm: a prompt in place of a disabled button. */
-const EMPTY_CODE_PROMPT = 'Enter the security code first.';
-
 export interface IPairingCodeFormProps {
   onSubmit?: (code: string) => void;
   /**
@@ -35,6 +36,7 @@ export function PairingCodeForm({
   onSubmit,
   resetSignal,
 }: IPairingCodeFormProps) {
+  const intl = useIntl();
   const [value, setValue] = useState('');
   const [emptyPrompt, setEmptyPrompt] = useState(false);
   useEffect(() => {
@@ -60,13 +62,19 @@ export function PairingCodeForm({
           size="large"
           value={value}
           onChangeText={handleChange}
-          placeholder="Security code"
+          placeholder={intl.formatMessage({
+            id: ETranslations.trezor_thp_pairing_code__desc,
+          })}
           keyboardType="number-pad"
           autoCorrect={false}
         />
         {emptyPrompt ? (
+          // Refusing an empty confirm: a prompt in place of a disabled
+          // button.
           <SizableText size="$bodyMd" color="$textCritical">
-            {EMPTY_CODE_PROMPT}
+            {intl.formatMessage({
+              id: ETranslations.device_stage_security_code_first__msg,
+            })}
           </SizableText>
         ) : null}
       </YStack>
@@ -76,7 +84,7 @@ export function PairingCodeForm({
         size="large"
         onPress={handleConfirm}
       >
-        Confirm
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
     </YStack>
   );

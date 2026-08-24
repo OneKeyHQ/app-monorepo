@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   Anchor,
   Button,
@@ -30,12 +34,8 @@ import type { IAuthChecklistItem, IAuthFailureReason } from './type';
  * without leaving the step.
  */
 
-/** The verifying label the live checklist shows on the active row. */
-const ROW_IN_PROGRESS = 'In progress';
-/** And the failed row's verdict. */
-const ROW_FAILED = 'Failed';
-
 function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
+  const intl = useIntl();
   return (
     <XStack gap="$2" alignItems="center" minHeight="$6">
       <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
@@ -63,11 +63,16 @@ function ChecklistRow({ item }: { item: IAuthChecklistItem }) {
         {item.label}
       </SizableText>
       {item.status === 'loading' ? (
-        <SizableText size="$bodyMd">{ROW_IN_PROGRESS}</SizableText>
+        // The verifying label the live checklist shows on the active row.
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.device_auth_verifying_component_label,
+          })}
+        </SizableText>
       ) : null}
       {item.status === 'failed' ? (
         <SizableText size="$bodyMd" color="$textCritical">
-          {ROW_FAILED}
+          {intl.formatMessage({ id: ETranslations.global_failed })}
         </SizableText>
       ) : null}
       {item.status === 'ok' && item.value && item.url ? (
@@ -119,6 +124,7 @@ export function AuthFailureCard({
    * per activation so a revisit opens on the failure, not a stale NOTE. */
   resetSignal?: number;
 }) {
+  const intl = useIntl();
   const copy = AUTH_FAILURE_TEXT[reason];
   const [noteShown, setNoteShown] = useState(false);
   useEffect(() => {
@@ -134,8 +140,8 @@ export function AuthFailureCard({
             critical on the words' own metrics. The words block's own
             bottom padding is the gap to the buttons. */}
         <StepText
-          title={AUTH_NOTE_TEXT.title}
-          sub={AUTH_NOTE_TEXT.sub}
+          title={intl.formatMessage({ id: AUTH_NOTE_TEXT.title })}
+          sub={intl.formatMessage({ id: AUTH_NOTE_TEXT.sub })}
           subColor="$textCritical"
           animated={false}
         />
@@ -146,7 +152,7 @@ export function AuthFailureCard({
             size="large"
             onPress={onContinueAnyway}
           >
-            {AUTH_NOTE_TEXT.confirm}
+            {intl.formatMessage({ id: AUTH_NOTE_TEXT.confirm })}
           </Button>
           <Button
             testID="device-stage-auth-note-back"
@@ -154,7 +160,7 @@ export function AuthFailureCard({
             size="large"
             onPress={hideNote}
           >
-            {AUTH_NOTE_TEXT.back}
+            {intl.formatMessage({ id: AUTH_NOTE_TEXT.back })}
           </Button>
         </YStack>
       </YStack>
@@ -169,7 +175,11 @@ export function AuthFailureCard({
       {/* The words block's own bottom padding is its gap to what
           follows; the blocks after it keep the card's 24. */}
       <YStack>
-        <StepText title={copy.title} sub={copy.sub} animated={false} />
+        <StepText
+          title={intl.formatMessage({ id: copy.title })}
+          sub={intl.formatMessage({ id: copy.sub })}
+          animated={false}
+        />
         <YStack gap="$6">
           {checklist?.length ? <AuthChecklist items={checklist} /> : null}
           {copy.action === 'support' && onSupport ? (
@@ -179,7 +189,7 @@ export function AuthFailureCard({
               size="large"
               onPress={onSupport}
             >
-              Support
+              {intl.formatMessage({ id: ETranslations.global_support })}
             </Button>
           ) : null}
           {copy.action === 'retry' ? (
@@ -190,7 +200,7 @@ export function AuthFailureCard({
                 size="large"
                 onPress={onRetry}
               >
-                Retry
+                {intl.formatMessage({ id: ETranslations.global_retry })}
               </Button>
               <Button
                 testID="device-stage-auth-note-open"
@@ -198,7 +208,9 @@ export function AuthFailureCard({
                 size="large"
                 onPress={showNote}
               >
-                Continue anyway
+                {intl.formatMessage({
+                  id: ETranslations.global_continue_anyway,
+                })}
               </Button>
             </YStack>
           ) : null}
