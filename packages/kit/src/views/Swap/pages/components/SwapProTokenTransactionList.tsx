@@ -40,6 +40,10 @@ const SwapProTokenTransactionList = ({
     () => marketData.transactions.slice(0, maxRows),
     [marketData.transactions, maxRows],
   );
+  // Rows come in 22px steps, so the flexed container can be left with a
+  // sub-row remainder; spread it across row gaps instead of pooling it at
+  // the bottom. Skip when data cannot fill the computed rows.
+  const hasFilledRows = finallyTransactionList.length >= maxRows;
   let transactionListContent = (
     <XStack justifyContent="space-between">
       <SizableText size="$bodySm" color="$textSubdued">
@@ -56,7 +60,7 @@ const SwapProTokenTransactionList = ({
     finallyTransactionList.length === 0
   ) {
     transactionListContent = (
-      <YStack>
+      <YStack flex={1} justifyContent="space-between">
         {Array.from({ length: maxRows }).map((_, index) => (
           <Skeleton w="100%" h={22} radius="square" key={index} />
         ))}
@@ -67,7 +71,10 @@ const SwapProTokenTransactionList = ({
     finallyTransactionList.length > 0
   ) {
     transactionListContent = (
-      <YStack>
+      <YStack
+        flex={1}
+        justifyContent={hasFilledRows ? 'space-between' : undefined}
+      >
         {finallyTransactionList.map((item, index) => (
           <SwapProTokenTransactionItem
             key={`${item.hash}-${index}`}
