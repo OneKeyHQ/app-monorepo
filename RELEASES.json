@@ -1,0 +1,17 @@
+[
+  {
+    "seq": 1,
+    "commit": "d2ab6821610f2ac65f01c3a796721337435bfd0b",
+    "date": "2026-08-25T10:12:39Z",
+    "prs": [
+      "#12589",
+      "#12941",
+      "#12957",
+      "#12962",
+      "#12964",
+      "#12982",
+      "#12994"
+    ],
+    "notes": "Prevent DotMap row number wrapping (#12941); stop Perps order books overwriting each other's tick option (#12957); filter unmatched Perps results for short search queries (#12962); prevent iOS hardware dialog overlay conflicts (#12964); remove Creator Program banner (#12994); add Katana integration (#12589, #12982)"
+  }
+]
