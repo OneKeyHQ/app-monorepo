@@ -3,10 +3,13 @@ import {
   buildLocalSecretEnvelopeAadV1,
   buildLocalSecretEnvelopeProtectedHeaderV1,
   classifyLocalSecretEnvelopeMigrationCandidate,
+  isLocalSecretEnvelopeLayerTopologyDowngrade,
   parseLocalSecretEnvelopeV1,
   rewrapLocalSecretEnvelopeV1,
   serializeLocalSecretEnvelopeV1,
+  shouldDeferHyperLiquidPlaintextLseMigration,
   unwrapLocalSecretEnvelopeV1,
+  upgradeLocalSecretEnvelopeLayerTopologyV1,
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
@@ -378,10 +381,47 @@ describe('localSecretEnvelope migration candidate classifier', () => {
     expect(
       classifyLocalSecretEnvelopeMigrationCandidate({
         dataType: 'credential',
-        recordId: 'hyperliquid-agent-1',
-        rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+        recordId: 'credential-1',
+        rawValue: '|UNKNOWN|payload',
       }),
     ).toEqual({ canMigrate: false, reason: 'unsupported_prefix' });
+  });
+
+  it('defers browser-class HyperLiquid plaintext to HLE before LSE', () => {
+    const plaintextCandidate = classifyLocalSecretEnvelopeMigrationCandidate({
+      dataType: 'credential',
+      recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+      rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+    });
+    expect(plaintextCandidate).toMatchObject({
+      canMigrate: true,
+      innerPrefix:
+        LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+    });
+    expect(
+      shouldDeferHyperLiquidPlaintextLseMigration({
+        candidate: plaintextCandidate,
+        isNative: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferHyperLiquidPlaintextLseMigration({
+        candidate: plaintextCandidate,
+        isNative: true,
+      }),
+    ).toBe(false);
+    expect(
+      classifyLocalSecretEnvelopeMigrationCandidate({
+        dataType: 'credential',
+        recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+        rawValue:
+          '|HLE|{"algorithm":"AES-256-GCM","ciphertext":"ciphertext","iv":"iv","version":1}',
+      }),
+    ).toMatchObject({
+      canMigrate: true,
+      innerPrefix:
+        LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential,
+    });
   });
 
   it('rejects mismatched credential ids and prefixes', async () => {
@@ -413,6 +453,92 @@ describe('localSecretEnvelope migration candidate classifier', () => {
 });
 
 describe('localSecretEnvelope wrapping pipeline', () => {
+  it('reads a legacy secureStorage-only envelope after adding the MMKV base layer', async () => {
+    const calls: string[] = [];
+    const mmkvAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'mmkv-profile-key:v1',
+      kind: 'mmkv-profile-key',
+    });
+    const secureStorageAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'secure-storage:v1',
+      kind: 'secure-storage',
+    });
+    const plaintext = '|RP|legacy-native-lse-payload';
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [secureStorageAdapter],
+      plaintext,
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const adapters = new Map(
+      [mmkvAdapter, secureStorageAdapter].map((adapter) => [
+        adapter.kind,
+        adapter,
+      ]),
+    );
+
+    expect(
+      parseLocalSecretEnvelopeV1(envelope).wrappingLayers.map(
+        (layer) => layer.kind,
+      ),
+    ).toEqual(['secure-storage']);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope,
+        expectedDataType: 'credential',
+        expectedRecordId: 'hd-1',
+        resolveLayerAdapter: (layer) => adapters.get(layer.kind),
+      }),
+    ).resolves.toBe(plaintext);
+  });
+
+  it('detects a layer-kind downgrade from a single-layer envelope', async () => {
+    const calls: string[] = [];
+    const baseAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'mmkv-profile-key:v1',
+      kind: 'mmkv-profile-key',
+    });
+    const secureStorageAdapter = buildMockLayerAdapter({
+      calls,
+      keyRef: 'secure-storage:v1',
+      kind: 'secure-storage',
+    });
+    const wrapWith = (layerAdapters: ILocalSecretEnvelopeLayerAdapter[]) =>
+      wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters,
+        plaintext: '|RP|local-secret-envelope-payload',
+        recordId: 'hd-1',
+        strength: 'secure-storage-bound',
+      });
+    const secureStorageOnly = await wrapWith([secureStorageAdapter]);
+    const baseOnly = await wrapWith([baseAdapter]);
+    const dualLayer = await wrapWith([baseAdapter, secureStorageAdapter]);
+
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: secureStorageOnly,
+        nextEnvelope: baseOnly,
+      }),
+    ).toBe(true);
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: secureStorageOnly,
+        nextEnvelope: dualLayer,
+      }),
+    ).toBe(false);
+    expect(
+      isLocalSecretEnvelopeLayerTopologyDowngrade({
+        currentEnvelope: baseOnly,
+        nextEnvelope: dualLayer,
+      }),
+    ).toBe(false);
+  });
+
   it('wraps layers in order and unwraps them in reverse order', async () => {
     const calls: string[] = [];
     const adapters = [
@@ -562,6 +688,132 @@ describe('localSecretEnvelope wrapping pipeline', () => {
         resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
       }),
     ).resolves.toBe('|RP|new-current-kdf-payload');
+  });
+
+  it('adds a wrapping layer while preserving the existing key reference', async () => {
+    const calls: string[] = [];
+    const originalBaseAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'indexeddb-cryptokey',
+      keyRef: 'indexeddb:existing-device-key:v1',
+    });
+    const currentBaseAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'indexeddb-cryptokey',
+      keyRef: 'indexeddb:new-device-key:v1',
+    });
+    const enhancementAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'keychain',
+      keyRef: 'keychain:lse:v1',
+    });
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [originalBaseAdapter],
+      plaintext: '|RP|old-current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    calls.length = 0;
+
+    const upgradedEnvelope = await upgradeLocalSecretEnvelopeLayerTopologyV1({
+      envelope: originalEnvelope,
+      layerAdapters: [currentBaseAdapter, enhancementAdapter],
+      plaintext: '|RP|new-current-kdf-payload',
+      randomBytes: (length) => new Uint8Array(length).fill(8),
+      strength: 'secure-storage-bound',
+    });
+    const upgraded = parseLocalSecretEnvelopeV1(upgradedEnvelope);
+
+    expect(upgraded.wrappingLayers.map((layer) => layer.keyRef)).toEqual([
+      'indexeddb:existing-device-key:v1',
+      'keychain:lse:v1',
+    ]);
+    expect(upgraded.wrappingLayers[0].iv).toBe('080808080808080808080808');
+    expect(calls).toEqual([
+      'prepare:keychain:1',
+      'encrypt-existing:indexeddb-cryptokey:0',
+      'encrypt:keychain:1',
+    ]);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        resolveLayerAdapter: () => originalBaseAdapter,
+      }),
+    ).resolves.toBe('|RP|old-current-kdf-payload');
+    const adaptersByKind = new Map(
+      [currentBaseAdapter, enhancementAdapter].map((adapter) => [
+        adapter.kind,
+        adapter,
+      ]),
+    );
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: upgradedEnvelope,
+        resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
+      }),
+    ).resolves.toBe('|RP|new-current-kdf-payload');
+  });
+
+  it('cleans only newly prepared keys when a topology upgrade fails', async () => {
+    const calls: string[] = [];
+    const originalEnhancementAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'keychain',
+      keyRef: 'keychain:existing-key:v1',
+    });
+    const deleteNewBaseLayerKey = jest.fn();
+    const newBaseAdapter = {
+      ...buildMockLayerAdapter({
+        calls,
+        kind: 'indexeddb-cryptokey',
+        keyRef: 'indexeddb:new-device-key:v1',
+      }),
+      deleteLayerKey: deleteNewBaseLayerKey,
+    } satisfies ILocalSecretEnvelopeLayerAdapter;
+    const failingExistingEnhancementAdapter = {
+      ...buildMockLayerAdapter({
+        calls,
+        kind: 'keychain',
+        keyRef: 'keychain:unused-new-key:v1',
+      }),
+      encryptWithExistingKey: async () => {
+        throw new OneKeyLocalError('Mock existing-key encrypt failed');
+      },
+    } satisfies ILocalSecretEnvelopeLayerAdapter;
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [originalEnhancementAdapter],
+      plaintext: '|RP|old-current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    calls.length = 0;
+
+    await expect(
+      upgradeLocalSecretEnvelopeLayerTopologyV1({
+        envelope: originalEnvelope,
+        layerAdapters: [newBaseAdapter, failingExistingEnhancementAdapter],
+        plaintext: '|RP|new-current-kdf-payload',
+        strength: 'secure-storage-bound',
+      }),
+    ).rejects.toThrow('Mock existing-key encrypt failed');
+
+    expect(deleteNewBaseLayerKey).toHaveBeenCalledTimes(1);
+    expect(deleteNewBaseLayerKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layer: expect.objectContaining({
+          keyRef: 'indexeddb:new-device-key:v1',
+        }),
+        layerIndex: 0,
+      }),
+    );
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        resolveLayerAdapter: () => originalEnhancementAdapter,
+      }),
+    ).resolves.toBe('|RP|old-current-kdf-payload');
   });
 
   it('fails fast when a persisted layer has no available adapter', async () => {

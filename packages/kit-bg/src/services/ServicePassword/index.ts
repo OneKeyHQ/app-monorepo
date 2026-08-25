@@ -632,11 +632,15 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(password);
     await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     try {
-      await this.unLockApp();
       await this.saveBiologyAuthPassword(password);
       await this.setCachedPassword({ password });
       await this.setPasswordSetStatus(true, passwordMode);
       await localDb.setPassword({ password });
+      await this.prepareHyperLiquidAgentSecretSession({
+        password,
+        replaceSessionKey: true,
+      });
+      await this.unLockApp();
       return password;
     } catch (e) {
       await this.rollbackPassword();
@@ -666,6 +670,9 @@ export default class ServicePassword extends ServiceBase {
       newPassword,
       passwordMode,
     });
+    await this.prepareHyperLiquidAgentSecretSession({
+      password: oldPassword,
+    });
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
@@ -686,6 +693,11 @@ export default class ServicePassword extends ServiceBase {
           },
         ));
       await localDb.updatePassword({ oldPassword, newPassword });
+      await this.prepareHyperLiquidAgentSecretSession({
+        migrateCredentials: false,
+        password: newPassword,
+        replaceSessionKey: true,
+      });
       // Cache the new passcode only after every passcode-encrypted store
       // (master password, keyless blobs, local DB) has been re-encrypted:
       // setCachedPassword fires the passive keyless migration, which decrypts
@@ -750,6 +762,9 @@ export default class ServicePassword extends ServiceBase {
       kdfBackend,
       enablePbkdf2Cache,
     });
+    await this.prepareHyperLiquidAgentSecretSession({
+      password: verifyingPassword,
+    });
     await this.setCachedPassword({
       password: verifyingPassword,
     });
@@ -762,6 +777,37 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     return verifyingPassword;
+  }
+
+  private async prepareHyperLiquidAgentSecretSession({
+    migrateCredentials = true,
+    password,
+    replaceSessionKey = false,
+  }: {
+    migrateCredentials?: boolean;
+    password: string;
+    replaceSessionKey?: boolean;
+  }): Promise<void> {
+    if (platformEnv.isNative) {
+      return;
+    }
+    try {
+      await localDb.unlockHyperLiquidAgentSecretSession({
+        migrateCredentials,
+        password,
+        replaceSessionKey,
+        // Lazy initialization: skip the expensive session key derivation on
+        // unlock for users without any HyperLiquid agent credentials; the
+        // session is established on demand when the first credential is added.
+        skipWhenNoCredentials: true,
+      });
+    } catch {
+      // Wallet unlock must remain available if the Perps-only session cannot
+      // be initialized. HL signing stays fail-closed until the next unlock.
+      defaultLogger.app.error.log(
+        'HyperLiquid agent secret session initialization failed',
+      );
+    }
   }
 
   async runPostPasswordVerifyBackgroundTasks({
@@ -1057,6 +1103,13 @@ export default class ServicePassword extends ServiceBase {
       ...v,
       unLock: true,
     }));
+    try {
+      await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent session unlock marker update failed',
+      );
+    }
     await this.backgroundApi.serviceApp.dispatchUnlockJob();
   }
 
@@ -1080,6 +1133,20 @@ export default class ServicePassword extends ServiceBase {
       return;
     }
     await this.clearCachedPassword();
+    try {
+      await localDb.setHyperLiquidAgentSecretSessionUnlocked(false);
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent session lock marker update failed',
+      );
+    }
+    try {
+      await localDb.clearHyperLiquidAgentSecretSession();
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent secret session clear failed',
+      );
+    }
     if (manual) {
       await passwordPersistManualLockStateAtom.set(() => ({
         manualLocking: true,

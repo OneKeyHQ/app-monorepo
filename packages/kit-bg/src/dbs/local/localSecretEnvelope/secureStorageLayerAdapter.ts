@@ -10,6 +10,7 @@ import {
 
 import type {
   ILocalSecretEnvelopeLayerAdapter,
+  ILocalSecretEnvelopeLayerAvailability,
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
 
@@ -25,7 +26,10 @@ import type {
 export const DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF =
   'onekey_lse_secure_storage_v1';
 const DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}_probe`;
-const DEFAULT_SECURE_STORAGE_LSE_PROBE_TIMEOUT_MS = 5000;
+const DEFAULT_SECURE_STORAGE_LSE_PROBE_ATTEMPT_TIMEOUT_MS = 1200;
+const DEFAULT_SECURE_STORAGE_LSE_PROBE_TOTAL_TIMEOUT_MS = 5000;
+const DEFAULT_SECURE_STORAGE_LSE_PROBE_MAX_ATTEMPTS = 3;
+const DEFAULT_SECURE_STORAGE_LSE_RETRY_DELAYS_MS = [200, 800] as const;
 const SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS = 30_000;
 const SECURE_STORAGE_LSE_PROBE_RECORD_ID = 'secure-storage-probe';
 const SECURE_STORAGE_LSE_PROBE_PLAINTEXT =
@@ -49,8 +53,8 @@ type IBuildSecureStorageLocalSecretEnvelopeLayerAdapterParams = {
 
 type ISecureStorageProbeCacheEntry = {
   expiresAt: number;
-  inFlight?: Promise<boolean>;
-  value?: boolean;
+  inFlight?: Promise<ILocalSecretEnvelopeLayerAvailability>;
+  value?: ILocalSecretEnvelopeLayerAvailability;
 };
 
 const secureStorageProbeCache = new WeakMap<
@@ -199,20 +203,22 @@ function cleanupSecureStorageProbeKey({
   void secureStorage.removeSecureItem(keyRef).catch(() => undefined);
 }
 
-function resolveWithTimeout({
+function resolveWithTimeout<TValue>({
   onTimeout,
   promise,
+  timeoutValue,
   timeoutMs,
 }: {
   onTimeout: () => void;
-  promise: Promise<boolean>;
+  promise: Promise<TValue>;
+  timeoutValue: TValue;
   timeoutMs: number;
-}): Promise<boolean> {
+}): Promise<TValue> {
   if (timeoutMs <= 0) {
     onTimeout();
-    return Promise.resolve(false);
+    return Promise.resolve(timeoutValue);
   }
-  return new Promise<boolean>((resolve) => {
+  return new Promise<TValue>((resolve) => {
     let settled = false;
     const timeoutId = setTimeout(() => {
       if (settled) {
@@ -220,7 +226,7 @@ function resolveWithTimeout({
       }
       settled = true;
       onTimeout();
-      resolve(false);
+      resolve(timeoutValue);
     }, timeoutMs);
 
     promise
@@ -235,10 +241,17 @@ function resolveWithTimeout({
         if (!settled) {
           settled = true;
           clearTimeout(timeoutId);
-          resolve(false);
+          resolve(timeoutValue);
         }
       });
   });
+}
+
+function waitForRetry(delayMs: number): Promise<void> {
+  if (delayMs <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 async function probeSecureStorageLocalSecretEnvelopeLayer({
@@ -253,9 +266,12 @@ async function probeSecureStorageLocalSecretEnvelopeLayer({
   state: {
     keyRef?: string;
   };
-}): Promise<boolean> {
+}): Promise<ILocalSecretEnvelopeLayerAvailability> {
   let layerKeyRef: string | undefined;
   try {
+    if (!(await isSecureStorageSupportedWithoutInteraction(secureStorage))) {
+      return 'unsupported';
+    }
     const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
       keyRef: probeKeyRef,
       randomBytes,
@@ -295,29 +311,41 @@ async function probeSecureStorageLocalSecretEnvelopeLayer({
       layerIndex: 0,
       recordId: SECURE_STORAGE_LSE_PROBE_RECORD_ID,
     });
-    return plaintext === SECURE_STORAGE_LSE_PROBE_PLAINTEXT;
+    return plaintext === SECURE_STORAGE_LSE_PROBE_PLAINTEXT
+      ? 'available'
+      : 'temporarily-unavailable';
   } catch {
-    return false;
+    return 'temporarily-unavailable';
   } finally {
     cleanupSecureStorageProbeKey({ keyRef: layerKeyRef, secureStorage });
   }
 }
 
-export async function isSecureStorageLocalSecretEnvelopeLayerAvailable({
-  failureCacheTtlMs = SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS,
-  keyRef = DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF,
-  now = () => Date.now(),
-  probeTimeoutMs = DEFAULT_SECURE_STORAGE_LSE_PROBE_TIMEOUT_MS,
-  randomBytes,
-  secureStorage = secureStorageInstance,
-}: {
+type IGetSecureStorageLocalSecretEnvelopeLayerAvailabilityParams = {
   failureCacheTtlMs?: number;
   keyRef?: string;
+  maxAttempts?: number;
   now?: () => number;
   probeTimeoutMs?: number;
   randomBytes?: (length: number) => Uint8Array;
+  retryDelaysMs?: readonly number[];
   secureStorage?: ISecureStorageLocalSecretEnvelopeStorage;
-} = {}): Promise<boolean> {
+  sleep?: (delayMs: number) => Promise<void>;
+  totalTimeoutMs?: number;
+};
+
+export async function getSecureStorageLocalSecretEnvelopeLayerAvailability({
+  failureCacheTtlMs = SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS,
+  keyRef = DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF,
+  maxAttempts = DEFAULT_SECURE_STORAGE_LSE_PROBE_MAX_ATTEMPTS,
+  now = () => Date.now(),
+  probeTimeoutMs = DEFAULT_SECURE_STORAGE_LSE_PROBE_ATTEMPT_TIMEOUT_MS,
+  randomBytes,
+  retryDelaysMs = DEFAULT_SECURE_STORAGE_LSE_RETRY_DELAYS_MS,
+  secureStorage = secureStorageInstance,
+  sleep = waitForRetry,
+  totalTimeoutMs = DEFAULT_SECURE_STORAGE_LSE_PROBE_TOTAL_TIMEOUT_MS,
+}: IGetSecureStorageLocalSecretEnvelopeLayerAvailabilityParams = {}): Promise<ILocalSecretEnvelopeLayerAvailability> {
   const entry = getSecureStorageProbeCacheEntry({
     cacheKey: keyRef,
     secureStorage,
@@ -330,27 +358,55 @@ export async function isSecureStorageLocalSecretEnvelopeLayerAvailable({
     return entry.inFlight;
   }
 
-  const state: { keyRef?: string } = {};
-  const probePromise = resolveWithTimeout({
-    onTimeout: () =>
-      cleanupSecureStorageProbeKey({
-        keyRef: state.keyRef,
-        secureStorage,
-      }),
-    promise: probeSecureStorageLocalSecretEnvelopeLayer({
-      keyRef,
-      randomBytes,
-      secureStorage,
-      state,
-    }),
-    timeoutMs: probeTimeoutMs,
-  })
-    .then((available) => {
-      entry.value = available;
-      entry.expiresAt = available
-        ? Number.POSITIVE_INFINITY
-        : now() + failureCacheTtlMs;
-      return available;
+  const probePromise = (async () => {
+    const deadline = now() + Math.max(0, totalTimeoutMs);
+    const attemptCount = Math.max(1, Math.floor(maxAttempts));
+
+    for (let attemptIndex = 0; attemptIndex < attemptCount; attemptIndex += 1) {
+      if (attemptIndex > 0) {
+        const delayMs = retryDelaysMs[attemptIndex - 1] ?? 0;
+        const remainingBeforeDelay = deadline - now();
+        if (remainingBeforeDelay <= 0) {
+          return 'temporarily-unavailable' as const;
+        }
+        await sleep(Math.min(delayMs, remainingBeforeDelay));
+      }
+
+      const remainingMs = deadline - now();
+      if (remainingMs <= 0) {
+        return 'temporarily-unavailable' as const;
+      }
+      const state: { keyRef?: string } = {};
+      const attemptKeyRef =
+        attemptIndex === 0 ? keyRef : `${keyRef}_${attemptIndex + 1}`;
+      const availability = await resolveWithTimeout({
+        onTimeout: () =>
+          cleanupSecureStorageProbeKey({
+            keyRef: state.keyRef,
+            secureStorage,
+          }),
+        promise: probeSecureStorageLocalSecretEnvelopeLayer({
+          keyRef: attemptKeyRef,
+          randomBytes,
+          secureStorage,
+          state,
+        }),
+        timeoutMs: Math.min(probeTimeoutMs, remainingMs),
+        timeoutValue: 'temporarily-unavailable' as const,
+      });
+      if (availability !== 'temporarily-unavailable') {
+        return availability;
+      }
+    }
+    return 'temporarily-unavailable' as const;
+  })()
+    .then((availability) => {
+      entry.value = availability;
+      entry.expiresAt =
+        availability === 'temporarily-unavailable'
+          ? now() + failureCacheTtlMs
+          : Number.POSITIVE_INFINITY;
+      return availability;
     })
     .finally(() => {
       if (entry.inFlight === probePromise) {
@@ -359,4 +415,13 @@ export async function isSecureStorageLocalSecretEnvelopeLayerAvailable({
     });
   entry.inFlight = probePromise;
   return probePromise;
+}
+
+export async function isSecureStorageLocalSecretEnvelopeLayerAvailable(
+  params: IGetSecureStorageLocalSecretEnvelopeLayerAvailabilityParams = {},
+): Promise<boolean> {
+  return (
+    (await getSecureStorageLocalSecretEnvelopeLayerAvailability(params)) ===
+    'available'
+  );
 }
