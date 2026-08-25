@@ -296,10 +296,12 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
-  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  // Use colored style only for normal trading states (has amount, not
+  // disabled, has account); the stale-quote refresh prompt stays neutral.
   let shouldUseColoredStyle =
     hasAmount &&
-    (quoteRefreshAvailable || !shouldDisable) &&
+    !shouldDisable &&
+    !quoteRefreshAvailable &&
     !noAccount &&
     !disabled;
 

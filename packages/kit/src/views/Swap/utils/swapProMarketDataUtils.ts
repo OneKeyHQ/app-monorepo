@@ -15,9 +15,9 @@ export type ISwapProMarketData = {
   hasLoadedSource: boolean;
 };
 
-const SWAP_PRO_TRANSACTION_LIMIT = 10;
+export const SWAP_PRO_TRANSACTION_LIMIT = 10;
 
-function getTransactionIdentity(transaction: ISwapProMarketTransaction) {
+export function getTransactionIdentity(transaction: ISwapProMarketTransaction) {
   return (
     transaction.hash ||
     `${transaction.timestamp}:${transaction.type}:${transaction.from.amount}:${transaction.to.amount}`
