@@ -88,6 +88,18 @@ function getRequestLimiter(api: DesktopApiSniRequest): SniRequestLimiter {
   ).requestLimiter;
 }
 
+function getSniAgent(
+  api: DesktopApiSniRequest,
+): https.Agent & { getName(options: RequestOptions): string } {
+  return (
+    api as unknown as {
+      agentState: {
+        agent: https.Agent & { getName(options: RequestOptions): string };
+      };
+    }
+  ).agentState.agent;
+}
+
 describe('DesktopApiSniRequest OSCS validation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -345,6 +357,51 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     const queuedRelease = await queuedReleasePromise;
     expect(queuedStarted).toBe(true);
     queuedRelease();
+  });
+
+  test('uses one limiter bucket for IPv4 and mapped IPv6 forms', async () => {
+    const limiter = new SniRequestLimiter(2, 1);
+    const releaseActive = await limiter.acquire('Example.com', '93.184.216.34');
+    let queuedStarted = false;
+    const queuedReleasePromise = limiter
+      .acquire('example.com', '::ffff:93.184.216.34')
+      .then((release) => {
+        queuedStarted = true;
+        return release;
+      });
+
+    await flushMicrotasks();
+    expect(queuedStarted).toBe(false);
+    expect(limiter.snapshot('example.com', '::ffff:93.184.216.34')).toEqual({
+      activeRequests: 1,
+      activeRequestsForPair: 1,
+      pendingRequests: 1,
+      pendingRequestsForPair: 1,
+    });
+
+    releaseActive();
+    const queuedRelease = await queuedReleasePromise;
+    expect(queuedStarted).toBe(true);
+    queuedRelease();
+  });
+
+  test('uses one HTTPS agent identity for IPv4 and mapped IPv6 forms', () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const agent = getSniAgent(api);
+
+    expect(
+      agent.getName({
+        host: '::ffff:93.184.216.34',
+        servername: 'example.com',
+        port: 443,
+      }),
+    ).toBe(
+      agent.getName({
+        host: '93.184.216.34',
+        servername: 'example.com',
+        port: 443,
+      }),
+    );
   });
 
   test('exposes the live 16 active plus pending limiter state in development', async () => {

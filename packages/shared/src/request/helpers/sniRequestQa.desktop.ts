@@ -4,7 +4,6 @@ import type { ISniRequestQaAdapter } from './sniRequestQa';
 
 export const sniRequestQaAdapter: ISniRequestQaAdapter = {
   transportLabel: 'Electron main process',
-  supportsRequestIdSnapshot: false,
   async clearDNSCache() {
     const proxy = globalThis.desktopApiProxy?.sniRequest;
     if (typeof proxy?.clearDNSCache !== 'function') {

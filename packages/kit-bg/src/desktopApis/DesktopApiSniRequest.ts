@@ -158,6 +158,16 @@ function getIpFamily(ip: string): string {
   return ip.includes(':') ? 'ipv6' : 'ipv4';
 }
 
+function canonicalizeSniDestinationIp(ip: string): string {
+  if (!ipaddr.isValid(ip)) {
+    return ip;
+  }
+  const address = ipaddr.process(ip);
+  return address.kind() === 'ipv6'
+    ? address.toNormalizedString()
+    : address.toString();
+}
+
 function getProxyRuleType(
   proxyRules: string,
 ): 'direct' | 'proxy' | 'mixed' | 'unknown' {
@@ -472,7 +482,7 @@ function createCustomAgent(): https.Agent {
     const ip = options.host || '';
     const hostname = options.servername || '';
     const port = options.port || 443;
-    return `${hostname}:${ip}:${port}`;
+    return `${hostname}:${canonicalizeSniDestinationIp(ip)}:${port}`;
   };
   return agent;
 }
@@ -550,12 +560,7 @@ export class SniRequestLimiter {
   private pendingRequests: SniRequestLimiterWaiter[] = [];
 
   private getKey(hostname: string, ip: string): string {
-    const address = ipaddr.isValid(ip) ? ipaddr.parse(ip) : null;
-    const canonicalIp =
-      address?.kind() === 'ipv6'
-        ? address.toNormalizedString()
-        : (address?.toString() ?? ip);
-    return `${hostname.toLowerCase()}|${canonicalIp}`;
+    return `${hostname.toLowerCase()}|${canonicalizeSniDestinationIp(ip)}`;
   }
 
   private hasCapacity(key: string): boolean {
