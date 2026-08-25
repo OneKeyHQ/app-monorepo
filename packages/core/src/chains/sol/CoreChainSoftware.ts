@@ -163,7 +163,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const versionKind = classifyOffchainMessageVersion(
         messagePayload?.version,
       );
-      if (versionKind === 'v1') {
+      if (versionKind === 'unsupported') {
+        throw new OneKeyLocalError(
+          `sol offchain message: unsupported version ${String(
+            messagePayload?.version,
+          )}`,
+        );
+      }
+
+      // classifyOffchainMessageVersion decides what is supported; this reads the
+      // discriminant, which is what narrows the payload to its version 1 shape.
+      if (messagePayload?.version === 1) {
         const requiredSigners = messagePayload.requiredSigners.map((signer_) =>
           bs58.decode(signer_),
         );
@@ -190,14 +200,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           Buffer.from(signedOffchainMessage),
         );
         return bs58.encode(signature);
-      }
-
-      if (versionKind === 'unsupported') {
-        throw new OneKeyLocalError(
-          `sol offchain message: unsupported version ${String(
-            messagePayload?.version,
-          )}`,
-        );
       }
 
       const offchainMessage = new OffchainMessage({

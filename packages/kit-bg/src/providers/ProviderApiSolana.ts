@@ -320,7 +320,9 @@ class ProviderApiSolana extends ProviderApiBase {
       );
     }
 
-    if (versionKind === 'v1') {
+    // classifyOffchainMessageVersion decides what is supported; this reads the
+    // discriminant, which is what narrows the params to their version 1 shape.
+    if (params.version === 1) {
       const { message, requiredSigners } = params;
 
       if (!isString(message) || message.length === 0) {
