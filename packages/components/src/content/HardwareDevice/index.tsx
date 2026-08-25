@@ -119,6 +119,9 @@ const REPLICAS: Partial<
   pro: ProDevice,
   touch: TouchDevice,
   pro2: Pro2Device,
+  // Neo has no replica of its own yet; the Pro 2 stands in until the
+  // design lands one (OK-59934, handover doc §07).
+  neo: Pro2Device,
 };
 
 export function HardwareDevice({

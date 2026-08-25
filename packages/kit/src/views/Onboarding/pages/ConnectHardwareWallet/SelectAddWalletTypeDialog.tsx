@@ -88,7 +88,12 @@ export function useSelectAddWalletTypeDialog() {
     // FullWindowOverlay before mounting another Sheet. The background atom
     // write can finish before the main runtime commits the close, so a fixed
     // delay can still leave the old overlay intercepting touches.
-    if (platformEnv.isNativeIOS) {
+    // OK-59934: the DeviceStage is not the legacy DialogContainer — it does
+    // not remount per action and never steals taps, so the close-and-wait
+    // below (which would also break the burst) is only for the old surface.
+    const deviceStageEnabled =
+      await backgroundApiProxy.serviceHardwareUI.isDeviceStageEnabled();
+    if (platformEnv.isNativeIOS && !deviceStageEnabled) {
       await hardwareUiStateDialogLifecycle.closeAndWait(() =>
         backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: undefined,

@@ -28,6 +28,7 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -108,6 +109,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
@@ -607,10 +609,13 @@ function CheckAndUpdatePage({
         });
       } finally {
         cancelTimeout();
+        // The last hardware word of this page's run.
+        void endBurst();
       }
     },
     [
       createStepTimeout,
+      endBurst,
       ensureTransportType,
       getActiveDevice,
       currentDevice,
@@ -736,6 +741,17 @@ function CheckAndUpdatePage({
       // Double-check: ensure device scanning is fully stopped before starting verification
       await ensureStopScan();
       await ensureTransportType();
+      // One stage for the whole check: the genuine run and the firmware
+      // check that follows are one conversation with the device, and the
+      // seam between them must not show.
+      const burstDevice = (getActiveDevice() ??
+        currentDevice ??
+        deviceData.device) as SearchDevice | undefined;
+      await ensureBurst({
+        connectId: burstDevice?.connectId ?? undefined,
+        deviceType: burstDevice?.deviceType,
+        deviceName: burstDevice?.name ?? undefined,
+      });
 
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -800,6 +816,9 @@ function CheckAndUpdatePage({
           setTimeout(() => {
             void checkFirmwareUpdate();
           }, 150);
+        } else {
+          // Nothing follows — the conversation is over, so the stage may go.
+          void endBurst();
         }
         isFirmwareVerifiedRef.current = !!result.verified;
       } catch (_error) {
@@ -816,6 +835,8 @@ function CheckAndUpdatePage({
     [
       ensureStopScan,
       ensureTransportType,
+      ensureBurst,
+      endBurst,
       verifyHardware,
       deviceData.device,
       tabValue,
