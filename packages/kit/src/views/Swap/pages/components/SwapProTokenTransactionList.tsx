@@ -27,10 +27,11 @@ import {
 import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
 import type { LayoutChangeEvent } from 'react-native';
 
-// The last row may overhang the container by a few px without clipping
-// visible glyphs; keep this at the 3px centering slack plus 1px rounding so
-// subscript digits in tiny prices are never sheared.
-const LAST_ROW_CLIP_TOLERANCE = 4;
+// The last row may overhang the container by up to 6px: its 16px text box is
+// centered in the 22px row, so the overhang consumes the 3px bottom slack and
+// at most ~3px of descender-free box below the digits. Smaller values drop a
+// row that visibly fits on real devices.
+const LAST_ROW_CLIP_TOLERANCE = 6;
 
 const unsupportedSourceContent = (
   <XStack justifyContent="space-between">
@@ -71,11 +72,10 @@ const SwapProTokenTransactionList = ({
     [marketData.transactions, maxRows],
   );
   let transactionListContent = unsupportedSourceContent;
-  if (
-    marketData.isSourceSupported &&
-    !marketData.hasLoadedSource &&
-    finallyTransactionList.length === 0
-  ) {
+  // Keep the skeleton up until the initial batch lands, even if websocket
+  // trades have already trickled in — the list then fills in one shot instead
+  // of growing row by row after a token switch
+  if (marketData.isSourceSupported && !marketData.hasLoadedSource) {
     // The data feed never returns more than SWAP_PRO_TRANSACTION_LIMIT rows,
     // so don't render skeletons real data can never fill
     const skeletonRows = Math.min(maxRows, SWAP_PRO_TRANSACTION_LIMIT);
@@ -117,6 +117,7 @@ const SwapProTokenTransactionList = ({
               overflow="hidden"
               borderRadius={6.5}
               bg="#072723"
+              opacity={0.6}
             >
               <Image
                 position="absolute"
