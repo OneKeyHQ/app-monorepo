@@ -103,6 +103,9 @@ export interface IStageDriver {
   goAuthSuccess: () => void;
   /** The failure, rows marked for the unofficial-firmware reason. */
   goAuthFailure: () => void;
+  /** The actionless error — the notice shape: no recovery to offer, so
+   * the stage informs and leaves on its own. */
+  goErrorNotice: () => void;
   /** Everything wired: spread onto <DeviceStage/> after the story args. */
   stageProps: Partial<IDeviceStageProps>;
 }
@@ -113,6 +116,7 @@ export function useStageDriver(
   const { errorReason, authFailureReason } = props;
   const [step, setStep] = useState<IDeviceStageStep>('off');
   const [inputError, setInputError] = useState<string | undefined>(undefined);
+  const [errorNotice, setErrorNotice] = useState(false);
   const [authRows, setAuthRows] = useState<IAuthChecklistItem[] | undefined>(
     undefined,
   );
@@ -126,10 +130,17 @@ export function useStageDriver(
     (next: IDeviceStageStep) => {
       clearAuthTimers();
       setInputError(undefined);
+      setErrorNotice(false);
       setStep(next);
     },
     [clearAuthTimers],
   );
+  // The notice's own entry: the same error step with its action withheld.
+  // Ordered after go() so the flag survives the reset in the same batch.
+  const goErrorNotice = useCallback(() => {
+    go('error');
+    setErrorNotice(true);
+  }, [go]);
   const wrongPin = useCallback(() => {
     setInputError('Wrong PIN. Try again.');
     setStep('pinOnApp');
@@ -210,7 +221,9 @@ export function useStageDriver(
       return undefined;
     }
     if (closable) return undefined;
-    if (AUTH_STEPS.has(step)) {
+    // The notice means to leave by itself, and its exit rides the close
+    // grant — so a driver playing one grants close with it, at once.
+    if (AUTH_STEPS.has(step) || (step === 'error' && errorNotice)) {
       setClosable(true);
       return undefined;
     }
@@ -219,7 +232,7 @@ export function useStageDriver(
       WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
     );
     return () => clearTimeout(id);
-  }, [closable, step]);
+  }, [closable, errorNotice, step]);
   const close = useCallback(() => {
     // A dismissed form would otherwise leave its keyboard standing.
     Keyboard.dismiss();
@@ -234,6 +247,7 @@ export function useStageDriver(
     startAuthChecklist,
     goAuthSuccess,
     goAuthFailure,
+    goErrorNotice,
     stageProps: {
       step,
       onClose: closable ? close : undefined,
@@ -249,7 +263,7 @@ export function useStageDriver(
       onSwitchToDevice: handleSwitchToDevice,
       onQrNext: handleQrNext,
       onQrBack: handleQrBack,
-      onErrorAction: handleErrorAction,
+      onErrorAction: errorNotice ? undefined : handleErrorAction,
     },
   };
 }
