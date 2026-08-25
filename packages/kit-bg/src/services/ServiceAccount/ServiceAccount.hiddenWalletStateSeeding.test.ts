@@ -149,6 +149,7 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
       'getPassphraseState',
       'waitForDeviceStateSync',
       'getFeaturesForHwWalletCreate',
+      'waitForDeviceStateSync',
     ]);
     expect(service.getFeaturesForHwWalletCreate).toHaveBeenCalledWith({
       dbDevice: expect.objectContaining({ deviceStateInfo: SEEDED_STATE }),
@@ -304,19 +305,27 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
   it('reports isAttachPinMode from the persisted post-unlock state', async () => {
     const callOrder: string[] = [];
     const dbDevice = buildDbDevice({ connectProtocol: 'V1' });
-    const { service } = buildService({
+    const postUnlockState = {
+      ...SEEDED_STATE,
+      status: { mode: 'normal', unlockedAttachPin: false },
+    } as unknown as IOneKeyDeviceState;
+    const postDerivationState = {
+      ...SEEDED_STATE,
+      status: { mode: 'normal', unlockedAttachPin: true },
+    } as unknown as IOneKeyDeviceState;
+    const { service, getDeviceByConnectIdMock } = buildService({
       dbDevice,
       callOrder,
       latestDbDevice: {
-        deviceStateInfo: {
-          ...SEEDED_STATE,
-          status: { mode: 'normal', unlockedAttachPin: true },
-        } as unknown as IOneKeyDeviceState,
+        deviceStateInfo: postUnlockState,
       },
     });
+    getDeviceByConnectIdMock
+      .mockResolvedValueOnce({ deviceStateInfo: postUnlockState })
+      .mockResolvedValueOnce({ deviceStateInfo: postDerivationState });
     service.getFeaturesForHwWalletCreate.mockResolvedValue({
       deviceId: 'DEVICE_ID_1',
-      unlockedAttachPin: true,
+      unlockedAttachPin: false,
     });
 
     const result = (await service.createHWHiddenWallet({

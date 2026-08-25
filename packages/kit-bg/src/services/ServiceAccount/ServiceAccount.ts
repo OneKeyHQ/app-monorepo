@@ -3769,9 +3769,36 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
+        // Derivation calls inside createHWWalletBase may emit a newer
+        // DEVICE.STATE event, so prefer the latest persisted attach-PIN state.
+        let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
+        if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
+          try {
+            await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
+              connectIds: [
+                compatibleConnectId,
+                dbDevice.connectId,
+                dbDevice.deviceId,
+                seededDbDevice.deviceStateInfo?.identity.serialNo,
+              ],
+            });
+            const latestDbDevice =
+              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+                connectId,
+              });
+            const latestUnlockedAttachPin =
+              latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
+            if (typeof latestUnlockedAttachPin === 'boolean') {
+              isAttachPinMode = latestUnlockedAttachPin;
+            }
+          } catch {
+            // Keep the resolved-features fallback.
+          }
+        }
+
         return {
           ...dbWallet,
-          isAttachPinMode: resolvedFeatures.unlockedAttachPin,
+          isAttachPinMode,
         };
       },
       {
