@@ -7,6 +7,7 @@ import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
@@ -148,6 +149,7 @@ export function PerpMarketWorkspacePanel({
   const shouldRenderInfo = mountedInfoMarketKey === marketKey;
   const shouldRenderFunding =
     mode === 'perp' && mountedFundingMarketKey === marketKey;
+  const isFundingActive = visibleActiveView === 'funding';
 
   return (
     <YStack flex={1} minHeight={0}>
@@ -169,7 +171,7 @@ export function PerpMarketWorkspacePanel({
         ))}
       </XStack>
 
-      <YStack flex={1} minHeight={0}>
+      <YStack flex={1} minHeight={0} position="relative">
         <YStack
           flex={1}
           minHeight={0}
@@ -184,14 +186,20 @@ export function PerpMarketWorkspacePanel({
         {shouldRenderFunding ? (
           <YStack
             key={`funding-${mountedFundingMarketKey}`}
-            flex={1}
+            testID="perp-funding-workspace-panel"
+            position="absolute"
+            inset={0}
             minHeight={0}
-            display={visibleActiveView === 'funding' ? 'flex' : 'none'}
+            opacity={isFundingActive ? 1 : 0}
+            pointerEvents={isFundingActive ? 'auto' : 'none'}
+            aria-hidden={!isFundingActive}
+            accessibilityElementsHidden={!isFundingActive}
+            importantForAccessibility={
+              isFundingActive ? 'auto' : 'no-hide-descendants'
+            }
+            {...(platformEnv.isNative ? {} : { inert: !isFundingActive })}
           >
-            <PerpFundingChart
-              coin={coin}
-              isActive={visibleActiveView === 'funding'}
-            />
+            <PerpFundingChart coin={coin} isActive={isFundingActive} />
           </YStack>
         ) : null}
 
