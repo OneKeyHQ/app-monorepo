@@ -31,6 +31,7 @@ import {
   thirdPartyAppInstallAtom,
   thirdPartyBatchInstallAtom,
   thirdPartyHardwareUiStateAtom,
+  useDeviceStageEnabledAtom,
   useThirdPartyAppInstallAtom,
   useThirdPartyBatchInstallAtom,
   useThirdPartyHardwareUiStateAtom,
@@ -679,7 +680,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const [appInstallState] = useThirdPartyAppInstallAtom();
 
-  const dialogActive = !!appInstallState;
+  // OK-59934: the DeviceStage install steps replace this dialog.
+  const [deviceStageEnabledForInstall] = useDeviceStageEnabledAtom();
+  const dialogActive = !deviceStageEnabledForInstall && !!appInstallState;
   useEffect(() => {
     if (dialogActive) {
       // reuse the open dialog; cancel any pending close
@@ -732,10 +735,20 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     [],
   );
 
-  const isToastAction = isThirdPartyToastAction(uiState?.action);
+  // OK-59934: while the DeviceStage driver is on, the toast and the
+  // request dialogs are muted (the stage replaces them). The Trezor BLE
+  // binding dialog and the permission dialog stay — both are explicitly
+  // outside the stage's scope.
+  const [deviceStageEnabled] = useDeviceStageEnabledAtom();
+  const isToastAction =
+    !deviceStageEnabled && isThirdPartyToastAction(uiState?.action);
   const isTrezorBleBinding =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding;
-  const isDialogAction = !!uiState && !isToastAction && !isTrezorBleBinding;
+  const isDialogAction =
+    !deviceStageEnabled &&
+    !!uiState &&
+    !isThirdPartyToastAction(uiState?.action) &&
+    !isTrezorBleBinding;
 
   // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);
