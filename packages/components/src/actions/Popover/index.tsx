@@ -674,7 +674,7 @@ function Tooltip({
   const contentMemo = useMemo(
     () =>
       renderContent || (
-        <YStack px="$5" pb="$5" pt={platformEnv.isNative ? '$0' : '$5'}>
+        <YStack p="$5">
           <SizableText size="$bodyLg">{tooltip}</SizableText>
         </YStack>
       ),

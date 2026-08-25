@@ -82,59 +82,47 @@ describe('recipientSelectionUtils', () => {
     ).toBe(false);
   });
 
-  it('resolves address risk check button states', () => {
+  const supportedPrimeState: Parameters<
+    typeof getSendAddressRiskCheckButtonState
+  >[0] = {
+    currentNetworkId: 'evm--1',
+    supportNetworkId: 'evm--1',
+    isSupported: true,
+    isPrimeUser: true,
+    resolvedAddress: '0xabc',
+  };
+
+  it.each<
+    [
+      string,
+      Partial<typeof supportedPrimeState>,
+      ReturnType<typeof getSendAddressRiskCheckButtonState>,
+    ]
+  >([
+    ['hides unsupported networks', { isSupported: false }, 'hidden'],
+    [
+      'loads while support belongs to the previous network',
+      { currentNetworkId: 'evm--137' },
+      'loading',
+    ],
+    [
+      'keeps the Prime upsell actionable without an address',
+      { isPrimeUser: false, resolvedAddress: undefined },
+      'enabled',
+    ],
+    [
+      'disables a Prime check without a resolved address',
+      { resolvedAddress: undefined },
+      'disabled',
+    ],
+    ['disables a pending Prime check', { isPending: true }, 'disabled'],
+    ['enables a resolved Prime check', {}, 'enabled'],
+  ])('%s', (_name, overrides, expected) => {
     expect(
       getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--1',
-        supportNetworkId: 'evm--1',
-        isSupported: false,
-        isPrimeUser: true,
-        resolvedAddress: '0xabc',
+        ...supportedPrimeState,
+        ...overrides,
       }),
-    ).toBe('hidden');
-    expect(
-      getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--137',
-        supportNetworkId: 'evm--1',
-        isSupported: true,
-        isPrimeUser: true,
-        resolvedAddress: '0xabc',
-      }),
-    ).toBe('loading');
-    expect(
-      getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--1',
-        supportNetworkId: 'evm--1',
-        isSupported: true,
-        isPrimeUser: false,
-      }),
-    ).toBe('enabled');
-    expect(
-      getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--1',
-        supportNetworkId: 'evm--1',
-        isSupported: true,
-        isPrimeUser: true,
-      }),
-    ).toBe('disabled');
-    expect(
-      getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--1',
-        supportNetworkId: 'evm--1',
-        isSupported: true,
-        isPrimeUser: true,
-        resolvedAddress: '0xabc',
-        isPending: true,
-      }),
-    ).toBe('disabled');
-    expect(
-      getSendAddressRiskCheckButtonState({
-        currentNetworkId: 'evm--1',
-        supportNetworkId: 'evm--1',
-        isSupported: true,
-        isPrimeUser: true,
-        resolvedAddress: '0xabc',
-      }),
-    ).toBe('enabled');
+    ).toBe(expected);
   });
 });

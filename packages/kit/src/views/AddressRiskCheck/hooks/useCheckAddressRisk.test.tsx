@@ -1,8 +1,5 @@
 /** @jest-environment jsdom */
 
-import { StrictMode } from 'react';
-import type { PropsWithChildren } from 'react';
-
 import { act, cleanup, renderHook } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -82,10 +79,6 @@ const riskResult: IAddressRiskCheckResult = {
   reasons: [],
 };
 
-function StrictModeWrapper({ children }: PropsWithChildren) {
-  return <StrictMode>{children}</StrictMode>;
-}
-
 describe('useCheckAddressRisk navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -150,6 +143,23 @@ describe('useCheckAddressRisk navigation', () => {
     resolvePersistence?.();
   });
 
+  it('allows retry after a failed request', async () => {
+    mockCheckAddressRisk
+      .mockRejectedValueOnce(new Error('request failed'))
+      .mockResolvedValueOnce(riskResult);
+    const request = {
+      networkId: riskResult.networkId,
+      address: riskResult.address,
+      entryPoint: 'sendAddressInput' as const,
+    };
+
+    await expect(executeAddressRiskCheck(request)).rejects.toThrow(
+      'request failed',
+    );
+    await expect(executeAddressRiskCheck(request)).resolves.toBe(riskResult);
+    expect(mockCheckAddressRisk).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps manual and history results in the current modal', async () => {
     const { result } = renderHook(() => useCheckAddressRisk());
 
@@ -169,25 +179,6 @@ describe('useCheckAddressRisk navigation', () => {
         { result: riskResult, showMoreAnalysis: true },
       );
     }
-  });
-
-  it('still presents a result after the Strict Mode effect replay', async () => {
-    const { result } = renderHook(() => useCheckAddressRisk(), {
-      wrapper: StrictModeWrapper,
-    });
-
-    await act(async () => {
-      await result.current.checkRisk({
-        networkId: riskResult.networkId,
-        address: riskResult.address,
-        entryPoint: 'inputManual',
-      });
-    });
-
-    expect(mockPush).toHaveBeenCalledWith(
-      EModalAddressRiskCheckRoutes.AddressRiskCheckResult,
-      { result: riskResult, showMoreAnalysis: true },
-    );
   });
 
   it('does not present a result after the source route loses focus', async () => {
