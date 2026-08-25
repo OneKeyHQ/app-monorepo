@@ -160,6 +160,8 @@ function DeviceStageContainerCmp() {
       confirmDetails={stage?.confirmDetails}
       confirmMessage={stage?.confirmMessage}
       confirmDescription={stage?.confirmDescription}
+      confirmDescriptionDanger={stage?.confirmDescriptionDanger}
+      confirmCount={stage?.confirmCount}
       onClose={closable ? handleClose : undefined}
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
