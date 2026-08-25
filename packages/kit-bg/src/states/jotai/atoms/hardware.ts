@@ -192,6 +192,21 @@ export type IDeviceStageState = {
   connectId?: string;
   deviceType?: IDeviceType;
   deviceName?: string;
+  /** Third-party track: dresses the stage for Trezor / Ledger. */
+  vendor?: EHardwareVendor;
+  /** SDK model code (T3W1 / nanoX …) → the capsule's real product shot. */
+  vendorModel?: string;
+  vendorModelName?: string;
+  /** The original third-party action — the container builds UI responses
+   * from it without reverse-mapping steps. */
+  thirdPartyAction?: EThirdPartyHardwareUiAction;
+  /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
+  appName?: string;
+  installProgress?: number;
+  installQueue?: string[];
+  installActiveIndex?: number;
+  btcHighIndexPath?: string;
+  btcHighIndexAccountIndex?: number;
   errorReason?: IDeviceStageErrorReasonValue;
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;
