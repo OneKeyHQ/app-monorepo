@@ -3555,9 +3555,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
-        const isSelectedWalletRemoved = Boolean(
+        let isSelectedWalletRemoved = Boolean(
           removedWalletId && selectedAccount?.walletId === removedWalletId,
         );
+        if (
+          removedWalletId &&
+          selectedAccount?.walletId &&
+          !isSelectedWalletRemoved
+        ) {
+          const selectedWalletInDb = await serviceAccount.getWalletSafe({
+            walletId: selectedAccount.walletId,
+          });
+          isSelectedWalletRemoved = !selectedWalletInDb;
+        }
         // Mocked wallets need replacement. Deprecated wallets remain readable.
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||

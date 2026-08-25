@@ -19,10 +19,11 @@ const mockAccountSelectorActions = {
     autoSelectNextAccount: mockAutoSelectNextAccount,
   },
 };
+let mockSceneName = EAccountSelectorSceneName.home;
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useAccountSelectorSceneInfo: () => ({
-    sceneName: EAccountSelectorSceneName.home,
+    sceneName: mockSceneName,
     sceneUrl: undefined,
   }),
   useAccountSelectorStorageReadyAtom: () => [false],
@@ -48,11 +49,12 @@ jest.mock('@onekeyhq/kit/src/utils/deferHeavyWork', () => ({
 describe('useAutoSelectAccount', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSceneName = EAccountSelectorSceneName.home;
     mockAutoSelectNextAccount.mockResolvedValue(undefined);
   });
 
   it('forwards an actual wallet removal to account selection', async () => {
-    renderHook(() => useAutoSelectAccount({ num: 0 }));
+    const { unmount } = renderHook(() => useAutoSelectAccount({ num: 0 }));
 
     act(() => {
       appEventBus.emitToSelf({
@@ -71,5 +73,23 @@ describe('useAutoSelectAccount', () => {
         removedWalletId: 'hd-keyless-1',
       });
     });
+
+    unmount();
+  });
+
+  it('does not silently rebind a connected DApp after wallet removal', () => {
+    mockSceneName = EAccountSelectorSceneName.discover;
+    const { unmount } = renderHook(() => useAutoSelectAccount({ num: 0 }));
+
+    act(() => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.WalletRemove,
+        payload: { walletId: 'hd-connected' },
+        isRemote: false,
+      });
+    });
+
+    expect(mockAutoSelectNextAccount).not.toHaveBeenCalled();
+    unmount();
   });
 });

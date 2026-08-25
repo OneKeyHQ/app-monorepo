@@ -71,6 +71,11 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   // **** autoSelectAccount after WalletRemove
   useEffect(() => {
     const fn = async ({ walletId }: { walletId: string }) => {
+      // A connected DApp must be disconnected instead of silently rebound to
+      // a fallback wallet while background cleanup is still in progress.
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return;
+      }
       await actions.current.autoSelectNextAccount({
         num,
         sceneName,
