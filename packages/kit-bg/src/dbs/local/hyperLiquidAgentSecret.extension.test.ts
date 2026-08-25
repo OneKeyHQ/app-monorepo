@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 
 import { encodePasswordAsync } from '@onekeyhq/core/src/secret';
 import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import * as indexedDbCryptoKeyStore from '@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { HyperLiquidAgentSecretSession } from './hyperLiquidAgentSecret';
@@ -14,6 +15,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore')
+  >('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore');
+  return {
+    ...actual,
+    deleteCryptoKeyRecord: jest.fn(actual.deleteCryptoKeyRecord),
+  };
+});
+
 jest.mock('../../states/jotai/atoms/settings', () => ({
   settingsPersistAtom: {
     get: jest.fn(async () => ({
@@ -24,6 +35,15 @@ jest.mock('../../states/jotai/atoms/settings', () => ({
 
 describe('HyperLiquid agent Extension session', () => {
   const sessionStorageData: Record<string, unknown> = {};
+
+  beforeEach(() => {
+    const actual = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore')
+    >('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore');
+    jest
+      .mocked(indexedDbCryptoKeyStore.deleteCryptoKeyRecord)
+      .mockImplementation(actual.deleteCryptoKeyRecord);
+  });
 
   beforeAll(() => {
     Object.defineProperty(globalThis, 'chrome', {
@@ -104,5 +124,56 @@ describe('HyperLiquid agent Extension session', () => {
     await expect(
       restartedWorkerSession.restorePersistedSession(),
     ).resolves.toEqual({ restored: false, unlocked: false });
+  });
+
+  it('cannot restore a stale browser payload written after clear', async () => {
+    const password = await encodePasswordAsync({
+      password: 'test-extension-password',
+    });
+    const firstWorkerSession = new HyperLiquidAgentSecretSession();
+    await firstWorkerSession.unlock({ password });
+    await firstWorkerSession.setPersistedSessionUnlocked(true);
+    const staleSessionStorageData = { ...sessionStorageData };
+
+    await firstWorkerSession.clear();
+    Object.assign(sessionStorageData, staleSessionStorageData);
+
+    const restartedWorkerSession = new HyperLiquidAgentSecretSession();
+    await expect(
+      restartedWorkerSession.restorePersistedSession(),
+    ).resolves.toEqual({ restored: false, unlocked: false });
+    expect(restartedWorkerSession.isReady()).toBe(false);
+  });
+
+  it('reports wrapping-key deletion failure before a stale payload can be treated as cleared', async () => {
+    const password = await encodePasswordAsync({
+      password: 'test-extension-password',
+    });
+    const session = new HyperLiquidAgentSecretSession();
+    await session.unlock({ password });
+    await session.setPersistedSessionUnlocked(true);
+    const staleSessionStorageData = { ...sessionStorageData };
+    const deleteKeyMock = jest
+      .mocked(indexedDbCryptoKeyStore.deleteCryptoKeyRecord)
+      .mockRejectedValue(new Error('Mock wrapping-key deletion failure'));
+
+    try {
+      await expect(session.clear()).rejects.toThrow(
+        'HyperLiquid agent session wrapping key invalidation failed',
+      );
+      expect(session.isReady()).toBe(false);
+
+      Object.assign(sessionStorageData, staleSessionStorageData);
+      const restartedWorkerSession = new HyperLiquidAgentSecretSession();
+      await expect(
+        restartedWorkerSession.restorePersistedSession(),
+      ).resolves.toEqual({ restored: true, unlocked: true });
+    } finally {
+      const actual = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore')
+      >('@onekeyhq/shared/src/storage/indexedDbCryptoKeyStore');
+      deleteKeyMock.mockImplementation(actual.deleteCryptoKeyRecord);
+      await session.clear();
+    }
   });
 });

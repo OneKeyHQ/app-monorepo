@@ -4,6 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   defaultRandomBytes,
+  deleteCryptoKeyRecord,
   getCryptoGlobal,
   getOrCreateCryptoKey,
   toWebCryptoBytes,
@@ -304,16 +305,44 @@ async function setPersistedSessionPayload(
 
 async function removePersistedSessionPayload(): Promise<void> {
   if (platformEnv.isExtension) {
-    await getExtensionSessionStorage()?.remove(
-      HYPERLIQUID_AGENT_SESSION_STORAGE_KEY,
-    );
+    const storage = getExtensionSessionStorage();
+    if (!storage) {
+      throw new OneKeyLocalError(
+        'Extension session storage is unavailable for HyperLiquid agent key',
+      );
+    }
+    await storage.remove(HYPERLIQUID_AGENT_SESSION_STORAGE_KEY);
   } else if (platformEnv.isDesktop) {
-    await globalThis.desktopApiProxy?.security.clearHyperLiquidAgentSession();
+    const securityApi = globalThis.desktopApiProxy?.security;
+    if (!securityApi) {
+      throw new OneKeyLocalError(
+        'Desktop process session is unavailable for HyperLiquid agent key',
+      );
+    }
+    await securityApi.clearHyperLiquidAgentSession();
+  }
+}
+
+async function invalidatePersistedSession(): Promise<void> {
+  const [wrappingKeyDeletion] = await Promise.allSettled([
+    deleteCryptoKeyRecord({
+      keyRef: HYPERLIQUID_AGENT_SESSION_WRAP_KEY_REF,
+    }),
+    removePersistedSessionPayload(),
+  ]);
+  if (wrappingKeyDeletion.status === 'rejected') {
+    throw new OneKeyLocalError(
+      'HyperLiquid agent session wrapping key invalidation failed',
+    );
   }
 }
 
 export class HyperLiquidAgentSecretSession {
   private key: CryptoKey | undefined;
+
+  private operationGeneration = 0;
+
+  private operationTail: Promise<void> = Promise.resolve();
 
   private restorePromise:
     | Promise<{ restored: boolean; unlocked: boolean }>
@@ -324,32 +353,47 @@ export class HyperLiquidAgentSecretSession {
   }
 
   async unlock({ password }: { password: string }): Promise<void> {
-    const derived = await deriveHyperLiquidAgentSecretKey({ password });
-    try {
-      this.key = derived.key;
+    const operationGeneration = this.advanceOperationGeneration();
+    this.key = undefined;
+    await this.runSessionOperation(async () => {
+      let persistedSessionWasUnlocked = false;
       if (isRestorableSessionPlatform()) {
         try {
           const currentPayload = await getPersistedSessionPayload();
-          await this.persistSessionKey({
-            rawKey: derived.rawKey,
-            unlocked: currentPayload?.unlocked === true,
-          });
-        } catch (error) {
-          // Never leave an older password-derived key restorable after a
-          // replacement key failed to persist. The new key remains usable in
-          // this runtime, while a reload safely falls back to password unlock.
-          try {
-            await removePersistedSessionPayload();
-          } catch {
-            // Session persistence is already unavailable; preserve the
-            // original error and keep the in-memory key fail-operational.
-          }
-          throw error;
+          persistedSessionWasUnlocked = currentPayload?.unlocked === true;
+        } finally {
+          // Destroying the wrapping key makes an older payload unrecoverable
+          // even if a renderer/worker exits before payload cleanup finishes.
+          await invalidatePersistedSession();
         }
       }
-    } finally {
-      derived.rawKey.fill(0);
-    }
+      const derived = await deriveHyperLiquidAgentSecretKey({ password });
+      try {
+        this.ensureOperationIsCurrent(operationGeneration);
+        this.key = derived.key;
+        if (isRestorableSessionPlatform()) {
+          try {
+            await this.persistSessionKey({
+              operationGeneration,
+              rawKey: derived.rawKey,
+              unlocked: persistedSessionWasUnlocked,
+            });
+            this.ensureOperationIsCurrent(operationGeneration);
+          } catch (error) {
+            // A failed replacement remains usable only in this runtime. Its
+            // wrapping key/payload must not survive a renderer/worker reload.
+            try {
+              await invalidatePersistedSession();
+            } catch {
+              // Preserve the original persistence error.
+            }
+            throw error;
+          }
+        }
+      } finally {
+        derived.rawKey.fill(0);
+      }
+    });
   }
 
   async encryptCredential({
@@ -390,7 +434,10 @@ export class HyperLiquidAgentSecretSession {
       return { restored: false, unlocked: false };
     }
     if (!this.restorePromise) {
-      this.restorePromise = this.restorePersistedSessionInternal();
+      const operationGeneration = this.operationGeneration;
+      this.restorePromise = this.runSessionOperation(() =>
+        this.restorePersistedSessionInternal({ operationGeneration }),
+      );
     }
     try {
       return await this.restorePromise;
@@ -403,21 +450,32 @@ export class HyperLiquidAgentSecretSession {
     if (!isRestorableSessionPlatform()) {
       return;
     }
-    const payload = await getPersistedSessionPayload();
-    if (payload?.version !== HYPERLIQUID_AGENT_SECRET_VERSION) {
-      return;
-    }
-    await setPersistedSessionPayload({
-      ...payload,
-      unlocked,
+    await this.runSessionOperation(async () => {
+      const payload = await getPersistedSessionPayload();
+      if (payload?.version !== HYPERLIQUID_AGENT_SECRET_VERSION) {
+        return;
+      }
+      await setPersistedSessionPayload({
+        ...payload,
+        unlocked,
+      });
     });
   }
 
   async clear(): Promise<void> {
+    this.advanceOperationGeneration();
     this.key = undefined;
-    if (isRestorableSessionPlatform()) {
-      await removePersistedSessionPayload();
-    }
+    const earlyInvalidation = isRestorableSessionPlatform()
+      ? invalidatePersistedSession().catch(() => undefined)
+      : Promise.resolve();
+    await this.runSessionOperation(async () => {
+      await earlyInvalidation;
+      if (isRestorableSessionPlatform()) {
+        // Sweep again after older queued operations finish in case one created
+        // a replacement wrapping key before observing the generation change.
+        await invalidatePersistedSession();
+      }
+    });
   }
 
   private async getKeyOrThrow(): Promise<CryptoKey> {
@@ -433,15 +491,18 @@ export class HyperLiquidAgentSecretSession {
   }
 
   private async persistSessionKey({
+    operationGeneration,
     rawKey,
     unlocked,
   }: {
+    operationGeneration: number;
     rawKey: Uint8Array;
     unlocked: boolean;
   }): Promise<void> {
     const wrappingKey = await getOrCreateCryptoKey({
       keyRef: HYPERLIQUID_AGENT_SESSION_WRAP_KEY_REF,
     });
+    this.ensureOperationIsCurrent(operationGeneration);
     const iv = toWebCryptoBytes(
       defaultRandomBytes(HYPERLIQUID_AGENT_SECRET_NONCE_BYTES),
     );
@@ -454,6 +515,7 @@ export class HyperLiquidAgentSecretSession {
       wrappingKey,
       toWebCryptoBytes(rawKey),
     );
+    this.ensureOperationIsCurrent(operationGeneration);
     await setPersistedSessionPayload({
       ciphertext: bufferUtils.bytesToBase64(new Uint8Array(ciphertext)),
       iv: bufferUtils.bytesToBase64(iv),
@@ -462,7 +524,40 @@ export class HyperLiquidAgentSecretSession {
     });
   }
 
-  private async restorePersistedSessionInternal(): Promise<{
+  private advanceOperationGeneration(): number {
+    this.operationGeneration += 1;
+    return this.operationGeneration;
+  }
+
+  private ensureOperationIsCurrent(operationGeneration: number): void {
+    if (operationGeneration !== this.operationGeneration) {
+      throw new OneKeyLocalError(
+        'HyperLiquid agent session operation was superseded',
+      );
+    }
+  }
+
+  private async runSessionOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const previousOperation = this.operationTail;
+    let completeOperation: () => void = () => undefined;
+    this.operationTail = new Promise<void>((resolve) => {
+      completeOperation = resolve;
+    });
+    await previousOperation;
+    try {
+      return await operation();
+    } finally {
+      completeOperation();
+    }
+  }
+
+  private async restorePersistedSessionInternal({
+    operationGeneration,
+  }: {
+    operationGeneration: number;
+  }): Promise<{
     restored: boolean;
     unlocked: boolean;
   }> {
@@ -490,7 +585,11 @@ export class HyperLiquidAgentSecretSession {
       );
       const rawKeyBytes = new Uint8Array(rawKey);
       try {
-        this.key = await importHyperLiquidAgentSecretKey(rawKeyBytes);
+        const restoredKey = await importHyperLiquidAgentSecretKey(rawKeyBytes);
+        if (operationGeneration !== this.operationGeneration) {
+          return { restored: false, unlocked: false };
+        }
+        this.key = restoredKey;
       } finally {
         rawKeyBytes.fill(0);
       }
