@@ -2968,3 +2968,91 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     },
   );
 });
+
+describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function createEntityWithStore(initial: ISimpleDBPrime = {}) {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = initial;
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    return { entity, getPersisted: () => persisted };
+  }
+
+  test('reports and records the first link for a user', async () => {
+    const { entity, getPersisted } = createEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
+    ).resolves.toEqual({ shouldReport: true });
+    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
+      'user-1': now,
+    });
+  });
+
+  test('suppresses re-reports within the TTL and keeps the original timestamp', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createEntityWithStore({
+      identityLinkReportedAtByUserId: { 'user-1': now - DAY_MS },
+    });
+
+    await expect(
+      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
+    ).resolves.toEqual({ shouldReport: false });
+    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
+      'user-1': now - DAY_MS,
+    });
+  });
+
+  test('re-reports after the TTL elapses', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createEntityWithStore({
+      identityLinkReportedAtByUserId: { 'user-1': now - 8 * DAY_MS },
+    });
+
+    await expect(
+      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
+    ).resolves.toEqual({ shouldReport: true });
+    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
+      'user-1': now,
+    });
+  });
+
+  test('re-reports when the recorded timestamp is in the future (clock rollback)', async () => {
+    const now = Date.now();
+    const { entity } = createEntityWithStore({
+      identityLinkReportedAtByUserId: { 'user-1': now + DAY_MS },
+    });
+
+    await expect(
+      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
+    ).resolves.toEqual({ shouldReport: true });
+  });
+
+  test('prunes the record to the most recent users', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createEntityWithStore({
+      identityLinkReportedAtByUserId: {
+        'user-1': now - 5,
+        'user-2': now - 4,
+        'user-3': now - 3,
+        'user-4': now - 2,
+        'user-5': now - 1,
+      },
+    });
+
+    await expect(
+      entity.markIdentityLinkReported({ onekeyUserId: 'user-6', now }),
+    ).resolves.toEqual({ shouldReport: true });
+    const persistedRecord = getPersisted().identityLinkReportedAtByUserId;
+    expect(Object.keys(persistedRecord ?? {})).toHaveLength(5);
+    expect(persistedRecord?.['user-6']).toBe(now);
+    expect(persistedRecord?.['user-1']).toBeUndefined();
+  });
+});

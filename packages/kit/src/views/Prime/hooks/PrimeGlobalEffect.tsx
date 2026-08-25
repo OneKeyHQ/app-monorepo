@@ -370,7 +370,7 @@ function PrimeGlobalEffectView() {
         const currentAuthStateGeneration =
           await backgroundApiProxy.simpleDb.prime.getAuthStateGeneration();
         if (currentAuthStateGeneration !== payload.authStateGeneration) {
-          defaultLogger.prime.subscription.onekeyIdLogout({
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
             reason: `PrimeGlobalEffectView.PrimeLoginInvalidToken: skip stale event, a login committed during propagation (generation ${payload.authStateGeneration} -> ${currentAuthStateGeneration})`,
           });
           return;

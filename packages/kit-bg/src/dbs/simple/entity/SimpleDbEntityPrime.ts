@@ -57,6 +57,12 @@ const INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 const INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT = 20;
 const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;
 
+// How often the analytics identity link may be re-reported per user from
+// this device. Keeps onekeyIdIdentityLinked volume bounded while still
+// re-asserting the link periodically (server-side $identify is idempotent).
+const IDENTITY_LINK_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const IDENTITY_LINK_REPORTED_USERS_LIMIT = 5;
+
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
 };
@@ -123,6 +129,10 @@ export interface ISimpleDBPrime {
     string,
     IPrimeInfiniSupersededPaymentSession[]
   >;
+  // Last time the onekeyIdIdentityLinked analytics event was reported for a
+  // user from this device. Bounds event volume: the link is re-asserted only
+  // after the TTL (PostHog $identify is idempotent, so repeats are safe).
+  identityLinkReportedAtByUserId?: Record<string, number>;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -647,6 +657,45 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
     }));
     return rawData.identityLifecycleRevision ?? 0;
+  }
+
+  /**
+   * Atomic check-and-mark for the onekeyIdIdentityLinked analytics event.
+   * Returns shouldReport=true (and records the timestamp) when the link for
+   * this user has not been reported within the TTL; a future timestamp from
+   * clock rollback also re-reports rather than blocking forever.
+   */
+  async markIdentityLinkReported({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<{ shouldReport: boolean }> {
+    let shouldReport = false;
+    await this.setRawData((data) => {
+      const reportedAtByUserId = {
+        ...(data?.identityLinkReportedAtByUserId ?? {}),
+      };
+      const reportedAt = reportedAtByUserId[onekeyUserId];
+      shouldReport =
+        !reportedAt ||
+        !Number.isFinite(reportedAt) ||
+        reportedAt > now ||
+        now - reportedAt >= IDENTITY_LINK_REPORT_TTL_MS;
+      if (!shouldReport) {
+        return { ...data };
+      }
+      reportedAtByUserId[onekeyUserId] = now;
+      const prunedEntries = Object.entries(reportedAtByUserId)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
+      return {
+        ...data,
+        identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
+      };
+    });
+    return { shouldReport };
   }
 
   async getKeylessOAuthSessionPersistenceJournal(): Promise<

@@ -46,3 +46,116 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
     expect(serverCall?.[1]?.[0]).not.toHaveProperty('reason');
   });
 });
+
+describe('PrimeSubscriptionScene sanitized event payloads', () => {
+  function createSceneWithSpy() {
+    const scene = new PrimeSubscriptionScene();
+    const emitLog = jest
+      .spyOn(scene, '_emitLog')
+      .mockImplementation(() => undefined);
+    return { scene, emitLog };
+  }
+
+  it('strips url query/hash and scrubs the message on onekeyIdInvalidToken', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    scene.onekeyIdInvalidToken({
+      url: 'https://api.example.com/prime/v1/user/info?token=SeCrEtValue123#frag',
+      errorCode: 401,
+      errorMessage:
+        'request rejected Bearer AbCdEfGhIjKlMnOpQrStUvWxYz123456 for user@example.com',
+    });
+
+    const call = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'onekeyIdInvalidToken',
+    );
+    const payload = call?.[1]?.[0] as {
+      url: string;
+      errorMessage: string;
+    };
+    expect(payload.url).toBe('https://api.example.com/prime/v1/user/info');
+    expect(payload.errorMessage).not.toContain('SeCrEtValue123');
+    expect(payload.errorMessage).not.toContain('user@example.com');
+    expect(payload.errorMessage).toContain('Bearer [token]');
+  });
+
+  it('scrubs the store error message on fetchPackagesFailed', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    scene.fetchPackagesFailed({
+      errorMessage: 'store failed for user@example.com',
+    });
+
+    const call = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'fetchPackagesFailed',
+    );
+    const payload = call?.[1]?.[0] as { errorMessage: string };
+    expect(payload.errorMessage).toBe('store failed for [email]');
+  });
+
+  it('sends structured primeSubscribeFailed to server and keeps the message local', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+    const rawMessage = 'card declined for user@example.com';
+
+    scene.primeSubscribeFailed({
+      paymentMethod: 'iap',
+      subscriptionPeriod: 'P1Y',
+      reason: 'paymentFailed',
+      errorCode: '2',
+      errorMessage: rawMessage,
+    });
+
+    const serverCall = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'primeSubscribeFailed',
+    );
+    const localCall = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'primeSubscribeFailedLocal',
+    );
+    expect(serverCall?.[1]).toEqual([
+      {
+        paymentMethod: 'iap',
+        subscriptionPeriod: 'P1Y',
+        featureName: undefined,
+        reason: 'paymentFailed',
+        errorCode: '2',
+      },
+    ]);
+    expect(serverCall?.[2]).toEqual([
+      expect.objectContaining({ type: 'server' }),
+    ]);
+    expect(JSON.stringify(serverCall)).not.toContain('errorMessage');
+    expect(localCall?.[2]).toEqual([
+      expect.objectContaining({ type: 'local', level: 'error' }),
+    ]);
+    const localPayload = localCall?.[1]?.[0] as { errorMessage: string };
+    expect(localPayload.errorMessage).toBe('card declined for [email]');
+  });
+
+  it('keeps onekeyIdStateTrace local-only', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    scene.onekeyIdStateTrace({ reason: 'setPrimePersistAtomNotLoggedIn' });
+
+    const call = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'onekeyIdStateTrace',
+    );
+    expect(call?.[2]).toEqual([expect.objectContaining({ type: 'local' })]);
+    expect(
+      (call?.[2] as { type: string }[]).some((c) => c.type === 'server'),
+    ).toBe(false);
+  });
+
+  it('sends onekeyIdIdentityLinked with the onekeyUserId to server', () => {
+    const { scene, emitLog } = createSceneWithSpy();
+
+    scene.onekeyIdIdentityLinked({ onekeyUserId: 'user-uuid-1' });
+
+    const call = emitLog.mock.calls.find(
+      ([methodName]) => methodName === 'onekeyIdIdentityLinked',
+    );
+    expect(call?.[1]).toEqual([{ onekeyUserId: 'user-uuid-1' }]);
+    expect(call?.[2]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'server' })]),
+    );
+  });
+});
