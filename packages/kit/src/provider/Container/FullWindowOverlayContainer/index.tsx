@@ -2,6 +2,7 @@ import {
   OverlayContainer,
   Portal,
   ShowToastProvider,
+  Stack,
   Toaster,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,7 +25,18 @@ export function FullWindowOverlayContainer() {
         {platformEnv.isE2E ? <></> : <Toaster />}
         <ScreenshotBranding />
       </OverlayContainer>
-      <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+      {/* DeviceStage's MorphOverlay anchors absolute inside this viewport;
+          it needs a full-window positioned ancestor to sit at the bottom. */}
+      <Stack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        pointerEvents="box-none"
+      >
+        <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+      </Stack>
     </>
   );
 }
