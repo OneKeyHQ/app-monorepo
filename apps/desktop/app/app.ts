@@ -78,6 +78,8 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
+import { logTrezorBleFlags } from './process/trezorBleFlags';
+import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -1658,8 +1660,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
+  logTrezorBleFlags();
   initTrezorBleSupport(browserWindow.webContents, {
-    ipcMain: trezorBleSenderGatedIpcMain,
+    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
+    // caches scan address, runs the WinRT pairing helper before noble connects.
+    // No-op on non-Windows / builds without the bundled helper.
+    ipcMain: createTrezorBlePairingIpcMain(
+      trezorBleSenderGatedIpcMain,
+      browserWindow,
+    ),
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /

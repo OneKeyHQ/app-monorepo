@@ -1,7 +1,10 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type {
@@ -211,7 +214,7 @@ export class SignerHardware extends SignerHardwareBase {
       | {
           type: string;
           message: string;
-          payload?: { applicationDomain?: string };
+          payload?: { applicationDomain?: string; version?: number };
         }
       | undefined;
     if (!unsignedMsg) {
@@ -242,6 +245,29 @@ export class SignerHardware extends SignerHardwareBase {
     }
 
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+      // Firmware only implements version 0 of the offchain message spec, so a version 1
+      // request would silently be signed as version 0 bytes the dapp cannot verify.
+      const versionKind = classifyOffchainMessageVersion(
+        unsignedMsg.payload?.version,
+      );
+      if (versionKind === 'v1') {
+        throw new AppError(
+          ERROR_CODES.INVALID_PAYLOAD.code,
+          'Hardware wallet does not support version 1 Solana offchain messages yet',
+          'Use a software wallet account, or wait for firmware support.',
+        );
+      }
+      // Only version 0 is passed on: the firmware is never told which version
+      // this is, so anything else would be signed as version 0.
+      if (versionKind === 'unsupported') {
+        throw new AppError(
+          ERROR_CODES.INVALID_PAYLOAD.code,
+          `Unsupported Solana offchain message version: ${String(
+            unsignedMsg.payload?.version,
+          )}`,
+          'Only version 0 and version 1 are supported.',
+        );
+      }
       const applicationDomain = unsignedMsg.payload?.applicationDomain;
       const guessedMessageFormat = OffchainMessage.guessMessageFormat(
         Buffer.from(unsignedMsg.message ?? ''),
