@@ -165,6 +165,7 @@ export function SwapReviewSlippageEditor({
           onChangeText={setInputValue}
           props={{
             size: controlSize,
+            disabled: isSaving,
             onFocus: () => setIsInputFocused(true),
             onBlur: () => setIsInputFocused(false),
             containerProps: {
