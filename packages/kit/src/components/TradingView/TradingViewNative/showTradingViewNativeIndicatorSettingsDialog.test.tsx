@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 
+import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 import type {
   ITradingViewIndicatorSettingsProps,
   ITradingViewIndicatorSettingsValue,
@@ -41,8 +42,11 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
       schemaVersion: 1,
     };
     const onConfirm = jest.fn(() => Promise.resolve());
+    const intl: IIndicatorSettingsIntl = {
+      formatMessage: ({ id }) => id,
+    };
 
-    showTradingViewNativeIndicatorSettingsDialog({ onConfirm, value });
+    showTradingViewNativeIndicatorSettingsDialog({ intl, onConfirm, value });
     const props = mockShowDialog.mock.calls[0][0].renderContent.props;
     expect(props.maxActiveSubIndicatorCount).toBeNull();
 
