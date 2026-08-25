@@ -98,11 +98,11 @@ const styles = StyleSheet.create({
   // iOS WKWebViews must stay in the native layout tree. In nested layouts,
   // display:none can reload the page even though React keeps it mounted.
   webPageLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 3,
   },
   webPageRootLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 3,
   },
   iosWebPageRootLayerVisible: {

@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import ViewShot from 'react-native-view-shot';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
@@ -41,7 +42,7 @@ export const ShareImageGenerator = forwardRef<
     { data, config, referralQrCodeUrl, referralDisplayText, isReferralReady },
     ref,
   ) => {
-    const viewShotRef = useRef<ViewShot>(null);
+    const viewShotRef = useRef<ViewShotRef>(null);
     // Latest readiness reported by the renderer. Readiness can regress —
     // the referral QR joins the expectation only after an invite-code
     // round-trip — so generate() reads the current state instead of

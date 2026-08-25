@@ -1,4 +1,4 @@
-import Expo
+internal import Expo
 import React
 import ReactAppDependencyProvider
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
@@ -109,14 +109,14 @@ private enum InitialBundleKind {
 }
 
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate {
   /// The real app-launch anchor. Captured eagerly inside `init()`, which is
   /// invoked by `UIApplicationMain` just after dyld + `UIApplication.init`
   /// finish and before `application(_:didFinishLaunchingWithOptions:)` fires.
   /// Reading this from anywhere else returns the same fixed timestamp.
   static let appLaunchCFTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
 
-  public override init() {
+  override init() {
     // Force the static `let` above to evaluate now. Without this read the
     // anchor would stay un-initialized until something else first touched it
     // (which would be deep inside `didFinishLaunching`), and every "+from
@@ -131,7 +131,7 @@ public class AppDelegate: ExpoAppDelegate {
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
 
-  public override func application(
+  override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
@@ -198,7 +198,6 @@ public class AppDelegate: ExpoAppDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-    bindReactNativeFactory(factory)
     RCTI18nUtil.sharedInstance().allowRTL(true)
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
@@ -239,7 +238,7 @@ public class AppDelegate: ExpoAppDelegate {
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
   // Skip reset when in recovery mode (count >= 3) so recovery is still offered
   // if the user force-kills from the app switcher while viewing the recovery screen.
-  public override func applicationDidEnterBackground(_ application: UIApplication) {
+  override func applicationDidEnterBackground(_ application: UIApplication) {
     super.applicationDidEnterBackground(application)
     let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
     if count < 3 {
@@ -254,7 +253,7 @@ public class AppDelegate: ExpoAppDelegate {
   // shared range-downloader filters by its own session identifier prefix (and
   // still recognizes the legacy identifier prefix for in-flight downloads that
   // span an app update).
-  public override func application(
+  override func application(
     _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void
@@ -268,7 +267,7 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Linking API
-  public override func application(
+  override func application(
     _ app: UIApplication,
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
@@ -277,7 +276,7 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Universal Links
-  public override func application(
+  override func application(
     _ application: UIApplication,
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
@@ -287,20 +286,20 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Register APNS & Upload DeviceToken
-  public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+  override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
 
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
-  public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+  override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
     NitroModuleBridge.logInfo("App", "didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
 
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
-  public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+  override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
@@ -567,7 +566,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
     let userInfo = notification.request.content.userInfo
 
@@ -584,7 +583,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
   }
 
   @available(iOS 10.0, *)
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
 
     let userInfo = response.notification.request.content.userInfo
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
@@ -600,11 +599,11 @@ extension AppDelegate:JPUSHRegisterDelegate {
 
   }
 
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
 
   }
 
-  public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
+  func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
     NitroModuleBridge.logInfo("App", "receive notification authorization status: \(status), info: \(String(describing: info))")
   }
 

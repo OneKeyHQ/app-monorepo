@@ -30,6 +30,9 @@ const path = require('path');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
+const {
+  patchTransformFileForPackedMaps,
+} = require('@expo/metro-config/build/serializer/packedMap');
 const saveAssets = require(
   path.resolve(
     __dirname,
@@ -128,8 +131,10 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
 );
 
 function runHermescAsync({ outPath, inputPath }) {
@@ -1933,7 +1938,7 @@ async function main() {
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
-  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v3`;
 
   // On EAS Android workers the main + background graphs are held in memory at
   // the same time; with Metro's default worker count (6 on the 8-vCPU `large`
@@ -1959,6 +1964,7 @@ async function main() {
   }
 
   const metroServer = await Metro.runMetro(config, { watch: false });
+  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();

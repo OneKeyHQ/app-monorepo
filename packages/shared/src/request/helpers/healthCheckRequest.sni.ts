@@ -58,6 +58,14 @@ function extractHostname(url: string): string | null {
   }
 }
 
+function sanitizeHttpHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([, value]) => typeof value === 'string'),
+  );
+}
+
 function hashForLog(value: string | null | undefined): string {
   if (!value) return 'none';
   let hash = 0x81_1c_9d_c5;
@@ -107,7 +115,10 @@ function logHealthCheckSniDecision(
 export async function healthCheckRequest(
   config: IHealthCheckConfig,
 ): Promise<IHealthCheckResponse> {
-  const { url, method = 'GET', timeout = 10_000, headers = {} } = config;
+  const { url, method = 'GET', timeout = 10_000, headers: rawHeaders = {} } =
+    config;
+  const headers = sanitizeHttpHeaders(rawHeaders);
+  const normalizedConfig = { ...config, headers };
   const startedAt = Date.now();
 
   // Extract hostname from URL
@@ -131,7 +142,7 @@ export async function healthCheckRequest(
       reason: 'sni_unsupported',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   let proxyActive: boolean | null;
@@ -155,7 +166,7 @@ export async function healthCheckRequest(
       errorMessage: preflightError ? getErrorMessage(preflightError) : 'none',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   const selectedIp = await getSelectedIpForHost(hostname);
@@ -176,7 +187,7 @@ export async function healthCheckRequest(
       reason: 'no_selected_ip',
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 
   // Use SNI direct IP connection
@@ -226,7 +237,7 @@ export async function healthCheckRequest(
         reason: 'sni_null_response',
         durationMs: Date.now() - startedAt,
       });
-      return await fallbackToFetch(config);
+      return await fallbackToFetch(normalizedConfig);
     }
 
     logHealthCheckSniDecision('info', {
@@ -288,6 +299,6 @@ export async function healthCheckRequest(
       errorMessage: getErrorMessage(error),
       durationMs: Date.now() - startedAt,
     });
-    return fallbackToFetch(config);
+    return fallbackToFetch(normalizedConfig);
   }
 }

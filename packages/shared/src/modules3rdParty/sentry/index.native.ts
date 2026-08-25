@@ -41,10 +41,16 @@ export const initSentry = () => {
       appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
     },
   });
+  type INativeSentryOptions = Parameters<typeof init>[0];
+  const nativeBasicOptions = {
+    enabled: basicOptions.enabled,
+    maxBreadcrumbs: basicOptions.maxBreadcrumbs,
+    beforeSend: basicOptions.beforeSend as INativeSentryOptions['beforeSend'],
+  };
 
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...basicOptions,
+    ...nativeBasicOptions,
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,

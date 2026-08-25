@@ -27,6 +27,12 @@ module.exports = function (api) {
           },
         ],
       ],
+      overrides: [
+        {
+          test: /@ledgerhq[\\/]device-signer-kit-ethereum[\\/]lib[\\/]cjs[\\/]internal[\\/]app-binder[\\/]task[\\/]ProvideEIP712ContextTask\.js$/,
+          plugins: ['@babel/plugin-transform-classes'],
+        },
+      ],
       plugins: [
         // Strip jest.mock() calls when bundling for react-native-harness
         process.env.RN_HARNESS === 'true' &&

@@ -31,7 +31,7 @@ import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
-import expo.modules.ReactNativeHostWrapper;
+import expo.modules.ExpoReactHostFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,8 +46,8 @@ public class MainApplication extends Application implements ReactApplication {
   // ReactContext listener to compute "+Xms from app launch" deltas.
   public static long appLaunchMs = 0L;
 
-  private final ReactNativeHost mReactNativeHost =
-    new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
+  private final CustomReactNativeHost mReactNativeHost =
+    new CustomReactNativeHost(this) {
       @Override
       public boolean getUseDeveloperSupport() {
         return BuildConfig.DEBUG;
@@ -75,7 +75,7 @@ public class MainApplication extends Application implements ReactApplication {
       protected boolean isHermesEnabled() {
         return BuildConfig.IS_HERMES_ENABLED;
       }
-  });
+  };
   @Nullable
   private ReactHost mReactHost;
 
@@ -89,9 +89,15 @@ public class MainApplication extends Application implements ReactApplication {
     public synchronized ReactHost getReactHost() {
         if (mReactHost == null) {
           mReactHost =
-            ReactNativeHostWrapper.createReactHost(
+            ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
-              this.getReactNativeHost()
+              new PackageList(this).getPackages(),
+              ".expo/.virtual-metro-entry",
+              "index.android.bundle",
+              mReactNativeHost.getJSBundleFile(),
+              null,
+              BuildConfig.DEBUG,
+              null
             );
         }
         return mReactHost;

@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
-index 05bddcb..5211253 100644
+index cccc623..af359f6 100644
 --- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
 +++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
-@@ -82,6 +82,9 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
+@@ -83,6 +83,9 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
      topContentSizeChange: {
        registrationName: 'onContentSizeChange',
      },
@@ -13,7 +13,7 @@ index 05bddcb..5211253 100644
        registrationName: 'onChangeSync',
      },
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
-index 6e9c384..e68e675 100644
+index cbda377..5e6d289 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
 @@ -13,6 +13,10 @@
@@ -27,15 +27,15 @@ index 6e9c384..e68e675 100644
  @implementation RCTUITextView {
    UILabel *_placeholderView;
    UITextView *_detachedTextView;
-@@ -21,6 +25,7 @@ @implementation RCTUITextView {
-   NSArray<UIBarButtonItemGroup *> *_initialValueLeadingBarButtonGroups;
+@@ -22,6 +26,7 @@ @implementation RCTUITextView {
    NSArray<UIBarButtonItemGroup *> *_initialValueTrailingBarButtonGroups;
    NSArray<NSString *> *_acceptDragAndDropTypes;
+   BOOL _disableKeyboardShortcuts;
 +  BOOL _isProcessingImagePaste;
  }
  
  static UIFont *defaultPlaceholderFont(void)
-@@ -208,10 +213,98 @@ - (void)scrollRangeToVisible:(NSRange)range
+@@ -216,10 +221,98 @@ - (void)scrollRangeToVisible:(NSRange)range
  
  - (void)paste:(id)sender
  {
@@ -134,7 +134,7 @@ index 6e9c384..e68e675 100644
  // Turn off scroll animation to fix flaky scrolling.
  // This is only necessary for iOS < 14.
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
-@@ -301,6 +394,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+@@ -309,6 +402,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
      return NO;
    }
  
@@ -180,10 +180,10 @@ index f1c32e6..7ec9bb0 100644
  
  NS_ASSUME_NONNULL_END
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-index 82d9a79..8cc48ec 100644
+index 9633ab9..58d1aac 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-@@ -148,6 +148,11 @@ - (void)selectedTextRangeWasSet
+@@ -165,6 +165,11 @@ - (void)selectedTextRangeWasSet
    [self textFieldProbablyDidChangeSelection];
  }
  
@@ -195,7 +195,7 @@ index 82d9a79..8cc48ec 100644
  #pragma mark - Generalization
  
  - (void)textFieldProbablyDidChangeSelection
-@@ -330,6 +335,11 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
+@@ -364,6 +369,11 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
    _previousSelectedTextRange = textRange;
  }
  
@@ -208,10 +208,10 @@ index 82d9a79..8cc48ec 100644
  
  - (void)textViewProbablyDidChangeSelection
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
-index 4804624..90b7081 100644
+index 228d9ca..b807146 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
-@@ -37,6 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
+@@ -40,6 +40,7 @@ __attribute__((deprecated("This API will be removed along with the legacy archit
  @property (nonatomic, copy, nullable) RCTDirectEventBlock onChange;
  @property (nonatomic, copy, nullable) RCTDirectEventBlock onChangeSync;
  @property (nonatomic, copy, nullable) RCTDirectEventBlock onScroll;
@@ -220,10 +220,10 @@ index 4804624..90b7081 100644
  @property (nonatomic, assign) NSInteger mostRecentEventCount;
  @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-index 6a2d4f8..caae2d0 100644
+index 9fa7b92..bf2cd1b 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-@@ -599,6 +599,52 @@ - (void)textInputDidChangeSelection
+@@ -601,6 +601,52 @@ - (void)textInputDidChangeSelection
    });
  }
  
@@ -277,10 +277,10 @@ index 6a2d4f8..caae2d0 100644
  {
    [self enforceTextAttributesIfNeeded];
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
-index 47adc53..1865e0a 100644
+index 3503ccf..afd4124 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
-@@ -70,6 +70,7 @@ @implementation RCTBaseTextInputViewManager {
+@@ -72,6 +72,7 @@ @implementation RCTBaseTextInputViewManager {
  RCT_EXPORT_VIEW_PROPERTY(onChangeSync, RCTDirectEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onSelectionChange, RCTDirectEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onScroll, RCTDirectEventBlock)
@@ -289,7 +289,7 @@ index 47adc53..1865e0a 100644
  RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
  RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
-index 377f41e..2bab943 100644
+index 052c003..bb28c47 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
 @@ -12,12 +12,17 @@
@@ -423,7 +423,7 @@ index 377f41e..2bab943 100644
  
  - (CGSize)contentSize
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
-index bec2ac5..4cab4b5 100644
+index 226781f..82a9790 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
 @@ -103,46 +103,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
@@ -510,10 +510,10 @@ index bec2ac5..4cab4b5 100644
  
  + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
-index 577bebe..ad0f253 100644
+index 917dc6d..64f6882 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
-@@ -381,6 +381,38 @@ - (void)prepareForRecycle
+@@ -390,6 +390,38 @@ - (void)prepareForRecycle
    [_backedTextInputView resignFirstResponder];
  }
  
@@ -553,10 +553,10 @@ index 577bebe..ad0f253 100644
  
  - (BOOL)textInputShouldBeginEditing
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-index a99f103..27865c2 100644
+index b033b7c..4095ea1 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-@@ -828,6 +828,19 @@ - (UIView *)currentContainerView
+@@ -987,6 +987,19 @@ - (UIView *)currentContainerView
  }
  
  - (void)invalidateLayer
@@ -574,10 +574,10 @@ index a99f103..27865c2 100644
 +
 +- (void)_invalidateLayerImpl
  {
-   CALayer *layer = self.layer;
+   CALayer *layer = self.effectiveContentView.layer;
  
 diff --git a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
-index 9f50554..23eaaa8 100644
+index 36e5f64..2dd748a 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
 @@ -103,8 +103,24 @@ - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
@@ -608,12 +608,12 @@ index 9f50554..23eaaa8 100644
    }
  
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-index f8dd833..db25f53 100644
+index 8b43194..d2e084b 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
 +++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-@@ -67,6 +67,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
-           childCount,
-           index)
+@@ -72,6 +72,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+           index,
+       )
        update()
 +      // update() set this.drawingOrderIndices to null, so we must also null the
 +      // local variable; otherwise the rebuild branch below is skipped and we
@@ -623,10 +623,10 @@ index f8dd833..db25f53 100644
  
      if (currentDrawingOrderIndices == null) {
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-index 89b666d..246c9cf 100644
+index 5977524..1b3f871 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 +++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-@@ -869,7 +869,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
+@@ -931,7 +931,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
      if (_overflow != Overflow.VISIBLE || getTag(R.id.filter) != null) {
        clipToPaddingBox(this, canvas)
      }
@@ -642,20 +642,10 @@ index 89b666d..246c9cf 100644
  
    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
 diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-index 2a67797..5e5aeff 100644
+index 516ae35..cc2353c 100644
 --- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
 +++ b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-@@ -57,6 +57,9 @@ static int32_t getUniqueId()
- 
- static jsi::String convertNSStringToJSIString(jsi::Runtime &runtime, NSString *value)
- {
-+  if (value == nil) {
-+    return jsi::String::createFromUtf8(runtime, "");
-+  }
-   return jsi::String::createFromUtf8(runtime, [value UTF8String] ? [value UTF8String] : "");
- }
- 
-@@ -89,6 +92,9 @@ static int32_t getUniqueId()
+@@ -91,6 +91,9 @@ static int32_t getUniqueId()
  
  jsi::Value convertObjCObjectToJSIValue(jsi::Runtime &runtime, id value)
  {
@@ -665,68 +655,8 @@ index 2a67797..5e5aeff 100644
    if ([value isKindOfClass:[NSString class]]) {
      return convertNSStringToJSIString(runtime, (NSString *)value);
    } else if ([value isKindOfClass:[NSNumber class]]) {
-@@ -435,7 +441,58 @@ TraceSection s(
-     @try {
-       [inv invokeWithTarget:strongModule];
-     } @catch (NSException *exception) {
--      throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
-+      // ---------------------------------------------------------------
-+      // OneKey patch — async void TurboModule must not touch `runtime`.
-+      // ---------------------------------------------------------------
-+      //
-+      // Upstream RN already has the right rule for the *sibling* method
-+      // (`performMethodInvocation`, this file ~L374): JSError is only
-+      // safe to construct from a sync call, because only a sync call is
-+      // guaranteed to run on the JS thread. Quoting the upstream comment:
-+      //
-+      //     // We can only convert NSException to JSError in sync method
-+      //     // calls. See https://github.com/reactwg/react-native-new-
-+      //     // architecture/discussions/276#discussioncomment-12567155
-+      //
-+      // `performVoidMethodInvocation` (this function), however,
-+      // unconditionally calls `convertNSExceptionToJSError(runtime, ...)`
-+      // — even on the async branch, where the block has been hopped onto
-+      // a GCD queue via `nativeMethodCallInvoker_->invokeAsync(...)`
-+      // (~L463). `convertNSExceptionToJSError` reads JS properties off
-+      // the runtime to build the JSError (e.g. `Error.prototype.stack`),
-+      // which races the JS thread that is still using the same Hermes
-+      // runtime. The Hermes GCScope chain / handle table is not
-+      // thread-safe, so this race manifests as a SIGSEGV inside
-+      // `PinnedHermesValue` construction during a subsequent JS
-+      // `instanceof` (see crash report — Thread 5 mid
-+      // `convertNSExceptionToJSError`, Thread 18 mid
-+      // `instanceOfOperator_RJS`).
-+      //
-+      // The minimal fix is to mirror the sibling function's sync/async
-+      // split here. For sync void calls (rare; gated by
-+      // `shouldVoidMethodsExecuteSync_`) we keep the original behavior
-+      // so JS callers that opted into sync semantics still see the
-+      // exception as a JSError. For the async path we re-throw the
-+      // NSException to unwind the GCD block: the void method has no JS
-+      // caller awaiting a result, so the rethrow is harmless to JS
-+      // semantics — it just routes through the GCD top-level handler
-+      // (and any `RCTSetFatalHandler` installed by the host app), where
-+      // we can observe it via crash reporters instead of crashing
-+      // Hermes.
-+      if (shouldVoidMethodsExecuteSync_) {
-+        throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
-+      } else {
-+        // Note for future maintainers: do NOT try to "convert and emit"
-+        // by hopping to the JS thread via `jsInvoker_`. That works in
-+        // principle but turns a fire-and-forget void method into a
-+        // queued task, which subtly changes ordering w.r.t. the next
-+        // JS-initiated call. If reach-into-JS observability is desired,
-+        // post a Sentry breadcrumb / NSLog here and keep the rethrow.
-+        RCTLogError(
-+            @"[OneKey] Async void TurboModule %s.%s raised NSException; rethrowing to GCD handler. name=%@ reason=%@",
-+            moduleName, methodNameStr.c_str(), exception.name, exception.reason);
-+        @throw exception;
-+      }
-     } @finally {
-       [retainedObjectsForInvocation removeAllObjects];
-     }
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
-index a9bc219..0fc50bf 100644
+index 2982b12..e9ac628 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
 +++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
 @@ -131,6 +131,19 @@ static jsi::Value keyPressMetricsPayload(
@@ -750,48 +680,28 @@ index a9bc219..0fc50bf 100644
    dispatchTextInputEvent("focus", textInputMetrics);
  }
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
-index dbce575..5b03581 100644
+index a3f2e01..4024ce8 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
 +++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
 @@ -44,6 +44,7 @@ class TextInputEventEmitter : public ViewEventEmitter {
-   void onSubmitEditing(const Metrics& textInputMetrics) const;
-   void onKeyPress(const KeyPressMetrics& keyPressMetrics) const;
-   void onScroll(const Metrics& textInputMetrics) const;
-+  void onPaste(const std::string& type, const std::string& data) const;
+   void onSubmitEditing(const Metrics &textInputMetrics) const;
+   void onKeyPress(const KeyPressMetrics &keyPressMetrics) const;
+   void onScroll(const Metrics &textInputMetrics) const;
++  void onPaste(const std::string &type, const std::string &data) const;
  
   private:
    void dispatchTextInputEvent(
-diff --git a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
-index 8852179..040c4f0 100644
---- a/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
-+++ b/node_modules/react-native/third-party-podspecs/RCT-Folly.podspec
-@@ -25,7 +25,7 @@ Pod::Spec.new do |spec|
-   spec.dependency "DoubleConversion"
-   spec.dependency "glog"
-   spec.dependency "fast_float", "8.0.0"
--  spec.dependency "fmt", "11.0.2"
-+  spec.dependency "fmt", "12.1.0"
-   spec.compiler_flags = '-Wno-documentation -faligned-new'
-   spec.source_files = 'folly/String.cpp',
-                       'folly/Conv.cpp',
-diff --git a/node_modules/react-native/third-party-podspecs/fmt.podspec b/node_modules/react-native/third-party-podspecs/fmt.podspec
-index 2f38990..a40c575 100644
---- a/node_modules/react-native/third-party-podspecs/fmt.podspec
-+++ b/node_modules/react-native/third-party-podspecs/fmt.podspec
-@@ -8,14 +8,14 @@ fmt_git_url = fmt_config[:git]
+diff --git a/node_modules/react-native/scripts/cocoapods/new_architecture.rb b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
+index 3873632..6c0683f 100644
+--- a/node_modules/react-native/scripts/cocoapods/new_architecture.rb
++++ b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
+@@ -171,8 +171,7 @@ class NewArchitectureHelper
+         excluded_info_plist = ["/Pods", "Tests", "metainternal", ".bundle", "build/", "DerivedData/", ".xcframework", ".framework", "watchkitapp", "today-extention"]
+         projectPaths.each do |projectPath|
+             projectFolderPath = File.dirname(projectPath)
+-            infoPlistFiles = `find #{projectFolderPath} -name "Info.plist"`
+-            infoPlistFiles = infoPlistFiles.split("\n").map { |f| f.strip }
++            infoPlistFiles = Dir.glob(File.join(projectFolderPath, "**", "Info.plist"))
  
- Pod::Spec.new do |spec|
-   spec.name = "fmt"
--  spec.version = "11.0.2"
-+  spec.version = "12.1.0"
-   spec.license = { :type => "MIT" }
-   spec.homepage = "https://github.com/fmtlib/fmt"
-   spec.summary = "{fmt} is an open-source formatting library for C++. It can be used as a safe and fast alternative to (s)printf and iostreams."
-   spec.authors = "The fmt contributors"
-   spec.source = {
-     :git => fmt_git_url,
--    :tag => "11.0.2"
-+    :tag => "12.1.0"
-   }
-   spec.pod_target_xcconfig = {
-     "CLANG_CXX_LANGUAGE_STANDARD" => rct_cxx_language_standard(),
+             infoPlistFiles.each do |infoPlistFile|
+                 # If infoPlistFile contains Pods or tests, skip it

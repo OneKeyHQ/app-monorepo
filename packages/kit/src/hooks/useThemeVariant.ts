@@ -8,7 +8,11 @@ export function useThemeVariant() {
   // startup theme on web: apps/ext/src/assets/preload-html-head.js
 
   const colorScheme = useSystemColorScheme();
+  const resolvedColorScheme =
+    colorScheme === 'light' || colorScheme === 'dark'
+      ? colorScheme
+      : defaultColorScheme;
   const themeVariant =
-    theme === 'system' ? (colorScheme ?? defaultColorScheme) : theme;
+    theme === 'system' ? resolvedColorScheme : theme;
   return themeVariant;
 }

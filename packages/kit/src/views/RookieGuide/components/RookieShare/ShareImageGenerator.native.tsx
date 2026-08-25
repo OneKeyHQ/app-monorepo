@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import ViewShot from 'react-native-view-shot';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,7 +40,7 @@ export const ShareImageGenerator = forwardRef<
   IRookieShareImageGeneratorRef,
   IShareImageGeneratorProps
 >(({ data, localeText }, ref) => {
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
   const prevImageUrlRef = useRef<string | null>(null);
   const prevContentKeyRef = useRef<string | null>(null);

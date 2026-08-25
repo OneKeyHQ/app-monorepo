@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import ViewShot from 'react-native-view-shot';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,7 +45,7 @@ function createImagesReadyDeferred(): IImagesReadyDeferred {
 export const ShareImageGenerator = memo(
   forwardRef<IReceiveShareImageGeneratorRef, IShareImageGeneratorProps>(
     ({ data }, ref) => {
-      const viewShotRef = useRef<ViewShot>(null);
+      const viewShotRef = useRef<ViewShotRef>(null);
       const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
       const prevImagesKeyRef = useRef<string | null>(null);
       const prevContentKeyRef = useRef<string | null>(null);

@@ -113,7 +113,9 @@ describe('LightweightChart', () => {
       return id;
     });
     globalThis.cancelAnimationFrame = jest.fn((id) => {
-      animationFrameCallbacks.delete(id);
+      if (id != null) {
+        animationFrameCallbacks.delete(id);
+      }
     });
     globalThis.ResizeObserver = class ResizeObserverMock {
       observe() {}

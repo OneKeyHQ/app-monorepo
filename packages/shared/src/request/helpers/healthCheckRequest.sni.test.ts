@@ -75,6 +75,40 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  test('removes non-string headers before crossing the native boundary', async () => {
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: {
+        valid: 'value',
+        missing: undefined,
+        empty: null,
+      } as unknown as Record<string, string>,
+    });
+
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: { valid: 'value' },
+      }),
+    );
+  });
+
+  test('removes non-string headers from the fetch fallback', async () => {
+    mockedIsProxyActiveForUrl.mockResolvedValue(true);
+
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: {
+        valid: 'value',
+        missing: undefined,
+      } as unknown as Record<string, string>,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/health',
+      expect.objectContaining({ headers: { valid: 'value' } }),
+    );
+  });
+
   test('falls back before IP selection when proxy preflight errors', async () => {
     mockedIsProxyActiveForUrl.mockRejectedValue(new Error('preflight failed'));
 
