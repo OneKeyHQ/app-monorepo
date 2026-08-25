@@ -1,47 +1,11 @@
-// cspell:ignore Skia
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
   shouldReplaceTradingViewNativeIndicatorSeries,
-} from './TradingViewNativeChart';
+} from './chartRuntimeData';
 
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
-
-jest.mock('@shopify/react-native-skia', () => ({
-  Canvas: () => null,
-  Picture: () => null,
-  useFont: jest.fn(),
-  useSVG: jest.fn(),
-}));
-
-jest.mock('react-native-gesture-handler', () => ({
-  Gesture: {},
-  GestureDetector: () => null,
-}));
-
-jest.mock('react-native-reanimated', () => ({
-  cancelAnimation: jest.fn(),
-  useAnimatedReaction: jest.fn(),
-  useDerivedValue: jest.fn(),
-  useSharedValue: jest.fn(),
-  withDecay: jest.fn(),
-}));
-
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: jest.fn(),
-  scheduleOnUI: jest.fn(),
-}));
-
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: { isNativeAndroid: false },
-}));
-
-jest.mock('./chartSkiaRenderer', () => ({
-  createTradingViewNativeSkiaPicture: jest.fn(),
-  createTradingViewNativeSkiaResources: jest.fn(),
-}));
 
 function createPane({
   inputLength = 14,

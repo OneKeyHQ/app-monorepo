@@ -4,6 +4,7 @@ import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIn
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartType = 'candlestick' | 'line';
+export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
