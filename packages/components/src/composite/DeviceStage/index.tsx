@@ -196,6 +196,18 @@ const PANEL_WARM_MS = 475;
 const CONFIRM_CARD_DELAY_MS = ARRANGE_MS + SCREEN_SWAP_MS + 80;
 const CONFIRM_CARD_IN_MS = 320;
 
+/** The actionless error is a notice — it informs, holds long enough to
+ * read, then leaves on its own. The exit is a request through the same
+ * close grant the ✕ fires, so the driver keeps the last word (and
+ * answers with `off`, as ever). Measured from the words landing on
+ * show, not from the step change. */
+const ERROR_NOTICE_EXIT_MS = 3000;
+
+/** The replica's exit and return around the notice's capsule seat — its
+ * own quick fade, since the label swap carries no window for the
+ * overlay-level layers. */
+const CAPSULE_SEAT_FADE_MS = 200;
+
 /** The confirm card's own inks. The stage is committed dark (STAGE_BG),
  * so the risk colors are its own, not theme tokens — a light theme would
  * otherwise pull the panels out from under the hardcoded white type. */
@@ -456,7 +468,12 @@ export function DeviceStage({
   onBtcHighIndexConfirm,
   onInstallConfirm,
 }: IDeviceStageProps) {
-  const pose = STEP_POSE[step];
+  // The actionless error is the notice — `done`'s ✗ sibling: nothing is
+  // asked, so it rests as the capsule (the failure glyph beside the
+  // reason's title, no second line) and leaves on its own (see the exit
+  // effect below). With an action the step keeps its ask card.
+  const errorNotice = step === 'error' && !onErrorAction;
+  const pose = errorNotice ? 'capsule' : STEP_POSE[step];
   // While the box is in flight the screen holds still: the triage
   // (2026-08-21) caught the UI thread freezing once per capsule<->card
   // morph, in the flight's own window, scaling with the scene's paint
@@ -490,7 +507,9 @@ export function DeviceStage({
       // Only a card landing speaks — the ask arriving under the hand.
       // An outcome card landing straight off a flight buzzes its news
       // instead of the impact (one haptic per transition). The `done`
-      // capsule is the one non-card arrival with news of its own.
+      // capsule and the error notice are the non-card arrivals with news
+      // of their own — the notice already passes here through `error`'s
+      // static card pose.
       if (STEP_POSE[stepRef.current] === 'card' || stepRef.current === 'done') {
         fireStepHaptic(stepRef.current, 'landing');
       }
@@ -529,9 +548,10 @@ export function DeviceStage({
     if (poseInFlight) {
       return;
     }
-    // The `done` capsule buzzes its ✓ even off a capsule label swap —
-    // the one non-card arrival that is news, not a wait.
-    if (shownStep === 'done') {
+    // The `done` capsule and the error notice buzz their news even off a
+    // capsule label swap — the two non-card arrivals that are news, not
+    // waits.
+    if (shownStep === 'done' || (shownStep === 'error' && !onErrorAction)) {
       fireStepHaptic(shownStep, 'crossing');
       return;
     }
@@ -539,7 +559,7 @@ export function DeviceStage({
       return;
     }
     fireStepHaptic(shownStep, 'crossing');
-  }, [poseInFlight, shownStep]);
+  }, [onErrorAction, poseInFlight, shownStep]);
   // A refused entry — inputError arriving — is a failure under the
   // person's fingers: the error buzz in sync with the panel's own
   // refusal beat. Change-driven like the panels' clearing effects, so
@@ -565,9 +585,7 @@ export function DeviceStage({
   // simply hold. Render-time ref write on purpose: the read is in the
   // same pass and the write is idempotent.
   const activeArrangementRef = useRef<ICardArrangement>(
-    STEP_POSE[step] === 'card'
-      ? (arrangementOf(step) as ICardArrangement)
-      : 'stage',
+    pose === 'card' ? (arrangementOf(step) as ICardArrangement) : 'stage',
   );
   if (pose === 'card') {
     activeArrangementRef.current = shownArrangement as ICardArrangement;
@@ -799,6 +817,34 @@ export function DeviceStage({
     return () => clearTimeout(id);
   }, [confirmCardIn, hasConfirmContent, reducedMotion, shownStep]);
 
+  // The notice's exit: after a readable hold — counted from the words
+  // landing on show — the stage requests close. Ref-called so a driver
+  // re-creating its handler never restarts the hold; gated on the grant
+  // existing at all — a driver that means the error to auto-leave grants
+  // close with it (the notice is terminal, nothing to protect).
+  const errorNoticeShown = shownStep === 'error' && !onErrorAction;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const closeGranted = Boolean(onClose);
+  useEffect(() => {
+    if (!errorNoticeShown || !closeGranted) {
+      return undefined;
+    }
+    const id = setTimeout(() => onCloseRef.current?.(), ERROR_NOTICE_EXIT_MS);
+    return () => clearTimeout(id);
+  }, [closeGranted, errorNoticeShown]);
+
+  // The capsule seat is the standing replica's — except under the
+  // notice, whose seat is the failure glyph instead. The gate fades the
+  // layer on its own quick clock (the label swap it rides carries no
+  // shared window for overlay layers) and rests at true 0 there: the
+  // device is off duty, its layer released. It is aimed further down,
+  // off the FROZEN glyph rather than the live step, so a notice's exit
+  // keeps its cleared seat instead of the device ghosting back through
+  // the fade; a fresh entrance carries its own reveal, so the gate
+  // snaps under it.
+  const capsuleSeatShown = useSharedValue(errorNotice ? 0 : 1);
+
   // The stage's own flow, aimed on the container's clock through onAim:
   // the replica gate, the staged port and miniature scale, and the
   // column's spacer and words margin. The miniature's scale is the
@@ -892,15 +938,19 @@ export function DeviceStage({
   const replicaLayerStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
       return {
-        opacity: Math.max(
-          interpolate(
-            progress.value,
-            [0, PILL_OUT_END],
-            [1, 0],
-            Extrapolation.CLAMP,
-          ),
-          REPLICA_HOLD_ALPHA,
-        ),
+        // The seat gate scales the whole window, floor included: under
+        // the notice the device is truly off duty, so its layer rests
+        // at 0 and releases.
+        opacity:
+          Math.max(
+            interpolate(
+              progress.value,
+              [0, PILL_OUT_END],
+              [1, 0],
+              Extrapolation.CLAMP,
+            ),
+            REPLICA_HOLD_ALPHA,
+          ) * capsuleSeatShown.value,
         transform: [{ translateY: -REPLICA_TOP }],
       };
     }
@@ -922,7 +972,7 @@ export function DeviceStage({
           : Math.max(staged, REPLICA_HOLD_ALPHA),
       transform: [{ translateY: 0 }],
     };
-  }, [progress, replicaShown, swapFade]);
+  }, [capsuleSeatShown, progress, replicaShown, swapFade]);
   // At the thumbnail seat the window opens to the capsule's own height —
   // nothing to crop, the whole device is on show.
   const portWindowStyle = useAnimatedStyle(
@@ -1101,16 +1151,43 @@ export function DeviceStage({
     resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
-  // vendor's product shot for the device beats, the ✓ for `done`.
-  const capsuleGlyphRef = useRef<'device' | 'done'>('device');
+  // vendor's product shot for the device beats, the ✓ for `done`, the ✗
+  // for the notice.
+  const capsuleGlyphRef = useRef<'device' | 'done' | 'error'>('device');
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    capsuleTextRef.current = resolveCapsuleText(intl, step, deviceName, vendor);
-    capsuleGlyphRef.current = vendor && step === 'done' ? 'done' : 'device';
+    capsuleTextRef.current = resolveCapsuleText(
+      intl,
+      step,
+      deviceName,
+      vendor,
+      errorReason,
+    );
+    if (errorNotice) {
+      capsuleGlyphRef.current = 'error';
+    } else {
+      capsuleGlyphRef.current = vendor && step === 'done' ? 'done' : 'device';
+    }
   }
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
+
+  // The seat gate's aim (declared with the notice logic above): the
+  // frozen glyph decides the seat on the capsule's own clock, so the
+  // exit keeps whatever the capsule last showed.
+  const capsuleSeatCleared = capsuleGlyph === 'error';
+  useEffect(() => {
+    const target = capsuleSeatCleared ? 0 : 1;
+    if (reducedMotion || sceneEntryInstant) {
+      capsuleSeatShown.value = target;
+      return;
+    }
+    capsuleSeatShown.value = withTiming(target, {
+      duration: CAPSULE_SEAT_FADE_MS,
+      easing: easeOutFn,
+    });
+  }, [capsuleSeatCleared, capsuleSeatShown, reducedMotion, sceneEntryInstant]);
 
   /* The parked columns, one per arrangement — each element memoized on
    * its own inputs, so a step change re-renders only the seats it
@@ -1662,7 +1739,9 @@ export function DeviceStage({
           Living outside the keyed row, it also never rebuilds when the
           capsule's words swap. The vendor track fills the same box
           itself — a product shot, or the ✓ on `done` — since those
-          devices have no replica to seat here. */}
+          devices have no replica to seat here. The notice fills it with
+          the failure ✗ on both tracks — the seat gate clears the
+          replica for it. */}
         <Stack
           width={CAPSULE_ROW.thumbBox}
           height={CAPSULE_ROW.thumbBox}
@@ -1671,6 +1750,9 @@ export function DeviceStage({
         >
           {capsuleGlyph === 'done' ? (
             <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />
+          ) : null}
+          {capsuleGlyph === 'error' ? (
+            <Icon name="XCircleSolid" size="$6" color="$iconCritical" />
           ) : null}
           {capsuleGlyph === 'device' && vendorImageSource ? (
             <Image
@@ -1682,8 +1764,10 @@ export function DeviceStage({
         </Stack>
         <YStack maxWidth={CAPSULE_TEXT_MAX_WIDTH}>
           {/* The sweep rests with the capsule: hidden poses neither pay
-            its per-frame band nor resume it mid-glide. */}
-          <ShimmerTitle paused={pose !== 'capsule'}>
+            its per-frame band nor resume it mid-glide. It rests under
+            the notice too — the sweep is a waiting affordance, and the
+            notice waits for nothing. */}
+          <ShimmerTitle paused={pose !== 'capsule' || capsuleGlyph === 'error'}>
             {capsuleText.title}
           </ShimmerTitle>
           {capsuleText.sub ? (
