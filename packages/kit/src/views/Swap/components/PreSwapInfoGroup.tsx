@@ -253,10 +253,10 @@ const PreSwapInfoGroup = ({
         onOpenChange={slippageEditor.onOpenChange}
         showHeader={false}
         placement="bottom-end"
-        floatingPanelProps={{ width: 340 }}
+        floatingPanelProps={{ width: 400 }}
         renderTrigger={trigger}
         renderContent={() => (
-          <Stack p="$4" width={340}>
+          <Stack p="$4" width={400}>
             <SwapReviewSlippageEditor
               initialValue={slippage}
               savingScope={slippageEditor.savingScope}
