@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -37,7 +37,7 @@ const SwapProTokenTransactionItem = ({
       item.type === 'buy' ? '$textSuccess' : '$textCritical';
     let formatPriceValue = (
       <SizableText size="$bodySm" color={textColorValue}>
-        {FALLBACK_DISPLAY};
+        {FALLBACK_DISPLAY}
       </SizableText>
     );
     if (isPriceValid) {
@@ -58,7 +58,7 @@ const SwapProTokenTransactionItem = ({
 
     let formatTokenValueValue = (
       <SizableText size="$bodySm" color={textColorValue}>
-        {FALLBACK_DISPLAY};
+        {FALLBACK_DISPLAY}
       </SizableText>
     );
     if (isPriceValid && isAmountValid) {
@@ -102,4 +102,4 @@ const SwapProTokenTransactionItem = ({
   );
 };
 
-export default SwapProTokenTransactionItem;
+export default memo(SwapProTokenTransactionItem);

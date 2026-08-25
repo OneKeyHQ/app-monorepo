@@ -12,20 +12,36 @@ import {
 } from '@onekeyhq/components';
 import { useSwapProTradeTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProTokenTransactionItem, {
   SWAP_PRO_TRANSACTION_ITEM_HEIGHT as ROW_HEIGHT,
 } from '../../components/SwapProTokenTransactionItem';
 import { SwapTestIDs } from '../../testIDs';
+import {
+  SWAP_PRO_TRANSACTION_LIMIT,
+  getTransactionIdentity,
+} from '../../utils/swapProMarketDataUtils';
 
 import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
 import type { LayoutChangeEvent } from 'react-native';
 
-// The last row may overhang the container by ~6px without clipping visible
-// glyphs: its digits-only 16px text box sits centered in the 22px row, leaving
-// ~3px of slack on each side plus descender-free space at the bottom.
-const LAST_ROW_CLIP_TOLERANCE = 6;
+// The last row may overhang the container by a few px without clipping
+// visible glyphs; keep this at the 3px centering slack plus 1px rounding so
+// subscript digits in tiny prices are never sheared.
+const LAST_ROW_CLIP_TOLERANCE = 4;
+
+const unsupportedSourceContent = (
+  <XStack justifyContent="space-between">
+    <SizableText size="$bodySm" color="$textSubdued">
+      {UNAVAILABLE_DISPLAY}
+    </SizableText>
+    <SizableText size="$bodySm" color="$textSubdued">
+      {UNAVAILABLE_DISPLAY}
+    </SizableText>
+  </XStack>
+);
 
 const SwapProTokenTransactionList = ({
   marketData,
@@ -38,7 +54,7 @@ const SwapProTokenTransactionList = ({
   const handleListLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
     // Ignore sub-pixel jitter to avoid layout/render feedback loops
-    setListHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+    setListHeight((prev) => (Math.abs(prev - h) >= 1 ? h : prev));
   }, []);
 
   // Baseline row caps per trade-type layout; the list container then flexes
@@ -54,24 +70,18 @@ const SwapProTokenTransactionList = ({
     () => marketData.transactions.slice(0, maxRows),
     [marketData.transactions, maxRows],
   );
-  let transactionListContent = (
-    <XStack justifyContent="space-between">
-      <SizableText size="$bodySm" color="$textSubdued">
-        --
-      </SizableText>
-      <SizableText size="$bodySm" color="$textSubdued">
-        --
-      </SizableText>
-    </XStack>
-  );
+  let transactionListContent = unsupportedSourceContent;
   if (
     marketData.isSourceSupported &&
     !marketData.hasLoadedSource &&
     finallyTransactionList.length === 0
   ) {
+    // The data feed never returns more than SWAP_PRO_TRANSACTION_LIMIT rows,
+    // so don't render skeletons real data can never fill
+    const skeletonRows = Math.min(maxRows, SWAP_PRO_TRANSACTION_LIMIT);
     transactionListContent = (
       <YStack>
-        {Array.from({ length: maxRows }).map((_, index) => (
+        {Array.from({ length: skeletonRows }).map((_, index) => (
           <Skeleton w="100%" h={ROW_HEIGHT} radius="square" key={index} />
         ))}
       </YStack>
@@ -82,9 +92,9 @@ const SwapProTokenTransactionList = ({
   ) {
     transactionListContent = (
       <YStack>
-        {finallyTransactionList.map((item, index) => (
+        {finallyTransactionList.map((item) => (
           <SwapProTokenTransactionItem
-            key={`${item.hash}-${index}`}
+            key={getTransactionIdentity(item)}
             item={item}
           />
         ))}

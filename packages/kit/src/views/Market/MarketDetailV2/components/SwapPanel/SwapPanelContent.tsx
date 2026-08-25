@@ -349,11 +349,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           toToken={quoteResult?.toTokenInfo}
           percentageFee={quoteResult?.fee?.percentageFee}
           percentOriginFee={quoteResult?.fee?.percentOriginFee}
-          onPress={
-            quoteLoading || quoteListLength <= 1
-              ? undefined
-              : onOpenProviderList
-          }
+          onPress={quoteListLength > 1 ? onOpenProviderList : undefined}
           isLoading={quoteLoading}
         />
 

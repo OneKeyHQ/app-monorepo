@@ -91,7 +91,9 @@ const SwapProviderInfoItem = ({
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   const logoSize = compact ? '$4' : '$5';
-  const isEmpty = !providerIcon || !fromToken || !toToken;
+  // providerLogo is optional on quotes, so emptiness must key on the provider
+  // name — a logo-less provider still has a live quote and stays pressable
+  const isEmpty = !providerName || !fromToken || !toToken;
   const pressHandler = isEmpty ? undefined : onPress;
   return (
     <XStack testID={testID} justifyContent="space-between" alignItems="center">
@@ -126,27 +128,33 @@ const SwapProviderInfoItem = ({
                   })}
                 </Badge>
               ) : null}
-              <Stack position="relative" w={logoSize} h={logoSize}>
-                <Image
-                  source={{ uri: providerIcon }}
-                  w={logoSize}
-                  h={logoSize}
-                  borderRadius="$1"
-                />
-                <Stack
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  borderRadius="$1"
-                  borderWidth="$px"
-                  borderColor="$borderSubdued"
-                  pointerEvents="none"
-                />
-              </Stack>
-              <SizableText size="$bodyMdMedium" ml="$1" {...valueProps}>
-                {providerName ?? ''}
+              {providerIcon ? (
+                <Stack position="relative" w={logoSize} h={logoSize}>
+                  <Image
+                    source={{ uri: providerIcon }}
+                    w={logoSize}
+                    h={logoSize}
+                    borderRadius="$1"
+                  />
+                  <Stack
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    borderRadius="$1"
+                    borderWidth="$px"
+                    borderColor="$borderSubdued"
+                    pointerEvents="none"
+                  />
+                </Stack>
+              ) : null}
+              <SizableText
+                size="$bodyMdMedium"
+                ml={providerIcon ? '$1' : undefined}
+                {...valueProps}
+              >
+                {providerName}
               </SizableText>
             </>
           )}
