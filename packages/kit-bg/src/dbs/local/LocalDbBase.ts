@@ -3016,11 +3016,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     if (hyperLiquidAgentCredentialIds.length) {
       try {
-        await this.backgroundApi.serviceDBBackup.removeBackupHyperLiquidAgentCredentials(
-          {
-            credentialIds: hyperLiquidAgentCredentialIds,
-          },
-        );
+        const backupCleaned =
+          await this.backgroundApi.serviceDBBackup.removeBackupHyperLiquidAgentCredentials(
+            {
+              credentialIds: hyperLiquidAgentCredentialIds,
+            },
+          );
+        if (!backupCleaned) {
+          // Best-effort by design: the next daily backup self-heals by
+          // deleting stale agent rows inside the snapshot transaction.
+          defaultLogger.app.error.log(
+            'HyperLiquid agent backup credential cleanup incomplete',
+          );
+        }
       } catch {
         defaultLogger.app.error.log(
           'HyperLiquid agent backup credential cleanup failed',

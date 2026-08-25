@@ -178,3 +178,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `getHyperLiquidAgentCredentialInfo` propagated new throw paths (session getKeyOrThrow, LocalSecretEnvelopeUnavailable, durable-upgrade write) that the legacy decrypt path had surfaced as `undefined`, while the caller and its `@toastIfError` decorator were built around the never-throw contract.
 **Fix**: The info getter catches read errors, logs, and returns `undefined` (restoring the graceful re-approval flow); `@toastIfError` was removed from this polled getter. The signing path stays fail-closed.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (an error-contract change must be audited at every call site)
+
+## Case: Proxy signer advertised one agent address while signing with another key
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; Perps agent signing)
+**Symptom**: Review finding on PR #12990 — `WalletHyperliquidProxy.getAddress()` returned the setup-time agentAddress while `signTypedData()` signed with whatever private key the per-signature localDb fetch returned, so a re-approval race (record swapped to a new key while an exchange client held an old proxy) or an inconsistent record could silently sign under a different agent identity than advertised.
+**Root Cause**: Moving from a captured-key wallet to per-signature key fetching removed the implicit key↔address binding that constructing `ethers.Wallet` at setup time used to provide; no explicit check replaced it.
+**Fix**: `signTypedData` derives the address from the fetched key (already computed by ethers) and fails closed with a re-enable-trading error when it does not match the advertised agentAddress, case-insensitively.
+**Catchable by**: Section 5: No stale closures capturing outdated state (identity captured at setup must be re-validated against data fetched later)

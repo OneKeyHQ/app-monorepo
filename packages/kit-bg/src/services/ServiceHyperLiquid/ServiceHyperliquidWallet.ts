@@ -95,6 +95,15 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
     // strings cannot be reliably overwritten, but neither value is retained by
     // the long-lived Exchange Client after this method resolves.
     const wallet = new ethers.Wallet(credential.privateKey);
+    // Fail closed if the fetched key does not derive the advertised agent
+    // address: a stale proxy after re-approval or an inconsistent record must
+    // never silently sign with a key that mismatches the agent identity this
+    // proxy advertises, which would desync the exchange client.
+    if (wallet.address.toLowerCase() !== this.agentAddress.toLowerCase()) {
+      throw new OneKeyLocalError(
+        'HyperLiquid agent credential does not match the active agent address; re-enable trading',
+      );
+    }
     return wallet._signTypedData(domain, types, value);
   }
 
