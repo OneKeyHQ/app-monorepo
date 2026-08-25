@@ -2,6 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type {
+  IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
@@ -71,6 +72,8 @@ export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
   deviceName?: string;
+  /** Confirm-card payload for this burst, if the caller knows it upfront. */
+  confirmContent?: IDeviceStageConfirmContent;
 };
 
 export class DeviceStageBurstScope {
@@ -79,6 +82,21 @@ export class DeviceStageBurstScope {
   private burstSeq = 0;
 
   private offTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The registered confirm content (OK-59934 confirm channel): business
+   * code registers what the confirm card must show — before the wrapper
+   * starts (UI side) or through the wrapper options — and REQUEST_BUTTON
+   * consumes it. Lives until the burst ends; re-registering mid-burst
+   * redirects the next confirm (multi-call bursts).
+   */
+  private confirmContent: IDeviceStageConfirmContent | undefined;
+
+  async registerConfirmContent(
+    content: IDeviceStageConfirmContent | undefined,
+  ) {
+    this.confirmContent = content;
+  }
 
   async isEnabled() {
     return deviceStageEnabledAtom.get();
@@ -95,6 +113,9 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     this.depth += 1;
+    if (params.confirmContent) {
+      this.confirmContent = params.confirmContent;
+    }
     if (this.depth === 1) {
       const prev = await deviceStageAtom.get();
       const stageStillOn = prev && prev.step !== 'off';
@@ -118,6 +139,7 @@ export class DeviceStageBurstScope {
     if (this.depth > 0) {
       return;
     }
+    this.confirmContent = undefined;
     const reason = params.error
       ? this.mapErrorToReason(params.error)
       : undefined;
@@ -183,6 +205,7 @@ export class DeviceStageBurstScope {
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
+      confirmDescriptionDanger?: boolean;
       inputError?: string;
     } = {},
   ) {
@@ -211,6 +234,7 @@ export class DeviceStageBurstScope {
   async userClose() {
     this.clearOffTimer();
     this.depth = 0;
+    this.confirmContent = undefined;
     await this.forceOff();
   }
 
@@ -246,12 +270,41 @@ export class DeviceStageBurstScope {
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
+      confirmDescriptionDanger?: boolean;
       inputError?: string;
       resetOutcome?: boolean;
     },
   ) {
+    // Confirm payload priority: explicit extras (demo / special flows) >
+    // the burst's registered content (the confirm channel) > what the
+    // step already showed (repeat confirms of the same call).
+    const registered = step === 'confirm' ? this.confirmContent : undefined;
+    const hasExplicitConfirm = Boolean(
+      extras.confirmDetails ||
+      extras.confirmMessage ||
+      extras.confirmDescription,
+    );
     await deviceStageAtom.set((prev): IDeviceStageState => {
       const base = extras.resetOutcome ? undefined : prev;
+      const pickConfirm = <T>(
+        explicit: T | undefined,
+        fromRegistration: T | undefined,
+        carried: T | undefined,
+      ): T | undefined => {
+        if (step !== 'confirm') {
+          return undefined;
+        }
+        if (hasExplicitConfirm) {
+          return explicit;
+        }
+        // A registration replaces the card wholesale — never mixed with
+        // the previous confirm's leftovers (multi-call bursts re-register
+        // between calls).
+        if (registered) {
+          return fromRegistration;
+        }
+        return carried;
+      };
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
         step,
@@ -261,15 +314,33 @@ export class DeviceStageBurstScope {
         errorReason: step === 'error' ? extras.errorReason : undefined,
         inputError: extras.inputError,
         passphraseMode: base?.passphraseMode,
-        confirmDetails:
-          extras.confirmDetails ??
-          (step === 'confirm' ? base?.confirmDetails : undefined),
-        confirmMessage:
-          extras.confirmMessage ??
-          (step === 'confirm' ? base?.confirmMessage : undefined),
-        confirmDescription:
-          extras.confirmDescription ??
-          (step === 'confirm' ? base?.confirmDescription : undefined),
+        confirmDetails: pickConfirm(
+          extras.confirmDetails,
+          registered?.details,
+          base?.confirmDetails,
+        ),
+        confirmMessage: pickConfirm(
+          extras.confirmMessage,
+          registered?.message,
+          base?.confirmMessage,
+        ),
+        confirmDescription: pickConfirm(
+          extras.confirmDescription,
+          registered?.description,
+          base?.confirmDescription,
+        ),
+        confirmDescriptionDanger: pickConfirm(
+          extras.confirmDescriptionDanger,
+          registered?.descriptionDanger,
+          base?.confirmDescriptionDanger,
+        ),
+        confirmCount:
+          // eslint-disable-next-line no-nested-ternary
+          step !== 'confirm'
+            ? undefined
+            : registered
+              ? registered.count
+              : base?.confirmCount,
         payload: extras.payload ?? base?.payload,
       };
     });
