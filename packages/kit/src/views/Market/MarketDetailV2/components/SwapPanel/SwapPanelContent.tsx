@@ -341,24 +341,22 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           toTokenSymbol={priceRate?.toTokenSymbol}
           loading={priceRate?.loading}
         />
-        {quoteLoading || quoteResult?.info.provider ? (
-          <SwapProviderInfoItem
-            providerIcon={quoteResult?.info.providerLogo ?? ''}
-            providerName={quoteResult?.info.providerName ?? ''}
-            isBest={quoteResult?.isBest}
-            fromToken={quoteResult?.fromTokenInfo}
-            toToken={quoteResult?.toTokenInfo}
-            showLock={!!quoteResult?.allowanceResult}
-            percentageFee={quoteResult?.fee?.percentageFee}
-            percentOriginFee={quoteResult?.fee?.percentOriginFee}
-            onPress={
-              quoteLoading || quoteListLength <= 1
-                ? undefined
-                : onOpenProviderList
-            }
-            isLoading={quoteLoading}
-          />
-        ) : null}
+        <SwapProviderInfoItem
+          providerIcon={quoteResult?.info.providerLogo ?? ''}
+          providerName={quoteResult?.info.providerName ?? ''}
+          emptyValueText="--"
+          fromToken={quoteResult?.fromTokenInfo}
+          toToken={quoteResult?.toTokenInfo}
+          showLock={!!quoteResult?.allowanceResult}
+          percentageFee={quoteResult?.fee?.percentageFee}
+          percentOriginFee={quoteResult?.fee?.percentOriginFee}
+          onPress={
+            quoteLoading || quoteListLength <= 1 || !quoteResult?.info.provider
+              ? undefined
+              : onOpenProviderList
+          }
+          isLoading={quoteLoading}
+        />
 
         {/* Balance display */}
         {tradeType === ESwapDirection.SELL ? (

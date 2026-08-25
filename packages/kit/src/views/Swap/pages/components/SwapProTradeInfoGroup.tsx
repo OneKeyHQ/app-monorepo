@@ -221,7 +221,6 @@ const SwapProTradeInfoGroup = ({
           valueProps={ITEM_VALUE_PROPS}
           compact
           emptyValueText="--"
-          isBest={swapProQuoteResult?.isBest}
           fromToken={inputToken}
           toToken={toToken}
           showLock={!!swapProQuoteResult?.allowanceResult}
