@@ -773,6 +773,19 @@ export function useSwapProTokenInfoSync() {
   };
 }
 
+export function isSwapProTradeStateOwner({
+  isNative,
+  swapTypeSwitch,
+}: {
+  isNative: boolean;
+  swapTypeSwitch: ESwapTabSwitchType;
+}) {
+  return (
+    swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+    (isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT)
+  );
+}
+
 export function useSwapProTokenInit() {
   const { setSwapProSelectToken, resetQuoteAction } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
@@ -788,6 +801,10 @@ export function useSwapProTokenInit() {
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const ownsActiveSwapProTradeState = isSwapProTradeStateOwner({
+    isNative: Boolean(platformEnv.isNative),
+    swapTypeSwitch,
+  });
   const shouldSyncSwapProTokenInfo =
     swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
@@ -857,7 +874,9 @@ export function useSwapProTokenInit() {
       if (swapProUseSelectBuyTokenAtom) {
         setSwapProUseSelectBuyTokenAtom(undefined);
         setSwapProInputAmount('');
-        void resetQuoteAction();
+        if (ownsActiveSwapProTradeState) {
+          void resetQuoteAction();
+        }
       }
       return;
     }
@@ -916,6 +935,7 @@ export function useSwapProTokenInit() {
     setSwapProUseSelectBuyTokenAtom,
     setSwapProInputAmount,
     resetQuoteAction,
+    ownsActiveSwapProTradeState,
     defaultTokensFromType,
     findPreferredToken,
   ]);
@@ -963,8 +983,10 @@ export function useSwapProTokenInit() {
     if (sellCandidateTokens.length === 0) {
       if (swapProSellToToken) {
         setSwapProSellToToken(undefined);
-        setSwapFromInputAmount({ value: '', isInput: true });
-        void resetQuoteAction();
+        if (ownsActiveSwapProTradeState) {
+          setSwapFromInputAmount({ value: '', isInput: true });
+          void resetQuoteAction();
+        }
       }
       return;
     }
@@ -1068,6 +1090,7 @@ export function useSwapProTokenInit() {
     setSwapProSellToToken,
     setSwapFromInputAmount,
     resetQuoteAction,
+    ownsActiveSwapProTradeState,
     swapProSelectToken?.networkId,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.isStock,

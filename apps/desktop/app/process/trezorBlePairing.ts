@@ -9,12 +9,14 @@ import logger from 'electron-log/main';
 import { ElectronTranslations, i18nText } from '../i18n';
 
 import {
+  decideActivePairing,
   ensureDevicePaired,
   isBlePairAvailable,
   startRawAdvertisementWatch,
 } from './BlePair';
 import { trezorBleFlags } from './trezorBleFlags';
 
+import type { IPairCeremonyToken } from './BlePair';
 import type {
   IpcMainLike,
   TrezorBleDeviceInfo,
@@ -105,14 +107,14 @@ export function createTrezorBlePairingIpcMain(
     startRawAdvertisementWatch(seconds, reason);
   };
 
+  // Set when a ceremony registers, so a dialog left open by an earlier attempt
+  // answers nothing instead of answering the attempt that replaced it.
+  let ceremonyToken: IPairCeremonyToken | undefined;
+
   const showPin = (pin: string) => {
-    // The helper has ALREADY called Accept() on the Windows side by the time we
-    // get here, so this dialog gates nothing — it only lets the user perform the
-    // numeric comparison. It must therefore not read as "click OK first": the
-    // ceremony is waiting on the DEVICE confirmation, and any time spent here is
-    // time spent inside the pairing window. Copy is localized via the shared
-    // main-process i18n (i18nText) so it follows the app language instead of the
-    // previous hardcoded English; keys are reused from the RN side.
+    const dialogToken = ceremonyToken;
+    // The host's half of the numeric comparison: the helper holds the pairing
+    // request open until we answer. Declining is what tells the device over SMP.
     const shownAt = Date.now();
     // Never log the code itself — it authorizes the bond while it is on screen.
     logger.info('[TrezorBLE] pin dialog shown');
@@ -122,16 +124,30 @@ export function createTrezorBlePairingIpcMain(
         title: i18nText(ElectronTranslations.transfer_pair_code),
         message: pin,
         detail: i18nText(ElectronTranslations.global_confirm_on_device),
-        buttons: [i18nText(ElectronTranslations.global_confirm)],
+        buttons: [
+          i18nText(ElectronTranslations.global_confirm),
+          i18nText(ElectronTranslations.global_cancel),
+        ],
+        defaultId: 0,
+        // X routes here too, so closing the dialog now actually cancels.
+        cancelId: 1,
         noLink: true,
       })
-      .then(() => {
-        // How long the human spent on the PC before (probably) turning to the
-        // device. Compare against the helper's `sinceAccept` to tell a fixed OS
-        // timeout apart from "we simply outran the user".
+      .then(({ response }) => {
+        const decision = response === 1 ? 'cancel' : 'confirm';
+        // Compare against the helper's `sinceAccept` to tell an OS timeout apart
+        // from "we outran the user".
         logger.info(
-          `[TrezorBLE] pin dialog dismissed after ${Date.now() - shownAt}ms`,
+          `[TrezorBLE] pin dialog answered '${decision}' after ${
+            Date.now() - shownAt
+          }ms`,
         );
+        const delivered = decideActivePairing(decision, dialogToken);
+        if (!delivered) {
+          logger.warn(
+            `[TrezorBLE] pin dialog '${decision}' had no ceremony to answer (already settled)`,
+          );
+        }
       })
       .catch(() => undefined);
   };
@@ -181,6 +197,9 @@ export function createTrezorBlePairingIpcMain(
       address,
       showPin,
       trezorBleFlags.pairKeepLink,
+      (token) => {
+        ceremonyToken = token;
+      },
     );
     const claimed = pairing.catch(() => undefined);
     pairingInFlight = claimed;
@@ -426,6 +445,20 @@ export function createTrezorBlePairingIpcMain(
             }
             throw firstError;
           }
+        });
+        return;
+      }
+
+      if (channel === TREZOR_BLE_CHANNELS.cancelPairing) {
+        base.handle(channel, async (event, ...args) => {
+          // The SDK abandons its noble connect; the OS-pairing ceremony is ours.
+          const declined = decideActivePairing('cancel');
+          if (declined) {
+            logger.info(
+              '[TrezorBLE] cancelPairing: declined the in-flight OS pairing ceremony',
+            );
+          }
+          return listener(event, ...args);
         });
         return;
       }

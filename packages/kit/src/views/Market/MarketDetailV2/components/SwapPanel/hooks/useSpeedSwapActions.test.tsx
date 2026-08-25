@@ -229,6 +229,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     SwapSpeedApprovingReset: 'SwapSpeedApprovingReset',
     SwapSpeedBalanceUpdate: 'SwapSpeedBalanceUpdate',
     SwapSpeedBuildTxSuccess: 'SwapSpeedBuildTxSuccess',
+    SwapQuoteEvent: 'SwapQuoteEvent',
   },
   appEventBus: {
     on: jest.fn(),
@@ -614,6 +615,46 @@ describe('useSpeedSwapActions', () => {
     );
 
     rerender({ stockIsOpen: true });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('pauses Market quotes while review is open and resumes after close', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { rerender } = renderSwapHook(
+      ({ isReviewDialogOpen }: { isReviewDialogOpen: boolean }) =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          isReviewDialogOpen,
+        }),
+      {
+        initialProps: {
+          isReviewDialogOpen: false,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const initialQuoteRequestId = mockSwapStore.get(
+      swapQuoteActionLockAtom(),
+    ).quoteRequestId;
+
+    rerender({ isReviewDialogOpen: true });
+
+    await waitFor(() => {
+      expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
+        initialQuoteRequestId,
+      );
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+
+    rerender({ isReviewDialogOpen: false });
 
     await waitFor(() => {
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);

@@ -328,6 +328,7 @@ type ISwapQuoteActionOverride = {
   toTokenAmount?: string;
   type: ESwapTabSwitchType;
   source?: ESwapQuoteSource;
+  manualRefresh?: boolean;
 };
 
 function isQuoteEventProtocolForCurrentSwapType({
@@ -635,6 +636,36 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         );
       }, swapRefreshInterval);
       set(swapQuoteAutoRefreshTimerAtom(), quoteAutoRefreshTimer);
+    },
+  );
+
+  private settleQuoteRefresh = contextAtomMethod(
+    (
+      get,
+      set,
+      event: ISwapQuoteEventPayload,
+      shouldScheduleAutoRefresh: boolean,
+    ) => {
+      if (get(swapShouldRefreshQuoteAtom())) {
+        return;
+      }
+
+      const refreshTransition = resolveSwapQuoteRefreshAction({
+        automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
+        maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+      });
+      if (
+        refreshTransition.action ===
+        ESwapQuoteRefreshAction.RequireManualRefresh
+      ) {
+        this.cleanQuoteInterval.call(set);
+        set(swapShouldRefreshQuoteAtom(), true);
+        return;
+      }
+
+      if (shouldScheduleAutoRefresh) {
+        this.scheduleQuoteAutoRefresh.call(set, event);
+      }
     },
   );
 
@@ -1298,9 +1329,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   actionLock: false,
                 }));
                 this.closeQuoteEvent(event.quoteRequestId);
-                if (shouldScheduleAutoRefresh) {
-                  this.scheduleQuoteAutoRefresh.call(set, event);
-                }
+                this.settleQuoteRefresh.call(
+                  set,
+                  event,
+                  shouldScheduleAutoRefresh,
+                );
                 break;
               }
               set(swapQuoteEventCompletedAtom(), false);
@@ -1468,9 +1501,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           set(swapQuoteFetchingAtom(), false);
           this.closeQuoteEvent(event.quoteRequestId);
-          if (shouldScheduleAutoRefresh) {
-            this.scheduleQuoteAutoRefresh.call(set, event);
-          }
+          this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
           break;
         }
         case 'error': {
@@ -1480,9 +1511,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           this.closeQuoteEvent(event.quoteRequestId);
-          if (shouldScheduleAutoRefresh) {
-            this.scheduleQuoteAutoRefresh.call(set, event);
-          }
+          this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
           break;
         }
         case 'close': {
@@ -1490,9 +1519,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          if (shouldScheduleAutoRefresh) {
-            this.scheduleQuoteAutoRefresh.call(set, event);
-          }
+          this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
           break;
         }
         default:
@@ -1791,6 +1818,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         address,
         receivingAddress,
         quoteRequestId,
+        manualRefresh: quoteOverride?.manualRefresh ?? false,
       }));
       void this.runQuoteEvent.call(
         set,
