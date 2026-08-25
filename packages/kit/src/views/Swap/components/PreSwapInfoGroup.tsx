@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
+  Button,
   Icon,
   Image,
   NumberSizeableText,
@@ -18,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapNetworkFeeLevel,
@@ -26,6 +29,10 @@ import {
 
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  shouldShowNativeBtcLowSlippageWarning,
+} from '../utils/swapReviewState';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
 import {
@@ -45,6 +52,8 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
+  onSetNativeBtcMinSlippage: () => void;
+  nativeBtcMinSlippageSaving?: boolean;
   slippageEditor?: {
     open: boolean;
     savingScope?: ISwapReviewSlippageSaveScope;
@@ -61,6 +70,8 @@ const PreSwapInfoGroup = ({
   onSelectNetworkFeeLevel,
   customNetworkFeeOptionLabel,
   networkFeeSelectValue,
+  onSetNativeBtcMinSlippage,
+  nativeBtcMinSlippageSaving,
   slippageEditor,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
@@ -117,6 +128,56 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
+  const shouldShowLowSlippageWarning = useMemo(
+    () =>
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken: preSwapData.fromToken,
+        toToken: preSwapData.toToken,
+        slippage: preSwapData.slippage,
+        swapType: preSwapData.swapType,
+      }),
+    [
+      preSwapData.fromToken,
+      preSwapData.slippage,
+      preSwapData.swapType,
+      preSwapData.toToken,
+    ],
+  );
+  const lowSlippageWarningTrackedRef = useRef(false);
+  useEffect(() => {
+    if (
+      shouldShowLowSlippageWarning &&
+      !lowSlippageWarningTrackedRef.current &&
+      !isNil(preSwapData.slippage)
+    ) {
+      lowSlippageWarningTrackedRef.current = true;
+      defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningShow({
+        slippage: preSwapData.slippage,
+        swapProvider: preSwapData.providerInfo?.provider ?? '',
+      });
+    }
+  }, [
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+    shouldShowLowSlippageWarning,
+  ]);
+
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (isNil(preSwapData.slippage) || nativeBtcMinSlippageSaving) {
+      return;
+    }
+    defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningQuickSet({
+      fromSlippage: preSwapData.slippage,
+      toSlippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      swapProvider: preSwapData.providerInfo?.provider ?? '',
+    });
+    onSetNativeBtcMinSlippage();
+  }, [
+    nativeBtcMinSlippageSaving,
+    onSetNativeBtcMinSlippage,
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+  ]);
 
   const activeNetworkFeeSelectValue =
     networkFeeSelectValue ??
@@ -220,7 +281,15 @@ const PreSwapInfoGroup = ({
       return undefined;
     }
     if (!slippageEditor) {
-      return `${slippage}%`;
+      return shouldShowLowSlippageWarning ? (
+        <XStack px="$2.5" py="$1" borderRadius="$1" bg="$bgCautionSubdued">
+          <SizableText size="$bodyMd" color="$textCaution">
+            {slippage}%
+          </SizableText>
+        </XStack>
+      ) : (
+        `${slippage}%`
+      );
     }
 
     const trigger = (
@@ -229,14 +298,27 @@ const PreSwapInfoGroup = ({
         cursor="pointer"
         alignItems="center"
         gap="$1"
+        px={shouldShowLowSlippageWarning ? '$2.5' : undefined}
+        py={shouldShowLowSlippageWarning ? '$1' : undefined}
+        borderRadius={shouldShowLowSlippageWarning ? '$1' : undefined}
+        bg={shouldShowLowSlippageWarning ? '$bgCautionSubdued' : undefined}
         onPress={
           platformEnv.isNative
             ? () => slippageEditor.onOpenChange(true)
             : undefined
         }
       >
-        <SizableText size="$bodyMd">{`${slippage}%`}</SizableText>
-        <Icon name="PencilOutline" size="$4" color="$iconSubdued" />
+        <SizableText
+          size="$bodyMd"
+          color={shouldShowLowSlippageWarning ? '$textCaution' : '$text'}
+        >
+          {`${slippage}%`}
+        </SizableText>
+        <Icon
+          name="PencilOutline"
+          size="$4"
+          color={shouldShowLowSlippageWarning ? '$iconCaution' : '$iconSubdued'}
+        />
       </XStack>
     );
 
@@ -267,7 +349,7 @@ const PreSwapInfoGroup = ({
         }
       />
     );
-  }, [intl, slippage, slippageEditor]);
+  }, [intl, shouldShowLowSlippageWarning, slippage, slippageEditor]);
 
   return (
     <YStack gap="$3">
@@ -313,6 +395,78 @@ const PreSwapInfoGroup = ({
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}
+        />
+      ) : null}
+      {shouldShowLowSlippageWarning ? (
+        <Alert
+          testID="swap-native-btc-low-slippage-alert"
+          type="warning"
+          px="$3"
+          py="$2.5"
+          borderRadius="$3"
+          renderTitle={() => (
+            <XStack w="100%" alignItems="center" gap="$2">
+              <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+                <Stack
+                  w="$4"
+                  h="$4"
+                  borderRadius="$full"
+                  bg="$iconCaution"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <SizableText
+                    fontSize={11}
+                    lineHeight={14}
+                    fontWeight="600"
+                    color="$textOnColor"
+                  >
+                    !
+                  </SizableText>
+                </Stack>
+              </Stack>
+              <SizableText
+                flex={1}
+                minWidth={0}
+                fontSize={13}
+                lineHeight={18}
+                letterSpacing={-0.1}
+                color="$textCaution"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.btc_trade_btc_slow_to_confirm,
+                })}
+              </SizableText>
+              <Button
+                testID="swap-native-btc-set-min-slippage-btn"
+                size="small"
+                variant="secondary"
+                flexShrink={0}
+                h="$7"
+                px="$3"
+                bg="$bg"
+                borderColor="$borderSubdued"
+                borderRadius="$2"
+                childrenAsText={false}
+                disabled={nativeBtcMinSlippageSaving}
+                loading={nativeBtcMinSlippageSaving}
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={handleSetNativeBtcMinSlippage}
+              >
+                <SizableText
+                  fontSize={13}
+                  lineHeight={18}
+                  fontWeight="500"
+                  letterSpacing={-0.1}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.btc_trade_set_to_1_percent,
+                  })}
+                </SizableText>
+              </Button>
+            </XStack>
+          )}
         />
       ) : null}
       {!isNil(preSwapData?.minToAmount) &&

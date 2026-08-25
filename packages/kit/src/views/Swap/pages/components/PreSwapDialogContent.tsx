@@ -75,7 +75,11 @@ import {
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
-import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  calculateMinToAmountBySlippage,
+  shouldShowSwapReviewToAmountSkeleton,
+} from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
@@ -638,6 +642,35 @@ const PreSwapDialogContent = ({
     swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
     !showResultContent,
   );
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (supportSlippageRebuild) {
+      void handleSaveSlippage('current', NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE);
+      return;
+    }
+
+    setSwapSteps((prev) => {
+      const nextMinToAmount = calculateMinToAmountBySlippage({
+        toTokenAmount: prev.preSwapData.toTokenAmount,
+        toTokenDecimals: prev.preSwapData.toToken?.decimals,
+        slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      });
+      return {
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+          minToAmount: nextMinToAmount ?? prev.preSwapData.minToAmount,
+          swapBuildResultData: undefined,
+          netWorkFee: prev.preSwapData.netWorkFee
+            ? {
+                ...prev.preSwapData.netWorkFee,
+                gasInfos: undefined,
+              }
+            : undefined,
+        },
+      };
+    });
+  }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
   const showMobileSlippageEditor =
     platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
 
@@ -818,6 +851,10 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
+                    onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
+                    nativeBtcMinSlippageSaving={
+                      slippageSavingScope === 'current'
+                    }
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label

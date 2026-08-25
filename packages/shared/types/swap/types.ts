@@ -631,6 +631,7 @@ export interface ISwapPreSwapData {
   swapBuildResultData?: {
     swapInfo?: ISwapTxInfo;
     orderId?: string;
+    slippagePercentage?: number;
     skipSendTransAction?: boolean;
     encodedTx?: IEncodedTx;
     transferInfo?: ITransferInfo;

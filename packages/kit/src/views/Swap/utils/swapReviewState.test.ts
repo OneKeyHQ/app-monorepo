@@ -1,4 +1,7 @@
-import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapStepStatus,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchBuildTxResult,
   IFetchQuoteResult,
@@ -6,13 +9,109 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
+  calculateMinToAmountBySlippage,
   hasInFlightSwapReviewSteps,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
+  shouldShowNativeBtcLowSlippageWarning,
   shouldShowSwapReviewToAmountSkeleton,
 } from './swapReviewState';
+
+describe('shouldShowNativeBtcLowSlippageWarning', () => {
+  const nativeBtc = {
+    networkId: 'btc--0',
+    isNative: true,
+  };
+  const wrappedBtc = {
+    networkId: 'evm--1',
+    isNative: false,
+  };
+
+  it.each([
+    ['pay token', nativeBtc, wrappedBtc],
+    ['receive token', wrappedBtc, nativeBtc],
+  ])('shows for a native Bitcoin %s below 1%%', (_, fromToken, toToken) => {
+    expect(
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken,
+        toToken,
+        slippage: 0.99,
+        swapType: ESwapTabSwitchType.BRIDGE,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE, 1.5])(
+    'hides at or above the 1%% boundary (%s)',
+    (slippage) => {
+      expect(
+        shouldShowNativeBtcLowSlippageWarning({
+          fromToken: nativeBtc,
+          toToken: wrappedBtc,
+          slippage,
+          swapType: ESwapTabSwitchType.SWAP,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('does not treat wrapped BTC as native Bitcoin', () => {
+    expect(
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken: wrappedBtc,
+        toToken: wrappedBtc,
+        slippage: 0.5,
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.STOCK])(
+    'excludes %s orders',
+    (swapType) => {
+      expect(
+        shouldShowNativeBtcLowSlippageWarning({
+          fromToken: nativeBtc,
+          toToken: wrappedBtc,
+          slippage: 0.5,
+          swapType,
+        }),
+      ).toBe(false);
+    },
+  );
+});
+
+describe('calculateMinToAmountBySlippage', () => {
+  it('recomputes minimum received and rounds down to token decimals', () => {
+    expect(
+      calculateMinToAmountBySlippage({
+        toTokenAmount: '1.23456789',
+        toTokenDecimals: 6,
+        slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    ).toBe('1.222222');
+  });
+
+  it('rejects invalid amounts and slippage', () => {
+    expect(
+      calculateMinToAmountBySlippage({
+        toTokenAmount: 'invalid',
+        toTokenDecimals: 8,
+        slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    ).toBeUndefined();
+    expect(
+      calculateMinToAmountBySlippage({
+        toTokenAmount: '1',
+        toTokenDecimals: 8,
+        slippage: 100,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('buildCustomSlippageQuoteResultCtx', () => {
   it('marks the active provider context as user-defined without mutating it', () => {
