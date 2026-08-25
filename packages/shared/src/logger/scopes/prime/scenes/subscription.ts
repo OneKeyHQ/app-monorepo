@@ -419,7 +419,7 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   /**
    * Restore purchases result (native IAP only).
-   * Key path for device-switch users; the free-text error stays local.
+   * Key path for device-switch users.
    */
   @LogToServer()
   @LogToLocal()
@@ -493,7 +493,7 @@ export class PrimeSubscriptionScene extends BaseScene {
    */
   @LogToLocal()
   public onekeyIdStateTrace({ reason }: { reason: string }) {
-    return { reason };
+    return { reason: scrubSensitiveErrorMessageText(reason) };
   }
 
   @LogToLocal()

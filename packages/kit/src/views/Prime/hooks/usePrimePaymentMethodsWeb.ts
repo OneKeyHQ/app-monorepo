@@ -246,7 +246,12 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           subscriptionPeriod,
           featureName,
         });
-        errorToastUtils.toastIfError(error);
+        if (
+          primePaymentUtils.classifyPurchaseError(error).reason !==
+          'userCancelled'
+        ) {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
       } finally {
         // will block stripe modal

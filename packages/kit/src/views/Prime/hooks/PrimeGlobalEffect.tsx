@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EPrimeAuthSessionSource,
@@ -124,7 +125,7 @@ function PrimeGlobalEffectAfterAuthReady() {
       // Local-only: generic refresh failures are not invalid-token signals
       // and previously polluted onekeyIdInvalidToken with synthetic -1759.
       defaultLogger.prime.subscription.onekeyIdStateTrace({
-        reason: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${String(
+        reason: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${getSanitizedErrorLogText(
           error,
         )}`,
       });
@@ -206,7 +207,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         });
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdStateTrace({
-          reason: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
+          reason: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${getSanitizedErrorLogText(
             error,
           )}`,
         });
@@ -234,7 +235,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdStateTrace({
-          reason: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${String(
+          reason: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${getSanitizedErrorLogText(
             error,
           )}`,
         });
@@ -285,7 +286,9 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdStateTrace({
-          reason: `PrimeGlobalEffect: fetch user info failed: ${String(error)}`,
+          reason: `PrimeGlobalEffect: fetch user info failed: ${getSanitizedErrorLogText(
+            error,
+          )}`,
         });
         // Keep local auth state for transient refresh/network failures.
         // Server-side invalid tokens are cleared by the PrimeLoginInvalidToken event.

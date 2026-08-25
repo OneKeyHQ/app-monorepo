@@ -394,8 +394,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           subscriptionPeriod,
           featureName,
         });
-        const e = error as Error | undefined;
-        if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
+        if (
+          primePaymentUtils.classifyPurchaseError(error).reason !==
+          'userCancelled'
+        ) {
           errorToastUtils.toastIfError(error);
         }
         throw error;

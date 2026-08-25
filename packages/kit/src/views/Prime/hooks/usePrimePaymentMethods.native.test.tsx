@@ -2,6 +2,7 @@
 
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -447,10 +448,40 @@ describe('usePrimePaymentMethods native purchase', () => {
         }),
       ),
     );
+    expect(errorToastUtils.toastIfError).not.toHaveBeenCalled();
     // A cancelled purchase refreshes the server projection exactly once.
     await waitFor(() =>
       expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1),
     );
+  });
+
+  it('does not toast when native purchase is cancelled via userCancelled flag only', async () => {
+    mockPurchasePackage.mockRejectedValue(
+      Object.assign(new Error('Purchase cancelled by user'), {
+        userCancelled: true,
+        code: 1,
+      }),
+    );
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    await expect(
+      act(async () => {
+        await result.current.purchasePackageNative?.({
+          subscriptionPeriod: 'P1Y',
+        });
+      }),
+    ).rejects.toThrow('Purchase cancelled by user');
+
+    await waitFor(() =>
+      expect(mockPrimeSubscribeFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: 'iap',
+          reason: 'userCancelled',
+        }),
+      ),
+    );
+    expect(errorToastUtils.toastIfError).not.toHaveBeenCalled();
   });
 
   it('reports paymentFailed when the store purchase throws a non-cancel error', async () => {
@@ -483,5 +514,6 @@ describe('usePrimePaymentMethods native purchase', () => {
         }),
       ),
     );
+    expect(errorToastUtils.toastIfError).toHaveBeenCalled();
   });
 });

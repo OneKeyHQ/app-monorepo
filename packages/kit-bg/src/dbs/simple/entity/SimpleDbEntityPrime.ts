@@ -68,6 +68,23 @@ const IDENTITY_LINK_REPORTED_USERS_LIMIT = 5;
 // self-heals; value changes always report immediately.
 const PRIME_PROFILE_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+function isAnalyticsReportDue({
+  reportedAt,
+  now,
+  ttlMs,
+}: {
+  reportedAt: number | undefined;
+  now: number;
+  ttlMs: number;
+}): boolean {
+  return (
+    !reportedAt ||
+    !Number.isFinite(reportedAt) ||
+    reportedAt > now ||
+    now - reportedAt >= ttlMs
+  );
+}
+
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
 };
@@ -134,12 +151,7 @@ export interface ISimpleDBPrime {
     string,
     IPrimeInfiniSupersededPaymentSession[]
   >;
-  // Last time the onekeyIdIdentityLinked analytics event was reported for a
-  // user from this device. Bounds event volume: the link is re-asserted only
-  // after the TTL (PostHog $identify is idempotent, so repeats are safe).
   identityLinkReportedAtByUserId?: Record<string, number>;
-  // Last reported membership user-profile attributes (analytics). Reports
-  // are value-change driven with a periodic TTL re-assert.
   analyticsPrimeProfileReport?: {
     isOneKeyIdLoggedIn: boolean;
     isPrimeActive: boolean;
@@ -688,12 +700,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     now: number;
   }): Promise<{ shouldReport: boolean }> {
     const rawData = await this.getRawData();
-    const reportedAt = rawData?.identityLinkReportedAtByUserId?.[onekeyUserId];
-    const shouldReport =
-      !reportedAt ||
-      !Number.isFinite(reportedAt) ||
-      reportedAt > now ||
-      now - reportedAt >= IDENTITY_LINK_REPORT_TTL_MS;
+    const shouldReport = isAnalyticsReportDue({
+      reportedAt: rawData?.identityLinkReportedAtByUserId?.[onekeyUserId],
+      now,
+      ttlMs: IDENTITY_LINK_REPORT_TTL_MS,
+    });
     if (!shouldReport) {
       return { shouldReport };
     }
@@ -737,9 +748,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       !prev ||
       prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
       prev.isPrimeActive !== isPrimeActive ||
-      !Number.isFinite(prev.reportedAt) ||
-      prev.reportedAt > now ||
-      now - prev.reportedAt >= PRIME_PROFILE_REPORT_TTL_MS;
+      isAnalyticsReportDue({
+        reportedAt: prev.reportedAt,
+        now,
+        ttlMs: PRIME_PROFILE_REPORT_TTL_MS,
+      });
     if (!shouldReport) {
       return { shouldReport };
     }

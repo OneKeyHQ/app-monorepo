@@ -2969,28 +2969,28 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
   );
 });
 
+function createPrimeAnalyticsEntityWithStore(initial: ISimpleDBPrime = {}) {
+  const entity = new SimpleDbEntityPrime();
+  let persisted: ISimpleDBPrime = initial;
+  jest
+    .spyOn(entity, 'getRawData')
+    .mockImplementation((async () => persisted) as never);
+  const setRawDataSpy = jest
+    .spyOn(entity, 'setRawData')
+    .mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+  return { entity, getPersisted: () => persisted, setRawDataSpy };
+}
+
 describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
-  function createEntityWithStore(initial: ISimpleDBPrime = {}) {
-    const entity = new SimpleDbEntityPrime();
-    let persisted: ISimpleDBPrime = initial;
-    jest
-      .spyOn(entity, 'getRawData')
-      .mockImplementation((async () => persisted) as never);
-    const setRawDataSpy = jest
-      .spyOn(entity, 'setRawData')
-      .mockImplementation((async (
-        updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-      ) => {
-        persisted = updater(persisted);
-        return persisted;
-      }) as never);
-    return { entity, getPersisted: () => persisted, setRawDataSpy };
-  }
-
   test('reports and records the first link for a user', async () => {
-    const { entity, getPersisted } = createEntityWithStore();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const now = Date.now();
 
     await expect(
@@ -3003,9 +3003,10 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 
   test('suppresses re-reports within the TTL without touching storage', async () => {
     const now = Date.now();
-    const { entity, getPersisted, setRawDataSpy } = createEntityWithStore({
-      identityLinkReportedAtByUserId: { 'user-1': now - DAY_MS },
-    });
+    const { entity, getPersisted, setRawDataSpy } =
+      createPrimeAnalyticsEntityWithStore({
+        identityLinkReportedAtByUserId: { 'user-1': now - DAY_MS },
+      });
 
     await expect(
       entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
@@ -3018,7 +3019,7 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 
   test('re-reports after the TTL elapses', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createEntityWithStore({
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
       identityLinkReportedAtByUserId: { 'user-1': now - 8 * DAY_MS },
     });
 
@@ -3032,7 +3033,7 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 
   test('re-reports when the recorded timestamp is in the future (clock rollback)', async () => {
     const now = Date.now();
-    const { entity } = createEntityWithStore({
+    const { entity } = createPrimeAnalyticsEntityWithStore({
       identityLinkReportedAtByUserId: { 'user-1': now + DAY_MS },
     });
 
@@ -3043,7 +3044,7 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 
   test('prunes the record to the most recent users', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createEntityWithStore({
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
       identityLinkReportedAtByUserId: {
         'user-1': now - 5,
         'user-2': now - 4,
@@ -3066,25 +3067,8 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
-  function createEntityWithStore(initial: ISimpleDBPrime = {}) {
-    const entity = new SimpleDbEntityPrime();
-    let persisted: ISimpleDBPrime = initial;
-    jest
-      .spyOn(entity, 'getRawData')
-      .mockImplementation((async () => persisted) as never);
-    const setRawDataSpy = jest
-      .spyOn(entity, 'setRawData')
-      .mockImplementation((async (
-        updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-      ) => {
-        persisted = updater(persisted);
-        return persisted;
-      }) as never);
-    return { entity, getPersisted: () => persisted, setRawDataSpy };
-  }
-
   test('reports the first profile snapshot', async () => {
-    const { entity, getPersisted } = createEntityWithStore();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const now = Date.now();
 
     await expect(
@@ -3103,13 +3087,14 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
 
   test('suppresses unchanged values within the TTL without touching storage', async () => {
     const now = Date.now();
-    const { entity, getPersisted, setRawDataSpy } = createEntityWithStore({
-      analyticsPrimeProfileReport: {
-        isOneKeyIdLoggedIn: true,
-        isPrimeActive: false,
-        reportedAt: now - DAY_MS,
-      },
-    });
+    const { entity, getPersisted, setRawDataSpy } =
+      createPrimeAnalyticsEntityWithStore({
+        analyticsPrimeProfileReport: {
+          isOneKeyIdLoggedIn: true,
+          isPrimeActive: false,
+          reportedAt: now - DAY_MS,
+        },
+      });
 
     await expect(
       entity.markPrimeProfileReported({
@@ -3126,7 +3111,7 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
 
   test('reports immediately when a value changes', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createEntityWithStore({
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
       analyticsPrimeProfileReport: {
         isOneKeyIdLoggedIn: true,
         isPrimeActive: false,
@@ -3150,7 +3135,7 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
 
   test('re-asserts unchanged values after the TTL', async () => {
     const now = Date.now();
-    const { entity } = createEntityWithStore({
+    const { entity } = createPrimeAnalyticsEntityWithStore({
       analyticsPrimeProfileReport: {
         isOneKeyIdLoggedIn: true,
         isPrimeActive: true,

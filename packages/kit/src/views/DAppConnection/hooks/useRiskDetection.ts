@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
@@ -16,6 +17,8 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 
 import type { Verify } from '@walletconnect/types';
+
+let siteScanRiskWarnedReportedThisSession = false;
 
 function overrideSecurityLevel(
   base: IHostSecurity | undefined,
@@ -140,14 +143,17 @@ function useRiskDetection({
   }, [riskLevel, showContinueOperate, continueOperate]);
 
   // Prime benefit usage: a Prime user was shown an enhanced dapp-security
-  // risk warning. The prime check is a one-shot bg query made only when a
-  // warning-level result arrives — deliberately NOT an atom subscription, so
-  // this shared connection/sign hook gains no new re-render source and
-  // non-Prime users are completely unaffected. Once per hook mount; no
+  // risk warning. Read the persist atom once (no subscription, no token
+  // refresh) so this shared connection/sign hook gains no new re-render
+  // source and non-Prime users skip the event without a bg auth hop.
+  // Session-level emit flag bounds volume across stacked DApp modals; no
   // URL/domain is reported.
   const siteScanRiskWarnedTrackedRef = useRef(false);
   useEffect(() => {
-    if (siteScanRiskWarnedTrackedRef.current) {
+    if (
+      siteScanRiskWarnedReportedThisSession ||
+      siteScanRiskWarnedTrackedRef.current
+    ) {
       return;
     }
     if (
@@ -159,11 +165,16 @@ function useRiskDetection({
     siteScanRiskWarnedTrackedRef.current = true;
     void (async () => {
       try {
-        const isPrimeActive =
-          await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive();
-        if (!isPrimeActive) {
+        const persist = await primePersistAtom.get();
+        const isPrimeActive = Boolean(
+          persist.isLoggedIn &&
+          persist.isLoggedInOnServer &&
+          persist.primeSubscription?.isActive,
+        );
+        if (!isPrimeActive || siteScanRiskWarnedReportedThisSession) {
           return;
         }
+        siteScanRiskWarnedReportedThisSession = true;
         defaultLogger.prime.usage.siteScanRiskWarned({
           featureName: EPrimeFeatures.BlockaidSiteScan,
           riskLevel,

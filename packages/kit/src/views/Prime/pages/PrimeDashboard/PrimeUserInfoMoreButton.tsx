@@ -85,7 +85,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       target: ReturnType<typeof getPrimeSubscriptionManagementTarget>,
     ) => {
       if (target.type === 'infini') {
-        // Cancellation-intent signal; only the destination type is reported.
         defaultLogger.prime.subscription.primeManageSubscriptionClick({
           target: 'infiniPage',
         });

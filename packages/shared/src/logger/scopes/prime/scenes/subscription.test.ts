@@ -131,14 +131,21 @@ describe('PrimeSubscriptionScene sanitized event payloads', () => {
     expect(localPayload.errorMessage).toBe('card declined for [email]');
   });
 
-  it('keeps onekeyIdStateTrace local-only', () => {
+  it('keeps onekeyIdStateTrace local-only and scrubs free-text reasons', () => {
     const { scene, emitLog } = createSceneWithSpy();
 
-    scene.onekeyIdStateTrace({ reason: 'setPrimePersistAtomNotLoggedIn' });
+    scene.onekeyIdStateTrace({
+      reason:
+        'setPrimePersistAtomNotLoggedIn failed for user@example.com Bearer AbCdEfGhIjKlMnOpQrStUvWxYz123456',
+    });
 
     const call = emitLog.mock.calls.find(
       ([methodName]) => methodName === 'onekeyIdStateTrace',
     );
+    const payload = call?.[1]?.[0] as { reason: string };
+    expect(payload.reason).toContain('[email]');
+    expect(payload.reason).toContain('Bearer [token]');
+    expect(payload.reason).not.toContain('user@example.com');
     expect(call?.[2]).toEqual([expect.objectContaining({ type: 'local' })]);
     expect(
       (call?.[2] as { type: string }[]).some((c) => c.type === 'server'),
