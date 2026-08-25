@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,8 @@ import { SwapTestIDs } from '../../testIDs';
 
 import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
 
+const ROW_HEIGHT = 22;
+
 const SwapProTokenTransactionList = ({
   marketData,
 }: {
@@ -26,11 +28,14 @@ const SwapProTokenTransactionList = ({
 }) => {
   const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
+  const [listHeight, setListHeight] = useState(0);
 
-  // Row caps tuned so the left column bottom-aligns with the trading column
-  // in each trade-type layout; the loading skeleton uses the same counts.
+  // Baseline row caps per trade-type layout; the list container then flexes
+  // into whatever extra height the taller trading column gives this column,
+  // and the measured height decides how many extra rows fit.
   const isLimitOrder = swapProTradeType === ESwapProTradeType.LIMIT;
-  const maxRows = isLimitOrder ? 9 : 5;
+  const baseRows = isLimitOrder ? 9 : 5;
+  const maxRows = Math.max(baseRows, Math.floor(listHeight / ROW_HEIGHT));
   const finallyTransactionList = useMemo(
     () => marketData.transactions.slice(0, maxRows),
     [marketData.transactions, maxRows],
@@ -73,7 +78,7 @@ const SwapProTokenTransactionList = ({
     );
   }
   return (
-    <YStack>
+    <YStack flex={1}>
       <XStack justifyContent="space-between" py="$1">
         <XStack gap="$1" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
@@ -107,7 +112,17 @@ const SwapProTokenTransactionList = ({
           })}
         </SizableText>
       </XStack>
-      <YStack testID={SwapTestIDs.proTransactionList} minHeight={maxRows * 22}>
+      <YStack
+        testID={SwapTestIDs.proTransactionList}
+        flex={1}
+        minHeight={baseRows * ROW_HEIGHT}
+        overflow="hidden"
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          // Ignore sub-pixel jitter to avoid layout/render feedback loops
+          setListHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+        }}
+      >
         {transactionListContent}
       </YStack>
     </YStack>
