@@ -1,9 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type { IDeviceStageStep } from '@onekeyhq/components/src/composite/DeviceStage';
+import type { IDeviceStageVendor } from '@onekeyhq/components/src/composite/DeviceStage/type';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -11,6 +13,9 @@ import {
   useDeviceStageEnabledAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
 /**
  * DeviceStage driver (OK-59934): renders the stage from deviceStageAtom.
@@ -19,8 +24,14 @@ import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
  * never fires between consecutive requests of one burst.
  *
  * Close-grant policy (design hard rule #3): asks arm the close button after
- * 3s, waits after 10s, authenticity steps immediately; once armed it stays
- * armed for the rest of the burst. `onClose` presence alone is the switch.
+ * 3s, waits after 10s, authenticity steps and error outcomes immediately;
+ * once armed it stays armed for the rest of the burst. `onClose` presence
+ * alone is the switch.
+ *
+ * Two tracks share the container: OneKey responses ride the hd-core
+ * uiResponse channel; third-party (Trezor / Ledger) responses ride the
+ * adapter channel, routed by the stage state's `vendor` +
+ * `thirdPartyAction`.
  */
 
 const CLOSE_ARM_ASK_MS = 3000;
@@ -56,11 +67,21 @@ function toStageDeviceType(
     : 'unknown';
 }
 
+function toStageVendor(
+  vendor: IDeviceStageState['vendor'],
+): IDeviceStageVendor | undefined {
+  if (vendor === EHardwareVendor.trezor || vendor === EHardwareVendor.ledger) {
+    return vendor;
+  }
+  return undefined;
+}
+
 function DeviceStageContainerCmp() {
   const [stage] = useDeviceStageAtom();
   const stageRef = useRef(stage);
   stageRef.current = stage;
-  const { serviceHardwareUI } = backgroundApiProxy;
+  const { serviceHardwareUI, serviceThirdPartyHardware, serviceHardware } =
+    backgroundApiProxy;
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
@@ -86,46 +107,106 @@ function DeviceStageContainerCmp() {
     return () => clearTimeout(timer);
   }, [step, burstId, closable]);
 
+  /** Third-party answer path: build the adapter UI response from the
+   * original action the stage state carries. Best-effort — the demo
+   * scripts run without a live adapter. */
+  const sendVendorUiResponse = useCallback(
+    (
+      confirmed: boolean,
+      extras?: Parameters<typeof buildThirdPartyHardwareUiResponse>[2],
+    ) => {
+      const current = stageRef.current;
+      if (!current?.vendor) {
+        return;
+      }
+      const response = buildThirdPartyHardwareUiResponse(
+        current.thirdPartyAction,
+        confirmed,
+        extras,
+      );
+      if (response) {
+        void serviceThirdPartyHardware
+          .thirdPartyHardwareUiResponse({
+            vendor: current.vendor,
+            response,
+          })
+          .catch(() => undefined);
+      } else if (!confirmed) {
+        void serviceThirdPartyHardware
+          .thirdPartyHardwareCancel({ vendor: current.vendor })
+          .catch(() => undefined);
+      }
+    },
+    [serviceThirdPartyHardware],
+  );
+
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
+    const current = stageRef.current;
+    if (current?.vendor && current.step !== 'error') {
+      // Third-party cancel semantics: decline the open request when it
+      // takes a decline response, otherwise cancel the adapter call.
+      sendVendorUiResponse(false);
+    }
     // On the error outcome the call is already over (the notice form's
     // self-exit also lands here) — nothing on the device left to cancel.
     void serviceHardwareUI.deviceStageUserClose({
-      connectId: stageRef.current?.connectId,
-      skipDeviceCancel: stageRef.current?.step === 'error',
+      connectId: current?.connectId,
+      skipDeviceCancel: Boolean(current?.vendor) || current?.step === 'error',
     });
-  }, [serviceHardwareUI]);
+  }, [sendVendorUiResponse, serviceHardwareUI]);
 
   const handlePinSubmit = useCallback(
     (pin: string) => {
-      // No active SDK call in demo scripts — the response is best-effort.
-      void serviceHardwareUI
-        .sendPinToDevice({
-          pin,
-          responseCorrelation: stageRef.current?.payload?.uiResponseCorrelation,
-        })
-        .catch(() => undefined);
+      const current = stageRef.current;
+      if (current?.vendor) {
+        sendVendorUiResponse(true, { pin });
+      } else {
+        // No active SDK call in demo scripts — the response is best-effort.
+        void serviceHardwareUI
+          .sendPinToDevice({
+            pin,
+            responseCorrelation: current?.payload?.uiResponseCorrelation,
+          })
+          .catch(() => undefined);
+      }
       void serviceHardwareUI.deviceStageNoteInputSubmitted();
     },
-    [serviceHardwareUI],
+    [sendVendorUiResponse, serviceHardwareUI],
   );
 
   const handlePassphraseSubmit = useCallback(
-    (passphrase: string) => {
-      void serviceHardwareUI
-        .sendPassphraseToDevice({
+    (passphrase: string, options?: { keepAccessible: boolean }) => {
+      const current = stageRef.current;
+      if (current?.vendor) {
+        sendVendorUiResponse(true, {
           passphrase,
-          responseCorrelation: stageRef.current?.payload?.uiResponseCorrelation,
-        })
-        .catch(() => undefined);
+          passphraseOnDevice: false,
+          save: options?.keepAccessible === true,
+        });
+      } else {
+        void serviceHardwareUI
+          .sendPassphraseToDevice({
+            passphrase,
+            responseCorrelation: current?.payload?.uiResponseCorrelation,
+          })
+          .catch(() => undefined);
+      }
       void serviceHardwareUI.deviceStageNoteInputSubmitted();
     },
-    [serviceHardwareUI],
+    [sendVendorUiResponse, serviceHardwareUI],
   );
 
   const handleSwitchToDevice = useCallback(() => {
     const current = stageRef.current;
     if (!current) {
+      return;
+    }
+    if (current.vendor) {
+      // Trezor only — the stage suppresses the switch for the PIN matrix,
+      // so this is always the passphrase form's on-device exit.
+      sendVendorUiResponse(true, { passphraseOnDevice: true });
+      void serviceHardwareUI.deviceStageNoteInputSubmitted();
       return;
     }
     if (current.step === 'pinOnApp') {
@@ -140,7 +221,41 @@ function DeviceStageContainerCmp() {
         responseCorrelation: current.payload?.uiResponseCorrelation,
       });
     }
-  }, [serviceHardwareUI]);
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handlePairingSubmit = useCallback(
+    (code: string) => {
+      sendVendorUiResponse(true, { tag: code });
+      void serviceHardwareUI.deviceStageNoteInputSubmitted();
+    },
+    [sendVendorUiResponse, serviceHardwareUI],
+  );
+
+  const handleDeviceNotFoundRetry = useCallback(() => {
+    sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handleBtcHighIndexConfirm = useCallback(() => {
+    sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handleInstallConfirm = useCallback(() => {
+    const current = stageRef.current;
+    if (!current?.vendor) {
+      return;
+    }
+    void serviceHardware
+      .thirdPartyHardwareUiResponse({
+        vendor: current.vendor,
+        response: {
+          type: UI_RESPONSE.RECEIVE_INSTALL_APP,
+          payload: { confirmed: true },
+        },
+      })
+      .catch(() => undefined);
+  }, [serviceHardware]);
 
   // Errors play the notice form by default (no onErrorAction): the ✗
   // capsule informs and leaves on its own through the close grant above.
@@ -154,6 +269,15 @@ function DeviceStageContainerCmp() {
       step={step}
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceName={stage?.deviceName}
+      vendor={toStageVendor(stage?.vendor)}
+      vendorModel={stage?.vendorModel}
+      vendorModelName={stage?.vendorModelName}
+      appName={stage?.appName}
+      installProgress={stage?.installProgress}
+      installQueue={stage?.installQueue}
+      installActiveIndex={stage?.installActiveIndex}
+      btcHighIndexPath={stage?.btcHighIndexPath}
+      btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
       errorReason={stage?.errorReason}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
@@ -166,6 +290,10 @@ function DeviceStageContainerCmp() {
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
       onSwitchToDevice={handleSwitchToDevice}
+      onPairingSubmit={handlePairingSubmit}
+      onDeviceNotFoundRetry={handleDeviceNotFoundRetry}
+      onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
+      onInstallConfirm={handleInstallConfirm}
     />
   );
 }
