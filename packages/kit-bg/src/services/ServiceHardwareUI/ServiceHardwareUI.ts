@@ -37,6 +37,7 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  deviceStageAtom,
   deviceStageEnabledAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
@@ -499,6 +500,150 @@ class ServiceHardwareUI extends ServiceBase {
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });
+  }
+
+  /**
+   * Demo driver (Gallery): plays realistic burst scripts against the real
+   * burst scope, so the stage, the container, and the one-entrance-one-exit
+   * rule can be verified without hardware. Interactive steps wait for the
+   * real user input on the stage (PIN submit → processing).
+   */
+  @backgroundMethod()
+  async demoDeviceStageBurst({
+    scenario,
+  }: {
+    scenario: 'sign' | 'signOnDevice' | 'reject' | 'disconnect';
+  }) {
+    const scope = this.deviceStageBurst;
+    const connectId = 'demo-device-stage';
+    const isOnDevice = scenario === 'signOnDevice';
+    const deviceType = isOnDevice ? EDeviceType.Pro2 : EDeviceType.Classic;
+    const makePayload = (uiRequestType: string): IHardwareUiPayload => ({
+      uiRequestType,
+      eventType: '',
+      deviceType,
+      deviceId: 'demo-device-id',
+      connectId,
+      deviceMode: EOneKeyDeviceMode.normal,
+      rawPayload: {},
+    });
+    const feed = (action: EHardwareUiStateAction) =>
+      scope.onHardwareUiEvent({
+        action,
+        connectId,
+        payload: makePayload(action),
+      });
+    const feedCallEnd = () =>
+      scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+        connectId,
+        shouldClearUiState: true,
+      });
+    const waitForStep = async (
+      step: string,
+      { timeoutMs = 60_000 }: { timeoutMs?: number } = {},
+    ) => {
+      const startedAt = Date.now();
+      for (;;) {
+        const state = await deviceStageAtom.get();
+        if (state?.step === step) {
+          return true;
+        }
+        if (state?.step === 'off' || Date.now() - startedAt > timeoutMs) {
+          return false;
+        }
+        await timerUtils.wait(200);
+      }
+    };
+    const demoConfirmDetails = [
+      {
+        label: 'Address',
+        value: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
+        highlightEnds: true,
+      },
+      { label: 'Amount', value: '0.05 ETH' },
+      { label: 'Fee', value: '0.00042 ETH' },
+    ];
+
+    await scope.begin({
+      connectId,
+      deviceType,
+      deviceName: isOnDevice ? 'Pro2 6136' : 'OneKey Classic (demo)',
+    });
+    let scriptError: unknown;
+    try {
+      await timerUtils.wait(1500);
+      switch (scenario) {
+        case 'sign': {
+          await feed(EHardwareUiStateAction.REQUEST_PIN);
+          // The person types the PIN on the stage; submit lands processing.
+          if (await waitForStep('processing')) {
+            await timerUtils.wait(1000);
+            await scope.noteStep('confirm', {
+              connectId,
+              confirmDetails: demoConfirmDetails,
+              payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+            });
+            await timerUtils.wait(3500);
+            // Call #1 ends: the SDK's close morphs to processing, not off.
+            await feedCallEnd();
+            await timerUtils.wait(1200);
+            // Call #2 of the same burst: another device confirmation.
+            await scope.noteStep('confirm', {
+              connectId,
+              confirmDescription:
+                'Verify the receive address shown on the device.',
+              payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+            });
+            await timerUtils.wait(3000);
+            await feedCallEnd();
+            await timerUtils.wait(800);
+          }
+          break;
+        }
+        case 'signOnDevice': {
+          await feed(EHardwareUiStateAction.EnterPinOnDevice);
+          await timerUtils.wait(3000);
+          await feed(EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW);
+          await timerUtils.wait(1000);
+          await scope.noteStep('confirm', {
+            connectId,
+            confirmDetails: demoConfirmDetails,
+            payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+          });
+          await timerUtils.wait(3500);
+          await feedCallEnd();
+          await timerUtils.wait(800);
+          break;
+        }
+        case 'reject': {
+          await scope.noteStep('confirm', {
+            connectId,
+            confirmDetails: demoConfirmDetails,
+            payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+          });
+          await timerUtils.wait(2500);
+          scriptError = {
+            $isHardwareError: true,
+            code: HardwareErrorCode.ActionCancelled,
+          };
+          break;
+        }
+        case 'disconnect': {
+          await feed(EHardwareUiStateAction.ProcessLoading);
+          await timerUtils.wait(2500);
+          scriptError = {
+            $isHardwareError: true,
+            code: HardwareErrorCode.DeviceNotFound,
+          };
+          break;
+        }
+        default:
+          break;
+      }
+    } finally {
+      await scope.end({ error: scriptError });
+    }
   }
 
   closeHardwareUiStateDialogTimer: ReturnType<typeof setTimeout> | undefined;
