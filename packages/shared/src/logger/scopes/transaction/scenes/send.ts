@@ -440,4 +440,23 @@ export class SendScene extends BaseScene {
       error,
     };
   }
+
+  // Logged when a refTx field arrives empty and is read as 0 — the only trace
+  // if that substitution was actually wrong.
+  @LogToLocal()
+  public refTxFieldDefaulted({
+    network,
+    txId,
+    field,
+  }: {
+    network: string | undefined;
+    txId: string;
+    field: string;
+  }) {
+    return {
+      network,
+      txId,
+      field,
+    };
+  }
 }

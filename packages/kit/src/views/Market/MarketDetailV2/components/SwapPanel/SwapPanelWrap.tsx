@@ -285,6 +285,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     quoteError,
     quoteReadyForReview,
     quoteNeedsRefresh,
+    quoteRefreshActionActive,
     refreshMarketQuote,
     paymentTokenPrice,
     swapNativeTokenReserveGas,
@@ -776,7 +777,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
         marketPresetSettings.isLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
       }
-      isRefreshQuote={quoteNeedsRefresh}
+      isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
