@@ -12,6 +12,7 @@ import type {
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
 import type {
+  IDeviceStageConfirmContent,
   IDeviceStageConfirmDetail,
   IDeviceStageErrorReasonValue,
   IDeviceStageStepValue,
@@ -198,6 +199,8 @@ export type IDeviceStageState = {
   confirmDetails?: IDeviceStageConfirmDetail[];
   confirmMessage?: string;
   confirmDescription?: string;
+  confirmDescriptionDanger?: boolean;
+  confirmCount?: IDeviceStageConfirmContent['count'];
   /** The originating hardware UI payload — carries uiResponseCorrelation
    * the container needs when answering PIN/passphrase requests. */
   payload?: IHardwareUiPayload;
