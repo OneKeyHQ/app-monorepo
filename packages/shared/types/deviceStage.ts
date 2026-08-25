@@ -48,3 +48,22 @@ export type IDeviceStageConfirmDetail = {
   highlightEnds?: boolean;
   warning?: boolean;
 };
+
+/**
+ * The confirm card's payload, registered by the business caller that
+ * initiates the hardware call — the SDK's "press the button" event carries
+ * no business context, so whoever knows the transaction registers what the
+ * person must check against the device. One of the three shapes.
+ */
+export type IDeviceStageConfirmContent = {
+  /** Field rows — transfer address / amount / fee. */
+  details?: IDeviceStageConfirmDetail[];
+  /** Text block — the signed original of a message signature. */
+  message?: string;
+  /** One-line sentence for payload-less device actions. */
+  description?: string;
+  /** Ink the description destructive (wipe device …). */
+  descriptionDanger?: boolean;
+  /** Place in a run of confirmations (approve-then-swap …). */
+  count?: { current: number; total: number };
+};
