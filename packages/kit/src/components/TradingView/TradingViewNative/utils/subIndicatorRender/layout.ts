@@ -23,6 +23,14 @@ export interface ITradingViewNativeSubIndicatorPaneLayout {
   top: number;
 }
 
+export function getTradingViewNativeVisibleSubIndicatorPaneCount(
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
+) {
+  'worklet';
+
+  return panes.reduce((count, pane) => count + (pane.isVisible ? 1 : 0), 0);
+}
+
 export function getTradingViewNativeSubIndicatorPaneStackHeight({
   height,
   paneCount,
