@@ -48,9 +48,11 @@ import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePosi
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
+import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
   buildCumulativeFundingChartData,
   buildFundingPaymentSummary,
+  buildFundingPeriodNetSummary,
 } from './portfolioStats';
 import {
   type IPortfolioChartType,
@@ -116,6 +118,7 @@ const COLOR_DANGER = '#e5484d';
 const MAX_LEVERAGE_GAUGE = 20;
 const CHART_HEIGHT_DESKTOP = 480;
 const CHART_HEIGHT_MOBILE = 260;
+const PORTFOLIO_CONTENT_HEIGHT_DESKTOP = 608;
 const HOVER_TOOLTIP_WIDTH = 148;
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 const CHART_AREA_FILL_ALPHA = 0.1;
@@ -499,6 +502,10 @@ function PerpPortfolioContentComponent({
     () => buildFundingPaymentSummary(fundingHistory),
     [fundingHistory],
   );
+  const fundingPeriodNetSummary = useMemo(
+    () => buildFundingPeriodNetSummary({ records: fundingHistory }),
+    [fundingHistory],
+  );
   const isChartLoading = isFunding
     ? isFundingHistoryLoading
     : isPortfolioLoading;
@@ -549,10 +556,10 @@ function PerpPortfolioContentComponent({
   const allTimeNetFundingColor = getPerpsValueColor(
     fundingPaymentSummary.netFunding,
   );
-  const totalFundingPaid = formatPerpsUsd(fundingPaymentSummary.totalPaid);
-  const totalFundingReceived = formatPerpsUsd(
-    fundingPaymentSummary.totalReceived,
-  );
+  const netFunding24h = formatPerpsUsd(fundingPeriodNetSummary.net24h, true);
+  const netFunding24hColor = getPerpsValueColor(fundingPeriodNetSummary.net24h);
+  const netFunding7d = formatPerpsUsd(fundingPeriodNetSummary.net7d, true);
+  const netFunding7dColor = getPerpsValueColor(fundingPeriodNetSummary.net7d);
   const totalPnlTooltip = intl.formatMessage({
     id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
   });
@@ -980,7 +987,31 @@ function PerpPortfolioContentComponent({
           <XStack alignItems="center">
             <YStack flex={1} minWidth={0} gap="$0.5">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Net funding (all time)
+                Net 24h
+              </SizableText>
+              <SizableText
+                size="$headingSm"
+                color={netFunding24hColor}
+                numberOfLines={1}
+              >
+                {netFunding24h}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                Net 7 day
+              </SizableText>
+              <SizableText
+                size="$headingSm"
+                color={netFunding7dColor}
+                numberOfLines={1}
+              >
+                {netFunding7d}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                Net all time
               </SizableText>
               <SizableText
                 size="$headingSm"
@@ -988,22 +1019,6 @@ function PerpPortfolioContentComponent({
                 numberOfLines={1}
               >
                 {allTimeNetFunding}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                Total paid
-              </SizableText>
-              <SizableText size="$headingSm" color="$text" numberOfLines={1}>
-                {totalFundingPaid}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                Total received
-              </SizableText>
-              <SizableText size="$headingSm" color="$text" numberOfLines={1}>
-                {totalFundingReceived}
               </SizableText>
             </YStack>
           </XStack>
@@ -1413,6 +1428,16 @@ function PerpPortfolioContentComponent({
       </SectionBlock>
     </YStack>
   );
+  const contextualStatsPanel = isFunding ? (
+    <PerpFundingBreakdown
+      records={fundingHistory}
+      timePeriod={timePeriod}
+      isLoading={isFundingHistoryLoading}
+      isMobile={isMobile}
+    />
+  ) : (
+    statsPanel
+  );
 
   // ─── Mobile ─────────────────────────────────────────────────────────────────
   if (isMobile) {
@@ -1420,20 +1445,20 @@ function PerpPortfolioContentComponent({
       <YStack gap="$4" px="$5" pb="$5">
         {mobilePortfolioValueBlock}
         {chartPanel}
-        {statsPanel}
+        {contextualStatsPanel}
       </YStack>
     );
   }
 
   // ─── Desktop ────────────────────────────────────────────────────────────────
   return (
-    <XStack flex={1} gap="$5">
+    <XStack height={PORTFOLIO_CONTENT_HEIGHT_DESKTOP} gap="$5">
       <YStack flex={6} flexBasis={0} overflow="visible" zIndex={1}>
         {chartPanel}
       </YStack>
       <YStack flex={4} flexBasis={0} gap="$3">
         {portfolioValueBlock}
-        {statsPanel}
+        {contextualStatsPanel}
       </YStack>
     </XStack>
   );

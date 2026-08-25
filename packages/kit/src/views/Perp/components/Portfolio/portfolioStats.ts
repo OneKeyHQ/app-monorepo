@@ -23,6 +23,25 @@ export type IPortfolioChartData = {
   vlm: string;
 };
 
+export type IFundingMarketBreakdownRow = {
+  coin: string;
+  total: number;
+  activity: number;
+  bucketValues: number[];
+};
+
+export type IFundingMarketBreakdown = {
+  rows: IFundingMarketBreakdownRow[];
+  bucketStarts: number[];
+  maxAbsBucketValue: number;
+  maxAbsTotal: number;
+};
+
+export type IFundingPeriodNetSummary = {
+  net24h: number;
+  net7d: number;
+};
+
 export type IPerpPortfolioFillsStats = {
   winRate: number | null;
   avgWin: number | null;
@@ -216,6 +235,159 @@ export function buildFundingPaymentSummary(records: IUserFunding[]): {
     netFunding: totalReceived.minus(totalPaid).toNumber(),
     totalPaid: totalPaid.toNumber(),
     totalReceived: totalReceived.toNumber(),
+  };
+}
+
+export function buildFundingPeriodNetSummary({
+  records,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  now?: number;
+}): IFundingPeriodNetSummary {
+  const dayStart = getStartTimeForPeriod('day', now);
+  const weekStart = getStartTimeForPeriod('week', now);
+  let net24h = new BigNumber(0);
+  let net7d = new BigNumber(0);
+
+  records.forEach((record) => {
+    if (record.time < weekStart || record.time > now) return;
+
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite()) return;
+
+    net7d = net7d.plus(payment);
+    if (record.time >= dayStart) {
+      net24h = net24h.plus(payment);
+    }
+  });
+
+  return {
+    net24h: net24h.toNumber(),
+    net7d: net7d.toNumber(),
+  };
+}
+
+export function buildFundingMarketBreakdown({
+  records,
+  timePeriod,
+  now = Date.now(),
+  bucketCount = 12,
+  maxMarkets = 9,
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+  bucketCount?: number;
+  maxMarkets?: number;
+}): IFundingMarketBreakdown {
+  const safeBucketCount = Math.max(1, Math.floor(bucketCount));
+  const safeMaxMarkets = Math.max(1, Math.floor(maxMarkets));
+  const validRecords = records.flatMap((record) => {
+    if (record.time > now) return [];
+
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite()) return [];
+
+    return [{ record, payment }];
+  });
+  const rangeStart =
+    timePeriod === 'allTime'
+      ? Math.min(...validRecords.map(({ record }) => record.time))
+      : getStartTimeForPeriod(timePeriod, now);
+  const periodRecords = validRecords.filter(
+    ({ record }) => record.time >= rangeStart,
+  );
+
+  if (periodRecords.length === 0 || !Number.isFinite(rangeStart)) {
+    return {
+      rows: [],
+      bucketStarts: [],
+      maxAbsBucketValue: 0,
+      maxAbsTotal: 0,
+    };
+  }
+
+  const rangeDuration = Math.max(1, now - rangeStart);
+  const bucketStarts = Array.from({ length: safeBucketCount }, (_, index) =>
+    Math.floor(rangeStart + (rangeDuration * index) / safeBucketCount),
+  );
+  const marketMap = new Map<
+    string,
+    {
+      total: BigNumber;
+      activity: BigNumber;
+      bucketValues: BigNumber[];
+    }
+  >();
+
+  periodRecords.forEach(({ record, payment }) => {
+    const market = marketMap.get(record.delta.coin) ?? {
+      total: new BigNumber(0),
+      activity: new BigNumber(0),
+      bucketValues: Array.from(
+        { length: safeBucketCount },
+        () => new BigNumber(0),
+      ),
+    };
+    const bucketIndex = Math.min(
+      safeBucketCount - 1,
+      Math.floor(
+        ((record.time - rangeStart) / rangeDuration) * safeBucketCount,
+      ),
+    );
+
+    market.total = market.total.plus(payment);
+    market.activity = market.activity.plus(payment.abs());
+    market.bucketValues[bucketIndex] =
+      market.bucketValues[bucketIndex].plus(payment);
+    marketMap.set(record.delta.coin, market);
+  });
+
+  const marketRows = Array.from(marketMap.entries())
+    .map(([coin, market]) => ({
+      coin,
+      total: market.total.toNumber(),
+      activity: market.activity.toNumber(),
+      bucketValues: market.bucketValues.map((value) => value.toNumber()),
+    }))
+    .toSorted(
+      (rowA, rowB) =>
+        rowB.activity - rowA.activity || rowA.coin.localeCompare(rowB.coin),
+    );
+
+  let rows = marketRows.slice(0, safeMaxMarkets);
+  if (marketRows.length > safeMaxMarkets) {
+    const visibleRows = marketRows.slice(0, safeMaxMarkets - 1);
+    const otherRows = marketRows.slice(safeMaxMarkets - 1);
+    rows = [
+      ...visibleRows,
+      {
+        coin: 'Other',
+        total: otherRows.reduce((sum, row) => sum + row.total, 0),
+        activity: otherRows.reduce((sum, row) => sum + row.activity, 0),
+        bucketValues: Array.from(
+          { length: safeBucketCount },
+          (_, bucketIndex) =>
+            otherRows.reduce(
+              (sum, row) => sum + row.bucketValues[bucketIndex],
+              0,
+            ),
+        ),
+      },
+    ];
+  }
+
+  return {
+    rows,
+    bucketStarts,
+    maxAbsBucketValue: Math.max(
+      0,
+      ...rows.flatMap((row) =>
+        row.bucketValues.map((value) => Math.abs(value)),
+      ),
+    ),
+    maxAbsTotal: Math.max(0, ...rows.map((row) => Math.abs(row.total))),
   };
 }
 

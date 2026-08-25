@@ -5,7 +5,9 @@ import type {
 
 import {
   buildCumulativeFundingChartData,
+  buildFundingMarketBreakdown,
   buildFundingPaymentSummary,
+  buildFundingPeriodNetSummary,
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
 } from './portfolioStats';
@@ -318,5 +320,115 @@ describe('buildFundingPaymentSummary', () => {
       totalPaid: 4.9,
       totalReceived: 1.63,
     });
+  });
+});
+
+describe('buildFundingPeriodNetSummary', () => {
+  it('calculates 24-hour and 7-day net funding from the same history', () => {
+    const hour = 60 * 60 * 1000;
+    const day = 24 * hour;
+    const summary = buildFundingPeriodNetSummary({
+      records: [
+        createFunding(NOW - 23 * hour, '-1'),
+        createFunding(NOW - 3 * day, '2', 'ETH'),
+        createFunding(NOW - 8 * day, '99', 'SOL'),
+        createFunding(NOW + hour, '99', 'DOGE'),
+        createFunding(NOW - hour, 'invalid', 'HYPE'),
+      ],
+      now: NOW,
+    });
+
+    expect(summary).toEqual({
+      net24h: -1,
+      net7d: 1,
+    });
+  });
+});
+
+describe('buildFundingMarketBreakdown', () => {
+  it('aggregates funding by market and time bucket for the selected period', () => {
+    const hour = 60 * 60 * 1000;
+    const result = buildFundingMarketBreakdown({
+      records: [
+        createFunding(NOW - 23 * hour, '-1'),
+        createFunding(NOW - 22 * hour, '0.25'),
+        createFunding(NOW - 8 * hour, '2', 'ETH'),
+        createFunding(NOW - 25 * hour, '99', 'SOL'),
+        createFunding(NOW - hour, 'invalid', 'DOGE'),
+      ],
+      timePeriod: 'day',
+      bucketCount: 4,
+      now: NOW,
+    });
+
+    expect(result.rows).toEqual([
+      {
+        coin: 'ETH',
+        total: 2,
+        activity: 2,
+        bucketValues: [0, 0, 2, 0],
+      },
+      {
+        coin: 'BTC',
+        total: -0.75,
+        activity: 1.25,
+        bucketValues: [-0.75, 0, 0, 0],
+      },
+    ]);
+    expect(result.maxAbsBucketValue).toBe(2);
+    expect(result.maxAbsTotal).toBe(2);
+    expect(result.bucketStarts).toHaveLength(4);
+  });
+
+  it('keeps dex markets distinct and groups only markets beyond the display limit', () => {
+    const result = buildFundingMarketBreakdown({
+      records: [
+        createFunding(NOW, '-4', 'BTC'),
+        createFunding(NOW, '3', 'xyz:BTC'),
+        createFunding(NOW, '-2', 'ETH'),
+        createFunding(NOW, '1', 'SOL'),
+      ],
+      timePeriod: 'allTime',
+      bucketCount: 1,
+      maxMarkets: 3,
+      now: NOW,
+    });
+
+    expect(result.rows).toEqual([
+      {
+        coin: 'BTC',
+        total: -4,
+        activity: 4,
+        bucketValues: [-4],
+      },
+      {
+        coin: 'xyz:BTC',
+        total: 3,
+        activity: 3,
+        bucketValues: [3],
+      },
+      {
+        coin: 'Other',
+        total: -1,
+        activity: 3,
+        bucketValues: [-1],
+      },
+    ]);
+  });
+
+  it('sorts by funding activity even when payments cancel out', () => {
+    const result = buildFundingMarketBreakdown({
+      records: [
+        createFunding(NOW - 1, '-5', 'BTC'),
+        createFunding(NOW, '5', 'BTC'),
+        createFunding(NOW, '-3', 'ETH'),
+      ],
+      timePeriod: 'allTime',
+      bucketCount: 2,
+      now: NOW,
+    });
+
+    expect(result.rows.map(({ coin }) => coin)).toEqual(['BTC', 'ETH']);
+    expect(result.rows[0]).toMatchObject({ total: 0, activity: 10 });
   });
 });
