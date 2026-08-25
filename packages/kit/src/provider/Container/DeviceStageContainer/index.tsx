@@ -14,6 +14,10 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
@@ -315,6 +319,28 @@ function DeviceStageContainerCmp() {
       .catch(() => undefined);
   }, [serviceHardware]);
 
+  // The authenticity card's exits travel back to whoever is running the
+  // check — it owns the sequence and the result contract, the stage only
+  // shows the beats.
+  const emitAuthAction = useCallback(
+    (action: 'retry' | 'support' | 'continueAnyway') => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageAuthAction, { action });
+    },
+    [],
+  );
+  const handleAuthSupport = useCallback(
+    () => emitAuthAction('support'),
+    [emitAuthAction],
+  );
+  const handleAuthRetry = useCallback(
+    () => emitAuthAction('retry'),
+    [emitAuthAction],
+  );
+  const handleAuthContinueAnyway = useCallback(
+    () => emitAuthAction('continueAnyway'),
+    [emitAuthAction],
+  );
+
   // Errors play the notice form by default (no onErrorAction): the ✗
   // capsule informs and leaves on its own through the close grant above.
   // The ask form (retry / reconnect) is granted per flow, only where an
@@ -337,6 +363,11 @@ function DeviceStageContainerCmp() {
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
       errorReason={stage?.errorReason}
+      authChecklist={stage?.authChecklist}
+      authFailureReason={stage?.authFailureReason}
+      onAuthSupport={handleAuthSupport}
+      onAuthRetry={handleAuthRetry}
+      onAuthContinueAnyway={handleAuthContinueAnyway}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
       confirmDetails={stage?.confirmDetails}

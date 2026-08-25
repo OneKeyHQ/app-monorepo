@@ -33,7 +33,11 @@ import type {
   IDeviceSharedCallParams,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
-import type { IDeviceStageConfirmContent } from '@onekeyhq/shared/types/deviceStage';
+import type {
+  IDeviceStageAuthChecklistItem,
+  IDeviceStageAuthFailureReasonValue,
+  IDeviceStageConfirmContent,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -517,6 +521,25 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   /**
+   * The authenticity flow's beats, fed by whoever runs the check (the
+   * verification sequence lives UI-side, where its result contract is
+   * consumed). The checklist rides along and survives the whole run.
+   */
+  @backgroundMethod()
+  async deviceStageNoteAuthStep(params: {
+    step: 'genuineCheck' | 'authVerifying' | 'authSuccess' | 'authFailure';
+    connectId?: string;
+    checklist?: IDeviceStageAuthChecklistItem[];
+    failureReason?: IDeviceStageAuthFailureReasonValue;
+  }) {
+    await this.deviceStageBurst.noteStep(params.step, {
+      connectId: params.connectId,
+      authChecklist: params.checklist,
+      authFailureReason: params.failureReason,
+    });
+  }
+
+  /**
    * Opens a UI-held burst for a whole flow (onboarding above all): every
    * wrapper that runs inside it joins by depth, so the stage stays put
    * across the seams instead of closing and reopening. The returned token
@@ -552,6 +575,13 @@ class ServiceHardwareUI extends ServiceBase {
     skipDeviceCancel?: boolean;
   }) {
     await this.deviceStageBurst.userClose();
+    // Same announcement the legacy dialog made on a user close: pages
+    // holding state for the interaction (address verify, a running
+    // authenticity check) stand down with it.
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
     // Cancel semantics: same path the legacy dialog's user-close takes.
     await this.closeHardwareUiStateDialogFn({
       connectId,

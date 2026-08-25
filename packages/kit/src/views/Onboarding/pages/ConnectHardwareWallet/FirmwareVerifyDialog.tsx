@@ -22,7 +22,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useDeviceStageEnabledAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type OneKeyError,
   type OneKeyServerApiError,
@@ -41,6 +44,8 @@ import type {
   IDeviceVerifyVersionCompareResult,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
+
+import { useDeviceStageFirmwareVerify } from './useDeviceStageFirmwareVerify';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -1050,6 +1055,10 @@ export type IFirmwareVerifyDialogHost = Pick<typeof Dialog, 'show'>;
 
 export function useFirmwareVerifyDialog() {
   const [isLoading, setIsLoading] = useState(false);
+  // OK-59934: with the stage on, the check plays as its authenticity
+  // steps instead of this dialog — every caller inherits it here.
+  const [deviceStageEnabled] = useDeviceStageEnabledAtom();
+  const { runDeviceStageFirmwareVerify } = useDeviceStageFirmwareVerify();
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -1098,6 +1107,26 @@ export function useFirmwareVerifyDialog() {
         }
       };
 
+      if (deviceStageEnabled) {
+        setIsLoading(true);
+        try {
+          const result = await runDeviceStageFirmwareVerify({
+            device,
+            features,
+            skipDeviceCancel: true,
+          });
+          if (result.closed) {
+            await onCloseFn();
+            return;
+          }
+          await onVerified?.({ checked: result.checked });
+          await onContinue({ checked: result.checked });
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
       setIsLoading(true);
       let shouldUseNewAuthenticateVersion = false;
       try {
@@ -1144,7 +1173,7 @@ export function useFirmwareVerifyDialog() {
         onClose: onCloseFn,
       });
     },
-    [],
+    [deviceStageEnabled, runDeviceStageFirmwareVerify],
   );
   return {
     showFirmwareVerifyDialog,

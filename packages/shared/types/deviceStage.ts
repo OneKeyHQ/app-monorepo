@@ -42,6 +42,28 @@ export type IDeviceStageErrorReasonValue =
   | 'disconnected'
   | 'busy';
 
+/** What ended the authenticity check. The first three are terminal (the
+ * device or its firmware is the problem, Support is the only exit); the
+ * last three are recoverable (Retry plus the gated Continue-anyway). */
+export type IDeviceStageAuthFailureReasonValue =
+  | 'unofficialDevice'
+  | 'unofficialFirmware'
+  | 'defective'
+  | 'network'
+  | 'unknown'
+  | 'unavailable';
+
+/** One row of the authenticity checklist — certificate first, then each
+ * firmware component. */
+export type IDeviceStageAuthChecklistItem = {
+  label: string;
+  status: 'pending' | 'loading' | 'ok' | 'failed';
+  /** The verified result — serial or version string — shown on ok. */
+  value?: string;
+  /** Release page for a verified component; the value becomes a link. */
+  url?: string;
+};
+
 export type IDeviceStageConfirmDetail = {
   label: string;
   value: string;
