@@ -73,7 +73,8 @@ const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
 const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // legacy encrypted
-// Plaintext inner payload. Local DB persistence must wrap this in LSE.
+// Plaintext inner payload. Native persistence wraps it in LSE; browser-class
+// persistence must convert it to HLE before applying the outer LSE.
 const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([

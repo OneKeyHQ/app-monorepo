@@ -2661,7 +2661,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     );
   });
 
-  it('reruns migration version 2 to wrap legacy HyperLiquid agent credentials', async () => {
+  it('defers online HLP credentials to the browser-class HLE migration', async () => {
     const db = new TestLocalDb();
     db.context.localPasswordKdfUpgraded = true;
     db.context.localPasswordKdfUpgradedTargetIterations =
@@ -2680,12 +2680,8 @@ describe('LocalDbBase local secret envelope credentials', () => {
       userAddress: credential.userAddress,
       agentName: credential.agentName,
     });
-    db.credentials = [
-      {
-        id: credentialId,
-        credential: encryptHyperLiquidAgentCredential({ credential }),
-      },
-    ];
+    const onlineCredential = encryptHyperLiquidAgentCredential({ credential });
+    db.credentials = [{ id: credentialId, credential: onlineCredential }];
     const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
     jest
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
@@ -2696,20 +2692,14 @@ describe('LocalDbBase local secret envelope credentials', () => {
 
     await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
 
+    expect(db.credentials[0].credential).toBe(onlineCredential);
     expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
-      true,
+      false,
     );
-    expect(db.credentials[0].credential).not.toContain(credential.privateKey);
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
       2,
     );
-    await expect(
-      db.getHyperLiquidAgentCredential({
-        userAddress: credential.userAddress,
-        agentName: credential.agentName,
-      }),
-    ).resolves.toEqual(credential);
   });
 
   it('does not scan LSE credentials after the persistent migration marker is set', async () => {
@@ -2733,7 +2723,7 @@ describe('LocalDbBase HyperLiquid agent password session', () => {
     await hyperLiquidAgentSecretSession.clear();
   });
 
-  it('migrates an existing LSE(HLP) credential to LSE(HLE) on unlock', async () => {
+  it('migrates an online HLP credential directly to LSE(HLE) on unlock', async () => {
     globalJotaiStorageReadyHandler.resolveReady(true);
     jotaiDefaultStore.set(settingsPersistAtom.atom(), {
       ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
@@ -2757,13 +2747,7 @@ describe('LocalDbBase HyperLiquid agent password session', () => {
     db.credentials = [
       {
         id: credentialId,
-        credential: await wrapLocalSecretEnvelopeV1({
-          dataType: 'credential',
-          layerAdapters: [adapter],
-          plaintext: encryptHyperLiquidAgentCredential({ credential }),
-          recordId: credentialId,
-          strength: 'profile-bound',
-        }),
+        credential: encryptHyperLiquidAgentCredential({ credential }),
       },
     ];
     jest
@@ -2774,13 +2758,9 @@ describe('LocalDbBase HyperLiquid agent password session', () => {
       });
 
     await db.unlockHyperLiquidAgentSecretSession({
-      migrateCredentials: false,
       password,
     });
     expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
-    await db.migrateHyperLiquidAgentCredentialsToPasswordEncryption({
-      password,
-    });
 
     const storedCredential = db.credentials[0].credential;
     expect(isLocalSecretEnvelopeString(storedCredential)).toBe(true);

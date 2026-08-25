@@ -62,6 +62,7 @@ import {
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
+  shouldDeferHyperLiquidPlaintextLseMigration,
   stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
@@ -416,9 +417,19 @@ async function describeLocalSecretEnvelopeRecordEncryption({
     recordId,
     rawValue,
   });
-  const migrationNote = candidate.canMigrate
-    ? 'migratable=yes (will wrap on next unlock)'
-    : `migratable=no (${candidate.reason})`;
+  const deferredToHyperLiquidPasswordMigration =
+    shouldDeferHyperLiquidPlaintextLseMigration({
+      candidate,
+      isNative: detectLocalSecretEnvelopeRuntimePlatform() === 'native',
+    });
+  let migrationNote: string;
+  if (deferredToHyperLiquidPasswordMigration) {
+    migrationNote = 'migratable=deferred (HLP must become HLE before LSE)';
+  } else if (candidate.canMigrate) {
+    migrationNote = 'migratable=yes (will wrap on next unlock)';
+  } else {
+    migrationNote = `migratable=no (${candidate.reason})`;
+  }
 
   // Read the inner container's plaintext header only.
   const meta = readSecretEncryptPayloadMetadata({

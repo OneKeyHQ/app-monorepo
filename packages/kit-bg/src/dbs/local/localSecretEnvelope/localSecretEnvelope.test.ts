@@ -7,6 +7,7 @@ import {
   parseLocalSecretEnvelopeV1,
   rewrapLocalSecretEnvelopeV1,
   serializeLocalSecretEnvelopeV1,
+  shouldDeferHyperLiquidPlaintextLseMigration,
   unwrapLocalSecretEnvelopeV1,
   upgradeLocalSecretEnvelopeLayerTopologyV1,
   wrapLocalSecretEnvelopeV1,
@@ -386,18 +387,29 @@ describe('localSecretEnvelope migration candidate classifier', () => {
     ).toEqual({ canMigrate: false, reason: 'unsupported_prefix' });
   });
 
-  it('accepts HyperLiquid agent credentials without a password KDF payload', () => {
-    expect(
-      classifyLocalSecretEnvelopeMigrationCandidate({
-        dataType: 'credential',
-        recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
-        rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
-      }),
-    ).toMatchObject({
+  it('defers browser-class HyperLiquid plaintext to HLE before LSE', () => {
+    const plaintextCandidate = classifyLocalSecretEnvelopeMigrationCandidate({
+      dataType: 'credential',
+      recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+      rawValue: '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+    });
+    expect(plaintextCandidate).toMatchObject({
       canMigrate: true,
       innerPrefix:
         LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
     });
+    expect(
+      shouldDeferHyperLiquidPlaintextLseMigration({
+        candidate: plaintextCandidate,
+        isNative: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferHyperLiquidPlaintextLseMigration({
+        candidate: plaintextCandidate,
+        isNative: true,
+      }),
+    ).toBe(false);
     expect(
       classifyLocalSecretEnvelopeMigrationCandidate({
         dataType: 'credential',

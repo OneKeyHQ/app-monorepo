@@ -170,6 +170,7 @@ import {
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   rewrapLocalSecretEnvelopeV1,
+  shouldDeferHyperLiquidPlaintextLseMigration,
   stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   upgradeLocalSecretEnvelopeLayerTopologyV1,
@@ -1509,14 +1510,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async hasLocalSecretEnvelopeCredentialMigrationPendingCandidate(): Promise<boolean> {
     const credentials = await this.getAllCredentials();
-    return credentials.some(
-      (credential) =>
-        classifyLocalSecretEnvelopeMigrationCandidate({
-          dataType: 'credential',
-          recordId: credential.id,
-          rawValue: credential.credential,
-        }).canMigrate,
-    );
+    return credentials.some((credential) => {
+      const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+        dataType: 'credential',
+        recordId: credential.id,
+        rawValue: credential.credential,
+      });
+      return (
+        candidate.canMigrate &&
+        !shouldDeferHyperLiquidPlaintextLseMigration({
+          candidate,
+          isNative: platformEnv.isNative === true,
+        })
+      );
+    });
   }
 
   async markLocalSecretEnvelopeCredentialMigrationCompleted(): Promise<boolean> {
@@ -1736,7 +1743,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         recordId: credential.id,
         rawValue: credential.credential,
       });
-      if (!candidate.canMigrate) {
+      const shouldDeferToHyperLiquidPasswordMigration =
+        shouldDeferHyperLiquidPlaintextLseMigration({
+          candidate,
+          isNative: platformEnv.isNative === true,
+        });
+      if (!candidate.canMigrate || shouldDeferToHyperLiquidPasswordMigration) {
         nextLastScannedCredentialId = credential.id;
       } else {
         processedCount += 1;

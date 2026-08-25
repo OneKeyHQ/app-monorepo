@@ -128,3 +128,18 @@ export function classifyLocalSecretEnvelopeMigrationCandidate({
     innerPrefix,
   };
 }
+
+export function shouldDeferHyperLiquidPlaintextLseMigration({
+  candidate,
+  isNative,
+}: {
+  candidate: ILocalSecretEnvelopeCandidateResult;
+  isNative: boolean;
+}): boolean {
+  return Boolean(
+    !isNative &&
+    candidate.canMigrate &&
+    candidate.innerPrefix ===
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+  );
+}
