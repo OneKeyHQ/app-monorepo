@@ -72,6 +72,8 @@ import type {
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
+  IPrimeRedemptionParams,
+  IPrimeRedemptionResult,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -175,6 +177,30 @@ type IPrimeInfiniPaymentApiResponse = {
   amountConfirmed?: unknown;
   amountConfirming?: unknown;
 };
+
+type IPrimeRedemptionApiResponse = {
+  daysAdded?: unknown;
+  primeExpiresAt?: unknown;
+};
+
+function validatePrimeRedemptionResponse(
+  redemption: IPrimeRedemptionApiResponse | undefined,
+): IPrimeRedemptionResult {
+  if (
+    !redemption ||
+    !Number.isSafeInteger(redemption.daysAdded) ||
+    Number(redemption.daysAdded) <= 0 ||
+    !Number.isSafeInteger(redemption.primeExpiresAt) ||
+    Number(redemption.primeExpiresAt) < 1_000_000_000_000 ||
+    Number.isNaN(new Date(Number(redemption.primeExpiresAt)).getTime())
+  ) {
+    throw new OneKeyLocalError('Invalid Prime redemption response');
+  }
+  return {
+    addedDays: Number(redemption.daysAdded),
+    finalExpiresAt: Number(redemption.primeExpiresAt),
+  };
+}
 
 function validateInfiniPaymentResponse(
   payment: IPrimeInfiniPaymentApiResponse | undefined,
@@ -354,6 +380,8 @@ type IOneKeyIdAuthSnapshot = {
 };
 
 class ServicePrime extends ServiceBase {
+  private primeUserInfoFetchGeneration = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -4474,6 +4502,8 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo | undefined;
     primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
+    this.primeUserInfoFetchGeneration += 1;
+    const fetchGeneration = this.primeUserInfoFetchGeneration;
     await this.loginMutex.waitForUnlock();
     // Snapshot the RESOLVED source (not the raw persisted one): the
     // getActiveAuthToken() call below runs the self-healing resolver, which
@@ -4592,6 +4622,7 @@ class ServicePrime extends ServiceBase {
         this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
       ]);
       const isSameSession = Boolean(
+        fetchGeneration === this.primeUserInfoFetchGeneration &&
         currentAuthToken &&
         currentOneKeyIdAuthState !== 'loggedOut' &&
         currentUserInfo.isLoggedIn &&
@@ -4632,7 +4663,7 @@ class ServicePrime extends ServiceBase {
     if (!commitResult.committed) {
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
-          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle changed before response commit, discarding response',
+          'ServicePrime.apiFetchPrimeUserInfo: identity lifecycle or fetch generation changed before response commit, discarding response',
       });
       return {
         userInfo: commitResult.userInfo,
@@ -5150,6 +5181,74 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
+  }
+
+  @backgroundMethod()
+  async apiRedeemPrimeCode({
+    code,
+    expectedOneKeyUserId,
+  }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
+    const redemptionCode = isString(code) ? code.trim() : '';
+    if (!redemptionCode) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.redemption_invalid_code_error,
+        }),
+        autoToast: false,
+      });
+    }
+    const createSessionChangedError = () =>
+      new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.prime_onekey_id_session_changed__msg,
+        }),
+        autoToast: false,
+      });
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError: createSessionChangedError,
+    });
+    const client = await this.getPrimeClient();
+    const requestConfig =
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot);
+    let result: {
+      data: IApiClientResponse<IPrimeRedemptionApiResponse>;
+    };
+    try {
+      const profileResult = await client.get<
+        IApiClientResponse<IOneKeyIdProfileResponse>
+      >('/prime/v1/account/profile', requestConfig);
+      if (
+        profileResult?.data?.data?.onekeyAccount?.onekeyUserId !==
+        expectedOneKeyUserId
+      ) {
+        throw createSessionChangedError();
+      }
+      await this.assertOneKeyIdAuthSnapshot({
+        snapshot: authSnapshot,
+        createStateChangedError: createSessionChangedError,
+      });
+      result = await client.post<
+        IApiClientResponse<IPrimeRedemptionApiResponse>
+      >('/prime/v1/redemption/redeem', { code: redemptionCode }, requestConfig);
+    } catch (error) {
+      // The dialog renders non-auth failures inline. Invalid-session errors
+      // keep the existing global toast and OneKey ID logout flow.
+      if (
+        error &&
+        typeof error === 'object' &&
+        !(error instanceof OneKeyErrorPrimeLoginInvalidToken)
+      ) {
+        (error as { autoToast?: boolean }).autoToast = false;
+      }
+      throw error;
+    }
+    const redemption = validatePrimeRedemptionResponse(result?.data?.data);
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError: createSessionChangedError,
+    });
+    return redemption;
   }
 
   @backgroundMethod()

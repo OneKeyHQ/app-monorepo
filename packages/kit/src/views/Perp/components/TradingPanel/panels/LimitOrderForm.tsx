@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
+  usePerpsAccountDisplayReadyAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -40,6 +41,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -74,17 +76,25 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getPerpsAccountKey } from '../../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../../utils/aggressiveLimitPrice';
-import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
+import {
+  getEnableTradingDialogConfirmDecision,
+  shouldShowPerpsFirstDepositPrompt,
+} from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { shouldDisablePerpsOrderPanelTradingButtonForAccountLoading } from '../../../utils/perpsOrderPanelEnableTrading';
@@ -97,6 +107,7 @@ import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
+import { PerpsFirstDepositPromptCard } from '../components/PerpsFirstDepositPromptCard';
 import { PriceInput } from '../inputs/PriceInput';
 import {
   type ISizeInputMinimumOrderAction,
@@ -170,8 +181,10 @@ export function LimitOrderForm({
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [isAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccountDisplayReady] = usePerpsAccountDisplayReadyAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
@@ -179,6 +192,7 @@ export function LimitOrderForm({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
+  const requestFirstDepositAction = useFirstDepositAction();
   const { showDepositWithdrawModal } =
     useShowDepositWithdrawModal('tradingPanel');
 
@@ -192,6 +206,9 @@ export function LimitOrderForm({
   // path; the dialog path is already serialized by the dialog itself.
   const isDirectPlacingRef = useRef(false);
   const isSpot = activeTradeInstrument.mode === 'spot';
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
   const resolvedSizeInputUnit =
     isSpot && tradingPreferences.sizeInputUnit === 'margin'
       ? 'usd'
@@ -584,8 +601,13 @@ export function LimitOrderForm({
         perpsAccountLoading.enableTradingStatusPending,
       isLiveStatusPending: false,
     });
+  const isPerpActionDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
   const shouldDisableActionButtons = Boolean(
-    shouldDisableForAccountLoading || perpsAccountStatus.accountNotSupport,
+    shouldDisableForAccountLoading ||
+    perpsAccountStatus.accountNotSupport ||
+    isPerpActionDisabled,
   );
   const accountActionType = useMemo(
     () =>
@@ -601,6 +623,24 @@ export function LimitOrderForm({
     ],
   );
   const shouldDisableAccountActionButtons = isTradingActionLoading;
+  const shouldShowFirstDepositAction = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
+    isPerpActionDisabled,
+  });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositAction &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
+
+  const handleFirstDepositPress = useCallback(() => {
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
+      beforeDeposit: onClose,
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
+    });
+  }, [firstDepositAccountKey, onClose, requestFirstDepositAction]);
 
   const handleConnectWallet = useCallback(async () => {
     onClose();
@@ -1426,7 +1466,34 @@ export function LimitOrderForm({
         <YStack gap="$2" {...(!isSpot && { mt: '$1.5' })}>
           {sharedAccountActionButton}
         </YStack>
-      ) : (
+      ) : null}
+      {!sharedAccountActionButton && shouldShowFirstDepositAction ? (
+        <YStack gap="$3" {...(!isSpot && { mt: '$1.5' })}>
+          <PerpsFirstDepositPromptCard backgroundColor="$bgStrong" />
+          <Button
+            width="100%"
+            size="medium"
+            childrenAsText={false}
+            borderRadius="$full"
+            variant="primary"
+            onPress={handleFirstDepositPress}
+            testID="chart-limit-deposit-to-trade"
+            h={36}
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textInverse"
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_top_up,
+              })}
+            </SizableText>
+          </Button>
+        </YStack>
+      ) : null}
+      {!sharedAccountActionButton && !shouldShowFirstDepositAction ? (
         <XStack gap="$2.5" {...(!isSpot && { mt: '$1.5' })}>
           <YStack flex={1} flexBasis={0} minWidth={0} gap="$2">
             {renderActionButton({
@@ -1569,7 +1636,7 @@ export function LimitOrderForm({
             ) : null}
           </YStack>
         </XStack>
-      )}
+      ) : null}
     </YStack>
   );
 }

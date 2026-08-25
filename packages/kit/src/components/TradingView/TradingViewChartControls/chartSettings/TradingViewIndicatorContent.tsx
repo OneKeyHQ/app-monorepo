@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   ScrollView,
@@ -6,6 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   OkxIndicatorLineRow,
@@ -73,6 +76,8 @@ function OkxIndicatorContent({
   ) => void;
   onParameterChange: (parameterId: string, value: number) => void;
 }) {
+  const intl = useIntl();
+
   if (!indicator) {
     return null;
   }
@@ -115,6 +120,9 @@ function OkxIndicatorContent({
         {indicator.showOpacity !== false ? (
           <OkxIndicatorOpacitySlider
             value={indicator.opacity}
+            label={intl.formatMessage({
+              id: ETranslations.market_chart_indicator_transparency__label,
+            })}
             upColor={indicator.opacityColors?.upColor ?? OKX_CHART_UP}
             downColor={indicator.opacityColors?.downColor ?? OKX_CHART_DOWN}
             onChange={(value) => onOpacityChange(indicator.id, value)}
@@ -126,7 +134,7 @@ function OkxIndicatorContent({
         {indicator.description ? (
           <YStack mt={30} gap={10}>
             <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
-              指标说明
+              {intl.formatMessage({ id: ETranslations.global_description })}
             </SizableText>
             <SizableText
               maxWidth={440}
@@ -145,6 +153,7 @@ function OkxIndicatorContent({
 
 export function OkxIndicatorSettingsDialog({
   value,
+  maxActiveSubIndicatorCount,
   selectedIndicatorScope,
   selectedIndicatorId,
   visibleIndicators,
@@ -166,6 +175,7 @@ export function OkxIndicatorSettingsDialog({
   isSubmitting = false,
 }: {
   value: ITradingViewIndicatorSettingsValue;
+  maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
   selectedIndicatorId: string;
   visibleIndicators: ITradingViewSettingsMockIndicator[];
@@ -196,6 +206,8 @@ export function OkxIndicatorSettingsDialog({
   onClose?: () => void;
   isSubmitting?: boolean;
 }) {
+  const intl = useIntl();
+
   return (
     <YStack
       testID="trading-view-indicator-settings-okx-dialog"
@@ -221,7 +233,7 @@ export function OkxIndicatorSettingsDialog({
           fontWeight="700"
           color={OKX_CHART_TEXT}
         >
-          指标设置
+          {intl.formatMessage({ id: ETranslations.market_indicators })}
         </SizableText>
         <Stack
           w={28}
@@ -240,6 +252,7 @@ export function OkxIndicatorSettingsDialog({
         <OkxIndicatorScopeTabs
           value={selectedIndicatorScope}
           indicators={value.indicators}
+          maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
           onChange={onScopeChange}
         />
         <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
@@ -319,7 +332,7 @@ export function OkxIndicatorSettingsDialog({
           onPress={onReset}
         >
           <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
-            重置
+            {intl.formatMessage({ id: ETranslations.global_reset })}
           </SizableText>
         </XStack>
         <XStack
@@ -343,7 +356,7 @@ export function OkxIndicatorSettingsDialog({
             fontWeight="700"
             color="$textInverse"
           >
-            确认
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
           </SizableText>
         </XStack>
       </XStack>

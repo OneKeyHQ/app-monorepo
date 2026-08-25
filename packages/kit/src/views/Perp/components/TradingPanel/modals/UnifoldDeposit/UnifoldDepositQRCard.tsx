@@ -121,13 +121,16 @@ export function UnifoldDepositQRCard({
           borderColor="$borderSubdued"
           borderRadius="$2"
           overflow="hidden"
+          // same color as the QR plate: the plate's own corner rounding is
+          // larger than this card's, so without a matching backdrop the modal
+          // background pokes through as dark wedges at the four corners
+          bg="white"
         >
           <QRCode
             value={address}
             size={QR_CODE_SIZE}
             padding={QR_CODE_PADDING}
             quietZoneModules={QR_QUIET_ZONE_MODULES}
-            drawType="dot"
             logo={
               normalizedChainIconUri
                 ? { uri: normalizedChainIconUri }
@@ -136,7 +139,6 @@ export function UnifoldDepositQRCard({
             logoSize={QR_LOGO_SIZE}
             logoMargin={QR_LOGO_MARGIN}
             logoBackgroundColor="white"
-            logoBorderRadius={9999}
           />
         </Stack>
       ) : null}

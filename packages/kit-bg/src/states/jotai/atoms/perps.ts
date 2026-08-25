@@ -1076,6 +1076,7 @@ export interface IPerpsCustomSettings {
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
+  hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
@@ -1090,6 +1091,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
+    hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },

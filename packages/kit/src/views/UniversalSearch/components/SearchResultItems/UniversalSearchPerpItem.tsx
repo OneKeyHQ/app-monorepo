@@ -22,7 +22,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchPerp,
+} from '@onekeyhq/shared/types/search';
 
 import { MarketPerpsStarV2 } from '../../../Market/components/MarketStarV2';
 
@@ -32,11 +35,13 @@ const shouldShowFavoriteButton =
 interface IUniversalSearchPerpItemProps {
   item: IUniversalSearchPerp;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchPerpItem({
   item,
   getSearchInput,
+  source,
 }: IUniversalSearchPerpItemProps) {
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const navigation = useAppNavigation();
@@ -61,6 +66,7 @@ export function UniversalSearchPerpItem({
 
   const handlePress = useCallback(() => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: coin,
@@ -99,6 +105,7 @@ export function UniversalSearchPerpItem({
     name,
     assetType,
     navigation,
+    source,
     universalSearchActions,
   ]);
 

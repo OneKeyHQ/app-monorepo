@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -25,7 +26,6 @@ export enum ESwapStockChannelStage {
   InitializingStock = 'initializingStock',
   MissingStock = 'missingStock',
   CheckingMarketStatus = 'checkingMarketStatus',
-  MarketClosed = 'marketClosed',
   MarketUnavailable = 'marketUnavailable',
   InitializingPayToken = 'initializingPayToken',
   MissingPayToken = 'missingPayToken',
@@ -111,16 +111,19 @@ export function resolveStockExecutionTokensToSync({
     : { fromToken, toToken };
 }
 
+/**
+ * A closed/paused market no longer blocks quoting (OK-58986): providers keep
+ * serving on-chain liquidity outside US sessions, so the quote response — not
+ * a prediction here — decides whether the token can trade.
+ */
 export function isStockTradeReadyForQuote({
   currentStockToken,
-  marketOpen,
   marketStatusStatus,
   payToken,
   payTokenStatus,
   stockTokenStatus,
 }: {
   currentStockToken?: ISwapToken;
-  marketOpen?: boolean;
   marketStatusStatus: ESwapStockChannelAsyncStatus;
   payToken?: ISwapToken;
   payTokenStatus: ESwapStockChannelAsyncStatus;
@@ -131,8 +134,7 @@ export function isStockTradeReadyForQuote({
     payToken &&
     stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
     marketStatusStatus !== ESwapStockChannelAsyncStatus.Initializing &&
-    payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketOpen !== false,
+    payTokenStatus === ESwapStockChannelAsyncStatus.Ready,
   );
 }
 
@@ -260,7 +262,34 @@ export function buildStockSwapTokenFromMarketToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
   };
+}
+
+function mergeStockExecutionMetadata({
+  currentStock,
+  tokenDetailStock,
+}: {
+  currentStock: ISwapToken['stock'];
+  tokenDetailStock: ISwapToken['stock'];
+}): ISwapToken['stock'] {
+  if (!currentStock || !tokenDetailStock) {
+    return tokenDetailStock ?? currentStock;
+  }
+
+  const mergedStock = { ...currentStock };
+  Object.entries(tokenDetailStock).forEach(([key, value]) => {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'string' && !value.trim())
+    ) {
+      return;
+    }
+    Object.assign(mergedStock, { [key]: value });
+  });
+
+  return isEqual(mergedStock, currentStock) ? currentStock : mergedStock;
 }
 
 export function resolveStockExecutionTokenMetadata({
@@ -281,10 +310,15 @@ export function resolveStockExecutionTokenMetadata({
     return undefined;
   }
   const isNative = tokenDetail.isNative ?? token.isNative;
+  const stock = mergeStockExecutionMetadata({
+    currentStock: token.stock,
+    tokenDetailStock: tokenDetail.stock,
+  });
   if (
     token.decimals === tokenDetail.decimals &&
     token.isNative === isNative &&
-    token.isStock === true
+    token.isStock === true &&
+    token.stock === stock
   ) {
     return token;
   }
@@ -293,6 +327,7 @@ export function resolveStockExecutionTokenMetadata({
     decimals: tokenDetail.decimals,
     isNative,
     isStock: true,
+    stock,
   };
 }
 
@@ -313,6 +348,7 @@ export function buildStockSwapTokenFromMarketListToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+    stock: token.stock,
   };
 }
 

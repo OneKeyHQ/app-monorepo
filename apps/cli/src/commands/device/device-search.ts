@@ -6,18 +6,41 @@ import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 /** Minimal shape of a device returned by sdk.searchDevices() */
-interface ISearchedDevice {
+export interface ISearchedDevice {
   connectId?: string;
   deviceId?: string;
+  deviceType?: string;
+  serialNo?: string | null;
+  uuid?: string;
   name?: string;
+  displayName?: string;
   label?: string;
+  firmwareVersion?: [number, number, number] | null;
   features?: {
-    onekey_device_type?: string;
-    onekey_serial?: string;
-    onekey_firmware_version?: string;
+    deviceType?: string;
+    serialNo?: string;
+    firmwareVersion?: string;
     unlocked?: boolean;
-    passphrase_protection?: boolean;
+    passphraseProtection?: boolean;
   };
+}
+
+export function formatSearchedDevice(d: ISearchedDevice) {
+  return {
+    connectId: d.connectId,
+    deviceId: d.deviceId ?? '',
+    name: d.displayName ?? d.name ?? d.label ?? 'Unknown',
+    model: d.deviceType ?? d.features?.deviceType ?? 'Unknown',
+    serial: d.serialNo ?? d.uuid ?? d.features?.serialNo ?? '',
+    firmware:
+      formatVersion(d.firmwareVersion) || d.features?.firmwareVersion || '',
+    unlocked: d.features?.unlocked ?? null,
+    passphraseProtection: d.features?.passphraseProtection ?? false,
+  };
+}
+
+function formatVersion(version?: [number, number, number] | null): string {
+  return Array.isArray(version) ? version.join('.') : '';
 }
 
 export function registerDeviceSearchCommand(parent: Command): void {
@@ -38,16 +61,9 @@ export function registerDeviceSearchCommand(parent: Command): void {
           return;
         }
 
-        const formatted = (devices as ISearchedDevice[]).map((d) => ({
-          connectId: d.connectId,
-          deviceId: d.deviceId,
-          name: d.name ?? d.label ?? 'Unknown',
-          model: d.features?.onekey_device_type ?? 'Unknown',
-          serial: d.features?.onekey_serial ?? '',
-          firmware: d.features?.onekey_firmware_version ?? '',
-          unlocked: d.features?.unlocked ?? null,
-          passphraseProtection: d.features?.passphrase_protection ?? false,
-        }));
+        const formatted = (devices as ISearchedDevice[]).map(
+          formatSearchedDevice,
+        );
 
         output.success({ devices: formatted, count: formatted.length });
       } catch (error) {

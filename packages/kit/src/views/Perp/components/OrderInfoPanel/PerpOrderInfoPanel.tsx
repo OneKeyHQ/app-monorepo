@@ -37,9 +37,11 @@ import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
+import { useVisibleSpotHoldingsCount } from '../../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
+import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
@@ -67,6 +69,31 @@ const ORDER_INFO_TABS = [
 
 type IOrderInfoTabName = (typeof ORDER_INFO_TABS)[number];
 
+function DesktopHoldingsTabCount() {
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
+  const holdingsCount = useVisibleSpotHoldingsCount({
+    balances,
+    hasPerpsUsdc,
+  });
+
+  if (holdingsCount <= 0) {
+    return null;
+  }
+
+  return <SizableText size="$bodyMdMedium">{`(${holdingsCount})`}</SizableText>;
+}
+
 function TabBarItem({
   name,
   isFocused,
@@ -82,15 +109,7 @@ function TabBarItem({
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-  const [{ balances }] = useSpotBalancesAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
-  const [abstractionMode] = usePerpsAbstractionModeAtom();
-  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
-    abstractionMode,
-    currentUser?.accountAddress,
-  );
   const currentAccountAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
@@ -116,24 +135,7 @@ function TabBarItem({
     data: twapOrdersState.twapOrders,
   }).length;
 
-  const holdingsCount = useMemo(() => {
-    const nonUsdcSpotCount = balances.filter(
-      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
-    ).length;
-    const hasSpotUsdc = balances.some(
-      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
-    );
-    const hasPerpsUsdc =
-      !isUnifiedAccountMode &&
-      !!accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0);
-    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
-
   const tabCount = useMemo(() => {
-    if (name === 'Balances') {
-      return holdingsCount > 0 ? `(${holdingsCount})` : '';
-    }
     if (name === 'Trades History') {
       return '';
     }
@@ -147,13 +149,7 @@ function TabBarItem({
       return `(${twapOrdersLength})`;
     }
     return '';
-  }, [
-    holdingsCount,
-    name,
-    openOrdersLength,
-    positionsLength,
-    twapOrdersLength,
-  ]);
+  }, [name, openOrdersLength, positionsLength, twapOrdersLength]);
 
   const translationKey = tabNameToTranslationKey[name];
   const tabTitle = translationKey
@@ -162,8 +158,7 @@ function TabBarItem({
       })
     : name;
 
-  const displayTitle =
-    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
+  const displayTitle = `${tabTitle} ${tabCount}`.trim();
 
   return (
     <DebugRenderTracker
@@ -179,7 +174,8 @@ function TabBarItem({
         onPress={() => onPress(name)}
         cursor="pointer"
       >
-        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+        {name === 'Balances' ? <DesktopHoldingsTabCount /> : null}
       </XStack>
     </DebugRenderTracker>
   );
@@ -282,6 +278,11 @@ function PerpOrderInfoPanel() {
             />
           ))}
         </XStack>
+        {activeTab === 'Balances' ? (
+          <XStack mr="$3" alignItems="center">
+            <HideSmallSpotHoldingsCheckbox />
+          </XStack>
+        ) : null}
         {activeTab === 'Account' && isUnifoldDepositTrackerAvailable ? (
           <Button
             testID="perps-account-history-deposit-tracker"

@@ -93,13 +93,34 @@ export type IUnsignedMessageAlph = {
   payload?: any;
 };
 
+/**
+ * Version 0 of the Solana offchain message spec. Legacy: kept because OneKey hardware firmware
+ * only implements version 0 today.
+ */
+export type IOffchainMessagePayloadV0 = {
+  version?: 0;
+  /** Version 0 only. Removed by version 1 because it is unverifiable and easily forged. */
+  applicationDomain?: string;
+};
+
+/**
+ * Version 1 of the Solana offchain message spec.
+ * https://github.com/solana-foundation/SRFCs/discussions/3
+ */
+export type IOffchainMessagePayloadV1 = {
+  version: 1;
+  /** Base58 encoded 32-byte signer public keys. Non-empty; the wallet sorts and de-duplicates. */
+  requiredSigners: string[];
+};
+
+export type IOffchainMessagePayload =
+  | IOffchainMessagePayloadV0
+  | IOffchainMessagePayloadV1;
+
 export type IUnsignedMessageSolana = {
   type: EMessageTypesSolana;
   message: string;
-  payload?: {
-    version?: number;
-    applicationDomain?: string;
-  };
+  payload?: IOffchainMessagePayload;
 };
 
 export type IUnsignedMessageTron = {

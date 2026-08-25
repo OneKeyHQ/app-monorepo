@@ -20,6 +20,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -127,11 +128,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 // ---------------------------------------------------------------------------
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   AppUpdate: {
+    checkPackageAvailability: jest.fn(async () => ({
+      status: 'notApplicable',
+    })),
     downloadPackage: jest.fn(async () => ({})),
     verifyPackage: jest.fn(async () => undefined),
     verifyASC: jest.fn(async () => undefined),
     downloadASC: jest.fn(async () => undefined),
-    installPackage: jest.fn(async () => undefined),
+    installPackage: jest.fn(async () => true),
     manualInstallPackage: jest.fn(async () => undefined),
     clearPackage: jest.fn(async () => undefined),
   },
@@ -390,6 +394,366 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.readyToInstall();
       expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+    });
+  });
+
+  describe('app shell package reconciliation', () => {
+    test('first launch after app update preserves the completed package state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      resetAtom({
+        latestVersion: '1.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-1.0.0.zip',
+          downloadedFile: '/tmp/app-1.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.ready);
+      expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-1.0.0.zip');
+      expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+    });
+
+    test('missing manual package invalidates ready state and clears matching pending task', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+      resetPendingTask({
+        taskId: 'appShell:2.0.0:direct',
+        revision: 1,
+        action: EPendingInstallTaskAction.installApp,
+        type: EPendingInstallTaskType.appInstall,
+        targetAppVersion: '2.0.0',
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+      expect(pendingInstallTaskValue).toBeUndefined();
+    });
+
+    test('missing seamless package returns to notify for a full re-download', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.downloadedEvent).toBeUndefined();
+      expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
+
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
+    });
+
+    test('expired full-flow retry count is pruned before reconciliation', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+        fullFlowRetryByTarget: {
+          'recovery:2.0.0:1': {
+            count: 2,
+            updatedAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+          },
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
+    });
+
+    test('repeated missing auto-update packages stop after the persisted retry budget', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      for (let retry = 1; retry <= 3; retry += 1) {
+        const result = await service.reconcileAppShellPackage();
+        expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(
+          retry,
+        );
+        if (retry < 3) {
+          expect(result.status).toBe(EAppUpdateStatus.notify);
+          await jest.runAllTimersAsync();
+          atomValue = {
+            ...atomValue,
+            status: EAppUpdateStatus.ready,
+            downloadedEvent: {
+              downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+              downloadedFile: `/tmp/app-2.0.0-${retry}.zip`,
+            },
+          };
+        } else {
+          expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+        }
+      }
+
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledTimes(2);
+      expect(emitSpy).toHaveBeenNthCalledWith(
+        1,
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
+      expect(emitSpy).toHaveBeenNthCalledWith(
+        2,
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
+    });
+
+    test('unavailable manual package invalidates ready state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'unavailable',
+        errorCode: 'EACCES',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test('macOS package not prepared in the current process invalidates ready state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: EAppUpdatePackageAvailabilityStatus.notPrepared,
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.downloadedEvent).toBeUndefined();
+      expect(result.fullFlowRetryByTarget).toEqual({});
+
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
+    });
+
+    test.each([EAppUpdateStatus.ready, EAppUpdateStatus.manualInstall])(
+      'manual package in %s resumes updater cache preparation without an incomplete state',
+      async (status) => {
+        const {
+          AppUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+          status: EAppUpdatePackageAvailabilityStatus.notPrepared,
+        });
+        resetAtom({
+          latestVersion: '2.0.0',
+          status,
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedEvent: {
+            downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+            downloadedFile: '/tmp/app-2.0.0.zip',
+          },
+        });
+
+        const result = await service.reconcileAppShellPackage();
+
+        expect(result.status).toBe(EAppUpdateStatus.downloadPackage);
+        expect(result.downloadedEvent).toBeUndefined();
+        expect(result.fullFlowRetryByTarget).toEqual({});
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        await jest.runAllTimersAsync();
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.StartAutoDownloadUpdate,
+          { decision: 'appShellPackageRecovery' },
+        );
+      },
+    );
+
+    test('missing package during verification enters the recovery flow', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test('concurrent strategy changes do not invalidate state using a stale recovery decision', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadedEvent: {
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+      AppUpdate.checkPackageAvailability.mockImplementationOnce(async () => {
+        atomValue = {
+          ...atomValue,
+          updateStrategy: EUpdateStrategy.seamless,
+        };
+        return { status: 'missing' };
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.ready);
+      expect(result.updateStrategy).toBe(EUpdateStrategy.seamless);
+      expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');
+    });
+
+    test('JS bundle ready state is not inspected by app shell reconciliation', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-2.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.ready);
+      expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+    });
+
+    test('availability check failure preserves the ready package state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockRejectedValueOnce(
+        new Error('IPC unavailable'),
+      );
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.ready);
+      expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');
     });
   });
 

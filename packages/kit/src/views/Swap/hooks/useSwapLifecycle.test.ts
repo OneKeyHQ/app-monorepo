@@ -1,6 +1,12 @@
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
-import { isSwapProTokenBalanceRequestCurrent } from './useSwapPro';
+import {
+  isSwapProTokenBalanceRequestCurrent,
+  isSwapProTradeStateOwner,
+} from './useSwapPro';
 import {
   handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
@@ -150,6 +156,22 @@ describe('Swap quote lifecycle visibility', () => {
     expect(pauseQuote).not.toHaveBeenCalled();
     expect(unsubscribeQuoteEvents).not.toHaveBeenCalled();
   });
+});
+
+describe('Swap Pro trade state ownership', () => {
+  it.each<readonly [boolean, boolean, ESwapTabSwitchType]>([
+    [false, false, ESwapTabSwitchType.BRIDGE],
+    [false, false, ESwapTabSwitchType.LIMIT],
+    [true, true, ESwapTabSwitchType.LIMIT],
+    [true, false, ESwapTabSwitchType.STOCK],
+  ])(
+    'returns %s for native=%s type=%s',
+    (expected, isNative, swapTypeSwitch) => {
+      expect(isSwapProTradeStateOwner({ isNative, swapTypeSwitch })).toBe(
+        expected,
+      );
+    },
+  );
 });
 
 describe('Swap Pro token balance request identity', () => {

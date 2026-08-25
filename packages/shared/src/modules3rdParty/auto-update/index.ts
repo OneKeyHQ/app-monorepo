@@ -1,15 +1,17 @@
-import type {
-  IAppUpdate,
-  IBundleUpdate,
-  IClearPackage,
-  IDownloadASC,
-  IDownloadPackage,
-  IInstallPackage,
-  IManualInstallPackage,
-  IUpdateDownloadedEvent,
-  IUseDownloadProgress,
-  IVerifyASC,
-  IVerifyPackage,
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  type IAppUpdate,
+  type IBundleUpdate,
+  type ICheckPackageAvailability,
+  type IClearPackage,
+  type IDownloadASC,
+  type IDownloadPackage,
+  type IInstallPackage,
+  type IManualInstallPackage,
+  type IUpdateDownloadedEvent,
+  type IUseDownloadProgress,
+  type IVerifyASC,
+  type IVerifyPackage,
 } from './type';
 
 const downloadPackage: IDownloadPackage = async () =>
@@ -21,7 +23,11 @@ const verifyASC: IVerifyASC = async () => Promise.resolve();
 
 const verifyPackage: IVerifyPackage = async () => Promise.resolve();
 
-const installPackage: IInstallPackage = async () => Promise.resolve();
+const installPackage: IInstallPackage = async () => Promise.resolve(false);
+
+const checkPackageAvailability: ICheckPackageAvailability = async () => ({
+  status: EAppUpdatePackageAvailabilityStatus.notApplicable,
+});
 
 const clearPackage: IClearPackage = () => Promise.resolve();
 
@@ -34,6 +40,7 @@ export const AppUpdate: IAppUpdate = {
   verifyPackage,
   verifyASC,
   downloadASC,
+  checkPackageAvailability,
   installPackage,
   manualInstallPackage,
   clearPackage,

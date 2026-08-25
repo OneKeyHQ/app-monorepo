@@ -1,14 +1,20 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
+
+// OK-59303: the protocol-count probe below only decides which route to open,
+// so it must never hold the tap hostage. Past this budget the asset's own
+// protocol list is authoritative enough to navigate on, and the request keeps
+// warming ServiceStaking's 5s memoize for the next tap.
+const PROTOCOL_COUNT_PROBE_TIMEOUT = 800;
 
 export function useNavigateToEarnAsset() {
   const navigation = useAppNavigation();
@@ -16,21 +22,21 @@ export function useNavigateToEarnAsset() {
   const accountId = activeAccount.account?.id;
   const accountReady = activeAccount.ready;
   const activeNetworkId = activeAccount.network?.id;
+  // A tap that is still resolving must not queue another navigation: repeated
+  // taps on an unresponsive row used to stack pushes that all landed at once.
+  const isNavigatingRef = useRef(false);
 
   return useCallback(
     async (
       asset: IEarnAvailableAsset,
       categoryType?: EAvailableAssetsTypeEnum,
     ) => {
-      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
+      if (isNavigatingRef.current) {
+        return;
+      }
+      isNavigatingRef.current = true;
 
-      // OK-59304: the protocol list / detail page renders the same logo as the
-      // row that was just tapped. Warm it here — this is the single funnel for
-      // every earn asset list — so the destination does not start from a cold
-      // async image load and flash a placeholder. Fire-and-forget; the
-      // single-protocol branch below also awaits a request first, which gives
-      // the decode extra head start.
-      prewarmTokenImages({ tokenImageUri: asset.logoURI });
+      defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
 
       const defaultCategory =
         categoryType === EAvailableAssetsTypeEnum.SimpleEarn ||
@@ -48,44 +54,54 @@ export function useNavigateToEarnAsset() {
         });
       };
 
-      if (asset.protocols.length === 1) {
-        const accountNetworkId =
-          activeNetworkId ?? asset.protocols[0]?.networkId;
-        const canQueryWithAccount =
-          accountReady && Boolean(accountId) && Boolean(accountNetworkId);
-        if (!canQueryWithAccount) {
-          navigateToProtocolList();
-          return;
-        }
+      try {
+        if (asset.protocols.length === 1) {
+          const accountNetworkId =
+            activeNetworkId ?? asset.protocols[0]?.networkId;
+          const canQueryWithAccount =
+            accountReady && Boolean(accountId) && Boolean(accountNetworkId);
+          if (!canQueryWithAccount) {
+            navigateToProtocolList();
+            return;
+          }
 
-        let totalProtocols = 1;
-        try {
-          const allProtocols =
-            await backgroundApiProxy.serviceStaking.getProtocolList({
+          let totalProtocols = 1;
+          try {
+            const allProtocols = await Promise.race([
+              backgroundApiProxy.serviceStaking.getProtocolList({
+                symbol: asset.symbol,
+                accountId,
+                networkId: accountNetworkId,
+                includeWithdrawOnly: true,
+              }),
+              waitAsync(PROTOCOL_COUNT_PROBE_TIMEOUT).then(() => {
+                // Resolving to undefined keeps the asset's own protocol count
+                // instead of pretending the symbol has no protocol at all.
+                return undefined;
+              }),
+            ]);
+            totalProtocols = allProtocols?.length ?? 1;
+          } catch {
+            // Fall back to the protocol count already returned with the asset.
+          }
+
+          if (totalProtocols <= 1) {
+            const protocol = asset.protocols[0];
+            await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+              networkId: protocol.networkId,
               symbol: asset.symbol,
-              accountId,
-              networkId: accountNetworkId,
-              includeWithdrawOnly: true,
+              provider: protocol.provider,
+              vault: protocol.vault,
+              logoURI: asset.logoURI,
             });
-          totalProtocols = allProtocols?.length ?? 1;
-        } catch {
-          // Fall back to the protocol count already returned with the asset.
+            return;
+          }
         }
 
-        if (totalProtocols <= 1) {
-          const protocol = asset.protocols[0];
-          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-            networkId: protocol.networkId,
-            symbol: asset.symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-            logoURI: asset.logoURI,
-          });
-          return;
-        }
+        navigateToProtocolList();
+      } finally {
+        isNavigatingRef.current = false;
       }
-
-      navigateToProtocolList();
     },
     [accountId, accountReady, activeNetworkId, navigation],
   );

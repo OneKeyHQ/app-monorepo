@@ -353,7 +353,9 @@ export interface ISwapInviteeRewardHistoryItem {
 }
 
 export interface ISwapInviteeRewardsResponse {
+  /** Cumulative reward amount, including the undistributed amount. */
   totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
   undistributed: string;
   token: IRewardToken;
   history: ISwapInviteeRewardHistoryItem[];
@@ -471,6 +473,18 @@ export interface IInvitePostConfig {
       };
     };
     Perps?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
+    Swap?: {
       title: string;
       subtitle: string;
       for_you: {

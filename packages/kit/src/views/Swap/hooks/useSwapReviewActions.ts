@@ -7,6 +7,7 @@ import {
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -133,6 +134,7 @@ export function useSwapReviewActions({
   const [inAppNotificationAtom] = useInAppNotificationAtom();
   const handledApproveStatusRef = useRef<string>('');
   const latestApproveTxIdRef = useRef<string>('');
+  const rebuildReviewRequestIdRef = useRef(0);
   const adapterRef = useRef(adapter);
   const intlRef = useRef(intl);
   const networkFeeLevelRef = useRef(swapStepNetFeeLevel.networkFeeLevel);
@@ -146,6 +148,12 @@ export function useSwapReviewActions({
   networkFeeLevelRef.current = swapStepNetFeeLevel.networkFeeLevel;
   customPriorityFeeRef.current = swapStepNetFeeLevel.customPriorityFee;
   swapStepsStateRef.current = swapStepsState;
+
+  useEffect(() => {
+    return () => {
+      rebuildReviewRequestIdRef.current += 1;
+    };
+  }, []);
 
   const clearPreSwapGasInfos = useCallback(
     (preSwapData: ISwapPreSwapData) => {
@@ -232,6 +240,61 @@ export function useSwapReviewActions({
       swapStepNetFeeLevel.networkFeeLevel,
       swapStepNetFeeLevel.customPriorityFee,
     ],
+  );
+
+  const rebuildReviewWithSlippage = useCallback(
+    async (slippagePercentage: number) => {
+      const frozenQuoteResult = swapStepsStateRef.current.quoteResult;
+      const rebuildReview = adapterRef.current.rebuildReview;
+      if (!frozenQuoteResult || !rebuildReview) {
+        throw new OneKeyLocalError(
+          'Current swap quote does not support rebuilding',
+        );
+      }
+
+      const requestId = rebuildReviewRequestIdRef.current + 1;
+      rebuildReviewRequestIdRef.current = requestId;
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          swapBuildLoading: true,
+          estimateNetworkFeeLoading: false,
+          stepBeforeActionsError: undefined,
+        },
+      }));
+
+      try {
+        const reviewState = await rebuildReview({
+          slippagePercentage,
+          networkFeeLevel: networkFeeLevelRef.current,
+          customPriorityFee: customPriorityFeeRef.current,
+        });
+        if (
+          requestId !== rebuildReviewRequestIdRef.current ||
+          swapStepsStateRef.current.quoteResult !== frozenQuoteResult
+        ) {
+          throw new OneKeyLocalError('Swap review changed while rebuilding');
+        }
+        replaceReviewState(reviewState);
+      } catch (error) {
+        if (
+          requestId === rebuildReviewRequestIdRef.current &&
+          swapStepsStateRef.current.quoteResult === frozenQuoteResult
+        ) {
+          setSwapSteps((prev) => ({
+            ...prev,
+            preSwapData: {
+              ...prev.preSwapData,
+              swapBuildLoading: false,
+              estimateNetworkFeeLoading: false,
+            },
+          }));
+        }
+        throw error;
+      }
+    },
+    [replaceReviewState, setSwapSteps],
   );
 
   const preSwapStepsStart = useCallback(
@@ -481,5 +544,6 @@ export function useSwapReviewActions({
     onConfirm,
     preSwapBeforeStepActions,
     preSwapStepsStart,
+    rebuildReviewWithSlippage,
   };
 }

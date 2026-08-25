@@ -24,22 +24,15 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 
+import {
+  getExploreTabName,
+  getExploreUniversalSearchTabRoute,
+} from './exploreTabUtils';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
 
-type IExploreTabName = 'market' | 'earn' | 'browser';
 type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
-
-function getExploreTabName(tab: ETranslations): IExploreTabName {
-  if (tab === ETranslations.global_market) {
-    return 'market';
-  }
-  if (tab === ETranslations.global_earn) {
-    return 'earn';
-  }
-  return 'browser';
-}
 
 function MobileBrowser() {
   const route =
@@ -51,6 +44,8 @@ function MobileBrowser() {
   const [selectedHeaderTab, setSelectedHeaderTab] = useState<ETranslations>(
     defaultTab || settings.selectedBrowserTab || ETranslations.global_market,
   );
+  const universalSearchTabRoute =
+    getExploreUniversalSearchTabRoute(selectedHeaderTab);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
@@ -108,7 +103,11 @@ function MobileBrowser() {
         {/* custom header */}
         <YStack my="$2">
           <XStack mx="$5">
-            <LegacyUniversalSearchInput size="medium" initialTab="market" />
+            <LegacyUniversalSearchInput
+              size="medium"
+              initialTab="market"
+              tabRoute={universalSearchTabRoute}
+            />
           </XStack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}

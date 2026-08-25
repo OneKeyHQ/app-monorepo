@@ -1,5 +1,6 @@
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   OKX_CHART_BG,
@@ -159,8 +160,14 @@ function OkxChartColorModeCard({
 }
 
 function OkxChartMiniCandles({ variant }: { variant: 'modern' | 'classic' }) {
-  const bullishColor = variant === 'modern' ? '#D6FF00' : OKX_CHART_UP;
-  const bearishColor = variant === 'modern' ? '#FF3CD9' : OKX_CHART_DOWN;
+  const bullishColor =
+    variant === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.brand
+      : OKX_CHART_UP;
+  const bearishColor =
+    variant === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.quaternary
+      : OKX_CHART_DOWN;
   const candles = [
     { h: 28, body: 17, color: bullishColor },
     { h: 16, body: 8, color: bearishColor },

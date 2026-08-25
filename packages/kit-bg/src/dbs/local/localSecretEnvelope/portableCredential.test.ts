@@ -128,6 +128,14 @@ describe('portableCredential guard', () => {
     expect(
       shouldUnwrapCredentialForPortableExport(
         buildEnvelope({
+          innerPrefix:
+            LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      shouldUnwrapCredentialForPortableExport(
+        buildEnvelope({
           innerPrefix: LOCAL_SECRET_ENVELOPE_INNER_PREFIX.verifyString,
         }),
       ),

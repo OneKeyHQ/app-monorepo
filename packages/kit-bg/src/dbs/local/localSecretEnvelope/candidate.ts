@@ -51,6 +51,17 @@ function isCredentialRecordIdSupported({
     return accountUtils.isImportedAccount({ accountId: recordId });
   }
 
+  if (
+    innerPrefix ===
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential ||
+    innerPrefix ===
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+  ) {
+    return accountUtils.isHyperLiquidAgentCredentialId({
+      credentialId: recordId,
+    });
+  }
+
   return false;
 }
 
@@ -100,7 +111,13 @@ export function classifyLocalSecretEnvelopeMigrationCandidate({
     return { canMigrate: false, reason: 'unsupported_record_id' };
   }
 
-  if (!isCurrentKdfPayload(rawValue)) {
+  if (
+    innerPrefix !==
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential &&
+    innerPrefix !==
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential &&
+    !isCurrentKdfPayload(rawValue)
+  ) {
     return { canMigrate: false, reason: 'needs_kdf_upgrade' };
   }
 
@@ -110,4 +127,19 @@ export function classifyLocalSecretEnvelopeMigrationCandidate({
     recordId,
     innerPrefix,
   };
+}
+
+export function shouldDeferHyperLiquidPlaintextLseMigration({
+  candidate,
+  isNative,
+}: {
+  candidate: ILocalSecretEnvelopeCandidateResult;
+  isNative: boolean;
+}): boolean {
+  return Boolean(
+    !isNative &&
+    candidate.canMigrate &&
+    candidate.innerPrefix ===
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+  );
 }

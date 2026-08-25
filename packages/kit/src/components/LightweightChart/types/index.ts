@@ -8,6 +8,8 @@ import type {
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
+export type ILightweightChartLineType = 'simple' | 'steps';
+export type ILightweightChartPriceScalePosition = 'left' | 'right';
 
 export interface ILightweightChartTheme {
   bgColor: string;
@@ -30,20 +32,26 @@ export interface ILightweightChartConfig {
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
   priceFormatterType?: ILightweightChartPriceFormatterType;
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeZone?: string;
+  locale?: string;
+  hideCrosshairPriceLabel?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -59,20 +67,30 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   // Web/desktop only. Reserve the axis before labels are measured so the plot
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  // Native WebView only. Custom formatter functions cannot cross the WebView
+  // boundary, so callers can opt into a serializable percent precision.
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeZone?: string;
+  locale?: string;
+  // Native WebView only. Keeps the default axis hover label unless a chart
+  // with its own tooltip explicitly opts out.
+  hideCrosshairPriceLabel?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
   // signal the chart is live. Web/desktop only; toggling it does not recreate
   // the chart.

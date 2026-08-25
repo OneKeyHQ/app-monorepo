@@ -46,7 +46,6 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -193,9 +192,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onPopStack: onPopSwapModal,
     onBroadcast: swapInitParams?.onSwapBroadcast,
   });
-  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx({
-    onSwapBroadcast,
-  });
+  const {
+    preSwapStepsStart,
+    preSwapBeforeStepActions,
+    rebuildSwapWithSlippage,
+    beginGasAccountReviewSession,
+    endGasAccountReviewSession,
+    markCurrentGasAccountReviewSubmitted,
+  } = useSwapBuildTx({ onSwapBroadcast });
+  const rebuildReviewWithSlippage = useCallback(
+    (slippagePercentage: number) =>
+      rebuildSwapWithSlippage({ slippagePercentage }),
+    [rebuildSwapWithSlippage],
+  );
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -215,8 +224,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    quoteAction,
+    selectFromToken,
+    selectFromTokenByUser,
+    selectToTokenByUser,
+  } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -229,8 +243,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { selectSwapProToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
@@ -248,13 +261,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   hasInFlightStepsRef.current = hasInFlightSteps;
 
   const resetPendingReview = useCallback(() => {
+    endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
     setSwapSteps({
       steps: [],
       preSwapData: {},
     });
-  }, [setSwapBuildTxFetching, setSwapSteps]);
+  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
   const dialogClose = useCallback(() => {
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);
@@ -463,12 +477,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     speedConfig: focusSwapPro ? speedConfig : undefined,
     speedConfigReady: focusSwapPro ? speedConfigReady : undefined,
   });
-  const currentQuoteRes = useMemo(() => {
-    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return currentQuote;
-  }, [focusSwapPro, swapProTradeType, currentQuote, swapProQuoteResult]);
+  const currentQuoteRes = currentQuote;
   const fromSelectToken = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken;
@@ -628,7 +637,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         token2: toTokenPair,
       });
       void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
-      void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
+      void selectToTokenByUser(toTokenPair, { skipCheckEqualToken });
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
         tokenListType: getSwapAnalyticsTokenListType({
@@ -636,7 +645,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         }),
       });
     },
-    [selectFromToken, selectToToken, swapTypeSwitch],
+    [selectFromToken, selectToTokenByUser, swapTypeSwitch],
   );
   const onOpenProviderList = useCallback(() => {
     dismissKeyboard();
@@ -1059,10 +1068,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   ]);
 
   const handleConfirm = useCallback(async () => {
+    markCurrentGasAccountReviewSubmitted();
     onActionHandlerBefore();
-  }, [onActionHandlerBefore]);
+  }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
   const onPreSwapClose = useCallback(() => {
+    endGasAccountReviewSession();
     dialogClose();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
@@ -1072,7 +1083,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         preSwapData: {},
       });
     }, 100);
-  }, [setSwapBuildTxFetching, dialogClose, setSwapSteps]);
+  }, [
+    setSwapBuildTxFetching,
+    endGasAccountReviewSession,
+    dialogClose,
+    setSwapSteps,
+  ]);
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1105,6 +1121,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
+    beginGasAccountReviewSession();
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     reviewDialogTimerRef.current = setTimeout(() => {
@@ -1131,6 +1148,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               <PreSwapDialogContent
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
+                rebuildReviewWithSlippage={rebuildReviewWithSlippage}
                 defaultNetworkFeeLevel={swapProReviewDefaultNetworkFeeLevel}
                 defaultCustomPriorityFee={swapProReviewDefaultCustomPriorityFee}
                 showCustomNetworkFeeOption={
@@ -1151,6 +1169,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    beginGasAccountReviewSession,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,
     handleSelectAccountClick,
@@ -1161,6 +1180,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     intl,
     preSwapBeforeStepActions,
     preSwapStepsStart,
+    rebuildReviewWithSlippage,
     swapProReviewDefaultCustomPriorityFee,
     swapProReviewDefaultNetworkFeeLevel,
     showSwapProReviewCustomNetworkFeeOption,
@@ -1191,7 +1211,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         return;
       }
       if (focusSwapPro) {
-        void setSwapProSelectToken(token);
+        void selectSwapProToken(token);
       } else {
         if (
           equalTokenNoCaseSensitive({
@@ -1201,7 +1221,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ) {
           setSwapSelectToToken(swapFromTokenRef.current);
         }
-        void selectFromToken(token);
+        void selectFromTokenByUser(token);
         scrollViewRef.current?.scrollTo({
           y: 0,
           animated: true,
@@ -1210,8 +1230,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [
       focusSwapPro,
-      selectFromToken,
-      setSwapProSelectToken,
+      selectFromTokenByUser,
+      selectSwapProToken,
       setSwapSelectToToken,
     ],
   );
@@ -1341,6 +1361,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           swapTypeSwitch={swapTypeSwitch}
+          routeSwapType={swapInitParams?.swapTabSwitchType}
           alerts={alerts}
           isWrapped={!!isWrapped}
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}
@@ -1491,7 +1512,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           )}
           {focusSwapPro ? (
             <SwapProContainer
+              storeName={storeName}
               pageType={pageType}
+              isFocused={isFocused}
               onProSelectToken={onProSelectToken}
               onOpenOrdersClick={onOpenOrdersClick}
               onSwapProActionClick={onPreSwap}

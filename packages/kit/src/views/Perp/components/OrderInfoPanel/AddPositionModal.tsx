@@ -72,6 +72,7 @@ import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLi
 
 import {
   buildAddPositionMinimumAmountLabel,
+  computeAddPositionMaxSize,
   isAddPositionAssetDataScoped,
   isAddPositionScopeValid,
   validateAddPositionOrder,
@@ -231,9 +232,29 @@ const AddPositionForm = memo(
       isBuy,
       currentPosition,
     });
-    const maxSize = assetData?.maxTradeSzs?.[isBuy ? 0 : 1] ?? '0';
     const effectivePrice = orderType === 'market' ? midPrice : limitPrice;
     const szDecimals = targetAsset?.universe?.szDecimals;
+    const maxSize = useMemo(
+      () =>
+        computeAddPositionMaxSize({
+          isBuy,
+          orderType,
+          limitPrice,
+          markPrice: assetData?.markPx,
+          maxTradeSzs: assetData?.maxTradeSzs,
+          leverage,
+          szDecimals,
+        }),
+      [
+        assetData?.markPx,
+        assetData?.maxTradeSzs,
+        isBuy,
+        leverage,
+        limitPrice,
+        orderType,
+        szDecimals,
+      ],
+    );
     const sizeInputAsset = useMemo<IPerpsActiveAssetAtom>(
       () =>
         targetAsset ?? {
@@ -522,7 +543,16 @@ const AddPositionForm = memo(
           orderType === 'market' ? latestAssetData.markPx : limitPrice;
         const latestSzDecimals =
           latestTargetData.targetAsset.universe?.szDecimals ?? 0;
-        const latestMaxSize = latestAssetData.maxTradeSzs[isBuy ? 0 : 1];
+        const latestPositionSnapshot = currentPositionRef.current;
+        const latestMaxSize = computeAddPositionMaxSize({
+          isBuy,
+          orderType,
+          limitPrice,
+          markPrice: latestAssetData.markPx,
+          maxTradeSzs: latestAssetData.maxTradeSzs,
+          leverage: latestPositionSnapshot?.leverage?.value ?? leverage,
+          szDecimals: latestSzDecimals,
+        });
         // Re-resolve slider sizes against the refreshed max so a 100% drag
         // cannot fall out of range while the dialog was open.
         const latestSize = resolveTradingSize({
@@ -548,7 +578,7 @@ const AddPositionForm = memo(
           return;
         }
 
-        const latestPosition = currentPositionRef.current;
+        const latestPosition = latestPositionSnapshot;
         const latestLeverage = latestPosition?.leverage?.value ?? leverage;
         const { tpTriggerPx, slTriggerPx } = resolveTpSlTriggerPx({
           hasTpsl,
@@ -573,11 +603,14 @@ const AddPositionForm = memo(
           tpTriggerPx,
           slTriggerPx,
         } as const;
-        const placeOrder = async () => {
+        try {
           await actions.current.placeOrderByCoin(orderParams);
           onClose();
-        };
-        await placeOrder();
+        } catch {
+          // placeOrderByCoin already reports the failure through withToast,
+          // which localizes the HyperLiquid rejection; toasting error.message
+          // here repeated the same rejection in raw English.
+        }
       } catch (error) {
         Toast.error({
           title:

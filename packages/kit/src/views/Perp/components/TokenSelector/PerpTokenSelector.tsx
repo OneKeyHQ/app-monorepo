@@ -27,6 +27,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useIsSplitMainActive,
   usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -382,11 +383,7 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent({
-  onLoadingChange,
-}: {
-  onLoadingChange: (isLoading: boolean) => void;
-}) {
+function BasePerpTokenSelectorContent() {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -529,7 +526,6 @@ function BasePerpTokenSelectorContent({
         selectorConfig ?? undefined,
       );
       try {
-        onLoadingChange(true);
         defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
           activeTab: displayActiveTab,
           token: symbol,
@@ -557,8 +553,6 @@ function BasePerpTokenSelectorContent({
         void closePopover?.();
       } catch (error) {
         console.error('Failed to switch token:', error);
-      } finally {
-        onLoadingChange(false);
       }
     },
     [
@@ -566,7 +560,6 @@ function BasePerpTokenSelectorContent({
       closePopover,
       actions,
       displayActiveTab,
-      onLoadingChange,
       selectorConfig,
       spotUniverses,
     ],
@@ -1331,16 +1324,8 @@ function BasePerpTokenSelectorContent({
   );
 }
 
-function PerpTokenSelectorContent({
-  isOpen,
-  onLoadingChange,
-}: {
-  isOpen: boolean;
-  onLoadingChange: (isLoading: boolean) => void;
-}) {
-  return isOpen ? (
-    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
-  ) : null;
+function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
+  return isOpen ? <BasePerpTokenSelectorContent /> : null;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1358,7 +1343,6 @@ function BasePerpTokenSelector() {
     dexLabel,
     mode,
   } = useActiveTradeDisplay();
-  const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
 
@@ -1483,21 +1467,16 @@ function BasePerpTokenSelector() {
               />
             ) : null}
             <Icon name="ChevronBottomOutline" size="$4" />
-            {isLoading ? <Spinner size="small" /> : null}
           </Badge>
         }
         renderContent={({ isOpen: isOpenProp }) => (
-          <PerpTokenSelectorContentMemo
-            isOpen={isOpenProp ?? false}
-            onLoadingChange={setIsLoading}
-          />
+          <PerpTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
         )}
       />
     ),
     [
       activePerpsAccount.walletType,
       isOpen,
-      isLoading,
       triggerLabel,
       activeCoin,
       baseName,
@@ -1584,6 +1563,7 @@ const BasePerpTokenSelectorMobileView = memo(
     return (
       <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
         <XStack
+          testID={PerpTestIDs.TokenSelectorMobile}
           gap="$1"
           bg="$bgApp"
           justifyContent="center"
@@ -1603,6 +1583,7 @@ BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const isSplitMainActive = useIsSplitMainActive();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
   // Only low-frequency fields here (coin/displayName/mode change on coin
@@ -1633,12 +1614,16 @@ function BasePerpTokenSelectorMobile() {
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
       walletType: activePerpsAccount.walletType ?? 'unknown',
     });
-    navigation.pushModal(EModalRoutes.PerpModal, {
+    const openTokenSelector = isSplitMainActive
+      ? navigation.pushFullModal
+      : navigation.pushModal;
+    openTokenSelector(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
   }, [
     activePerpsAccount.walletType,
     coin,
+    isSplitMainActive,
     mode,
     navigation,
     prewarmTokenSelectorImages,

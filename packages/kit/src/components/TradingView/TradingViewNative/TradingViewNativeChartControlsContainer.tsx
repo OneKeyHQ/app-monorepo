@@ -11,35 +11,49 @@ import {
 import type {
   ITradingViewChartControlsProps,
   ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import type { ITradingViewIndicatorSettingsValue } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 import {
-  type ITradingViewNativeIndicator,
-  TRADING_VIEW_NATIVE_INDICATORS,
-  isTradingViewNativeIndicator,
-} from './utils/chartIndicators';
+  type ITradingViewNativeAnyIndicator,
+  TRADING_VIEW_NATIVE_INDICATOR_CATALOG,
+  isTradingViewNativeAnyIndicator,
+} from './utils/chartIndicators/indicatorCatalog';
 
 interface ITradingViewNativeChartControlsContainerProps {
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
   enableNativeChartSettings?: boolean;
+  indicatorSettingsValue: ITradingViewIndicatorSettingsValue;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
+  maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
+  isChartSwitchDisabled?: ITradingViewChartControlsProps['isChartSwitchDisabled'];
+  onChartSwitch?: ITradingViewChartControlsProps['onChartSwitch'];
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
   onChartClose?: () => void;
   onIndicatorChange: (
-    indicator: ITradingViewNativeIndicator,
+    indicator: ITradingViewNativeAnyIndicator,
     desiredActive: boolean,
+  ) => void;
+  onIndicatorSettingsConfirm: (
+    value: ITradingViewNativeIndicatorSettings,
+  ) => void | Promise<void>;
+  onIndicatorSelectionConfirm: (
+    selection: ITradingViewNativeIndicatorSelection,
   ) => void;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
@@ -52,14 +66,20 @@ export const TradingViewNativeChartControlsContainer = memo(
     calendarAvailableTimeRange,
     compactMobileLayout = false,
     enableNativeChartSettings = false,
+    indicatorSettingsValue,
     intervalConfig,
+    maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
     showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
+    isChartSwitchDisabled,
+    onChartSwitch,
     onIntervalChange,
     onChartClose,
     onIndicatorChange,
+    onIndicatorSettingsConfirm,
+    onIndicatorSelectionConfirm,
     onCalendarPanelOpen,
     onCalendarPanelSubmit,
     onFullscreenChange,
@@ -72,10 +92,10 @@ export const TradingViewNativeChartControlsContainer = memo(
     const settingsEnabled = enableNativeChartSettings;
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
-        TRADING_VIEW_NATIVE_INDICATORS.map((indicator) => ({
-          active: activeIndicatorValues.has(indicator),
-          label: indicator,
-          value: indicator,
+        TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
+          active: activeIndicatorValues.has(id),
+          label,
+          value: id,
         })),
       [activeIndicatorValues],
     );
@@ -109,7 +129,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     }, [isFullscreen, onFullscreenChange]);
     const handleIndicatorPress = useCallback(
       (indicator: ITradingViewIndicatorOption) => {
-        if (!isTradingViewNativeIndicator(indicator.value)) {
+        if (!isTradingViewNativeAnyIndicator(indicator.value)) {
           return;
         }
         onIndicatorChange(
@@ -121,13 +141,22 @@ export const TradingViewNativeChartControlsContainer = memo(
     );
     const handleIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
-        if (isTradingViewNativeIndicator(indicatorName)) {
+        if (isTradingViewNativeAnyIndicator(indicatorName)) {
           onIndicatorChange(indicatorName, desiredActive);
         }
       },
       [onIndicatorChange],
     );
     const showIndicatorsDialog = useCallback(() => {
+      if (layoutMode === 'desktop') {
+        showTradingViewNativeIndicatorSettingsDialog({
+          intl,
+          onConfirm: onIndicatorSettingsConfirm,
+          value: indicatorSettingsValue,
+        });
+        return;
+      }
+
       Dialog.show({
         title: indicatorsTitle,
         showFooter: false,
@@ -135,12 +164,24 @@ export const TradingViewNativeChartControlsContainer = memo(
         renderContent: (
           <IndicatorListDialogContent
             indicators={indicators}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onSelect={handleIndicatorSelect}
+            onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
           />
         ),
       });
-    }, [handleIndicatorSelect, indicators, indicatorsTitle]);
+    }, [
+      handleIndicatorSelect,
+      indicatorSettingsValue,
+      indicators,
+      indicatorsTitle,
+      intl,
+      layoutMode,
+      maxSelectableSubIndicatorCount,
+      onIndicatorSettingsConfirm,
+      onIndicatorSelectionConfirm,
+    ]);
     const shouldShowChartCloseControl =
       Boolean(onChartClose) && showChartCloseControl;
     const closeControl = shouldShowChartCloseControl ? (
@@ -167,12 +208,13 @@ export const TradingViewNativeChartControlsContainer = memo(
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
         showChartTypeSelect={false}
         showChartTypeToggle={false}
-        showIndicatorPopover={layoutMode === 'desktop'}
+        showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
@@ -180,6 +222,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
+        chartMode="native"
+        isChartSwitchDisabled={isChartSwitchDisabled}
+        onChartSwitch={onChartSwitch}
         rightControl={closeControl}
         rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}

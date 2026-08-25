@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockRun = jest.fn();
+const mockToOnBoardingPage = jest.fn();
 let mockPromiseResult: {
   result?:
     | {
@@ -103,7 +104,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage',
   () => ({
-    useToOnBoardingPage: () => jest.fn(),
+    useToOnBoardingPage: () => mockToOnBoardingPage,
   }),
 );
 
@@ -120,20 +121,8 @@ jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
   openTransactionDetailsUrl: jest.fn(),
 }));
 
-jest.mock('./components/RewardSummaryCard', () => ({
-  RewardSummaryCard: ({
-    totalBonus,
-    undistributed,
-    tokenSymbol,
-  }: {
-    totalBonus?: string;
-    undistributed?: string;
-    tokenSymbol?: string;
-  }) => (
-    <div data-testid="reward-summary">
-      {totalBonus}:{undistributed}:{tokenSymbol}
-    </div>
-  ),
+jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
+  InfoIcon: () => <div data-testid="reward-summary-info" />,
 }));
 
 import { SwapInviteeRewardContent } from './SwapInviteeRewardContent';
@@ -141,6 +130,7 @@ import { SwapInviteeRewardContent } from './SwapInviteeRewardContent';
 describe('SwapInviteeRewardContent', () => {
   beforeEach(() => {
     mockRun.mockReset();
+    mockToOnBoardingPage.mockReset();
     mockPromiseResult = {
       result: {
         status: 'success',
@@ -164,17 +154,66 @@ describe('SwapInviteeRewardContent', () => {
       />,
     );
 
-    expect(screen.getByTestId('reward-summary').textContent).toBe('12:3:USDC');
+    expect(screen.getByText('9')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.queryByText('12')).toBeNull();
     expect(screen.queryByText('referral.reward_history')).toBeNull();
     expect(screen.queryByText('0xtransa...action')).toBeNull();
     expect(screen.queryByTestId('scroll-view')).toBeNull();
   });
 
+  it('does not treat fully undistributed rewards as distributed', () => {
+    mockPromiseResult.result = {
+      status: 'success',
+      data: {
+        totalBonus: '0.46',
+        undistributed: '0.46',
+        token: { symbol: 'USDC' },
+        history: [],
+      },
+    };
+
+    render(
+      <SwapInviteeRewardContent
+        accountId="hd-1--account"
+        currentEvmAddress="0xcurrent"
+      />,
+    );
+
+    expect(screen.getByText('0')).toBeTruthy();
+    expect(screen.getAllByText('0.46')).toHaveLength(1);
+  });
+
+  it('shows only the total bonus when no rewards are undistributed', () => {
+    mockPromiseResult.result = {
+      status: 'success',
+      data: {
+        totalBonus: '0.46',
+        undistributed: '0',
+        token: { symbol: 'USDC' },
+        history: [],
+      },
+    };
+
+    render(
+      <SwapInviteeRewardContent
+        accountId="hd-1--account"
+        currentEvmAddress="0xcurrent"
+      />,
+    );
+
+    expect(screen.getAllByText('0.46')).toHaveLength(1);
+    expect(screen.queryByText('0')).toBeNull();
+  });
+
   it('keeps the no-wallet state', () => {
-    render(<SwapInviteeRewardContent />);
+    const onBeforeNavigate = jest.fn();
+
+    render(<SwapInviteeRewardContent onBeforeNavigate={onBeforeNavigate} />);
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    expect(screen.getByTestId('swap-invitee-reward-onboarding')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
+    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the unsupported-wallet state', () => {
