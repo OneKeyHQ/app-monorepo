@@ -2278,9 +2278,15 @@ export function useSwapBuildTx({
               },
             }));
           }
+          const requestFromToken =
+            forceRebuild && currentFromToken
+              ? currentFromToken
+              : data.fromTokenInfo;
+          const requestToToken =
+            forceRebuild && currentToToken ? currentToToken : data.toTokenInfo;
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
-            fromToken: data.fromTokenInfo,
-            toToken: data.toTokenInfo,
+            fromToken: requestFromToken,
+            toToken: requestToToken,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
             slippagePercentage: effectiveSlippagePercentage,

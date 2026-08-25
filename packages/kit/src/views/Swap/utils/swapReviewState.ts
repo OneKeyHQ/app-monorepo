@@ -64,6 +64,8 @@ export function buildRebuiltSwapReviewQuoteResult({
   return {
     ...quoteResult,
     ...buildResult,
+    fromTokenInfo: quoteResult.fromTokenInfo,
+    toTokenInfo: quoteResult.toTokenInfo,
     allowanceResult: quoteResult.allowanceResult,
     quoteResultCtx: quoteResult.quoteResultCtx,
     slippage: slippagePercentage,
