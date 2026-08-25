@@ -107,3 +107,15 @@ export function resolveProToSwapCarryPair<T extends ISwapToken>({
   }
   return { fromToken: nativeFromToken, toToken: proToken };
 }
+
+export type ISwapProTokenCarryUtils = {
+  isSwapTokenSelectionCurrent: typeof isSwapTokenSelectionCurrent;
+  resolveProToSwapCarryPair: typeof resolveProToSwapCarryPair;
+  resolveSwapToProCarryToken: typeof resolveSwapToProCarryToken;
+};
+
+export const swapProTokenCarryUtils: ISwapProTokenCarryUtils = {
+  isSwapTokenSelectionCurrent,
+  resolveProToSwapCarryPair,
+  resolveSwapToProCarryToken,
+};

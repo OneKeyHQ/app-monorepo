@@ -17,11 +17,7 @@ import {
   shouldReuseSwapProPositionsCache,
   upsertSwapProPositionsCacheEntry,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
-import {
-  isSwapTokenSelectionCurrent,
-  resolveProToSwapCarryPair,
-  resolveSwapToProCarryToken,
-} from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
+import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
@@ -3439,6 +3435,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         carryTargetToken?: boolean;
         proSupportedNetworkIds?: ReadonlySet<string>;
         stableTokenKeys?: ReadonlySet<string>;
+        tokenCarryUtils?: ISwapProTokenCarryUtils;
       },
     ): Promise<ISwapToken | undefined> => {
       const oldType = get(swapTypeSwitchAtom());
@@ -3459,12 +3456,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? swapProUserSelectedToken
           : undefined;
       const carrySwapProTargetToSwap = () => {
-        const carriedPair = resolveProToSwapCarryPair({
-          fromToken: get(swapSelectFromTokenAtom()),
-          proToken: swapProTargetToken,
-          stableTokenKeys,
-          swapNetworks: get(swapNetworks()),
-        });
+        const carriedPair = options?.tokenCarryUtils?.resolveProToSwapCarryPair(
+          {
+            fromToken: get(swapSelectFromTokenAtom()),
+            proToken: swapProTargetToken,
+            stableTokenKeys,
+            swapNetworks: get(swapNetworks()),
+          },
+        );
         if (!carriedPair) {
           return;
         }
@@ -3652,17 +3651,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (
         platformEnv.isNative &&
         options?.carryTargetToken &&
+        options.tokenCarryUtils &&
         isSwapOrBridgeQuoteType(oldType) &&
         normalizedType === ESwapTabSwitchType.LIMIT &&
         swapUserSelectedTokens &&
-        isSwapTokenSelectionCurrent({
+        options.tokenCarryUtils.isSwapTokenSelectionCurrent({
           currentFromToken,
           currentToToken,
           selectedFromToken: swapUserSelectedTokens.fromToken,
           selectedToToken: swapUserSelectedTokens.toToken,
         })
       ) {
-        const carryToken = resolveSwapToProCarryToken({
+        const carryToken = options.tokenCarryUtils.resolveSwapToProCarryToken({
           fromToken: swapUserSelectedTokens.fromToken,
           proSupportedNetworkIds:
             options.proSupportedNetworkIds ?? EMPTY_SWAP_TOKEN_KEYS,

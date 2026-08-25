@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 
+import { swapProTokenCarryUtils } from '../utils/swapProTokenCarryUtils';
 import {
   fetchSwapStableTokenStatus,
   getSwapStableTokenKey,
@@ -71,6 +72,7 @@ export function useSwapProTokenCarryOptions({ enabled }: { enabled: boolean }) {
         result?.requestKey === requestKey
           ? result.stableTokenKeys
           : EMPTY_TOKEN_KEYS,
+      tokenCarryUtils: enabled ? swapProTokenCarryUtils : undefined,
     }),
     [basicConfig, enabled, networkList, requestKey, result],
   );

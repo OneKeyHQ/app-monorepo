@@ -13,6 +13,7 @@ import {
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
+import { swapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { getSwapStableTokenKey } from '@onekeyhq/kit/src/views/Swap/utils/swapStableCoinUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -261,6 +262,10 @@ const appleStockToken: ISwapToken = {
 
 const buildStableTokenKeys = (...tokens: ISwapToken[]) =>
   new Set(tokens.map(getSwapStableTokenKey).filter(Boolean));
+const carryTargetTokenOptions = {
+  carryTargetToken: true,
+  tokenCarryUtils: swapProTokenCarryUtils,
+};
 
 const buildProSupportedNetworkIds = (...tokens: ISwapToken[]) =>
   new Set(tokens.map((token) => token.networkId));
@@ -1865,7 +1870,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(appleStockToken),
         },
       );
@@ -2035,7 +2040,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(bnbToken),
           stableTokenKeys: buildStableTokenKeys(usdtToken),
         },
@@ -2066,7 +2071,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(bnbToken),
           stableTokenKeys: buildStableTokenKeys(usdcToken),
         },
@@ -2097,7 +2102,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         usdcToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(usdcToken),
           stableTokenKeys: buildStableTokenKeys(usdcToken, usdtToken),
         },
@@ -2129,7 +2134,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(usdtToken),
         },
       );
@@ -2159,7 +2164,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: new Set(),
         },
       );
@@ -2190,7 +2195,7 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         ethToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2222,7 +2227,7 @@ describe('useSwapActions', () => {
       settledFromToken = await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         usdtToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2252,7 +2257,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.SWAP,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           stableTokenKeys: buildStableTokenKeys(usdtToken),
         },
       );
@@ -2294,7 +2299,7 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         ethToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2325,7 +2330,7 @@ describe('useSwapActions', () => {
       settledFromToken = await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         uniToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2374,7 +2379,7 @@ describe('useSwapActions', () => {
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
         {
-          carryTargetToken: true,
+          ...carryTargetTokenOptions,
           proSupportedNetworkIds: buildProSupportedNetworkIds(appleStockToken),
         },
       );
@@ -2403,7 +2408,7 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         bnbToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2426,7 +2431,7 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
@@ -2440,7 +2445,7 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.SWAP,
         bnbToken.networkId,
-        { carryTargetToken: true },
+        carryTargetTokenOptions,
       );
     });
 
