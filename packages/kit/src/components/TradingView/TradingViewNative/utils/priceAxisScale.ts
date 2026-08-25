@@ -116,3 +116,32 @@ export function isTradingViewNativePriceAxisTouch({
     getTradingViewNativeChartWidth(width, priceAxisWidth);
   return x >= priceAxisX && x <= width && y >= 0 && y < priceAxisHeight;
 }
+
+export function isTradingViewNativeMainPriceAxisTouch({
+  height,
+  paneCount,
+  priceAxisWidth,
+  width,
+  x,
+  y,
+}: {
+  height: number;
+  paneCount: number;
+  priceAxisWidth: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
+  'worklet';
+
+  return isTradingViewNativePriceAxisTouch({
+    priceAxisHeight: getTradingViewNativeMainPriceAxisLayout({
+      height,
+      paneCount,
+    }).height,
+    priceAxisWidth,
+    width,
+    x,
+    y,
+  });
+}

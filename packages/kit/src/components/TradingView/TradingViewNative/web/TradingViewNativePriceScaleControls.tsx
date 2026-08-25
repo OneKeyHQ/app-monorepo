@@ -1,16 +1,16 @@
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 
-import { getTradingViewNativePriceScaleControlsLayout } from '../utils/priceScaleControls';
+import {
+  PRICE_SCALE_CONTROL_WEB_SIZING,
+  getTradingViewNativePriceScaleControlsLayout,
+} from '../utils/priceScaleControls';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
-
-const WEB_PRICE_SCALE_CONTROL_SIZE = 20;
-const WEB_PRICE_SCALE_CONTROL_MIN_SIZE = 16;
-const WEB_PRICE_SCALE_CONTROL_GAP = 3;
 
 interface ITradingViewNativePriceScaleControlsProps {
   backgroundColor: string;
   isAutoScale: boolean;
+  isLogScaleAvailable: boolean;
   isVisible: boolean;
   mainChartBottomInset: number;
   onAutoScalePress: () => void;
@@ -23,6 +23,7 @@ interface ITradingViewNativePriceScaleControlsProps {
 export function TradingViewNativePriceScaleControls({
   backgroundColor,
   isAutoScale,
+  isLogScaleAvailable,
   isVisible,
   mainChartBottomInset,
   onAutoScalePress,
@@ -35,10 +36,8 @@ export function TradingViewNativePriceScaleControls({
     ? `${testID}-price-scale`
     : 'trading-view-native-price-scale';
   const layout = getTradingViewNativePriceScaleControlsLayout(priceAxisWidth, {
-    gap: WEB_PRICE_SCALE_CONTROL_GAP,
     mainChartBottomInset,
-    minimumButtonSize: WEB_PRICE_SCALE_CONTROL_MIN_SIZE,
-    preferredButtonSize: WEB_PRICE_SCALE_CONTROL_SIZE,
+    sizing: PRICE_SCALE_CONTROL_WEB_SIZING,
   });
 
   if (!layout) {
@@ -63,12 +62,13 @@ export function TradingViewNativePriceScaleControls({
       backgroundColor={backgroundColor}
       opacity={isVisible ? 1 : 0}
       pointerEvents={isVisible ? 'auto' : 'none'}
+      aria-hidden={!isVisible}
     >
       <Stack
         testID={`${testIDPrefix}-auto`}
         role="button"
         aria-pressed={isAutoScale}
-        tabIndex={0}
+        tabIndex={isVisible ? 0 : -1}
         alignItems="center"
         justifyContent="center"
         width={layout.buttonSize}
@@ -97,7 +97,8 @@ export function TradingViewNativePriceScaleControls({
         testID={`${testIDPrefix}-log`}
         role="button"
         aria-pressed={isLogarithmic}
-        tabIndex={0}
+        aria-disabled={!isLogScaleAvailable}
+        tabIndex={isVisible && isLogScaleAvailable ? 0 : -1}
         alignItems="center"
         justifyContent="center"
         width={layout.buttonSize}
@@ -107,10 +108,11 @@ export function TradingViewNativePriceScaleControls({
         borderWidth="$px"
         borderColor={isLogarithmic ? '$bgInverse' : '$borderStrong'}
         backgroundColor={logBackgroundColor}
-        cursor="pointer"
-        hoverStyle={{ opacity: 0.86 }}
-        pressStyle={{ opacity: 0.72 }}
-        onPress={onLogScalePress}
+        cursor={isLogScaleAvailable ? 'pointer' : 'default'}
+        opacity={isLogScaleAvailable ? 1 : 0.45}
+        hoverStyle={isLogScaleAvailable ? { opacity: 0.86 } : undefined}
+        pressStyle={isLogScaleAvailable ? { opacity: 0.72 } : undefined}
+        onPress={isLogScaleAvailable ? onLogScalePress : undefined}
       >
         <SizableText
           fontSize={12}

@@ -46,6 +46,7 @@ describe('TradingViewNativePriceScaleControls', () => {
       <TradingViewNativePriceScaleControls
         backgroundColor="#ffffff"
         isAutoScale
+        isLogScaleAvailable
         isVisible
         mainChartBottomInset={80}
         onAutoScalePress={handleAutoScalePress}
@@ -80,7 +81,7 @@ describe('TradingViewNativePriceScaleControls', () => {
     );
     expect(logButtonProps).toEqual(
       expect.objectContaining({
-        accessibilityState: { selected: false },
+        accessibilityState: { disabled: false, selected: false },
         backgroundColor: '#ffffff',
         testID: 'market-detail-chart-price-scale-log',
       }),
@@ -97,6 +98,7 @@ describe('TradingViewNativePriceScaleControls', () => {
       <TradingViewNativePriceScaleControls
         backgroundColor="#000000"
         isAutoScale={false}
+        isLogScaleAvailable
         isVisible={false}
         mainChartBottomInset={24}
         onAutoScalePress={jest.fn()}
@@ -107,7 +109,12 @@ describe('TradingViewNativePriceScaleControls', () => {
     );
 
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
-      expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
+      expect.objectContaining({
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants',
+        opacity: 0,
+        pointerEvents: 'none',
+      }),
     );
     expect(mockStack.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
@@ -117,8 +124,34 @@ describe('TradingViewNativePriceScaleControls', () => {
     );
     expect(mockStack.mock.calls[1]?.[0]).toEqual(
       expect.objectContaining({
-        accessibilityState: { selected: true },
+        accessibilityState: { disabled: false, selected: true },
         backgroundColor: '$bgInverse',
+      }),
+    );
+  });
+
+  it('disables logarithmic mode when the price range is not positive', () => {
+    const handleLogScalePress = jest.fn();
+    render(
+      <TradingViewNativePriceScaleControls
+        backgroundColor="#000000"
+        isAutoScale
+        isLogScaleAvailable={false}
+        isVisible
+        mainChartBottomInset={24}
+        onAutoScalePress={jest.fn()}
+        onLogScalePress={handleLogScalePress}
+        priceAxisWidth={80}
+        priceScaleMode="linear"
+      />,
+    );
+
+    expect(mockStack.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        accessibilityState: { disabled: true, selected: false },
+        focusable: false,
+        onPress: undefined,
+        opacity: 0.45,
       }),
     );
   });

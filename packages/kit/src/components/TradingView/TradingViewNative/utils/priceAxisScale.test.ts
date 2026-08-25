@@ -2,6 +2,7 @@ import {
   clampTradingViewNativePriceRangeScale,
   getTradingViewNativeMainPriceAxisLayout,
   getTradingViewNativePriceRangeScaleAfterDrag,
+  isTradingViewNativeMainPriceAxisTouch,
   isTradingViewNativePriceAxisTouch,
 } from './priceAxisScale';
 
@@ -64,5 +65,25 @@ describe('TradingViewNative price-axis scaling', () => {
     expect(
       isTradingViewNativePriceAxisTouch({ ...input, x: 300, y: 220 }),
     ).toBe(false);
+  });
+
+  it('excludes sub-indicator axes from main price-axis gestures', () => {
+    const input = {
+      height: 400,
+      paneCount: 2,
+      priceAxisWidth: 44,
+      width: 320,
+      x: 300,
+    };
+
+    expect(isTradingViewNativeMainPriceAxisTouch({ ...input, y: 263 })).toBe(
+      true,
+    );
+    expect(isTradingViewNativeMainPriceAxisTouch({ ...input, y: 264 })).toBe(
+      false,
+    );
+    expect(isTradingViewNativeMainPriceAxisTouch({ ...input, y: 350 })).toBe(
+      false,
+    );
   });
 });

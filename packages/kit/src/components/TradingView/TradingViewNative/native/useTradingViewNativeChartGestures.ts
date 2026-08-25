@@ -14,6 +14,8 @@ import {
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativeRelativePinchScale,
 } from '../utils/chartViewport';
+import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
+import { getTradingViewNativeVisibleSubIndicatorPaneCount } from '../utils/subIndicatorRender';
 
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { GestureType } from 'react-native-gesture-handler';
@@ -40,6 +42,23 @@ export function useTradingViewNativeChartGestures({
   priceAxisWidth: SharedValue<number>;
 }) {
   return useMemo(() => {
+    const isMainPriceAxisTouch = (x: number, y: number) => {
+      'worklet';
+
+      const runtime = chartRuntime.value;
+      const paneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
+        runtime.subIndicatorPanes,
+      );
+      return isTradingViewNativeMainPriceAxisTouch({
+        height: runtime.size.height,
+        paneCount,
+        priceAxisWidth: priceAxisWidth.value,
+        width: runtime.size.width,
+        x,
+        y,
+      });
+    };
+
     const updateCrosshair = (x: number, y: number) => {
       'worklet';
 
@@ -104,6 +123,14 @@ export function useTradingViewNativeChartGestures({
       .activeOffsetX([-4, 4])
       .failOffsetY([-12, 12])
       .maxPointers(1)
+      .onTouchesDown((event, stateManager) => {
+        'worklet';
+
+        const touch = event.changedTouches[0];
+        if (touch && isMainPriceAxisTouch(touch.x, touch.y)) {
+          stateManager.fail();
+        }
+      })
       .onBegin(() => {
         'worklet';
 

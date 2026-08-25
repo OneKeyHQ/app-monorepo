@@ -24,6 +24,7 @@ import {
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
+  getTradingViewNativeScaledPriceAxisLabel,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeAtY,
@@ -181,6 +182,27 @@ describe('TradingViewNative chart layout', () => {
         widestVolumeLabelWidth: 42,
       }),
     ).toBe(50);
+  });
+
+  it('reserves the requested minimum axis width for price-scale controls', () => {
+    expect(
+      getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: 0,
+        minimumWidth: 52,
+        widestPriceLabelWidth: 0,
+      }),
+    ).toBe(52);
+  });
+
+  it('includes labels created by a manually expanded price range', () => {
+    expect(
+      getTradingViewNativeScaledPriceAxisLabel({
+        autoPriceRange: { maxPrice: 200, minPrice: 100 },
+        baseLabel: '888.88',
+        priceRangeScale: 10,
+        priceScaleMode: 'linear',
+      }),
+    ).toBe('-0.00008888');
   });
 
   it('covers the plain-decimal label regime only when the price range reaches it', () => {

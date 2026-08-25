@@ -37,6 +37,7 @@ import {
   getTradingViewNativeChartWidth,
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
+  getTradingViewNativeScaledPriceAxisLabel,
 } from '../utils/chartLayout';
 import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
@@ -51,6 +52,12 @@ import {
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
+import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
+import { isTradingViewNativeLogPriceScaleAvailable } from '../utils/priceScale';
+import {
+  PRICE_SCALE_CONTROL_NATIVE_SIZING,
+  getTradingViewNativePriceScaleControlsMinimumAxisWidth,
+} from '../utils/priceScaleControls';
 import {
   type ITradingViewNativeSubIndicatorRenderPane,
   getTradingViewNativeSubIndicatorAxisLabel,
@@ -182,6 +189,19 @@ export const TradingViewNativeChart = memo(
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const pointCount = points.length;
+    const autoPriceRange = useMemo(
+      () =>
+        getTradingViewNativeMainPriceRange({
+          chartType,
+          endIndex: pointCount,
+          indicatorSeries,
+          points,
+          startIndex: 0,
+        }),
+      [chartType, indicatorSeries, pointCount, points],
+    );
+    const isLogScaleAvailable =
+      isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
     const widestPriceLabel = useMemo(
       () => getTradingViewNativePriceAxisLabel(points),
       [points],
@@ -236,6 +256,16 @@ export const TradingViewNativeChart = memo(
       );
       const widestPriceLabelBounds =
         measuredPriceAxisFont.measureText(widestPriceLabel);
+      const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
+        autoPriceRange
+          ? getTradingViewNativeScaledPriceAxisLabel({
+              autoPriceRange,
+              baseLabel: widestPriceLabel,
+              priceRangeScale: chartRuntime.value.priceRangeScale,
+              priceScaleMode: chartRuntime.value.priceScaleMode,
+            })
+          : widestPriceLabel,
+      );
       const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
         widestIndicatorPriceLabel,
       );
@@ -249,8 +279,12 @@ export const TradingViewNativeChart = memo(
           currentPriceLabelBounds.x + currentPriceLabelBounds.width,
           0,
         ),
+        minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
+          PRICE_SCALE_CONTROL_NATIVE_SIZING,
+        ),
         widestPriceLabelWidth: Math.max(
           widestPriceLabelBounds.x + widestPriceLabelBounds.width,
+          scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
           widestIndicatorPriceLabelBounds.x +
             widestIndicatorPriceLabelBounds.width,
           widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
@@ -262,6 +296,8 @@ export const TradingViewNativeChart = memo(
         ),
       });
     }, [
+      autoPriceRange,
+      chartRuntime,
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
@@ -659,6 +695,7 @@ export const TradingViewNativeChart = memo(
       chartWidth,
       decayOffset,
       isEnabled: chartSettings.options.yAxis,
+      isLogScaleAvailable,
       priceAxisWidth,
       subIndicatorPanes,
     });
@@ -708,6 +745,7 @@ export const TradingViewNativeChart = memo(
           <TradingViewNativePriceScaleControls
             backgroundColor={background}
             isAutoScale={isPriceScaleAuto}
+            isLogScaleAvailable={isLogScaleAvailable}
             isVisible={isPriceScaleControlsVisible}
             mainChartBottomInset={mainPriceAxisLayout.bottomInset}
             onAutoScalePress={handlePriceScaleAutoPress}

@@ -5,6 +5,50 @@ export interface ITradingViewNativeResolvedPriceRange extends ITradingViewNative
   mode: ITradingViewNativePriceScaleMode;
 }
 
+export function isTradingViewNativeLogPriceScaleAvailable(
+  priceRange: ITradingViewNativePriceRange | null | undefined,
+) {
+  'worklet';
+
+  return Boolean(
+    priceRange && priceRange.minPrice > 0 && priceRange.maxPrice > 0,
+  );
+}
+
+export function mergeTradingViewNativePriceRanges({
+  additionalPriceRange,
+  priceRange,
+}: {
+  additionalPriceRange?: ITradingViewNativePriceRange | null;
+  priceRange?: ITradingViewNativePriceRange | null;
+}): ITradingViewNativePriceRange | null {
+  'worklet';
+
+  const hasPriceRange =
+    priceRange !== null &&
+    priceRange !== undefined &&
+    Number.isFinite(priceRange.minPrice) &&
+    Number.isFinite(priceRange.maxPrice) &&
+    priceRange.maxPrice >= priceRange.minPrice;
+  const hasAdditionalPriceRange =
+    additionalPriceRange !== null &&
+    additionalPriceRange !== undefined &&
+    Number.isFinite(additionalPriceRange.minPrice) &&
+    Number.isFinite(additionalPriceRange.maxPrice) &&
+    additionalPriceRange.maxPrice >= additionalPriceRange.minPrice;
+
+  if (!hasPriceRange) {
+    return hasAdditionalPriceRange ? additionalPriceRange : null;
+  }
+  if (!hasAdditionalPriceRange) {
+    return priceRange;
+  }
+  return {
+    maxPrice: Math.max(priceRange.maxPrice, additionalPriceRange.maxPrice),
+    minPrice: Math.min(priceRange.minPrice, additionalPriceRange.minPrice),
+  };
+}
+
 export function resolveTradingViewNativePriceRange({
   autoPriceRange,
   rangeScale,
@@ -20,8 +64,7 @@ export function resolveTradingViewNativePriceRange({
     Number.isFinite(rangeScale) && rangeScale > 0 ? rangeScale : 1;
   const mode =
     requestedMode === 'logarithmic' &&
-    autoPriceRange.minPrice > 0 &&
-    autoPriceRange.maxPrice > 0
+    isTradingViewNativeLogPriceScaleAvailable(autoPriceRange)
       ? 'logarithmic'
       : 'linear';
 

@@ -24,12 +24,14 @@ import {
 } from '../chartConstants';
 
 import {
+  type ITradingViewNativePriceRange,
   type ITradingViewNativeVisiblePointRange,
   getTradingViewNativePriceRange,
 } from './chartViewport';
 import {
   getTradingViewNativePriceAtProgress,
   getTradingViewNativePriceProgress,
+  mergeTradingViewNativePriceRanges,
   resolveTradingViewNativePriceRange,
 } from './priceScale';
 
@@ -423,6 +425,55 @@ export function getTradingViewNativePriceAxisLabel(
   return longestLabel;
 }
 
+export function getTradingViewNativeScaledPriceAxisLabel({
+  autoPriceRange,
+  baseLabel = '',
+  priceRangeScale,
+  priceScaleMode,
+}: {
+  autoPriceRange: ITradingViewNativePriceRange;
+  baseLabel?: string;
+  priceRangeScale: number;
+  priceScaleMode: ITradingViewNativePriceScaleMode;
+}) {
+  'worklet';
+
+  const { maxPrice, minPrice } = resolveTradingViewNativePriceRange({
+    autoPriceRange,
+    rangeScale: priceRangeScale,
+    requestedMode: priceScaleMode,
+  });
+  let longestLabel = getTradingViewNativeLongerPriceAxisLabel(
+    baseLabel,
+    minPrice,
+  );
+  longestLabel = getTradingViewNativeLongerPriceAxisLabel(
+    longestLabel,
+    maxPrice,
+  );
+
+  if (
+    minPrice < PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE &&
+    maxPrice >= PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE
+  ) {
+    const candidateLabel =
+      getTradingViewNativePlainDecimalPriceAxisLabel(false);
+    if (candidateLabel.length > longestLabel.length) {
+      longestLabel = candidateLabel;
+    }
+  }
+  if (
+    minPrice <= -PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE &&
+    maxPrice > -PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE
+  ) {
+    const candidateLabel = getTradingViewNativePlainDecimalPriceAxisLabel(true);
+    if (candidateLabel.length > longestLabel.length) {
+      longestLabel = candidateLabel;
+    }
+  }
+  return longestLabel;
+}
+
 export function getTradingViewNativeCurrentPriceLabel(
   points: IMarketTokenKLineDataPoint[],
 ) {
@@ -436,10 +487,12 @@ export function getTradingViewNativeCurrentPriceLabel(
 
 export function getTradingViewNativePriceAxisWidth({
   currentPriceLabelWidth,
+  minimumWidth = 0,
   widestPriceLabelWidth,
   widestVolumeLabelWidth = 0,
 }: {
   currentPriceLabelWidth: number;
+  minimumWidth?: number;
   widestPriceLabelWidth: number;
   widestVolumeLabelWidth?: number;
 }) {
@@ -458,7 +511,11 @@ export function getTradingViewNativePriceAxisWidth({
   )
     ? Math.max(Math.ceil(widestVolumeLabelWidth), 0)
     : 0;
+  const normalizedMinimumWidth = Number.isFinite(minimumWidth)
+    ? Math.max(Math.ceil(minimumWidth), 0)
+    : 0;
   return Math.max(
+    normalizedMinimumWidth,
     Math.max(
       normalizedWidestPriceLabelWidth,
       normalizedWidestVolumeLabelWidth,
@@ -919,24 +976,11 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
-  const hasValidAdditionalPriceRange = Boolean(
-    additionalPriceRange &&
-    Number.isFinite(additionalPriceRange.maxPrice) &&
-    Number.isFinite(additionalPriceRange.minPrice) &&
-    additionalPriceRange.maxPrice >= additionalPriceRange.minPrice,
-  );
-  const autoPriceRange = hasValidAdditionalPriceRange
-    ? {
-        maxPrice: Math.max(
-          visiblePointPriceRange.maxPrice,
-          additionalPriceRange?.maxPrice ?? visiblePointPriceRange.maxPrice,
-        ),
-        minPrice: Math.min(
-          visiblePointPriceRange.minPrice,
-          additionalPriceRange?.minPrice ?? visiblePointPriceRange.minPrice,
-        ),
-      }
-    : visiblePointPriceRange;
+  const autoPriceRange =
+    mergeTradingViewNativePriceRanges({
+      additionalPriceRange,
+      priceRange: visiblePointPriceRange,
+    }) ?? visiblePointPriceRange;
   const {
     maxPrice,
     minPrice,

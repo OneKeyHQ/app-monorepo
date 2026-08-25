@@ -30,6 +30,7 @@ describe('Web TradingViewNativePriceScaleControls', () => {
       <TradingViewNativePriceScaleControls
         backgroundColor="#ffffff"
         isAutoScale
+        isLogScaleAvailable
         isVisible={false}
         mainChartBottomInset={80}
         onAutoScalePress={jest.fn()}
@@ -43,6 +44,7 @@ describe('Web TradingViewNativePriceScaleControls', () => {
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({
         backgroundColor: '#ffffff',
+        'aria-hidden': true,
         bottom: 84,
         height: 20,
         opacity: 0,
@@ -51,11 +53,18 @@ describe('Web TradingViewNativePriceScaleControls', () => {
         width: 43,
       }),
     );
+    expect(mockStack.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ tabIndex: -1 }),
+    );
+    expect(mockStack.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ tabIndex: -1 }),
+    );
 
     rerender(
       <TradingViewNativePriceScaleControls
         backgroundColor="#ffffff"
         isAutoScale
+        isLogScaleAvailable
         isVisible
         mainChartBottomInset={80}
         onAutoScalePress={jest.fn()}
@@ -66,7 +75,11 @@ describe('Web TradingViewNativePriceScaleControls', () => {
       />,
     );
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
-      expect.objectContaining({ opacity: 1, pointerEvents: 'auto' }),
+      expect.objectContaining({
+        'aria-hidden': false,
+        opacity: 1,
+        pointerEvents: 'auto',
+      }),
     );
   });
 
@@ -77,6 +90,7 @@ describe('Web TradingViewNativePriceScaleControls', () => {
       <TradingViewNativePriceScaleControls
         backgroundColor="#ffffff"
         isAutoScale={false}
+        isLogScaleAvailable
         isVisible
         mainChartBottomInset={24}
         onAutoScalePress={handleAutoScalePress}
@@ -98,6 +112,7 @@ describe('Web TradingViewNativePriceScaleControls', () => {
     );
     expect(logButtonProps).toEqual(
       expect.objectContaining({
+        'aria-disabled': false,
         'aria-pressed': true,
         backgroundColor: '$bgInverse',
       }),
@@ -107,5 +122,30 @@ describe('Web TradingViewNativePriceScaleControls', () => {
     (logButtonProps?.onPress as (() => void) | undefined)?.();
     expect(handleAutoScalePress).toHaveBeenCalledTimes(1);
     expect(handleLogScalePress).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes unavailable logarithmic mode from keyboard interaction', () => {
+    render(
+      <TradingViewNativePriceScaleControls
+        backgroundColor="#ffffff"
+        isAutoScale
+        isLogScaleAvailable={false}
+        isVisible
+        mainChartBottomInset={24}
+        onAutoScalePress={jest.fn()}
+        onLogScalePress={jest.fn()}
+        priceAxisWidth={80}
+        priceScaleMode="linear"
+      />,
+    );
+
+    expect(mockStack.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        'aria-disabled': true,
+        onPress: undefined,
+        opacity: 0.45,
+        tabIndex: -1,
+      }),
+    );
   });
 });

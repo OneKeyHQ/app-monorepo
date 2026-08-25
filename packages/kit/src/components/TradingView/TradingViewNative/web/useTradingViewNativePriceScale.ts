@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   MutableRefObject,
   MouseEvent as ReactMouseEvent,
@@ -7,14 +7,11 @@ import type {
 
 import { getTradingViewNativePriceRangeScaleAfterDrag } from '../utils/priceAxisScale';
 
-import {
-  type ITradingViewNativeCanvasPriceAxisLabels,
-  getTradingViewNativeCanvasPriceAxisPointerLayout,
-} from './chartCanvasLayout';
 import { getTradingViewNativeWheelPriceRangeScale } from './chartWheel';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
-import type { ITradingViewNativeChartRuntimeState } from '../utils/chartRuntime';
+
+const PRICE_AXIS_DRAG_ACTIVATION_DISTANCE = 4;
 
 export interface ITradingViewNativeWebPriceScaleModel {
   mode: ITradingViewNativePriceScaleMode;
@@ -23,6 +20,7 @@ export interface ITradingViewNativeWebPriceScaleModel {
 
 interface IPriceAxisPointerDragState {
   chartHeight: number;
+  isActive: boolean;
   pointerId: number;
   startScale: number;
   startY: number;
@@ -36,19 +34,15 @@ export function createTradingViewNativeWebPriceScaleModel(): ITradingViewNativeW
 }
 
 export function useTradingViewNativePriceScale({
-  labels,
+  isLogScaleAvailable,
   modelRef,
-  paneCount,
   renderCurrentChart,
   renderWithCrosshairHidden,
-  runtimeStateRef,
 }: {
-  labels: ITradingViewNativeCanvasPriceAxisLabels;
+  isLogScaleAvailable: boolean;
   modelRef: MutableRefObject<ITradingViewNativeWebPriceScaleModel>;
-  paneCount: number;
   renderCurrentChart: () => void;
   renderWithCrosshairHidden: () => void;
-  runtimeStateRef: MutableRefObject<ITradingViewNativeChartRuntimeState>;
 }) {
   const pointerDragStateRef = useRef<IPriceAxisPointerDragState | null>(null);
   const isHoveredRef = useRef(false);
@@ -66,17 +60,14 @@ export function useTradingViewNativePriceScale({
     setIsHovered(nextIsHovered);
   }, []);
 
-  const getPointerLayout = useCallback(
-    (canvas: HTMLCanvasElement, clientX: number, clientY: number) =>
-      getTradingViewNativeCanvasPriceAxisPointerLayout({
-        canvas,
-        clientX,
-        clientY,
-        labels,
-        paneCount,
-      }),
-    [labels, paneCount],
-  );
+  useEffect(() => {
+    if (isLogScaleAvailable || modelRef.current.mode === 'linear') {
+      return;
+    }
+    modelRef.current.mode = 'linear';
+    setMode('linear');
+    renderWithCrosshairHidden();
+  }, [isLogScaleAvailable, modelRef, renderWithCrosshairHidden]);
 
   const handleAutoScalePress = useCallback(() => {
     modelRef.current.rangeScale = 1;
@@ -85,138 +76,108 @@ export function useTradingViewNativePriceScale({
   }, [modelRef, renderWithCrosshairHidden]);
 
   const handleLogScalePress = useCallback(() => {
+    if (!isLogScaleAvailable) {
+      return;
+    }
     const nextMode =
       modelRef.current.mode === 'linear' ? 'logarithmic' : 'linear';
     modelRef.current.mode = nextMode;
     setMode(nextMode);
     renderWithCrosshairHidden();
-  }, [modelRef, renderWithCrosshairHidden]);
+  }, [isLogScaleAvailable, modelRef, renderWithCrosshairHidden]);
 
   const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      const pointerLayout = getPointerLayout(
-        event.currentTarget,
-        event.clientX,
-        event.clientY,
-      );
-      if (!pointerLayout.isPriceAxis) {
-        return false;
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        return;
       }
+      const targetRect = event.currentTarget.getBoundingClientRect();
       try {
         event.currentTarget.setPointerCapture(event.pointerId);
       } catch {
-        return true;
+        // Pointer capture is optional; dragging still works while the pointer remains over the axis.
       }
       event.preventDefault();
       renderWithCrosshairHidden();
       pointerDragStateRef.current = {
-        chartHeight: pointerLayout.priceAxisHeight,
+        chartHeight: targetRect.height,
+        isActive: false,
         pointerId: event.pointerId,
         startScale: modelRef.current.rangeScale,
-        startY: pointerLayout.y,
+        startY: event.clientY - targetRect.top,
       };
-      setIsAutoScale(false);
       updateHovered(true);
-      return true;
     },
-    [getPointerLayout, modelRef, renderWithCrosshairHidden, updateHovered],
+    [modelRef, renderWithCrosshairHidden, updateHovered],
   );
 
   const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       const dragState = pointerDragStateRef.current;
-      if (dragState) {
-        if (dragState.pointerId !== event.pointerId) {
-          return true;
-        }
-        event.preventDefault();
-        const canvasRect = event.currentTarget.getBoundingClientRect();
-        modelRef.current.rangeScale =
-          getTradingViewNativePriceRangeScaleAfterDrag({
-            chartHeight: dragState.chartHeight,
-            currentY: event.clientY - canvasRect.top,
-            startScale: dragState.startScale,
-            startY: dragState.startY,
-          });
-        renderCurrentChart();
-        return true;
+      if (!dragState || dragState.pointerId !== event.pointerId) {
+        return;
       }
-
-      const pointerLayout = getPointerLayout(
-        event.currentTarget,
-        event.clientX,
-        event.clientY,
-      );
-      updateHovered(pointerLayout.isPriceAxis);
-      if (!pointerLayout.isPriceAxis) {
-        return false;
+      event.preventDefault();
+      const targetRect = event.currentTarget.getBoundingClientRect();
+      const currentY = event.clientY - targetRect.top;
+      if (
+        !dragState.isActive &&
+        Math.abs(currentY - dragState.startY) <=
+          PRICE_AXIS_DRAG_ACTIVATION_DISTANCE
+      ) {
+        return;
       }
-      if (runtimeStateRef.current.crosshair.visible) {
-        renderWithCrosshairHidden();
+      if (!dragState.isActive) {
+        dragState.isActive = true;
+        setIsAutoScale(false);
       }
-      return true;
+      modelRef.current.rangeScale =
+        getTradingViewNativePriceRangeScaleAfterDrag({
+          chartHeight: dragState.chartHeight,
+          currentY,
+          startScale: dragState.startScale,
+          startY: dragState.startY,
+        });
+      renderCurrentChart();
     },
-    [
-      getPointerLayout,
-      modelRef,
-      renderCurrentChart,
-      renderWithCrosshairHidden,
-      runtimeStateRef,
-      updateHovered,
-    ],
+    [modelRef, renderCurrentChart],
   );
 
   const finishPointerDrag = useCallback(
-    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       if (pointerDragStateRef.current?.pointerId !== event.pointerId) {
-        return false;
+        return;
       }
       pointerDragStateRef.current = null;
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      const pointerLayout = getPointerLayout(
-        event.currentTarget,
-        event.clientX,
-        event.clientY,
+      const targetRect = event.currentTarget.getBoundingClientRect();
+      updateHovered(
+        event.clientX >= targetRect.left &&
+          event.clientX <= targetRect.right &&
+          event.clientY >= targetRect.top &&
+          event.clientY <= targetRect.bottom,
       );
-      updateHovered(pointerLayout.isPriceAxis);
-      return true;
     },
-    [getPointerLayout, updateHovered],
+    [updateHovered],
   );
 
   const handleDoubleClick = useCallback(
-    (event: ReactMouseEvent<HTMLCanvasElement>) => {
-      const pointerLayout = getPointerLayout(
-        event.currentTarget,
-        event.clientX,
-        event.clientY,
-      );
-      if (!pointerLayout.isPriceAxis) {
-        return;
-      }
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       modelRef.current.rangeScale = 1;
       setIsAutoScale(true);
       updateHovered(true);
       renderWithCrosshairHidden();
     },
-    [getPointerLayout, modelRef, renderWithCrosshairHidden, updateHovered],
+    [modelRef, renderWithCrosshairHidden, updateHovered],
   );
 
   const handleWheel = useCallback(
-    (canvas: HTMLCanvasElement, event: WheelEvent, deltaY: number) => {
+    (deltaY: number) => {
       if (deltaY === 0) {
-        return false;
-      }
-      const pointerLayout = getPointerLayout(
-        canvas,
-        event.clientX,
-        event.clientY,
-      );
-      if (!pointerLayout.isPriceAxis) {
-        return false;
+        return;
       }
       modelRef.current.rangeScale = getTradingViewNativeWheelPriceRangeScale({
         currentScale: modelRef.current.rangeScale,
@@ -225,10 +186,14 @@ export function useTradingViewNativePriceScale({
       setIsAutoScale(false);
       updateHovered(true);
       renderWithCrosshairHidden();
-      return true;
     },
-    [getPointerLayout, modelRef, renderWithCrosshairHidden, updateHovered],
+    [modelRef, renderWithCrosshairHidden, updateHovered],
   );
+
+  const handlePointerEnter = useCallback(() => {
+    updateHovered(true);
+    renderWithCrosshairHidden();
+  }, [renderWithCrosshairHidden, updateHovered]);
 
   const handlePointerLeave = useCallback(() => {
     if (!pointerDragStateRef.current) {
@@ -247,6 +212,7 @@ export function useTradingViewNativePriceScale({
     handleDoubleClick,
     handleLogScalePress,
     handlePointerDown,
+    handlePointerEnter,
     handlePointerLeave,
     handlePointerMove,
     handleWheel,

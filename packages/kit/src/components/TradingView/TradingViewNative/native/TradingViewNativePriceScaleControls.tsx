@@ -7,6 +7,7 @@ import type { ITradingViewNativePriceScaleMode } from '../types';
 interface ITradingViewNativePriceScaleControlsProps {
   backgroundColor: string;
   isAutoScale: boolean;
+  isLogScaleAvailable: boolean;
   isVisible: boolean;
   mainChartBottomInset: number;
   onAutoScalePress: () => void;
@@ -19,6 +20,7 @@ interface ITradingViewNativePriceScaleControlsProps {
 export function TradingViewNativePriceScaleControls({
   backgroundColor,
   isAutoScale,
+  isLogScaleAvailable,
   isVisible,
   mainChartBottomInset,
   onAutoScalePress,
@@ -52,14 +54,18 @@ export function TradingViewNativePriceScaleControls({
       width={layout.width}
       height={layout.buttonSize}
       gap={layout.gap}
+      borderRadius="$1"
+      backgroundColor={backgroundColor}
       opacity={isVisible ? 1 : 0}
       pointerEvents={isVisible ? 'auto' : 'none'}
+      accessibilityElementsHidden={!isVisible}
+      importantForAccessibility={isVisible ? 'auto' : 'no-hide-descendants'}
     >
       <Stack
         testID={`${testIDPrefix}-auto`}
         accessibilityRole="button"
         accessibilityState={{ selected: isAutoScale }}
-        focusable
+        focusable={isVisible}
         alignItems="center"
         justifyContent="center"
         width={layout.buttonSize}
@@ -87,8 +93,11 @@ export function TradingViewNativePriceScaleControls({
       <Stack
         testID={`${testIDPrefix}-log`}
         accessibilityRole="button"
-        accessibilityState={{ selected: isLogarithmic }}
-        focusable
+        accessibilityState={{
+          disabled: !isLogScaleAvailable,
+          selected: isLogarithmic,
+        }}
+        focusable={isVisible && isLogScaleAvailable}
         alignItems="center"
         justifyContent="center"
         width={layout.buttonSize}
@@ -98,10 +107,11 @@ export function TradingViewNativePriceScaleControls({
         borderWidth="$px"
         borderColor={isLogarithmic ? '$bgInverse' : '$borderStrong'}
         backgroundColor={logBackgroundColor}
-        cursor="pointer"
-        hoverStyle={{ opacity: 0.86 }}
-        pressStyle={{ opacity: 0.72 }}
-        onPress={onLogScalePress}
+        cursor={isLogScaleAvailable ? 'pointer' : 'default'}
+        opacity={isLogScaleAvailable ? 1 : 0.45}
+        hoverStyle={isLogScaleAvailable ? { opacity: 0.86 } : undefined}
+        pressStyle={isLogScaleAvailable ? { opacity: 0.72 } : undefined}
+        onPress={isLogScaleAvailable ? onLogScalePress : undefined}
       >
         <SizableText
           fontSize={16}

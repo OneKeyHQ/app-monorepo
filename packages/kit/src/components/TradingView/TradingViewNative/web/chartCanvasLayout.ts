@@ -1,15 +1,26 @@
 import {
   getTradingViewNativeChartWidth,
   getTradingViewNativePriceAxisWidth,
+  getTradingViewNativeScaledPriceAxisLabel,
 } from '../utils/chartLayout';
+import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
 import {
-  getTradingViewNativeMainPriceAxisLayout,
-  isTradingViewNativePriceAxisTouch,
-} from '../utils/priceAxisScale';
+  PRICE_SCALE_CONTROL_WEB_SIZING,
+  getTradingViewNativePriceScaleControlsMinimumAxisWidth,
+} from '../utils/priceScaleControls';
 
 import { getTradingViewNativeCanvasFont } from './chartCanvasRenderer';
 
+import type { ITradingViewNativePriceScaleMode } from '../types';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+
+export interface ITradingViewNativeCanvasPriceScale {
+  mode: ITradingViewNativePriceScaleMode;
+  rangeScale: number;
+}
+
 export interface ITradingViewNativeCanvasPriceAxisLabels {
+  autoPriceRange: ITradingViewNativePriceRange | null;
   currentPrice: string;
   widestIndicatorPrice: string;
   widestPrice: string;
@@ -21,6 +32,7 @@ export interface ITradingViewNativeCanvasPriceAxisLabels {
 export function getTradingViewNativeCanvasPriceAxisWidth(
   canvas: HTMLCanvasElement,
   labels: ITradingViewNativeCanvasPriceAxisLabels,
+  priceScale: ITradingViewNativeCanvasPriceScale,
 ) {
   if (!labels.yAxisVisible) {
     return 0;
@@ -29,14 +41,29 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
   if (!context) {
     return getTradingViewNativePriceAxisWidth({
       currentPriceLabelWidth: 0,
+      minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
+        PRICE_SCALE_CONTROL_WEB_SIZING,
+      ),
       widestPriceLabelWidth: 0,
     });
   }
   context.font = getTradingViewNativeCanvasFont('priceAxis');
+  const scaledPriceLabel = labels.autoPriceRange
+    ? getTradingViewNativeScaledPriceAxisLabel({
+        autoPriceRange: labels.autoPriceRange,
+        baseLabel: labels.widestPrice,
+        priceRangeScale: priceScale.rangeScale,
+        priceScaleMode: priceScale.mode,
+      })
+    : labels.widestPrice;
   return getTradingViewNativePriceAxisWidth({
     currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
+    minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
+      PRICE_SCALE_CONTROL_WEB_SIZING,
+    ),
     widestPriceLabelWidth: Math.max(
       context.measureText(labels.widestPrice).width,
+      context.measureText(scaledPriceLabel).width,
       context.measureText(labels.widestIndicatorPrice).width,
       context.measureText(labels.widestSubIndicator).width,
     ),
@@ -47,49 +74,43 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
 export function getTradingViewNativeCanvasChartWidth(
   canvas: HTMLCanvasElement,
   labels: ITradingViewNativeCanvasPriceAxisLabels,
+  priceScale: ITradingViewNativeCanvasPriceScale,
 ) {
   return getTradingViewNativeChartWidth(
     canvas.getBoundingClientRect().width,
-    getTradingViewNativeCanvasPriceAxisWidth(canvas, labels),
+    getTradingViewNativeCanvasPriceAxisWidth(canvas, labels, priceScale),
   );
 }
 
-export function getTradingViewNativeCanvasPriceAxisPointerLayout({
+export function isTradingViewNativeCanvasMainPriceAxisPointer({
   canvas,
   clientX,
   clientY,
   labels,
   paneCount,
+  priceScale,
 }: {
   canvas: HTMLCanvasElement;
   clientX: number;
   clientY: number;
   labels: ITradingViewNativeCanvasPriceAxisLabels;
   paneCount: number;
+  priceScale: ITradingViewNativeCanvasPriceScale;
 }) {
   const canvasRect = canvas.getBoundingClientRect();
   const priceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
     canvas,
     labels,
+    priceScale,
   );
   const x = clientX - canvasRect.left;
   const y = clientY - canvasRect.top;
-  const mainPriceAxisLayout = getTradingViewNativeMainPriceAxisLayout({
+  return isTradingViewNativeMainPriceAxisTouch({
     height: canvasRect.height,
     paneCount,
-  });
-  return {
-    canvasRect,
-    isPriceAxis: isTradingViewNativePriceAxisTouch({
-      priceAxisHeight: mainPriceAxisLayout.height,
-      priceAxisWidth,
-      width: canvasRect.width,
-      x,
-      y,
-    }),
-    priceAxisHeight: mainPriceAxisLayout.height,
     priceAxisWidth,
+    width: canvasRect.width,
     x,
     y,
-  };
+  });
 }

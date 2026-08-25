@@ -9,8 +9,9 @@ import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
 import {
   getTradingViewNativeMainPriceAxisLayout,
   getTradingViewNativePriceRangeScaleAfterDrag,
-  isTradingViewNativePriceAxisTouch,
+  isTradingViewNativeMainPriceAxisTouch,
 } from '../utils/priceAxisScale';
+import { getTradingViewNativeVisibleSubIndicatorPaneCount } from '../utils/subIndicatorRender';
 
 import type {
   ITradingViewNativeChartRuntime,
@@ -36,10 +37,8 @@ function getTradingViewNativeMainPriceAxisLayoutForPanes({
 }) {
   'worklet';
 
-  const paneCount = subIndicatorPanes.reduce(
-    (count, pane) => count + (pane.isVisible ? 1 : 0),
-    0,
-  );
+  const paneCount =
+    getTradingViewNativeVisibleSubIndicatorPaneCount(subIndicatorPanes);
   return getTradingViewNativeMainPriceAxisLayout({ height, paneCount });
 }
 
@@ -62,6 +61,7 @@ export function useTradingViewNativePriceScale({
   chartWidth,
   decayOffset,
   isEnabled,
+  isLogScaleAvailable,
   priceAxisWidth,
   subIndicatorPanes,
 }: {
@@ -70,6 +70,7 @@ export function useTradingViewNativePriceScale({
   chartWidth: number;
   decayOffset: SharedValue<number>;
   isEnabled: boolean;
+  isLogScaleAvailable: boolean;
   priceAxisWidth: SharedValue<number>;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
 }) {
@@ -112,6 +113,23 @@ export function useTradingViewNativePriceScale({
     setIsAutoScale(nextIsAuto);
   }, []);
 
+  useEffect(() => {
+    if (isLogScaleAvailable || mode === 'linear') {
+      return;
+    }
+    setMode('linear');
+    scheduleOnUI(() => {
+      'worklet';
+
+      cancelAnimation(decayOffset);
+      const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
+      chartRuntime.value = {
+        ...runtime,
+        priceScaleMode: 'linear',
+      };
+    });
+  }, [chartRuntime, decayOffset, isLogScaleAvailable, mode]);
+
   const handleAutoScalePress = useCallback(() => {
     if (isTouchVisible) {
       showForTouch();
@@ -130,6 +148,9 @@ export function useTradingViewNativePriceScale({
   }, [chartRuntime, decayOffset, isTouchVisible, showForTouch]);
 
   const handleLogScalePress = useCallback(() => {
+    if (!isLogScaleAvailable) {
+      return;
+    }
     if (isTouchVisible) {
       showForTouch();
     }
@@ -145,18 +166,26 @@ export function useTradingViewNativePriceScale({
         priceScaleMode: nextMode,
       };
     });
-  }, [chartRuntime, decayOffset, isTouchVisible, mode, showForTouch]);
+  }, [
+    chartRuntime,
+    decayOffset,
+    isLogScaleAvailable,
+    isTouchVisible,
+    mode,
+    showForTouch,
+  ]);
 
   const gestures = useMemo(() => {
     const isMainPriceAxisTouch = (x: number, y: number) => {
       'worklet';
 
       const runtime = chartRuntime.value;
-      return isTradingViewNativePriceAxisTouch({
-        priceAxisHeight: getTradingViewNativeMainPriceAxisLayoutForPanes({
-          height: runtime.size.height,
-          subIndicatorPanes: runtime.subIndicatorPanes,
-        }).height,
+      const paneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
+        runtime.subIndicatorPanes,
+      );
+      return isTradingViewNativeMainPriceAxisTouch({
+        height: runtime.size.height,
+        paneCount,
         priceAxisWidth: priceAxisWidth.value,
         width: runtime.size.width,
         x,
@@ -194,7 +223,6 @@ export function useTradingViewNativePriceScale({
     const scaleGesture = Gesture.Pan()
       .enabled(isEnabled)
       .activeOffsetY([-4, 4])
-      .failOffsetX([-12, 12])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -260,14 +288,21 @@ export function useTradingViewNativePriceScale({
   );
   const isPriceAxisPointer = useCallback(
     ({ x, y }: { x: number; y: number }) =>
-      isTradingViewNativePriceAxisTouch({
-        priceAxisHeight: mainPriceAxisLayout.height,
+      isTradingViewNativeMainPriceAxisTouch({
+        height: chartSize.height,
+        paneCount:
+          getTradingViewNativeVisibleSubIndicatorPaneCount(subIndicatorPanes),
         priceAxisWidth: priceAxisControlWidth,
         width: chartSize.width,
         x,
         y,
       }),
-    [chartSize.width, mainPriceAxisLayout.height, priceAxisControlWidth],
+    [
+      chartSize.height,
+      chartSize.width,
+      priceAxisControlWidth,
+      subIndicatorPanes,
+    ],
   );
   const updateHovered = useCallback((nextIsHovered: boolean) => {
     if (isHoveredRef.current === nextIsHovered) {

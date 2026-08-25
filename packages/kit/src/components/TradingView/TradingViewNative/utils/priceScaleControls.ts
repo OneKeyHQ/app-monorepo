@@ -1,23 +1,48 @@
 import { TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT } from '../chartConstants';
 
-const PRICE_SCALE_CONTROL_SIZE = 28;
-const PRICE_SCALE_CONTROL_MIN_SIZE = 20;
-const PRICE_SCALE_CONTROL_GAP = 4;
 const PRICE_SCALE_CONTROL_AXIS_INSET = 4;
 const PRICE_SCALE_CONTROL_BOTTOM_GAP = 4;
+
+export interface ITradingViewNativePriceScaleControlSizing {
+  gap: number;
+  minimumButtonSize: number;
+  preferredButtonSize: number;
+}
+
+export const PRICE_SCALE_CONTROL_NATIVE_SIZING: ITradingViewNativePriceScaleControlSizing =
+  {
+    gap: 4,
+    minimumButtonSize: 20,
+    preferredButtonSize: 28,
+  };
+
+export const PRICE_SCALE_CONTROL_WEB_SIZING: ITradingViewNativePriceScaleControlSizing =
+  {
+    gap: 3,
+    minimumButtonSize: 16,
+    preferredButtonSize: 20,
+  };
+
+export function getTradingViewNativePriceScaleControlsMinimumAxisWidth(
+  sizing: ITradingViewNativePriceScaleControlSizing = PRICE_SCALE_CONTROL_NATIVE_SIZING,
+) {
+  'worklet';
+
+  return (
+    sizing.minimumButtonSize * 2 +
+    sizing.gap +
+    PRICE_SCALE_CONTROL_AXIS_INSET * 2
+  );
+}
 
 export function getTradingViewNativePriceScaleControlsLayout(
   priceAxisWidth: number,
   {
-    preferredButtonSize = PRICE_SCALE_CONTROL_SIZE,
-    minimumButtonSize = PRICE_SCALE_CONTROL_MIN_SIZE,
-    gap = PRICE_SCALE_CONTROL_GAP,
     mainChartBottomInset = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    sizing = PRICE_SCALE_CONTROL_NATIVE_SIZING,
   }: {
-    preferredButtonSize?: number;
-    minimumButtonSize?: number;
-    gap?: number;
     mainChartBottomInset?: number;
+    sizing?: ITradingViewNativePriceScaleControlSizing;
   } = {},
 ) {
   if (!Number.isFinite(priceAxisWidth) || priceAxisWidth <= 0) {
@@ -29,14 +54,14 @@ export function getTradingViewNativePriceScaleControlsLayout(
     0,
   );
   const buttonSize = Math.min(
-    preferredButtonSize,
-    Math.floor((availableWidth - gap) / 2),
+    sizing.preferredButtonSize,
+    Math.floor((availableWidth - sizing.gap) / 2),
   );
-  if (buttonSize < minimumButtonSize) {
+  if (buttonSize < sizing.minimumButtonSize) {
     return null;
   }
 
-  const width = buttonSize * 2 + gap;
+  const width = buttonSize * 2 + sizing.gap;
   const normalizedMainChartBottomInset =
     Number.isFinite(mainChartBottomInset) && mainChartBottomInset >= 0
       ? mainChartBottomInset
@@ -44,7 +69,7 @@ export function getTradingViewNativePriceScaleControlsLayout(
   return {
     bottom: normalizedMainChartBottomInset + PRICE_SCALE_CONTROL_BOTTOM_GAP,
     buttonSize,
-    gap,
+    gap: sizing.gap,
     right: Math.max((priceAxisWidth - width) / 2, 0),
     width,
   };
