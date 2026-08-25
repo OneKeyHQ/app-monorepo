@@ -2,6 +2,7 @@ import {
   OverlayContainer,
   Portal,
   ShowToastProvider,
+  Stack,
   Toaster,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,8 +29,23 @@ export function FullWindowOverlayContainer() {
           the driver's to sequence: a prompt that must interrupt a LIVE
           stage hides the stage first (password prompts don't — they
           gate before the device call ever starts). Toasts stay above
-          through the providers below. */}
-      <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+          through the providers below.
+
+          The wrapper is what gives the stage its viewport: MorphOverlay's
+          layer anchors absolute to fill it, and OverlayContainer is a
+          full-window host only on iOS — everywhere else it passes its
+          children straight through, leaving the layer to resolve against
+          whatever ancestor happens to be positioned. */}
+      <Stack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        pointerEvents="box-none"
+      >
+        <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+      </Stack>
       <ShowToastProvider />
       <DevOverlayWindowContainer />
       <TradingViewNativeDebugPanelContainer />
