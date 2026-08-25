@@ -77,7 +77,7 @@ import {
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 import {
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
-  calculateMinToAmountBySlippage,
+  invalidateSwapReviewForSlippageChange,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
@@ -100,10 +100,12 @@ interface IPreSwapDialogContentProps {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  isSwapPro?: boolean;
   rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,
   ) => Promise<void> | void;
+  disableSaveSlippageForFutureOrders?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -115,8 +117,10 @@ const PreSwapDialogContent = ({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  isSwapPro,
   rebuildReviewWithSlippage,
   saveSlippageForFutureOrders,
+  disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
@@ -648,28 +652,12 @@ const PreSwapDialogContent = ({
       return;
     }
 
-    setSwapSteps((prev) => {
-      const nextMinToAmount = calculateMinToAmountBySlippage({
-        toTokenAmount: prev.preSwapData.toTokenAmount,
-        toTokenDecimals: prev.preSwapData.toToken?.decimals,
-        slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
-      });
-      return {
-        ...prev,
-        preSwapData: {
-          ...prev.preSwapData,
-          slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
-          minToAmount: nextMinToAmount ?? prev.preSwapData.minToAmount,
-          swapBuildResultData: undefined,
-          netWorkFee: prev.preSwapData.netWorkFee
-            ? {
-                ...prev.preSwapData.netWorkFee,
-                gasInfos: undefined,
-              }
-            : undefined,
-        },
-      };
-    });
+    setSwapSteps((prev) =>
+      invalidateSwapReviewForSlippageChange({
+        reviewState: prev,
+        slippagePercentage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    );
   }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
   const showMobileSlippageEditor =
     platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
@@ -726,6 +714,9 @@ const PreSwapDialogContent = ({
         <HeightTransition initialHeight={355}>
           <Stack pt="$2">
             <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                disableSaveSlippageForFutureOrders
+              }
               initialValue={preSwapData.slippage ?? 0}
               savingScope={slippageSavingScope}
               showTitle={false}
@@ -855,6 +846,7 @@ const PreSwapDialogContent = ({
                     nativeBtcMinSlippageSaving={
                       slippageSavingScope === 'current'
                     }
+                    isSwapPro={isSwapPro}
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label
@@ -863,6 +855,7 @@ const PreSwapDialogContent = ({
                     slippageEditor={
                       supportSlippageRebuild
                         ? {
+                            disableSaveSlippageForFutureOrders,
                             open: slippageEditorOpen,
                             savingScope: slippageSavingScope,
                             onOpenChange: handleSlippageEditorOpenChange,

@@ -2267,7 +2267,8 @@ export function useSwapBuildTx({
           swapStepsRef.current.preSwapData.swapBuildResultData;
         if (
           !forceRebuild &&
-          cachedBuildResult?.slippagePercentage === effectiveSlippagePercentage
+          cachedBuildResult &&
+          cachedBuildResult.slippagePercentage === effectiveSlippagePercentage
         ) {
           return cachedBuildResult;
         }
@@ -2564,6 +2565,7 @@ export function useSwapBuildTx({
               preSwapData: {
                 ...prev.preSwapData,
                 swapBuildLoading: false,
+                requiresSlippageRebuildOnConfirm: false,
                 toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
                 swapBuildResultData: {
                   swapInfo,

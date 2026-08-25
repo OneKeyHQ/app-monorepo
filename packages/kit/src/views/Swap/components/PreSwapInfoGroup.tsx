@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Button,
   Icon,
   Image,
   NumberSizeableText,
@@ -54,7 +53,9 @@ interface IPreSwapInfoGroupProps {
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
   onSetNativeBtcMinSlippage: () => void;
   nativeBtcMinSlippageSaving?: boolean;
+  isSwapPro?: boolean;
   slippageEditor?: {
+    disableSaveSlippageForFutureOrders?: boolean;
     open: boolean;
     savingScope?: ISwapReviewSlippageSaveScope;
     onOpenChange: (open: boolean) => void;
@@ -72,6 +73,7 @@ const PreSwapInfoGroup = ({
   networkFeeSelectValue,
   onSetNativeBtcMinSlippage,
   nativeBtcMinSlippageSaving,
+  isSwapPro,
   slippageEditor,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
@@ -135,8 +137,10 @@ const PreSwapInfoGroup = ({
         toToken: preSwapData.toToken,
         slippage: preSwapData.slippage,
         swapType: preSwapData.swapType,
+        isSwapPro,
       }),
     [
+      isSwapPro,
       preSwapData.fromToken,
       preSwapData.slippage,
       preSwapData.swapType,
@@ -340,6 +344,9 @@ const PreSwapInfoGroup = ({
         renderContent={
           <Stack p="$4" width={400}>
             <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                slippageEditor.disableSaveSlippageForFutureOrders
+              }
               initialValue={slippage}
               savingScope={slippageEditor.savingScope}
               showTitle={false}
@@ -401,72 +408,23 @@ const PreSwapInfoGroup = ({
         <Alert
           testID="swap-native-btc-low-slippage-alert"
           type="warning"
+          icon="InfoCircleOutline"
           px="$3"
           py="$2.5"
           borderRadius="$3"
-          renderTitle={() => (
-            <XStack w="100%" alignItems="center" gap="$2">
-              <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
-                <Stack
-                  w="$4"
-                  h="$4"
-                  borderRadius="$full"
-                  bg="$iconCaution"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <SizableText
-                    fontSize={11}
-                    lineHeight={14}
-                    fontWeight="600"
-                    color="$textOnColor"
-                  >
-                    !
-                  </SizableText>
-                </Stack>
-              </Stack>
-              <SizableText
-                flex={1}
-                minWidth={0}
-                fontSize={13}
-                lineHeight={18}
-                letterSpacing={-0.1}
-                color="$textCaution"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.btc_trade_btc_slow_to_confirm,
-                })}
-              </SizableText>
-              <Button
-                testID="swap-native-btc-set-min-slippage-btn"
-                size="small"
-                variant="secondary"
-                flexShrink={0}
-                h="$7"
-                px="$3"
-                bg="$bg"
-                borderColor="$borderSubdued"
-                borderRadius="$2"
-                childrenAsText={false}
-                disabled={nativeBtcMinSlippageSaving}
-                loading={nativeBtcMinSlippageSaving}
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={handleSetNativeBtcMinSlippage}
-              >
-                <SizableText
-                  fontSize={13}
-                  lineHeight={18}
-                  fontWeight="500"
-                  letterSpacing={-0.1}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.btc_trade_set_to_1_percent,
-                  })}
-                </SizableText>
-              </Button>
-            </XStack>
-          )}
+          title={intl.formatMessage({
+            id: ETranslations.btc_trade_btc_slow_to_confirm,
+          })}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.btc_trade_set_to_1_percent,
+            }),
+            primaryVariant: 'secondary',
+            primaryTestID: 'swap-native-btc-set-min-slippage-btn',
+            isPrimaryDisabled: nativeBtcMinSlippageSaving,
+            isPrimaryLoading: nativeBtcMinSlippageSaving,
+            onPrimaryPress: handleSetNativeBtcMinSlippage,
+          }}
         />
       ) : null}
       {!isNil(preSwapData?.minToAmount) &&

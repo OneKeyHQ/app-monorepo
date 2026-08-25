@@ -14,6 +14,7 @@ import {
   buildRebuiltSwapReviewQuoteResult,
   calculateMinToAmountBySlippage,
   hasInFlightSwapReviewSteps,
+  invalidateSwapReviewForSlippageChange,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
   shouldShowNativeBtcLowSlippageWarning,
@@ -69,6 +70,18 @@ describe('shouldShowNativeBtcLowSlippageWarning', () => {
     ).toBe(false);
   });
 
+  it('excludes Swap Pro market reviews', () => {
+    expect(
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken: nativeBtc,
+        toToken: wrappedBtc,
+        slippage: 0.5,
+        swapType: ESwapTabSwitchType.SWAP,
+        isSwapPro: true,
+      }),
+    ).toBe(false);
+  });
+
   it.each([ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.STOCK])(
     'excludes %s orders',
     (swapType) => {
@@ -110,6 +123,90 @@ describe('calculateMinToAmountBySlippage', () => {
         slippage: 100,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('invalidateSwapReviewForSlippageChange', () => {
+  it('invalidates every build-derived field and marks provider context custom', () => {
+    const quoteResultCtx = {
+      hifiSwapQuoteResultCtx: {
+        slippageType: 'Hardcoded',
+      },
+    };
+    const reviewState = {
+      steps: [],
+      preSwapData: {
+        toToken: {
+          networkId: 'btc--0',
+          contractAddress: '',
+          symbol: 'BTC',
+          decimals: 6,
+          isNative: true,
+        },
+        toTokenAmount: '1.23456789',
+        minToAmount: '1.23',
+        slippage: 0.5,
+        supportNetworkFeeLevel: true,
+        swapBuildResultData: {
+          orderId: 'stale-order',
+        },
+        netWorkFee: {
+          gasFeeFiatValue: '12.34',
+          gasInfos: [],
+        },
+      },
+      quoteResult: {
+        info: {
+          provider: 'hifi',
+          providerName: 'Hifi',
+        },
+        fromTokenInfo: {
+          networkId: 'evm--1',
+          contractAddress: '0xfrom',
+        },
+        toTokenInfo: {
+          networkId: 'btc--0',
+          contractAddress: '',
+        },
+        fromAmount: '10',
+        toAmount: '1.23456789',
+        minToAmount: '1.23',
+        slippage: 0.5,
+        quoteResultCtx,
+      } as IFetchQuoteResult,
+    };
+
+    const result = invalidateSwapReviewForSlippageChange({
+      reviewState,
+      slippagePercentage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+    });
+
+    expect(result.preSwapData).toEqual(
+      expect.objectContaining({
+        slippage: 1,
+        minToAmount: '1.222222',
+        swapBuildResultData: undefined,
+        netWorkFee: undefined,
+        supportNetworkFeeLevel: false,
+        estimateNetworkFeeLoading: false,
+        requiresSlippageRebuildOnConfirm: true,
+      }),
+    );
+    expect(result.quoteResult).toEqual(
+      expect.objectContaining({
+        slippage: 1,
+        minToAmount: '1.222222',
+        quoteResultCtx: {
+          hifiSwapQuoteResultCtx: {
+            slippageType: 'Custom',
+          },
+        },
+      }),
+    );
+    expect(reviewState.preSwapData.netWorkFee?.gasFeeFiatValue).toBe('12.34');
+    expect(quoteResultCtx.hifiSwapQuoteResultCtx.slippageType).toBe(
+      'Hardcoded',
+    );
   });
 });
 

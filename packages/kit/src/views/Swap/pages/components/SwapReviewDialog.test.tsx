@@ -57,14 +57,19 @@ jest.mock('./PreSwapDialogContent', () => ({
     disableGlobalApproveSync,
     onConfirm,
     onDone,
+    disableSaveSlippageForFutureOrders,
     saveSlippageForFutureOrders,
   }: {
     disableGlobalApproveSync?: boolean;
     onConfirm: () => void;
     onDone: () => void;
+    disableSaveSlippageForFutureOrders?: boolean;
     saveSlippageForFutureOrders?: (slippagePercentage: number) => void;
   }) => {
-    preSwapDialogPropsMock({ saveSlippageForFutureOrders });
+    preSwapDialogPropsMock({
+      disableSaveSlippageForFutureOrders,
+      saveSlippageForFutureOrders,
+    });
     return (
       <div
         data-disable-global-approve-sync={
@@ -86,7 +91,7 @@ jest.mock('./PreSwapDialogContent', () => ({
 jest.mock('../../hooks/useSwapReviewActions', () => ({
   useSwapReviewActions: (props: unknown) =>
     useSwapReviewActionsMock(props) as {
-      onConfirm: () => void;
+      onConfirm: (onConfirmStart?: () => void) => void;
       preSwapBeforeStepActions: () => void;
       preSwapStepsStart: () => void;
     },
@@ -111,6 +116,9 @@ describe('SwapReviewDialog', () => {
     removeStoreMock.mockClear();
     preSwapDialogPropsMock.mockClear();
     reviewConfirmMock.mockClear();
+    reviewConfirmMock.mockImplementation((onConfirmStart?: () => void) =>
+      onConfirmStart?.(),
+    );
     useSwapReviewActionsMock.mockReturnValue({
       onConfirm: reviewConfirmMock,
       preSwapBeforeStepActions: jest.fn(),
@@ -144,6 +152,7 @@ describe('SwapReviewDialog', () => {
         }}
         storeName={EJotaiContextStoreNames.marketSwapReview}
         disableGlobalApproveSync
+        disableSaveSlippageForFutureOrders
         approveTransactionSource={ESwapReviewApproveTransactionSource.SpeedSwap}
       />,
     );
@@ -167,6 +176,7 @@ describe('SwapReviewDialog', () => {
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
     });
     expect(preSwapDialogPropsMock).toHaveBeenCalledWith({
+      disableSaveSlippageForFutureOrders: true,
       saveSlippageForFutureOrders,
     });
 
@@ -174,9 +184,9 @@ describe('SwapReviewDialog', () => {
     fireEvent.click(screen.getByTestId('review-done'));
 
     expect(onConfirmStart).toHaveBeenCalledTimes(1);
-    expect(reviewConfirmMock).toHaveBeenCalledTimes(1);
-    expect(onConfirmStart.mock.invocationCallOrder[0]).toBeLessThan(
-      reviewConfirmMock.mock.invocationCallOrder[0],
+    expect(reviewConfirmMock).toHaveBeenCalledWith(onConfirmStart);
+    expect(reviewConfirmMock.mock.invocationCallOrder[0]).toBeLessThan(
+      onConfirmStart.mock.invocationCallOrder[0],
     );
     expect(onDone).toHaveBeenCalledTimes(1);
   });

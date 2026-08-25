@@ -616,6 +616,7 @@ export interface ISwapPreSwapData {
   minToAmount?: string;
   needFetchGas?: boolean;
   swapBuildLoading?: boolean;
+  requiresSlippageRebuildOnConfirm?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
   stepBeforeActionsError?: boolean;

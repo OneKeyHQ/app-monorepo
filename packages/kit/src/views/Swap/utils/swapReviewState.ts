@@ -33,15 +33,18 @@ export function shouldShowNativeBtcLowSlippageWarning({
   toToken,
   slippage,
   swapType,
+  isSwapPro,
 }: {
   fromToken?: INativeBtcSwapTokenIdentity;
   toToken?: INativeBtcSwapTokenIdentity;
   slippage?: number;
   swapType?: ESwapTabSwitchType;
+  isSwapPro?: boolean;
 }) {
   if (
-    swapType !== ESwapTabSwitchType.SWAP &&
-    swapType !== ESwapTabSwitchType.BRIDGE
+    isSwapPro ||
+    (swapType !== ESwapTabSwitchType.SWAP &&
+      swapType !== ESwapTabSwitchType.BRIDGE)
   ) {
     return false;
   }
@@ -95,6 +98,45 @@ export function calculateMinToAmountBySlippage({
       .toFixed();
   }
   return minToAmountBN.toFixed();
+}
+
+export function invalidateSwapReviewForSlippageChange({
+  reviewState,
+  slippagePercentage,
+}: {
+  reviewState: ISwapReviewState;
+  slippagePercentage: number;
+}): ISwapReviewState {
+  const nextMinToAmount = calculateMinToAmountBySlippage({
+    toTokenAmount: reviewState.preSwapData.toTokenAmount,
+    toTokenDecimals: reviewState.preSwapData.toToken?.decimals,
+    slippage: slippagePercentage,
+  });
+  const minToAmount = nextMinToAmount ?? reviewState.preSwapData.minToAmount;
+
+  return {
+    ...reviewState,
+    quoteResult: reviewState.quoteResult
+      ? {
+          ...reviewState.quoteResult,
+          slippage: slippagePercentage,
+          minToAmount,
+          quoteResultCtx: buildCustomSlippageQuoteResultCtx(
+            reviewState.quoteResult.quoteResultCtx,
+          ),
+        }
+      : reviewState.quoteResult,
+    preSwapData: {
+      ...reviewState.preSwapData,
+      slippage: slippagePercentage,
+      minToAmount,
+      swapBuildResultData: undefined,
+      netWorkFee: undefined,
+      supportNetworkFeeLevel: false,
+      estimateNetworkFeeLoading: false,
+      requiresSlippageRebuildOnConfirm: true,
+    },
+  };
 }
 
 export type ISwapReviewGasInfoEntry = {
