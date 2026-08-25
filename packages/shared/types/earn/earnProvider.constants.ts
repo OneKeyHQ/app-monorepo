@@ -11,6 +11,7 @@ import {
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '../../src/consts/addresses';
 import { EEarnProviderEnum } from '../earn';
@@ -108,12 +109,14 @@ export const isSupportStaking = (symbol: string) =>
     'CBBTC',
     'WBTC',
     'U',
+    'VBUSDC',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
   getNetworkIdsMap().eth,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().base,
+  getNetworkIdsMap().katana,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
@@ -175,6 +178,7 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'khype': 'kHYPE',
     'lista': 'LISTA',
     'u': 'U',
+    'vbusdc': 'vbUSDC',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -265,6 +269,12 @@ export function getImportFromToken({
       }
       break;
     }
+    case networkIdsMap.katana: {
+      if (tokenAddress.toLowerCase() === KatanaVbUSDC.toLowerCase()) {
+        importFromToken = earnTradeDefaultSetUSDC;
+      }
+      break;
+    }
     case networkIdsMap.sol: {
       importFromToken = earnTradeDefaultSetSOL;
       break;
@@ -330,5 +340,6 @@ export function getSymbolSupportedNetworks(): Record<
     'MORPHO': [networkIdsMap.eth],
     'LISTA': [networkIdsMap.bsc],
     'U': [networkIdsMap.bsc],
+    'vbUSDC': [networkIdsMap.katana],
   };
 }

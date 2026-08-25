@@ -200,6 +200,7 @@ export const useHandleStake = () => {
               accountId,
               networkId,
               spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+                networkId,
                 approveType: effectiveApproveType,
                 approveSpenderAddress,
               }),

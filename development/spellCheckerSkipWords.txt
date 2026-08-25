@@ -505,6 +505,8 @@ jsx
 juno
 kaspa
 Kaspa
+katana
+Katana
 Kdsr
 keccak256
 keyframes

@@ -68,20 +68,23 @@ export function GridItem({
         <EarnTooltip title={title.text} tooltip={tooltip} />
       </XStack>
       <XStack gap="$1" alignItems="center">
+        {/* flexShrink lets long values (e.g. Morpho vault names) wrap inside
+            this grid cell instead of overflowing into the neighbor column. */}
         {isLinkAction ? (
           <XStack
             gap="$1"
             alignItems="center"
             cursor="pointer"
+            flexShrink={1}
             onPress={() => openUrlExternal(actionIcon?.data?.link)}
           >
-            <EarnText text={description} size="$bodyLgMedium" />
+            <EarnText text={description} size="$bodyLgMedium" flexShrink={1} />
             {descriptionComponent ?? null}
             <Icon name="OpenOutline" size="$4.5" color="$iconSubdued" />
           </XStack>
         ) : (
           <>
-            <EarnText text={description} size="$bodyLgMedium" />
+            <EarnText text={description} size="$bodyLgMedium" flexShrink={1} />
             {descriptionComponent ?? null}
             <EarnActionIcon title={title.text} actionIcon={actionIcon} />
           </>
