@@ -1072,8 +1072,11 @@ const PositionRowMobileFunding = memo(
         coin,
         assetId,
         signedSize,
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_funding_2,
+        }),
       });
-    }, [assetId, coin, signedSize]);
+    }, [assetId, coin, intl, signedSize]);
 
     return (
       <YStack

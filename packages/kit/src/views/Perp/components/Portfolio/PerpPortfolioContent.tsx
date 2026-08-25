@@ -348,7 +348,9 @@ function PerpPortfolioContentComponent({
         value: 'pnl' as IPortfolioChartType,
       },
       {
-        label: 'Funding',
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_chart_type_funding,
+        }),
         value: 'funding' as IPortfolioChartType,
       },
     ],
@@ -739,7 +741,9 @@ function PerpPortfolioContentComponent({
   const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : CHART_HEIGHT_DESKTOP;
   let chartTooltipLabel = selectedPnlTypeLabel;
   if (isFunding) {
-    chartTooltipLabel = 'Cumulative net funding';
+    chartTooltipLabel = intl.formatMessage({
+      id: ETranslations.perp_portfolio_funding_net__label,
+    });
   } else if (chartType === 'accountValue') {
     chartTooltipLabel = intl.formatMessage({
       id: ETranslations.perp_portfolio_chart_type_value,
@@ -905,7 +909,9 @@ function PerpPortfolioContentComponent({
           px="$6"
         >
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            No funding payments in this period.
+            {intl.formatMessage({
+              id: ETranslations.perp_portfolio_funding_empty__desc,
+            })}
           </SizableText>
         </YStack>
       ) : null}
@@ -987,7 +993,9 @@ function PerpPortfolioContentComponent({
           <XStack alignItems="center">
             <YStack flex={1} minWidth={0} gap="$0.5">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Net 24h
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_funding_net_24h__label,
+                })}
               </SizableText>
               <SizableText
                 size="$headingSm"
@@ -999,7 +1007,9 @@ function PerpPortfolioContentComponent({
             </YStack>
             <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Net 7 day
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_funding_net_7d__label,
+                })}
               </SizableText>
               <SizableText
                 size="$headingSm"
@@ -1011,7 +1021,9 @@ function PerpPortfolioContentComponent({
             </YStack>
             <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Net all time
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_funding_net_all_time__label,
+                })}
               </SizableText>
               <SizableText
                 size="$headingSm"

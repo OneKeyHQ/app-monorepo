@@ -172,7 +172,9 @@ function FundingHistoryRow({
           </YStack>
           <YStack alignItems="flex-end" gap="$1">
             <SizableText size="$bodyXs" color="$textSubdued">
-              Payment
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_payment__label,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium" color={payment.color}>
               {payment.sign}
@@ -189,7 +191,9 @@ function FundingHistoryRow({
           </YStack>
           <YStack flex={1} gap="$1" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textSubdued">
-              Rate
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate__label,
+              })}
             </SizableText>
             <SizableText size="$bodySm">{fundingRate}</SizableText>
           </YStack>
@@ -347,21 +351,27 @@ function PerpFundingHistoryList({
       },
       {
         key: 'side',
-        title: 'Side',
+        title: intl.formatMessage({
+          id: ETranslations.perp_funding_side__label,
+        }),
         minWidth: 100,
         flex: 1,
         align: 'left',
       },
       {
         key: 'payment',
-        title: 'Payment',
+        title: intl.formatMessage({
+          id: ETranslations.perp_funding_payment__label,
+        }),
         minWidth: 140,
         flex: 1,
         align: 'left',
       },
       {
         key: 'rate',
-        title: 'Rate',
+        title: intl.formatMessage({
+          id: ETranslations.perp_funding_rate__label,
+        }),
         minWidth: 120,
         flex: 1,
         align: 'right',
@@ -429,13 +439,21 @@ function PerpFundingHistoryList({
       }
       emptyMessage={
         hasActiveFilter && records.length > 0
-          ? 'No matching funding history'
-          : 'No funding distributions yet'
+          ? intl.formatMessage({
+              id: ETranslations.perp_funding_history_no_match__title,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_funding_history_empty__title,
+            })
       }
       emptySubMessage={
         hasActiveFilter && records.length > 0
-          ? 'Try changing the filters.'
-          : 'Funding payments will appear here.'
+          ? intl.formatMessage({
+              id: ETranslations.perp_funding_history_filter_hint__desc,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_funding_history_empty__desc,
+            })
       }
     />
   );

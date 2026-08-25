@@ -131,9 +131,12 @@ function FundingHistoryFilterToolbar({
       }),
     [marketOptions, marketSearchText],
   );
+  const sideLabel = intl.formatMessage({
+    id: ETranslations.perp_funding_side__label,
+  });
   const selectedSideLabel =
     sideFilter === 'all'
-      ? 'Side'
+      ? sideLabel
       : sideOptions.find((option) => option.value === sideFilter)?.label;
   const selectedMarketLabel = marketFilter
     ? marketOptions.find((option) => option.coin === marketFilter)?.label
@@ -142,7 +145,7 @@ function FundingHistoryFilterToolbar({
   return (
     <XStack mr="$3" gap="$4" alignItems="center">
       <Popover
-        title="Side"
+        title={sideLabel}
         showHeader={false}
         open={sideOpen}
         onOpenChange={setSideOpen}
@@ -150,7 +153,7 @@ function FundingHistoryFilterToolbar({
         floatingPanelProps={{ width: 112, maxWidth: 112 }}
         renderTrigger={
           <FundingHistoryFilterTrigger
-            label={selectedSideLabel ?? 'Side'}
+            label={selectedSideLabel ?? sideLabel}
             isOpen={sideOpen}
             testID="perps-funding-history-side-filter"
           />

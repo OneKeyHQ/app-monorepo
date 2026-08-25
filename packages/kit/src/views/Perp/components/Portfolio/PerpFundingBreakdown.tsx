@@ -161,7 +161,9 @@ export function PerpFundingBreakdown({
     chartContent = (
       <YStack flex={1} minHeight={260} justifyContent="center">
         <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-          No funding payments in this period.
+          {intl.formatMessage({
+            id: ETranslations.perp_portfolio_funding_empty__desc,
+          })}
         </SizableText>
       </YStack>
     );
@@ -186,7 +188,9 @@ export function PerpFundingBreakdown({
           textTransform="uppercase"
           letterSpacing={1.2}
         >
-          Net funding by market
+          {intl.formatMessage({
+            id: ETranslations.perp_portfolio_funding_by_market__title,
+          })}
         </SizableText>
         <SizableText size="$bodyXs" color="$textDisabled">
           {intl.formatMessage({ id: PERIOD_LABELS[timePeriod] })}
@@ -203,7 +207,9 @@ export function PerpFundingBreakdown({
         <XStack alignItems="center">
           <YStack flex={1} gap="$1">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Total paid
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_funding_total_paid__label,
+              })}
             </SizableText>
             {isLoading && records.length === 0 ? (
               <Skeleton width="$16" height="$5" />
@@ -219,7 +225,9 @@ export function PerpFundingBreakdown({
           </YStack>
           <YStack flex={1} gap="$1" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Total received
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_funding_total_received__label,
+              })}
             </SizableText>
             {isLoading && records.length === 0 ? (
               <Skeleton width="$16" height="$5" />

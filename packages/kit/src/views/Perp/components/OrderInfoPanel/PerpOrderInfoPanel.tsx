@@ -62,6 +62,7 @@ const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Open Orders': ETranslations.perp_open_orders_title,
   'TWAP': ETranslations.perp_twap_order__title,
   'Trades History': ETranslations.perp_trades_history_title,
+  'Funding': ETranslations.perp_position_funding_2,
   'Account': ETranslations.perp_account_history,
   'Balances': ETranslations.perp_holdings_tokens,
 };

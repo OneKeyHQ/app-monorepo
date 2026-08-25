@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDexIndexByCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatPerpsUsd,
@@ -50,13 +51,13 @@ type IPositionFundingDetailsProps = {
 };
 
 const FUNDING_PERIODS: Array<{
-  label: string;
+  labelId: ETranslations;
   value: IPortfolioTimePeriod;
 }> = [
-  { label: '1D', value: 'day' },
-  { label: '1W', value: 'week' },
-  { label: '1M', value: 'month' },
-  { label: 'All', value: 'allTime' },
+  { labelId: ETranslations.perp_portfolio_period_1d, value: 'day' },
+  { labelId: ETranslations.perp_portfolio_period_1w, value: 'week' },
+  { labelId: ETranslations.perp_portfolio_period_1m, value: 'month' },
+  { labelId: ETranslations.perp_portfolio_period_all, value: 'allTime' },
 ];
 
 const EMPTY_FUNDING_HISTORY: IUserFunding[] = [];
@@ -270,7 +271,9 @@ export function PositionFundingDetails({
             size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
             color="$textSubdued"
           >
-            Projections
+            {intl.formatMessage({
+              id: ETranslations.perps_fee_rate_projection,
+            })}
           </SizableText>
           <SizableText
             width={76}
@@ -278,7 +281,9 @@ export function PositionFundingDetails({
             color="$textSubdued"
             textAlign="right"
           >
-            Rate
+            {intl.formatMessage({
+              id: ETranslations.perp_funding_rate__label,
+            })}
           </SizableText>
           <SizableText
             width={88}
@@ -286,24 +291,35 @@ export function PositionFundingDetails({
             color="$textSubdued"
             textAlign="right"
           >
-            Payment
+            {intl.formatMessage({
+              id: ETranslations.perp_funding_payment__label,
+            })}
           </SizableText>
         </XStack>
         <YStack gap={isMobile ? '$3' : '$2'}>
           <FundingProjectionRow
-            label={`Current in ${countdown}`}
+            label={intl.formatMessage(
+              {
+                id: ETranslations.perp_funding_current_countdown__label,
+              },
+              { countdown },
+            )}
             rate={projection?.currentRate}
             payment={projection?.currentPayment}
             isMobile={isMobile}
           />
           <FundingProjectionRow
-            label="Next 24h*"
+            label={intl.formatMessage({
+              id: ETranslations.perp_funding_next_24h__label,
+            })}
             rate={projection?.next24hRate}
             payment={projection?.next24hPayment}
             isMobile={isMobile}
           />
           <FundingProjectionRow
-            label="APR*"
+            label={intl.formatMessage({
+              id: ETranslations.perp_funding_apr__label,
+            })}
             rate={projection?.annualizedRate}
             payment={projection?.annualizedPayment}
             isMobile={isMobile}
@@ -313,8 +329,9 @@ export function PositionFundingDetails({
           size={isMobile ? '$bodySm' : '$bodyXs'}
           color="$textSubdued"
         >
-          *Assumes the current position, oracle price, and funding rate remain
-          unchanged.
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_projection_note__desc,
+          })}
         </SizableText>
       </YStack>
 
@@ -326,7 +343,9 @@ export function PositionFundingDetails({
             size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
             color="$textSubdued"
           >
-            Cumulative Funding
+            {intl.formatMessage({
+              id: ETranslations.perp_funding_cumulative__title,
+            })}
           </SizableText>
           <XStack gap="$0.5">
             {FUNDING_PERIODS.map((period) => {
@@ -354,7 +373,7 @@ export function PositionFundingDetails({
                     size={isMobile ? '$bodySmMedium' : '$bodyXsMedium'}
                     color={isSelected ? '$text' : '$textSubdued'}
                   >
-                    {period.label}
+                    {intl.formatMessage({ id: period.labelId })}
                   </SizableText>
                 </XStack>
               );
@@ -390,7 +409,9 @@ export function PositionFundingDetails({
               size={isMobile ? '$bodySm' : '$bodyXs'}
               color="$textSubdued"
             >
-              No settled funding for this market yet.
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_market_empty__desc,
+              })}
             </SizableText>
           </YStack>
         ) : null}
@@ -420,9 +441,12 @@ export function showPositionFundingDetailsDialog({
   coin,
   assetId,
   signedSize,
-}: Pick<IPositionFundingDetailsProps, 'coin' | 'assetId' | 'signedSize'>) {
+  title,
+}: Pick<IPositionFundingDetailsProps, 'coin' | 'assetId' | 'signedSize'> & {
+  title: string;
+}) {
   Dialog.show({
-    title: 'Funding',
+    title,
     showFooter: false,
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     renderContent: (

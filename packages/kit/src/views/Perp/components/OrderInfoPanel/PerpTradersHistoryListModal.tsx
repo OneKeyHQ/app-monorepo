@@ -53,7 +53,7 @@ const HISTORY_TABS: Array<{
   },
   {
     name: 'Funding',
-    label: 'Funding',
+    labelId: ETranslations.perp_position_funding_2,
   },
   {
     name: 'Account',
