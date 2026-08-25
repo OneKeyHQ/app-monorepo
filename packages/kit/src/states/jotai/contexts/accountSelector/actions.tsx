@@ -3493,10 +3493,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   autoSelectNextAccountMutex = new Semaphore(1);
 
-  // Public barrier for components that want to write to selectedAccount only
-  // AFTER autoSelectNextAccount has completed. syncFromScene uses the same
-  // mutex internally; external writers (e.g. keyless preselect) previously
-  // had to guess a timeout, which raced AutoSelect on slow paths.
+  // Wait until the current auto-select pass completes.
   waitForAutoSelectUnlock = contextAtomMethod(async (_get, _set) => {
     await this.autoSelectNextAccountMutex.waitForUnlock();
   });
@@ -3532,10 +3529,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
 
       await this.autoSelectNextAccountMutex.runExclusive(async () => {
-        // wait activeAccount build done — must be INSIDE runExclusive so
-        // waitForAutoSelectUnlock callers actually block until the full
-        // auto-select pass completes (acquiring mutex AFTER the wait would
-        // let external writers slip through during the 300ms window).
+        // Keep the readiness wait inside the auto-select mutex.
         await timerUtils.wait(300);
         const storageReady = get(accountSelectorStorageReadyAtom());
         const activeAccount = this.getActiveAccount.call(set, { num });
@@ -3568,7 +3562,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
           isSelectedWalletRemoved = !selectedWalletInDb;
         }
-        // Mocked wallets need replacement. Deprecated wallets remain readable.
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
@@ -3888,8 +3881,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           (triggerBy === EAccountSelectorAutoSelectTriggerBy.removeWallet &&
             (!removedWalletId ||
               selectedAccount.focusedWallet === removedWalletId));
-        // (else if) when auto select logic not trigger, should fix focusedWallet only
-        // focused A wallet, but remove B wallet, should focus back to A wallet
+        // Repair focus without replacing an otherwise valid selection.
         if (!shouldAutoSelectNextAccount && shouldRepairFocusedWallet) {
           const selectedAccountNew = await this.cloneSelectedAccountNew.call(
             set,
