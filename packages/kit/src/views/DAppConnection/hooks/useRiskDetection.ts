@@ -16,6 +16,11 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import {
+  isPrimeActiveFromPersist,
+  shouldStartSiteScanRiskWarningAttempt,
+} from './siteScanRiskWarning';
+
 import type { Verify } from '@walletconnect/types';
 
 let siteScanRiskWarnedReportedThisSession = false;
@@ -149,31 +154,29 @@ function useRiskDetection({
   // Session-level emit flag bounds volume across stacked DApp modals; no
   // URL/domain is reported.
   const siteScanRiskWarnedTrackedRef = useRef(false);
+  const siteScanRiskWarnedInFlightRef = useRef(false);
   useEffect(() => {
     if (
-      siteScanRiskWarnedReportedThisSession ||
-      siteScanRiskWarnedTrackedRef.current
+      !shouldStartSiteScanRiskWarningAttempt({
+        riskLevel,
+        sessionReported: siteScanRiskWarnedReportedThisSession,
+        instanceTracked: siteScanRiskWarnedTrackedRef.current,
+        inFlight: siteScanRiskWarnedInFlightRef.current,
+      })
     ) {
       return;
     }
-    if (
-      riskLevel !== EHostSecurityLevel.High &&
-      riskLevel !== EHostSecurityLevel.Medium
-    ) {
-      return;
-    }
-    siteScanRiskWarnedTrackedRef.current = true;
+    siteScanRiskWarnedInFlightRef.current = true;
     void (async () => {
       try {
         const persist = await primePersistAtom.get();
-        const isPrimeActive = Boolean(
-          persist.isLoggedIn &&
-          persist.isLoggedInOnServer &&
-          persist.primeSubscription?.isActive,
-        );
-        if (!isPrimeActive || siteScanRiskWarnedReportedThisSession) {
+        if (
+          !isPrimeActiveFromPersist(persist) ||
+          siteScanRiskWarnedReportedThisSession
+        ) {
           return;
         }
+        siteScanRiskWarnedTrackedRef.current = true;
         siteScanRiskWarnedReportedThisSession = true;
         defaultLogger.prime.usage.siteScanRiskWarned({
           featureName: EPrimeFeatures.BlockaidSiteScan,
@@ -182,6 +185,8 @@ function useRiskDetection({
         });
       } catch {
         // Analytics must never affect the risk detection flow.
+      } finally {
+        siteScanRiskWarnedInFlightRef.current = false;
       }
     })();
   }, [riskLevel]);
