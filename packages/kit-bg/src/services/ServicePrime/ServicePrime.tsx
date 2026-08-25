@@ -1035,7 +1035,7 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
         url: requestUrl || '',
         errorCode: errorCode || -1,
-        errorMessage: `skip clearing invalid token response because local refresh failed: ${String(
+        errorMessage: `skip clearing invalid token response because local refresh failed: ${getSanitizedAuthErrorLog(
           tokenRead.retryableError,
         )}`,
       });
@@ -2975,7 +2975,7 @@ class ServicePrime extends ServiceBase {
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
               url: '/prime/v1/account/profile',
               errorCode: Number(invalidTokenError.code) || -1,
-              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${String(
+              errorMessage: `apiBindLegacyOneKeyIdOAuth: legacy token owner probe reconciliation failed: ${getSanitizedAuthErrorLog(
                 reconciliationError,
               )}`,
             });
@@ -4857,8 +4857,11 @@ class ServicePrime extends ServiceBase {
     const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
 
     // Expected logged-out is the common result of this hot gate — do not
-    // trace it. Only log the inconsistent "flags say logged in, no token".
-    if (!result && (isLoggedIn || isLoggedInOnServer)) {
+    // trace it. Only log inconsistent flag/token combinations: "flags say
+    // logged in, no token" and "flags say logged out, token still exists"
+    // (e.g. an interrupted clear sequence). Never-logged-in users hit
+    // neither, so this cannot flood.
+    if (!result && (isLoggedIn || isLoggedInOnServer || authToken)) {
       defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason: `isLoggedIn=false ${JSON.stringify({
           isLoggedIn,

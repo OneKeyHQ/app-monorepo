@@ -232,6 +232,8 @@ function classifyPurchaseError(error: unknown): {
   };
 }
 
+// Returns the classification so callers can gate UX (e.g. skip the error
+// toast on user cancellation) without classifying the same error twice.
 function trackPrimeSubscriptionFailed({
   error,
   paymentMethod,
@@ -242,16 +244,15 @@ function trackPrimeSubscriptionFailed({
   paymentMethod: IPrimePaymentMethod;
   subscriptionPeriod?: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
-}) {
-  const { reason, errorCode, errorMessage } = classifyPurchaseError(error);
+}): ReturnType<typeof classifyPurchaseError> {
+  const classification = classifyPurchaseError(error);
   defaultLogger.prime.subscription.primeSubscribeFailed({
     paymentMethod,
     subscriptionPeriod,
     featureName,
-    reason,
-    errorCode,
-    errorMessage,
+    ...classification,
   });
+  return classification;
 }
 
 function normalizeNativePrice(

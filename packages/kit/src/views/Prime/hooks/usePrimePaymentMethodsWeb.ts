@@ -240,16 +240,13 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
-        primePaymentUtils.trackPrimeSubscriptionFailed({
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
           error,
           paymentMethod: 'stripe',
           subscriptionPeriod,
           featureName,
         });
-        if (
-          primePaymentUtils.classifyPurchaseError(error).reason !==
-          'userCancelled'
-        ) {
+        if (reason !== 'userCancelled') {
           errorToastUtils.toastIfError(error);
         }
         throw error;

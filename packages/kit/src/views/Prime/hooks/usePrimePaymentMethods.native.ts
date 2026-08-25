@@ -388,16 +388,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         }
         return makePurchaseResult;
       } catch (error) {
-        primePaymentUtils.trackPrimeSubscriptionFailed({
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
           error,
           paymentMethod: 'iap',
           subscriptionPeriod,
           featureName,
         });
-        if (
-          primePaymentUtils.classifyPurchaseError(error).reason !==
-          'userCancelled'
-        ) {
+        if (reason !== 'userCancelled') {
           errorToastUtils.toastIfError(error);
         }
         throw error;

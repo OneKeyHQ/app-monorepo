@@ -1,11 +1,16 @@
 import { PrimeSubscriptionScene } from './subscription';
 
+function createSceneWithSpy() {
+  const scene = new PrimeSubscriptionScene();
+  const emitLog = jest
+    .spyOn(scene, '_emitLog')
+    .mockImplementation(() => undefined);
+  return { scene, emitLog };
+}
+
 describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
   it('keeps scrubbed text local and sends only structured fields to server', () => {
-    const scene = new PrimeSubscriptionScene();
-    const emitLog = jest
-      .spyOn(scene, '_emitLog')
-      .mockImplementation(() => undefined);
+    const { scene, emitLog } = createSceneWithSpy();
     const secret = 'AbCdEfGhIjKlMnOpQrStUvWxYz123456';
     const requestId = '3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840';
 
@@ -48,14 +53,6 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
 });
 
 describe('PrimeSubscriptionScene sanitized event payloads', () => {
-  function createSceneWithSpy() {
-    const scene = new PrimeSubscriptionScene();
-    const emitLog = jest
-      .spyOn(scene, '_emitLog')
-      .mockImplementation(() => undefined);
-    return { scene, emitLog };
-  }
-
   it('strips url query/hash and scrubs the message on onekeyIdInvalidToken', () => {
     const { scene, emitLog } = createSceneWithSpy();
 
