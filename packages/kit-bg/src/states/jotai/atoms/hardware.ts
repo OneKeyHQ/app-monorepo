@@ -12,6 +12,8 @@ import type {
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
 import type {
+  IDeviceStageAuthChecklistItem,
+  IDeviceStageAuthFailureReasonValue,
   IDeviceStageConfirmContent,
   IDeviceStageConfirmDetail,
   IDeviceStageErrorReasonValue,
@@ -207,6 +209,9 @@ export type IDeviceStageState = {
   installActiveIndex?: number;
   btcHighIndexPath?: string;
   btcHighIndexAccountIndex?: number;
+  /** Authenticity flow: the per-component checklist and what ended it. */
+  authChecklist?: IDeviceStageAuthChecklistItem[];
+  authFailureReason?: IDeviceStageAuthFailureReasonValue;
   errorReason?: IDeviceStageErrorReasonValue;
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;

@@ -286,6 +286,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+  // The authenticity card's exits, from the DeviceStage driver back to
+  // whoever is running the check (OK-59934).
+  [EAppEventBusNames.DeviceStageAuthAction]: {
+    action: 'retry' | 'support' | 'continueAnyway';
+  };
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
