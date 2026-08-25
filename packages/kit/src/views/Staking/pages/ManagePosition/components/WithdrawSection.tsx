@@ -187,6 +187,7 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: EApproveType.Legacy,
             approveSpenderAddress,
           }),
@@ -694,6 +695,7 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: EApproveType.Legacy,
             approveSpenderAddress: borrowActionApproveTarget.spenderAddress,
           }),
