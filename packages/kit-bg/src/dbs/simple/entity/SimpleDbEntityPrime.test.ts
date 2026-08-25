@@ -2975,13 +2975,18 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
   function createEntityWithStore(initial: ISimpleDBPrime = {}) {
     const entity = new SimpleDbEntityPrime();
     let persisted: ISimpleDBPrime = initial;
-    jest.spyOn(entity, 'setRawData').mockImplementation((async (
-      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-    ) => {
-      persisted = updater(persisted);
-      return persisted;
-    }) as never);
-    return { entity, getPersisted: () => persisted };
+    jest
+      .spyOn(entity, 'getRawData')
+      .mockImplementation((async () => persisted) as never);
+    const setRawDataSpy = jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation((async (
+        updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+      ) => {
+        persisted = updater(persisted);
+        return persisted;
+      }) as never);
+    return { entity, getPersisted: () => persisted, setRawDataSpy };
   }
 
   test('reports and records the first link for a user', async () => {
@@ -2996,9 +3001,9 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
     });
   });
 
-  test('suppresses re-reports within the TTL and keeps the original timestamp', async () => {
+  test('suppresses re-reports within the TTL without touching storage', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createEntityWithStore({
+    const { entity, getPersisted, setRawDataSpy } = createEntityWithStore({
       identityLinkReportedAtByUserId: { 'user-1': now - DAY_MS },
     });
 
@@ -3008,6 +3013,7 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
     expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
       'user-1': now - DAY_MS,
     });
+    expect(setRawDataSpy).not.toHaveBeenCalled();
   });
 
   test('re-reports after the TTL elapses', async () => {
@@ -3063,13 +3069,18 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
   function createEntityWithStore(initial: ISimpleDBPrime = {}) {
     const entity = new SimpleDbEntityPrime();
     let persisted: ISimpleDBPrime = initial;
-    jest.spyOn(entity, 'setRawData').mockImplementation((async (
-      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-    ) => {
-      persisted = updater(persisted);
-      return persisted;
-    }) as never);
-    return { entity, getPersisted: () => persisted };
+    jest
+      .spyOn(entity, 'getRawData')
+      .mockImplementation((async () => persisted) as never);
+    const setRawDataSpy = jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation((async (
+        updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+      ) => {
+        persisted = updater(persisted);
+        return persisted;
+      }) as never);
+    return { entity, getPersisted: () => persisted, setRawDataSpy };
   }
 
   test('reports the first profile snapshot', async () => {
@@ -3090,9 +3101,9 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
     });
   });
 
-  test('suppresses unchanged values within the TTL', async () => {
+  test('suppresses unchanged values within the TTL without touching storage', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createEntityWithStore({
+    const { entity, getPersisted, setRawDataSpy } = createEntityWithStore({
       analyticsPrimeProfileReport: {
         isOneKeyIdLoggedIn: true,
         isPrimeActive: false,
@@ -3110,6 +3121,7 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
     expect(getPersisted().analyticsPrimeProfileReport?.reportedAt).toBe(
       now - DAY_MS,
     );
+    expect(setRawDataSpy).not.toHaveBeenCalled();
   });
 
   test('reports immediately when a value changes', async () => {

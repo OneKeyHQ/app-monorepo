@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
@@ -141,34 +140,40 @@ function useRiskDetection({
   }, [riskLevel, showContinueOperate, continueOperate]);
 
   // Prime benefit usage: a Prime user was shown an enhanced dapp-security
-  // risk warning. Once per hook mount so continue-operate toggles and
-  // re-renders never repeat the event; no URL/domain is reported.
-  const [primeUserInfo] = usePrimePersistAtom();
-  const isPrimeActive = Boolean(
-    primeUserInfo.isLoggedIn &&
-    primeUserInfo.isLoggedInOnServer &&
-    primeUserInfo.primeSubscription?.isActive,
-  );
+  // risk warning. The prime check is a one-shot bg query made only when a
+  // warning-level result arrives — deliberately NOT an atom subscription, so
+  // this shared connection/sign hook gains no new re-render source and
+  // non-Prime users are completely unaffected. Once per hook mount; no
+  // URL/domain is reported.
   const siteScanRiskWarnedTrackedRef = useRef(false);
   useEffect(() => {
     if (siteScanRiskWarnedTrackedRef.current) {
       return;
     }
-    if (!isPrimeActive) {
+    if (
+      riskLevel !== EHostSecurityLevel.High &&
+      riskLevel !== EHostSecurityLevel.Medium
+    ) {
       return;
     }
-    if (
-      riskLevel === EHostSecurityLevel.High ||
-      riskLevel === EHostSecurityLevel.Medium
-    ) {
-      siteScanRiskWarnedTrackedRef.current = true;
-      defaultLogger.prime.usage.siteScanRiskWarned({
-        featureName: EPrimeFeatures.BlockaidSiteScan,
-        riskLevel,
-        isPrimeActive: true,
-      });
-    }
-  }, [riskLevel, isPrimeActive]);
+    siteScanRiskWarnedTrackedRef.current = true;
+    void (async () => {
+      try {
+        const isPrimeActive =
+          await backgroundApiProxy.servicePrime.isPrimeSubscriptionActive();
+        if (!isPrimeActive) {
+          return;
+        }
+        defaultLogger.prime.usage.siteScanRiskWarned({
+          featureName: EPrimeFeatures.BlockaidSiteScan,
+          riskLevel,
+          isPrimeActive: true,
+        });
+      } catch {
+        // Analytics must never affect the risk detection flow.
+      }
+    })();
+  }, [riskLevel]);
 
   return {
     showContinueOperate,

@@ -672,10 +672,13 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   /**
-   * Atomic check-and-mark for the onekeyIdIdentityLinked analytics event.
+   * Check-and-mark for the onekeyIdIdentityLinked analytics event.
    * Returns shouldReport=true (and records the timestamp) when the link for
    * this user has not been reported within the TTL; a future timestamp from
    * clock rollback also re-reports rather than blocking forever.
+   * Reads first and only writes when reporting, so hot no-op checks never
+   * touch storage (callers additionally hold per-session in-memory guards,
+   * and a rare duplicate report is harmless — $identify is idempotent).
    */
   async markIdentityLinkReported({
     onekeyUserId,
@@ -684,21 +687,21 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     onekeyUserId: string;
     now: number;
   }): Promise<{ shouldReport: boolean }> {
-    let shouldReport = false;
+    const rawData = await this.getRawData();
+    const reportedAt = rawData?.identityLinkReportedAtByUserId?.[onekeyUserId];
+    const shouldReport =
+      !reportedAt ||
+      !Number.isFinite(reportedAt) ||
+      reportedAt > now ||
+      now - reportedAt >= IDENTITY_LINK_REPORT_TTL_MS;
+    if (!shouldReport) {
+      return { shouldReport };
+    }
     await this.setRawData((data) => {
       const reportedAtByUserId = {
         ...data?.identityLinkReportedAtByUserId,
+        [onekeyUserId]: now,
       };
-      const reportedAt = reportedAtByUserId[onekeyUserId];
-      shouldReport =
-        !reportedAt ||
-        !Number.isFinite(reportedAt) ||
-        reportedAt > now ||
-        now - reportedAt >= IDENTITY_LINK_REPORT_TTL_MS;
-      if (!shouldReport) {
-        return { ...data };
-      }
-      reportedAtByUserId[onekeyUserId] = now;
       const prunedEntries = Object.entries(reportedAtByUserId)
         .toSorted(([, a], [, b]) => b - a)
         .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
@@ -711,10 +714,13 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   /**
-   * Atomic check-and-mark for the membership user-profile attributes.
+   * Check-and-mark for the membership user-profile attributes.
    * Reports when the values changed since the last report, or when the
    * unchanged values are older than the TTL (periodic self-healing
    * re-assert); a future timestamp from clock rollback also re-reports.
+   * Reads first and only writes when reporting: never-logged-in users on
+   * hot startup paths must not trigger storage writes (and must not turn a
+   * null prime record into an empty object).
    */
   async markPrimeProfileReported({
     isOneKeyIdLoggedIn,
@@ -725,28 +731,26 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     isPrimeActive: boolean;
     now: number;
   }): Promise<{ shouldReport: boolean }> {
-    let shouldReport = false;
-    await this.setRawData((data) => {
-      const prev = data?.analyticsPrimeProfileReport;
-      shouldReport =
-        !prev ||
-        prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
-        prev.isPrimeActive !== isPrimeActive ||
-        !Number.isFinite(prev.reportedAt) ||
-        prev.reportedAt > now ||
-        now - prev.reportedAt >= PRIME_PROFILE_REPORT_TTL_MS;
-      if (!shouldReport) {
-        return { ...data };
-      }
-      return {
-        ...data,
-        analyticsPrimeProfileReport: {
-          isOneKeyIdLoggedIn,
-          isPrimeActive,
-          reportedAt: now,
-        },
-      };
-    });
+    const rawData = await this.getRawData();
+    const prev = rawData?.analyticsPrimeProfileReport;
+    const shouldReport =
+      !prev ||
+      prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
+      prev.isPrimeActive !== isPrimeActive ||
+      !Number.isFinite(prev.reportedAt) ||
+      prev.reportedAt > now ||
+      now - prev.reportedAt >= PRIME_PROFILE_REPORT_TTL_MS;
+    if (!shouldReport) {
+      return { shouldReport };
+    }
+    await this.setRawData((data) => ({
+      ...data,
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn,
+        isPrimeActive,
+        reportedAt: now,
+      },
+    }));
     return { shouldReport };
   }
 
