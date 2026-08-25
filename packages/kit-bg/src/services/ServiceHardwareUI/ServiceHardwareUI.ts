@@ -37,6 +37,7 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  deviceStageEnabledAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
@@ -44,6 +45,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { DeviceStageBurstScope } from './DeviceStageBurst';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
@@ -135,6 +137,10 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
+
+  /** OK-59934: the DeviceStage burst scope — owns every deviceStageAtom
+   * write. See DeviceStageBurst.ts. */
+  deviceStageBurst = new DeviceStageBurstScope();
 
   private onHardwareDeviceStateUpdate = async ({
     connectId,
@@ -268,6 +274,7 @@ class ServiceHardwareUI extends ServiceBase {
         connectId,
       });
     }
+    void this.deviceStageBurst.noteStep('connecting', { connectId });
   }
 
   @backgroundMethod()
@@ -283,6 +290,7 @@ class ServiceHardwareUI extends ServiceBase {
         connectId,
       });
     }
+    void this.deviceStageBurst.noteStep('processing', { connectId });
     // wait animation done
     await timerUtils.wait(150);
   }
@@ -411,6 +419,7 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload,
     });
+    void this.deviceStageBurst.noteStep('enterPin', { connectId, payload });
   }
 
   @backgroundMethod()
@@ -457,6 +466,39 @@ class ServiceHardwareUI extends ServiceBase {
         undefined,
       );
     }
+  }
+
+  // ----- DeviceStage (OK-59934) driver APIs ------------------------------
+
+  @backgroundMethod()
+  async setDeviceStageEnabled({ enabled }: { enabled: boolean }) {
+    await deviceStageEnabledAtom.set(enabled);
+    if (!enabled) {
+      await this.deviceStageBurst.userClose();
+    }
+  }
+
+  @backgroundMethod()
+  async deviceStageNoteInputSubmitted() {
+    await this.deviceStageBurst.noteInputSubmitted();
+  }
+
+  @backgroundMethod()
+  async deviceStageUserClose({
+    connectId,
+    skipDeviceCancel,
+  }: {
+    connectId?: string;
+    skipDeviceCancel?: boolean;
+  }) {
+    await this.deviceStageBurst.userClose();
+    // Cancel semantics: same path the legacy dialog's user-close takes.
+    await this.closeHardwareUiStateDialogFn({
+      connectId,
+      skipDeviceCancel: skipDeviceCancel ?? false,
+      immediateDeviceCancel: true,
+      reason: 'DeviceStage userClose',
+    });
   }
 
   closeHardwareUiStateDialogTimer: ReturnType<typeof setTimeout> | undefined;
@@ -737,6 +779,7 @@ class ServiceHardwareUI extends ServiceBase {
     const connectId = device?.connectId;
     let isOuterCall = false;
     let skipDeviceCancelAfterError = false;
+    let stageBurstError: unknown;
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
@@ -773,6 +816,13 @@ class ServiceHardwareUI extends ServiceBase {
         // }
 
         await this.cleanHardwareUiState();
+        if (!isThirdPartyVendor) {
+          await this.deviceStageBurst.begin({
+            connectId,
+            deviceType: device?.deviceType,
+            deviceName: device?.name,
+          });
+        }
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
           // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
@@ -855,6 +905,7 @@ class ServiceHardwareUI extends ServiceBase {
       console.log('withHardwareProcessing done: ', r);
       return r;
     } catch (error) {
+      stageBurstError = error;
       console.error('withHardwareProcessing ERROR: ', error);
       console.error(
         'withHardwareProcessing ERROR stack: ',
@@ -954,6 +1005,9 @@ class ServiceHardwareUI extends ServiceBase {
             { connectId },
           );
         }
+      }
+      if (isOuterCall && !isThirdPartyVendor) {
+        await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;
       onFinally?.();
