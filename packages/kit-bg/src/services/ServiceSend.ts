@@ -73,6 +73,10 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  buildStageConfirmContentForMessage,
+  buildStageConfirmContentForSignTx,
+} from './ServiceHardwareUI/deviceStageConfirmUtils';
 
 import type {
   IBatchSignTransactionParamsBase,
@@ -351,7 +355,11 @@ class ServiceSend extends ServiceBase {
           }
           return signedTx;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+        {
+          deviceParams,
+          debugMethodName: 'serviceSend.signTransaction',
+          stageConfirmContent: buildStageConfirmContentForSignTx(unsignedTx),
+        },
       );
 
     if (process.env.NODE_ENV !== 'production') {
@@ -1423,7 +1431,12 @@ class ServiceSend extends ServiceBase {
           });
           return _signedMessage;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signMessage' },
+        {
+          deviceParams,
+          debugMethodName: 'serviceSend.signMessage',
+          stageConfirmContent:
+            buildStageConfirmContentForMessage(validUnsignedMessage),
+        },
       );
 
     return signedMessage;
