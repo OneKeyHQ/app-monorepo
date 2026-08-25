@@ -33,6 +33,7 @@ import type {
   IDeviceSharedCallParams,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
+import type { IDeviceStageConfirmContent } from '@onekeyhq/shared/types/deviceStage';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -74,6 +75,9 @@ export type IWithHardwareProcessingOptions = {
   debugMethodName?: string;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
+  /** DeviceStage confirm channel (OK-59934): what the confirm card shows
+   * when this operation asks for a device confirmation. */
+  stageConfirmContent?: IDeviceStageConfirmContent;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -482,6 +486,17 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
     await this.deviceStageBurst.noteInputSubmitted();
+  }
+
+  /** Confirm channel: UI-side registration for callers that know the
+   * confirm payload before (or while) the hardware call runs. */
+  @backgroundMethod()
+  async deviceStageRegisterConfirmContent({
+    content,
+  }: {
+    content: IDeviceStageConfirmContent | undefined;
+  }) {
+    await this.deviceStageBurst.registerConfirmContent(content);
   }
 
   @backgroundMethod()
@@ -966,6 +981,7 @@ class ServiceHardwareUI extends ServiceBase {
             connectId,
             deviceType: device?.deviceType,
             deviceName: device?.name,
+            confirmContent: params.stageConfirmContent,
           });
         }
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
