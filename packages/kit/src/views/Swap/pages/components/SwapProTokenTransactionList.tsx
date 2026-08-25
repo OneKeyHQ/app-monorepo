@@ -20,6 +20,10 @@ import { SwapTestIDs } from '../../testIDs';
 import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
 
 const ROW_HEIGHT = 22;
+// The last row may overhang the container by its 3px bottom padding
+// (SwapProTokenTransactionItem py={3}) plus ~3px of empty descender space in
+// its digits-only text box without clipping visible glyphs.
+const LAST_ROW_CLIP_TOLERANCE = 6;
 
 const SwapProTokenTransactionList = ({
   marketData,
@@ -35,15 +39,14 @@ const SwapProTokenTransactionList = ({
   // and the measured height decides how many extra rows fit.
   const isLimitOrder = swapProTradeType === ESwapProTradeType.LIMIT;
   const baseRows = isLimitOrder ? 9 : 5;
-  const maxRows = Math.max(baseRows, Math.floor(listHeight / ROW_HEIGHT));
+  const maxRows = Math.max(
+    baseRows,
+    Math.floor((listHeight + LAST_ROW_CLIP_TOLERANCE) / ROW_HEIGHT),
+  );
   const finallyTransactionList = useMemo(
     () => marketData.transactions.slice(0, maxRows),
     [marketData.transactions, maxRows],
   );
-  // Rows come in 22px steps, so the flexed container can be left with a
-  // sub-row remainder; spread it across row gaps instead of pooling it at
-  // the bottom. Skip when data cannot fill the computed rows.
-  const hasFilledRows = finallyTransactionList.length >= maxRows;
   let transactionListContent = (
     <XStack justifyContent="space-between">
       <SizableText size="$bodySm" color="$textSubdued">
@@ -60,7 +63,7 @@ const SwapProTokenTransactionList = ({
     finallyTransactionList.length === 0
   ) {
     transactionListContent = (
-      <YStack flex={1} justifyContent="space-between">
+      <YStack>
         {Array.from({ length: maxRows }).map((_, index) => (
           <Skeleton w="100%" h={22} radius="square" key={index} />
         ))}
@@ -71,10 +74,7 @@ const SwapProTokenTransactionList = ({
     finallyTransactionList.length > 0
   ) {
     transactionListContent = (
-      <YStack
-        flex={1}
-        justifyContent={hasFilledRows ? 'space-between' : undefined}
-      >
+      <YStack>
         {finallyTransactionList.map((item, index) => (
           <SwapProTokenTransactionItem
             key={`${item.hash}-${index}`}
