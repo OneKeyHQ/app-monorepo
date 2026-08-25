@@ -251,6 +251,16 @@ export class SignerHardware extends SignerHardwareBase {
           'Use a software wallet account, or wait for firmware support.',
         );
       }
+      const { version: offchainVersion } = unsignedMsg.payload ?? {};
+      // Anything else would be signed as version 0: the firmware is never told
+      // which version this is.
+      if (offchainVersion !== undefined && offchainVersion !== 0) {
+        throw new AppError(
+          ERROR_CODES.INVALID_PAYLOAD.code,
+          `Unsupported Solana offchain message version: ${offchainVersion}`,
+          'Only version 0 and version 1 are supported.',
+        );
+      }
       const applicationDomain = unsignedMsg.payload?.applicationDomain;
       const guessedMessageFormat = OffchainMessage.guessMessageFormat(
         Buffer.from(unsignedMsg.message ?? ''),

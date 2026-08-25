@@ -187,8 +187,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         return bs58.encode(signature);
       }
 
+      // serialize() would refuse this too, but only as "invalid message" — say which
+      // versions exist instead.
+      const version = messagePayload?.version;
+      if (version !== undefined && version !== 0) {
+        throw new OneKeyLocalError(
+          `sol offchain message: unsupported version ${version}`,
+        );
+      }
+
       const offchainMessage = new OffchainMessage({
-        version: messagePayload?.version,
+        version,
         message: Buffer.from(message),
       });
       const [signature] = await signer.sign(offchainMessage.serialize());

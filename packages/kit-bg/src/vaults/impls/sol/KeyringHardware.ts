@@ -282,6 +282,13 @@ export class KeyringHardware extends KeyringHardwareBase {
                 }),
               );
             }
+            // Anything else would go down the version 0 path without telling the
+            // firmware which version it is, so it would be signed as version 0.
+            if (offchainVersion !== undefined && offchainVersion !== 0) {
+              throw new OneKeyLocalError(
+                `sol offchain message: unsupported version ${offchainVersion}`,
+              );
+            }
             const response = await HardwareSDK.solSignOffchainMessage(
               connectId,
               deviceId,
