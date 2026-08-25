@@ -218,6 +218,8 @@ const SwapProTradeInfoGroup = ({
         <SwapProviderInfoItem
           providerIcon={swapProQuoteResult.info.providerLogo ?? ''}
           providerName={swapProQuoteResult.info.providerName ?? ''}
+          titleProps={ITEM_TITLE_PROPS}
+          valueProps={ITEM_VALUE_PROPS}
           isBest={swapProQuoteResult.isBest}
           fromToken={inputToken}
           toToken={toToken}

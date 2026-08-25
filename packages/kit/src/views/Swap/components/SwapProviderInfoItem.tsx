@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -28,12 +29,18 @@ interface ISwapProviderInfoItemProps {
   testID?: string;
   percentageFee?: number;
   percentOriginFee?: number;
+  titleProps?: ISizableTextProps;
+  valueProps?: ISizableTextProps;
 }
 
 const SwapProviderInfoItemTitleContent = ({
   percentageFee,
   percentOriginFee,
-}: Pick<ISwapProviderInfoItemProps, 'percentageFee' | 'percentOriginFee'>) => {
+  titleProps,
+}: Pick<
+  ISwapProviderInfoItemProps,
+  'percentageFee' | 'percentOriginFee' | 'titleProps'
+>) => {
   const intl = useIntl();
 
   return (
@@ -43,6 +50,7 @@ const SwapProviderInfoItemTitleContent = ({
         color="$textSubdued"
         userSelect="none"
         mr="$1"
+        {...titleProps}
       >
         {intl.formatMessage({
           id: ETranslations.swap_page_provider_provider,
@@ -72,6 +80,8 @@ const SwapProviderInfoItem = ({
   testID,
   percentageFee,
   percentOriginFee,
+  titleProps,
+  valueProps,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   return (
@@ -79,6 +89,7 @@ const SwapProviderInfoItem = ({
       <SwapProviderInfoItemTitleContentMemo
         percentageFee={percentageFee}
         percentOriginFee={percentOriginFee}
+        titleProps={titleProps}
       />
       {isLoading ? (
         <Stack py="$1">
@@ -120,7 +131,7 @@ const SwapProviderInfoItem = ({
                   pointerEvents="none"
                 />
               </Stack>
-              <SizableText size="$bodyMdMedium" ml="$1">
+              <SizableText size="$bodyMdMedium" ml="$1" {...valueProps}>
                 {providerName ?? ''}
               </SizableText>
             </>
