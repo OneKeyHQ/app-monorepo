@@ -47,7 +47,6 @@ import type {
 import {
   ENotificationPermission,
   ENotificationPermissionRecoveryAction,
-  ENotificationPermissionRecoveryReason,
   ENotificationPermissionRecoveryTestScenario,
   ENotificationPushMessageAckAction,
   ENotificationPushSyncMethod,
@@ -63,7 +62,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { buildNotificationPermissionRecoveryResult } from './notificationPermissionRecovery';
+import {
+  buildNotificationPermissionRecoveryResult,
+  buildNotificationPermissionRecoveryStateTransition,
+} from './notificationPermissionRecovery';
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
 import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
@@ -574,17 +576,16 @@ export default class ServiceNotification extends ServiceBase {
     const previousPermission =
       notificationState.permissionRecoveryLastPermission;
     const currentPermission = permissionDetail?.permission;
-    const hasPermissionChanged = Boolean(
-      previousPermission &&
-      currentPermission &&
-      previousPermission !== currentPermission,
-    );
-    const dismissedAt = hasPermissionChanged
-      ? undefined
-      : notificationState.permissionRecoveryDismissedAt;
+    const stateTransition = buildNotificationPermissionRecoveryStateTransition({
+      currentPermission,
+      dismissedAt: notificationState.permissionRecoveryDismissedAt,
+      isTestMode,
+      previousPermission,
+      pushEnabled,
+    });
     const result = buildNotificationPermissionRecoveryResult({
       checkedAt,
-      dismissedAt,
+      dismissedAt: stateTransition.dismissedAtForCheck,
       ignoreCooldown,
       isNative: Boolean(platformEnv.isNative),
       isServerSettingsAvailable,
@@ -599,11 +600,6 @@ export default class ServiceNotification extends ServiceBase {
       currentPermission &&
       checkSequence === this.notificationPermissionRecoveryCheckSequence
     ) {
-      const shouldClearDismissal =
-        hasPermissionChanged ||
-        result.reason ===
-          ENotificationPermissionRecoveryReason.permissionGranted ||
-        result.reason === ENotificationPermissionRecoveryReason.pushDisabled;
       await notificationsAtom.set((value) => {
         if (
           checkSequence !== this.notificationPermissionRecoveryCheckSequence
@@ -612,20 +608,14 @@ export default class ServiceNotification extends ServiceBase {
         }
         return {
           ...value,
-          permissionRecoveryDismissedAt: shouldClearDismissal
-            ? undefined
-            : value.permissionRecoveryDismissedAt,
+          permissionRecoveryDismissedAt: stateTransition.nextDismissedAt,
           permissionRecoveryLastPermission: currentPermission,
         };
       });
 
       if (
         checkSequence === this.notificationPermissionRecoveryCheckSequence &&
-        !isTestMode &&
-        pushEnabled &&
-        previousPermission &&
-        previousPermission !== ENotificationPermission.granted &&
-        currentPermission === ENotificationPermission.granted
+        stateTransition.shouldRegisterClient
       ) {
         void this.registerClientWithOverrideAllAccounts();
       }

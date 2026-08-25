@@ -9,6 +9,41 @@ import {
 
 export const NOTIFICATION_PERMISSION_RECOVERY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+export function buildNotificationPermissionRecoveryStateTransition({
+  currentPermission,
+  dismissedAt,
+  isTestMode,
+  previousPermission,
+  pushEnabled,
+}: {
+  currentPermission: ENotificationPermission | undefined;
+  dismissedAt: number | undefined;
+  isTestMode: boolean;
+  previousPermission: ENotificationPermission | undefined;
+  pushEnabled: boolean | undefined;
+}) {
+  const hasPermissionChanged = Boolean(
+    previousPermission &&
+    currentPermission &&
+    previousPermission !== currentPermission,
+  );
+  const shouldClearDismissal =
+    hasPermissionChanged ||
+    currentPermission === ENotificationPermission.granted ||
+    pushEnabled === false;
+  return {
+    dismissedAtForCheck: hasPermissionChanged ? undefined : dismissedAt,
+    nextDismissedAt: shouldClearDismissal ? undefined : dismissedAt,
+    shouldRegisterClient: Boolean(
+      !isTestMode &&
+      pushEnabled &&
+      previousPermission &&
+      previousPermission !== ENotificationPermission.granted &&
+      currentPermission === ENotificationPermission.granted,
+    ),
+  };
+}
+
 export function buildNotificationPermissionRecoveryResult({
   checkedAt,
   dismissedAt,

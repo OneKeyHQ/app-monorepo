@@ -6,6 +6,7 @@ import {
 import {
   NOTIFICATION_PERMISSION_RECOVERY_COOLDOWN_MS,
   buildNotificationPermissionRecoveryResult,
+  buildNotificationPermissionRecoveryStateTransition,
 } from './notificationPermissionRecovery';
 
 const checkedAt = 1_000_000;
@@ -112,4 +113,62 @@ describe('buildNotificationPermissionRecoveryResult', () => {
       shouldShow: true,
     });
   });
+});
+
+describe('buildNotificationPermissionRecoveryStateTransition', () => {
+  it('clears the cooldown and registers after permission is restored', () => {
+    expect(
+      buildNotificationPermissionRecoveryStateTransition({
+        currentPermission: ENotificationPermission.granted,
+        dismissedAt: checkedAt,
+        isTestMode: false,
+        previousPermission: ENotificationPermission.denied,
+        pushEnabled: true,
+      }),
+    ).toEqual({
+      dismissedAtForCheck: undefined,
+      nextDismissedAt: undefined,
+      shouldRegisterClient: true,
+    });
+  });
+
+  it('keeps the cooldown when the missing permission is unchanged', () => {
+    expect(
+      buildNotificationPermissionRecoveryStateTransition({
+        currentPermission: ENotificationPermission.denied,
+        dismissedAt: checkedAt,
+        isTestMode: false,
+        previousPermission: ENotificationPermission.denied,
+        pushEnabled: true,
+      }),
+    ).toEqual({
+      dismissedAtForCheck: checkedAt,
+      nextDismissedAt: checkedAt,
+      shouldRegisterClient: false,
+    });
+  });
+
+  it.each([
+    {
+      isTestMode: true,
+      pushEnabled: true,
+    },
+    {
+      isTestMode: false,
+      pushEnabled: false,
+    },
+  ])(
+    'does not register for $isTestMode test mode with pushEnabled=$pushEnabled',
+    ({ isTestMode, pushEnabled }) => {
+      expect(
+        buildNotificationPermissionRecoveryStateTransition({
+          currentPermission: ENotificationPermission.granted,
+          dismissedAt: checkedAt,
+          isTestMode,
+          previousPermission: ENotificationPermission.denied,
+          pushEnabled,
+        }).shouldRegisterClient,
+      ).toBe(false);
+    },
+  );
 });
