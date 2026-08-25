@@ -97,6 +97,7 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
@@ -118,7 +119,7 @@ class ServiceApp extends ServiceBase {
     }
 
     try {
-      appStorage.syncStorage.clearAll();
+      await appStorage.syncStorage.clearAll();
     } catch {
       console.error('syncStorage.clear() error');
     }
@@ -127,12 +128,12 @@ class ServiceApp extends ServiceBase {
     // Clean jotai MMKV per-key storage (separate instance from syncStorage)
     if (platformEnv.isNative) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { default: jotaiMMKV } =
-          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        jotaiMMKV.clearAll();
-      } catch {
-        console.error('jotaiMMKV.clearAll() error');
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        await clearNativeJotaiStorageForReset();
+      } catch (error) {
+        nativeJotaiResetError = error;
+        console.error('jotaiMMKV.clearAll() error', error);
       }
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
@@ -157,7 +158,7 @@ class ServiceApp extends ServiceBase {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { coldStartCacheStorage } =
           require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-        coldStartCacheStorage.clearAll();
+        await coldStartCacheStorage.clearAll();
       }
     } catch {
       console.error('coldStartCacheStorage.clearAll() error');
@@ -317,6 +318,9 @@ class ServiceApp extends ServiceBase {
         }
       }
     }
+    if (nativeJotaiResetError) {
+      throw new OneKeyLocalError('Jotai storage reset failed');
+    }
   }
 
   @backgroundMethod()
@@ -350,8 +354,9 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
       defaultLogger.setting.page.clearDataStep('resetData-end');
-    } catch (e) {
-      console.error('resetData error', e);
+    } catch (error) {
+      console.error('resetData error', error);
+      throw error;
     } finally {
       resetUtils.endResetting();
       defaultLogger.setting.page.clearDataStep('endResetting');

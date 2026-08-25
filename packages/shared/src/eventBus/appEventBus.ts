@@ -59,6 +59,7 @@ import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IStorageFullDiagnostics } from '../storageChecker/types';
+import type { INativeStorageContractViolation } from '../storage/nativeStorageTypes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
@@ -237,6 +238,7 @@ export interface IAppEventBusPayload {
     attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.NativeStorageContractViolation]: INativeStorageContractViolation;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;

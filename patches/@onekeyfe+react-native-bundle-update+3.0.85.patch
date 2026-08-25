@@ -1,0 +1,182 @@
+diff --git a/node_modules/@onekeyfe/react-native-bundle-update/android/src/main/java/com/margelo/nitro/reactnativebundleupdate/ReactNativeBundleUpdate.kt b/node_modules/@onekeyfe/react-native-bundle-update/android/src/main/java/com/margelo/nitro/reactnativebundleupdate/ReactNativeBundleUpdate.kt
+index 94cf1f0..03147f3 100644
+--- a/node_modules/@onekeyfe/react-native-bundle-update/android/src/main/java/com/margelo/nitro/reactnativebundleupdate/ReactNativeBundleUpdate.kt
++++ b/node_modules/@onekeyfe/react-native-bundle-update/android/src/main/java/com/margelo/nitro/reactnativebundleupdate/ReactNativeBundleUpdate.kt
+@@ -45,8 +45,13 @@ object BundleUpdateStoreAndroid {
+     private const val METADATA_BACKGROUND_PROTOCOL_VERSION_KEY = "backgroundProtocolVersion"
+     private const val METADATA_REQUIRES_COMMON_BUNDLE_KEY = "requiresCommonBundle"
+     private const val METADATA_BUNDLE_FORMAT_KEY = "bundleFormat"
++    // OneKey patch: reject OTA bundles that predate the MMKV storage contract after migration.
++    private const val METADATA_STORAGE_SCHEMA_VERSION_KEY = "storageSchemaVersion"
+     private const val BUNDLE_FORMAT_THREE_BUNDLE = "three-bundle"
+     private const val SUPPORTED_BACKGROUND_PROTOCOL_VERSION = "1"
++    private const val SUPPORTED_STORAGE_SCHEMA_VERSION = "mmkv-v1"
++    private const val STORAGE_MIGRATION_PREFS_NAME = "onekey_native_storage_migration"
++    private val STORAGE_MIGRATION_LEDGER_KEYS = listOf("app-storage-v1", "jotai-storage-v1")
+ 
+     // In-memory cache for getValidatedCurrentBundleInfo. Without this, every
+     // bundleURL / common / main / background path getter on startup re-runs
+@@ -428,7 +433,8 @@ object BundleUpdateStoreAndroid {
+         return key == METADATA_REQUIRES_BACKGROUND_BUNDLE_KEY ||
+             key == METADATA_BACKGROUND_PROTOCOL_VERSION_KEY ||
+             key == METADATA_REQUIRES_COMMON_BUNDLE_KEY ||
+-            key == METADATA_BUNDLE_FORMAT_KEY
++            key == METADATA_BUNDLE_FORMAT_KEY ||
++            key == METADATA_STORAGE_SCHEMA_VERSION_KEY
+     }
+ 
+     private fun getFileMetadataEntries(metadata: Map<String, String>): Map<String, String> {
+@@ -458,6 +464,34 @@ object BundleUpdateStoreAndroid {
+         return metadata[METADATA_BACKGROUND_PROTOCOL_VERSION_KEY] ?: ""
+     }
+ 
++    // OneKey patch: a non-empty native ledger means an old JS bundle would read/write
++    // the retained AsyncStorage database and diverge from MMKV.
++    private fun validateStorageSchemaCompatibility(
++        context: Context,
++        metadata: Map<String, String>,
++    ): Boolean {
++        val declaredVersion = metadata[METADATA_STORAGE_SCHEMA_VERSION_KEY] ?: ""
++        if (declaredVersion.isNotEmpty() && declaredVersion != SUPPORTED_STORAGE_SCHEMA_VERSION) {
++            OneKeyLog.error(
++                "BundleUpdate",
++                "storage schema mismatch: expected=$SUPPORTED_STORAGE_SCHEMA_VERSION, actual=$declaredVersion",
++            )
++            return false
++        }
++        val ledger = context.getSharedPreferences(STORAGE_MIGRATION_PREFS_NAME, Context.MODE_PRIVATE)
++        val migrationStarted = STORAGE_MIGRATION_LEDGER_KEYS.any { key ->
++            !ledger.getString(key, null).isNullOrEmpty()
++        }
++        if (migrationStarted && declaredVersion != SUPPORTED_STORAGE_SCHEMA_VERSION) {
++            OneKeyLog.error(
++                "BundleUpdate",
++                "storage schema marker missing after native storage migration",
++            )
++            return false
++        }
++        return true
++    }
++
+     fun readMetadataFileSha256(signature: String?): String? {
+         if (signature.isNullOrEmpty()) return null
+ 
+@@ -635,7 +669,14 @@ object BundleUpdateStoreAndroid {
+         }
+     }
+ 
+-    fun validateBundlePairCompatibility(bundleDir: String, metadata: Map<String, String>): Boolean {
++    fun validateBundlePairCompatibility(
++        context: Context,
++        bundleDir: String,
++        metadata: Map<String, String>,
++    ): Boolean {
++        if (!validateStorageSchemaCompatibility(context, metadata)) {
++            return false
++        }
+         val mainBundleFile = File(bundleDir, MAIN_JS_BUNDLE_FILE_NAME)
+         if (!mainBundleFile.exists()) {
+             OneKeyLog.error(
+@@ -774,7 +815,7 @@ object BundleUpdateStoreAndroid {
+                 return null
+             }
+ 
+-            if (!validateBundlePairCompatibility(bundleDir, metadata)) {
++            if (!validateBundlePairCompatibility(context, bundleDir, metadata)) {
+                 return null
+             }
+ 
+@@ -1727,7 +1768,7 @@ class ReactNativeBundleUpdate : HybridReactNativeBundleUpdateSpec() {
+                     BundleUpdateStoreAndroid.deleteDir(destinationDir)
+                     throw Exception("Extracted files verification against metadata failed")
+                 }
+-                if (!BundleUpdateStoreAndroid.validateBundlePairCompatibility(destination, metadata)) {
++                if (!BundleUpdateStoreAndroid.validateBundlePairCompatibility(context, destination, metadata)) {
+                     OneKeyLog.error("BundleUpdate", "verifyBundleASC: bundle pair compatibility check failed")
+                     BundleUpdateStoreAndroid.deleteDir(destinationDir)
+                     throw Exception("Bundle pair compatibility check failed")
+@@ -2308,7 +2349,7 @@ n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ
+                 OneKeyLog.error("BundleUpdate", "verifyExtractedBundle: file integrity check failed")
+                 throw Exception("File integrity check failed")
+             }
+-            if (!BundleUpdateStoreAndroid.validateBundlePairCompatibility(bundlePath.absolutePath, metadata)) {
++            if (!BundleUpdateStoreAndroid.validateBundlePairCompatibility(context, bundlePath.absolutePath, metadata)) {
+                 OneKeyLog.error("BundleUpdate", "verifyExtractedBundle: bundle pair compatibility check failed")
+                 throw Exception("Bundle pair compatibility check failed")
+             }
+diff --git a/node_modules/@onekeyfe/react-native-bundle-update/ios/ReactNativeBundleUpdate.swift b/node_modules/@onekeyfe/react-native-bundle-update/ios/ReactNativeBundleUpdate.swift
+index c5e902e..5bd38a5 100644
+--- a/node_modules/@onekeyfe/react-native-bundle-update/ios/ReactNativeBundleUpdate.swift
++++ b/node_modules/@onekeyfe/react-native-bundle-update/ios/ReactNativeBundleUpdate.swift
+@@ -20,8 +20,13 @@ public class BundleUpdateStore: NSObject {
+     private static let metadataBackgroundProtocolVersionKey = "backgroundProtocolVersion"
+     private static let metadataRequiresCommonBundleKey = "requiresCommonBundle"
+     private static let metadataBundleFormatKey = "bundleFormat"
++    // OneKey patch: reject OTA bundles that predate the MMKV storage contract after migration.
++    private static let metadataStorageSchemaVersionKey = "storageSchemaVersion"
+     private static let bundleFormatThreeBundle = "three-bundle"
+     private static let supportedBackgroundProtocolVersion = "1"
++    private static let supportedStorageSchemaVersion = "mmkv-v1"
++    private static let storageMigrationLedgerPrefix = "onekey_native_storage_migration_"
++    private static let storageMigrationLedgerKeys = ["app-storage-v1", "jotai-storage-v1"]
+ 
+     // In-memory cache for validatedCurrentBundleInfo. Without this, every
+     // bundleURL / common / main / background path getter on startup re-runs
+@@ -439,7 +444,8 @@ public class BundleUpdateStore: NSObject {
+         key == metadataRequiresBackgroundBundleKey ||
+         key == metadataBackgroundProtocolVersionKey ||
+         key == metadataRequiresCommonBundleKey ||
+-        key == metadataBundleFormatKey
++        key == metadataBundleFormatKey ||
++        key == metadataStorageSchemaVersionKey
+     }
+ 
+     private static func metadataStringValue(
+@@ -474,6 +480,37 @@ public class BundleUpdateStore: NSObject {
+         return false
+     }
+ 
++    // OneKey patch: a non-empty native ledger means an old JS bundle would read/write
++    // the retained AsyncStorage database and diverge from MMKV.
++    private static func validateStorageSchemaCompatibility(
++        _ metadata: [String: Any]
++    ) -> Bool {
++        let declaredVersion = metadataStringValue(
++            metadata,
++            key: metadataStorageSchemaVersionKey
++        ) ?? ""
++        if !declaredVersion.isEmpty && declaredVersion != supportedStorageSchemaVersion {
++            OneKeyLog.error(
++                "BundleUpdate",
++                "storage schema mismatch: expected=\(supportedStorageSchemaVersion), actual=\(declaredVersion)"
++            )
++            return false
++        }
++        let defaults = UserDefaults.standard
++        let migrationStarted = storageMigrationLedgerKeys.contains { key in
++            let ledgerKey = storageMigrationLedgerPrefix + key
++            return !(defaults.string(forKey: ledgerKey) ?? "").isEmpty
++        }
++        if migrationStarted && declaredVersion != supportedStorageSchemaVersion {
++            OneKeyLog.error(
++                "BundleUpdate",
++                "storage schema marker missing after native storage migration"
++            )
++            return false
++        }
++        return true
++    }
++
+     private static func fileMetadataEntries(
+         from metadata: [String: Any],
+     ) -> [String: String] {
+@@ -567,6 +604,9 @@ public class BundleUpdateStore: NSObject {
+         bundleDirPath: String,
+         metadata: [String: Any],
+     ) -> Bool {
++        if !validateStorageSchemaCompatibility(metadata) {
++            return false
++        }
+         let mainBundlePath = (bundleDirPath as NSString)
+             .appendingPathComponent(mainBundleEntryFileName)
+         guard FileManager.default.fileExists(atPath: mainBundlePath) else {

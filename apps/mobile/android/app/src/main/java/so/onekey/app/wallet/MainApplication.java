@@ -51,6 +51,8 @@ import java.util.regex.Pattern;
 
 import org.json.JSONObject;
 
+import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
+
 public class MainApplication extends Application implements ReactApplication {
 
   public static boolean shouldShowRecovery = false;
@@ -458,7 +460,9 @@ public class MainApplication extends Application implements ReactApplication {
       }
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
-      manager.setReactPackages(new PackageList(this).getPackages());
+      List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
+      backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
+      manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();
       if (reactHost == null) {
@@ -623,14 +627,6 @@ public class MainApplication extends Application implements ReactApplication {
       }
     } catch (Exception ignored) {}
     OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
-
-    try {
-      Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
-      field.setAccessible(true);
-      field.set(null, 20 * 1024 * 1024);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
 
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());

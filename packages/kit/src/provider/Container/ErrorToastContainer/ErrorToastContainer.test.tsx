@@ -11,6 +11,8 @@ import {
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 
+const mockSubscribeNativeStorageContractViolations = jest.fn();
+
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
     error: jest.fn(),
@@ -24,6 +26,19 @@ jest.mock('@onekeyhq/components', () => ({
     })),
   },
 }));
+
+jest.mock(
+  '@onekeyhq/shared/src/storage/nativeStorageContractViolation',
+  () => ({
+    subscribeNativeStorageContractViolations: (
+      listener: (violation: unknown) => void,
+    ) => {
+      const unsubscribe: unknown =
+        mockSubscribeNativeStorageContractViolations(listener);
+      return typeof unsubscribe === 'function' ? unsubscribe : () => undefined;
+    },
+  }),
+);
 
 jest.mock('./ErrorToasts', () => ({
   getErrorAction: jest.fn(() => undefined),
@@ -39,9 +54,32 @@ const mockedGlobalNetInfo = globalNetInfo as unknown as {
 describe('ErrorToastContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSubscribeNativeStorageContractViolations.mockReturnValue(jest.fn());
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
+  });
+
+  it('shows a diagnostic toast for a blocked AsyncStorage API', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+    const listener = mockSubscribeNativeStorageContractViolations.mock
+      .calls[0][0] as (violation: {
+      apiName: string;
+      runtime: 'main' | 'background';
+    }) => void;
+
+    act(() => {
+      listener({ apiName: 'useAsyncStorage', runtime: 'background' });
+    });
+
+    expect(mockedToast.error).toHaveBeenCalledWith({
+      title: 'Unsupported AsyncStorage API',
+      message:
+        'useAsyncStorage was blocked in the background runtime. See the device log for the call stack.',
+      toastId: 'native-storage-contract:background:useAsyncStorage',
+      duration: 10_000,
+    });
+    unmount();
   });
 
   it('does not show axios network error toast when offline is already confirmed', () => {

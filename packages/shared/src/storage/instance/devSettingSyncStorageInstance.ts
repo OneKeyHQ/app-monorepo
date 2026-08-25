@@ -1,21 +1,76 @@
 import platformEnv from '../../platformEnv';
+import { broadcastNativeSyncStorageMutation } from '../nativeSyncStorageBroadcast';
 
-import mmkvDevSettingStorageInstance from './mmkvDevSettingStorageInstance';
-
+import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EDevSettingSyncStorageKeys } from '../syncStorageKeys';
+
+function broadcastMutation(mutation: INativeSyncStorageLocalMutation) {
+  if (platformEnv.isNativeBackgroundThread) {
+    if (mutation.operation === 'set') {
+      broadcastNativeSyncStorageMutation({
+        store: 'devSettings',
+        operation: 'set',
+        key: mutation.key,
+        value: mutation.value,
+      });
+    } else if (mutation.operation === 'remove') {
+      broadcastNativeSyncStorageMutation({
+        store: 'devSettings',
+        operation: 'remove',
+        key: mutation.key,
+      });
+    } else {
+      broadcastNativeSyncStorageMutation({
+        store: 'devSettings',
+        operation: 'clear',
+      });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { scheduleNativeStorageMMKVSync } =
+      require('../nativeStorageMigrationModule') as typeof import('../nativeStorageMigrationModule');
+    scheduleNativeStorageMMKVSync('onekey-app-dev-setting');
+  }
+}
+
+type IDevSettingStorageInstance = {
+  set(key: string, value: boolean | string | number): void | Promise<void>;
+  getBoolean(key: string): boolean | undefined;
+  remove(key: string): void | Promise<void>;
+  clearAll(): void | Promise<void>;
+};
+
+function getDevSettingStorageInstance(): IDevSettingStorageInstance {
+  if (platformEnv.isNative && !platformEnv.isNativeBackgroundThread) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createNativeSyncStorageMirror } =
+      require('./nativeSyncStorageMirror') as typeof import('./nativeSyncStorageMirror');
+    return createNativeSyncStorageMirror('devSettings');
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./mmkvDevSettingStorageInstance')
+    .default as IDevSettingStorageInstance;
+}
+
+const devSettingStorageInstance = getDevSettingStorageInstance();
 
 const devSettingSyncStorageWeb = {
   set(key: EDevSettingSyncStorageKeys, value: boolean | string | number) {
-    mmkvDevSettingStorageInstance.set(key, value);
+    const acknowledgement = devSettingStorageInstance.set(key, value);
+    broadcastMutation({ operation: 'set', key, value });
+    return acknowledgement;
   },
   getBoolean(key: EDevSettingSyncStorageKeys) {
-    return mmkvDevSettingStorageInstance.getBoolean(key);
+    return devSettingStorageInstance.getBoolean(key);
   },
   delete(key: EDevSettingSyncStorageKeys) {
-    mmkvDevSettingStorageInstance.remove(key);
+    const acknowledgement = devSettingStorageInstance.remove(key);
+    broadcastMutation({ operation: 'remove', key });
+    return acknowledgement;
   },
   clearAll() {
-    mmkvDevSettingStorageInstance.clearAll();
+    const acknowledgement = devSettingStorageInstance.clearAll();
+    broadcastMutation({ operation: 'clear' });
+    return acknowledgement;
   },
 };
 

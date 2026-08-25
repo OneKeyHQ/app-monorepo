@@ -1,4 +1,10 @@
-import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
+import {
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_SERIALIZED_CHARS,
+  getPerpsL2BookSnapshotCacheKeys,
+  pruneSWRCacheStore,
+  swrKeys,
+} from './swrCacheUtils';
 
 // On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
 // while the "MMKV file" persists — exactly the cross-runtime setup under test.
@@ -6,6 +12,8 @@ type IFakeDisk = Record<string, string>;
 const fakeDiskGlobal = globalThis as typeof globalThis & {
   __swrFakeDisk?: IFakeDisk;
   __swrFakeDiskReadCount?: number;
+  __swrPatches?: unknown[];
+  __swrUsePatch?: boolean;
 };
 
 jest.mock('../storage/instance/syncStorageInstance', () => {
@@ -46,6 +54,49 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
       Object.keys(disk).forEach((key) => delete disk[key]);
     },
     getAllKeys: () => Object.keys(readDisk()),
+    ...((globalThis as { __swrUsePatch?: boolean }).__swrUsePatch
+      ? {
+          applySWRCachePatch: (patch: {
+            clearBefore?: number;
+            removePrefixes: Array<{ at: number; prefix: string }>;
+            removals: Array<readonly [string, number]>;
+            updates: Array<readonly [string, string]>;
+          }) => {
+            const globalState = globalThis as {
+              __swrPatches?: unknown[];
+            };
+            globalState.__swrPatches ??= [];
+            globalState.__swrPatches.push(patch);
+            const disk = readDisk();
+            const store = disk.onekey_swr_cache
+              ? (JSON.parse(disk.onekey_swr_cache) as Record<
+                  string,
+                  { t: number }
+                >)
+              : {};
+            const removeIfOlder = (key: string, at: number) => {
+              if (store[key] && store[key].t <= at) {
+                delete store[key];
+              }
+            };
+            if (patch.clearBefore !== undefined) {
+              Object.keys(store).forEach((key) =>
+                removeIfOlder(key, patch.clearBefore as number),
+              );
+            }
+            patch.removePrefixes.forEach(({ at, prefix }) => {
+              Object.keys(store).forEach((key) => {
+                if (key.startsWith(prefix)) removeIfOlder(key, at);
+              });
+            });
+            patch.removals.forEach(([key, at]) => removeIfOlder(key, at));
+            patch.updates.forEach(([key, entry]) => {
+              store[key] = JSON.parse(entry) as { t: number };
+            });
+            disk.onekey_swr_cache = JSON.stringify(store);
+          },
+        }
+      : {}),
   };
   return {
     __esModule: true,
@@ -244,6 +295,8 @@ describe('SWR cache cross-runtime flush merge', () => {
   const setNow = (ms: number) => nowSpy.mockReturnValue(ms);
 
   beforeEach(() => {
+    fakeDiskGlobal.__swrUsePatch = false;
+    fakeDiskGlobal.__swrPatches = [];
     fakeDiskGlobal.__swrFakeDisk = {};
     fakeDiskGlobal.__swrFakeDiskReadCount = 0;
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
@@ -491,6 +544,43 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(disk['bulk:0']).toBeUndefined();
   });
 
+  it('prunes oversized entries and keeps the newest entries within a total budget', () => {
+    const result = pruneSWRCacheStore(
+      {
+        old: { d: 'a'.repeat(40), t: 1 },
+        newer: { d: 'b'.repeat(40), t: 2 },
+        oversized: { d: 'x'.repeat(200), t: 3 },
+      },
+      {
+        maxEntries: 3,
+        maxEntrySerializedChars: 120,
+        maxSerializedChars: 100,
+      },
+    );
+
+    expect(result.store).toEqual({ newer: { d: 'b'.repeat(40), t: 2 } });
+    expect(result.removedKeys).toHaveLength(2);
+    expect(result.removedKeys).toEqual(
+      expect.arrayContaining(['old', 'oversized']),
+    );
+    expect(JSON.parse(result.serialized)).toEqual(result.store);
+  });
+
+  it('uses the configured entry and total cache budgets', () => {
+    expect(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS).toBe(1024 * 1024);
+    expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
+  });
+
+  it('does not retain an individually oversized value', () => {
+    const swr = loadFreshRuntime();
+
+    swr.set('oversized', 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS));
+
+    expect(swr.get('oversized')).toBeUndefined();
+    swr.flushNow();
+    expect(readDiskStore().oversized).toBeUndefined();
+  });
+
   it('reloads for a target the other runtime wrote after an unrelated reload', () => {
     const makeBook = (coin: string) => ({
       coin,
@@ -611,5 +701,45 @@ describe('SWR cache cross-runtime flush merge', () => {
 
     swr.reloadFromStorage();
     expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(3);
+  });
+});
+
+describe('SWR cache native incremental persistence', () => {
+  beforeEach(() => {
+    fakeDiskGlobal.__swrFakeDisk = {};
+    fakeDiskGlobal.__swrPatches = [];
+    fakeDiskGlobal.__swrUsePatch = true;
+  });
+
+  afterEach(() => {
+    fakeDiskGlobal.__swrUsePatch = false;
+  });
+
+  it('flushes only the changed entry instead of the hydrated store', () => {
+    otherRuntimeFlush({
+      existing: { d: 'x'.repeat(100_000), t: 1 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get('existing')).toHaveLength(100_000);
+
+    jest.spyOn(Date, 'now').mockReturnValue(2);
+    swr.set('changed', 'small');
+    swr.flushNow();
+
+    expect(fakeDiskGlobal.__swrPatches).toEqual([
+      {
+        removePrefixes: [],
+        removals: [],
+        updates: [['changed', JSON.stringify({ d: 'small', t: 2 })]],
+      },
+    ]);
+    expect(JSON.stringify(fakeDiskGlobal.__swrPatches)).not.toContain(
+      'x'.repeat(100),
+    );
+    expect(readDiskStore()).toEqual({
+      existing: { d: 'x'.repeat(100_000), t: 1 },
+      changed: { d: 'small', t: 2 },
+    });
+    jest.restoreAllMocks();
   });
 });
