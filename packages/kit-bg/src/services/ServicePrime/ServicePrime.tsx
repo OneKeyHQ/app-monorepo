@@ -101,6 +101,10 @@ import {
 } from '../ServiceIdentityExit/identityLifecycleMutex';
 
 import {
+  buildPrimeAnalyticsProfileSnapshot,
+  shouldDropStalePrimeProfileReport,
+} from './primeAnalyticsProfile';
+import {
   allowAuthSessionStorageWritesBySessionSource,
   clearAllSupabaseAuthSessions,
   clearSupabaseStorageLocalCache,
@@ -391,6 +395,10 @@ class ServicePrime extends ServiceBase {
   // so hot state-maintenance paths skip the persisted check entirely.
   private lastHandledPrimeProfileKey: string | undefined;
 
+  // Serialize profile reports so a stale logged-out persist/emit cannot
+  // overwrite a later login snapshot in the same session.
+  private primeProfileReportChain: Promise<void> = Promise.resolve();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -444,31 +452,94 @@ class ServicePrime extends ServiceBase {
    * updateUserProfile is a documented direct-call exception for persistent
    * user attributes.
    */
+  private enqueuePrimeProfileAnalyticsReport() {
+    this.primeProfileReportChain = this.primeProfileReportChain
+      .then(() => this.reportPrimeProfileToAnalytics())
+      .catch(() => undefined);
+  }
+
+  private async readPrimeAnalyticsProfileSnapshot() {
+    const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+      await primePersistAtom.get();
+    return buildPrimeAnalyticsProfileSnapshot({
+      isLoggedIn,
+      isLoggedInOnServer,
+      isPrimeSubscriptionActive: primeSubscription?.isActive,
+    });
+  }
+
+  private dropStalePrimeProfileSnapshot({
+    expectedKey,
+    currentKey,
+  }: {
+    expectedKey: string;
+    currentKey: string;
+  }): boolean {
+    const { drop, clearLastHandled } = shouldDropStalePrimeProfileReport({
+      expectedKey,
+      currentKey,
+      lastHandledKey: this.lastHandledPrimeProfileKey,
+    });
+    if (clearLastHandled) {
+      this.lastHandledPrimeProfileKey = undefined;
+    }
+    return drop;
+  }
+
+  private async persistAndEmitPrimeProfile({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    profileKey,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    profileKey: string;
+  }) {
+    const { shouldReport } =
+      await this.backgroundApi.simpleDb.prime.markPrimeProfileReported({
+        isOneKeyIdLoggedIn,
+        isPrimeActive,
+        now: Date.now(),
+      });
+    if (!shouldReport) {
+      return;
+    }
+    const confirmed = await this.readPrimeAnalyticsProfileSnapshot();
+    if (
+      this.dropStalePrimeProfileSnapshot({
+        expectedKey: profileKey,
+        currentKey: confirmed.profileKey,
+      })
+    ) {
+      return;
+    }
+    analytics.updateUserProfile({
+      isOneKeyIdLoggedIn: confirmed.isOneKeyIdLoggedIn,
+      isPrimeActive: confirmed.isPrimeActive,
+    });
+  }
+
   private async reportPrimeProfileToAnalytics() {
     let profileKey: string | undefined;
     try {
-      const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
-        await primePersistAtom.get();
-      const isOneKeyIdLoggedIn = Boolean(isLoggedIn && isLoggedInOnServer);
-      const isPrimeActive = Boolean(
-        isOneKeyIdLoggedIn && primeSubscription?.isActive,
-      );
-      profileKey = `${isOneKeyIdLoggedIn}:${isPrimeActive}`;
+      const snapshot = await this.readPrimeAnalyticsProfileSnapshot();
+      profileKey = snapshot.profileKey;
       if (this.lastHandledPrimeProfileKey === profileKey) {
         return;
       }
       // Mark before persist so overlapping startup/login calls skip a second
       // full-entity write. Clear on failure so this session can retry.
       this.lastHandledPrimeProfileKey = profileKey;
-      const { shouldReport } =
-        await this.backgroundApi.simpleDb.prime.markPrimeProfileReported({
-          isOneKeyIdLoggedIn,
-          isPrimeActive,
-          now: Date.now(),
-        });
-      if (shouldReport) {
-        analytics.updateUserProfile({ isOneKeyIdLoggedIn, isPrimeActive });
+      const latest = await this.readPrimeAnalyticsProfileSnapshot();
+      if (
+        this.dropStalePrimeProfileSnapshot({
+          expectedKey: profileKey,
+          currentKey: latest.profileKey,
+        })
+      ) {
+        return;
       }
+      await this.persistAndEmitPrimeProfile(latest);
     } catch (error) {
       if (profileKey && this.lastHandledPrimeProfileKey === profileKey) {
         this.lastHandledPrimeProfileKey = undefined;
@@ -4431,7 +4502,7 @@ class ServicePrime extends ServiceBase {
     });
 
     void this.trackOneKeyIdIdentityLinked({ onekeyUserId: serverUserId });
-    void this.reportPrimeProfileToAnalytics();
+    this.enqueuePrimeProfileAnalyticsReport();
 
     if (serverUserInfo?.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
@@ -4520,7 +4591,7 @@ class ServicePrime extends ServiceBase {
     void this.trackOneKeyIdIdentityLinked({
       onekeyUserId: onekeyAccount.onekeyUserId,
     });
-    void this.reportPrimeProfileToAnalytics();
+    this.enqueuePrimeProfileAnalyticsReport();
 
     if (loginResponse.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
@@ -4653,7 +4724,7 @@ class ServicePrime extends ServiceBase {
 
       // App-start fetch runs for every user; this is the guaranteed trigger
       // that gives never-logged-in users the membership profile attributes.
-      void this.reportPrimeProfileToAnalytics();
+      this.enqueuePrimeProfileAnalyticsReport();
 
       // Do NOT emit PrimeLoginInvalidToken here: having no token is not an
       // invalid-token event, and a payload-less emit would wipe local
@@ -4829,7 +4900,7 @@ class ServicePrime extends ServiceBase {
     // Runs for never-logged-in users too (hot startup paths), which is what
     // gives every user the membership profile attributes; the in-memory
     // snapshot inside keeps repeats free.
-    void this.reportPrimeProfileToAnalytics();
+    this.enqueuePrimeProfileAnalyticsReport();
 
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
