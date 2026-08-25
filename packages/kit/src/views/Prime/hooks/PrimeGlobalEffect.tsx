@@ -352,9 +352,6 @@ function PrimeGlobalEffectView() {
           }
         | undefined,
     ) => {
-      defaultLogger.prime.subscription.onekeyIdLogout({
-        reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
-      });
       if (
         payload?.clearedByBackground &&
         payload.authStateGeneration !== undefined
@@ -373,6 +370,11 @@ function PrimeGlobalEffectView() {
           return;
         }
       }
+      // Local-only: bg already emits onekeyIdInvalidToken for the server
+      // signal. This bus handler is not a user logout.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
+      });
       // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
       // invalid-token cleanup already reset the atom in-lock before
       // emitting this event, and a new login may have committed during the
