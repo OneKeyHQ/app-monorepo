@@ -121,10 +121,10 @@ function PrimeGlobalEffectAfterAuthReady() {
         }
       }
     } catch (error) {
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: '',
-        errorCode: -1759,
-        errorMessage: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${String(
+      // Local-only: generic refresh failures are not invalid-token signals
+      // and previously polluted onekeyIdInvalidToken with synthetic -1759.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${String(
           error,
         )}`,
       });
@@ -205,10 +205,8 @@ function PrimeGlobalEffectAfterAuthReady() {
           shouldSkip: () => isCancelled || isAppLockedRef.current,
         });
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
             error,
           )}`,
         });
@@ -235,10 +233,8 @@ function PrimeGlobalEffectAfterAuthReady() {
           }
         }
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${String(
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${String(
             error,
           )}`,
         });
@@ -267,7 +263,9 @@ function PrimeGlobalEffectAfterAuthReady() {
         if (accessToken) {
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         } else {
-          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+          // Local-only: expected state for every never-logged-in user at
+          // startup, not an auth anomaly.
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
             reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null ${JSON.stringify(
               {
                 isSupabaseLoggedIn,
@@ -286,12 +284,8 @@ function PrimeGlobalEffectAfterAuthReady() {
           );
         }
       } catch (error) {
-        defaultLogger.prime.subscription.onekeyIdInvalidToken({
-          url: '',
-          errorCode: -1759,
-          errorMessage: `PrimeGlobalEffect: fetch user info failed: ${String(
-            error,
-          )}`,
+        defaultLogger.prime.subscription.onekeyIdStateTrace({
+          reason: `PrimeGlobalEffect: fetch user info failed: ${String(error)}`,
         });
         // Keep local auth state for transient refresh/network failures.
         // Server-side invalid tokens are cleared by the PrimeLoginInvalidToken event.

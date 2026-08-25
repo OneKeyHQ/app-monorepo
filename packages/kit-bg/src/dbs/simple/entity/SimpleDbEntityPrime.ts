@@ -63,6 +63,11 @@ const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;
 const IDENTITY_LINK_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const IDENTITY_LINK_REPORTED_USERS_LIMIT = 5;
 
+// Re-assert cadence for the membership user-profile attributes. Unchanged
+// values are re-sent after this TTL so a lost server-side property
+// self-heals; value changes always report immediately.
+const PRIME_PROFILE_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
 };
@@ -133,6 +138,13 @@ export interface ISimpleDBPrime {
   // user from this device. Bounds event volume: the link is re-asserted only
   // after the TTL (PostHog $identify is idempotent, so repeats are safe).
   identityLinkReportedAtByUserId?: Record<string, number>;
+  // Last reported membership user-profile attributes (analytics). Reports
+  // are value-change driven with a periodic TTL re-assert.
+  analyticsPrimeProfileReport?: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    reportedAt: number;
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -675,7 +687,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     let shouldReport = false;
     await this.setRawData((data) => {
       const reportedAtByUserId = {
-        ...(data?.identityLinkReportedAtByUserId ?? {}),
+        ...data?.identityLinkReportedAtByUserId,
       };
       const reportedAt = reportedAtByUserId[onekeyUserId];
       shouldReport =
@@ -688,11 +700,51 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       }
       reportedAtByUserId[onekeyUserId] = now;
       const prunedEntries = Object.entries(reportedAtByUserId)
-        .sort(([, a], [, b]) => b - a)
+        .toSorted(([, a], [, b]) => b - a)
         .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
       return {
         ...data,
         identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
+      };
+    });
+    return { shouldReport };
+  }
+
+  /**
+   * Atomic check-and-mark for the membership user-profile attributes.
+   * Reports when the values changed since the last report, or when the
+   * unchanged values are older than the TTL (periodic self-healing
+   * re-assert); a future timestamp from clock rollback also re-reports.
+   */
+  async markPrimeProfileReported({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<{ shouldReport: boolean }> {
+    let shouldReport = false;
+    await this.setRawData((data) => {
+      const prev = data?.analyticsPrimeProfileReport;
+      shouldReport =
+        !prev ||
+        prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
+        prev.isPrimeActive !== isPrimeActive ||
+        !Number.isFinite(prev.reportedAt) ||
+        prev.reportedAt > now ||
+        now - prev.reportedAt >= PRIME_PROFILE_REPORT_TTL_MS;
+      if (!shouldReport) {
+        return { ...data };
+      }
+      return {
+        ...data,
+        analyticsPrimeProfileReport: {
+          isOneKeyIdLoggedIn,
+          isPrimeActive,
+          reportedAt: now,
+        },
       };
     });
     return { shouldReport };

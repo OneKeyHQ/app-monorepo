@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -387,6 +388,10 @@ class ServicePrime extends ServiceBase {
   // in simpleDb.prime.markIdentityLinkReported bounds volume across sessions.
   private identityLinkReportedUserIds = new Set<string>();
 
+  // Per-bg-session snapshot of the last membership profile values handled,
+  // so hot state-maintenance paths skip the persisted check entirely.
+  private lastHandledPrimeProfileKey: string | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -423,6 +428,45 @@ class ServicePrime extends ServiceBase {
     } catch (error) {
       defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason: `trackOneKeyIdIdentityLinked failed: ${String(error)}`,
+      });
+    }
+  }
+
+  /**
+   * Report the OneKey ID / Prime membership dimensions as analytics user
+   * profile attributes for EVERY user (false for never-logged-in users), so
+   * any event stream can be segmented by membership without joining
+   * subscription events. Value-change driven with a persisted TTL re-assert;
+   * updateUserProfile is a documented direct-call exception for persistent
+   * user attributes.
+   */
+  private async reportPrimeProfileToAnalytics() {
+    try {
+      const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+        await primePersistAtom.get();
+      const isOneKeyIdLoggedIn = Boolean(isLoggedIn && isLoggedInOnServer);
+      const isPrimeActive = Boolean(
+        isOneKeyIdLoggedIn && primeSubscription?.isActive,
+      );
+      const profileKey = `${String(isOneKeyIdLoggedIn)}:${String(
+        isPrimeActive,
+      )}`;
+      if (this.lastHandledPrimeProfileKey === profileKey) {
+        return;
+      }
+      const { shouldReport } =
+        await this.backgroundApi.simpleDb.prime.markPrimeProfileReported({
+          isOneKeyIdLoggedIn,
+          isPrimeActive,
+          now: Date.now(),
+        });
+      this.lastHandledPrimeProfileKey = profileKey;
+      if (shouldReport) {
+        analytics.updateUserProfile({ isOneKeyIdLoggedIn, isPrimeActive });
+      }
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
+        reason: `reportPrimeProfileToAnalytics failed: ${String(error)}`,
       });
     }
   }
@@ -4391,6 +4435,7 @@ class ServicePrime extends ServiceBase {
     });
 
     void this.trackOneKeyIdIdentityLinked({ onekeyUserId: serverUserId });
+    void this.reportPrimeProfileToAnalytics();
 
     if (serverUserInfo?.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
@@ -4479,6 +4524,7 @@ class ServicePrime extends ServiceBase {
     void this.trackOneKeyIdIdentityLinked({
       onekeyUserId: onekeyAccount.onekeyUserId,
     });
+    void this.reportPrimeProfileToAnalytics();
 
     if (loginResponse.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
@@ -4597,7 +4643,10 @@ class ServicePrime extends ServiceBase {
     const authToken =
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     if (!authToken) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+      // Local-only traces: this branch runs for every logged-out user on
+      // every app start — as server events they flooded analytics and, worse,
+      // polluted the genuine invalid-token signal with synthetic -1759 noise.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason:
           'ServicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() is null',
       });
@@ -4606,12 +4655,10 @@ class ServicePrime extends ServiceBase {
       });
       const localUserInfo = await primePersistAtom.get();
 
-      defaultLogger.prime.subscription.onekeyIdInvalidToken({
-        url: '',
-        errorCode: -1759,
-        errorMessage:
-          'servicePrime.apiFetchPrimeUserInfo: simpleDb.prime.getActiveAuthToken() No auth token',
-      });
+      // App-start fetch runs for every user; this is the guaranteed trigger
+      // that gives never-logged-in users the membership profile attributes.
+      void this.reportPrimeProfileToAnalytics();
+
       // Do NOT emit PrimeLoginInvalidToken here: having no token is not an
       // invalid-token event, and a payload-less emit would wipe local
       // keyless sessions (e.g. keyless-only users not logged into OneKey ID).
@@ -4784,6 +4831,11 @@ class ServicePrime extends ServiceBase {
       reason: `setPrimePersistAtomNotLoggedIn: after clear, isLoggedIn=${afterValue.isLoggedIn}`,
     });
 
+    // Runs for never-logged-in users too (hot startup paths), which is what
+    // gives every user the membership profile attributes; the in-memory
+    // snapshot inside keeps repeats free.
+    void this.reportPrimeProfileToAnalytics();
+
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,
@@ -4798,7 +4850,8 @@ class ServicePrime extends ServiceBase {
       this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
     );
     if (tokenRead.retryableError) {
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+      // Local-only: transient refresh failures can repeat while offline.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason: `ServicePrime.isLoggedIn: auth refresh failed, keep local login state: ${String(
           tokenRead.retryableError,
         )}`,
@@ -4809,8 +4862,9 @@ class ServicePrime extends ServiceBase {
     const result = Boolean(isLoggedIn && isLoggedInOnServer && authToken);
 
     if (!result) {
-      // debugger;
-      defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+      // Local-only: isLoggedIn() is a hot gate called by many features, so a
+      // logged-out user would emit this on every call — never a server event.
+      defaultLogger.prime.subscription.onekeyIdStateTrace({
         reason: `isLoggedIn=false ${JSON.stringify({
           isLoggedIn,
           isLoggedInOnServer,

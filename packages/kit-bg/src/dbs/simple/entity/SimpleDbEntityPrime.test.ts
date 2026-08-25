@@ -3056,3 +3056,102 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
     expect(persistedRecord?.['user-1']).toBeUndefined();
   });
 });
+
+describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function createEntityWithStore(initial: ISimpleDBPrime = {}) {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = initial;
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    return { entity, getPersisted: () => persisted };
+  }
+
+  test('reports the first profile snapshot', async () => {
+    const { entity, getPersisted } = createEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.markPrimeProfileReported({
+        isOneKeyIdLoggedIn: false,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toEqual({ shouldReport: true });
+    expect(getPersisted().analyticsPrimeProfileReport).toEqual({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+      reportedAt: now,
+    });
+  });
+
+  test('suppresses unchanged values within the TTL', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createEntityWithStore({
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: false,
+        reportedAt: now - DAY_MS,
+      },
+    });
+
+    await expect(
+      entity.markPrimeProfileReported({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toEqual({ shouldReport: false });
+    expect(getPersisted().analyticsPrimeProfileReport?.reportedAt).toBe(
+      now - DAY_MS,
+    );
+  });
+
+  test('reports immediately when a value changes', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createEntityWithStore({
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: false,
+        reportedAt: now - 1000,
+      },
+    });
+
+    await expect(
+      entity.markPrimeProfileReported({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        now,
+      }),
+    ).resolves.toEqual({ shouldReport: true });
+    expect(getPersisted().analyticsPrimeProfileReport).toEqual({
+      isOneKeyIdLoggedIn: true,
+      isPrimeActive: true,
+      reportedAt: now,
+    });
+  });
+
+  test('re-asserts unchanged values after the TTL', async () => {
+    const now = Date.now();
+    const { entity } = createEntityWithStore({
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        reportedAt: now - 8 * DAY_MS,
+      },
+    });
+
+    await expect(
+      entity.markPrimeProfileReported({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        now,
+      }),
+    ).resolves.toEqual({ shouldReport: true });
+  });
+});

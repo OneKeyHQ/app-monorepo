@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
   isEthSignType,
   isPrimaryTypeOrderSign,
@@ -137,6 +139,36 @@ function useRiskDetection({
       currentContinueOperate: continueOperate,
     });
   }, [riskLevel, showContinueOperate, continueOperate]);
+
+  // Prime benefit usage: a Prime user was shown an enhanced dapp-security
+  // risk warning. Once per hook mount so continue-operate toggles and
+  // re-renders never repeat the event; no URL/domain is reported.
+  const [primeUserInfo] = usePrimePersistAtom();
+  const isPrimeActive = Boolean(
+    primeUserInfo.isLoggedIn &&
+    primeUserInfo.isLoggedInOnServer &&
+    primeUserInfo.primeSubscription?.isActive,
+  );
+  const siteScanRiskWarnedTrackedRef = useRef(false);
+  useEffect(() => {
+    if (siteScanRiskWarnedTrackedRef.current) {
+      return;
+    }
+    if (!isPrimeActive) {
+      return;
+    }
+    if (
+      riskLevel === EHostSecurityLevel.High ||
+      riskLevel === EHostSecurityLevel.Medium
+    ) {
+      siteScanRiskWarnedTrackedRef.current = true;
+      defaultLogger.prime.usage.siteScanRiskWarned({
+        featureName: EPrimeFeatures.BlockaidSiteScan,
+        riskLevel,
+        isPrimeActive: true,
+      });
+    }
+  }, [riskLevel, isPrimeActive]);
 
   return {
     showContinueOperate,
