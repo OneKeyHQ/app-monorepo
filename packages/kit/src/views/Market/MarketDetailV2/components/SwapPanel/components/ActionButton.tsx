@@ -249,6 +249,7 @@ export function ActionButton({
     isBalanceAvailable: balance !== undefined,
     isInsufficientBalance,
     isWrapped,
+    isRefreshQuote,
   });
   const quoteRefreshAvailable = Boolean(
     isRefreshQuote && hasAmount && !shouldDisable,

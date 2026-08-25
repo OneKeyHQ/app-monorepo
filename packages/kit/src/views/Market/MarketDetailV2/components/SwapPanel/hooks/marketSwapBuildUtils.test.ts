@@ -70,6 +70,7 @@ describe('marketSwapBuildUtils', () => {
     ).toEqual({
       canRefresh: false,
       canReview: true,
+      isRefreshAction: false,
       isLoading: false,
     });
   });
@@ -110,7 +111,28 @@ describe('marketSwapBuildUtils', () => {
     ).toEqual({
       canRefresh: true,
       canReview: false,
+      isRefreshAction: true,
       isLoading: false,
+    });
+  });
+
+  it('keeps the refresh action active while a manual quote request is loading', () => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: true,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: false,
+        hasQuoteError: false,
+        manualRefreshRequest: true,
+      }),
+    ).toEqual({
+      canRefresh: false,
+      canReview: false,
+      isRefreshAction: true,
+      isLoading: true,
     });
   });
 

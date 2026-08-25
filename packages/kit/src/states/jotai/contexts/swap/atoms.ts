@@ -394,6 +394,7 @@ export const {
   address?: string;
   receivingAddress?: string;
   quoteRequestId?: string;
+  manualRefresh?: boolean;
 }>({ actionLock: false });
 
 export const {

@@ -2242,6 +2242,7 @@ describe('useSwapActions', () => {
             fromTokenAmount: '1',
             type: ESwapTabSwitchType.SWAP,
             source: ESwapQuoteSource.MARKET,
+            manualRefresh: true,
           },
         );
         await Promise.resolve();
@@ -2253,33 +2254,18 @@ describe('useSwapActions', () => {
           source: ESwapQuoteSource.MARKET,
         }),
       );
+      expect(store.get(swapQuoteActionLockAtom()).manualRefresh).toBe(true);
 
-      const publishActionableQuote = (round: number) => {
+      const publishQuoteEvent = (
+        type: 'done' | 'message',
+        quoteEvent: ISwapQuoteEvent,
+      ) => {
         const quoteRequestId = store.get(
           swapQuoteActionLockAtom(),
         ).quoteRequestId;
         result.current.quoteEventHandler({
-          event: {
-            data: JSON.stringify({
-              data: [
-                {
-                  eventId: `refresh-event-${round}`,
-                  fromAmount: '1',
-                  fromTokenInfo: ethToken,
-                  info: {
-                    provider: 'refresh-provider',
-                    providerName: 'Refresh Provider',
-                  },
-                  kind: ESwapQuoteKind.SELL,
-                  protocol: EProtocolOfExchange.SWAP,
-                  quoteId: `refresh-quote-${round}`,
-                  toAmount: `${round + 1}`,
-                  toTokenInfo: bnbToken,
-                },
-              ],
-            }),
-          } as ISwapQuoteEvent,
-          type: 'message',
+          event: quoteEvent,
+          type,
           accountId: evmAccount.id,
           params: {
             ...quoteParams,
@@ -2291,6 +2277,31 @@ describe('useSwapActions', () => {
             toToken: bnbToken,
           },
         });
+      };
+      const publishActionableQuote = (
+        round: number,
+        provider = 'refresh-provider',
+      ) => {
+        publishQuoteEvent('message', {
+          data: JSON.stringify({
+            data: [
+              {
+                eventId: `refresh-event-${round}`,
+                fromAmount: '1',
+                fromTokenInfo: ethToken,
+                info: {
+                  provider,
+                  providerName: provider,
+                },
+                kind: ESwapQuoteKind.SELL,
+                protocol: EProtocolOfExchange.SWAP,
+                quoteId: `${provider}-quote-${round}`,
+                toAmount: `${round + 1}`,
+                toTokenInfo: bnbToken,
+              },
+            ],
+          }),
+        } as ISwapQuoteEvent);
       };
 
       for (let round = 0; round < swapQuoteIntervalMaxCount; round += 1) {
@@ -2312,13 +2323,39 @@ describe('useSwapActions', () => {
         );
         expect(store.get(swapQuoteIntervalCountAtom())).toBe(round + 1);
         expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+        expect(store.get(swapQuoteActionLockAtom()).manualRefresh).toBe(false);
       }
+
+      const cancelCallCountBeforeFinalQuote =
+        mockCancelFetchQuoteEvents.mock.calls.length;
 
       act(() => {
         publishActionableQuote(swapQuoteIntervalMaxCount);
       });
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(swapRefreshInterval);
+
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(
+        cancelCallCountBeforeFinalQuote,
+      );
+
+      act(() => {
+        publishActionableQuote(
+          swapQuoteIntervalMaxCount,
+          'second-refresh-provider',
+        );
+      });
+
+      expect(
+        store
+          .get(swapQuoteListAtom())
+          .some((quote) => quote.info.provider === 'second-refresh-provider'),
+      ).toBe(true);
+      expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(
+        cancelCallCountBeforeFinalQuote,
+      );
+
+      act(() => {
+        publishQuoteEvent('done', {} as ISwapQuoteEvent);
       });
 
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(
@@ -2329,6 +2366,7 @@ describe('useSwapActions', () => {
       );
       expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
       expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+      expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBeUndefined();
     } finally {
       jest.clearAllTimers();
       jest.useRealTimers();
