@@ -49,7 +49,8 @@ type IReadonlySharedValue<T> = { readonly value: T };
 
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
-const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
+// Fill the space before the toolbar so the tab list scrolls only on overflow.
+const TAB_LIST_VIEW_STYLE = { flexGrow: 1, flexShrink: 1 } as const;
 const TAB_CONTENT_CONTAINER_STYLE = { pr: 16 } as const;
 const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
