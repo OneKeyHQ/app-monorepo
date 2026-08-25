@@ -130,7 +130,12 @@ const SwapProTokenTransactionList = ({
           setListHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
         }}
       >
-        {transactionListContent}
+        {/* Rows paint into an absolute layer so however many are rendered
+            they never feed back into the left column's measured height; the
+            trading column alone keeps driving the overall panel height. */}
+        <YStack position="absolute" top={0} left={0} right={0}>
+          {transactionListContent}
+        </YStack>
       </YStack>
     </YStack>
   );
