@@ -213,21 +213,24 @@ const SwapProTradeInfoGroup = ({
           py: '$1',
         }}
       />
-      {swapProTradeType === ESwapProTradeType.MARKET &&
-      swapProQuoteResult?.info.provider ? (
+      {swapProTradeType === ESwapProTradeType.MARKET ? (
         <SwapProviderInfoItem
-          providerIcon={swapProQuoteResult.info.providerLogo ?? ''}
-          providerName={swapProQuoteResult.info.providerName ?? ''}
+          providerIcon={swapProQuoteResult?.info.providerLogo ?? ''}
+          providerName={swapProQuoteResult?.info.providerName ?? ''}
           titleProps={ITEM_TITLE_PROPS}
           valueProps={ITEM_VALUE_PROPS}
-          isBest={swapProQuoteResult.isBest}
+          compact
+          emptyValueText="--"
+          isBest={swapProQuoteResult?.isBest}
           fromToken={inputToken}
           toToken={toToken}
-          showLock={!!swapProQuoteResult.allowanceResult}
-          percentageFee={swapProQuoteResult.fee?.percentageFee}
-          percentOriginFee={swapProQuoteResult.fee?.percentOriginFee}
+          showLock={!!swapProQuoteResult?.allowanceResult}
+          percentageFee={swapProQuoteResult?.fee?.percentageFee}
+          percentOriginFee={swapProQuoteResult?.fee?.percentOriginFee}
           onPress={
-            swapQuoteList.length > 1 ? handleOpenProviderList : undefined
+            swapProQuoteResult?.info.provider && swapQuoteList.length > 1
+              ? handleOpenProviderList
+              : undefined
           }
         />
       ) : null}

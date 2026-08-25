@@ -31,6 +31,10 @@ interface ISwapProviderInfoItemProps {
   percentOriginFee?: number;
   titleProps?: ISizableTextProps;
   valueProps?: ISizableTextProps;
+  // Denser badge and provider logo for tight layouts like Pro mode info rows
+  compact?: boolean;
+  // Placeholder rendered when no provider info is available yet (e.g. '--')
+  emptyValueText?: string;
 }
 
 const SwapProviderInfoItemTitleContent = ({
@@ -82,8 +86,16 @@ const SwapProviderInfoItem = ({
   percentOriginFee,
   titleProps,
   valueProps,
+  compact,
+  emptyValueText,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
+  const logoSize = compact ? '$4' : '$5';
+  const emptyValueComponent = emptyValueText ? (
+    <SizableText size="$bodyMdMedium" {...valueProps}>
+      {emptyValueText}
+    </SizableText>
+  ) : null;
   return (
     <XStack testID={testID} justifyContent="space-between" alignItems="center">
       <SwapProviderInfoItemTitleContentMemo
@@ -103,20 +115,27 @@ const SwapProviderInfoItem = ({
           onPress={onPress}
           cursor={onPress ? 'pointer' : undefined}
         >
-          {!providerIcon || !fromToken || !toToken ? null : (
+          {!providerIcon || !fromToken || !toToken ? (
+            emptyValueComponent
+          ) : (
             <>
               {isBest ? (
-                <Badge badgeSize="sm" badgeType="success" marginRight="$2">
+                <Badge
+                  badgeSize="sm"
+                  badgeType="success"
+                  marginRight="$2"
+                  {...(compact ? { px: '$1', py: 0 } : null)}
+                >
                   {intl.formatMessage({
                     id: ETranslations.global_best,
                   })}
                 </Badge>
               ) : null}
-              <Stack position="relative" w="$5" h="$5">
+              <Stack position="relative" w={logoSize} h={logoSize}>
                 <Image
                   source={{ uri: providerIcon }}
-                  w="$5"
-                  h="$5"
+                  w={logoSize}
+                  h={logoSize}
                   borderRadius="$1"
                 />
                 <Stack
