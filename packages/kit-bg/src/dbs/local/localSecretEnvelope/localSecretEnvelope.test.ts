@@ -8,6 +8,7 @@ import {
   rewrapLocalSecretEnvelopeV1,
   serializeLocalSecretEnvelopeV1,
   unwrapLocalSecretEnvelopeV1,
+  upgradeLocalSecretEnvelopeLayerTopologyV1,
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
@@ -675,6 +676,132 @@ describe('localSecretEnvelope wrapping pipeline', () => {
         resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
       }),
     ).resolves.toBe('|RP|new-current-kdf-payload');
+  });
+
+  it('adds a wrapping layer while preserving the existing key reference', async () => {
+    const calls: string[] = [];
+    const originalBaseAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'indexeddb-cryptokey',
+      keyRef: 'indexeddb:existing-device-key:v1',
+    });
+    const currentBaseAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'indexeddb-cryptokey',
+      keyRef: 'indexeddb:new-device-key:v1',
+    });
+    const enhancementAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'keychain',
+      keyRef: 'keychain:lse:v1',
+    });
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [originalBaseAdapter],
+      plaintext: '|RP|old-current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    calls.length = 0;
+
+    const upgradedEnvelope = await upgradeLocalSecretEnvelopeLayerTopologyV1({
+      envelope: originalEnvelope,
+      layerAdapters: [currentBaseAdapter, enhancementAdapter],
+      plaintext: '|RP|new-current-kdf-payload',
+      randomBytes: (length) => new Uint8Array(length).fill(8),
+      strength: 'secure-storage-bound',
+    });
+    const upgraded = parseLocalSecretEnvelopeV1(upgradedEnvelope);
+
+    expect(upgraded.wrappingLayers.map((layer) => layer.keyRef)).toEqual([
+      'indexeddb:existing-device-key:v1',
+      'keychain:lse:v1',
+    ]);
+    expect(upgraded.wrappingLayers[0].iv).toBe('080808080808080808080808');
+    expect(calls).toEqual([
+      'prepare:keychain:1',
+      'encrypt-existing:indexeddb-cryptokey:0',
+      'encrypt:keychain:1',
+    ]);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        resolveLayerAdapter: () => originalBaseAdapter,
+      }),
+    ).resolves.toBe('|RP|old-current-kdf-payload');
+    const adaptersByKind = new Map(
+      [currentBaseAdapter, enhancementAdapter].map((adapter) => [
+        adapter.kind,
+        adapter,
+      ]),
+    );
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: upgradedEnvelope,
+        resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
+      }),
+    ).resolves.toBe('|RP|new-current-kdf-payload');
+  });
+
+  it('cleans only newly prepared keys when a topology upgrade fails', async () => {
+    const calls: string[] = [];
+    const originalEnhancementAdapter = buildMockLayerAdapter({
+      calls,
+      kind: 'keychain',
+      keyRef: 'keychain:existing-key:v1',
+    });
+    const deleteNewBaseLayerKey = jest.fn();
+    const newBaseAdapter = {
+      ...buildMockLayerAdapter({
+        calls,
+        kind: 'indexeddb-cryptokey',
+        keyRef: 'indexeddb:new-device-key:v1',
+      }),
+      deleteLayerKey: deleteNewBaseLayerKey,
+    } satisfies ILocalSecretEnvelopeLayerAdapter;
+    const failingExistingEnhancementAdapter = {
+      ...buildMockLayerAdapter({
+        calls,
+        kind: 'keychain',
+        keyRef: 'keychain:unused-new-key:v1',
+      }),
+      encryptWithExistingKey: async () => {
+        throw new OneKeyLocalError('Mock existing-key encrypt failed');
+      },
+    } satisfies ILocalSecretEnvelopeLayerAdapter;
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [originalEnhancementAdapter],
+      plaintext: '|RP|old-current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    calls.length = 0;
+
+    await expect(
+      upgradeLocalSecretEnvelopeLayerTopologyV1({
+        envelope: originalEnvelope,
+        layerAdapters: [newBaseAdapter, failingExistingEnhancementAdapter],
+        plaintext: '|RP|new-current-kdf-payload',
+        strength: 'secure-storage-bound',
+      }),
+    ).rejects.toThrow('Mock existing-key encrypt failed');
+
+    expect(deleteNewBaseLayerKey).toHaveBeenCalledTimes(1);
+    expect(deleteNewBaseLayerKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layer: expect.objectContaining({
+          keyRef: 'indexeddb:new-device-key:v1',
+        }),
+        layerIndex: 0,
+      }),
+    );
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        resolveLayerAdapter: () => originalEnhancementAdapter,
+      }),
+    ).resolves.toBe('|RP|old-current-kdf-payload');
   });
 
   it('fails fast when a persisted layer has no available adapter', async () => {

@@ -172,6 +172,7 @@ import {
   rewrapLocalSecretEnvelopeV1,
   stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
+  upgradeLocalSecretEnvelopeLayerTopologyV1,
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
 import { EIndexedDBBucketNames } from './types';
@@ -1380,16 +1381,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
 
     if (canUpgradeSingleLayerEnvelope && writeConfig) {
+      const originalLayerKinds = new Set(
+        originalEnvelope.wrappingLayers.map((layer) => layer.kind),
+      );
+      const addedLayerAdapters = writeConfig.layerAdapters.filter(
+        (adapter) => !originalLayerKinds.has(adapter.kind),
+      );
       try {
         return {
-          credential: await wrapLocalSecretEnvelopeV1({
-            dataType: 'credential',
+          credential: await upgradeLocalSecretEnvelopeLayerTopologyV1({
+            envelope: originalCredential,
+            expectedDataType: 'credential',
+            expectedRecordId: credentialId,
             layerAdapters: writeConfig.layerAdapters,
             plaintext,
-            recordId: credentialId,
             strength: writeConfig.strength,
           }),
-          layerAdapters: writeConfig.layerAdapters,
+          layerAdapters: addedLayerAdapters,
         };
       } catch {
         // Preserve the readable legacy topology if adding the enhancement

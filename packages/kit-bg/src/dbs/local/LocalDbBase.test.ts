@@ -1050,18 +1050,20 @@ describe('LocalDbBase local secret envelope credentials', () => {
       userAddress: originalCredential.userAddress,
       agentName: originalCredential.agentName,
     });
+    const originalInnerCredential = encryptHyperLiquidAgentCredential({
+      credential: originalCredential,
+    });
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [oldBaseAdapter],
+      plaintext: originalInnerCredential,
+      recordId: credentialId,
+      strength: 'profile-bound',
+    });
     db.credentials = [
       {
         id: credentialId,
-        credential: await wrapLocalSecretEnvelopeV1({
-          dataType: 'credential',
-          layerAdapters: [oldBaseAdapter],
-          plaintext: encryptHyperLiquidAgentCredential({
-            credential: originalCredential,
-          }),
-          recordId: credentialId,
-          strength: 'profile-bound',
-        }),
+        credential: originalEnvelope,
       },
     ];
     jest
@@ -1090,13 +1092,17 @@ describe('LocalDbBase local secret envelope credentials', () => {
       'secure-storage',
     ]);
     expect(nextEnvelope.wrappingLayers[0].keyRef).toBe(
-      'indexeddb:next-hl-key:v1',
+      'indexeddb:old-hl-key:v1',
     );
-    expect(deleteBaseLayerKey).toHaveBeenCalledWith(
-      expect.objectContaining({
-        layer: expect.objectContaining({ keyRef: 'indexeddb:old-hl-key:v1' }),
+    expect(deleteBaseLayerKey).not.toHaveBeenCalled();
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        expectedDataType: 'credential',
+        expectedRecordId: credentialId,
+        resolveLayerAdapter: () => oldBaseAdapter,
       }),
-    );
+    ).resolves.toBe(originalInnerCredential);
     await expect(
       db.getHyperLiquidAgentCredential({
         userAddress: updatedCredential.userAddress,
@@ -1110,9 +1116,9 @@ describe('LocalDbBase local secret envelope credentials', () => {
     const oldBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
       keyRef: 'indexeddb:old-hl-key:v1',
     });
-    const cleanupNewBaseLayerKey = jest.fn();
+    const deleteExistingBaseLayerKey = jest.fn();
     const nextBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
-      deleteLayerKey: cleanupNewBaseLayerKey,
+      deleteLayerKey: deleteExistingBaseLayerKey,
       keyRef: 'indexeddb:next-hl-key:v1',
     });
     const failingEnhancementAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
@@ -1175,12 +1181,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(nextEnvelope.wrappingLayers[0].iv).not.toBe(
       originalEnvelope.wrappingLayers[0].iv,
     );
-    expect(cleanupNewBaseLayerKey).toHaveBeenCalledTimes(1);
-    expect(cleanupNewBaseLayerKey).toHaveBeenCalledWith(
-      expect.objectContaining({
-        layer: expect.objectContaining({ keyRef: 'indexeddb:next-hl-key:v1' }),
-      }),
-    );
+    expect(deleteExistingBaseLayerKey).not.toHaveBeenCalled();
     await expect(
       db.getHyperLiquidAgentCredential({
         userAddress: updatedCredential.userAddress,
@@ -3564,18 +3565,14 @@ describe('LocalDbBase.updatePassword', () => {
       rs: revealableSeed,
       password: oldPassword,
     });
-    db.credentials = [
-      {
-        id: 'hd-1',
-        credential: await wrapLocalSecretEnvelopeV1({
-          dataType: 'credential',
-          layerAdapters: [oldBaseAdapter],
-          plaintext: innerCredential,
-          recordId: 'hd-1',
-          strength: 'profile-bound',
-        }),
-      },
-    ];
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [oldBaseAdapter],
+      plaintext: innerCredential,
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    db.credentials = [{ id: 'hd-1', credential: originalEnvelope }];
     jest
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
       .mockResolvedValue({
@@ -3593,16 +3590,21 @@ describe('LocalDbBase.updatePassword', () => {
       'secure-storage',
     ]);
     expect(nextEnvelope.wrappingLayers[0].keyRef).toBe(
-      'indexeddb:next-device-key:v1',
+      'indexeddb:old-device-key:v1',
     );
-    expect(deleteBaseLayerKey).toHaveBeenCalledTimes(1);
-    expect(deleteBaseLayerKey).toHaveBeenCalledWith(
-      expect.objectContaining({
-        layer: expect.objectContaining({
-          keyRef: 'indexeddb:old-device-key:v1',
-        }),
-      }),
-    );
+    expect(deleteBaseLayerKey).not.toHaveBeenCalled();
+
+    const backupInnerCredential = await unwrapLocalSecretEnvelopeV1({
+      envelope: originalEnvelope,
+      expectedDataType: 'credential',
+      expectedRecordId: 'hd-1',
+      resolveLayerAdapter: () => oldBaseAdapter,
+    });
+    const backupResult = await decryptRevealableSeedWithMetadata({
+      password: oldPassword,
+      rs: backupInnerCredential,
+    });
+    expect(backupResult.plaintext).toEqual(revealableSeed);
 
     const nextInnerCredential = await db.getCredentialInner({
       credentialId: 'hd-1',
