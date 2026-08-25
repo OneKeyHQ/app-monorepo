@@ -164,3 +164,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `getCompatibleConnectId` triggered the USB→BLE pairing repair purely from DB bookkeeping (device record missing `bleConnectId` — recreated that way by a USB wallet creation after wallet removal deleted the record), never recognizing the caller's incoming connectId as the live BLE endpoint. DB binding state is neither necessary nor sufficient evidence of OS pairing state.
 **Fix**: Before the dialog fallback, silently verify and persist the caller-held connectId, gated by runtime evidence: id differs from the record's USB identifiers, carried real device traffic within 60s (stamped by DEVICE.STATE/DEVICE.CONNECT, invalidated on DEVICE.DISCONNECT), probed with silentMode (no global error dialog from error constructors), a bounded 10s timeout, and the session's remembered protocol pinned (forced re-detection sends a V2 Ping into an active V1 session, which the device may not answer — SDK error 713); the probed deviceId must match before persisting.
 **Catchable by**: NEW — not covered (interactive dialog triggered from persistence bookkeeping instead of live transport evidence)
+
+## Case: Daily backup advanced its throttle while agent-secret scrub failed
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; canBackup() targets only)
+**Symptom**: Review finding on PR #12990 — stale (possibly plaintext |HLP|) HyperLiquid agent credential rows could stay in the backupAccount bucket forever: scrub failures were logged and swallowed, then the put-by-id daily snapshot completed and advanced lastDBBackupTime.
+**Root Cause**: `removeBackupHyperLiquidAgentCredentials` reported nothing, so `_backupDatabaseDaily` could not distinguish a clean scrub from a failed one, and the snapshot itself never deletes stale rows (put-by-id).
+**Fix**: The scrub returns a boolean (true only when both bucket and legacy branches succeed); a failed scrub skips the snapshot without touching lastDBBackupTime, so the 24h window is not consumed and the attempt retries.
+**Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup feeding a state-advancing step must report its outcome)
+
+## Case: One undecryptable agent credential aborted the whole Perps status batch
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime)
+**Symptom**: Review finding on PR #12990 — after agent credentials moved to session-encrypted storage, a single unreadable credential (locked session or transient LSE layer outage) made the `checkAgentStatus` Promise.all reject, skipped remaining status checks, and popped one error toast per failing agent during Perps polling.
+**Root Cause**: `getHyperLiquidAgentCredentialInfo` propagated new throw paths (session getKeyOrThrow, LocalSecretEnvelopeUnavailable, durable-upgrade write) that the legacy decrypt path had surfaced as `undefined`, while the caller and its `@toastIfError` decorator were built around the never-throw contract.
+**Fix**: The info getter catches read errors, logs, and returns `undefined` (restoring the graceful re-approval flow); `@toastIfError` was removed from this polled getter. The signing path stays fail-closed.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (an error-contract change must be audited at every call site)

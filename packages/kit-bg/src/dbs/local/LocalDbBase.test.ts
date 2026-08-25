@@ -124,6 +124,10 @@ class TestLocalDb extends LocalDbBase {
 
   removeBackupHyperLiquidAgentCredentials = jest.fn(async () => undefined);
 
+  getCachedPasswordMock = jest.fn(
+    async (): Promise<string | undefined> => undefined,
+  );
+
   buildCreateResultCalls: {
     walletId: string;
     withoutRefillWallet?: boolean;
@@ -137,6 +141,9 @@ class TestLocalDb extends LocalDbBase {
         backupDatabaseDaily: jest.fn(async () => undefined),
         removeBackupHyperLiquidAgentCredentials:
           this.removeBackupHyperLiquidAgentCredentials,
+      },
+      servicePassword: {
+        getCachedPassword: this.getCachedPasswordMock,
       },
       servicePrimeCloudSync: {
         syncManagers: {
@@ -2762,6 +2769,95 @@ describe('LocalDbBase HyperLiquid agent password session', () => {
     });
     expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
 
+    const storedCredential = db.credentials[0].credential;
+    expect(isLocalSecretEnvelopeString(storedCredential)).toBe(true);
+    expect(parseLocalSecretEnvelopeV1(storedCredential).innerPrefix).toBe(
+      '|HLE|',
+    );
+    expect(storedCredential).not.toContain(credential.privateKey);
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toEqual(credential);
+  });
+
+  it('skips session derivation on unlock when no agent credentials exist', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.credentials = [];
+
+    await db.unlockHyperLiquidAgentSecretSession({
+      password,
+      skipWhenNoCredentials: true,
+    });
+
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+  });
+
+  it('clears a stale session when replacing the password with no agent credentials', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-stale-session-salt',
+    });
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const otherPassword = await encodePasswordAsync({
+      password: 'new-password',
+    });
+    db.credentials = [];
+
+    await db.unlockHyperLiquidAgentSecretSession({ password });
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
+
+    await db.unlockHyperLiquidAgentSecretSession({
+      password: otherPassword,
+      replaceSessionKey: true,
+      skipWhenNoCredentials: true,
+    });
+
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+  });
+
+  it('establishes the session on demand when adding the first agent credential', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-on-demand-init-salt',
+    });
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.credentials = [];
+    db.getCachedPasswordMock.mockResolvedValue(password);
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const credential = {
+      userAddress: '0x3333333333333333333333333333333333333333',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x4444444444444444444444444444444444444444',
+      validUntil: 2_000_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+
+    await expect(
+      db.addHyperLiquidAgentCredential({ credential }),
+    ).resolves.toEqual({ credentialId });
+
+    expect(db.getCachedPasswordMock).toHaveBeenCalled();
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
     const storedCredential = db.credentials[0].credential;
     expect(isLocalSecretEnvelopeString(storedCredential)).toBe(true);
     expect(parseLocalSecretEnvelopeV1(storedCredential).innerPrefix).toBe(

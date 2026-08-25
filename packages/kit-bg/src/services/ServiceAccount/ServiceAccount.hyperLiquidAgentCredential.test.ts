@@ -17,6 +17,17 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getCredentialSafe: jest.fn(),
+    getHyperLiquidAgentCredential: jest.fn(),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      error: {
+        log: jest.fn(),
+      },
+    },
   },
 }));
 
@@ -26,15 +37,33 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import ServiceAccount from './ServiceAccount';
 
-const mockGetCredentialSafe = (
+const localDbMock = (
   jest.requireMock('../../dbs/local/localDb') as {
     default: {
       getCredentialSafe: jest.MockedFunction<
         (credentialId: string) => Promise<unknown>
       >;
+      getHyperLiquidAgentCredential: jest.MockedFunction<
+        (params: {
+          userAddress: string;
+          agentName: EHyperLiquidAgentName;
+        }) => Promise<ICoreHyperLiquidAgentCredential | undefined>
+      >;
     };
   }
-).default.getCredentialSafe;
+).default;
+
+const mockGetCredentialSafe = localDbMock.getCredentialSafe;
+const mockGetHyperLiquidAgentCredential =
+  localDbMock.getHyperLiquidAgentCredential;
+
+const mockAppErrorLog = (
+  jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
+    defaultLogger: {
+      app: { error: { log: jest.MockedFunction<(msg: string) => void> } };
+    };
+  }
+).defaultLogger.app.error.log;
 
 const credential: ICoreHyperLiquidAgentCredential = {
   userAddress: '0x1111111111111111111111111111111111111111',
@@ -89,5 +118,61 @@ describe('ServiceAccount HyperLiquid agent credential upsert', () => {
     ).resolves.toEqual({ credentialId });
     expect(mockGetCredentialSafe).toHaveBeenCalledWith(credentialId);
     expect(update).toHaveBeenCalledWith(credential);
+  });
+});
+
+describe('ServiceAccount getHyperLiquidAgentCredentialInfo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns undefined instead of rejecting when the credential read throws', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    mockGetHyperLiquidAgentCredential.mockRejectedValue(
+      new Error(
+        'HyperLiquid agent secret session is unavailable; unlock the app again',
+      ),
+    );
+
+    await expect(
+      service.getHyperLiquidAgentCredentialInfo({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockAppErrorLog).toHaveBeenCalledWith(
+      'HyperLiquid agent credential info read failed',
+    );
+  });
+
+  it('returns credential info without the private key when the read succeeds', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    mockGetHyperLiquidAgentCredential.mockResolvedValue(credential);
+
+    const info = await service.getHyperLiquidAgentCredentialInfo({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+
+    expect(info).toEqual({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+      agentAddress: credential.agentAddress,
+      validUntil: credential.validUntil,
+    });
+    expect(info).not.toHaveProperty('privateKey');
+  });
+
+  it('returns undefined when no credential exists', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    mockGetHyperLiquidAgentCredential.mockResolvedValue(undefined);
+
+    await expect(
+      service.getHyperLiquidAgentCredentialInfo({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockAppErrorLog).not.toHaveBeenCalled();
   });
 });

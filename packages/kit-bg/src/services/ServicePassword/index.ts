@@ -796,6 +796,10 @@ export default class ServicePassword extends ServiceBase {
         migrateCredentials,
         password,
         replaceSessionKey,
+        // Lazy initialization: skip the expensive session key derivation on
+        // unlock for users without any HyperLiquid agent credentials; the
+        // session is established on demand when the first credential is added.
+        skipWhenNoCredentials: true,
       });
     } catch {
       // Wallet unlock must remain available if the Perps-only session cannot

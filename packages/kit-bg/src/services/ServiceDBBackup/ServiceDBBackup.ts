@@ -165,9 +165,10 @@ class ServiceDBBackup extends ServiceBase {
     credentialIds,
   }: {
     credentialIds?: string[];
-  } = {}) {
+  } = {}): Promise<boolean> {
     if (!this.canBackup()) {
-      return;
+      // No backup DB exists on this platform, so there is nothing to clean.
+      return true;
     }
 
     const credentialIdSet = credentialIds?.length
@@ -176,6 +177,8 @@ class ServiceDBBackup extends ServiceBase {
     const shouldRemove = (credentialId: string) =>
       accountUtils.isHyperLiquidAgentCredentialId({ credentialId }) &&
       (!credentialIdSet || credentialIdSet.has(credentialId));
+
+    let cleaned = true;
 
     try {
       const nativeDb = (await this.backgroundApi.localDb
@@ -205,6 +208,7 @@ class ServiceDBBackup extends ServiceBase {
         );
       }
     } catch {
+      cleaned = false;
       defaultLogger.app.error.log(
         'Bucket backup HyperLiquid credential cleanup failed',
       );
@@ -225,10 +229,13 @@ class ServiceDBBackup extends ServiceBase {
         ),
       );
     } catch {
+      cleaned = false;
       defaultLogger.app.error.log(
         'Legacy backup HyperLiquid credential cleanup failed',
       );
     }
+
+    return cleaned;
   }
 
   _backupDatabaseDailyPromise: Promise<void> | undefined;
@@ -260,7 +267,14 @@ class ServiceDBBackup extends ServiceBase {
     // Agent credentials are device-bound signing secrets. They must never be
     // copied into the recovery backup, even when protected by LSE, because its
     // local key material is intentionally not portable.
-    await this.removeBackupHyperLiquidAgentCredentials();
+    const agentCredentialsCleaned =
+      await this.removeBackupHyperLiquidAgentCredentials();
+    if (!agentCredentialsCleaned) {
+      // The snapshot below uses put-by-id and cannot remove stale agent rows,
+      // so a failed cleanup must skip the backup (without touching
+      // lastDBBackupTime) and be retried instead of preserving those rows.
+      return;
+    }
 
     // Data-safety gate. The daily backup overwrites the previous backup bucket
     // in place (migrateRecords uses put-by-id, see migrateRecordsFn.ts), so

@@ -1924,7 +1924,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async getHyperLiquidAgentCredentialInfo({
     userAddress,
     agentName,
@@ -1932,10 +1931,22 @@ class ServiceAccount extends ServiceBase {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
   }): Promise<Omit<ICoreHyperLiquidAgentCredential, 'privateKey'> | undefined> {
-    const credential = await localDb.getHyperLiquidAgentCredential({
-      userAddress,
-      agentName,
-    });
+    // Status checks treat a missing/unreadable credential as `undefined` so the
+    // caller can gracefully fall back to the re-approval flow. The signing path
+    // (WalletHyperliquidProxy -> localDb.getHyperLiquidAgentCredential) stays
+    // fail-closed and is intentionally NOT affected by this catch.
+    let credential: ICoreHyperLiquidAgentCredential | undefined;
+    try {
+      credential = await localDb.getHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+      });
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent credential info read failed',
+      );
+      return undefined;
+    }
     if (!credential) {
       return undefined;
     }
