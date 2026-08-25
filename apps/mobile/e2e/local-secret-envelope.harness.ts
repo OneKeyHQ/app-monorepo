@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'react-native-harness';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter,
   deleteMmkvProfileKeyForLocalSecretEnvelope,
@@ -16,6 +17,14 @@ const TEST_MMKV_KEY_REF = 'onekey_lse_e2e_mmkv_profile_key_v1';
 const TEST_RECORD_ID = 'lse-native-harness-record';
 const TEST_AAD = 'lse-native-harness-aad';
 const TEST_PLAINTEXT = 'native-lse-secret';
+
+function getDevOnlyPassword(): string {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}${month}${day}-onekey-debug`;
+}
 
 function errorToMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -37,6 +46,39 @@ async function expectRejects(fn: () => Promise<unknown>): Promise<string> {
 }
 
 describe('Local Secret Envelope native secure-storage layer', () => {
+  test('migrates and signs a legacy HyperLiquid Agent credential through the background LocalDB', async () => {
+    const report =
+      await backgroundApiProxy.serviceE2E.runHyperLiquidAgentMigrationSelfTest(
+        {
+          $$devOnlyPassword: getDevOnlyPassword(),
+        },
+        {
+          expectedCredentialLayerKinds: ['mmkv-profile-key', 'secure-storage'],
+          expectedRuntimePlatform: 'native',
+          expectedStrength: 'secure-storage-bound',
+        },
+      );
+    const failedCheckpoints = report.checkpoints.filter(
+      (checkpoint) => checkpoint.status === 'failed',
+    );
+
+    expect(failedCheckpoints).toEqual([]);
+    expect(report.passed).toBe(true);
+    expect(report.runtimePlatform).toBe('native');
+    expect(report.summary?.legacySourceStored).toBe(true);
+    expect(report.summary?.rawCredentialIsLse).toBe(true);
+    expect(report.summary?.expectedInnerPrefix).toBe('|HLP|');
+    expect(report.summary?.migratedInnerPrefix).toBe('|HLP|');
+    expect(report.summary?.credentialLayerKinds).toEqual([
+      'mmkv-profile-key',
+      'secure-storage',
+    ]);
+    expect(report.summary?.credentialStrength).toBe('secure-storage-bound');
+    expect(report.summary?.privateKeyAbsentFromEnvelope).toBe(true);
+    expect(report.summary?.readBackMatches).toBe(true);
+    expect(report.summary?.signatureVerified).toBe(true);
+  });
+
   test('composes the MMKV base layer before native secure storage', async () => {
     localSecretEnvelopeService.clearCapabilityCache();
     const config =
