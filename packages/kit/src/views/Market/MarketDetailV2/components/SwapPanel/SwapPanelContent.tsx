@@ -344,14 +344,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <SwapProviderInfoItem
           providerIcon={quoteResult?.info.providerLogo ?? ''}
           providerName={quoteResult?.info.providerName ?? ''}
-          emptyValueText="--"
+          showEmptyPlaceholder
           fromToken={quoteResult?.fromTokenInfo}
           toToken={quoteResult?.toTokenInfo}
-          showLock={!!quoteResult?.allowanceResult}
           percentageFee={quoteResult?.fee?.percentageFee}
           percentOriginFee={quoteResult?.fee?.percentOriginFee}
           onPress={
-            quoteLoading || quoteListLength <= 1 || !quoteResult?.info.provider
+            quoteLoading || quoteListLength <= 1
               ? undefined
               : onOpenProviderList
           }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,15 +14,17 @@ import { useSwapProTradeTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
-import SwapProTokenTransactionItem from '../../components/SwapProTokenTransactionItem';
+import SwapProTokenTransactionItem, {
+  SWAP_PRO_TRANSACTION_ITEM_HEIGHT as ROW_HEIGHT,
+} from '../../components/SwapProTokenTransactionItem';
 import { SwapTestIDs } from '../../testIDs';
 
 import type { ISwapProMarketData } from '../../utils/swapProMarketDataUtils';
+import type { LayoutChangeEvent } from 'react-native';
 
-const ROW_HEIGHT = 22;
-// The last row may overhang the container by its 3px bottom padding
-// (SwapProTokenTransactionItem py={3}) plus ~3px of empty descender space in
-// its digits-only text box without clipping visible glyphs.
+// The last row may overhang the container by ~6px without clipping visible
+// glyphs: its digits-only 16px text box sits centered in the 22px row, leaving
+// ~3px of slack on each side plus descender-free space at the bottom.
 const LAST_ROW_CLIP_TOLERANCE = 6;
 
 const SwapProTokenTransactionList = ({
@@ -33,6 +35,11 @@ const SwapProTokenTransactionList = ({
   const intl = useIntl();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [listHeight, setListHeight] = useState(0);
+  const handleListLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    // Ignore sub-pixel jitter to avoid layout/render feedback loops
+    setListHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+  }, []);
 
   // Baseline row caps per trade-type layout; the list container then flexes
   // into whatever extra height the taller trading column gives this column,
@@ -65,7 +72,7 @@ const SwapProTokenTransactionList = ({
     transactionListContent = (
       <YStack>
         {Array.from({ length: maxRows }).map((_, index) => (
-          <Skeleton w="100%" h={22} radius="square" key={index} />
+          <Skeleton w="100%" h={ROW_HEIGHT} radius="square" key={index} />
         ))}
       </YStack>
     );
@@ -124,11 +131,7 @@ const SwapProTokenTransactionList = ({
         flex={1}
         minHeight={baseRows * ROW_HEIGHT}
         overflow="hidden"
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          // Ignore sub-pixel jitter to avoid layout/render feedback loops
-          setListHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
-        }}
+        onLayout={handleListLayout}
       >
         {/* Rows paint into an absolute layer so however many are rendered
             they never feed back into the left column's measured height; the

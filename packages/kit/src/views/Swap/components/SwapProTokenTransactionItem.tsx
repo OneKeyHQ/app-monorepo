@@ -9,6 +9,10 @@ interface ISwapProTokenTransactionItemProps {
   item: IMarketTokenTransaction;
 }
 
+// Enforced row height; SwapProTokenTransactionList derives its adaptive row
+// count from this value.
+export const SWAP_PRO_TRANSACTION_ITEM_HEIGHT = 22;
+
 const FALLBACK_DISPLAY = '-';
 
 const isValidNumericValue = (value: unknown): boolean => {
@@ -87,7 +91,11 @@ const SwapProTokenTransactionItem = ({
     item.type,
   ]);
   return (
-    <XStack alignItems="center" justifyContent="space-between" py={3}>
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      h={SWAP_PRO_TRANSACTION_ITEM_HEIGHT}
+    >
       {formatPrice}
       {formatTokenValue}
     </XStack>

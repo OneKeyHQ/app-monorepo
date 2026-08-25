@@ -220,16 +220,13 @@ const SwapProTradeInfoGroup = ({
           titleProps={ITEM_TITLE_PROPS}
           valueProps={ITEM_VALUE_PROPS}
           compact
-          emptyValueText="--"
+          showEmptyPlaceholder
           fromToken={inputToken}
           toToken={toToken}
-          showLock={!!swapProQuoteResult?.allowanceResult}
           percentageFee={swapProQuoteResult?.fee?.percentageFee}
           percentOriginFee={swapProQuoteResult?.fee?.percentOriginFee}
           onPress={
-            swapProQuoteResult?.info.provider && swapQuoteList.length > 1
-              ? handleOpenProviderList
-              : undefined
+            swapQuoteList.length > 1 ? handleOpenProviderList : undefined
           }
         />
       ) : null}

@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapServiceFeeOverview } from './SwapServiceFeeOverview';
@@ -23,7 +24,6 @@ interface ISwapProviderInfoItemProps {
   toToken?: ISwapToken;
   providerIcon: string;
   providerName: string;
-  showLock?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
   testID?: string;
@@ -31,10 +31,11 @@ interface ISwapProviderInfoItemProps {
   percentOriginFee?: number;
   titleProps?: ISizableTextProps;
   valueProps?: ISizableTextProps;
-  // Denser badge and provider logo for tight layouts like Pro mode info rows
+  // Smaller provider logo for tight layouts like Pro mode info rows
   compact?: boolean;
-  // Placeholder rendered when no provider info is available yet (e.g. '--')
-  emptyValueText?: string;
+  // Show an '--' placeholder (instead of nothing) while no provider info is
+  // available; the row is not pressable in that state
+  showEmptyPlaceholder?: boolean;
 }
 
 const SwapProviderInfoItemTitleContent = ({
@@ -78,7 +79,6 @@ const SwapProviderInfoItem = ({
   toToken,
   providerIcon,
   providerName,
-  showLock: _showLock,
   onPress,
   isLoading,
   testID,
@@ -87,15 +87,12 @@ const SwapProviderInfoItem = ({
   titleProps,
   valueProps,
   compact,
-  emptyValueText,
+  showEmptyPlaceholder,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   const logoSize = compact ? '$4' : '$5';
-  const emptyValueComponent = emptyValueText ? (
-    <SizableText size="$bodyMdMedium" {...valueProps}>
-      {emptyValueText}
-    </SizableText>
-  ) : null;
+  const isEmpty = !providerIcon || !fromToken || !toToken;
+  const pressHandler = isEmpty ? undefined : onPress;
   return (
     <XStack testID={testID} justifyContent="space-between" alignItems="center">
       <SwapProviderInfoItemTitleContentMemo
@@ -111,21 +108,19 @@ const SwapProviderInfoItem = ({
         <XStack
           alignItems="center"
           userSelect="none"
-          hoverStyle={onPress ? { opacity: 0.5 } : undefined}
-          onPress={onPress}
-          cursor={onPress ? 'pointer' : undefined}
+          hoverStyle={pressHandler ? { opacity: 0.5 } : undefined}
+          onPress={pressHandler}
+          cursor={pressHandler ? 'pointer' : undefined}
         >
-          {!providerIcon || !fromToken || !toToken ? (
-            emptyValueComponent
-          ) : (
+          {isEmpty && showEmptyPlaceholder ? (
+            <SizableText size="$bodyMdMedium" {...valueProps}>
+              {UNAVAILABLE_DISPLAY}
+            </SizableText>
+          ) : null}
+          {isEmpty ? null : (
             <>
               {isBest ? (
-                <Badge
-                  badgeSize="sm"
-                  badgeType="success"
-                  marginRight="$2"
-                  {...(compact ? { px: '$1', py: 0 } : null)}
-                >
+                <Badge badgeSize="sm" badgeType="success" marginRight="$2">
                   {intl.formatMessage({
                     id: ETranslations.global_best,
                   })}
@@ -155,7 +150,7 @@ const SwapProviderInfoItem = ({
               </SizableText>
             </>
           )}
-          {onPress ? (
+          {pressHandler ? (
             <Icon
               name="ChevronRightSmallOutline"
               size="$5"
