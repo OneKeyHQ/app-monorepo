@@ -30,7 +30,9 @@ export const CONNECTING_TEXT = {
 
 /**
  * Failure copy by reason, each with its single recovery action. The stage
- * ends on the surface it played on: no toast, no second dialog.
+ * ends on the surface it played on: no toast, no second dialog. The
+ * actionless notice shape speaks the title alone, as the capsule; `sub`
+ * and `action` go unworn there.
  */
 export const ERROR_TEXT: Record<
   IDeviceStageErrorReason | 'generic',
@@ -421,6 +423,8 @@ export const STEP_POSE: Record<
   authVerifying: 'card',
   authSuccess: 'card',
   authFailure: 'card',
+  // The ask shape's rest pose. The actionless notice rests as the
+  // capsule instead — a prop-dependent fact the engine derives itself.
   error: 'card',
   // Third-party: the passive vendor events stay in the capsule — the
   // person acts on the physical device, nothing is asked in the app —
@@ -499,13 +503,23 @@ export function resolvePassphrasePanelText(
  * the flow spec's connecting-capsule pairing, kept. The vendor track
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. Only
- * capsule-pose steps reach here, so the titles are parameter-free. */
+ * capsule-pose steps reach here — including the actionless error, the
+ * notice, which speaks its reason's title alone on either track. */
 export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
   deviceName?: string,
   vendor?: 'ledger' | 'trezor',
+  errorReason?: IDeviceStageErrorReason,
 ): { title: string; sub: string } {
+  if (step === 'error') {
+    return {
+      title: intl.formatMessage({
+        id: ERROR_TEXT[errorReason ?? 'generic'].title,
+      }),
+      sub: '',
+    };
+  }
   if (vendor) {
     return {
       title: intl.formatMessage({
