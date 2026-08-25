@@ -14,6 +14,7 @@ import {
   isBlePairAvailable,
   startRawAdvertisementWatch,
 } from './BlePair';
+import type { IPairCeremonyToken } from './BlePair';
 import { trezorBleFlags } from './trezorBleFlags';
 
 import type {
@@ -106,7 +107,12 @@ export function createTrezorBlePairingIpcMain(
     startRawAdvertisementWatch(seconds, reason);
   };
 
+  // Set when a ceremony registers, so a dialog left open by an earlier attempt
+  // answers nothing instead of answering the attempt that replaced it.
+  let ceremonyToken: IPairCeremonyToken | undefined;
+
   const showPin = (pin: string) => {
+    const dialogToken = ceremonyToken;
     // The host's half of the numeric comparison: the helper holds the pairing
     // request open until we answer. Declining is what tells the device over SMP.
     const shownAt = Date.now();
@@ -136,7 +142,7 @@ export function createTrezorBlePairingIpcMain(
             Date.now() - shownAt
           }ms`,
         );
-        const delivered = decideActivePairing(decision);
+        const delivered = decideActivePairing(decision, dialogToken);
         if (!delivered) {
           logger.warn(
             `[TrezorBLE] pin dialog '${decision}' had no ceremony to answer (already settled)`,
@@ -191,6 +197,9 @@ export function createTrezorBlePairingIpcMain(
       address,
       showPin,
       trezorBleFlags.pairKeepLink,
+      (token) => {
+        ceremonyToken = token;
+      },
     );
     const claimed = pairing.catch(() => undefined);
     pairingInFlight = claimed;

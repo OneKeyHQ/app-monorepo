@@ -126,6 +126,10 @@ function runHelper(
       if (settled) return;
       if (decision === 'cancel') {
         lockReason(PAIR_CANCELLED_REASON);
+      } else {
+        // The deadline covers the user, not WinRT: PairAsync can take a while after
+        // Accept, and killing it then would report a confirmed pairing as failed.
+        clearTimeout(timer);
       }
       child.stdin?.write(`${decision}\n`, (error) => {
         if (!error) return;
@@ -213,16 +217,28 @@ function runHelper(
 /** The host's half of the BLE numeric comparison. */
 export type IPairDecision = 'confirm' | 'cancel';
 
-// Only `pair` registers here.
-let decideActivePair: ((decision: IPairDecision) => void) | null = null;
+// Only `pair` registers here. The token identifies which ceremony a decision is
+// answering: a dialog left open by an earlier attempt must not answer a later one,
+// and an earlier attempt settling must not clear the callback of a later one.
+export type IPairCeremonyToken = number;
+let ceremonySeq = 0;
+let activeCeremony: {
+  token: IPairCeremonyToken;
+  decide: (decision: IPairDecision) => void;
+} | null = null;
 
 /**
- * Answer the in-flight OS pairing ceremony. Returns false when none is waiting.
+ * Answer the in-flight OS pairing ceremony. Returns false when none is waiting,
+ * or when `token` belongs to a ceremony that has already settled.
  */
-export function decideActivePairing(decision: IPairDecision): boolean {
-  const decide = decideActivePair;
-  if (!decide) return false;
-  decide(decision);
+export function decideActivePairing(
+  decision: IPairDecision,
+  token?: IPairCeremonyToken,
+): boolean {
+  const current = activeCeremony;
+  if (!current) return false;
+  if (token !== undefined && token !== current.token) return false;
+  current.decide(decision);
   return true;
 }
 
@@ -239,7 +255,9 @@ export async function ensureDevicePaired(
   address: string,
   onPin: (pin: string) => void,
   keepLink = false,
+  onCeremonyToken?: (token: IPairCeremonyToken) => void,
 ): Promise<'paired' | 'already-paired'> {
+  let ownToken: IPairCeremonyToken | undefined;
   const args = ['pair', '--address', address];
   if (keepLink) {
     // Leave the BLE link up after bonding instead of closing it — the other half
@@ -254,10 +272,16 @@ export async function ensureDevicePaired(
       }
     },
     (decide) => {
-      decideActivePair = decide;
+      ceremonySeq += 1;
+      const token = ceremonySeq;
+      ownToken = token;
+      activeCeremony = { token, decide };
+      onCeremonyToken?.(token);
     },
   ).finally(() => {
-    decideActivePair = null;
+    if (activeCeremony?.token === ownToken) {
+      activeCeremony = null;
+    }
   });
   if (events.some((e) => e.type === 'paired')) {
     return 'paired';
