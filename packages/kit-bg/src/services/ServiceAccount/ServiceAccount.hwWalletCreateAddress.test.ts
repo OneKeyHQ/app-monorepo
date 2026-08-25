@@ -190,8 +190,8 @@ describe('ServiceAccount hardware wallet creation address', () => {
     expect(getDeviceState).not.toHaveBeenCalled();
   });
 
-  it('创建 Pro2 隐藏钱包时仍读取实时设备状态', async () => {
-    const liveState = {
+  it('创建 Pro2 隐藏钱包时复用已同步的 post-unlock 状态', async () => {
+    const postUnlockState = {
       schemaVersion: 1,
       revision: 2,
       updatedAt: 2,
@@ -210,7 +210,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
         firmware: '1.0.0',
       },
     };
-    const getDeviceState = jest.fn().mockResolvedValue(liveState);
+    const getDeviceState = jest.fn();
     const service = new ServiceAccount({
       backgroundApi: {
         serviceHardware: {
@@ -224,14 +224,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
         dbDevice: {
           vendor: EHardwareVendor.onekey,
           connectProtocol: 'V2',
-          deviceStateInfo: {
-            ...liveState,
-            revision: 1,
-            identity: {
-              ...liveState.identity,
-              deviceId: 'STALE_DEVICE_ID',
-            },
-          },
+          deviceStateInfo: postUnlockState,
         },
         compatibleConnectId: 'PRO2_USB',
       }),
@@ -240,9 +233,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
       deviceId: 'PRO2_DEVICE_ID',
     });
 
-    expect(getDeviceState).toHaveBeenCalledWith({
-      connectId: 'PRO2_USB',
-    });
+    expect(getDeviceState).not.toHaveBeenCalled();
   });
 
   it('derives a OneKey hidden wallet address from its passphrase state', async () => {

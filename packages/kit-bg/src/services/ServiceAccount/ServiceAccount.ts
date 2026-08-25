@@ -3545,16 +3545,14 @@ class ServiceAccount extends ServiceBase {
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
-      const protocol = dbDevice.connectProtocol ?? persistedState?.protocol;
-      // Pro 1 already opened the hidden-wallet session in the previous step.
-      // Reading live state without its passphrase context would restore the
-      // standard Protocol V1 session and prompt again while deriving the XFP.
+      // Hidden-wallet creation has already waited for the post-unlock
+      // DEVICE.STATE snapshot. Reuse it here so Protocol V1 keeps its active
+      // passphrase session and Protocol V2 avoids a duplicate status read.
       const state =
-        protocol === 'V1' && persistedState
-          ? persistedState
-          : await this.backgroundApi.serviceHardware.getDeviceState({
-              connectId: compatibleConnectId,
-            });
+        persistedState ||
+        (await this.backgroundApi.serviceHardware.getDeviceState({
+          connectId: compatibleConnectId,
+        }));
       features = projectLegacyDeviceFeaturesFromState(state);
     }
     if (features) {
