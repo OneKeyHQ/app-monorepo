@@ -2,7 +2,10 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
 import {
@@ -280,18 +283,21 @@ export class KeyringQr extends KeyringQrBase {
             const offchainVersion = (
               payload as { payload?: { version?: number } }
             ).payload?.version;
-            if (offchainVersion === 1) {
+            const versionKind = classifyOffchainMessageVersion(offchainVersion);
+            if (versionKind === 'v1') {
               throw new OneKeyLocalError(
                 appLocale.intl.formatMessage({
                   id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
                 }),
               );
             }
-            // Anything else would go down the version 0 path without telling the
-            // firmware which version it is, so it would be signed as version 0.
-            if (offchainVersion !== undefined && offchainVersion !== 0) {
+            // Only version 0 is passed on: nothing below tells the device which
+            // version this is, so anything else would be signed as version 0.
+            if (versionKind === 'unsupported') {
               throw new OneKeyLocalError(
-                `sol offchain message: unsupported version ${offchainVersion}`,
+                `sol offchain message: unsupported version ${String(
+                  offchainVersion,
+                )}`,
               );
             }
             const format = OffchainMessage.guessMessageFormat(

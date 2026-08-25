@@ -5,7 +5,10 @@ import bs58 from 'bs58';
 import { isArray } from 'lodash';
 import isString from 'lodash/isString';
 
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import {
   backgroundClass,
   providerApiMethod,
@@ -68,11 +71,6 @@ function decodeRequiredSigners(requiredSigners: string[]): Uint8Array[] {
 // The spec sets no ceiling; this only keeps a dapp from handing the signer an unbounded body.
 const MAX_OFFCHAIN_MESSAGE_V1_BYTES = 1024 * 1024;
 const MAX_OFFCHAIN_MESSAGE_V1_SIGNERS = 255;
-
-// Versions the wallet actually implements. Anything else must be rejected: an unknown version
-// otherwise falls into the version 0 branch, and hardware and QR never pass a message version
-// down, so they would sign it as version 0 bytes the dapp cannot verify.
-const SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS = new Set([undefined, 0, 1]);
 
 function buildOffchainMessageV1Bytes(
   message: string,
@@ -315,13 +313,14 @@ class ProviderApiSolana extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
 
-    if (!SUPPORTED_OFFCHAIN_MESSAGE_VERSIONS.has(params.version)) {
+    const versionKind = classifyOffchainMessageVersion(params.version);
+    if (versionKind === 'unsupported') {
       throw web3Errors.rpc.invalidParams(
         'unsupported offchain message version',
       );
     }
 
-    if (params.version === 1) {
+    if (versionKind === 'v1') {
       const { message, requiredSigners } = params;
 
       if (!isString(message) || message.length === 0) {

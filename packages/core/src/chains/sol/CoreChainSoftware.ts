@@ -27,7 +27,10 @@ import {
   type ISignedTxPro,
 } from '../../types';
 
-import { OffchainMessage } from './sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from './sdkSol/OffchainMessage';
 import { parseToNativeTx } from './sdkSol/parse';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
@@ -157,8 +160,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const { message, payload: messagePayload } = unsignedMsg;
 
       // Version 0 and version 1 have incompatible wire formats, so dispatch explicitly.
-      // Anything that is not version 1 stays on the version 0 path it has always used.
-      if (messagePayload?.version === 1) {
+      const versionKind = classifyOffchainMessageVersion(
+        messagePayload?.version,
+      );
+      if (versionKind === 'v1') {
         const requiredSigners = messagePayload.requiredSigners.map((signer_) =>
           bs58.decode(signer_),
         );
@@ -187,17 +192,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         return bs58.encode(signature);
       }
 
-      // serialize() would refuse this too, but only as "invalid message" — say which
-      // versions exist instead.
-      const version = messagePayload?.version;
-      if (version !== undefined && version !== 0) {
+      if (versionKind === 'unsupported') {
         throw new OneKeyLocalError(
-          `sol offchain message: unsupported version ${version}`,
+          `sol offchain message: unsupported version ${String(
+            messagePayload?.version,
+          )}`,
         );
       }
 
       const offchainMessage = new OffchainMessage({
-        version,
+        version: messagePayload?.version,
         message: Buffer.from(message),
       });
       const [signature] = await signer.sign(offchainMessage.serialize());

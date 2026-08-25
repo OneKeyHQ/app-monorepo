@@ -75,6 +75,24 @@ function isValidUTF8(data: Uint8Array): boolean {
   return true;
 }
 
+/**
+ * The only place that knows which offchain message versions exist. Callers map the
+ * result to whatever error they owe their own caller — a dapp gets invalidParams, a
+ * hardware account gets the firmware message — but none of them repeat this list.
+ * Adding a version here makes every `switch` over the result fail to compile until
+ * it says what to do with it.
+ */
+export type IOffchainMessageVersionKind = 'v0' | 'v1' | 'unsupported';
+
+export function classifyOffchainMessageVersion(
+  version: number | undefined,
+): IOffchainMessageVersionKind {
+  // Absent means version 0: it predates the field.
+  if (version === undefined || version === 0) return 'v0';
+  if (version === 1) return 'v1';
+  return 'unsupported';
+}
+
 export class OffchainMessage {
   version: number;
 
