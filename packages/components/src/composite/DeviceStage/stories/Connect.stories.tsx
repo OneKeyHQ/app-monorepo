@@ -32,8 +32,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Presence and the waiting beats: the capsule's entrance and exit, its
-// in-place word swap (connecting ↔ processing), and the terminal error
-// card with its reason-picked recovery route.
+// in-place word swap (connecting ↔ processing), and the terminal error:
+// the ask card with its reason-picked recovery route, and the actionless
+// notice — the failure capsule that informs and leaves on its own.
 function ConnectStage(props: IDeviceStageProps) {
   const driver = useStageDriver(props);
   return (
@@ -49,6 +50,13 @@ function ConnectStage(props: IDeviceStageProps) {
       </StepButton>
       <StepButton driver={driver} step="error">
         Error
+      </StepButton>
+      <StepButton
+        driver={driver}
+        onPress={driver.goErrorNotice}
+        testID="device-stage-demo-error-notice"
+      >
+        Error · notice
       </StepButton>
     </StageHost>
   );
