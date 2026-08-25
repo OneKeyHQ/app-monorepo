@@ -54,20 +54,23 @@ jest.mock('@onekeyhq/components', () => {
   function MockStack({
     children,
     onPress,
+    testID,
   }: {
     children?: ReactNode;
     onPress?: () => void;
+    testID?: string;
   }) {
     return onPress ? (
-      <button type="button" onClick={onPress}>
+      <button type="button" data-testid={testID} onClick={onPress}>
         {children}
       </button>
     ) : (
-      <div>{children}</div>
+      <div data-testid={testID}>{children}</div>
     );
   }
 
   return {
+    ScrollView: MockStack,
     SizableText: MockStack,
     Spinner: () => <div data-testid="funding-chart-loading" />,
     XStack: MockStack,
@@ -175,6 +178,7 @@ describe('PerpFundingChart', () => {
   it('renders current and cumulative funding as separate charts', () => {
     render(<PerpFundingChart coin="BTC" />);
 
+    expect(screen.getByTestId('perp-funding-chart-scroll-view')).toBeTruthy();
     expect(mockLightweightChart).toHaveBeenCalledTimes(2);
     expect(mockLightweightChart.mock.calls[0][0]).toEqual(
       expect.objectContaining({
@@ -284,6 +288,7 @@ describe('PerpFundingChart', () => {
   it('uses compact axes for the mobile chart layout', () => {
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
 
+    expect(screen.queryByTestId('perp-funding-chart-scroll-view')).toBeNull();
     expect(mockLightweightChart).toHaveBeenCalledTimes(2);
     expect(
       screen.getAllByText(ETranslations.perp_positive_funding_rate__label),
@@ -312,5 +317,35 @@ describe('PerpFundingChart', () => {
     rerender(<PerpFundingChart coin="BTC" isActive />);
 
     expect(mockSetStopPolling).toHaveBeenLastCalledWith(false);
+  });
+
+  it('only updates chart data references when polling history changes', () => {
+    const { rerender } = render(<PerpFundingChart coin="BTC" />);
+    const initialFundingData = mockLightweightChart.mock.calls[0][0].data;
+    const initialCumulativeData = mockLightweightChart.mock.calls[1][0].data;
+
+    mockUsePerpFundingHistory.mockReturnValue({
+      result: FUNDING_HISTORY.map((record) => ({ ...record })),
+      isLoading: false,
+      setStopPolling: mockSetStopPolling,
+    });
+    rerender(<PerpFundingChart coin="BTC" />);
+
+    const latestCalls = mockLightweightChart.mock.calls.slice(-2);
+    expect(latestCalls[0][0].data).toBe(initialFundingData);
+    expect(latestCalls[1][0].data).toBe(initialCumulativeData);
+
+    mockUsePerpFundingHistory.mockReturnValue({
+      result: FUNDING_HISTORY.map((record, index) =>
+        index === 0 ? { ...record, fundingRate: '0.00004' } : { ...record },
+      ),
+      isLoading: false,
+      setStopPolling: mockSetStopPolling,
+    });
+    rerender(<PerpFundingChart coin="BTC" />);
+
+    const changedCalls = mockLightweightChart.mock.calls.slice(-2);
+    expect(changedCalls[0][0].data).not.toBe(initialFundingData);
+    expect(changedCalls[1][0].data).not.toBe(initialCumulativeData);
   });
 });

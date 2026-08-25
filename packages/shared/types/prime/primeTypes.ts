@@ -169,6 +169,16 @@ export type IPrimeInfiniPaymentCreateParams = {
   expectedOneKeyUserId: string;
 };
 
+export type IPrimeRedemptionParams = {
+  code: string;
+  expectedOneKeyUserId: string;
+};
+
+export type IPrimeRedemptionResult = {
+  addedDays: number;
+  finalExpiresAt: number;
+};
+
 export type IPrimeInfiniPaymentAsset = {
   key: string;
   chain: string;
