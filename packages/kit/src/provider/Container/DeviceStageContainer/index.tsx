@@ -65,14 +65,17 @@ function DeviceStageContainerCmp() {
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
 
-  // Close grant: armed per burst, sticky until the burst leaves.
+  // Close grant: armed per burst, sticky until the burst leaves. The
+  // authenticity flow arms at once; so does the error outcome — its
+  // notice form leaves by itself THROUGH onClose after a readable hold,
+  // so the grant must already be there when the step lands.
   const [armedBurstId, setArmedBurstId] = useState(0);
   const closable = step !== 'off' && armedBurstId === burstId;
   useEffect(() => {
     if (step === 'off' || closable) {
       return undefined;
     }
-    if (AUTH_STEPS.has(step)) {
+    if (AUTH_STEPS.has(step) || step === 'error') {
       setArmedBurstId(burstId);
       return undefined;
     }
@@ -85,8 +88,11 @@ function DeviceStageContainerCmp() {
 
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
+    // On the error outcome the call is already over (the notice form's
+    // self-exit also lands here) — nothing on the device left to cancel.
     void serviceHardwareUI.deviceStageUserClose({
       connectId: stageRef.current?.connectId,
+      skipDeviceCancel: stageRef.current?.step === 'error',
     });
   }, [serviceHardwareUI]);
 
@@ -136,11 +142,10 @@ function DeviceStageContainerCmp() {
     }
   }, [serviceHardwareUI]);
 
-  // Demo phase: the outcome card's single action dismisses the stage.
-  // Retry routing per errorReason lands with the real business wiring.
-  const handleErrorAction = useCallback(() => {
-    handleClose();
-  }, [handleClose]);
+  // Errors play the notice form by default (no onErrorAction): the ✗
+  // capsule informs and leaves on its own through the close grant above.
+  // The ask form (retry / reconnect) is granted per flow, only where an
+  // honest retry exists — wired when those flows land.
 
   // DeviceStage (via MorphOverlay) portals itself into the
   // HARDWARE_UI_STATE_DIALOG viewport — no wrapper portal here.
@@ -159,7 +164,6 @@ function DeviceStageContainerCmp() {
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
       onSwitchToDevice={handleSwitchToDevice}
-      onErrorAction={handleErrorAction}
     />
   );
 }
