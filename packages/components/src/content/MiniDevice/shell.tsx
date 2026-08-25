@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   // the export's sigma 86.55). Figma frame effects render above children,
   // so this overlay is the body's last child.
   bodyShade: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 64,
     boxShadow: 'inset 0 0 173px 45px rgba(0,0,0,0.1)',
   },
@@ -143,14 +143,14 @@ const styles = StyleSheet.create({
   },
   // Powered-on-but-empty panel: the family's faint luminance field.
   screenGlow: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   screenSlot: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   absFill: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
 });
 

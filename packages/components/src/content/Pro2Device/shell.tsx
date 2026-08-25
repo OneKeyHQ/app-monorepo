@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   lights: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   screen: {
     position: 'absolute',

@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   screenSlot: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   logo: {
     position: 'absolute',

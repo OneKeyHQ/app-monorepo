@@ -103,7 +103,7 @@ export function createEntryGeometry({
   };
 }
 
-const ROW_STYLE: ViewStyle = { ...StyleSheet.absoluteFill };
+const ROW_STYLE: ViewStyle = { ...StyleSheet.absoluteFillObject };
 
 const CHECK_GLYPH = (
   <Path

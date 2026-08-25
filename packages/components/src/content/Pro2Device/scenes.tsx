@@ -171,7 +171,7 @@ const pinStyles = StyleSheet.create({
   // the fill, position in each key's stagger. It reads as nothing on the
   // white enter cap, where the wave melts into the brightest key.
   keySheen: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: PIN_KEY_R,
     backgroundColor: SHEEN_COLOR,
   },
@@ -337,7 +337,7 @@ const confirmStyles = StyleSheet.create({
   cancelPill: blockFrame(14.4, 414.6, 121.25, 58.8, 28.8, FILL_FAINT),
   confirmPill: blockFrame(152.35, 414.6, 121.25, 58.8, 28.8, FILL_STRONG),
   sweepClip: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
 });

@@ -219,7 +219,7 @@ const pinStyles = StyleSheet.create({
   // The traveling sheen's slice on one key cap: peak brightness lives in
   // the fill, position in each key's stagger.
   keySheen: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: PIN_KEY_R,
     backgroundColor: SHEEN_COLOR,
   },
@@ -355,7 +355,7 @@ const confirmStyles = StyleSheet.create({
   cancelPill: keyFrame(10.5, 414, 127, 60, 30, PRESSED_BG),
   confirmPill: keyFrame(150.5, 414, 127, 60, 30, KEY_LIT),
   sweepClip: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
 });
