@@ -49,7 +49,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   type IPbkdf2DispatchBackend,
-  isWebCryptoPbkdf2Supported,
+  getPbkdf2KdfParamsForNonDbTx,
 } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   DB_MAIN_CONTEXT_ID,
@@ -101,7 +101,6 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -360,21 +359,7 @@ type ITxAddAndUpdateSyncItemsParams = {
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
 
 function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
-  if (
-    !platformEnv.isNative &&
-    !platformEnv.isJest &&
-    !platformEnv.isWebEmbed &&
-    (platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension) &&
-    isWebCryptoPbkdf2Supported()
-  ) {
-    return {
-      kdfBackend: 'webcrypto',
-      enablePbkdf2Cache: true,
-    };
-  }
-  return {
-    enablePbkdf2Cache: true,
-  };
+  return getPbkdf2KdfParamsForNonDbTx();
 }
 
 export function clearTrezorThpSettingsRaw(settingsRaw: string | undefined) {

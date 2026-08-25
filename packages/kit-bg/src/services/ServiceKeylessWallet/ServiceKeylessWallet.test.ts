@@ -24,6 +24,14 @@ const mockDevSettingsAtom = {
   get: jest.fn(),
   set: jest.fn(),
 };
+const mockNonDbKdfParams = {
+  kdfBackend: 'webcrypto' as const,
+  enablePbkdf2Cache: true,
+};
+
+jest.mock('@onekeyhq/shared/src/appCrypto/modules/pbkdf2', () => ({
+  getPbkdf2KdfParamsForNonDbTx: jest.fn(() => mockNonDbKdfParams),
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -168,8 +176,10 @@ const {
   require('@onekeyhq/core/src/secret');
 const {
   EOAuthSocialLoginProvider,
+  KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX,
   KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2,
   KEYLESS_BACKEND_SHARE_PAYLOAD_OWNER_V2_PASSWORD_FIXED_UUID,
+  KEYLESS_ENCRYPTION_ITERATIONS,
   KEYLESS_SUPABASE_PROJECT_URL,
 } =
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1800,7 +1810,66 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
 
     expect(encryptStringAsync).toHaveBeenCalledWith(
       expect.objectContaining({
+        ...mockNonDbKdfParams,
         password: backendSharePayloadV2Password,
+      }),
+    );
+  });
+
+  test('uses the non-transaction KDF backend for mnemonic payloads', async () => {
+    const { serviceAny } = createService();
+    encryptStringAsync.mockResolvedValue('encrypted-mnemonic');
+    decryptStringAsync.mockResolvedValue('mnemonic');
+
+    await expect(
+      serviceAny.encryptKeylessMnemonic({
+        mnemonic: 'mnemonic',
+        mnemonicPassword: 'random-mnemonic-password',
+      }),
+    ).resolves.toBe('encrypted-mnemonic');
+    await expect(
+      serviceAny.decryptKeylessMnemonic({
+        encryptedMnemonic: 'encrypted-mnemonic',
+        mnemonicPassword: 'random-mnemonic-password',
+      }),
+    ).resolves.toBe('mnemonic');
+
+    expect(encryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+    expect(decryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+  });
+
+  test('uses the non-transaction KDF backend for v1 backend share payloads', async () => {
+    const { serviceAny } = createService();
+    encryptStringAsync.mockResolvedValue('encrypted-payload');
+    decryptStringAsync.mockResolvedValue(JSON.stringify(backendShareData));
+
+    await serviceAny.encryptKeylessBackendSharePayloadV1({
+      backendShareData,
+    });
+    await serviceAny.decryptKeylessBackendSharePayloadV1({
+      backendShare: `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}cipher`,
+    });
+
+    expect(encryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
+      }),
+    );
+    expect(decryptStringAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...mockNonDbKdfParams,
+        iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       }),
     );
   });
@@ -1826,6 +1895,7 @@ describe('ServiceKeylessWallet passive backend share v2 migration', () => {
     expect(decryptStringAsync).toHaveBeenCalledTimes(1);
     expect(decryptStringAsync).toHaveBeenCalledWith(
       expect.objectContaining({
+        ...mockNonDbKdfParams,
         password: backendSharePayloadV2Password,
       }),
     );

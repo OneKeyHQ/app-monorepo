@@ -4160,9 +4160,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4217,9 +4219,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4461,9 +4465,12 @@ class ServiceAccount extends ServiceBase {
           if (shouldRunPostCommitEffects) {
             // Derive and persist keyless cloud sync credential from wallet seed
             try {
+              // localDb.createHDWallet() has committed before this KDF starts.
+              const kdfParams = getPbkdf2KdfParamsForNonDbTx();
               const revealableSeed = await decryptRevealableSeed({
                 rs,
                 password,
+                ...kdfParams,
               });
               const seedBuffer = bufferUtils.toBuffer(
                 revealableSeed.seed,
@@ -6824,6 +6831,7 @@ class ServiceAccount extends ServiceBase {
     const walletsHashXfpMap: {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     for (const wallet of hdWallets) {
       const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
@@ -6850,6 +6858,7 @@ class ServiceAccount extends ServiceBase {
           const realMnemonic = await mnemonicFromEntropy(
             credentialInfo.credential,
             password,
+            kdfParams,
           );
           const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
             realMnemonic,
