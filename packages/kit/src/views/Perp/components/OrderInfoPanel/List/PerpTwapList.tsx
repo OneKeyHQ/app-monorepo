@@ -155,18 +155,16 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
   return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
-// TODO(i18n): `stopped` borrows the `terminated` copy and `waitingForTrigger`
-// has no key at all, so it falls back to English in every locale. Add
-// perp_twap_status_stopped__title and
-// perp_twap_status_waiting_for_trigger__title in Lokalise, then wire them here.
-const TWAP_HISTORY_STATUS_TEXT_MAP: Partial<
-  Record<ITwapHistoryStatusValue, ETranslations>
+const TWAP_HISTORY_STATUS_TEXT_MAP: Record<
+  ITwapHistoryStatusValue,
+  ETranslations
 > = {
   activated: ETranslations.perp_twap_status_activated__title,
   error: ETranslations.perp_twap_status_error__title,
   finished: ETranslations.perp_twap_status_finished__title,
   terminated: ETranslations.perp_twap_status_terminated__title,
-  stopped: ETranslations.perp_twap_status_terminated__title,
+  stopped: ETranslations.perp_twap_status_stopped__title,
+  waitingForTrigger: ETranslations.perp_twap_status_waiting_for_trigger__title,
 };
 
 function humanizeTwapHistoryStatus(status: string | undefined) {
