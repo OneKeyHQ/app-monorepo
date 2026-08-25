@@ -210,6 +210,11 @@ import type {
   IPerpServerDepositTokensByNetworkConfig,
 } from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
+type IHyperLiquidAgentCredentialInfo = Omit<
+  ICoreHyperLiquidAgentCredential,
+  'privateKey'
+>;
+
 type ILoadTradesHistoryOptions = {
   force?: boolean;
 };
@@ -3153,7 +3158,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     const accountAddress = selectedAccount.accountAddress?.toLowerCase() as
       | IHex
       | undefined;
-    let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
+    let agentCredential: IHyperLiquidAgentCredentialInfo | undefined;
 
     try {
       clearTimeout(this.hideEnableTradingLoadingTimer);
@@ -3390,7 +3395,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
   }) {
-    let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
+    let agentCredential: IHyperLiquidAgentCredentialInfo | undefined;
     const extraAgents = await this.fetchExtraAgentsWithCache({
       user: accountAddress,
     });
@@ -3416,10 +3421,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       const validAgents = (
         await Promise.all(
           extraAgents.map(async (agent) => {
-            const credential = await localDb.getHyperLiquidAgentCredential({
-              userAddress: accountAddress,
-              agentName: agent.name as EHyperLiquidAgentName,
-            });
+            const credential =
+              await this.backgroundApi.serviceAccount.getHyperLiquidAgentCredentialInfo(
+                {
+                  userAddress: accountAddress,
+                  agentName: agent.name as EHyperLiquidAgentName,
+                },
+              );
             if (!agent.address) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_not_found',
@@ -3521,6 +3529,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       try {
         const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
         const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
+        privateKeyBytes.fill(0);
         const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
         let agentNameToApprove: EHyperLiquidAgentName | undefined;
@@ -3683,10 +3692,13 @@ export default class ServiceHyperliquid extends ServiceBase {
             );
 
           if (credentialId) {
-            const credential = await localDb.getHyperLiquidAgentCredential({
-              userAddress: accountAddress,
-              agentName: agentNameToApprove as EHyperLiquidAgentName,
-            });
+            const credential =
+              await this.backgroundApi.serviceAccount.getHyperLiquidAgentCredentialInfo(
+                {
+                  userAddress: accountAddress,
+                  agentName: agentNameToApprove as EHyperLiquidAgentName,
+                },
+              );
             if (credential) {
               agentCredential = credential;
             }

@@ -10,13 +10,18 @@ import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
 } from './indicatorSettingsAdapter';
+import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
+
+import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 
 const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = 690;
 
 export function showTradingViewNativeIndicatorSettingsDialog({
+  intl,
   onConfirm,
   value,
 }: {
+  intl: IIndicatorSettingsIntl;
   onConfirm: (
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
@@ -47,7 +52,12 @@ export function showTradingViewNativeIndicatorSettingsDialog({
     renderContent: (
       <TradingViewIndicatorSettings
         value={value}
-        createDefaultValue={createTradingViewNativeIndicatorSettingsValue}
+        createDefaultValue={() =>
+          localizeTradingViewNativeIndicatorSettingsValue(
+            createTradingViewNativeIndicatorSettingsValue(),
+            intl,
+          )
+        }
         maxActiveSubIndicatorCount={null}
         onClose={() => {
           void closeDialog();

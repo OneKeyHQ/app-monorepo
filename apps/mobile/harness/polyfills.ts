@@ -63,6 +63,7 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
 // errors in @solana/web3.js and other libraries. Wrap it to accept `fatal`.
 {
   const NativeTD = (globalThis as any).TextDecoder;
+  const TextDecoderImpl = NativeTD ?? require('text-encoding').TextDecoder;
   let needsWrap = !NativeTD;
   if (NativeTD && !needsWrap) {
     try {
@@ -72,7 +73,7 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
       needsWrap = true;
     }
   }
-  if (needsWrap && NativeTD) {
+  if (needsWrap && TextDecoderImpl) {
     // Wrap native TextDecoder using a class so `new TextDecoder()` works
     // correctly in Hermes (function-based constructors that return a different
     // object can cause "Cannot read property 'prototype' of undefined" in Hermes).
@@ -80,6 +81,8 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
     // Including it in the bundle causes Metro to resolve all TextDecoder
     // references to fast-text-encoding's non-fatal-supporting polyfill,
     // breaking @solana/web3.js and other libraries that use { fatal: true }.
+    // `text-encoding` is the same fallback used by the real native app
+    // polyfills and is needed on Hermes builds with no native TextDecoder.
     const WrappedTD = class TextDecoder {
       _inner: any;
 
@@ -90,7 +93,7 @@ if (platformEnvObj && typeof platformEnvObj === 'object') {
         const safeOptions = options
           ? { ignoreBOM: options.ignoreBOM }
           : undefined;
-        this._inner = new NativeTD(label, safeOptions);
+        this._inner = new TextDecoderImpl(label, safeOptions);
       }
 
       decode(
@@ -189,36 +192,45 @@ try {
 
 // Polyfill ES2023 Array methods not yet available in Hermes
 if (!Array.prototype.toSorted) {
-  // eslint-disable-next-line no-extend-native
-  Array.prototype.toSorted = function <T>(
-    this: T[],
-    compareFn?: (a: T, b: T) => number,
-  ): T[] {
-    // oxlint-disable-next-line unicorn/no-array-sort -- polyfill intentionally uses mutating sort on a copy
-    return [...this].sort(compareFn);
-  };
+  Object.defineProperty(Array.prototype, 'toSorted', {
+    configurable: true,
+    value: function toSorted<T>(
+      this: T[],
+      compareFn?: (a: T, b: T) => number,
+    ): T[] {
+      // oxlint-disable-next-line unicorn/no-array-sort -- polyfill intentionally uses mutating sort on a copy
+      return [...this].sort(compareFn);
+    },
+    writable: true,
+  });
 }
 if (!Array.prototype.toReversed) {
-  // eslint-disable-next-line no-extend-native
-  Array.prototype.toReversed = function <T>(this: T[]): T[] {
-    // oxlint-disable-next-line unicorn/no-array-reverse -- polyfill intentionally uses mutating reverse on a copy
-    return [...this].reverse();
-  };
+  Object.defineProperty(Array.prototype, 'toReversed', {
+    configurable: true,
+    value: function toReversed<T>(this: T[]): T[] {
+      // oxlint-disable-next-line unicorn/no-array-reverse -- polyfill intentionally uses mutating reverse on a copy
+      return [...this].reverse();
+    },
+    writable: true,
+  });
 }
 if (!Array.prototype.toSpliced) {
-  // eslint-disable-next-line no-extend-native
-  Array.prototype.toSpliced = function <T>(
-    this: T[],
-    start: number,
-    deleteCount?: number,
-    ...items: T[]
-  ): T[] {
-    const copy = [...this];
-    if (deleteCount === undefined) {
-      copy.splice(start);
-    } else {
-      copy.splice(start, deleteCount, ...items);
-    }
-    return copy;
-  };
+  Object.defineProperty(Array.prototype, 'toSpliced', {
+    configurable: true,
+    value: function toSpliced<T>(
+      this: T[],
+      start: number,
+      deleteCount?: number,
+      ...items: T[]
+    ): T[] {
+      const copy = [...this];
+      if (deleteCount === undefined) {
+        copy.splice(start);
+      } else {
+        copy.splice(start, deleteCount, ...items);
+      }
+      return copy;
+    },
+    writable: true,
+  });
 }

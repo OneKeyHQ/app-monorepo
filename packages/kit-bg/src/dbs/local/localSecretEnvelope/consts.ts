@@ -4,12 +4,16 @@ export const LOCAL_SECRET_ENVELOPE_VERSION = 1;
 
 export const LOCAL_SECRET_ENVELOPE_INNER_PREFIX = {
   hdCredential: '|RP|',
+  hyperLiquidAgentCredential: '|HLP|',
+  hyperLiquidAgentPasswordEncryptedCredential: '|HLE|',
   importedCredential: '|PK|',
   verifyString: '|VS|',
 } as const;
 
 export const LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL = {
   hdCredential: 'RP',
+  hyperLiquidAgentCredential: 'HLP',
+  hyperLiquidAgentPasswordEncryptedCredential: 'HLE',
   importedCredential: 'PK',
   verifyString: 'VS',
 } as const;
@@ -22,6 +26,20 @@ export function getLocalSecretEnvelopeInnerPrefix(
 ): ILocalSecretEnvelopeInnerPrefix | undefined {
   if (value.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential)) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential;
+  }
+  if (
+    value.startsWith(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+    )
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential;
+  }
+  if (
+    value.startsWith(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential,
+    )
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
   }
   if (value.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential)) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;
@@ -38,6 +56,18 @@ export function getLocalSecretEnvelopeInnerPrefixLabel(
   if (innerPrefix === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hdCredential;
   }
+  if (
+    innerPrefix ===
+    LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hyperLiquidAgentCredential;
+  }
+  if (
+    innerPrefix ===
+    LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hyperLiquidAgentPasswordEncryptedCredential;
+  }
   if (innerPrefix === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.importedCredential;
   }
@@ -52,6 +82,18 @@ export function getLocalSecretEnvelopeInnerPrefixByLabel(
 ): ILocalSecretEnvelopeInnerPrefix | undefined {
   if (label === LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hdCredential) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential;
+  }
+  if (
+    label ===
+    LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hyperLiquidAgentCredential
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential;
+  }
+  if (
+    label ===
+    LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.hyperLiquidAgentPasswordEncryptedCredential
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
   }
   if (label === LOCAL_SECRET_ENVELOPE_INNER_PREFIX_LABEL.importedCredential) {
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;

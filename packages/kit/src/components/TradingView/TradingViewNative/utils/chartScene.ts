@@ -98,6 +98,7 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from './subIndicatorRen
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartType,
+  ITradingViewNativePriceScaleMode,
 } from '../types';
 
 export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
@@ -230,6 +231,8 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   currentPriceLabel?: string;
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth?: number;
+  priceRangeScale?: number;
+  priceScaleMode?: ITradingViewNativePriceScaleMode;
   subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
@@ -518,6 +521,8 @@ export function buildTradingViewNativeChartScene({
   currentPriceLabel,
   points,
   priceAxisWidth,
+  priceRangeScale,
+  priceScaleMode,
   subIndicatorPanes = [],
   viewport,
   watermarkOpacity,
@@ -720,6 +725,8 @@ export function buildTradingViewNativeChartScene({
       ),
     points,
     priceAxisWidth: resolvedPriceAxisWidth,
+    priceRangeScale,
+    priceScaleMode,
     visiblePointRange,
     width,
   });
@@ -734,6 +741,7 @@ export function buildTradingViewNativeChartScene({
     minPrice,
     priceAxisX,
     priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
     priceTicks,
     timeAxisY,
     timeTicks,
@@ -1172,6 +1180,7 @@ export function buildTradingViewNativeChartScene({
     minPrice,
     price: latestPoint.c,
     priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
   });
   if (currentPriceLayout && (chartSettings?.options.latestPrice ?? true)) {
     const direction = isTradingViewNativePriceUp(latestPoint) ? 'up' : 'down';
@@ -1220,6 +1229,7 @@ export function buildTradingViewNativeChartScene({
       maxPrice,
       minPrice,
       priceChartHeight,
+      priceScaleMode: resolvedPriceScaleMode,
       y: crosshairY,
     });
     const crosshairVolume = getTradingViewNativeVolumeAtY({

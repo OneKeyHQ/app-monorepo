@@ -153,15 +153,15 @@ export function useSwapProInit() {
   const [, setSwapSwitchType] = useSwapTypeSwitchAtom();
   const [, setSwapProDirection] = useSwapProDirectionAtom();
   const { basicConfig, networkList } = useMarketBasicConfig();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { initializeSwapProSelectToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProJumpToken, setSwapProJumpToken] = useSwapProJumpTokenAtom();
   const swapSwitchProToken = useCallback(
     (payload: { token: ISwapToken }) => {
       setSwapSwitchType(ESwapTabSwitchType.LIMIT);
-      void setSwapProSelectToken(payload.token);
+      void initializeSwapProSelectToken(payload.token);
     },
-    [setSwapSwitchType, setSwapProSelectToken],
+    [initializeSwapProSelectToken, setSwapSwitchType],
   );
   const swapProSelectTokenRef = useRef<ISwapToken | undefined>(
     swapProSelectToken,
@@ -787,7 +787,8 @@ export function isSwapProTradeStateOwner({
 }
 
 export function useSwapProTokenInit() {
-  const { setSwapProSelectToken, resetQuoteAction } = useSwapActions().current;
+  const { initializeSwapProSelectToken, resetQuoteAction } =
+    useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
@@ -961,11 +962,11 @@ export function useSwapProTokenInit() {
       !swapProSelectToken &&
       speedDefaultSelectToken
     ) {
-      void setSwapProSelectToken(undefined, speedDefaultSelectToken);
+      void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
     }
   }, [
     swapProJumpToken,
-    setSwapProSelectToken,
+    initializeSwapProSelectToken,
     speedDefaultSelectToken,
     swapProSelectToken,
   ]);
@@ -1432,8 +1433,10 @@ export function useSwapProTokenSearch(
 }
 
 export function useSwapProTokenDetailInfo() {
-  const { swapProTokenMarketDetailFetchAction, setSwapProSelectToken } =
-    useSwapActions().current;
+  const {
+    swapProTokenMarketDetailFetchAction,
+    updateSwapProSelectTokenMetadata,
+  } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
   // Tokens persisted before the isStock field existed restore without it and
@@ -1446,9 +1449,9 @@ export function useSwapProTokenDetailInfo() {
       tokenDetail: proTokenDetail,
     });
     if (backfilled && backfilled !== swapProSelectToken) {
-      void setSwapProSelectToken(backfilled);
+      void updateSwapProSelectTokenMetadata(backfilled);
     }
-  }, [proTokenDetail, swapProSelectToken, setSwapProSelectToken]);
+  }, [proTokenDetail, swapProSelectToken, updateSwapProSelectTokenMetadata]);
   const fetchTokenMarketDetailInfo = useCallback(async () => {
     if (swapProSelectToken?.networkId) {
       void swapProTokenMarketDetailFetchAction(

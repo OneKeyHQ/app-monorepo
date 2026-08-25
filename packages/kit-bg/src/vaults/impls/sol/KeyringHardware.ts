@@ -2,7 +2,10 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IATADetails,
@@ -263,6 +266,35 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
           if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            // Firmware only implements version 0 of the offchain message spec: its protobuf
+            // has no `required_signers` field and its version enum only has MESSAGE_VERSION_0.
+            // Signing a version 1 request here would silently produce version 0 bytes that the
+            // dapp cannot verify, after the user already approved on the device.
+            //
+            // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
+            // read below comes off the top level instead, where it never exists, so hardware
+            // has only ever signed the legacy version 0 form. Left as-is on purpose.
+            // Cast: the structural annotation above cannot express a per-chain payload.
+            const offchainVersion = (
+              payload as { payload?: { version?: number } }
+            ).payload?.version;
+            const versionKind = classifyOffchainMessageVersion(offchainVersion);
+            if (versionKind === 'v1') {
+              throw new OneKeyLocalError(
+                appLocale.intl.formatMessage({
+                  id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
+                }),
+              );
+            }
+            // Only version 0 is passed on: nothing below tells the device which
+            // version this is, so anything else would be signed as version 0.
+            if (versionKind === 'unsupported') {
+              throw new OneKeyLocalError(
+                `sol offchain message: unsupported version ${String(
+                  offchainVersion,
+                )}`,
+              );
+            }
             const response = await HardwareSDK.solSignOffchainMessage(
               connectId,
               deviceId,

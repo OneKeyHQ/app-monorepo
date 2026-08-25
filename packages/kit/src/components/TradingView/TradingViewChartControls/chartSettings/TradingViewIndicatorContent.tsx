@@ -121,7 +121,7 @@ function OkxIndicatorContent({
           <OkxIndicatorOpacitySlider
             value={indicator.opacity}
             label={intl.formatMessage({
-              id: ETranslations.market_chart_settings__color_preferences,
+              id: ETranslations.market_chart_indicator_transparency__label,
             })}
             upColor={indicator.opacityColors?.upColor ?? OKX_CHART_UP}
             downColor={indicator.opacityColors?.downColor ?? OKX_CHART_DOWN}

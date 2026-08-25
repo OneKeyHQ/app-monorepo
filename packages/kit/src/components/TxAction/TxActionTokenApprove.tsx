@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -40,6 +41,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const tokenDecimals = tokenApprove?.decimals ?? 0;
   const tokenSymbol = tokenApprove?.symbol ?? '';
   const approveType = tokenApprove?.approveType ?? EApproveType.Approve;
+  const approveBalanceMultiplier = tokenApprove?.balanceMultiplier;
 
   return {
     approveIcon,
@@ -55,6 +57,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     tokenDecimals,
     tokenSymbol,
     approveType,
+    approveBalanceMultiplier,
   };
 }
 
@@ -275,6 +278,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     tokenDecimals,
     tokenSymbol,
     approveType,
+    approveBalanceMultiplier,
   } = getTxActionTokenApproveInfo(props);
 
   const { vaultSettings } = useAccountData({
@@ -300,13 +304,24 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     spender: approveSpender,
   });
 
+  // Scaled-UI (rebase) tokens: keep the current+delta sum on display basis
+  // (the delta is display-basis from decode). See AssetsTokenApproval.
+  const displayAllowanceParsed = useMemo(
+    () =>
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: currentAllowanceParsed ?? undefined,
+        balanceMultiplier: approveBalanceMultiplier,
+      }),
+    [currentAllowanceParsed, approveBalanceMultiplier],
+  );
+
   const finalAllowanceParsed = useMemo(() => {
-    if (!isIncrease || !currentAllowanceParsed) return null;
+    if (!isIncrease || !displayAllowanceParsed) return null;
     const deltaBN = new BigNumber(originalApproveAmount);
     // null signals "unlimited" to the caller; finite delta is added.
     if (!deltaBN.isFinite()) return null;
-    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
-  }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
+    return new BigNumber(displayAllowanceParsed).plus(deltaBN).toFixed();
+  }, [displayAllowanceParsed, isIncrease, originalApproveAmount]);
 
   let content: React.ReactNode = approveLabel;
   const amount = originalApproveAmount;
@@ -387,34 +402,52 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         >
           {content}
         </SizableText>
-        <Button
-          testID="tx-action-btn"
-          size="small"
-          variant="tertiary"
-          onPress={() =>
-            showApproveEditor({
-              accountId: decodedTx.accountId,
-              networkId: decodedTx.networkId,
-              isUnlimited,
-              allowance: amount,
-              tokenDecimals,
-              tokenSymbol,
-              tokenAddress,
-              approveInfo: decodedTx.approveInfo,
-              approveType,
-              spender: approveSpender,
-              currentAllowanceParsed: currentAllowanceParsed ?? undefined,
-            })
-          }
-        >
-          {intl.formatMessage({ id: ETranslations.global_edit })}
-        </Button>
+        {/* Scaled-UI (rebase) tokens: this legacy editor re-encodes the
+          display-basis allowance as raw units; fail-closed, same policy as
+          component.isEditable in the SignatureConfirm stack. Gate via
+          isScalingBalanceMultiplier — never truthiness (multiplier '1' must
+          not block). */}
+        {!tokenRebaseUtils.isScalingBalanceMultiplier(
+          approveBalanceMultiplier,
+        ) ? (
+          <Button
+            testID="tx-action-btn"
+            size="small"
+            variant="tertiary"
+            onPress={() =>
+              showApproveEditor({
+                accountId: decodedTx.accountId,
+                networkId: decodedTx.networkId,
+                isUnlimited,
+                allowance: amount,
+                tokenDecimals,
+                tokenSymbol,
+                tokenAddress,
+                approveInfo: decodedTx.approveInfo,
+                approveType,
+                spender: approveSpender,
+                currentAllowanceParsed: currentAllowanceParsed ?? undefined,
+              })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_edit })}
+          </Button>
+        ) : null}
       </XStack>
     );
   }
 
   useEffect(() => {
     if (approveInfoInit.current || originalApproveAmount === '') return;
+    // For scaled-UI tokens this seeds a DISPLAY-basis originalAllowance;
+    // safe only because the sole reader (legacy ApproveEditor reset) is
+    // behind the isScalingBalanceMultiplier-gated edit button above.
+    // Caveat: the sendConfirm-context updateTokenApproveInfo is
+    // last-write-wins with no guard (unlike signatureConfirm's
+    // first-write-wins), so if multiple approve detail views ever share one
+    // sendConfirm context, a NON-scaling token's Reset could replay this
+    // display-basis value — and the vault guard would not catch it (it keys
+    // on that token's address). Keep this seeding gated if that ever changes.
     updateTokenApproveInfo({
       originalAllowance: originalApproveAmount,
       originalIsUnlimited: approveIsMax,

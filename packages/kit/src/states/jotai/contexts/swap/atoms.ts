@@ -758,9 +758,21 @@ export const {
   use: useSwapNativeTokenReserveGasAtom,
 } = contextAtom<ISwapNativeTokenReserveGas[]>([]);
 
+export const { atom: swapUserSelectedTokensAtom } = contextAtom<
+  | {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
 // swap pro
 export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
+
+export const { atom: swapProUserSelectedTokenAtom } = contextAtom<
+  ISwapToken | undefined
+>(undefined);
 
 export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
   contextAtom<ESwapDirection>(ESwapDirection.BUY);
