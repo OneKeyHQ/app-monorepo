@@ -64,6 +64,7 @@ export const PerpTestIDs = {
   PositionCloseLimitButton: 'perp-position-close-limit-button',
   PositionSetTpslButton: 'perp-position-set-tpsl-button',
   PositionShareButton: 'perp-position-share-button',
+  PositionShareRetryButton: 'perp-position-share-retry-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
   PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',
