@@ -2,8 +2,10 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   type ISwapKLineToken,
+  fetchSwapKLineTokenAddressesStableStatus,
   getDefaultSwapKLineSide,
   getResolvableDefaultSwapKLineSide,
+  getSwapKLineStableTokenKey,
   haveSameSwapKLineTokenSymbol,
   prefetchSwapKLineMetadata,
   prefetchSwapKLineTokenInfo,
@@ -78,6 +80,52 @@ describe('swapKLineTokenUtils', () => {
         }),
       ).toBe(false);
     });
+  });
+
+  it('normalizes stable-token identities returned by the service', async () => {
+    mockCheckStableCoinsList.mockResolvedValue([
+      {
+        networkId: 'evm--1',
+        results: [
+          {
+            contractAddress: '0xABC',
+            isStableCoin: true,
+          },
+        ],
+      },
+    ]);
+    const token = buildToken('USDC', {
+      contractAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+
+    const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
+      token,
+      { ...token },
+    ]);
+
+    expect(mockCheckStableCoinsList).toHaveBeenCalledWith({
+      list: [
+        {
+          networkId: 'evm--1',
+          contractAddressList: ['0xabc'],
+        },
+      ],
+    });
+    expect(stableStatusMap.get(getSwapKLineStableTokenKey(token))).toBe(true);
+  });
+
+  it('falls back to non-stable status when classification fails', async () => {
+    mockCheckStableCoinsList.mockRejectedValueOnce(new Error('unavailable'));
+
+    await expect(
+      fetchSwapKLineTokenAddressesStableStatus([
+        buildToken('USDC', {
+          contractAddress: '0xabc',
+          networkId: 'evm--1',
+        }),
+      ]),
+    ).resolves.toEqual(new Map());
   });
 
   it('selects the to token when both token symbols are the same', () => {
