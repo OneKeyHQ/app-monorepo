@@ -240,6 +240,11 @@ function Demo({
 const meta = {
   title: 'Composite/MorphOverlay',
   component: Demo,
+  // Static source only: the docs addon's dynamic JSX source serializes
+  // the rendered tree after every render, and the `morph`/`seats` props
+  // (engine object, React nodes held as plain values) send its object
+  // printer into a traversal long enough to freeze the tab.
+  parameters: { docs: { source: { type: 'code' } } },
   args: {
     modal: false,
     scrim: false,
