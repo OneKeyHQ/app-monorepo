@@ -730,6 +730,7 @@ export function useSpeedSwapActions(props: {
         quoteFetching,
         quoteEventFetching,
         shouldRefreshQuote,
+        manualRefreshRequest: quoteActionLock.manualRefresh,
         hasQuoteError: Boolean(
           quoteEventError?.message ||
           selectedQuoteResult?.errorMessage ||
@@ -738,6 +739,7 @@ export function useSpeedSwapActions(props: {
       }),
     [
       quoteActionLock.actionLock,
+      quoteActionLock.manualRefresh,
       quoteEventError?.message,
       quoteEventFetching,
       quoteFetching,
@@ -787,6 +789,7 @@ export function useSpeedSwapActions(props: {
         fromTokenAmount: fromTokenAmountDebounced,
         type: ESwapTabSwitchType.SWAP,
         source: ESwapQuoteSource.MARKET,
+        manualRefresh: true,
       },
     );
   }, [
@@ -3502,6 +3505,7 @@ export function useSpeedSwapActions(props: {
         : undefined),
     quoteReadyForReview: quoteActionState.canReview,
     quoteNeedsRefresh: quoteActionState.canRefresh,
+    quoteRefreshActionActive: quoteActionState.isRefreshAction,
     refreshMarketQuote,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,

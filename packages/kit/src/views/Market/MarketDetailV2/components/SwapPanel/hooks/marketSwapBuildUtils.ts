@@ -14,6 +14,7 @@ export function resolveMarketQuoteActionState({
   quoteEventFetching,
   shouldRefreshQuote,
   hasQuoteError,
+  manualRefreshRequest = false,
 }: {
   hasActionableQuote: boolean;
   quoteRequestMatchesCurrentInput: boolean;
@@ -22,6 +23,7 @@ export function resolveMarketQuoteActionState({
   quoteEventFetching: boolean;
   shouldRefreshQuote: boolean;
   hasQuoteError: boolean;
+  manualRefreshRequest?: boolean;
 }) {
   const isLoading = quoteRequestLocked || quoteFetching || quoteEventFetching;
   const quoteRequestSettled = !isLoading;
@@ -38,6 +40,7 @@ export function resolveMarketQuoteActionState({
       quoteRequestSettled &&
       !shouldRefreshQuote &&
       !hasQuoteError,
+    isRefreshAction: canRefresh || (manualRefreshRequest && isLoading),
     isLoading,
   };
 }
