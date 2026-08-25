@@ -32,6 +32,7 @@ import {
   reconcileTradingViewNativeIndicatorActiveState,
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
+import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
@@ -196,8 +197,13 @@ export const TradingViewNativeContainer = memo(
     );
     const indicatorSettingsValue = useMemo(
       () =>
-        getTradingViewNativeIndicatorSettingsValue(normalizedIndicatorSettings),
-      [normalizedIndicatorSettings],
+        localizeTradingViewNativeIndicatorSettingsValue(
+          getTradingViewNativeIndicatorSettingsValue(
+            normalizedIndicatorSettings,
+          ),
+          intl,
+        ),
+      [intl, normalizedIndicatorSettings],
     );
     const mainIndicatorSettingsSnapshot = useMemo(
       () => ({
