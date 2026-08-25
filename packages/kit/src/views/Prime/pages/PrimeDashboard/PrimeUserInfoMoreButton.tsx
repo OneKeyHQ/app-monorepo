@@ -22,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -32,6 +33,7 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
 
+import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
 import {
   getPrimeSubscriptionManagementTarget,
   resolvePrimeSubscriptionManagementTarget,
@@ -215,6 +217,31 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   return (
     <>
       {userInfoView}
+
+      <ActionList.Item
+        testID={PrimeTestIDs.redemptionMenuItem}
+        label={intl.formatMessage({
+          id: ETranslations.prime_redeem__action,
+        })}
+        icon="TicketOutline"
+        onClose={handleActionListClose}
+        onPress={async (close) => {
+          close();
+          if (currentOneKeyUserId) {
+            const isPrimeActiveBeforeRedeem = Boolean(isPrime);
+            defaultLogger.prime.subscription.primeRedemptionEntryClick({
+              isPrimeActiveBeforeRedeem,
+            });
+            if (platformEnv.isNative) {
+              await timerUtils.wait(500);
+            }
+            showPrimeRedemptionDialog({
+              expectedOneKeyUserId: currentOneKeyUserId,
+              isPrimeActiveBeforeRedeem,
+            });
+          }
+        }}
+      />
 
       {/* Shown for every Prime user immediately — waiting for the channel
        routing data (Infini lookup / RevenueCat manage url) made the item pop

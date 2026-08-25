@@ -73,7 +73,6 @@ const TICKER_BAR_STAT_LABEL_VALUE_GAP = 5;
 const TICKER_BAR_STAT_DASH_LABEL_VALUE_GAP = 4;
 const TICKER_BAR_PRICE_SECTION_WIDTH = 90;
 const TICKER_BAR_WIDE_PRICE_SECTION_WIDTH = 120;
-const TICKER_BAR_SPOT_PRICE_SECTION_WIDTH = 168;
 const TICKER_BAR_WIDE_MARK_PRICE_LENGTH = 8;
 const TICKER_BAR_WIDE_CHANGE_DISPLAY_LENGTH = 15;
 
@@ -365,31 +364,23 @@ function TickerBarMarkPrice() {
 }
 
 const TickerBarChange24hView = memo(
-  ({
-    changeDisplay,
-    isLoading,
-  }: {
-    changeDisplay: string;
-    isLoading: boolean;
-  }) => (
+  ({ changeDisplay }: { changeDisplay: string }) => (
     <DebugRenderTracker
       name="TickerBarChange24h"
       position="bottom-right"
       offsetY={10}
     >
-      <SkeletonContainer isLoading={isLoading} width={120} height={16}>
-        <SizableText
-          size="$bodyXs"
-          textTransform="none"
-          fontWeight="600"
-          letterSpacing={0.2}
-          lineHeight={12}
-          color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
-          numberOfLines={1}
-        >
-          {changeDisplay}
-        </SizableText>
-      </SkeletonContainer>
+      <SizableText
+        size="$bodyXs"
+        textTransform="none"
+        fontWeight="600"
+        letterSpacing={0.2}
+        lineHeight={12}
+        color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
+        numberOfLines={1}
+      >
+        {changeDisplay}
+      </SizableText>
     </DebugRenderTracker>
   ),
 );
@@ -409,11 +400,8 @@ export function TickerBarChange24h() {
   }, [displayCtx?.change24h, displayCtx?.change24hPercent]);
   const isLoading = useTickerBarIsLoading();
 
-  return (
-    <TickerBarChange24hView
-      changeDisplay={changeDisplay}
-      isLoading={isLoading}
-    />
+  return isLoading ? null : (
+    <TickerBarChange24hView changeDisplay={changeDisplay} />
   );
 }
 
@@ -1025,7 +1013,7 @@ function PerpTickerBarDesktop() {
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
   const priceSectionWidth = useMemo(() => {
     if (isSpot) {
-      return TICKER_BAR_SPOT_PRICE_SECTION_WIDTH;
+      return TICKER_BAR_WIDE_PRICE_SECTION_WIDTH;
     }
 
     const formattedMarkPrice = formatLocalizedNumberString(
