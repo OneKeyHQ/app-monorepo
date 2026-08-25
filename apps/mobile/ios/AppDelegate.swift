@@ -57,27 +57,20 @@ private enum BackgroundThreadBridge {
     }.first
   }
 
-  private static func sharedManager() -> NSObject? {
-    guard let cls = managerClass() else { return nil }
-    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
-  }
-
-  static func installSharedBridgeInMainRuntime(_ host: AnyObject) {
+  static func installSharedBridgeInMainRuntime(
+    _ host: AnyObject,
+    thenStartBackgroundRunnerWithEntryURL entryURL: String
+  ) {
     guard let cls = managerClass() else {
-      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip installSharedBridgeInMainRuntime")
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip ordered main/background runtime startup")
       return
     }
 
-    cls.perform(NSSelectorFromString("installSharedBridgeInMainRuntime:"), with: host)
-  }
-
-  static func startBackgroundRunner(entryURL: String) {
-    guard let manager = sharedManager() else {
-      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip startBackgroundRunnerWithEntryURL")
-      return
-    }
-
-    manager.perform(NSSelectorFromString("startBackgroundRunnerWithEntryURL:"), with: entryURL)
+    cls.perform(
+      NSSelectorFromString("installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithEntryURL:"),
+      with: host,
+      with: entryURL
+    )
   }
 }
 
@@ -543,22 +536,26 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       return
     }
 
-    BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
-
 #if DEBUG
     // Dev: pass the Metro URL directly (single bundle served by the dev server).
     let entryURL = backgroundBundleEntryURL()
     NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     let bgStartAtDebug = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios, debug)")
-    BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+      host,
+      thenStartBackgroundRunnerWithEntryURL: entryURL
+    )
 #else
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
     // uses the default two-step strategy (common.bundle first, then background.bundle).
     // Passing any non-empty path would bypass common.bundle loading.
     let bgStartAt = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios)")
-    BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+      host,
+      thenStartBackgroundRunnerWithEntryURL: ""
+    )
 #endif
   }
 }
