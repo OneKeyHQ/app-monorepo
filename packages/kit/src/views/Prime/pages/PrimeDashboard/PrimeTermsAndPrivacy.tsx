@@ -62,8 +62,7 @@ export function PrimeTermsAndPrivacy() {
       size="$bodyMd"
       width="100%"
       color="$textSubdued"
-      textAlign="center"
-      $gtMd={{ textAlign: platformEnv.isNative ? 'center' : 'left' }}
+      textAlign="left"
     >
       {intl.formatMessage(
         { id: ETranslations.prime_agree_to_terms_privacy },
