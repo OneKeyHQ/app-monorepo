@@ -29,8 +29,10 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * for the device to scan, then the app's camera scans the code the
  * device shows back; the person is holding the device in both, so the
  * replica stays off stage there too.
- * `error` is the terminal failure beat, worded by `errorReason`, with one
- * recovery action.
+ * `error` is the terminal failure beat, worded by `errorReason` — an ask
+ * card with its one recovery action, or, actionless, the notice: the
+ * failure resting as the capsule, ✗ beside the reason's title, leaving
+ * on its own (see `onErrorAction`).
  *
  * `genuineCheck`, `authVerifying`, `authSuccess` and `authFailure` are
  * the device-authenticity flow (the live Genuine check): the ask — the
@@ -288,8 +290,13 @@ export interface IDeviceStageProps {
    */
   onAuthContinueAnyway?: () => void;
   /**
-   * The error step's single recovery action — retry, reconnect. Without it
-   * the step renders no button and the sheet's dismissal is the only exit.
+   * The error step's single recovery action — retry, reconnect — on its
+   * ask card. Without it the step plays as the notice, for the many
+   * failures that have no honest retry: the stage rests as the capsule —
+   * the failure ✗ beside the reason's title, no second line, no button —
+   * and after a readable hold requests its own exit through `onClose`, so
+   * a driver that means the error to leave by itself grants close along
+   * with it.
    */
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */
