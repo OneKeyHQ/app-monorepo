@@ -264,18 +264,6 @@ class ServiceDBBackup extends ServiceBase {
       return;
     }
 
-    // Agent credentials are device-bound signing secrets. They must never be
-    // copied into the recovery backup, even when protected by LSE, because its
-    // local key material is intentionally not portable.
-    const agentCredentialsCleaned =
-      await this.removeBackupHyperLiquidAgentCredentials();
-    if (!agentCredentialsCleaned) {
-      // The snapshot below uses put-by-id and cannot remove stale agent rows,
-      // so a failed cleanup must skip the backup (without touching
-      // lastDBBackupTime) and be retried instead of preserving those rows.
-      return;
-    }
-
     // Data-safety gate. The daily backup overwrites the previous backup bucket
     // in place (migrateRecords uses put-by-id, see migrateRecordsFn.ts), so
     // snapshotting a primary DB that the user cannot decrypt would replace the
@@ -368,23 +356,48 @@ class ServiceDBBackup extends ServiceBase {
         ELocalDBStoreNames.Context,
       );
 
+      // Agent credentials are device-bound signing secrets and must never stay
+      // in the recovery backup. Read the stale ids BEFORE opening backupTx: an
+      // idb transaction auto-commits when unrelated promises are awaited.
+      const staleAgentCredentialIds = (
+        await backupDB.getAll(ELocalDBStoreNames.Credential)
+      )
+        .map((credential) => credential.id)
+        .filter((credentialId) =>
+          accountUtils.isHyperLiquidAgentCredentialId({ credentialId }),
+        );
+
       const backupTx = backupDB.transaction(
         INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
         'readwrite',
       );
 
-      await migrateAccountBucketRecords({
-        tx: backupTx,
-        records: {
-          cloudSyncItem: cloudSyncItems,
-          context: contexts,
-          credential: credentials,
-          device: devices,
-          indexedAccount: indexedAccounts,
-          wallet: wallets,
-          account: accounts,
-        },
-      });
+      // The scrub rides the snapshot transaction so a successful backup can
+      // never leave stale agent rows, while a scrub problem can never block
+      // the backup: a failed transaction rolls back everything and retries on
+      // the existing 24h cadence. The deletes and the put-by-id snapshot touch
+      // disjoint keys because the snapshot source already filters agent
+      // credentials.
+      const backupCredentialStore = backupTx.objectStore(
+        ELocalDBStoreNames.Credential,
+      );
+      await Promise.all([
+        migrateAccountBucketRecords({
+          tx: backupTx,
+          records: {
+            cloudSyncItem: cloudSyncItems,
+            context: contexts,
+            credential: credentials,
+            device: devices,
+            indexedAccount: indexedAccounts,
+            wallet: wallets,
+            account: accounts,
+          },
+        }),
+        ...staleAgentCredentialIds.map((credentialId) =>
+          backupCredentialStore?.delete(credentialId),
+        ),
+      ]);
     } catch (error) {
       // TODO log error
       console.error('ServiceDBBackup backupDatabase error', error);

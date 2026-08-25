@@ -169,7 +169,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; canBackup() targets only)
 **Symptom**: Review finding on PR #12990 â€” stale (possibly plaintext |HLP|) HyperLiquid agent credential rows could stay in the backupAccount bucket forever: scrub failures were logged and swallowed, then the put-by-id daily snapshot completed and advanced lastDBBackupTime.
 **Root Cause**: `removeBackupHyperLiquidAgentCredentials` reported nothing, so `_backupDatabaseDaily` could not distinguish a clean scrub from a failed one, and the snapshot itself never deletes stale rows (put-by-id).
-**Fix**: The scrub returns a boolean (true only when both bucket and legacy branches succeed); a failed scrub skips the snapshot without touching lastDBBackupTime, so the 24h window is not consumed and the attempt retries.
+**Fix**: Stale agent rows are deleted inside the same IndexedDB transaction as the daily snapshot, so a successful backup can never leave stale rows while a scrub problem can never block the backup (backup availability outranks agent-row hygiene: wallet credentials are unrecoverable, agent keys are re-approvable). The standalone scrub returns a boolean and remains best-effort cleanup on credential removal.
 **Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup feeding a state-advancing step must report its outcome)
 
 ## Case: One undecryptable agent credential aborted the whole Perps status batch

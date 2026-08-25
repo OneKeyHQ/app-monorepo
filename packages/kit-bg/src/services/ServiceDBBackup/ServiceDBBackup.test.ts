@@ -323,28 +323,67 @@ describe('ServiceDBBackup', () => {
   });
 
   describe('_backupDatabaseDaily', () => {
-    it('skips the snapshot and keeps lastDBBackupTime untouched when cleanup fails', async () => {
-      const { service, nativeDb, appStatus } = createService();
-      const cleanupSpy = jest
-        .spyOn(service, 'removeBackupHyperLiquidAgentCredentials')
-        .mockResolvedValue(false);
+    it('scrubs stale agent rows inside the snapshot transaction', async () => {
+      const {
+        service,
+        backupBucketDb,
+        backupBucketTx,
+        bucketCredentialDelete,
+      } = createService({
+        backupCredentials: [
+          { id: HL_AGENT_CREDENTIAL_ID },
+          { id: REGULAR_CREDENTIAL_ID },
+        ],
+      });
 
       await service._backupDatabaseDaily();
 
-      expect(cleanupSpy).toHaveBeenCalledTimes(1);
-      expect(mockedAtoms.passwordAtom.get).not.toHaveBeenCalled();
-      expect(appStatus.getRawData).not.toHaveBeenCalled();
-      expect(appStatus.setRawData).not.toHaveBeenCalled();
-      expect(nativeDb.getIndexedByBucketName).not.toHaveBeenCalled();
-      expect(mockedMigrateAccountBucketRecords).not.toHaveBeenCalled();
+      // Snapshot write and agent-row deletes share the single transaction.
+      expect(backupBucketDb.transaction).toHaveBeenCalledTimes(1);
+      expect(backupBucketTx.objectStore).toHaveBeenCalledWith(
+        ELocalDBStoreNames.Credential,
+      );
+      expect(bucketCredentialDelete).toHaveBeenCalledTimes(1);
+      expect(bucketCredentialDelete).toHaveBeenCalledWith(
+        HL_AGENT_CREDENTIAL_ID,
+      );
+      expect(mockedMigrateAccountBucketRecords).toHaveBeenCalledTimes(1);
+      expect(mockedMigrateAccountBucketRecords).toHaveBeenCalledWith(
+        expect.objectContaining({ tx: backupBucketTx }),
+      );
     });
 
-    it('runs the snapshot and advances lastDBBackupTime when cleanup succeeds', async () => {
+    it('does not invoke removeBackupHyperLiquidAgentCredentials and advances lastDBBackupTime on success', async () => {
       const { service, appStatus } = createService();
+      const cleanupSpy = jest.spyOn(
+        service,
+        'removeBackupHyperLiquidAgentCredentials',
+      );
 
       await service._backupDatabaseDaily();
 
+      expect(cleanupSpy).not.toHaveBeenCalled();
       expect(mockedMigrateAccountBucketRecords).toHaveBeenCalledTimes(1);
+      expect(appStatus.setRawData).toHaveBeenCalledTimes(1);
+      const updater = appStatus.setRawData.mock.calls[0][0];
+      expect(updater(undefined)).toEqual(
+        expect.objectContaining({ lastDBBackupTime: expect.any(Number) }),
+      );
+    });
+
+    it('still advances lastDBBackupTime when the backup-bucket read throws', async () => {
+      const { service, appStatus, backupBucketDb } = createService();
+      backupBucketDb.getAll.mockRejectedValue(
+        new Error('backup bucket read failed'),
+      );
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await service._backupDatabaseDaily();
+
+      // A scrub/snapshot failure must never leave the backup feature
+      // permanently dead: the finally block still consumes the 24h window.
+      expect(mockedMigrateAccountBucketRecords).not.toHaveBeenCalled();
+      expect(backupBucketDb.transaction).not.toHaveBeenCalled();
       expect(appStatus.setRawData).toHaveBeenCalledTimes(1);
       const updater = appStatus.setRawData.mock.calls[0][0];
       expect(updater(undefined)).toEqual(
