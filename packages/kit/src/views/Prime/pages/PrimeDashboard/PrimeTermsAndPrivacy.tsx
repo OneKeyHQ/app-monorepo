@@ -60,9 +60,10 @@ export function PrimeTermsAndPrivacy() {
   return (
     <SizableText
       size="$bodyMd"
+      width="100%"
       color="$textSubdued"
       textAlign="center"
-      $gtMd={{ textAlign: 'left' }}
+      $gtMd={{ textAlign: platformEnv.isNative ? 'center' : 'left' }}
     >
       {intl.formatMessage(
         { id: ETranslations.prime_agree_to_terms_privacy },

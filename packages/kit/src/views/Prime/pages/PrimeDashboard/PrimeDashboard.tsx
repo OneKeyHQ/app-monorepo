@@ -460,6 +460,11 @@ export default function PrimeDashboard({
             <Page.Footer>
               <FooterGradient />
               <Stack p="$5" pt="$1" gap="$4">
+                {platformEnv.isNative ? (
+                  <Stack width="100%" alignItems="center">
+                    <PrimeTermsAndPrivacy />
+                  </Stack>
+                ) : null}
                 {/* Desktop layout: row with login left, subscribe right */}
                 <XStack
                   display="none"
@@ -482,7 +487,7 @@ export default function PrimeDashboard({
                   />
                 </XStack>
 
-                {/* Mobile layout: column with subscribe, login, terms */}
+                {/* Mobile layout: column with subscribe and login */}
                 <YStack
                   display="flex"
                   gap="$3"
@@ -499,10 +504,14 @@ export default function PrimeDashboard({
                   {renderLoginPrompt}
                 </YStack>
 
-                {/* Terms & Privacy — always at bottom on both platforms */}
-                <Stack alignItems="center" $gtMd={{ alignItems: 'flex-start' }}>
-                  <PrimeTermsAndPrivacy />
-                </Stack>
+                {!platformEnv.isNative ? (
+                  <Stack
+                    alignItems="center"
+                    $gtMd={{ alignItems: 'flex-start' }}
+                  >
+                    <PrimeTermsAndPrivacy />
+                  </Stack>
+                ) : null}
               </Stack>
             </Page.Footer>
           ) : null}
