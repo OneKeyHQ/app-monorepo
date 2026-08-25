@@ -115,6 +115,20 @@ export class DeviceStageBurstScope {
   private offTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
+   * The active UI-held burst (OK-59934 Stage 1). Long flows — onboarding
+   * above all — span several wrappers with network calls and user
+   * decisions in between, so no single wrapper can bracket them: the
+   * legacy UI flickered at exactly those seams. The UI opens one hold for
+   * the whole flow and the wrappers inside join it by depth.
+   *
+   * Tokenized so a stale holder (an unmounted page, a superseded run) can
+   * never close a newer flow's burst.
+   */
+  private explicitToken: number | undefined;
+
+  private explicitSeq = 0;
+
+  /**
    * The registered confirm content (OK-59934 confirm channel): business
    * code registers what the confirm card must show — before the wrapper
    * starts (UI side) or through the wrapper options — and REQUEST_BUTTON
@@ -166,11 +180,46 @@ export class DeviceStageBurstScope {
         vendorModelName: params.vendorModelName,
         resetOutcome: true,
       });
+      return;
     }
+    // Joined a burst already on stage (typically a UI-held one): the flow
+    // is mid-step, so only the device identity refreshes — the caller
+    // often knows the device the holder could not name yet.
+    if (params.vendor && !this.activeVendor) {
+      this.activeVendor = params.vendor;
+    }
+    await this.mergeDeviceIdentity(params);
+  }
+
+  /**
+   * Opens a UI-held burst spanning a whole flow. Returns the token the
+   * holder must present to close it.
+   */
+  async beginExplicit(params: IDeviceStageBurstBeginParams = {}) {
+    this.explicitSeq += 1;
+    const token = this.explicitSeq;
+    this.explicitToken = token;
+    await this.begin(params);
+    return token;
+  }
+
+  /** Closes a UI-held burst. A stale token is ignored. */
+  async endExplicit(params: { token: number; error?: unknown }) {
+    if (this.explicitToken !== params.token) {
+      return;
+    }
+    this.explicitToken = undefined;
+    await this.end({ error: params.error });
   }
 
   async end(params: { error?: unknown } = {}) {
     if (!(await this.isEnabled())) {
+      return;
+    }
+    // No burst to end: the flag flipped mid-flow, or the person already
+    // closed the stage (userClose drops the depth). Either way there is
+    // nothing to land — never resurrect a dismissed stage with an outcome.
+    if (this.depth <= 0) {
       return;
     }
     this.depth = Math.max(this.depth - 1, 0);
@@ -239,11 +288,40 @@ export class DeviceStageBurstScope {
       return;
     }
     this.clearOffTimer();
+    if (step === 'passphraseOnApp') {
+      // Which passphrase this is decides the whole shape of the ask. The
+      // SDK names the wallet it wants recovered (V1 `passphraseState`, V2
+      // `expectedPassphraseState`) — that is an unlock. Neither means the
+      // device is opening a wallet that does not exist yet: a creation,
+      // which the design teaches first (doc §4.4) before the entry.
+      const isCreate =
+        !payload?.passphraseState && !payload?.expectedPassphraseState;
+      await this.setStep(isCreate ? 'passphraseIntro' : 'passphraseOnApp', {
+        connectId,
+        deviceType: payload?.deviceType,
+        payload,
+        passphraseMode: isCreate ? 'create' : 'verify',
+      });
+      return;
+    }
     await this.setStep(step, {
       connectId,
       deviceType: payload?.deviceType,
       payload,
     });
+  }
+
+  /** The teach card was read: on to the entry it introduced. */
+  async notePassphraseIntroDone() {
+    if (!(await this.isEnabled())) {
+      return;
+    }
+    const prev = await deviceStageAtom.get();
+    if (prev?.step !== 'passphraseIntro') {
+      return;
+    }
+    this.clearOffTimer();
+    await this.setStep('passphraseOnApp', { passphraseMode: 'create' });
   }
 
   /**
@@ -372,9 +450,38 @@ export class DeviceStageBurstScope {
   async userClose() {
     this.clearOffTimer();
     this.depth = 0;
+    this.explicitToken = undefined;
     this.confirmContent = undefined;
     this.activeVendor = undefined;
     await this.forceOff();
+  }
+
+  /** Refreshes who is on stage without touching the step or the beat. */
+  private async mergeDeviceIdentity(params: IDeviceStageBurstBeginParams) {
+    const hasIdentity =
+      params.connectId ||
+      params.deviceType ||
+      params.deviceName ||
+      params.vendor ||
+      params.vendorModel ||
+      params.vendorModelName;
+    if (!hasIdentity) {
+      return;
+    }
+    await deviceStageAtom.set((prev) => {
+      if (!prev || prev.step === 'off') {
+        return prev;
+      }
+      return {
+        ...prev,
+        connectId: params.connectId ?? prev.connectId,
+        deviceType: params.deviceType ?? prev.deviceType,
+        deviceName: params.deviceName ?? prev.deviceName,
+        vendor: params.vendor ?? prev.vendor,
+        vendorModel: params.vendorModel ?? prev.vendorModel,
+        vendorModelName: params.vendorModelName ?? prev.vendorModelName,
+      };
+    });
   }
 
   private scheduleOff(delayMs: number = OFF_GRACE_MS) {
@@ -414,6 +521,7 @@ export class DeviceStageBurstScope {
       confirmDescription?: string;
       confirmDescriptionDanger?: boolean;
       inputError?: string;
+      passphraseMode?: IDeviceStageState['passphraseMode'];
       vendor?: EHardwareVendor;
       vendorModel?: string;
       vendorModelName?: string;
@@ -478,7 +586,7 @@ export class DeviceStageBurstScope {
         btcHighIndexAccountIndex: extras.btcHighIndexAccountIndex,
         errorReason: step === 'error' ? extras.errorReason : undefined,
         inputError: extras.inputError,
-        passphraseMode: base?.passphraseMode,
+        passphraseMode: extras.passphraseMode ?? base?.passphraseMode,
         confirmDetails: pickConfirm(
           extras.confirmDetails,
           registered?.details,
