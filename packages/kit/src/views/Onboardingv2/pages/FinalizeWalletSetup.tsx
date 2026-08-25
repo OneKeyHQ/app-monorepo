@@ -67,6 +67,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
@@ -414,7 +415,17 @@ function FinalizeWalletSetupPage({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    // The wallet-creation run is one conversation with the device across
+    // several hardware calls (wallet, passphrase, accounts) with app work
+    // between them. Legacy showed a checking dialog per call, which is
+    // what flickered through the onboarding animation; one hold spans it.
+    await ensureBurst({
+      connectId: deviceData?.device?.connectId ?? undefined,
+      deviceType: deviceData?.device?.deviceType ?? undefined,
+      deviceName: deviceData?.device?.name ?? undefined,
+    });
     try {
       let hdWalletCreatedResult:
         | {
@@ -786,8 +797,12 @@ function FinalizeWalletSetupPage({
             : ETranslations.global_unknown_error,
         ) as ETranslations,
       });
+    } finally {
+      await endBurst();
     }
   }, [
+    ensureBurst,
+    endBurst,
     mnemonic,
     deviceData,
     isFirmwareVerified,
