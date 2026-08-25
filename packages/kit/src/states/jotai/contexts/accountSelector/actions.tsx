@@ -2565,6 +2565,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await this.autoSelectNextAccount.call(set, {
           num,
           triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+          removedWalletId: walletId,
         });
       } finally {
         set(accountSelectorSyncLoadingAtom(), {
@@ -3509,11 +3510,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl,
         num,
         triggerBy,
+        removedWalletId,
       }: {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
         triggerBy?: EAccountSelectorAutoSelectTriggerBy;
+        removedWalletId?: string;
       },
     ) => {
       // console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -3552,13 +3555,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
+        const isSelectedWalletRemoved = Boolean(
+          removedWalletId && selectedAccount?.walletId === removedWalletId,
+        );
         // Mocked wallets need replacement. Deprecated wallets remain readable.
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
           wallet.isMocked ||
-          !isAccountExist;
+          !isAccountExist ||
+          isSelectedWalletRemoved;
 
         if (shouldAutoSelectNextAccount) {
           defaultLogger.accountSelector.autoSelect.startAutoSelect({
@@ -3579,8 +3586,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount: selectedAccountNew,
           });
 
-          let selectedWalletId = wallet?.id || selectedAccount?.walletId;
-          let selectedWallet = wallet;
+          let selectedWalletId = isSelectedWalletRemoved
+            ? undefined
+            : wallet?.id || selectedAccount?.walletId;
+          let selectedWallet = isSelectedWalletRemoved ? undefined : wallet;
           if (!selectedWallet && selectedWalletId) {
             selectedWallet = await serviceAccount.getWalletSafe({
               walletId: selectedWalletId,
@@ -3595,8 +3604,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               selectedWallet = undefined;
             }
           }
-          let selectedIndexedAccountId =
-            indexedAccount?.id || selectedAccount?.indexedAccountId;
+          let selectedIndexedAccountId = isSelectedWalletRemoved
+            ? undefined
+            : indexedAccount?.id || selectedAccount?.indexedAccountId;
           // accountUtils.isHwWallet
           const hasIndexedAccounts =
             selectedWalletId &&
@@ -3862,18 +3872,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
 
-        const isTriggerByRemoveWalletOrLastOthersAccount =
-          triggerBy &&
-          [
-            EAccountSelectorAutoSelectTriggerBy.removeWallet,
-            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount,
-          ].includes(triggerBy);
+        const shouldRepairFocusedWallet =
+          triggerBy ===
+            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount ||
+          (triggerBy === EAccountSelectorAutoSelectTriggerBy.removeWallet &&
+            (!removedWalletId ||
+              selectedAccount.focusedWallet === removedWalletId));
         // (else if) when auto select logic not trigger, should fix focusedWallet only
         // focused A wallet, but remove B wallet, should focus back to A wallet
-        if (
-          !shouldAutoSelectNextAccount &&
-          isTriggerByRemoveWalletOrLastOthersAccount
-        ) {
+        if (!shouldAutoSelectNextAccount && shouldRepairFocusedWallet) {
           const selectedAccountNew = await this.cloneSelectedAccountNew.call(
             set,
             {
