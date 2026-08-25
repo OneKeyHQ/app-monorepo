@@ -367,7 +367,7 @@ const SwapTokenSelectPage = ({
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
-  const { selectFromToken, selectToToken, syncNetworksSort } =
+  const { selectFromTokenByUser, selectToTokenByUser, syncNetworksSort } =
     useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const getSelectableDefaultNetwork = useCallback(
@@ -715,7 +715,7 @@ const SwapTokenSelectPage = ({
         ) {
           setSwapSelectToToken(fromTokenRef.current);
         }
-        void selectFromToken(token);
+        void selectFromTokenByUser(token);
       } else {
         if (
           equalTokenNoCaseSensitive({
@@ -725,13 +725,13 @@ const SwapTokenSelectPage = ({
         ) {
           setSwapSelectFromToken(toTokenRef.current);
         }
-        void selectToToken(token);
+        void selectToTokenByUser(token);
       }
     },
     [
       navigation,
-      selectFromToken,
-      selectToToken,
+      selectFromTokenByUser,
+      selectToTokenByUser,
       setSwapSelectFromToken,
       setSwapSelectToToken,
       isSwapStockSelectTarget,
