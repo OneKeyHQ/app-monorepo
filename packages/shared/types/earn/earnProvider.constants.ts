@@ -11,6 +11,7 @@ import {
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '../../src/consts/addresses';
 import { EEarnProviderEnum } from '../earn';
@@ -267,6 +268,12 @@ export function getImportFromToken({
         importFromToken = earnTradeDefaultSetBaseETH;
       } else {
         importFromToken = earnTradeDefaultSetBaseUSDC;
+      }
+      break;
+    }
+    case networkIdsMap.katana: {
+      if (tokenAddress.toLowerCase() === KatanaVbUSDC.toLowerCase()) {
+        importFromToken = earnTradeDefaultSetUSDC;
       }
       break;
     }
