@@ -503,7 +503,6 @@ export default function PrimeDashboard({
                   />
                   {renderLoginPrompt}
                 </YStack>
-
               </Stack>
             </Page.Footer>
           ) : null}
