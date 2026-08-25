@@ -27,12 +27,12 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
-const fs = require('fs-extra');
-const Metro = require('metro');
-const { loadConfig } = require('metro-config');
 const {
   patchTransformFileForPackedMaps,
 } = require('@expo/metro-config/build/serializer/packedMap');
+const fs = require('fs-extra');
+const Metro = require('metro');
+const { loadConfig } = require('metro-config');
 const saveAssets = require(
   path.resolve(
     __dirname,
@@ -119,7 +119,6 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
-const projectRootPath = path.resolve(mobileDirPath, '../..');
 
 // Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256

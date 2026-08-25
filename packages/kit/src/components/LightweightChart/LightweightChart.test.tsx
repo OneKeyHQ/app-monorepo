@@ -113,7 +113,7 @@ describe('LightweightChart', () => {
       return id;
     });
     globalThis.cancelAnimationFrame = jest.fn((id) => {
-      if (id != null) {
+      if (id !== null && id !== undefined) {
         animationFrameCallbacks.delete(id);
       }
     });

@@ -12,7 +12,6 @@ export function useThemeVariant() {
     colorScheme === 'light' || colorScheme === 'dark'
       ? colorScheme
       : defaultColorScheme;
-  const themeVariant =
-    theme === 'system' ? resolvedColorScheme : theme;
+  const themeVariant = theme === 'system' ? resolvedColorScheme : theme;
   return themeVariant;
 }

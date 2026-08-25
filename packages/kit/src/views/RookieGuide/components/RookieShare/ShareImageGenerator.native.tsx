@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import ViewShot from 'react-native-view-shot';
-import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,6 +14,7 @@ import { CANVAS_CONFIG } from './constants';
 import { ShareContentRenderer } from './ShareContentRenderer';
 
 import type { IRookieShareLocaleText } from './constants';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IRookieShareData;

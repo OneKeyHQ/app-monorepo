@@ -7,7 +7,6 @@ import {
 } from 'react';
 
 import ViewShot from 'react-native-view-shot';
-import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,6 +19,7 @@ import type {
   IReceiveShareData,
   IReceiveShareImageGeneratorRef,
 } from './types';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IReceiveShareData;

@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import ViewShot from 'react-native-view-shot';
-import type { ViewShotRef } from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
@@ -16,6 +15,7 @@ import type {
   IShareData,
   IShareImageGeneratorRef,
 } from './types';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IShareData;

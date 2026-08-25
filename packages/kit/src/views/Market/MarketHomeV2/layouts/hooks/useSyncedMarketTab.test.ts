@@ -36,7 +36,7 @@ describe('useSyncedMarketTab', () => {
       return frameId;
     });
     globalThis.cancelAnimationFrame = jest.fn((frameId) => {
-      if (frameId != null) {
+      if (frameId !== null && frameId !== undefined) {
         frameCallbacks.delete(frameId);
       }
     });

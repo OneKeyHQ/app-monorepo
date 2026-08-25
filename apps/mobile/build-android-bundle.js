@@ -308,13 +308,7 @@ const buildAndroidBundle = async () => {
   }
   execFileSync(
     'rsync',
-    [
-      '-r',
-      '-c',
-      '-v',
-      `${webEmbedOutputPath}/`,
-      `${webEmbedAndroidPath}/`,
-    ],
+    ['-r', '-c', '-v', `${webEmbedOutputPath}/`, `${webEmbedAndroidPath}/`],
     { stdio: 'inherit' },
   );
   copyModuleIdMapToPlatformDist(distPath);

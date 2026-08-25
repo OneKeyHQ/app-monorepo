@@ -459,8 +459,8 @@ const copyDebugIdToSourceMap = ({ packagerMapPath, sourceMapPath, label }) => {
     nodeExecutablePath,
     [
       path.join(
-      projectRootPath,
-      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+        projectRootPath,
+        'node_modules/@sentry/react-native/scripts/copy-debugid.js',
       ),
       packagerMapPath,
       sourceMapPath,
@@ -945,12 +945,7 @@ const runUnionBuild = ({
     log('union build: split-bundle integrity check');
     execFileSync(
       nodeExecutablePath,
-      [
-        path.join(
-        mobileDirPath,
-        'scripts/check-split-bundle-integrity.js',
-        ),
-      ],
+      [path.join(mobileDirPath, 'scripts/check-split-bundle-integrity.js')],
       { stdio: 'inherit' },
     );
     log('union build: split-bundle integrity check passed');

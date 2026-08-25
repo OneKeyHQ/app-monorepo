@@ -115,8 +115,12 @@ function logHealthCheckSniDecision(
 export async function healthCheckRequest(
   config: IHealthCheckConfig,
 ): Promise<IHealthCheckResponse> {
-  const { url, method = 'GET', timeout = 10_000, headers: rawHeaders = {} } =
-    config;
+  const {
+    url,
+    method = 'GET',
+    timeout = 10_000,
+    headers: rawHeaders = {},
+  } = config;
   const headers = sanitizeHttpHeaders(rawHeaders);
   const normalizedConfig = { ...config, headers };
   const startedAt = Date.now();
