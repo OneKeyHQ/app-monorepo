@@ -1186,17 +1186,16 @@ export function MorphOverlay<T>({
     // the dialogs themselves follow.
     <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
       <Stack style={layerStyle} pointerEvents="box-none">
-        {blocking ? (
-          // The wall blocks the app whenever the shell is there, and is
-          // deliberately NOT a dismissal surface: a stray tap outside
-          // must never cancel a device operation mid-flight — the close
-          // button and the drag are the intentional exits. It stands
-          // down the moment the shell starts leaving, so it never
-          // outlives the exit.
-          <Animated.View
-            style={backdropStyle}
-            pointerEvents={pose === "hidden" ? "none" : "auto"}
-          />
+        {/* The wall blocks the app whenever the shell is there, and is
+            deliberately NOT a dismissal surface: a stray tap outside
+            must never cancel a device operation mid-flight — the close
+            button and the drag are the intentional exits. It unmounts at
+            the hidden pose instead of flipping pointerEvents — the
+            reanimated web view keeps overwriting that style, which left
+            an invisible full-window wall standing after the exit and
+            swallowing every touch. */}
+        {blocking && pose !== 'hidden' ? (
+          <Animated.View style={backdropStyle} pointerEvents="auto" />
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={shellStyle}>

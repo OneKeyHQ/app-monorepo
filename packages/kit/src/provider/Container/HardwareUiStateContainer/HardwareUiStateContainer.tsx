@@ -35,6 +35,7 @@ import {
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
+  useDeviceStageEnabledAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -470,6 +471,14 @@ function HardwareUiStateContainerCmpControlled() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // OK-59934: while the DeviceStage driver is on, this container's
+  // dialog/toast surfaces are muted (the stage replaces them). The
+  // permission-dialog event listeners below stay live — permission popups
+  // are explicitly outside the stage's scope.
+  const [deviceStageEnabled] = useDeviceStageEnabledAtom();
+  const deviceStageEnabledRef = useRef(deviceStageEnabled);
+  deviceStageEnabledRef.current = deviceStageEnabled;
+
   const { serviceHardwareUI } = backgroundApiProxy;
 
   const action = state?.action;
@@ -794,6 +803,10 @@ function HardwareUiStateContainerCmpControlled() {
         if (errorType !== 'DeviceNotFound') {
           return;
         }
+        // OK-59934: the DeviceStage error outcome replaces this dialog.
+        if (deviceStageEnabledRef.current) {
+          return;
+        }
         // Prevent duplicate dialog instances
         if (hardwareErrorDialogInstanceRef.current?.isExist()) {
           return;
@@ -902,6 +915,10 @@ function HardwareUiStateContainerCmpControlled() {
       instanceRef.current = undefined;
     };
   }, [intl, toPromptWebDeviceAccessPage, promptWebUsbDeviceAccess]);
+
+  if (deviceStageEnabled) {
+    return null;
+  }
 
   return (
     <>

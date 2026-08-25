@@ -1687,6 +1687,17 @@ class ServiceHardware extends ServiceBase {
                     : undefined),
               },
             }));
+            // OK-59934: feed the DeviceStage burst scope. It ignores events
+            // while disabled; call-end closes morph to processing inside a
+            // burst instead of exiting the stage.
+            void this.backgroundApi.serviceHardwareUI.deviceStageBurst.onHardwareUiEvent(
+              {
+                action: appliedUiRequestType,
+                connectId: appliedConnectId,
+                payload: appliedPayload,
+                shouldClearUiState: Boolean(reduction.shouldClearUiState),
+              },
+            );
           })
           .catch((error: unknown) => {
             defaultLogger.hardware.sdkLog.log(
