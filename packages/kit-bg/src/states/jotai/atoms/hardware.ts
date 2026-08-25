@@ -11,6 +11,11 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceStageConfirmDetail,
+  IDeviceStageErrorReasonValue,
+  IDeviceStageStepValue,
+} from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { EAtomNames } from '../atomNames';
@@ -169,6 +174,50 @@ export const {
 } = globalAtom<IHardwareUiState | undefined>({
   initialValue: undefined,
   name: EAtomNames.hardwareUiStateCompletedAtom,
+});
+
+// device stage (OK-59934) ----------------------------------------
+
+/**
+ * The DeviceStage driver's single source of truth. One burst = one stage
+ * entrance/exit: the burst scope in ServiceHardwareUI owns every write, and
+ * the DeviceStageContainer renders purely from it. `step: 'off'` is the only
+ * state that plays the exit animation.
+ */
+export type IDeviceStageState = {
+  /** Monotonic id; a new burst resets the container's close-grant policy. */
+  burstId: number;
+  step: IDeviceStageStepValue;
+  connectId?: string;
+  deviceType?: IDeviceType;
+  deviceName?: string;
+  errorReason?: IDeviceStageErrorReasonValue;
+  /** Inline retry line for the active input panel (wrong PIN etc.). */
+  inputError?: string;
+  passphraseMode?: 'create' | 'verify';
+  confirmDetails?: IDeviceStageConfirmDetail[];
+  confirmMessage?: string;
+  confirmDescription?: string;
+  /** The originating hardware UI payload — carries uiResponseCorrelation
+   * the container needs when answering PIN/passphrase requests. */
+  payload?: IHardwareUiPayload;
+};
+
+export const { target: deviceStageAtom, use: useDeviceStageAtom } = globalAtom<
+  IDeviceStageState | undefined
+>({
+  initialValue: undefined,
+  name: EAtomNames.deviceStageAtom,
+});
+
+/** Dev rollout gate: when true the DeviceStage driver renders and the legacy
+ * HardwareUiStateContainer surfaces are muted. */
+export const {
+  target: deviceStageEnabledAtom,
+  use: useDeviceStageEnabledAtom,
+} = globalAtom<boolean>({
+  initialValue: false,
+  name: EAtomNames.deviceStageEnabledAtom,
 });
 
 // third-party hardware ui state -----------------------------------
