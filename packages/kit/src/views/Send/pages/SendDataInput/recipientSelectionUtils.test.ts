@@ -88,6 +88,7 @@ describe('recipientSelectionUtils', () => {
         currentNetworkId: 'evm--1',
         supportNetworkId: 'evm--1',
         isSupported: false,
+        isPrimeUser: true,
         resolvedAddress: '0xabc',
       }),
     ).toBe('hidden');
@@ -96,6 +97,7 @@ describe('recipientSelectionUtils', () => {
         currentNetworkId: 'evm--137',
         supportNetworkId: 'evm--1',
         isSupported: true,
+        isPrimeUser: true,
         resolvedAddress: '0xabc',
       }),
     ).toBe('loading');
@@ -104,6 +106,15 @@ describe('recipientSelectionUtils', () => {
         currentNetworkId: 'evm--1',
         supportNetworkId: 'evm--1',
         isSupported: true,
+        isPrimeUser: false,
+      }),
+    ).toBe('enabled');
+    expect(
+      getSendAddressRiskCheckButtonState({
+        currentNetworkId: 'evm--1',
+        supportNetworkId: 'evm--1',
+        isSupported: true,
+        isPrimeUser: true,
       }),
     ).toBe('disabled');
     expect(
@@ -111,6 +122,7 @@ describe('recipientSelectionUtils', () => {
         currentNetworkId: 'evm--1',
         supportNetworkId: 'evm--1',
         isSupported: true,
+        isPrimeUser: true,
         resolvedAddress: '0xabc',
         isPending: true,
       }),
@@ -120,6 +132,7 @@ describe('recipientSelectionUtils', () => {
         currentNetworkId: 'evm--1',
         supportNetworkId: 'evm--1',
         isSupported: true,
+        isPrimeUser: true,
         resolvedAddress: '0xabc',
       }),
     ).toBe('enabled');
