@@ -14,7 +14,6 @@ import {
   isBlePairAvailable,
   startRawAdvertisementWatch,
 } from './BlePair';
-import type { IPairCeremonyToken } from './BlePair';
 import { trezorBleFlags } from './trezorBleFlags';
 
 import type {
@@ -22,6 +21,8 @@ import type {
   TrezorBleDeviceInfo,
 } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import type { BrowserWindow } from 'electron';
+
+import type { IPairCeremonyToken } from './BlePair';
 
 // App-side Trezor BLE pairing, inserted at the IPC seam the app already owns —
 // WITHOUT touching the SDK. noble cannot initiate OS bonding on Windows (it
