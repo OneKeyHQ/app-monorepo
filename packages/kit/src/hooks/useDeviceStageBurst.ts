@@ -41,6 +41,19 @@ export function useDeviceStageBurst() {
     [endBurst],
   );
 
+  /** Opens a hold only if this holder has none — the parts of a flow that
+   * can also run on their own each ensure the hold without ever
+   * superseding the one an outer part already opened. */
+  const ensureBurst = useCallback(
+    async (params: IDeviceStageBurstBeginParams = {}) => {
+      if (tokenRef.current !== undefined) {
+        return;
+      }
+      await beginBurst(params);
+    },
+    [beginBurst],
+  );
+
   const endBurstRef = useRef(endBurst);
   endBurstRef.current = endBurst;
   useEffect(
@@ -50,5 +63,5 @@ export function useDeviceStageBurst() {
     [],
   );
 
-  return { beginBurst, endBurst };
+  return { beginBurst, ensureBurst, endBurst };
 }
