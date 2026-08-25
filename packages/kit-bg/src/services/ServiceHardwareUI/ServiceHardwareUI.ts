@@ -43,6 +43,7 @@ import {
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
+  thirdPartyBatchInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -139,6 +140,23 @@ class ServiceHardwareUI extends ServiceBase {
       EAppEventBusNames.HardwareFeaturesUpdate,
       this.onThirdPartyHardwareFeaturesUpdate,
     );
+    // OK-59934: one choke point feeds the third-party rail into the
+    // DeviceStage burst scope — the adapters' many atom write sites stay
+    // untouched. The combined read keeps install state and ui state from
+    // racing each other.
+    const feedThirdPartyStage = () => {
+      void (async () => {
+        const [ui, install, batch] = await Promise.all([
+          thirdPartyHardwareUiStateAtom.get(),
+          thirdPartyAppInstallAtom.get(),
+          thirdPartyBatchInstallAtom.get(),
+        ]);
+        await this.deviceStageBurst.onThirdPartyState({ ui, install, batch });
+      })();
+    };
+    thirdPartyHardwareUiStateAtom.sub(feedThirdPartyStage);
+    thirdPartyAppInstallAtom.sub(feedThirdPartyStage);
+    thirdPartyBatchInstallAtom.sub(feedThirdPartyStage);
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
@@ -975,14 +993,21 @@ class ServiceHardwareUI extends ServiceBase {
         // }
 
         await this.cleanHardwareUiState();
-        if (!isThirdPartyVendor) {
-          await this.deviceStageBurst.begin({
-            connectId,
-            deviceType: device?.deviceType,
-            deviceName: device?.name,
-            confirmContent: params.stageConfirmContent,
-          });
-        }
+        await this.deviceStageBurst.begin({
+          connectId,
+          deviceType: device?.deviceType,
+          deviceName: device?.name,
+          vendor: isThirdPartyVendor
+            ? (device?.vendor ?? device?.settings?.vendor)
+            : undefined,
+          vendorModel: isThirdPartyVendor
+            ? device?.settings?.vendorModel
+            : undefined,
+          vendorModelName: isThirdPartyVendor
+            ? device?.settings?.vendorModelName
+            : undefined,
+          confirmContent: params.stageConfirmContent,
+        });
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
           // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
@@ -1166,7 +1191,7 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
-      if (isOuterCall && !isThirdPartyVendor) {
+      if (isOuterCall) {
         await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;
