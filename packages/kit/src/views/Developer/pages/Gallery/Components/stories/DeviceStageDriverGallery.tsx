@@ -36,12 +36,12 @@ const SCENARIOS: Array<{ scenario: IScenario; label: string; note: string }> = [
   {
     scenario: 'reject',
     label: 'Device rejects',
-    note: 'confirm → error(rejected) on the same stage, no toast.',
+    note: 'confirm → error(rejected) notice: ✗ capsule, self-dismisses in ~3s, no toast.',
   },
   {
     scenario: 'disconnect',
     label: 'Device disconnects',
-    note: 'processing → error(disconnected) on the same stage.',
+    note: 'processing → error(disconnected) notice: ✗ capsule, self-dismisses in ~3s.',
   },
 ];
 
