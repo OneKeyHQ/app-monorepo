@@ -26,6 +26,7 @@ export {
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
 export { getTradingViewNativeSubIndicatorValueRange } from './range';
 export {

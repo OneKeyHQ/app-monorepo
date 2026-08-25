@@ -24,6 +24,7 @@ import {
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
+  getTradingViewNativeScaledPriceAxisLabel,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeAtY,
@@ -181,6 +182,27 @@ describe('TradingViewNative chart layout', () => {
         widestVolumeLabelWidth: 42,
       }),
     ).toBe(50);
+  });
+
+  it('reserves the requested minimum axis width for price-scale controls', () => {
+    expect(
+      getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: 0,
+        minimumWidth: 52,
+        widestPriceLabelWidth: 0,
+      }),
+    ).toBe(52);
+  });
+
+  it('includes labels created by a manually expanded price range', () => {
+    expect(
+      getTradingViewNativeScaledPriceAxisLabel({
+        autoPriceRange: { maxPrice: 200, minPrice: 100 },
+        baseLabel: '888.88',
+        priceRangeScale: 10,
+        priceScaleMode: 'linear',
+      }),
+    ).toBe('-0.00008888');
   });
 
   it('covers the plain-decimal label regime only when the price range reaches it', () => {
@@ -382,6 +404,133 @@ describe('TradingViewNative chart layout', () => {
     expect(layout.volumeTicks[1]?.y).toBeCloseTo(259.2);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
+  });
+
+  it('scales the visible price range around its center', () => {
+    const points = buildPoints({
+      count: 2,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0] = { ...points[0], h: 2, l: 0.5 };
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      priceRangeScale: 2,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout).toMatchObject({
+      maxPrice: 2.75,
+      minPrice: -0.25,
+      priceRange: 3,
+    });
+  });
+
+  it('maps logarithmic prices by equal percentage distance', () => {
+    const points = buildPoints({
+      count: 2,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    }).map((point) => ({
+      ...point,
+      c: 100,
+      h: 1000,
+      l: 10,
+      o: 100,
+    }));
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      priceScaleMode: 'logarithmic',
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout).not.toBeNull();
+    if (!layout) {
+      return;
+    }
+    const middleY =
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight / 2;
+    expect(layout).toMatchObject({
+      maxPrice: 1000,
+      minPrice: 10,
+      priceScaleMode: 'logarithmic',
+    });
+    expect(getTradingViewNativePriceY(100, layout)).toBeCloseTo(middleY);
+    expect(
+      getTradingViewNativePriceAtY({
+        maxPrice: layout.maxPrice,
+        minPrice: layout.minPrice,
+        priceChartHeight: layout.priceChartHeight,
+        priceScaleMode: layout.priceScaleMode,
+        y: middleY,
+      }),
+    ).toBeCloseTo(100);
+    expect(
+      layout.priceTicks[Math.floor(layout.priceTicks.length / 2)]?.price,
+    ).toBeCloseTo(100);
+  });
+
+  it('scales a logarithmic range around its geometric center', () => {
+    const points = buildPoints({
+      count: 2,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    }).map((point) => ({
+      ...point,
+      c: 100,
+      h: 1000,
+      l: 10,
+      o: 100,
+    }));
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      priceRangeScale: 2,
+      priceScaleMode: 'logarithmic',
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout?.minPrice).toBeCloseTo(1);
+    expect(layout?.maxPrice).toBeCloseTo(10_000);
+  });
+
+  it('falls back to linear scale for non-positive prices', () => {
+    const points = buildPoints({
+      count: 2,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0] = { ...points[0], h: 10, l: 0 };
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: 44,
+      priceScaleMode: 'logarithmic',
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(layout?.priceScaleMode).toBe('linear');
   });
 
   it('reserves pane space above the single shared time axis', () => {
