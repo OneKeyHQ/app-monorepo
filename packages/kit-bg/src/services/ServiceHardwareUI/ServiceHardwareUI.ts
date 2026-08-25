@@ -584,6 +584,10 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       deviceType,
       deviceName: isOnDevice ? 'Pro2 6136' : 'OneKey Classic (demo)',
+      // The confirm channel: content registered up front; REQUEST_BUTTON
+      // consumes it — the demo exercises the real registration path.
+      confirmContent:
+        scenario === 'sign' ? { details: demoConfirmDetails } : undefined,
     });
     let scriptError: unknown;
     try {
@@ -594,22 +598,17 @@ class ServiceHardwareUI extends ServiceBase {
           // The person types the PIN on the stage; submit lands processing.
           if (await waitForStep('processing')) {
             await timerUtils.wait(1000);
-            await scope.noteStep('confirm', {
-              connectId,
-              confirmDetails: demoConfirmDetails,
-              payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
-            });
+            // The registered rows ride in through the plain event feed.
+            await feed(EHardwareUiStateAction.REQUEST_BUTTON);
             await timerUtils.wait(3500);
             // Call #1 ends: the SDK's close morphs to processing, not off.
             await feedCallEnd();
             await timerUtils.wait(1200);
-            // Call #2 of the same burst: another device confirmation.
-            await scope.noteStep('confirm', {
-              connectId,
-              confirmDescription:
-                'Verify the receive address shown on the device.',
-              payload: makePayload(EHardwareUiStateAction.REQUEST_BUTTON),
+            // Call #2 of the same burst re-registers, then asks again.
+            await scope.registerConfirmContent({
+              description: 'Verify the receive address shown on the device.',
             });
+            await feed(EHardwareUiStateAction.REQUEST_BUTTON);
             await timerUtils.wait(3000);
             await feedCallEnd();
             await timerUtils.wait(800);
