@@ -73,6 +73,7 @@ export enum ENotificationPermissionRecoveryTestScenario {
 export type INotificationPermissionRecoveryCheckParams = {
   source: ENotificationPermissionRecoverySource;
   ignoreCooldown?: boolean;
+  pushEnabled?: boolean;
 };
 
 export type INotificationPermissionRecoveryResult = {

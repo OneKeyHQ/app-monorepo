@@ -22,6 +22,7 @@ const FOREGROUND_CHECK_DELAY_MS = 500;
 function BasicNotificationPermissionRecoveryAlert({
   scene,
   initialDelayMs = 0,
+  pushEnabled,
 }: INotificationPermissionRecoveryAlertProps) {
   const intl = useIntl();
   const isFocused = useRouteIsFocused();
@@ -30,6 +31,7 @@ function BasicNotificationPermissionRecoveryAlert({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const requestSequenceRef = useRef(0);
 
   const clearPendingCheck = useCallback(() => {
     if (timeoutRef.current) {
@@ -37,6 +39,11 @@ function BasicNotificationPermissionRecoveryAlert({
       timeoutRef.current = undefined;
     }
   }, []);
+
+  const invalidatePendingCheck = useCallback(() => {
+    requestSequenceRef.current += 1;
+    clearPendingCheck();
+  }, [clearPendingCheck]);
 
   const checkPermissionRecovery = useCallback(
     async ({
@@ -46,22 +53,31 @@ function BasicNotificationPermissionRecoveryAlert({
       ignoreCooldown?: boolean;
       source: ENotificationPermissionRecoverySource;
     }) => {
+      const requestSequence = requestSequenceRef.current + 1;
+      requestSequenceRef.current = requestSequence;
       try {
         const nextResult =
           await backgroundApiProxy.serviceNotification.checkNotificationPermissionRecovery(
             {
               ignoreCooldown,
+              pushEnabled,
               source,
             },
           );
+        if (requestSequence !== requestSequenceRef.current) {
+          return undefined;
+        }
         setResult(nextResult);
         return nextResult;
       } catch {
+        if (requestSequence !== requestSequenceRef.current) {
+          return undefined;
+        }
         setResult(undefined);
         return undefined;
       }
     },
-    [scene],
+    [pushEnabled, scene],
   );
 
   const scheduleCheck = useCallback(
@@ -72,18 +88,18 @@ function BasicNotificationPermissionRecoveryAlert({
       delayMs: number;
       source: ENotificationPermissionRecoverySource;
     }) => {
-      clearPendingCheck();
+      invalidatePendingCheck();
       timeoutRef.current = setTimeout(() => {
         timeoutRef.current = undefined;
         void checkPermissionRecovery({ source });
       }, delayMs);
     },
-    [checkPermissionRecovery, clearPendingCheck],
+    [checkPermissionRecovery, invalidatePendingCheck],
   );
 
   useEffect(() => {
     if (!isFocused) {
-      clearPendingCheck();
+      invalidatePendingCheck();
       setResult(undefined);
       return undefined;
     }
@@ -94,8 +110,8 @@ function BasicNotificationPermissionRecoveryAlert({
           ? ENotificationPermissionRecoverySource.homeStartup
           : ENotificationPermissionRecoverySource.settings,
     });
-    return clearPendingCheck;
-  }, [clearPendingCheck, initialDelayMs, isFocused, scene, scheduleCheck]);
+    return invalidatePendingCheck;
+  }, [initialDelayMs, invalidatePendingCheck, isFocused, scene, scheduleCheck]);
 
   const handleAppActive = useCallback(() => {
     if (isFocused) {
@@ -112,11 +128,12 @@ function BasicNotificationPermissionRecoveryAlert({
   useHandleAppStateActive(handleAppActive, appActiveHandlers);
 
   const handleClose = useCallback(() => {
+    invalidatePendingCheck();
     setResult(undefined);
     void backgroundApiProxy.serviceNotification
       .dismissNotificationPermissionRecovery()
       .catch(() => undefined);
-  }, []);
+  }, [invalidatePendingCheck]);
 
   const handleRecovery = useCallback(async () => {
     try {

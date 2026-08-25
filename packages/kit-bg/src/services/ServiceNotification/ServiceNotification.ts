@@ -418,6 +418,8 @@ export default class ServiceNotification extends ServiceBase {
   notificationPermissionRecoveryTestScenario =
     ENotificationPermissionRecoveryTestScenario.real;
 
+  private notificationPermissionRecoveryCheckSequence = 0;
+
   private getNotificationPermissionRecoveryTestData():
     | {
         permissionDetail: INotificationPermissionDetail | undefined;
@@ -497,6 +499,7 @@ export default class ServiceNotification extends ServiceBase {
   async setNotificationPermissionRecoveryTestScenario(
     scenario: ENotificationPermissionRecoveryTestScenario,
   ) {
+    this.notificationPermissionRecoveryCheckSequence += 1;
     this.notificationPermissionRecoveryTestScenario = scenario;
     return scenario;
   }
@@ -508,6 +511,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async resetNotificationPermissionRecoveryState() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
     await notificationsAtom.set((value) => ({
       ...value,
       permissionRecoveryDismissedAt: undefined,
@@ -517,6 +521,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async dismissNotificationPermissionRecovery() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
     await notificationsAtom.set((value) => ({
       ...value,
       permissionRecoveryDismissedAt: Date.now(),
@@ -527,7 +532,10 @@ export default class ServiceNotification extends ServiceBase {
   async checkNotificationPermissionRecovery({
     source,
     ignoreCooldown = false,
+    pushEnabled: pushEnabledSnapshot,
   }: INotificationPermissionRecoveryCheckParams): Promise<INotificationPermissionRecoveryResult> {
+    const checkSequence = this.notificationPermissionRecoveryCheckSequence + 1;
+    this.notificationPermissionRecoveryCheckSequence = checkSequence;
     const checkedAt = Date.now();
     const testData = this.getNotificationPermissionRecoveryTestData();
     const isTestMode = Boolean(testData);
@@ -543,13 +551,20 @@ export default class ServiceNotification extends ServiceBase {
       isServerSettingsAvailable = !queryFailed;
     } else if (platformEnv.isNative) {
       try {
-        const [serverSettings, permission] = await Promise.all([
-          this.fetchServerNotificationSettingsWithCache(),
-          this.getPermissionWithoutLog(),
-        ]);
-        permissionDetail = permission;
-        pushEnabled = serverSettings?.pushEnabled;
-        isServerSettingsAvailable = Boolean(serverSettings);
+        const permissionPromise = this.getPermissionWithoutLog();
+        if (pushEnabledSnapshot === undefined) {
+          const [serverSettings, permission] = await Promise.all([
+            this.fetchServerNotificationSettingsWithCache(),
+            permissionPromise,
+          ]);
+          permissionDetail = permission;
+          pushEnabled = serverSettings?.pushEnabled;
+          isServerSettingsAvailable = Boolean(serverSettings);
+        } else {
+          permissionDetail = await permissionPromise;
+          pushEnabled = pushEnabledSnapshot;
+          isServerSettingsAvailable = true;
+        }
       } catch {
         queryFailed = true;
       }
@@ -579,21 +594,33 @@ export default class ServiceNotification extends ServiceBase {
       queryFailed,
     });
 
-    if (!queryFailed && currentPermission) {
+    if (
+      !queryFailed &&
+      currentPermission &&
+      checkSequence === this.notificationPermissionRecoveryCheckSequence
+    ) {
       const shouldClearDismissal =
         hasPermissionChanged ||
         result.reason ===
           ENotificationPermissionRecoveryReason.permissionGranted ||
         result.reason === ENotificationPermissionRecoveryReason.pushDisabled;
-      await notificationsAtom.set((value) => ({
-        ...value,
-        permissionRecoveryDismissedAt: shouldClearDismissal
-          ? undefined
-          : value.permissionRecoveryDismissedAt,
-        permissionRecoveryLastPermission: currentPermission,
-      }));
+      await notificationsAtom.set((value) => {
+        if (
+          checkSequence !== this.notificationPermissionRecoveryCheckSequence
+        ) {
+          return value;
+        }
+        return {
+          ...value,
+          permissionRecoveryDismissedAt: shouldClearDismissal
+            ? undefined
+            : value.permissionRecoveryDismissedAt,
+          permissionRecoveryLastPermission: currentPermission,
+        };
+      });
 
       if (
+        checkSequence === this.notificationPermissionRecoveryCheckSequence &&
         !isTestMode &&
         pushEnabled &&
         previousPermission &&
@@ -615,6 +642,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async recoverNotificationPermission(): Promise<INotificationPermissionRecoveryActionResult> {
+    this.notificationPermissionRecoveryCheckSequence += 1;
     const testData = this.getNotificationPermissionRecoveryTestData();
     const isTestMode = Boolean(testData);
     let permissionDetail = testData

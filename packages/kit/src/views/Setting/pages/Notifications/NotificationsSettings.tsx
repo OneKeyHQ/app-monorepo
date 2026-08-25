@@ -196,7 +196,10 @@ export default function NotificationsSettings() {
             </ListItem>
 
             {settings?.pushEnabled ? (
-              <NotificationPermissionRecoveryAlert scene="settings" />
+              <NotificationPermissionRecoveryAlert
+                scene="settings"
+                pushEnabled={settings.pushEnabled}
+              />
             ) : null}
 
             {settings?.pushEnabled ? (
