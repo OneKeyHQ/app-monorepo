@@ -502,10 +502,16 @@ function getOperationFindings({
   // rendering nothing. Scoped to dApp requests (`origin`): wallet-built flows
   // (batch swaps, custom networks) always local-parse by design and never
   // showed a security verdict, so an unverified row there would be pure noise.
+  // Exception: `hasServerSecurityAnalysis` (scaled-UI forced-local path) —
+  // the server parse DID run and its alerts were retained, so it is not
+  // actually unverified.
   if (
     kind === 'transaction' &&
     origin &&
-    decodedTxs?.some((decodedTx) => decodedTx.isLocalParsed)
+    decodedTxs?.some(
+      (decodedTx) =>
+        decodedTx.isLocalParsed && !decodedTx.hasServerSecurityAnalysis,
+    )
   ) {
     findings.push({
       id: 'tx-parse-fallback',
@@ -727,10 +733,15 @@ function SecurityCheckCard(props: IProps) {
     // A locally parsed tx only proves the local decoder ran — the server-side
     // security analysis (parser alerts, address risk) never happened, so it
     // must not count as a resolved check (would show a false "No issues").
+    // Exception: `hasServerSecurityAnalysis` (scaled-UI forced-local path) —
+    // the server parse DID run, so that tx counts as resolved.
     const operationResolved =
       kind === 'transaction'
         ? Boolean(decodedTxs?.length) &&
-          !decodedTxs?.some((decodedTx) => decodedTx.isLocalParsed)
+          !decodedTxs?.some(
+            (decodedTx) =>
+              decodedTx.isLocalParsed && !decodedTx.hasServerSecurityAnalysis,
+          )
         : Boolean(messageDisplay) && !isMessageParseFallback;
     return siteResolved && operationResolved;
   }, [

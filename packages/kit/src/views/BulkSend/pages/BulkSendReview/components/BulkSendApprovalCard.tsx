@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -25,7 +24,12 @@ import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 
+import {
+  calculateTotalApproveDisplayAmount,
+  getApproveDisplayAmount,
+} from './approveDisplayUtils';
 import { useBulkSendReviewContext } from './Context';
 
 type IApprovalItemProps = {
@@ -68,7 +72,7 @@ function ApprovalItem({
     ? intl.formatMessage({
         id: ETranslations.wallet_bulk_send_approval_reset_to_zero,
       })
-    : approveInfo.amount;
+    : getApproveDisplayAmount(approveInfo);
   const { copyText } = useClipboard();
 
   return (
@@ -102,7 +106,11 @@ function ApprovalItem({
           >
             {displayAmount}
           </NumberSizeableText>
-          {onEdit && !isResetApproval ? (
+          {onEdit &&
+          !isResetApproval &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            tokenInfo?.balanceMultiplier,
+          ) ? (
             <IconButton
               testID="bulk-send-icon-btn"
               icon="PencilOutline"
@@ -183,14 +191,12 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
   // Check if any approval is unlimited
   const hasUnlimitedApproval = approvesInfo.some((info) => info.isMax);
 
-  // Calculate total approval amount (excluding reset approvals)
-  // If any approval is unlimited, show "Unlimited"
+  // Calculate total approval amount (excluding reset approvals) on the same
+  // display basis as the transfer summary. If any approval is unlimited,
+  // show "Unlimited"
   const totalApprovalAmount = hasUnlimitedApproval
     ? null
-    : approvesInfo
-        .filter((info) => info.amount !== '0')
-        .reduce((sum, info) => sum.plus(info.amount || '0'), new BigNumber(0))
-        .toFixed();
+    : calculateTotalApproveDisplayAmount(approvesInfo);
 
   const tokenSymbol = approvesInfo[0]?.tokenInfo?.symbol ?? 'Token';
 

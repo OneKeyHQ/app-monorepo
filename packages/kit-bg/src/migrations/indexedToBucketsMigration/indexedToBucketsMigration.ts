@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -132,8 +133,13 @@ async function migrateBackupedDataToBucket({
     ELocalDBStoreNames.Account,
   );
 
-  const credentials: IDBCredential[] = await backupDB.getAll(
-    ELocalDBStoreNames.Credential,
+  const credentials: IDBCredential[] = (
+    await backupDB.getAll(ELocalDBStoreNames.Credential)
+  ).filter(
+    (credential) =>
+      !accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: credential.id,
+      }),
   );
 
   const devices: IDBDevice[] = await backupDB.getAll(ELocalDBStoreNames.Device);
@@ -211,8 +217,16 @@ async function migrateOneKeyV5LegacyDBToBucket({
   const legacyAccounts: IDBAccount[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.Account,
   );
-  const legacyCredentials: IDBCredential[] = await legacyIndexedDb.getAll(
-    ELocalDBStoreNames.Credential,
+  // Bucket storage migration shipped before HyperLiquid agent credentials.
+  // A legitimate legacy primary DB cannot contain them; this filter only
+  // defends against manually modified or otherwise unsupported database state.
+  const legacyCredentials: IDBCredential[] = (
+    await legacyIndexedDb.getAll(ELocalDBStoreNames.Credential)
+  ).filter(
+    (credential) =>
+      !accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: credential.id,
+      }),
   );
   const legacyDevices: IDBDevice[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.Device,
