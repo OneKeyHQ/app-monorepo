@@ -406,7 +406,7 @@ export function OkxIndicatorLineRow({
     id: ETranslations.market_chart_settings__solid_line,
   });
   const dashedLineLabel = intl.formatMessage({
-    id: ETranslations.market_chart_settings__dotted_line,
+    id: ETranslations.market_chart_indicator_dashed_line__label,
   });
   const secondaryStyleOptions = [solidLineLabel, dashedLineLabel];
 

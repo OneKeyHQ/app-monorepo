@@ -144,6 +144,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     const showIndicatorsDialog = useCallback(() => {
       if (layoutMode === 'desktop') {
         showTradingViewNativeIndicatorSettingsDialog({
+          intl,
           onConfirm: onIndicatorSettingsConfirm,
           value: indicatorSettingsValue,
         });
@@ -169,6 +170,7 @@ export const TradingViewNativeChartControlsContainer = memo(
       indicatorSettingsValue,
       indicators,
       indicatorsTitle,
+      intl,
       layoutMode,
       maxSelectableSubIndicatorCount,
       onIndicatorSettingsConfirm,
