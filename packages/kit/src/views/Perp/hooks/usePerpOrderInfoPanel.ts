@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
@@ -18,10 +19,19 @@ import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
+import type { IFill, IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../utils/accountScopedData';
+
+type IUserFundingHistoryResult = {
+  accountAddress: string | undefined;
+  records: IUserFunding[];
+};
 
 export function usePerpTradesHistory() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -107,6 +117,70 @@ export function usePerpTradesHistory() {
     // If current account has no Perp address (unsupported or not created yet),
     // show empty state instead of skeleton loading.
     isLoading: hasAccountAddress ? !isLoaded : false,
+  };
+}
+
+export function usePerpUserFundingHistory({
+  isActive = true,
+}: {
+  isActive?: boolean;
+} = {}) {
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const accountAddress = currentAccount?.accountAddress ?? undefined;
+  const query = usePromiseResult<IUserFundingHistoryResult>(
+    async () => {
+      if (!accountAddress) {
+        return {
+          accountAddress: undefined,
+          records: [],
+        };
+      }
+
+      const normalizedRequestAddress = accountAddress.toLowerCase();
+      try {
+        const records =
+          await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
+            accountAddress,
+          });
+        return {
+          accountAddress: normalizedRequestAddress,
+          records,
+        };
+      } catch {
+        return {
+          accountAddress: normalizedRequestAddress,
+          records: [],
+        };
+      }
+    },
+    [accountAddress],
+    {
+      watchLoading: true,
+      undefinedResultIfError: true,
+      // Gate requests by the visible info-panel tab without making tab
+      // activity part of the query scope, so same-account results stay cached.
+      overrideIsFocused: (isFocused) => isFocused && isActive,
+    },
+  );
+  const normalizedAccountAddress = accountAddress?.toLowerCase();
+  const isCurrentAccountResult = isPerpsAccountAddressMatched({
+    activeAccountAddress: normalizedAccountAddress,
+    dataAccountAddress: query.result?.accountAddress,
+  });
+  const records = getPerpsAccountScopedListData({
+    activeAccountAddress: normalizedAccountAddress,
+    dataAccountAddress: query.result?.accountAddress,
+    data: query.result?.records ?? [],
+  });
+  const isLoading = Boolean(
+    accountAddress && (query.isLoading === true || !isCurrentAccountResult),
+  );
+
+  return {
+    accountAddress: normalizedAccountAddress,
+    records,
+    isLoading,
+    refresh: query.run,
   };
 }
 

@@ -1,0 +1,444 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  type IDebugRenderTrackerProps,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
+
+import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
+import {
+  filterFundingHistoryRecords,
+  formatFundingHistoryRate,
+  getFundingHistoryMarketOptions,
+  getFundingHistoryPaymentPresentation,
+  getFundingHistorySide,
+} from '../fundingHistoryDisplay';
+import { calcCellAlign, getColumnStyle } from '../utils';
+
+import {
+  CommonTableListView,
+  type IColumnConfig,
+  type IRenderMode,
+} from './CommonTableListView';
+
+import type {
+  IFundingHistoryMarketOption,
+  IFundingHistorySideFilter,
+} from '../fundingHistoryDisplay';
+
+const FUNDING_HISTORY_PAGE_SIZE = 20;
+
+const balanceFormatter = {
+  formatter: 'balance' as const,
+};
+
+const valueFormatter = {
+  formatter: 'value' as const,
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+function MobileFundingHistoryLoadingSkeleton() {
+  return (
+    <YStack>
+      {[0, 1, 2, 3].map((index) => (
+        <YStack
+          key={index}
+          mx="$5"
+          my="$2"
+          p="$4"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          gap="$3"
+        >
+          <XStack justifyContent="space-between">
+            <YStack gap="$1">
+              <Skeleton w="$16" h="$3.5" />
+              <Skeleton w="$24" h="$3" />
+            </YStack>
+            <YStack gap="$1" alignItems="flex-end">
+              <Skeleton w="$10" h="$2.5" />
+              <Skeleton w="$16" h="$3.5" />
+            </YStack>
+          </XStack>
+          <XStack justifyContent="space-between">
+            <Skeleton w="$20" h="$3" />
+            <Skeleton w="$16" h="$3" />
+          </XStack>
+        </YStack>
+      ))}
+    </YStack>
+  );
+}
+
+function FundingHistoryRow({
+  record,
+  isMobile,
+  cellMinWidth,
+  columnConfigs,
+  index,
+  renderMode = 'full',
+  isHovered,
+  onHoverChange,
+}: {
+  record: IUserFunding;
+  isMobile?: boolean;
+  cellMinWidth: number;
+  columnConfigs: IColumnConfig[];
+  index: number;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
+}) {
+  const intl = useIntl();
+  const { delta } = record;
+  const dateInfo = useMemo(() => {
+    const date = new Date(record.time);
+    return {
+      date: formatTime(date, { formatTemplate: 'yyyy-LL-dd' }),
+      time: formatTime(date, { formatTemplate: 'HH:mm:ss' }),
+    };
+  }, [record.time]);
+  const market = useMemo(
+    () => parseDexCoin(delta.coin).displayName,
+    [delta.coin],
+  );
+  const side = useMemo(() => getFundingHistorySide(delta.szi), [delta.szi]);
+  const sideInfo = useMemo(() => {
+    if (side === 'long') {
+      return {
+        color: '$green11' as const,
+        text: intl.formatMessage({ id: ETranslations.perp_long }),
+      };
+    }
+    if (side === 'short') {
+      return {
+        color: '$red11' as const,
+        text: intl.formatMessage({ id: ETranslations.perp_short }),
+      };
+    }
+    return {
+      color: '$textSubdued' as const,
+      text: '--',
+    };
+  }, [intl, side]);
+  const size = useMemo(() => {
+    const absoluteSize = new BigNumber(delta.szi).abs();
+    const formattedSize = absoluteSize.isFinite()
+      ? numberFormat(absoluteSize.toFixed(), balanceFormatter)
+      : '--';
+    return formattedSize === '--'
+      ? formattedSize
+      : `${formattedSize} ${market}`;
+  }, [delta.szi, market]);
+  const payment = useMemo(() => {
+    const presentation = getFundingHistoryPaymentPresentation(delta.usdc);
+    return {
+      ...presentation,
+      formatted: numberFormat(presentation.absoluteAmount, valueFormatter),
+    };
+  }, [delta.usdc]);
+  const fundingRate = useMemo(
+    () => formatFundingHistoryRate(delta.fundingRate),
+    [delta.fundingRate],
+  );
+
+  if (isMobile) {
+    return (
+      <YStack mx="$5" my="$2" p="$4" bg="$bgSubdued" borderRadius="$3" gap="$3">
+        <XStack justifyContent="space-between" gap="$3">
+          <YStack flex={1} gap="$1">
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMdMedium">{market}</SizableText>
+              <SizableText size="$bodySmMedium" color={sideInfo.color}>
+                {sideInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {dateInfo.date} {dateInfo.time}
+            </SizableText>
+          </YStack>
+          <YStack alignItems="flex-end" gap="$1">
+            <SizableText size="$bodyXs" color="$textSubdued">
+              Payment
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={payment.color}>
+              {payment.sign}
+              {payment.formatted}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <XStack justifyContent="space-between" gap="$4">
+          <YStack flex={1} gap="$1">
+            <SizableText size="$bodyXs" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.perp_open_orders_size })}
+            </SizableText>
+            <SizableText size="$bodySm">{size}</SizableText>
+          </YStack>
+          <YStack flex={1} gap="$1" alignItems="flex-end">
+            <SizableText size="$bodyXs" color="$textSubdued">
+              Rate
+            </SizableText>
+            <SizableText size="$bodySm">{fundingRate}</SizableText>
+          </YStack>
+        </XStack>
+      </YStack>
+    );
+  }
+
+  let backgroundColor = '$bgApp';
+  if (isHovered) {
+    backgroundColor = '$bgHover';
+  } else if (index % 2 === 1) {
+    backgroundColor = '$bgSubdued';
+  }
+
+  return (
+    <XStack
+      flex={1}
+      py="$1.5"
+      pl="$5"
+      pr="$3"
+      alignItems="center"
+      minHeight={48}
+      minWidth={renderMode === 'full' ? cellMinWidth : undefined}
+      backgroundColor={backgroundColor}
+      onHoverIn={() => onHoverChange?.(index)}
+      onHoverOut={() => onHoverChange?.(null)}
+    >
+      <YStack
+        {...getColumnStyle(columnConfigs[0])}
+        justifyContent="center"
+        alignItems={calcCellAlign(columnConfigs[0].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySm">
+          {dateInfo.date}
+        </SizableText>
+        <SizableText numberOfLines={1} size="$bodySm" color="$textSubdued">
+          {dateInfo.time}
+        </SizableText>
+      </YStack>
+      <XStack
+        {...getColumnStyle(columnConfigs[1])}
+        justifyContent={calcCellAlign(columnConfigs[1].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySmMedium">
+          {market}
+        </SizableText>
+      </XStack>
+      <XStack
+        {...getColumnStyle(columnConfigs[2])}
+        justifyContent={calcCellAlign(columnConfigs[2].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySm">
+          {size}
+        </SizableText>
+      </XStack>
+      <XStack
+        {...getColumnStyle(columnConfigs[3])}
+        justifyContent={calcCellAlign(columnConfigs[3].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySm" color={sideInfo.color}>
+          {sideInfo.text}
+        </SizableText>
+      </XStack>
+      <XStack
+        {...getColumnStyle(columnConfigs[4])}
+        justifyContent={calcCellAlign(columnConfigs[4].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySm" color={payment.color}>
+          {payment.sign}
+          {payment.formatted}
+        </SizableText>
+      </XStack>
+      <XStack
+        {...getColumnStyle(columnConfigs[5])}
+        justifyContent={calcCellAlign(columnConfigs[5].align)}
+      >
+        <SizableText numberOfLines={1} size="$bodySm">
+          {fundingRate}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+
+interface IPerpFundingHistoryListProps {
+  isActive?: boolean;
+  isMobile?: boolean;
+  useTabsList?: boolean;
+  sideFilter?: IFundingHistorySideFilter;
+  marketFilter?: string;
+  onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
+}
+
+function PerpFundingHistoryList({
+  isActive = true,
+  isMobile,
+  useTabsList,
+  sideFilter = 'all',
+  marketFilter,
+  onMarketOptionsChange,
+}: IPerpFundingHistoryListProps) {
+  const intl = useIntl();
+  const { accountAddress, records, isLoading, refresh } =
+    usePerpUserFundingHistory({ isActive });
+  const [currentListPage, setCurrentListPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentListPage(1);
+  }, [accountAddress, marketFilter, sideFilter]);
+
+  const marketOptions = useMemo(
+    () => getFundingHistoryMarketOptions(records),
+    [records],
+  );
+  useEffect(() => {
+    onMarketOptionsChange?.(marketOptions);
+  }, [marketOptions, onMarketOptionsChange]);
+
+  const filteredRecords = useMemo(
+    () => filterFundingHistoryRecords({ records, sideFilter, marketFilter }),
+    [marketFilter, records, sideFilter],
+  );
+
+  const sortedRecords = useMemo(
+    () =>
+      filteredRecords.toSorted(
+        (a, b) => b.time - a.time || b.hash.localeCompare(a.hash),
+      ),
+    [filteredRecords],
+  );
+  const hasActiveFilter = sideFilter !== 'all' || marketFilter !== undefined;
+  const columnsConfig: IColumnConfig[] = useMemo(
+    () => [
+      {
+        key: 'time',
+        title: intl.formatMessage({ id: ETranslations.global_time }),
+        minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'market',
+        title: intl.formatMessage({ id: ETranslations.global_market }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_size }),
+        minWidth: 150,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'payment',
+        title: 'Payment',
+        minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'rate',
+        title: 'Rate',
+        minWidth: 120,
+        flex: 1,
+        align: 'right',
+      },
+    ],
+    [intl],
+  );
+  const totalMinWidth = useMemo(
+    () =>
+      columnsConfig.reduce(
+        (sum, column) => sum + (column.width || column.minWidth || 0),
+        0,
+      ),
+    [columnsConfig],
+  );
+  const renderFundingHistoryRow = useCallback(
+    (
+      record: IUserFunding,
+      index: number,
+      renderMode?: IRenderMode,
+      isHovered?: boolean,
+      onHoverChange?: (rowIndex: number | null) => void,
+    ) => (
+      <FundingHistoryRow
+        record={record}
+        isMobile={isMobile}
+        cellMinWidth={totalMinWidth}
+        columnConfigs={columnsConfig}
+        index={index}
+        renderMode={renderMode}
+        isHovered={isHovered}
+        onHoverChange={onHoverChange}
+      />
+    ),
+    [columnsConfig, isMobile, totalMinWidth],
+  );
+
+  return (
+    <CommonTableListView
+      onPullToRefresh={refresh}
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpFundingHistoryList',
+          position: 'top-left',
+        }),
+        [],
+      )}
+      useTabsList={useTabsList}
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
+      enablePagination
+      paginationToBottom={isMobile}
+      pageSize={FUNDING_HISTORY_PAGE_SIZE}
+      columns={columnsConfig}
+      minTableWidth={totalMinWidth}
+      data={sortedRecords}
+      isMobile={isMobile}
+      renderRow={renderFundingHistoryRow}
+      keyExtractor={(record) =>
+        `${record.hash}-${record.time}-${record.delta.coin}`
+      }
+      listLoading={isLoading}
+      mobileLoadingComponent={
+        isMobile ? <MobileFundingHistoryLoadingSkeleton /> : undefined
+      }
+      emptyMessage={
+        hasActiveFilter && records.length > 0
+          ? 'No matching funding history'
+          : 'No funding distributions yet'
+      }
+      emptySubMessage={
+        hasActiveFilter && records.length > 0
+          ? 'Try changing the filters.'
+          : 'Funding payments will appear here.'
+      }
+    />
+  );
+}
+
+export { PerpFundingHistoryList };

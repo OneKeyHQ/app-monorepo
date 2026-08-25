@@ -1,13 +1,15 @@
-import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
-
 export const PERP_FUNDING_HISTORY_PAGE_SIZE = 500;
 
-function getNewFundingHistoryRecords({
+type ITimedFundingHistoryRecord = {
+  time: number;
+};
+
+function getNewFundingHistoryRecords<T extends ITimedFundingHistoryRecord>({
   page,
   startTime,
   endTime,
 }: {
-  page: IFundingHistoryRecord[];
+  page: T[];
   startTime: number;
   endTime: number;
 }) {
@@ -16,19 +18,18 @@ function getNewFundingHistoryRecords({
     .toSorted((a, b) => a.time - b.time);
 }
 
-export async function fetchPerpFundingHistoryPages({
+export async function fetchPerpFundingHistoryPages<
+  T extends ITimedFundingHistoryRecord,
+>({
   startTime,
   endTime,
   fetchPage,
 }: {
   startTime: number;
   endTime: number;
-  fetchPage: (params: {
-    startTime: number;
-    endTime: number;
-  }) => Promise<IFundingHistoryRecord[]>;
-}): Promise<IFundingHistoryRecord[]> {
-  const records: IFundingHistoryRecord[] = [];
+  fetchPage: (params: { startTime: number; endTime: number }) => Promise<T[]>;
+}): Promise<T[]> {
+  const records: T[] = [];
   let nextStartTime = startTime;
 
   while (nextStartTime <= endTime) {

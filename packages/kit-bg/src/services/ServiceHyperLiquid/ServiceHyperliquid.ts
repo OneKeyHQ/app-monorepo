@@ -108,6 +108,7 @@ import type {
   ITwapSliceFill,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
+  IUserFunding,
   IUserNonFundingLedgerUpdate,
   IUserTwapSliceFillsByTimeParameters,
   IUserTwapSliceFillsParameters,
@@ -1668,6 +1669,18 @@ export default class ServiceHyperliquid extends ServiceBase {
           ...page,
         }),
     });
+  }
+
+  @backgroundMethod()
+  async getUserFundingHistory({
+    accountAddress,
+  }: {
+    accountAddress: IHex;
+  }): Promise<IUserFunding[]> {
+    const { infoClient } = hyperLiquidApiClients;
+    const user = accountAddress.toLowerCase() as IHex;
+
+    return infoClient.userFunding({ user });
   }
 
   @backgroundMethod()

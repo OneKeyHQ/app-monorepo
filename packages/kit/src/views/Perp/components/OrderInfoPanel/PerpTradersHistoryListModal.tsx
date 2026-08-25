@@ -7,6 +7,7 @@ import {
   Button,
   type IPageNavigationProp,
   Page,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -29,6 +30,7 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpAccountList } from './List/PerpAccountList';
+import { PerpFundingHistoryList } from './List/PerpFundingHistoryList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
@@ -38,7 +40,8 @@ type ITabName = IPerpHistoryTab;
 
 const HISTORY_TABS: Array<{
   name: ITabName;
-  labelId: ETranslations;
+  labelId?: ETranslations;
+  label?: string;
 }> = [
   {
     name: 'Trades',
@@ -47,6 +50,10 @@ const HISTORY_TABS: Array<{
   {
     name: 'Twap',
     labelId: ETranslations.perp_twap_order__title,
+  },
+  {
+    name: 'Funding',
+    label: 'Funding',
   },
   {
     name: 'Account',
@@ -64,34 +71,40 @@ function TabHeader({
   const intl = useIntl();
 
   return (
-    <XStack
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
       bg="$bgApp"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      {HISTORY_TABS.map((tab, index) => (
-        <XStack
-          key={tab.name}
-          py="$3"
-          ml={index === 0 ? '$5' : '$2'}
-          mr="$2"
-          borderBottomWidth={1.5}
-          borderBottomColor={
-            activeTab === tab.name ? '$borderActive' : 'transparent'
-          }
-          onPress={() => onTabChange(tab.name)}
-        >
-          <SizableText
-            size="$headingXs"
-            textTransform="none"
-            letterSpacing={0}
-            color={activeTab === tab.name ? '$text' : '$textSubdued'}
+      <XStack>
+        {HISTORY_TABS.map((tab, index) => (
+          <XStack
+            key={tab.name}
+            py="$3"
+            ml={index === 0 ? '$5' : '$2'}
+            mr="$2"
+            borderBottomWidth={1.5}
+            borderBottomColor={
+              activeTab === tab.name ? '$borderActive' : 'transparent'
+            }
+            onPress={() => onTabChange(tab.name)}
           >
-            {intl.formatMessage({ id: tab.labelId })}
-          </SizableText>
-        </XStack>
-      ))}
-    </XStack>
+            <SizableText
+              size="$headingXs"
+              textTransform="none"
+              letterSpacing={0}
+              color={activeTab === tab.name ? '$text' : '$textSubdued'}
+            >
+              {tab.labelId
+                ? intl.formatMessage({ id: tab.labelId })
+                : tab.label}
+            </SizableText>
+          </XStack>
+        ))}
+      </XStack>
+    </ScrollView>
   );
 }
 
@@ -183,6 +196,9 @@ export function PerpTradersHistoryListModal() {
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
               />
+            ) : null}
+            {activeTab === 'Funding' ? (
+              <PerpFundingHistoryList isMobile useTabsList={false} isActive />
             ) : null}
             {activeTab === 'Account' ? (
               <PerpAccountList

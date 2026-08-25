@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-// Countdown timer hook for funding rate countdown (resets every hour)
-export function useFundingCountdown() {
+// Count down to the provided funding settlement, or the next full hour.
+export function useFundingCountdown(nextFundingTime?: number | null) {
   const [countdown, setCountdown] = useState('00:00');
 
   useEffect(() => {
@@ -9,8 +9,12 @@ export function useFundingCountdown() {
       const now = new Date();
       const nextHour = new Date(now);
       nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+      const resolvedNextFundingTime =
+        nextFundingTime && nextFundingTime > now.getTime()
+          ? nextFundingTime
+          : nextHour.getTime();
 
-      const diff = nextHour.getTime() - now.getTime();
+      const diff = resolvedNextFundingTime - now.getTime();
       const minutes = Math.floor(diff / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
@@ -24,7 +28,7 @@ export function useFundingCountdown() {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [nextFundingTime]);
 
   return countdown;
 }

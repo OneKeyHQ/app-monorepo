@@ -8,10 +8,11 @@ import type {
   IFill,
   IPortfolio,
   IPortfolioMetrics,
+  IUserFunding,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPortfolioTimePeriod = 'day' | 'week' | 'month' | 'allTime';
-export type IPortfolioChartType = 'accountValue' | 'pnl';
+export type IPortfolioChartType = 'accountValue' | 'pnl' | 'funding';
 export type IPortfolioPnlType = 'all' | 'perps' | 'spot';
 
 export type IPortfolioChartData = {
@@ -126,6 +127,95 @@ export function buildPortfolioChartData({
     perpsPnlHistory,
     nonPerpsPnlHistory: subtractHistory(pnlHistory, perpsPnlHistory),
     vlm: combinedMetrics.vlm,
+  };
+}
+
+export function buildCumulativeFundingChartData({
+  records,
+  timePeriod,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+}): {
+  chartData: [number, number][];
+  total: number;
+} {
+  const startTime = getStartTimeForPeriod(timePeriod, now);
+  const fundingBySecond = new Map<number, BigNumber>();
+
+  records.forEach((record) => {
+    if (record.time < startTime || record.time > now) return;
+
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite()) return;
+
+    const time = Math.floor(record.time / 1000);
+    fundingBySecond.set(
+      time,
+      (fundingBySecond.get(time) ?? new BigNumber(0)).plus(payment),
+    );
+  });
+
+  const fundingPoints = Array.from(fundingBySecond.entries()).toSorted(
+    ([timeA], [timeB]) => timeA - timeB,
+  );
+  const firstFundingTime = fundingPoints[0]?.[0];
+  if (firstFundingTime === undefined) {
+    return {
+      chartData: [],
+      total: 0,
+    };
+  }
+
+  const periodStartTime = Math.floor(startTime / 1000);
+  const baselineTime =
+    timePeriod === 'allTime'
+      ? Math.max(0, firstFundingTime - 1)
+      : Math.min(periodStartTime, firstFundingTime - 1);
+  const chartData: [number, number][] = [[baselineTime, 0]];
+  let cumulativeFunding = new BigNumber(0);
+
+  fundingPoints.forEach(([time, payment]) => {
+    cumulativeFunding = cumulativeFunding.plus(payment);
+    chartData.push([time, cumulativeFunding.toNumber()]);
+  });
+
+  const nowInSeconds = Math.floor(now / 1000);
+  if (chartData.at(-1)?.[0] !== nowInSeconds) {
+    chartData.push([nowInSeconds, cumulativeFunding.toNumber()]);
+  }
+
+  return {
+    chartData,
+    total: cumulativeFunding.toNumber(),
+  };
+}
+
+export function buildFundingPaymentSummary(records: IUserFunding[]): {
+  netFunding: number;
+  totalPaid: number;
+  totalReceived: number;
+} {
+  let totalPaid = new BigNumber(0);
+  let totalReceived = new BigNumber(0);
+
+  records.forEach((record) => {
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite()) return;
+
+    if (payment.isPositive()) {
+      totalReceived = totalReceived.plus(payment);
+    } else if (payment.isNegative()) {
+      totalPaid = totalPaid.plus(payment.abs());
+    }
+  });
+
+  return {
+    netFunding: totalReceived.minus(totalPaid).toNumber(),
+    totalPaid: totalPaid.toNumber(),
+    totalReceived: totalReceived.toNumber(),
   };
 }
 

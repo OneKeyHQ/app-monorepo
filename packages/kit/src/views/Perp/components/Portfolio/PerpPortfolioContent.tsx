@@ -43,10 +43,15 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { usePerpUserFundingHistory } from '../../hooks/usePerpOrderInfoPanel';
 import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
+import {
+  buildCumulativeFundingChartData,
+  buildFundingPaymentSummary,
+} from './portfolioStats';
 import {
   type IPortfolioChartType,
   type IPortfolioPnlType,
@@ -339,6 +344,10 @@ function PerpPortfolioContentComponent({
         }),
         value: 'pnl' as IPortfolioChartType,
       },
+      {
+        label: 'Funding',
+        value: 'funding' as IPortfolioChartType,
+      },
     ],
     [intl],
   );
@@ -373,7 +382,7 @@ function PerpPortfolioContentComponent({
     activeAccount?.accountAddress,
   ).length;
 
-  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('day');
+  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('month');
   const [chartType, setChartType] =
     useState<IPortfolioChartType>('accountValue');
   const [pnlType, setPnlType] = useState<IPortfolioPnlType>('all');
@@ -463,6 +472,9 @@ function PerpPortfolioContentComponent({
     y: number;
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const isPnl = chartType === 'pnl';
+  const isFunding = chartType === 'funding';
+  const isBaselineChart = isPnl || isFunding;
   const activityType: IPortfolioPnlType = chartType === 'pnl' ? pnlType : 'all';
 
   const {
@@ -471,18 +483,38 @@ function PerpPortfolioContentComponent({
     netDeposits,
     accountSummary,
     pnlTotals,
-    isLoading,
+    isLoading: isPortfolioLoading,
   } = usePerpPortfolioData(timePeriod, activityType);
+  const { records: fundingHistory, isLoading: isFundingHistoryLoading } =
+    usePerpUserFundingHistory({ isActive: isFunding });
+  const cumulativeFunding = useMemo(
+    () =>
+      buildCumulativeFundingChartData({
+        records: fundingHistory,
+        timePeriod,
+      }),
+    [fundingHistory, timePeriod],
+  );
+  const fundingPaymentSummary = useMemo(
+    () => buildFundingPaymentSummary(fundingHistory),
+    [fundingHistory],
+  );
+  const isChartLoading = isFunding
+    ? isFundingHistoryLoading
+    : isPortfolioLoading;
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
+    if (isFunding) return cumulativeFunding.chartData;
     if (!chartData) return [];
     if (chartType === 'accountValue') return chartData.accountValueHistory;
     if (pnlType === 'perps') return chartData.perpsPnlHistory;
     if (pnlType === 'spot') return chartData.nonPerpsPnlHistory;
     return chartData.pnlHistory;
-  }, [chartData, chartType, pnlType]);
+  }, [chartData, chartType, cumulativeFunding.chartData, isFunding, pnlType]);
+  const showFundingEmptyState =
+    !isChartLoading && isFunding && chartSeriesData.length === 0;
 
   const accountValue = formatPerpsUsd(
     parseFloat(computedValue?.accountValue ?? '0'),
@@ -510,6 +542,17 @@ function PerpPortfolioContentComponent({
   const totalPnlVal = selectedPnlVal ?? fallbackPnlVal;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
+  const allTimeNetFunding = formatPerpsUsd(
+    fundingPaymentSummary.netFunding,
+    true,
+  );
+  const allTimeNetFundingColor = getPerpsValueColor(
+    fundingPaymentSummary.netFunding,
+  );
+  const totalFundingPaid = formatPerpsUsd(fundingPaymentSummary.totalPaid);
+  const totalFundingReceived = formatPerpsUsd(
+    fundingPaymentSummary.totalReceived,
+  );
   const totalPnlTooltip = intl.formatMessage({
     id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
   });
@@ -687,13 +730,14 @@ function PerpPortfolioContentComponent({
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
   const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : CHART_HEIGHT_DESKTOP;
-  const isPnl = chartType === 'pnl';
-  const chartTooltipLabel =
-    chartType === 'accountValue'
-      ? intl.formatMessage({
-          id: ETranslations.perp_portfolio_chart_type_value,
-        })
-      : selectedPnlTypeLabel;
+  let chartTooltipLabel = selectedPnlTypeLabel;
+  if (isFunding) {
+    chartTooltipLabel = 'Cumulative net funding';
+  } else if (chartType === 'accountValue') {
+    chartTooltipLabel = intl.formatMessage({
+      id: ETranslations.perp_portfolio_chart_type_value,
+    });
+  }
 
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
@@ -843,9 +887,22 @@ function PerpPortfolioContentComponent({
       )}
 
       {/* Chart — negative mr shifts chart right so plot area aligns with controls */}
-      {isLoading ? (
+      {isChartLoading ? (
         <Skeleton height={chartHeight} borderRadius="$2" />
-      ) : (
+      ) : null}
+      {showFundingEmptyState ? (
+        <YStack
+          height={chartHeight}
+          alignItems="center"
+          justifyContent="center"
+          px="$6"
+        >
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            No funding payments in this period.
+          </SizableText>
+        </YStack>
+      ) : null}
+      {!isChartLoading && !showFundingEmptyState ? (
         <YStack
           position="relative"
           flex={1}
@@ -891,7 +948,7 @@ function PerpPortfolioContentComponent({
             height={chartHeight}
             onHover={handleHover}
             lineColor={portfolioPalette.positive}
-            secondaryLineData={isPnl ? undefined : chartSeriesData}
+            secondaryLineData={isBaselineChart ? undefined : chartSeriesData}
             secondaryLineColor={portfolioPalette.positive}
             secondaryLineWidth={3}
             topColor={colorWithAlpha(
@@ -901,74 +958,109 @@ function PerpPortfolioContentComponent({
             bottomColor={colorWithAlpha(portfolioPalette.positive, 0)}
             lineWidth={3}
             showPriceScale
-            showHorzGridLines={isPnl}
+            showHorzGridLines={isBaselineChart}
             priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
-            priceScaleEntireTextOnly={!isPnl}
+            priceScaleEntireTextOnly={!isBaselineChart}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
-            seriesType={isPnl ? 'baseline' : 'dotted-area'}
-            baselineOptions={isPnl ? baselineOptions : undefined}
-            showLastValue={isPnl}
-            showLastPointMarker={isPnl ? undefined : false}
-            pulseLastPoint={!isPnl}
+            seriesType={isBaselineChart ? 'baseline' : 'dotted-area'}
+            baselineOptions={isBaselineChart ? baselineOptions : undefined}
+            showLastValue={isBaselineChart}
+            showLastPointMarker={isBaselineChart ? undefined : false}
+            pulseLastPoint={!isBaselineChart}
             timeZone={timeZone}
             locale={intl.locale}
           />
         </YStack>
-      )}
+      ) : null}
 
-      {/* P&L + Win Rate summary */}
-      <SectionBlock>
-        <XStack alignItems="center">
-          <YStack flex={1} minWidth={0} gap="$0.5">
-            <SizableText size="$bodyXs" color="$textDisabled">
-              {intl.formatMessage({
-                id: ETranslations.perp_portfolio_unrealized_pnl,
-              })}
-            </SizableText>
-            <SizableText
-              size="$headingSm"
-              color={unrealizedColor}
-              numberOfLines={1}
-              minWidth={0}
-            >
-              {unrealizedPnl}
-            </SizableText>
-          </YStack>
-          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
-            <DashText
-              size="$bodyXs"
-              color="$textDisabled"
-              dashThickness={0.5}
-              tooltip={totalPnlTooltip}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_portfolio_total_pnl,
-              })}
-            </DashText>
-            <SizableText
-              size="$headingSm"
-              color={realizedColor}
-              numberOfLines={1}
-              minWidth={0}
-              maxWidth="100%"
-              textAlign="center"
-            >
-              {realizedPnl}
-            </SizableText>
-          </YStack>
-          <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
-            <SizableText size="$bodyXs" color="$textDisabled">
-              {intl.formatMessage({
-                id: ETranslations.perp_portfolio_open_positions,
-              })}
-            </SizableText>
-            <SizableText size="$headingSm" color="$text">
-              {positionsLength ?? 0}
-            </SizableText>
-          </YStack>
-        </XStack>
-      </SectionBlock>
+      {/* Selected chart summary */}
+      {isFunding ? (
+        <SectionBlock>
+          <XStack alignItems="center">
+            <YStack flex={1} minWidth={0} gap="$0.5">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                Net funding (all time)
+              </SizableText>
+              <SizableText
+                size="$headingSm"
+                color={allTimeNetFundingColor}
+                numberOfLines={1}
+              >
+                {allTimeNetFunding}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                Total paid
+              </SizableText>
+              <SizableText size="$headingSm" color="$text" numberOfLines={1}>
+                {totalFundingPaid}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                Total received
+              </SizableText>
+              <SizableText size="$headingSm" color="$text" numberOfLines={1}>
+                {totalFundingReceived}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </SectionBlock>
+      ) : (
+        <SectionBlock>
+          <XStack alignItems="center">
+            <YStack flex={1} minWidth={0} gap="$0.5">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_unrealized_pnl,
+                })}
+              </SizableText>
+              <SizableText
+                size="$headingSm"
+                color={unrealizedColor}
+                numberOfLines={1}
+                minWidth={0}
+              >
+                {unrealizedPnl}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashThickness={0.5}
+                tooltip={totalPnlTooltip}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_total_pnl,
+                })}
+              </DashText>
+              <SizableText
+                size="$headingSm"
+                color={realizedColor}
+                numberOfLines={1}
+                minWidth={0}
+                maxWidth="100%"
+                textAlign="center"
+              >
+                {realizedPnl}
+              </SizableText>
+            </YStack>
+            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
+              <SizableText size="$bodyXs" color="$textDisabled">
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_open_positions,
+                })}
+              </SizableText>
+              <SizableText size="$headingSm" color="$text">
+                {positionsLength ?? 0}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </SectionBlock>
+      )}
     </YStack>
   );
 

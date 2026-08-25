@@ -1,6 +1,11 @@
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  IUserFunding,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
+  buildCumulativeFundingChartData,
+  buildFundingPaymentSummary,
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
 } from './portfolioStats';
@@ -27,6 +32,21 @@ function createFill(overrides: Partial<IFill>): IFill {
     builderFee: '0',
     ...overrides,
   } as IFill;
+}
+
+function createFunding(time: number, usdc: string, coin = 'BTC'): IUserFunding {
+  return {
+    time,
+    hash: `0x${'1'.repeat(64)}`,
+    delta: {
+      type: 'funding',
+      coin,
+      usdc,
+      szi: '1',
+      fundingRate: '0.0001',
+      nSamples: null,
+    },
+  };
 }
 
 describe('buildPerpPortfolioFillsStats', () => {
@@ -227,5 +247,76 @@ describe('buildPortfolioChartData', () => {
       [1_700_000_060, 5],
     ]);
     expect(chartData?.vlm).toBe('100');
+  });
+});
+
+describe('buildCumulativeFundingChartData', () => {
+  it('builds a range-relative cumulative series and combines same-time payments', () => {
+    const hour = 60 * 60 * 1000;
+    const day = 24 * hour;
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [
+        createFunding(NOW - hour, '0.5'),
+        createFunding(NOW - 2 * hour, '-0.4'),
+        createFunding(NOW - 2 * hour, '0.1', 'ETH'),
+        createFunding(NOW - 2 * day, '99'),
+        createFunding(NOW - hour, 'invalid', 'SOL'),
+      ],
+    });
+
+    expect(result.total).toBe(0.2);
+    expect(result.chartData).toEqual([
+      [Math.floor((NOW - day) / 1000), 0],
+      [Math.floor((NOW - 2 * hour) / 1000), -0.3],
+      [Math.floor((NOW - hour) / 1000), 0.2],
+      [Math.floor(NOW / 1000), 0.2],
+    ]);
+  });
+
+  it('starts all-time data immediately before the first funding payment', () => {
+    const fundingTime = NOW - 10 * 24 * 60 * 60 * 1000;
+    const fundingTimeInSeconds = Math.floor(fundingTime / 1000);
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'allTime',
+      now: NOW,
+      records: [createFunding(fundingTime, '-1.25')],
+    });
+
+    expect(result).toEqual({
+      total: -1.25,
+      chartData: [
+        [fundingTimeInSeconds - 1, 0],
+        [fundingTimeInSeconds, -1.25],
+        [Math.floor(NOW / 1000), -1.25],
+      ],
+    });
+  });
+
+  it('returns an empty series when the selected range has no funding payments', () => {
+    const result = buildCumulativeFundingChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
+    });
+
+    expect(result).toEqual({ chartData: [], total: 0 });
+  });
+});
+
+describe('buildFundingPaymentSummary', () => {
+  it('separates paid and received funding and calculates the all-time net', () => {
+    const summary = buildFundingPaymentSummary([
+      createFunding(NOW, '-4.9'),
+      createFunding(NOW, '1.63', 'ETH'),
+      createFunding(NOW, 'invalid', 'SOL'),
+    ]);
+
+    expect(summary).toEqual({
+      netFunding: -3.27,
+      totalPaid: 4.9,
+      totalReceived: 1.63,
+    });
   });
 });
