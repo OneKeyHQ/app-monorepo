@@ -20,7 +20,13 @@ import { Layout } from './utils/Layout';
 // one-entrance-one-exit rule is verifiable without hardware. Interactive
 // steps (PIN) wait for real input on the stage.
 
-type IScenario = 'sign' | 'signOnDevice' | 'reject' | 'disconnect';
+type IScenario =
+  | 'sign'
+  | 'signOnDevice'
+  | 'reject'
+  | 'disconnect'
+  | 'trezorSign'
+  | 'ledgerInstall';
 
 const SCENARIOS: Array<{ scenario: IScenario; label: string; note: string }> = [
   {
@@ -42,6 +48,16 @@ const SCENARIOS: Array<{ scenario: IScenario; label: string; note: string }> = [
     scenario: 'disconnect',
     label: 'Device disconnects',
     note: 'processing → error(disconnected) notice: ✗ capsule, self-dismisses in ~3s.',
+  },
+  {
+    scenario: 'trezorSign',
+    label: 'Trezor sign (matrix PIN)',
+    note: 'connecting → unlockDevice → matrix pinOnApp → confirmOnDevice → done ✓ → off. Capsule wears the Safe 7 product shot.',
+  },
+  {
+    scenario: 'ledgerInstall',
+    label: 'Ledger app install',
+    note: 'connecting → installConfirm → installing (real progress) → done ✓ → off. Nano X product shot.',
   },
 ];
 

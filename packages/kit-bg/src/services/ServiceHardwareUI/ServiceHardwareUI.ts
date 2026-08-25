@@ -38,6 +38,7 @@ import type { IDeviceStageConfirmContent } from '@onekeyhq/shared/types/deviceSt
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   deviceStageAtom,
   deviceStageEnabledAtom,
   firmwareUpdateWorkflowRunningAtom,
@@ -59,6 +60,7 @@ import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IHardwareUiPayload,
   IHardwareUiResponseCorrelation,
+  IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
@@ -545,11 +547,24 @@ class ServiceHardwareUI extends ServiceBase {
   async demoDeviceStageBurst({
     scenario,
   }: {
-    scenario: 'sign' | 'signOnDevice' | 'reject' | 'disconnect';
+    scenario:
+      | 'sign'
+      | 'signOnDevice'
+      | 'reject'
+      | 'disconnect'
+      | 'trezorSign'
+      | 'ledgerInstall';
   }) {
     const scope = this.deviceStageBurst;
     const connectId = 'demo-device-stage';
     const isOnDevice = scenario === 'signOnDevice';
+    const isTrezor = scenario === 'trezorSign';
+    const isLedger = scenario === 'ledgerInstall';
+    const demoVendor = (() => {
+      if (isTrezor) return EHardwareVendor.trezor;
+      if (isLedger) return EHardwareVendor.ledger;
+      return undefined;
+    })();
     const deviceType = isOnDevice ? EDeviceType.Pro2 : EDeviceType.Classic;
     const makePayload = (uiRequestType: string): IHardwareUiPayload => ({
       uiRequestType,
@@ -571,6 +586,35 @@ class ServiceHardwareUI extends ServiceBase {
         action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
         connectId,
         shouldClearUiState: true,
+      });
+    const feedThirdParty = (
+      action: EThirdPartyHardwareUiAction,
+      payload?: IThirdPartyHardwareUiState['payload'],
+    ) =>
+      scope.onThirdPartyState({
+        ui: demoVendor
+          ? { action, vendor: demoVendor, ...(payload ? { payload } : {}) }
+          : undefined,
+        install: undefined,
+        batch: undefined,
+      });
+    const feedThirdPartyInstall = (progress?: number) =>
+      scope.onThirdPartyState({
+        ui: undefined,
+        install: demoVendor
+          ? {
+              vendor: demoVendor,
+              appName: 'Ethereum',
+              ...(progress === undefined ? {} : { progress }),
+            }
+          : undefined,
+        batch: undefined,
+      });
+    const feedThirdPartyClear = () =>
+      scope.onThirdPartyState({
+        ui: undefined,
+        install: undefined,
+        batch: undefined,
       });
     const waitForStep = async (
       step: string,
@@ -598,10 +642,28 @@ class ServiceHardwareUI extends ServiceBase {
       { label: 'Fee', value: '0.00042 ETH' },
     ];
 
+    const demoDeviceName = (() => {
+      if (isTrezor) return 'Trezor Safe 7';
+      if (isLedger) return 'Ledger Nano X';
+      return isOnDevice ? 'Pro2 6136' : 'OneKey Classic (demo)';
+    })();
+    const demoVendorModel = (() => {
+      if (isTrezor) return 'T3W1';
+      if (isLedger) return 'nanoX';
+      return undefined;
+    })();
+    const demoVendorModelName = (() => {
+      if (isTrezor) return 'Safe 7';
+      if (isLedger) return 'Nano X';
+      return undefined;
+    })();
     await scope.begin({
       connectId,
-      deviceType,
-      deviceName: isOnDevice ? 'Pro2 6136' : 'OneKey Classic (demo)',
+      deviceType: demoVendor ? undefined : deviceType,
+      deviceName: demoDeviceName,
+      vendor: demoVendor,
+      vendorModel: demoVendorModel,
+      vendorModelName: demoVendorModelName,
       // The confirm channel: content registered up front; REQUEST_BUTTON
       // consumes it — the demo exercises the real registration path.
       confirmContent:
@@ -668,6 +730,33 @@ class ServiceHardwareUI extends ServiceBase {
             $isHardwareError: true,
             code: HardwareErrorCode.DeviceNotFound,
           };
+          break;
+        }
+        case 'trezorSign': {
+          await feedThirdParty(EThirdPartyHardwareUiAction.unlockDevice);
+          await timerUtils.wait(2200);
+          // Trezor matrix PIN — the person taps positions on the stage.
+          await feedThirdParty(EThirdPartyHardwareUiAction.requestTrezorPin);
+          if (await waitForStep('processing')) {
+            await timerUtils.wait(800);
+            await feedThirdParty(EThirdPartyHardwareUiAction.confirmOnDevice);
+            await timerUtils.wait(3000);
+            // Call boundary on the third-party rail: atoms cleared.
+            await feedThirdPartyClear();
+            await timerUtils.wait(400);
+          }
+          break;
+        }
+        case 'ledgerInstall': {
+          // Install confirm card, then real-progress installing bar.
+          await feedThirdPartyInstall();
+          await timerUtils.wait(3000);
+          for (let p = 0; p <= 10; p += 1) {
+            await feedThirdPartyInstall(p / 10);
+            await timerUtils.wait(300);
+          }
+          await feedThirdPartyClear();
+          await timerUtils.wait(300);
           break;
         }
         default:
