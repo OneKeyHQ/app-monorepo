@@ -1,6 +1,7 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
@@ -9,6 +10,7 @@ import type {
 
 import {
   EHardwareUiStateAction,
+  EThirdPartyHardwareUiAction,
   deviceStageAtom,
   deviceStageEnabledAtom,
 } from '../../states/jotai/atoms';
@@ -16,6 +18,9 @@ import {
 import type {
   IDeviceStageState,
   IHardwareUiPayload,
+  IThirdPartyAppInstallState,
+  IThirdPartyBatchInstallState,
+  IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
 
 /**
@@ -68,10 +73,36 @@ const ACTION_TO_STEP: Partial<Record<string, IDeviceStageStepValue>> = {
   [EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE]: 'enterPassphrase',
 };
 
+/** Doc §05 mapping table B — third-party actions → steps. BLE binding is
+ * deliberately absent: it stays on its legacy dialog (保留现状). */
+const THIRD_PARTY_ACTION_TO_STEP: Partial<
+  Record<string, IDeviceStageStepValue>
+> = {
+  [EThirdPartyHardwareUiAction.searching]: 'searching',
+  [EThirdPartyHardwareUiAction.connecting]: 'connecting',
+  [EThirdPartyHardwareUiAction.processing]: 'processing',
+  [EThirdPartyHardwareUiAction.done]: 'done',
+  [EThirdPartyHardwareUiAction.confirmOnDevice]: 'confirmOnDevice',
+  [EThirdPartyHardwareUiAction.openApp]: 'openApp',
+  [EThirdPartyHardwareUiAction.unlockDevice]: 'unlockDevice',
+  [EThirdPartyHardwareUiAction.requestTrezorPin]: 'pinOnApp',
+  [EThirdPartyHardwareUiAction.requestTrezorPassphrase]: 'passphraseOnApp',
+  [EThirdPartyHardwareUiAction.requestTrezorThpPairing]: 'pairingCode',
+  [EThirdPartyHardwareUiAction.requestDeviceNotFound]: 'deviceNotFound',
+  [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
+};
+
+/** How long the third-party ✓ `done` beat rests before the exit. */
+const DONE_HOLD_MS = 1600;
+
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
   deviceName?: string;
+  /** Third-party track: vendor + real model for the capsule product shot. */
+  vendor?: EHardwareVendor;
+  vendorModel?: string;
+  vendorModelName?: string;
   /** Confirm-card payload for this burst, if the caller knows it upfront. */
   confirmContent?: IDeviceStageConfirmContent;
 };
@@ -91,6 +122,9 @@ export class DeviceStageBurstScope {
    * redirects the next confirm (multi-call bursts).
    */
   private confirmContent: IDeviceStageConfirmContent | undefined;
+
+  /** The active burst's third-party vendor — drives the ✓ done beat. */
+  private activeVendor: EHardwareVendor | undefined;
 
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
@@ -117,6 +151,7 @@ export class DeviceStageBurstScope {
       this.confirmContent = params.confirmContent;
     }
     if (this.depth === 1) {
+      this.activeVendor = params.vendor;
       const prev = await deviceStageAtom.get();
       const stageStillOn = prev && prev.step !== 'off';
       // A follow-up wrapper inside the grace window rejoins the visible
@@ -126,6 +161,9 @@ export class DeviceStageBurstScope {
         connectId: params.connectId,
         deviceType: params.deviceType,
         deviceName: params.deviceName,
+        vendor: params.vendor,
+        vendorModel: params.vendorModel,
+        vendorModelName: params.vendorModelName,
         resetOutcome: true,
       });
     }
@@ -140,6 +178,8 @@ export class DeviceStageBurstScope {
       return;
     }
     this.confirmContent = undefined;
+    const wasVendorBurst = Boolean(this.activeVendor);
+    this.activeVendor = undefined;
     const reason = params.error
       ? this.mapErrorToReason(params.error)
       : undefined;
@@ -148,6 +188,16 @@ export class DeviceStageBurstScope {
         errorReason: reason === 'generic' ? undefined : reason,
       });
       return;
+    }
+    // The third-party track closes a successful burst with the ✓ done
+    // beat (doc §4.7) before leaving; OneKey bursts leave directly.
+    if (wasVendorBurst) {
+      const prev = await deviceStageAtom.get();
+      if (prev && prev.step !== 'off') {
+        await this.setStep('done', {});
+        this.scheduleOff(DONE_HOLD_MS);
+        return;
+      }
     }
     this.scheduleOff();
   }
@@ -196,6 +246,94 @@ export class DeviceStageBurstScope {
     });
   }
 
+  /**
+   * The third-party rail (doc §05 table B): fed from a single atom
+   * subscription in ServiceHardwareUI — the adapters' many write sites
+   * stay untouched. Install state outranks the ui-state action (the
+   * install dialog coexisted with prompt toasts in the legacy UI);
+   * BLE binding is ignored — its legacy dialog stays.
+   */
+  async onThirdPartyState({
+    ui,
+    install,
+    batch,
+  }: {
+    ui: IThirdPartyHardwareUiState | undefined;
+    install: IThirdPartyAppInstallState | undefined;
+    batch: IThirdPartyBatchInstallState | undefined;
+  }) {
+    if (!(await this.isEnabled())) {
+      return;
+    }
+    if (install) {
+      this.clearOffTimer();
+      const progress =
+        typeof install.progress === 'number'
+          ? Math.round(install.progress * 100)
+          : undefined;
+      if (batch) {
+        await this.setStep('installBatch', {
+          vendor: install.vendor,
+          appName: install.appName,
+          installProgress: progress,
+          installQueue: batch.queue,
+          installActiveIndex: batch.currentIndex,
+        });
+        return;
+      }
+      await this.setStep(
+        progress === undefined ? 'installConfirm' : 'installing',
+        {
+          vendor: install.vendor,
+          appName: install.appName,
+          installProgress: progress,
+        },
+      );
+      return;
+    }
+    if (ui) {
+      if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
+        return;
+      }
+      if (ui.action === EThirdPartyHardwareUiAction.error) {
+        await this.setStep('error', { vendor: ui.vendor });
+        return;
+      }
+      const step = THIRD_PARTY_ACTION_TO_STEP[ui.action];
+      if (!step) {
+        return;
+      }
+      this.clearOffTimer();
+      await this.setStep(step, {
+        vendor: ui.vendor,
+        thirdPartyAction: ui.action,
+        btcHighIndexPath: ui.payload?.path,
+        btcHighIndexAccountIndex: ui.payload?.accountIndex,
+      });
+      return;
+    }
+    // Everything cleared: a call boundary on the third-party rail. Only a
+    // showing third-party stage reacts — never an active OneKey burst, and
+    // never an outcome already landed by the wrapper's end() (the wrapper
+    // clears these atoms right before it ends the burst, so this callback
+    // can race the done/error beat).
+    const prev = await deviceStageAtom.get();
+    if (
+      !prev ||
+      prev.step === 'off' ||
+      prev.step === 'done' ||
+      prev.step === 'error' ||
+      !prev.vendor
+    ) {
+      return;
+    }
+    if (this.depth > 0) {
+      await this.setStep('processing', {});
+    } else {
+      this.scheduleOff();
+    }
+  }
+
   /** Direct step feeds from ServiceHardwareUI's own show* methods. */
   async noteStep(
     step: IDeviceStageStepValue,
@@ -235,14 +373,15 @@ export class DeviceStageBurstScope {
     this.clearOffTimer();
     this.depth = 0;
     this.confirmContent = undefined;
+    this.activeVendor = undefined;
     await this.forceOff();
   }
 
-  private scheduleOff() {
+  private scheduleOff(delayMs: number = OFF_GRACE_MS) {
     this.clearOffTimer();
     this.offTimer = setTimeout(() => {
       void this.forceOff();
-    }, OFF_GRACE_MS);
+    }, delayMs);
   }
 
   private async forceOff() {
@@ -256,6 +395,9 @@ export class DeviceStageBurstScope {
       connectId: prev.connectId,
       deviceType: prev.deviceType,
       deviceName: prev.deviceName,
+      vendor: prev.vendor,
+      vendorModel: prev.vendorModel,
+      vendorModelName: prev.vendorModelName,
     });
   }
 
@@ -272,6 +414,16 @@ export class DeviceStageBurstScope {
       confirmDescription?: string;
       confirmDescriptionDanger?: boolean;
       inputError?: string;
+      vendor?: EHardwareVendor;
+      vendorModel?: string;
+      vendorModelName?: string;
+      thirdPartyAction?: IDeviceStageState['thirdPartyAction'];
+      appName?: string;
+      installProgress?: number;
+      installQueue?: string[];
+      installActiveIndex?: number;
+      btcHighIndexPath?: string;
+      btcHighIndexAccountIndex?: number;
       resetOutcome?: boolean;
     },
   ) {
@@ -308,9 +460,22 @@ export class DeviceStageBurstScope {
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
         step,
-        connectId: extras.connectId ?? base?.connectId ?? prev?.connectId,
-        deviceType: extras.deviceType ?? prev?.deviceType,
-        deviceName: extras.deviceName ?? prev?.deviceName,
+        connectId: extras.connectId ?? base?.connectId,
+        deviceType: extras.deviceType ?? base?.deviceType,
+        deviceName: extras.deviceName ?? base?.deviceName,
+        // Device/vendor identity is sticky within the burst (base), never
+        // across bursts; the per-step extras (install / btc / action)
+        // never outlive their own step.
+        vendor: extras.vendor ?? base?.vendor,
+        vendorModel: extras.vendorModel ?? base?.vendorModel,
+        vendorModelName: extras.vendorModelName ?? base?.vendorModelName,
+        thirdPartyAction: extras.thirdPartyAction,
+        appName: extras.appName,
+        installProgress: extras.installProgress,
+        installQueue: extras.installQueue,
+        installActiveIndex: extras.installActiveIndex,
+        btcHighIndexPath: extras.btcHighIndexPath,
+        btcHighIndexAccountIndex: extras.btcHighIndexAccountIndex,
         errorReason: step === 'error' ? extras.errorReason : undefined,
         inputError: extras.inputError,
         passphraseMode: base?.passphraseMode,
