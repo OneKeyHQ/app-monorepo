@@ -341,17 +341,20 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           toTokenSymbol={priceRate?.toTokenSymbol}
           loading={priceRate?.loading}
         />
-        <SwapProviderInfoItem
-          providerIcon={quoteResult?.info.providerLogo ?? ''}
-          providerName={quoteResult?.info.providerName ?? ''}
-          showEmptyPlaceholder
-          fromToken={quoteResult?.fromTokenInfo}
-          toToken={quoteResult?.toTokenInfo}
-          percentageFee={quoteResult?.fee?.percentageFee}
-          percentOriginFee={quoteResult?.fee?.percentOriginFee}
-          onPress={quoteListLength > 1 ? onOpenProviderList : undefined}
-          isLoading={quoteLoading}
-        />
+        {/* Wrapped pairs never quote, so the provider row stays hidden there */}
+        {!isWrapped ? (
+          <SwapProviderInfoItem
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
+            showEmptyPlaceholder
+            fromToken={quoteResult?.fromTokenInfo}
+            toToken={quoteResult?.toTokenInfo}
+            percentageFee={quoteResult?.fee?.percentageFee}
+            percentOriginFee={quoteResult?.fee?.percentOriginFee}
+            onPress={quoteListLength > 1 ? onOpenProviderList : undefined}
+            isLoading={quoteLoading}
+          />
+        ) : null}
 
         {/* Balance display */}
         {tradeType === ESwapDirection.SELL ? (
