@@ -47,6 +47,7 @@ export enum EAppEventBusNames {
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  DeviceStageAuthAction = 'DeviceStageAuthAction',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',

@@ -95,6 +95,14 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
 /** How long the third-party ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
 
+/** The authenticity flow's steps — they share one checklist. */
+const AUTH_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'genuineCheck',
+  'authVerifying',
+  'authSuccess',
+  'authFailure',
+]);
+
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
@@ -423,6 +431,8 @@ export class DeviceStageBurstScope {
       confirmDescription?: string;
       confirmDescriptionDanger?: boolean;
       inputError?: string;
+      authChecklist?: IDeviceStageState['authChecklist'];
+      authFailureReason?: IDeviceStageState['authFailureReason'];
     } = {},
   ) {
     if (!(await this.isEnabled())) {
@@ -522,6 +532,8 @@ export class DeviceStageBurstScope {
       confirmDescriptionDanger?: boolean;
       inputError?: string;
       passphraseMode?: IDeviceStageState['passphraseMode'];
+      authChecklist?: IDeviceStageState['authChecklist'];
+      authFailureReason?: IDeviceStageState['authFailureReason'];
       vendor?: EHardwareVendor;
       vendorModel?: string;
       vendorModelName?: string;
@@ -584,6 +596,13 @@ export class DeviceStageBurstScope {
         installActiveIndex: extras.installActiveIndex,
         btcHighIndexPath: extras.btcHighIndexPath,
         btcHighIndexAccountIndex: extras.btcHighIndexAccountIndex,
+        // The checklist survives the whole authenticity run (the ask, the
+        // wait, the landing, the unofficial-firmware failure card).
+        authChecklist: AUTH_STEPS.has(step)
+          ? (extras.authChecklist ?? base?.authChecklist)
+          : undefined,
+        authFailureReason:
+          step === 'authFailure' ? extras.authFailureReason : undefined,
         errorReason: step === 'error' ? extras.errorReason : undefined,
         inputError: extras.inputError,
         passphraseMode: extras.passphraseMode ?? base?.passphraseMode,
