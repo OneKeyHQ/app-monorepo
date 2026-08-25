@@ -11,6 +11,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   useDeviceStageAtom,
   useDeviceStageEnabledAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -80,8 +81,13 @@ function DeviceStageContainerCmp() {
   const [stage] = useDeviceStageAtom();
   const stageRef = useRef(stage);
   stageRef.current = stage;
-  const { serviceHardwareUI, serviceThirdPartyHardware, serviceHardware } =
-    backgroundApiProxy;
+  const {
+    serviceHardwareUI,
+    serviceThirdPartyHardware,
+    serviceHardware,
+    serviceSetting,
+  } = backgroundApiProxy;
+  const [, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
@@ -175,9 +181,28 @@ function DeviceStageContainerCmp() {
     [sendVendorUiResponse, serviceHardwareUI],
   );
 
+  /** The hidden wallet's "keep after the app closes" choice — every exit
+   * of the create-mode form carries it, and verify mode never writes it
+   * (there is no new wallet to keep). */
+  const saveKeepAccessible = useCallback(
+    (options?: { keepAccessible: boolean }) => {
+      if (
+        stageRef.current?.passphraseMode !== 'create' ||
+        options?.keepAccessible === undefined
+      ) {
+        return;
+      }
+      void serviceSetting
+        .setHiddenWalletImmediately(options.keepAccessible)
+        .catch(() => undefined);
+    },
+    [serviceSetting],
+  );
+
   const handlePassphraseSubmit = useCallback(
     (passphrase: string, options?: { keepAccessible: boolean }) => {
       const current = stageRef.current;
+      saveKeepAccessible(options);
       if (current?.vendor) {
         sendVendorUiResponse(true, {
           passphrase,
@@ -194,34 +219,67 @@ function DeviceStageContainerCmp() {
       }
       void serviceHardwareUI.deviceStageNoteInputSubmitted();
     },
-    [sendVendorUiResponse, serviceHardwareUI],
+    [saveKeepAccessible, sendVendorUiResponse, serviceHardwareUI],
   );
 
-  const handleSwitchToDevice = useCallback(() => {
-    const current = stageRef.current;
-    if (!current) {
-      return;
-    }
-    if (current.vendor) {
-      // Trezor only — the stage suppresses the switch for the PIN matrix,
-      // so this is always the passphrase form's on-device exit.
-      sendVendorUiResponse(true, { passphraseOnDevice: true });
+  /** The teach card's single exit; its switch rides the wallet list's
+   * Add-hidden-wallet shortcut preference out, like the legacy dialog. */
+  const handlePassphraseIntroContinue = useCallback(
+    (options: { keepShortcut: boolean }) => {
+      setSettings((prev) => ({
+        ...prev,
+        showAddHiddenInWalletSidebar: options.keepShortcut,
+      }));
+      void serviceHardwareUI.deviceStagePassphraseIntroContinue();
+    },
+    [serviceHardwareUI, setSettings],
+  );
+
+  /** Attach PIN: the hidden wallet opens by its own device PIN instead of
+   * a typed passphrase. The device answers with its PIN request next. */
+  const handlePassphraseAttachPin = useCallback(
+    (options?: { keepAccessible: boolean }) => {
+      saveKeepAccessible(options);
+      void serviceHardwareUI
+        .showEnterAttachPinOnDeviceDialog({
+          responseCorrelation: stageRef.current?.payload?.uiResponseCorrelation,
+        })
+        .catch(() => undefined);
       void serviceHardwareUI.deviceStageNoteInputSubmitted();
-      return;
-    }
-    if (current.step === 'pinOnApp') {
-      void serviceHardwareUI.sendEnterPinOnDeviceEvent({
-        connectId: current.connectId ?? '',
-        payload: current.payload,
-      });
-      return;
-    }
-    if (current.step === 'passphraseOnApp') {
-      void serviceHardwareUI.showEnterPassphraseOnDeviceDialog({
-        responseCorrelation: current.payload?.uiResponseCorrelation,
-      });
-    }
-  }, [sendVendorUiResponse, serviceHardwareUI]);
+    },
+    [saveKeepAccessible, serviceHardwareUI],
+  );
+
+  const handleSwitchToDevice = useCallback(
+    (options?: { keepAccessible: boolean }) => {
+      const current = stageRef.current;
+      if (!current) {
+        return;
+      }
+      saveKeepAccessible(options);
+      if (current.vendor) {
+        // Trezor only — the stage suppresses the switch for the PIN matrix,
+        // so this is always the passphrase form's on-device exit.
+        sendVendorUiResponse(true, { passphraseOnDevice: true });
+        void serviceHardwareUI.deviceStageNoteInputSubmitted();
+        return;
+      }
+      if (current.step === 'pinOnApp') {
+        void serviceHardwareUI.sendEnterPinOnDeviceEvent({
+          connectId: current.connectId ?? '',
+          payload: current.payload,
+        });
+        return;
+      }
+      if (current.step === 'passphraseOnApp') {
+        void serviceHardwareUI.showEnterPassphraseOnDeviceDialog({
+          responseCorrelation: current.payload?.uiResponseCorrelation,
+        });
+        void serviceHardwareUI.deviceStageNoteInputSubmitted();
+      }
+    },
+    [saveKeepAccessible, sendVendorUiResponse, serviceHardwareUI],
+  );
 
   const handlePairingSubmit = useCallback(
     (code: string) => {
@@ -289,6 +347,14 @@ function DeviceStageContainerCmp() {
       onClose={closable ? handleClose : undefined}
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
+      onPassphraseIntroContinue={handlePassphraseIntroContinue}
+      onPassphraseAttachPin={
+        // Only when the device actually has an attach-PIN binding — the
+        // SDK refuses the mode outright otherwise.
+        stage?.payload?.existsAttachPinUser && !stage?.vendor
+          ? handlePassphraseAttachPin
+          : undefined
+      }
       onSwitchToDevice={handleSwitchToDevice}
       onPairingSubmit={handlePairingSubmit}
       onDeviceNotFoundRetry={handleDeviceNotFoundRetry}

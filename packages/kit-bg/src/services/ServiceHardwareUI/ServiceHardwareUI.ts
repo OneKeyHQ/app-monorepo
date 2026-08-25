@@ -56,6 +56,7 @@ import {
 } from './HardwareProcessingManager';
 import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
+import type { IDeviceStageBurstBeginParams } from './DeviceStageBurst';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IHardwareUiPayload,
@@ -506,6 +507,29 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
     await this.deviceStageBurst.noteInputSubmitted();
+  }
+
+  /** The hidden-wallet teach card was read: on to the entry. The card's
+   * shortcut preference is written by the driver, which owns that atom. */
+  @backgroundMethod()
+  async deviceStagePassphraseIntroContinue() {
+    await this.deviceStageBurst.notePassphraseIntroDone();
+  }
+
+  /**
+   * Opens a UI-held burst for a whole flow (onboarding above all): every
+   * wrapper that runs inside it joins by depth, so the stage stays put
+   * across the seams instead of closing and reopening. The returned token
+   * closes it — see deviceStageEndBurst.
+   */
+  @backgroundMethod()
+  async deviceStageBeginBurst(params: IDeviceStageBurstBeginParams = {}) {
+    return this.deviceStageBurst.beginExplicit(params);
+  }
+
+  @backgroundMethod()
+  async deviceStageEndBurst(params: { token: number; error?: unknown }) {
+    await this.deviceStageBurst.endExplicit(params);
   }
 
   /** Confirm channel: UI-side registration for callers that know the
