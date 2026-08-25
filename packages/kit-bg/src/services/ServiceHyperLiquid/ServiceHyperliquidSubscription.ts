@@ -611,11 +611,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._currentState = newState;
     this._emitConnectionStatus();
+    // Armed before the await: a hung subscribe ack keeps
+    // _executeSubscriptionChanges pending, so a check scheduled after it never
+    // gets armed at all. Must stay below the stale-critical branch above, which
+    // bumps _subscriptionLifecycleVersion and would self-invalidate a timer
+    // that captured the version before the bump.
+    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
     await this._executeSubscriptionChanges();
     if (this._activeSubscriptions.size > 0) {
       this._startPostOpenDataCheck();
     }
-    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
   private async _enqueueSubscriptionReconcile(): Promise<void> {
@@ -1599,6 +1604,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
+        // A dropped subscribe ack stalls the whole reconcile for the SDK's 10s
+        // default, leaving the order book empty. Keep this at or above
+        // reconnect.connectionTimeout so frames rews buffers while the socket
+        // is reconnecting still get a chance to flush before aborting.
+        timeout: 5000,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
