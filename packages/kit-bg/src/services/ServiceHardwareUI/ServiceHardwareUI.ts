@@ -509,6 +509,11 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isDeviceStageEnabled() {
+    return this.deviceStageBurst.isEnabled();
+  }
+
+  @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
     await this.deviceStageBurst.noteInputSubmitted();
   }
