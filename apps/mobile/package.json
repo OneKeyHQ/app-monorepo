@@ -37,7 +37,7 @@
     "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
+    "@babel/core": "^7.29.7",
     "@gorhom/bottom-sheet": "5.2.14",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native/metro-config": "0.86.2",
