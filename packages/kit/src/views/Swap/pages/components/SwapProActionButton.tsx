@@ -160,7 +160,8 @@ const SwapProActionButton = ({
   }, [inputToken?.price, inputAmount]);
 
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { selectToToken, selectFromToken } = useSwapActions().current;
+  const { clearSwapTokenCarryIntent, selectToToken, selectFromToken } =
+    useSwapActions().current;
   const [swapSelectToken, setSwapSelectFromToken] =
     useSwapSelectFromTokenAtom();
   const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -179,6 +180,7 @@ const SwapProActionButton = ({
   const canExecuteInPro = supportSpeedSwap || isWrapped;
 
   const handleJumpToSwapAction = useCallback(() => {
+    clearSwapTokenCarryIntent();
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
@@ -222,6 +224,7 @@ const SwapProActionButton = ({
   }, [
     swapProDirection,
     swapProInputAmount,
+    clearSwapTokenCarryIntent,
     setSwapTypeSwitch,
     swapSelectToken,
     swapProSelectToken,

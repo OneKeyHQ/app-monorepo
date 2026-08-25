@@ -15,11 +15,22 @@ const mockSwapTypeSwitchAction = jest.fn<
   [
     ESwapTabSwitchType,
     string | undefined,
-    { carryTargetToken?: boolean } | undefined,
+    (
+      | {
+          carryTargetToken?: boolean;
+          proSupportedNetworkIds?: ReadonlySet<string>;
+          stableTokenKeys?: ReadonlySet<string>;
+        }
+      | undefined
+    ),
   ]
 >();
 const mockUpdateSelectedAccountNetwork = jest.fn<Promise<void>, [unknown]>();
 const mockSetParams = jest.fn();
+const mockSwapProTokenCarryOptions = {
+  proSupportedNetworkIds: new Set(['evm--1']),
+  stableTokenKeys: new Set<string>(),
+};
 const mockFromToken: ISwapToken = {
   networkId: 'evm--56',
   contractAddress: '',
@@ -108,6 +119,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('../../hooks/useSwapAccount', () => ({
   useSwapAddressInfo: () => ({ networkId: mockAccountNetworkId }),
 }));
+jest.mock('../../hooks/useSwapProTokenCarry', () => ({
+  useSwapProTokenCarryOptions: () => mockSwapProTokenCarryOptions,
+}));
 jest.mock('./SwapHeaderRightActionContainer', () => () => null);
 
 describe('SwapHeaderContainer', () => {
@@ -140,7 +154,10 @@ describe('SwapHeaderContainer', () => {
     expect(mockSwapTypeSwitchAction).toHaveBeenCalledWith(
       ESwapTabSwitchType.SWAP,
       mockFromToken.networkId,
-      { carryTargetToken: true },
+      {
+        carryTargetToken: true,
+        ...mockSwapProTokenCarryOptions,
+      },
     );
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalled();
 
