@@ -26,6 +26,9 @@ const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 const PAIR_TIMEOUT_MS = 60_000;
 // After the deadline the helper still needs a moment to decline before it is killed.
 const PAIR_DECLINE_GRACE_MS = 5000;
+// Once confirmed the user is out of the loop, but PairAsync must not hang forever:
+// the helper's own deadline only covers waiting for a decision, not the ceremony.
+const PAIR_COMPLETION_TIMEOUT_MS = 30_000;
 
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
@@ -109,6 +112,7 @@ function runHelper(
     };
 
     let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       lockReason(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`);
       // Decline first, kill second: only a live helper can complete the WinRT
@@ -129,7 +133,14 @@ function runHelper(
       } else {
         // The deadline covers the user, not WinRT: PairAsync can take a while after
         // Accept, and killing it then would report a confirmed pairing as failed.
+        // It still needs an end though — the helper only bounds waiting for us.
         clearTimeout(timer);
+        completionTimer = setTimeout(() => {
+          lockReason(
+            `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`,
+          );
+          child.kill();
+        }, PAIR_COMPLETION_TIMEOUT_MS);
       }
       child.stdin?.write(`${decision}\n`, (error) => {
         if (!error) return;
@@ -146,6 +157,7 @@ function runHelper(
       settled = true;
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
+      if (completionTimer) clearTimeout(completionTimer);
       fn();
     };
 
