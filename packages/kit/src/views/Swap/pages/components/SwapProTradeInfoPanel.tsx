@@ -10,7 +10,6 @@ import {
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapProMarketData } from '../../hooks/useSwapProMarketData';
-import { isSwapProHyperliquidBtcToken } from '../../utils/swapProTransactionSource';
 
 import SwapProBuySellGroup from './SwapProBuySellGroup';
 import SwapProPriceInfo from './SwapProPriceInfo';
@@ -48,13 +47,9 @@ const SwapProTradeInfoPanel = ({
     enableMarketWebSocket,
     marketSnapshotPrice: swapProTokenMarketDetailInfo?.price,
   });
-  const isHyperliquidBtc = isSwapProHyperliquidBtcToken(swapProSelectToken);
   return (
-    // Regular tokens keep the existing bottom alignment. BTC has no buy/sell
-    // ratio block, so let the 24H selector follow the fixed-height trade list
-    // instead of placing the missing ratio block's space between them.
     <YStack gap="$2.5" flex={1}>
-      <YStack gap="$3" flex={isHyperliquidBtc ? undefined : 1}>
+      <YStack gap="$3" flex={1}>
         <SwapProTokenDetailGroup />
         <SwapProPriceInfo marketData={marketData} onPricePress={onPricePress} />
         <SwapProTokenTransactionList marketData={marketData} />

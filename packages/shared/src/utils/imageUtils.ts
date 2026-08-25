@@ -45,6 +45,72 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
+// Below this spread there's no real split to find — a near-solid color with
+// JPEG block noise — so Otsu would binarize the noise into a checkerboard.
+const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
+
+// Cutting a near-solid image at any threshold would only binarize its noise, and a spread
+// that straddles the cut point is where it shows up as a checkerboard. Such an image goes
+// out solid black: polarity cannot survive here anyway, because a solid white field is
+// inverted straight back by shouldInvertForMajorityWhite.
+export function hasSplittableLuminanceRange(
+  luminanceMin: number,
+  luminanceMax: number,
+): boolean {
+  return luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU;
+}
+
+// Only invert when white is unambiguously the majority; near 50% the Otsu
+// threshold tracks the image's own median, so the ratio is noise-sensitive.
+const INVERT_DEAD_ZONE = 0.05;
+
+// Threshold that maximizes between-class variance, separating an image's own bright/dark clusters.
+export function otsuThreshold(luminance: Uint8ClampedArray): number {
+  const histogram = new Array<number>(256).fill(0);
+  for (let p = 0; p < luminance.length; p += 1) {
+    histogram[luminance[p]] += 1;
+  }
+
+  const total = luminance.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
+
+  let sumBackground = 0;
+  let weightBackground = 0;
+  let maxVariance = 0;
+  let threshold = 128;
+  for (let t = 0; t < 256; t += 1) {
+    weightBackground += histogram[t];
+    if (weightBackground !== 0) {
+      const weightForeground = total - weightBackground;
+      if (weightForeground === 0) break;
+
+      sumBackground += t * histogram[t];
+      const meanBackground = sumBackground / weightBackground;
+      const meanForeground = (sum - sumBackground) / weightForeground;
+      const betweenClassVariance =
+        weightBackground *
+        weightForeground *
+        (meanBackground - meanForeground) *
+        (meanBackground - meanForeground);
+      if (betweenClassVariance > maxVariance) {
+        maxVariance = betweenClassVariance;
+        threshold = t;
+      }
+    }
+  }
+  return threshold;
+}
+
+// Reverse only when white is unambiguously the majority. Near 50% the Otsu
+// threshold tracks the image's own median, making the ratio noise-sensitive.
+export function shouldInvertForMajorityWhite(
+  whiteCount: number,
+  pixelCount: number,
+): boolean {
+  return whiteCount > pixelCount * (0.5 + INVERT_DEAD_ZONE);
+}
+
 export function getOriginX(
   originW: number,
   originH: number,
@@ -107,25 +173,45 @@ function convertToBlackAndWhiteImageBase64(
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
+      const pixelCount = data.length / 4;
+
+      // Perceptual luminance instead of a plain RGB average, which under-weights green.
+      const luminance = new Uint8ClampedArray(pixelCount);
+      let luminanceMin = 255;
+      let luminanceMax = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        const value = toGrayScale(data[i], data[i + 1], data[i + 2]);
+        luminance[p] = value;
+        if (value < luminanceMin) luminanceMin = value;
+        if (value > luminanceMax) luminanceMax = value;
+      }
+
+      // Otsu threshold instead of a fixed 128 — adapts per image, unless there is nothing to split.
+      const canSplit = hasSplittableLuminanceRange(luminanceMin, luminanceMax);
+      let threshold = 128;
+      if (canSplit) {
+        try {
+          threshold = otsuThreshold(luminance);
+        } catch (error) {
+          console.error(
+            'otsuThreshold failed, falling back to threshold 128',
+            error,
+          );
+        }
+      }
 
       let whiteCount = 0;
-
-      // TODO optimize this
-      // https://github.com/trezor/homescreen-editor/blob/gh-pages/js/main.js#L234
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        if (avg > 128) {
-          whiteCount += 4;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        const bw = canSplit && luminance[p] > threshold ? 255 : 0;
+        if (bw === 255) {
+          whiteCount += 1;
         }
-        const bw = avg > 128 ? 255 : 0;
-        // const bw = avg > 128 ? 0 : 255;
         data[i] = bw;
         data[i + 1] = bw;
         data[i + 2] = bw;
       }
 
-      // reverse color if white part is more than half
-      if (whiteCount > data.length / 2) {
+      if (shouldInvertForMajorityWhite(whiteCount, pixelCount)) {
         for (let i = 0; i < data.length; i += 4) {
           data[i] = 255 - data[i];
           data[i + 1] = 255 - data[i + 1];
