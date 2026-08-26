@@ -104,6 +104,15 @@ const AUTH_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'authFailure',
 ]);
 
+/** The only steps a progress tick may write over. Progress is the story
+ * of data moving — while the stage asks something of the person (confirm,
+ * an input, a teach card), a trailing tick must never repaint the ask as
+ * a wait: the device is still asking. */
+const PROGRESS_WRITABLE_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'connecting',
+  'processing',
+]);
+
 /**
  * Who is on stage, kept across the burst.
  *
@@ -363,6 +372,20 @@ export class DeviceStageBurstScope {
       // flow ARE the authored card's own story ("confirm on your device
       // to verify…") — never a step change.
       return;
+    }
+    if (step === 'processing') {
+      // A progress-flavored event only refreshes a wait that is already
+      // on stage. Any ask (confirm, PIN, passphrase, the teach card…)
+      // outranks it — the trailing BLE tick behind a ButtonRequest must
+      // not repaint the ask the device is still making.
+      const prev = await deviceStageAtom.get();
+      if (
+        prev &&
+        prev.step !== 'off' &&
+        !PROGRESS_WRITABLE_STEPS.has(prev.step)
+      ) {
+        return;
+      }
     }
     this.clearOffTimer();
     if (step === 'passphraseOnApp') {
