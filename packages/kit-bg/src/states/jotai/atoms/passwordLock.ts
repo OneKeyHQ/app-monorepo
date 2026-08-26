@@ -132,12 +132,14 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       }
 
       const isNeverLock = isNeverLockDuration(appLockDuration);
+      const { unLock } = get(passwordAtom.atom());
 
       if (isNeverLock) {
-        return false;
+        // Native secure storage preserves the existing Never semantics across
+        // cold starts. Browser-class targets treat Never as session-only.
+        return platformEnv.isNative ? false : !unLock;
       }
 
-      const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;

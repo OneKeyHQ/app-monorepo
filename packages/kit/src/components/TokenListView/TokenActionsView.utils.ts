@@ -43,6 +43,7 @@ export function buildTokenActionSwapFromToken({
     name: token.name,
     logoURI: token.logoURI,
     networkLogoURI,
+    balanceMultiplier: token.balanceMultiplier,
   };
 }
 

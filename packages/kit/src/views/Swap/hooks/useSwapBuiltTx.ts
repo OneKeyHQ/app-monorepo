@@ -2234,11 +2234,13 @@ export function useSwapBuildTx({
         useCustomSlippage = false,
         updateReviewState = true,
       } = options ?? {};
+      const reviewSlippagePercentage =
+        swapStepsRef.current.preSwapData.slippage ?? slippageItem.value;
       const effectiveSlippagePercentage =
         slippagePercentage ??
         (data?.protocol === EProtocolOfExchange.STOCK
-          ? (data.slippage ?? slippageItem.value)
-          : slippageItem.value);
+          ? (data.slippage ?? reviewSlippagePercentage)
+          : reviewSlippagePercentage);
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -2261,11 +2263,14 @@ export function useSwapBuildTx({
         if (!checkRes) {
           throw new OneKeyAppError('checkOtherFee failed');
         }
+        const cachedBuildResult =
+          swapStepsRef.current.preSwapData.swapBuildResultData;
         if (
           !forceRebuild &&
-          swapStepsRef.current.preSwapData.swapBuildResultData
+          cachedBuildResult &&
+          cachedBuildResult.slippagePercentage === effectiveSlippagePercentage
         ) {
-          return swapStepsRef.current.preSwapData.swapBuildResultData;
+          return cachedBuildResult;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
@@ -2560,10 +2565,12 @@ export function useSwapBuildTx({
               preSwapData: {
                 ...prev.preSwapData,
                 swapBuildLoading: false,
+                requiresSlippageRebuildOnConfirm: false,
                 toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
                 swapBuildResultData: {
                   swapInfo,
                   orderId,
+                  slippagePercentage: effectiveSlippagePercentage,
                   skipSendTransAction,
                   encodedTx,
                   transferInfo,
@@ -2575,6 +2582,7 @@ export function useSwapBuildTx({
           return {
             swapInfo,
             orderId,
+            slippagePercentage: effectiveSlippagePercentage,
             skipSendTransAction,
             encodedTx,
             transferInfo,

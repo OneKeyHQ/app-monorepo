@@ -24,6 +24,7 @@ import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -1047,6 +1048,12 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importFromToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          // Scaled-UI (rebase) tokens: fail-closed, same policy as the
+          // selectFromToken gate (setSwapFromToken writes the atom
+          // directly and bypasses it).
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importFromToken.balanceMultiplier,
           ),
         );
         const isImportToTokenSupported = Boolean(
@@ -1054,6 +1061,9 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importToToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importToToken.balanceMultiplier,
           ),
         );
         const hasUnsupportedImportToken =

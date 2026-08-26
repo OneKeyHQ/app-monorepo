@@ -108,4 +108,5 @@ export function drawTradingViewNativeCanvasChart({
     customPaintStyles: scene.customPaintStyles,
     watermarkImage,
   });
+  return scene;
 }

@@ -16,19 +16,20 @@ import {
   useTradingViewSettingsThemeColors,
 } from './TradingViewSettingsThemeColors';
 
-export const OKX_CHART_BG = '$bg';
-export const OKX_CHART_SIDE_ACTIVE_BG = '$bgActive';
-export const OKX_CHART_BORDER = '$borderSubdued';
-export const OKX_CHART_DIVIDER = '$borderSubdued';
-export const OKX_CHART_TEXT = '$text';
-export const OKX_CHART_TEXT_SUBDUED = '$textSubdued';
-export const OKX_CHART_UP = TRADING_VIEW_NATIVE_THEME_COLORS.positive;
-export const OKX_CHART_DOWN = TRADING_VIEW_NATIVE_THEME_COLORS.negative;
-export const OKX_CHART_SELECT_BG = '$bgStrong';
-export const OKX_CHART_SELECT_BORDER = '$borderSubdued';
-export const OKX_LINE_PREVIEW_DASHES = [0, 1, 2, 3, 4, 5];
+export const TRADING_VIEW_CHART_BG = '$bg';
+export const TRADING_VIEW_CHART_SIDE_ACTIVE_BG = '$bgActive';
+export const TRADING_VIEW_CHART_BORDER = '$borderSubdued';
+export const TRADING_VIEW_CHART_DIVIDER = '$borderSubdued';
+export const TRADING_VIEW_CHART_TEXT = '$text';
+export const TRADING_VIEW_CHART_TEXT_SUBDUED = '$textSubdued';
+export const TRADING_VIEW_CHART_UP = TRADING_VIEW_NATIVE_THEME_COLORS.positive;
+export const TRADING_VIEW_CHART_DOWN =
+  TRADING_VIEW_NATIVE_THEME_COLORS.negative;
+export const TRADING_VIEW_CHART_SELECT_BG = '$bgStrong';
+export const TRADING_VIEW_CHART_SELECT_BORDER = '$borderSubdued';
+export const TRADING_VIEW_LINE_PREVIEW_DASHES = [0, 1, 2, 3, 4, 5];
 
-function OkxChartLinePreview({
+function TradingViewChartLinePreview({
   variant,
   color,
   mr,
@@ -40,7 +41,7 @@ function OkxChartLinePreview({
   if (variant === 'dashed') {
     return (
       <XStack w={24} h={1} mr={mr} gap={2} alignItems="center">
-        {OKX_LINE_PREVIEW_DASHES.map((dash) => (
+        {TRADING_VIEW_LINE_PREVIEW_DASHES.map((dash) => (
           <Stack key={dash} w={2} h={1} bg={color} />
         ))}
       </XStack>
@@ -50,7 +51,7 @@ function OkxChartLinePreview({
   return <Stack w={24} h={1} mr={mr} bg={color} />;
 }
 
-export function OkxChartSelectMock({
+export function TradingViewChartSelectMock({
   value,
   width,
   height = 28,
@@ -89,16 +90,18 @@ export function OkxChartSelectMock({
         alignItems="center"
         borderRadius={6}
         borderWidth={1}
-        borderColor={isOpen ? '$borderActive' : OKX_CHART_SELECT_BORDER}
-        bg={OKX_CHART_SELECT_BG}
+        borderColor={
+          isOpen ? '$borderActive' : TRADING_VIEW_CHART_SELECT_BORDER
+        }
+        bg={TRADING_VIEW_CHART_SELECT_BG}
         cursor="pointer"
         onPress={() => setIsOpen(!isOpen)}
       >
         {showLinePreview ? (
-          <OkxChartLinePreview
+          <TradingViewChartLinePreview
             variant={getLinePreviewVariant?.(value) ?? 'solid'}
             mr={9}
-            color={OKX_CHART_TEXT}
+            color={TRADING_VIEW_CHART_TEXT}
           />
         ) : null}
         <SizableText
@@ -106,7 +109,7 @@ export function OkxChartSelectMock({
           minWidth={0}
           fontSize={12}
           lineHeight={12}
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
           numberOfLines={1}
         >
           {value}
@@ -146,7 +149,7 @@ export function OkxChartSelectMock({
                 }}
               >
                 {showLinePreview ? (
-                  <OkxChartLinePreview
+                  <TradingViewChartLinePreview
                     variant={getLinePreviewVariant?.(option) ?? 'solid'}
                     color="$text"
                   />
@@ -154,7 +157,7 @@ export function OkxChartSelectMock({
                 <SizableText
                   fontSize={13}
                   lineHeight={18}
-                  color={OKX_CHART_TEXT}
+                  color={TRADING_VIEW_CHART_TEXT}
                 >
                   {option}
                 </SizableText>
@@ -187,7 +190,7 @@ export const TRADING_VIEW_SETTINGS_COLOR_PALETTE = [
   TRADING_VIEW_NATIVE_THEME_COLORS.grid,
 ] as const;
 
-const OKX_COLOR_PALETTE = Array.from(
+const TRADING_VIEW_COLOR_PALETTE = Array.from(
   { length: Math.ceil(TRADING_VIEW_SETTINGS_COLOR_PALETTE.length / 11) },
   (_, index) =>
     TRADING_VIEW_SETTINGS_COLOR_PALETTE.slice(index * 11, index * 11 + 11),
@@ -263,7 +266,7 @@ export function useSettingsDraftValue<TValue>({
   ] as const;
 }
 
-export function OkxChartCheckbox({
+export function TradingViewChartCheckbox({
   checked,
   onChange,
 }: {
@@ -277,7 +280,7 @@ export function OkxChartCheckbox({
       alignItems="center"
       justifyContent="center"
       borderRadius={3}
-      bg={checked ? '$bgInverse' : OKX_CHART_BG}
+      bg={checked ? '$bgInverse' : TRADING_VIEW_CHART_BG}
       borderWidth={checked ? 0 : 1}
       borderColor="$borderStrong"
       hoverStyle={{ opacity: 0.78 }}
@@ -292,7 +295,7 @@ export function OkxChartCheckbox({
   );
 }
 
-export function OkxChartColorPicker({
+export function TradingViewChartColorPicker({
   value,
   placement = 'bottom',
   align = 'left',
@@ -376,7 +379,7 @@ export function OkxChartColorPicker({
         </Stack>
       }
       renderContent={
-        <OkxChartColorPalette
+        <TradingViewChartColorPalette
           placement={placement}
           align={align}
           offset={bare ? 32 : 38}
@@ -392,7 +395,7 @@ export function OkxChartColorPicker({
   );
 }
 
-export function OkxChartColorPalette({
+export function TradingViewChartColorPalette({
   placement,
   align,
   offset = 38,
@@ -420,9 +423,9 @@ export function OkxChartColorPalette({
       borderWidth={1}
       borderColor="$borderSubdued"
       borderRadius={6}
-      bg={OKX_CHART_BG}
+      bg={TRADING_VIEW_CHART_BG}
     >
-      {OKX_COLOR_PALETTE.map((row) => (
+      {TRADING_VIEW_COLOR_PALETTE.map((row) => (
         <XStack key={row.join('-')} gap={6}>
           {row.map((color) => {
             const selected = color === selectedColor;
@@ -472,7 +475,7 @@ export function OkxChartColorPalette({
   );
 }
 
-export function OkxChartSolidSwatch({
+export function TradingViewChartSolidSwatch({
   color,
   placement = 'bottom',
   align = 'left',
@@ -486,7 +489,7 @@ export function OkxChartSolidSwatch({
   onChange: (color: string) => void;
 }) {
   return (
-    <OkxChartColorPicker
+    <TradingViewChartColorPicker
       value={color}
       placement={placement}
       align={align}

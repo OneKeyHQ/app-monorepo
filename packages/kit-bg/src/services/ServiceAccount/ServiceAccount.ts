@@ -1876,9 +1876,17 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: params.userAddress,
+      agentName: params.agentName,
+    });
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (_error) {
+    } catch (error) {
+      const existingCredential = await localDb.getCredentialSafe(credentialId);
+      if (!existingCredential) {
+        throw error;
+      }
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1916,18 +1924,38 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async getHyperLiquidAgentCredential({
+  async getHyperLiquidAgentCredentialInfo({
     userAddress,
     agentName,
   }: {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
-  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    return localDb.getHyperLiquidAgentCredential({
-      userAddress,
-      agentName,
-    });
+  }): Promise<Omit<ICoreHyperLiquidAgentCredential, 'privateKey'> | undefined> {
+    // Status checks treat a missing/unreadable credential as `undefined` so the
+    // caller can gracefully fall back to the re-approval flow. The signing path
+    // (WalletHyperliquidProxy -> localDb.getHyperLiquidAgentCredential) stays
+    // fail-closed and is intentionally NOT affected by this catch.
+    let credential: ICoreHyperLiquidAgentCredential | undefined;
+    try {
+      credential = await localDb.getHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+      });
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent credential info read failed',
+      );
+      return undefined;
+    }
+    if (!credential) {
+      return undefined;
+    }
+    return {
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+      agentAddress: credential.agentAddress,
+      validUntil: credential.validUntil,
+    };
   }
 
   private extractUserAddressFromCredentialId(credentialId: string): string {
@@ -4157,9 +4185,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4214,9 +4244,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4458,9 +4490,12 @@ class ServiceAccount extends ServiceBase {
           if (shouldRunPostCommitEffects) {
             // Derive and persist keyless cloud sync credential from wallet seed
             try {
+              // localDb.createHDWallet() has committed before this KDF starts.
+              const kdfParams = getPbkdf2KdfParamsForNonDbTx();
               const revealableSeed = await decryptRevealableSeed({
                 rs,
                 password,
+                ...kdfParams,
               });
               const seedBuffer = bufferUtils.toBuffer(
                 revealableSeed.seed,
@@ -6821,6 +6856,7 @@ class ServiceAccount extends ServiceBase {
     const walletsHashXfpMap: {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     for (const wallet of hdWallets) {
       const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
@@ -6847,6 +6883,7 @@ class ServiceAccount extends ServiceBase {
           const realMnemonic = await mnemonicFromEntropy(
             credentialInfo.credential,
             password,
+            kdfParams,
           );
           const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
             realMnemonic,
