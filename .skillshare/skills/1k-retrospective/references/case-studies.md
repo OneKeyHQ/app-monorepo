@@ -234,3 +234,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The not-due branch wrote `onekeyUserId` into `identityLinkReportedThisSession`, and the entry gate returned before reading simpleDb again. Profile `lastHandledPrimeProfileKey` had the same not-due write.
 **Fix**: Write the session guard only after confirmed delivery. Not-due returns without touching the Set / lastHandled key so a later TTL expiry can report.
 **Catchable by**: Section 4: Data flow end-to-end (a persisted TTL meant to re-assert must not be shadowed by a never-expiring in-memory guard)
+
+## Case: Site-scan usage event only remembered the last OneKey account
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (main runtime)
+**Symptom**: Review on PR #13008 — `siteScanRiskWarned` used a single `reportedUserId`. A → B → A in one JS session re-emitted A and broke the once-per-account-per-session volume bound.
+**Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
+**Fix**: Session-scoped Set of OneKey user IDs; add before emit. Account switch still reports the new account; switching back does not.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (a per-user session guard must keep every seen user, not only the last)

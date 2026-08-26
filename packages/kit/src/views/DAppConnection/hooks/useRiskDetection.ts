@@ -17,11 +17,13 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
-import { shouldStartSiteScanRiskWarningAttempt } from './siteScanRiskWarning';
+import {
+  shouldReportSiteScanRiskWarnedForUser,
+  shouldStartSiteScanRiskWarningAttempt,
+} from './siteScanRiskWarning';
 
 import type { Verify } from '@walletconnect/types';
 
-let siteScanRiskWarnedReportedUserId: string | undefined;
 let siteScanRiskWarnedInFlight = false;
 
 function overrideSecurityLevel(
@@ -173,12 +175,10 @@ function useRiskDetection({
         const currentUserId = persist.onekeyUserId;
         if (
           !isPrimeActive ||
-          !currentUserId ||
-          siteScanRiskWarnedReportedUserId === currentUserId
+          !shouldReportSiteScanRiskWarnedForUser(currentUserId)
         ) {
           return;
         }
-        siteScanRiskWarnedReportedUserId = currentUserId;
         defaultLogger.prime.usage.siteScanRiskWarned({
           featureName: EPrimeFeatures.BlockaidSiteScan,
           riskLevel,
