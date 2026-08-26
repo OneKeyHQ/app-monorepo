@@ -43,7 +43,6 @@ import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
-  devSettingsPersistAtom,
   deviceStageAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
@@ -499,22 +498,6 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   // ----- DeviceStage (OK-59934) driver APIs ------------------------------
-
-  @backgroundMethod()
-  async setDeviceStageEnabled({ enabled }: { enabled: boolean }) {
-    await devSettingsPersistAtom.set((prev) => ({
-      ...prev,
-      settings: { ...prev.settings, deviceStageEnabled: enabled },
-    }));
-    if (!enabled) {
-      await this.deviceStageBurst.userClose();
-    }
-  }
-
-  @backgroundMethod()
-  async isDeviceStageEnabled() {
-    return this.deviceStageBurst.isEnabled();
-  }
 
   @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
