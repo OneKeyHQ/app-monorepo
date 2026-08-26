@@ -432,6 +432,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       payload: {},
     });
   }, []);
+  const handleChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+  }, []);
 
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
@@ -458,6 +461,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onChartReady: handleChartReady,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
