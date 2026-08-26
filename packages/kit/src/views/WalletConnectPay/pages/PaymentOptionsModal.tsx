@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
+  Icon,
   NumberSizeableText,
   Page,
   SizableText,
@@ -15,6 +16,7 @@ import {
   Toast,
   XStack,
   YStack,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,11 +54,117 @@ import {
   WcPayUserCancelledError,
   useWcPayActionExecutor,
 } from '../hooks/useWcPayActionExecutor';
+import { useWcPayResultPolling } from '../hooks/useWcPayResultPolling';
+import {
+  EWcPayInlineFailureKind,
+  classifyWcPayInlineFailure,
+  isWcPayInlinePostSignError,
+  nextWcPayPagePhaseAfterAttempt,
+} from '../hooks/wcPayInlineUtils';
 
+import type {
+  IWcPayInlineController,
+  IWcPayInlineFailure,
+  IWcPayInlinePhase,
+} from '../hooks/wcPayInlineUtils';
 import type { RouteProp } from '@react-navigation/core';
 
 // stable fallback so render never fabricates a fresh array identity
 const EMPTY_OPTIONS: IWcPayOption[] = [];
+const EMPTY_SIGNATURES: string[] = [];
+
+/**
+ * What the page is doing right now.
+ *
+ * `paying` carries the step the inline pipeline last reported (the
+ * confirm-modal path reports none and stays on `preparing`, with the pushed
+ * modal covering the page anyway).
+ *
+ * `result` is TERMINAL for this page: it is only ever entered once signatures
+ * exist, its polling keeps re-submitting confirmPayment, and returning to a
+ * payable state from it could pay a second time.
+ */
+type IWcPayPagePhase =
+  | { name: 'idle' }
+  | { name: 'paying'; step: 'preparing' | IWcPayInlinePhase | 'submitting' }
+  | {
+      name: 'result';
+      params: {
+        paymentId: string;
+        optionId: string;
+        signatures: string[];
+        initialResult: IWcPayConfirmResult;
+      };
+    };
+
+type IWcPayPagePayingStep = Extract<
+  IWcPayPagePhase,
+  { name: 'paying' }
+>['step'];
+
+// Placeholder identity for the result poller while the page is not in its
+// result phase. The hook is disabled then — nothing is requested — and resets
+// itself from the real `initialResult` once the identity changes.
+const WC_PAY_IDLE_RESULT: IWcPayConfirmResult = {
+  status: EWcPayStatus.Processing,
+  isFinal: false,
+};
+
+function getWcPayPayingStepLabel(step: IWcPayPagePayingStep): string {
+  // copy pending product i18n keys
+  switch (step) {
+    case 'estimating':
+      return 'Estimating network fee…';
+    case 'checking':
+      return 'Checking balances…';
+    // signing and broadcasting happen inside one atomic background call, so
+    // the label must not promise a separate broadcast step
+    case 'signing':
+      return 'Signing & broadcasting…';
+    case 'recording':
+      return 'Finalizing…';
+    case 'submitting':
+      return 'Submitting payment…';
+    case 'preparing':
+    default:
+      return 'Preparing…';
+  }
+}
+
+/**
+ * User-facing presentation of a failure the page keeps on screen instead of
+ * toasting. This kind-derived copy is the ONLY thing rendered: `failure.message`
+ * is either a raw vault/RPC string (post-sign) or the pipeline's English debug
+ * text (balance) — never reviewed as copy, never translated — so it is logged
+ * as a diagnostic and never shown, per `IWcPayInlineFailure.message`.
+ *
+ * Keyed on `kind` because the two banner-reachable failures differ only by
+ * kind. This is NOT the "may this attempt be re-run in place" decision:
+ * `failure.retryable` answers that one (false for both of these, see
+ * runWcPayInlineAttempts) and is what an in-banner "try again as-is"
+ * affordance would have to key off. The footer here re-runs handlePay from the
+ * top, which re-enters the durable-progress recovery machinery instead of
+ * repeating the failed attempt.
+ */
+function getWcPayInlineFailureCopy(failure: IWcPayInlineFailure): {
+  guidance: string;
+  offersPageRetry: boolean;
+} {
+  if (failure.kind === EWcPayInlineFailureKind.InsufficientBalance) {
+    return {
+      // copy pending product i18n keys
+      guidance:
+        'Not enough balance on this network. Pick another asset below, or top up and try again.',
+      offersPageRetry: false,
+    };
+  }
+  return {
+    // copy pending product i18n keys
+    guidance:
+      'Something went wrong while sending. Retry to resume this payment safely.',
+    offersPageRetry: true,
+  };
+}
 
 // option.account is CAIP-10 ("namespace:reference:address"); its chain part
 // maps to a wallet networkId so icons/names can be resolved locally instead
@@ -142,6 +250,34 @@ function PaymentOptionsPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [isPaying, setIsPaying] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [pagePhase, setPagePhase] = useState<IWcPayPagePhase>({ name: 'idle' });
+  // failures the page keeps on screen (persistent banner) instead of toasting:
+  // an insufficient balance the user resolves by switching option, and a
+  // post-sign send failure whose retry must re-enter the recovery machinery
+  const [inlineFailure, setInlineFailure] = useState<IWcPayInlineFailure>();
+
+  // Mounted unconditionally (hooks order); idle until the page reaches its
+  // result phase.
+  const resultParams =
+    pagePhase.name === 'result' ? pagePhase.params : undefined;
+  const { result: pollResult, pollExhausted } = useWcPayResultPolling({
+    paymentId: resultParams?.paymentId ?? '',
+    optionId: resultParams?.optionId ?? '',
+    signatures: resultParams?.signatures ?? EMPTY_SIGNATURES,
+    initialResult: resultParams?.initialResult ?? WC_PAY_IDLE_RESULT,
+    enabled: Boolean(resultParams),
+  });
+
+  // The signing window used to be covered by the pushed TxConfirm modal; the
+  // inline path leaves this page on screen instead, so its own close controls
+  // (header close, iOS swipe-down, backdrop) would let the user dismiss
+  // mid-signing while the payment completes anyway (the durable progress
+  // record keeps the money safe, but the user
+  // believes they cancelled). Lock ONLY the paying phase: idle stays closable,
+  // and so does result — matching the standalone PaymentResultModal it
+  // replaces. Nothing to run on an intercepted dismissal: neither the executor
+  // nor the inline pipeline can abort an in-flight signing or broadcast.
+  usePreventRemove(pagePhase.name === 'paying', () => {});
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -149,6 +285,12 @@ function PaymentOptionsPage() {
     accountId,
     indexedAccountId,
   });
+
+  // a banner reports one account's attempt; switching account makes it stale
+  // exactly like switching option does
+  useEffect(() => {
+    setInlineFailure(undefined);
+  }, [accountId, indexedAccountId]);
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
@@ -260,11 +402,18 @@ function PaymentOptionsPage() {
       !selectedOption ||
       isPaying ||
       isLoading ||
-      !isPaymentActionable
+      !isPaymentActionable ||
+      // the result phase is terminal: its polling keeps re-submitting the
+      // signatures this flow produced, so a second run could pay twice. The
+      // render never offers a way in — this is the belt to that suspenders.
+      pagePhase.name === 'result'
     ) {
       return;
     }
     setIsPaying(true);
+    // a new attempt supersedes whatever the previous one left on screen
+    setInlineFailure(undefined);
+    setPagePhase({ name: 'paying', step: 'preparing' });
     try {
       const { paymentId } = payResult;
       const optionId = selectedOption.id;
@@ -347,11 +496,49 @@ function PaymentOptionsPage() {
             actions,
           },
         );
+      // The inline path's observer/decider. Only two verdicts ever reach the
+      // user from here: a fee-estimate failure is re-run by the attempts loop
+      // (which caps its own re-runs and then degrades to the confirm page —
+      // the design's backstop for fee errors), and an insufficient balance
+      // ends the flow with a persistent banner rather than a confirm page the
+      // user could not resolve there either. Everything else reroutes to the
+      // confirm page.
+      const inlineController: IWcPayInlineController = {
+        onPhase: (step) => setPagePhase({ name: 'paying', step }),
+        onInlineFailure: (failure) => {
+          if (failure.kind === EWcPayInlineFailureKind.FeeEstimateFailed) {
+            return Promise.resolve('retry');
+          }
+          if (failure.kind === EWcPayInlineFailureKind.InsufficientBalance) {
+            // the selection stays as it is: the banner describes the option
+            // the user picked, and the list guides them to another one. Only
+            // kind-derived copy reaches the screen, so the shortfall detail
+            // lives in the log
+            console.error(
+              'wcPay inline failure',
+              failure.kind,
+              failure.message,
+            );
+            setInlineFailure(failure);
+            return Promise.resolve('abort');
+          }
+          // the confirm modal covers the page from here; drop the inline step
+          // label so a stale one does not linger underneath it
+          setPagePhase({ name: 'paying', step: 'preparing' });
+          return Promise.resolve('fallback');
+        },
+      };
+
       const signatures = await executeActions({
         actions,
         accountId,
         indexedAccountId,
         completedResults,
+        // opts this call into the inline (headless) send for the action
+        // shapes getWcPayInlinePlan admits; everything else still runs
+        // through the confirm modal
+        option: selectedOption,
+        inlineController,
         // identity of the durable progress record: eth_sendTransaction
         // confirms hand it to the background so the txid is persisted
         // between signing and broadcast, before onActionComplete below ever
@@ -396,8 +583,9 @@ function PaymentOptionsPage() {
       // 4. submit and show result. The transaction may already be broadcast
       // by this point, so a confirmPayment failure must NOT drop the
       // signatures back on the options page (retrying there would sign and
-      // broadcast a second payment). Hand the same signatures to the result
-      // page, whose polling keeps re-submitting confirmPayment.
+      // broadcast a second payment). Keep the same signatures in the result
+      // phase, whose polling keeps re-submitting confirmPayment.
+      setPagePhase({ name: 'paying', step: 'submitting' });
       let confirmResult: IWcPayConfirmResult;
       try {
         confirmResult =
@@ -409,16 +597,30 @@ function PaymentOptionsPage() {
       } catch {
         confirmResult = { status: EWcPayStatus.Processing, isFinal: false };
       }
-      navigation.push(EModalWalletConnectPayRoutes.PaymentResult, {
-        paymentId,
-        optionId,
-        signatures,
-        initialResult: confirmResult,
+      // both the inline and the confirm-modal path arrive here with
+      // signatures in hand; the page must never leave this phase again
+      setPagePhase({
+        name: 'result',
+        params: {
+          paymentId,
+          optionId,
+          signatures,
+          initialResult: confirmResult,
+        },
       });
     } catch (error) {
-      // user-intent cancellation (dismissed a confirm modal or the collect
-      // form) ends the flow silently
-      if (!(error instanceof WcPayUserCancelledError)) {
+      if (isWcPayInlinePostSignError(error)) {
+        // thrown at or after signing: a transaction may already be on chain,
+        // so this must not vanish with a toast. The banner's page-level Retry
+        // re-runs handlePay, which re-enters the durable-progress recovery
+        // machinery (stored action results, never-broadcast probe, pinned
+        // nonce) instead of signing a second payment. The raw vault/RPC text
+        // is a diagnostic only — the banner shows reviewed copy instead.
+        console.error('wcPay inline post-sign failure', error);
+        setInlineFailure(classifyWcPayInlineFailure({ stage: 'send', error }));
+      } else if (!(error instanceof WcPayUserCancelledError)) {
+        // user-intent cancellation (dismissed a confirm modal or the collect
+        // form) ends the flow silently
         Toast.error({
           title:
             (error as Error | undefined)?.message ??
@@ -427,6 +629,10 @@ function PaymentOptionsPage() {
       }
     } finally {
       setIsPaying(false);
+      // Covers both the failure paths above and a flow that ended without
+      // reaching the result phase. Reduced through the updater rather than the
+      // captured `pagePhase`, which is stale inside this closure.
+      setPagePhase(nextWcPayPagePhaseAfterAttempt);
     }
   }, [
     payResult,
@@ -434,6 +640,7 @@ function PaymentOptionsPage() {
     isPaying,
     isLoading,
     isPaymentActionable,
+    pagePhase.name,
     effectiveExpiryMs,
     navigation,
     executeActions,
@@ -441,6 +648,82 @@ function PaymentOptionsPage() {
     indexedAccountId,
     intl,
   ]);
+
+  const inlineFailureCopy = inlineFailure
+    ? getWcPayInlineFailureCopy(inlineFailure)
+    : undefined;
+
+  // same status shapes the standalone PaymentResultModal renders, shown here
+  // once the payment was submitted from this page
+  const renderResultStatus = () => {
+    if (pollResult.status === EWcPayStatus.Succeeded) {
+      return (
+        <YStack alignItems="center" gap="$3">
+          <Icon name="CheckRadioSolid" size="$16" color="$iconSuccess" />
+          <SizableText size="$headingXl">
+            {intl.formatMessage({ id: ETranslations.global_success })}
+          </SizableText>
+          {pollResult.info?.txId ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {pollResult.info.txId}
+            </SizableText>
+          ) : null}
+        </YStack>
+      );
+    }
+    if (
+      pollResult.status === EWcPayStatus.Failed ||
+      pollResult.status === EWcPayStatus.Expired ||
+      pollResult.status === EWcPayStatus.Cancelled
+    ) {
+      return (
+        <YStack alignItems="center" gap="$3">
+          <Icon name="XCircleSolid" size="$16" color="$iconCritical" />
+          <SizableText size="$headingXl">
+            {intl.formatMessage({ id: ETranslations.global_failed })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {pollResult.status}
+          </SizableText>
+        </YStack>
+      );
+    }
+    return (
+      <YStack alignItems="center" gap="$3">
+        <Spinner size="large" />
+        <SizableText size="$headingXl">
+          {intl.formatMessage({ id: ETranslations.global_processing })}
+        </SizableText>
+      </YStack>
+    );
+  };
+
+  // The payment was submitted from this page: the whole page becomes the
+  // result view. Every hook above has already run, so this branch does not
+  // move hook order; it only replaces what is rendered. Nothing here can start
+  // another payment — the options list, the Continue gate and the failure
+  // banner are all gone.
+  if (pagePhase.name === 'result') {
+    return (
+      <Page scrollEnabled safeAreaEnabled>
+        <Page.Header title="WalletConnect Pay" />
+        <Page.Body>
+          <Stack flex={1} alignItems="center" justifyContent="center" py="$10">
+            {renderResultStatus()}
+          </Stack>
+        </Page.Body>
+        <Page.Footer
+          onConfirm={() => {
+            navigation.popStack();
+          }}
+          onConfirmText={intl.formatMessage({ id: ETranslations.global_done })}
+          confirmButtonProps={{
+            disabled: !pollResult.isFinal && !pollExhausted,
+          }}
+        />
+      </Page>
+    );
+  }
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -511,6 +794,14 @@ function PaymentOptionsPage() {
                   {countdown}
                 </SizableText>
               ) : null}
+              {pagePhase.name === 'paying' ? (
+                <XStack alignItems="center" gap="$2" pt="$2">
+                  <Spinner size="small" />
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {getWcPayPayingStepLabel(pagePhase.step)}
+                  </SizableText>
+                </XStack>
+              ) : null}
             </YStack>
             <YStack>
               {options.map((option) => {
@@ -523,14 +814,23 @@ function PaymentOptionsPage() {
                 const tokenImageUri = display.iconUrl || network?.logoURI;
                 const networkImageUri =
                   network?.logoURI ?? display.networkIconUrl;
-                const isDisabled = areOptionsRefusedOnPlatform;
+                // switching option mid-flow would leave the running attempt
+                // paying for the previously selected one
+                const isDisabled = areOptionsRefusedOnPlatform || isPaying;
                 return (
                   <ListItem
                     key={option.id}
                     userSelect="none"
                     disabled={isDisabled}
                     checkMark={selectedOption?.id === option.id}
-                    onPress={() => setSelectedOptionId(option.id)}
+                    onPress={() => {
+                      if (option.id !== selectedOption?.id) {
+                        // the banner reports the previously selected option's
+                        // attempt and no longer applies
+                        setInlineFailure(undefined);
+                      }
+                      setSelectedOptionId(option.id);
+                    }}
                   >
                     <Token
                       size="lg"
@@ -613,20 +913,41 @@ function PaymentOptionsPage() {
           </YStack>
         ) : null}
       </Page.Body>
-      <Page.Footer
-        onConfirm={() => {
-          void handlePay();
-        }}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        confirmButtonProps={{
-          disabled:
-            !isPaymentActionable || !selectedOption || isPaying || !!isLoading,
-          loading: isPaying,
-        }}
-        onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirm={() => {
+            void handlePay();
+          }}
+          onConfirmText={intl.formatMessage({
+            id: inlineFailureCopy?.offersPageRetry
+              ? ETranslations.global_retry
+              : ETranslations.global_continue,
+          })}
+          confirmButtonProps={{
+            disabled:
+              !isPaymentActionable ||
+              !selectedOption ||
+              isPaying ||
+              !!isLoading,
+            loading: isPaying,
+          }}
+        >
+          {inlineFailureCopy ? (
+            <YStack
+              flexShrink={1}
+              p="$3"
+              mb="$5"
+              borderRadius="$3"
+              bg="$bgCriticalSubdued"
+              $gtMd={{ mb: '$0', mr: '$5' }}
+            >
+              <SizableText size="$bodyMd" color="$textCritical">
+                {inlineFailureCopy.guidance}
+              </SizableText>
+            </YStack>
+          ) : null}
+        </Page.FooterActions>
+      </Page.Footer>
     </Page>
   );
 }

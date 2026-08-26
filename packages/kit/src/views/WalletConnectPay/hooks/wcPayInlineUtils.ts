@@ -224,6 +224,26 @@ export interface IWcPayInlineController {
   ) => Promise<'retry' | 'fallback' | 'abort'>;
 }
 
+/**
+ * Phase reduction the page applies when a payment attempt ends, whatever the
+ * outcome — success, cancellation, or failure.
+ *
+ * Encodes the one double-pay invariant of the payment page: the result phase
+ * is TERMINAL. It is only ever entered once signatures exist, its polling
+ * keeps re-submitting confirmPayment, and a page that dropped back to a
+ * payable state from there could sign and broadcast a second payment. Every
+ * other phase returns to idle.
+ *
+ * Generic over the caller's phase type so the page keeps its own precise
+ * union instead of widening it for this helper; a terminal `prev` is returned
+ * by REFERENCE, never rebuilt, so React can bail out of the update.
+ */
+export function nextWcPayPagePhaseAfterAttempt<T extends { name: string }>(
+  prev: T,
+): T | { name: 'idle' } {
+  return prev.name === 'result' ? prev : { name: 'idle' };
+}
+
 export type IWcPayInlineAttemptsOutcome =
   | { status: 'ok'; txid: string }
   | { status: 'fallback' }

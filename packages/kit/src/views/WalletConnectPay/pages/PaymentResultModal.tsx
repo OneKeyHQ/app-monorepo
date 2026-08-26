@@ -40,6 +40,9 @@ export function PaymentResultModal() {
     enabled: true,
   });
 
+  // PaymentOptionsModal's result phase renders a copy of this status JSX
+  // inline (the payment no longer pushes this route). Change both together —
+  // or delete this screen once nothing routes to it.
   const renderStatus = () => {
     if (result.status === EWcPayStatus.Succeeded) {
       return (

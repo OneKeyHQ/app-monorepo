@@ -9,6 +9,7 @@ import {
   classifyWcPayInlineFailure,
   getWcPayInlinePlan,
   isWcPayInlinePostSignError,
+  nextWcPayPagePhaseAfterAttempt,
   runWcPayInlineAttempts,
 } from '../wcPayInlineUtils';
 
@@ -376,5 +377,29 @@ describe('runWcPayInlineAttempts', () => {
       thrown,
     );
     expect(controller.onInlineFailure).not.toHaveBeenCalled();
+  });
+});
+
+describe('nextWcPayPagePhaseAfterAttempt', () => {
+  it('keeps a terminal result phase, by reference', () => {
+    const prev = {
+      name: 'result' as const,
+      params: { paymentId: 'pay-1', optionId: 'opt-1' },
+    };
+    // identity matters: a rebuilt object would re-render the result view and
+    // restart its polling identity
+    expect(nextWcPayPagePhaseAfterAttempt(prev)).toBe(prev);
+  });
+
+  it('returns to idle from every non-terminal phase', () => {
+    expect(nextWcPayPagePhaseAfterAttempt({ name: 'idle' as const })).toEqual({
+      name: 'idle',
+    });
+    expect(
+      nextWcPayPagePhaseAfterAttempt({
+        name: 'paying' as const,
+        step: 'signing' as const,
+      }),
+    ).toEqual({ name: 'idle' });
   });
 });
