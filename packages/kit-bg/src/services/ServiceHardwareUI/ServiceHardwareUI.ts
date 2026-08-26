@@ -612,7 +612,9 @@ class ServiceHardwareUI extends ServiceBase {
    * closes it — see deviceStageEndBurst.
    */
   @backgroundMethod()
-  async deviceStageBeginBurst(params: IDeviceStageBurstBeginParams = {}) {
+  async deviceStageBeginBurst(
+    params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
+  ) {
     return this.deviceStageBurst.beginExplicit(params);
   }
 
