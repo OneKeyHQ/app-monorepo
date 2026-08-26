@@ -822,6 +822,9 @@ function CheckAndUpdatePage({
         }
         isFirmwareVerifiedRef.current = !!result.verified;
       } catch (_error) {
+        // The run is over with no follow-up: release the hold, or the
+        // stage stands there forever after a cancelled check.
+        void endBurst();
         setSteps((prev) => {
           const newSteps = [...prev];
           newSteps[0] = {
