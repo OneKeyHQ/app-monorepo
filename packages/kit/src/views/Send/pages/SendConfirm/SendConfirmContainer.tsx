@@ -13,7 +13,7 @@ import {
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -38,6 +38,9 @@ import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
+// TODO(6.7.0): Remove this legacy SendModal confirmation page.
+// Current send confirmations go through SignatureConfirmModal -> TxConfirm;
+// debug confirmation issues in the TxConfirm page instead.
 function SendConfirmContainer() {
   const intl = useIntl();
   const route =
@@ -48,7 +51,7 @@ function SendConfirmContainer() {
     updateSendFeeStatus,
     updatePreCheckTxStatus,
   } = useSendConfirmActions().current;
-  const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendAlertStatus] = useSendTxStatusAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
@@ -80,50 +83,54 @@ function SendConfirmContainer() {
   }, []);
 
   const { network } =
-    usePromiseResult(async () => {
-      updateUnsignedTxs(unsignedTxs);
-      updateNativeTokenInfo({
-        isLoading: true,
-        balance: '0',
-        logoURI: '',
-        info: undefined,
-      });
-      const [n, nativeTokenAddress] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
-      ]);
-      const checkInscriptionProtectionEnabled =
-        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
-          {
-            networkId,
-            accountId,
-          },
-        );
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && settings.inscriptionProtection;
-      const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-        networkId,
+    usePromiseResult(
+      async () => {
+        updateUnsignedTxs(unsignedTxs);
+        updateNativeTokenInfo({
+          isLoading: true,
+          balance: '0',
+          logoURI: '',
+          info: undefined,
+        });
+        const [n, nativeTokenAddress] = await Promise.all([
+          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+          backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
+        ]);
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountId,
+          contractList: [nativeTokenAddress],
+          withFrozenBalance: true,
+          withCheckInscription,
+        });
+        const balance = r[0].balanceParsed;
+        updateNativeTokenInfo({
+          isLoading: false,
+          balance,
+          logoURI: r[0].info.logoURI ?? '',
+          info: r[0].info,
+        });
+        return { network: n };
+      },
+      // The policy state is an intentional invalidation signal; bg computes the final value.
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+      [
         accountId,
-        contractList: [nativeTokenAddress],
-        withFrozenBalance: true,
-        withCheckInscription,
-      });
-      const balance = r[0].balanceParsed;
-      updateNativeTokenInfo({
-        isLoading: false,
-        balance,
-        logoURI: r[0].info.logoURI ?? '',
-        info: r[0].info,
-      });
-      return { network: n };
-    }, [
-      accountId,
-      networkId,
-      unsignedTxs,
-      updateNativeTokenInfo,
-      updateUnsignedTxs,
-      settings.inscriptionProtection,
-    ]).result ?? {};
+        networkId,
+        unsignedTxs,
+        updateNativeTokenInfo,
+        updateUnsignedTxs,
+        inscriptionProtectionState.localEnabled,
+        inscriptionProtectionState.serverEnabled,
+      ],
+    ).result ?? {};
 
   usePromiseResult(async () => {
     try {

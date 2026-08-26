@@ -7,8 +7,12 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+  THIRD_PARTY_HW_NETWORK_ERROR_CODE,
+  THIRD_PARTY_HW_PIN_MISMATCH_CODE,
+  ThirdPartyNetworkError,
 } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
@@ -28,7 +32,16 @@ describe('convertThirdPartyDeviceError', () => {
       _tag: 'InvalidGetFirmwareMetadataResponseError',
     });
 
-    expect(error.code).toBe(ThirdPartyHwErrorCode.NetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it('maps the adapter network error code to the retryable network error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.NetworkError,
+      error: 'Network request failed',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
   });
 
   it('normalizes numeric string error codes before classification', () => {
@@ -128,6 +141,17 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.name).toBe('ThirdPartyHardwareError');
   });
 
+  it('maps third-party PIN mismatch to the pins-do-not-match message', () => {
+    const error = convertThirdPartyDeviceError({
+      code: THIRD_PARTY_HW_PIN_MISMATCH_CODE,
+      error: 'PIN mismatch',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_PIN_MISMATCH_CODE);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware.pins_do_not_match');
+  });
+
   it('maps third-party forbidden path failures to the dedicated path message', () => {
     const error = convertThirdPartyDeviceError({
       code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
@@ -147,9 +171,25 @@ describe('convertDeviceError', () => {
       error: 'InvalidGetFirmwareMetadataResponseError',
       _tag: 'InvalidGetFirmwareMetadataResponseError',
     };
-    const error = convertDeviceError(sdkPayload);
+    const error = convertDeviceError(sdkPayload, {
+      vendor: EHardwareVendor.ledger,
+    });
 
-    expect(error.code).toBe(ThirdPartyHwErrorCode.NetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+    expect(error).toBeInstanceOf(ThirdPartyNetworkError);
+    expect(error).toMatchObject({ vendor: EHardwareVendor.ledger });
+  });
+
+  it('keeps a cancelled BLE pairing apart from a generic in-app cancel', () => {
+    const error = convertDeviceError({
+      code: THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+      error: 'Trezor BLE pairing cancelled: BLE-1',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE);
+    expect(error.code).not.toBe(ThirdPartyHwErrorCode.UserAborted);
+    // A cancel the user asked for must not raise a toast.
+    expect(error.autoToast).toBe(false);
   });
 
   it('maps all-network install cancel code before generic hardware fallback', () => {

@@ -4,8 +4,6 @@ import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/De
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
-const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-
 type IProtocolAssetBalanceTextProps = {
   asset: IDeFiAsset;
   currencySymbol: string;
@@ -27,7 +25,6 @@ function ProtocolAssetBalanceText({
         formatter="balance"
         formatterOptions={{ tokenSymbol: asset.symbol }}
         numberOfLines={1}
-        fontVariant={TABULAR_NUMS}
       >
         {asset.amount}
       </NumberSizeableTextWrapper>
@@ -43,7 +40,6 @@ function ProtocolAssetBalanceText({
             isUnavailable={isProtocolAssetValueUnavailable(asset)}
             size="$bodyMd"
             color="$textSubdued"
-            fontVariant={TABULAR_NUMS}
             numberOfLines={1}
             justifyContent="flex-start"
           />

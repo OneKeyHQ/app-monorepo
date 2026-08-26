@@ -35,88 +35,103 @@ function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
   );
 }
 
-function TxConfirmHeaderRight(props: {
+export type ITxConfirmHeaderRightProps = {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
   effectiveFeePayer?: IGasPayer;
   txFeeInfoInit?: boolean;
-}) {
+};
+
+export function getTxConfirmMevProtectionProvider({
+  decodedTxs,
+  unsignedTxs,
+  effectiveFeePayer,
+  txFeeInfoInit,
+}: ITxConfirmHeaderRightProps) {
+  const decodedTx = decodedTxs?.[0];
+
+  if (!unsignedTxs) return null;
+
+  // Wait until fee info is initialized before deciding on the badge.
+  // `effectiveFeePayer` defaults to `'user'` and is only updated once the
+  // async fee estimation completes, so rendering the badge earlier would
+  // briefly show MEV for sponsored txs (and could leak the previous tx's
+  // payer in queue mode). Hiding it until init avoids that flicker.
+  if (!txFeeInfoInit) {
+    return null;
+  }
+
+  // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
+  // gas-free / megafuel). Sponsored transactions are relayed through a
+  // sponsor-bound RPC rather than the MEV-protected RPC, so the badge would
+  // be misleading. Only user-paid transactions go through the MEV-protected
+  // RPC and keep the badge.
+  if (effectiveFeePayer === 'gasAccount' || effectiveFeePayer === 'megafuel') {
+    return null;
+  }
+
+  const unsignedTx = unsignedTxs[0];
+  if (!unsignedTx) {
+    return null;
+  }
+
+  const swapTx = find(unsignedTxs, 'swapInfo');
+
+  if (
+    decodedTx?.payload?.privateSend ||
+    isPrivateSendSwapInfo(swapTx?.swapInfo)
+  ) {
+    return null;
+  }
+
+  if (unsignedTx.disableMev) {
+    return null;
+  }
+
+  if (decodedTx?.txDisplay?.mevProtectionProvider) {
+    return decodedTx.txDisplay.mevProtectionProvider;
+  }
+
+  if (swapTx && swapTx.swapInfo) {
+    let isBridge = false;
+
+    try {
+      isBridge =
+        swapTx.swapInfo.sender.accountInfo.networkId !==
+        swapTx.swapInfo.receiver.accountInfo.networkId;
+    } catch (_e) {
+      isBridge = false;
+    }
+
+    if (
+      !isBridge &&
+      mevProtectionProviders[swapTx.swapInfo.receiver.accountInfo.networkId]
+    ) {
+      return mevProtectionProviders[
+        swapTx.swapInfo.receiver.accountInfo.networkId
+      ];
+    }
+  }
+
+  return null;
+}
+
+function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
   const { decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
   const theme = useThemeName();
 
-  const decodedTx = decodedTxs?.[0];
-
-  const mevProtectionProvider = useMemo(() => {
-    if (!unsignedTxs) return null;
-
-    // Wait until fee info is initialized before deciding on the badge.
-    // `effectiveFeePayer` defaults to `'user'` and is only updated once the
-    // async fee estimation completes, so rendering the badge earlier would
-    // briefly show MEV for sponsored txs (and could leak the previous tx's
-    // payer in queue mode). Hiding it until init avoids that flicker.
-    if (!txFeeInfoInit) {
-      return null;
-    }
-
-    // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
-    // gas-free / megafuel). Sponsored transactions are relayed through a
-    // sponsor-bound RPC rather than the MEV-protected RPC, so the badge would
-    // be misleading. Only user-paid transactions go through the MEV-protected
-    // RPC and keep the badge.
-    if (
-      effectiveFeePayer === 'gasAccount' ||
-      effectiveFeePayer === 'megafuel'
-    ) {
-      return null;
-    }
-
-    const unsignedTx = unsignedTxs[0];
-    const swapTx = find(unsignedTxs, 'swapInfo');
-
-    if (
-      decodedTx?.payload?.privateSend ||
-      isPrivateSendSwapInfo(swapTx?.swapInfo)
-    ) {
-      return null;
-    }
-
-    if (unsignedTx.disableMev) {
-      return null;
-    }
-
-    if (decodedTx?.txDisplay?.mevProtectionProvider) {
-      return decodedTx.txDisplay.mevProtectionProvider;
-    }
-
-    if (swapTx && swapTx.swapInfo) {
-      let isBridge = false;
-
-      try {
-        isBridge =
-          swapTx.swapInfo.sender.accountInfo.networkId !==
-          swapTx.swapInfo.receiver.accountInfo.networkId;
-      } catch (_e) {
-        isBridge = false;
-      }
-
-      if (
-        !isBridge &&
-        mevProtectionProviders[swapTx.swapInfo.receiver.accountInfo.networkId]
-      ) {
-        return mevProtectionProviders[
-          swapTx.swapInfo.receiver.accountInfo.networkId
-        ];
-      }
-    }
-  }, [
-    unsignedTxs,
-    decodedTx?.payload?.privateSend,
-    decodedTx?.txDisplay?.mevProtectionProvider,
-    effectiveFeePayer,
-    txFeeInfoInit,
-  ]);
+  const mevProtectionProvider = useMemo(
+    () =>
+      getTxConfirmMevProtectionProvider({
+        decodedTxs,
+        unsignedTxs,
+        effectiveFeePayer,
+        txFeeInfoInit,
+      }),
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
+  );
 
   const imageUri = useMemo(() => {
     if (!mevProtectionProvider) {

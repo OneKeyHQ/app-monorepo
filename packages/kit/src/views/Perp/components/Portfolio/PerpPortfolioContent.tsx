@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountAtom,
@@ -33,6 +34,7 @@ import {
   formatChartUsdPrice,
   formatPerpsCompactUsd,
   formatPerpsUsd,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getPerpsValueColor,
   getSpotTokenDisplayName,
@@ -281,7 +283,9 @@ function PerpPortfolioContentComponent({
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
   const theme = useTheme();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const timeZone = useDeviceTimeZone();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('portfolio');
   const portfolioPalette = useMemo(
     () => ({
       positive: theme.bgAccent?.val ?? '#31E72F',
@@ -676,8 +680,9 @@ function PerpPortfolioContentComponent({
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
+        timeZone,
       }),
-    [intl],
+    [intl, timeZone],
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
@@ -906,6 +911,8 @@ function PerpPortfolioContentComponent({
             showLastValue={isPnl}
             showLastPointMarker={isPnl ? undefined : false}
             pulseLastPoint={!isPnl}
+            timeZone={timeZone}
+            locale={intl.locale}
           />
         </YStack>
       )}
@@ -978,6 +985,7 @@ function PerpPortfolioContentComponent({
         size={PERP_DIALOG_BUTTON_SIZE}
         variant="accent"
         icon="DownloadOutline"
+        disabled={isDepositDisabled}
         onPress={() => showDepositWithdrawModal('deposit')}
       >
         {intl.formatMessage({
@@ -1157,9 +1165,18 @@ function PerpPortfolioContentComponent({
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
-                  tokenImageUri={getHyperliquidTokenImageUrl(
-                    mostTradedTokenDisplayName,
-                  )}
+                  tokenImageUris={
+                    // A spot `mostTraded` is a raw fill coin (`@149`,
+                    // `PURR/USDC`) whose slash breaks the image path.
+                    fillsStats.mostTraded &&
+                    !isSpotInstrument(fillsStats.mostTraded)
+                      ? getHyperliquidTokenImageUris(fillsStats.mostTraded)
+                      : [
+                          getHyperliquidTokenImageUrl(
+                            mostTradedTokenDisplayName,
+                          ),
+                        ]
+                  }
                 />
                 <SizableText size="$headingSm" color="$text">
                   {mostTradedTokenDisplayName}

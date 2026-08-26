@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
@@ -52,5 +54,29 @@ describe('getHwHiddenWalletPassphraseState', () => {
     expect(
       serviceThirdPartyHardware.getTrezorPassphraseState,
     ).not.toHaveBeenCalled();
+  });
+
+  it('allows Pro2 hidden wallet creation through the core hardware service', async () => {
+    const serviceHardware = {
+      getPassphraseState: jest.fn(async () => 'PRO2_PASSPHRASE_STATE'),
+    };
+    const serviceThirdPartyHardware = {
+      getTrezorPassphraseState: jest.fn(),
+    };
+
+    await expect(
+      getHwHiddenWalletPassphraseState({
+        vendor: EHardwareVendor.onekey,
+        connectId: 'PRO2-USB',
+        dbDevice: { deviceType: EDeviceType.Pro2 } as never,
+        serviceHardware,
+        serviceThirdPartyHardware,
+      }),
+    ).resolves.toBe('PRO2_PASSPHRASE_STATE');
+
+    expect(serviceHardware.getPassphraseState).toHaveBeenCalledWith({
+      connectId: 'PRO2-USB',
+      forceInputPassphrase: true,
+    });
   });
 });

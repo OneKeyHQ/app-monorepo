@@ -121,8 +121,8 @@ const getOneKeyIdAuthClient = memoizee(
     if (existingClient) {
       return existingClient;
     }
-    clients[params.name] = await getBasicClient(params);
-    return clients[params.name] as AxiosInstance;
+    oneKeyIdAuthClients[params.name] = await getBasicClient(params);
+    return oneKeyIdAuthClients[params.name] as AxiosInstance;
   },
   {
     promise: true,

@@ -53,8 +53,15 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
 const BANNER_ITEM_WIDTH = 280;
+// Shared row height: every card in the banner row (standard BannerItem and the
+// leading Tron resource card) uses this so they line up. Passed down to the
+// resource card as a prop rather than duplicated as a literal.
+const BANNER_ITEM_HEIGHT = 88;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
+// The leading Tron resource card is intentionally narrower than a standard
+// banner item; WalletBanner needs its width for the scroll-bound math too.
+const TRON_CARD_WIDTH = 220;
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -73,7 +80,7 @@ function BannerItem({
   return (
     <XStack
       w={item.icon ? 200 : BANNER_ITEM_WIDTH}
-      h={108}
+      h={BANNER_ITEM_HEIGHT}
       p="$4"
       my="$px"
       bg="$bgSubdued"
@@ -110,19 +117,28 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack w={60} h={60} flexShrink={0}>
-            <Image size={60} source={{ uri: item.src }} />
+          <YStack w={56} h={56} flexShrink={0}>
+            <Image size={56} source={{ uri: item.src }} />
           </YStack>
         ) : null}
-        <YStack flex={1} gap="$1">
+        {/* The decorative icon is bottom-anchored (right/bottom "$4", 24pt), so
+            at this card height it rises into the title's line band and would sit
+            on top of a long title. Reserve its footprint plus a gap on the icon
+            branch — capping numberOfLines cannot prevent a horizontal overlap. */}
+        <YStack flex={1} gap="$1" {...(item.icon && { pr: '$8' })}>
           {item.description ? (
             <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
               {item.description}
             </SizableText>
           ) : null}
+          {/* Cap title lines to what BANNER_ITEM_HEIGHT's content box
+              (88 - 2 * $4 = 56pt) can hold, otherwise long or localized
+              titles spill past the card border: with a description only one
+              line fits (14 + gap 4 + $headingMd 24 = 42pt), without one two
+              lines fit ($headingMd 48pt). */}
           <SizableText
             size={item.icon ? '$headingMd' : '$headingSm'}
-            numberOfLines={3}
+            numberOfLines={item.description ? 1 : 2}
           >
             {item.title}
           </SizableText>
@@ -778,6 +794,8 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
           key={`${account.id}-${network.id}`}
           accountId={account.id}
           networkId={network.id}
+          width={TRON_CARD_WIDTH}
+          height={BANNER_ITEM_HEIGHT}
         />
       ) : null,
     [vaultSettings?.hasResource, account?.id, network?.id],
@@ -831,7 +849,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         handleBannerOnPress={wrappedHandleBannerOnPress}
         handleDismiss={handleDismiss}
         leadingContent={tronCard}
-        leadingContentWidth={tronCard ? 220 : 0}
+        leadingContentWidth={tronCard ? TRON_CARD_WIDTH : 0}
       />
     );
   }

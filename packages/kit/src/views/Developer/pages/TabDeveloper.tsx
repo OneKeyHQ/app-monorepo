@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -168,6 +169,8 @@ const TestRefresh = memo(TestRefreshCmp);
 
 const TabDeveloper = () => {
   const tabBarHeight = useScrollContentTabBarOffset();
+  const headerHeight = useHeaderHeight();
+  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
@@ -179,7 +182,7 @@ const TabDeveloper = () => {
       enabledNum={[0]}
     >
       <Page>
-        <Page.Body>
+        <Page.Body pt={bodyPaddingTop}>
           <ScrollView
             flex={1}
             width="100%"

@@ -63,16 +63,23 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  priceScaleMinimumWidth,
   priceFormatter,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
   showTimeScale,
+  useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
   pulseLastPoint,
+  preserveChartInstanceOnDataChange,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -98,16 +105,37 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
     priceFormatter,
     fontSize,
     seriesType,
+    lineType,
     baselineOptions,
     showLastValue,
     showLastPointMarker,
     showTimeScale,
+    useTimeScaleTickMarkWithoutUnit,
+    timeZone,
+    locale,
   });
+  const chartConfigRef = useRef(chartConfig);
+  chartConfigRef.current = chartConfig;
+  const lastPointPositionUpdaterRef = useRef<(() => void) | undefined>(
+    undefined,
+  );
+  const lastPointPositionGenerationRef = useRef(0);
+  const canPublishLastPointPositionRef = useRef(false);
+  const hasSecondaryLineData =
+    Array.isArray(chartConfig.secondaryLineData) &&
+    chartConfig.secondaryLineData.length > 0;
+  const chartDataCreateDependency = preserveChartInstanceOnDataChange
+    ? undefined
+    : chartConfig.data;
+  const secondaryLineDataCreateDependency = preserveChartInstanceOnDataChange
+    ? undefined
+    : chartConfig.secondaryLineData;
 
   useEffect(() => {
     if (!chartContainerRef.current) return undefined;
@@ -118,29 +146,40 @@ export function LightweightChart({
     let lastPointPositionUpdater: (() => void) | undefined;
     let lastPointRafId: number | undefined;
     let resizeRafId: number | undefined;
+    const lastPointPositionGeneration =
+      lastPointPositionGenerationRef.current + 1;
+    lastPointPositionGenerationRef.current = lastPointPositionGeneration;
+    canPublishLastPointPositionRef.current = false;
 
     // Capture container for cleanup
     const container = chartContainerRef.current;
+    setLastPointPosition(null);
 
     void getChartLib().then(
-      ({ AreaSeries, BaselineSeries, LineSeries, createChart }) => {
+      ({ AreaSeries, BaselineSeries, LineSeries, LineType, createChart }) => {
         if (cancelled) return;
 
+        const currentChartConfig = chartConfigRef.current;
         const baseOptions = createChartOptions(
-          chartConfig.theme,
-          chartConfig.showPriceScale,
-          chartConfig.fontSize,
-          chartConfig.priceScaleMargins,
-          chartConfig.showTimeScale,
-          chartConfig.priceScaleEntireTextOnly,
+          currentChartConfig.theme,
+          currentChartConfig.showPriceScale,
+          currentChartConfig.fontSize,
+          currentChartConfig.priceScaleMargins,
+          currentChartConfig.showTimeScale,
+          currentChartConfig.priceScaleEntireTextOnly,
+          currentChartConfig.useTimeScaleTickMarkWithoutUnit,
+          priceScaleMinimumWidth,
+          currentChartConfig.priceScalePosition,
+          currentChartConfig.timeZone,
+          currentChartConfig.locale,
         );
         const gridOptions = {
           vertLines: { visible: false },
-          horzLines: chartConfig.showHorzGridLines
+          horzLines: currentChartConfig.showHorzGridLines
             ? {
                 visible: true,
-                color: chartConfig.horzLineColor ?? '#E5E5EA',
-                style: chartConfig.horzLineStyle ?? 2,
+                color: currentChartConfig.horzLineColor ?? '#E5E5EA',
+                style: currentChartConfig.horzLineStyle ?? 2,
               }
             : { visible: false },
         };
@@ -152,26 +191,34 @@ export function LightweightChart({
           height,
         });
 
-        const isBaseline = chartConfig.seriesType === 'baseline';
-        const isDottedArea = chartConfig.seriesType === 'dotted-area';
+        const isBaseline = currentChartConfig.seriesType === 'baseline';
+        const isDottedArea = currentChartConfig.seriesType === 'dotted-area';
         let series: IPrimarySeriesApi;
         if (isDottedArea) {
           series = chart.addCustomSeries(
             createDottedAreaSeriesPaneView(),
             createDottedAreaSeriesOptions({
-              theme: chartConfig.theme,
-              lineWidth: chartConfig.lineWidth,
+              theme: currentChartConfig.theme,
+              lineWidth: currentChartConfig.lineWidth,
               showLastValue,
-              showLastPointMarker: chartConfig.showLastPointMarker,
-              priceFormatter: chartConfig.priceFormatter,
+              showLastPointMarker: currentChartConfig.showLastPointMarker,
+              priceFormatter: currentChartConfig.priceFormatter,
             }),
           );
+          series.applyOptions({
+            priceScaleId: currentChartConfig.priceScalePosition,
+          });
         } else if (isBaseline) {
           series = chart.addSeries(BaselineSeries, {
-            ...chartConfig.baselineOptions,
+            ...currentChartConfig.baselineOptions,
+            priceScaleId: currentChartConfig.priceScalePosition,
+            lineType:
+              currentChartConfig.lineType === 'steps'
+                ? LineType.WithSteps
+                : LineType.Simple,
             lineWidth: Math.min(
               4,
-              Math.max(1, Math.round(chartConfig.lineWidth)),
+              Math.max(1, Math.round(currentChartConfig.lineWidth)),
             ) as 1 | 2 | 3 | 4,
             lastValueVisible: !!showLastValue,
             priceLineVisible: !!showLastValue,
@@ -179,16 +226,17 @@ export function LightweightChart({
             priceFormat: {
               type: 'custom',
               formatter:
-                chartConfig.priceFormatter ??
+                currentChartConfig.priceFormatter ??
                 ((price: number) => `$${price.toFixed(2)}`),
             },
           });
         } else {
           series = chart.addSeries(AreaSeries, {
+            priceScaleId: currentChartConfig.priceScalePosition,
             ...createAreaSeriesOptions(
-              chartConfig.theme,
-              chartConfig.lineWidth,
-              chartConfig.priceFormatter,
+              currentChartConfig.theme,
+              currentChartConfig.lineWidth,
+              currentChartConfig.priceFormatter,
             ),
             ...(showLastValue && {
               lastValueVisible: true,
@@ -196,24 +244,25 @@ export function LightweightChart({
             }),
           });
         }
-        series.setData(chartConfig.data);
+        series.setData(currentChartConfig.data);
 
         if (
-          Array.isArray(chartConfig.secondaryLineData) &&
-          chartConfig.secondaryLineData.length > 0
+          Array.isArray(currentChartConfig.secondaryLineData) &&
+          currentChartConfig.secondaryLineData.length > 0
         ) {
           const normalizedSecondaryLineWidth = Math.min(
             4,
-            Math.max(1, Math.round(chartConfig.secondaryLineWidth ?? 2)),
+            Math.max(1, Math.round(currentChartConfig.secondaryLineWidth ?? 2)),
           ) as 1 | 2 | 3 | 4;
           const secondarySeries = chart.addSeries(LineSeries, {
-            color: chartConfig.secondaryLineColor ?? '#0177E5',
+            priceScaleId: currentChartConfig.priceScalePosition,
+            color: currentChartConfig.secondaryLineColor ?? '#0177E5',
             lineWidth: normalizedSecondaryLineWidth,
             priceLineVisible: false,
             lastValueVisible: false,
             crosshairMarkerVisible: false,
           });
-          secondarySeries.setData(chartConfig.secondaryLineData);
+          secondarySeries.setData(currentChartConfig.secondaryLineData);
           secondarySeriesRef.current = secondarySeries;
         }
 
@@ -225,11 +274,12 @@ export function LightweightChart({
         const updateLastPointPosition = () => {
           // Guard against the teardown window: a range-change event firing during
           // chart.remove() must not setState on the unmounting component.
-          if (cancelled) return;
+          if (cancelled || !canPublishLastPointPositionRef.current) return;
           const currentChart = chartRef.current;
           const currentSeries = seriesRef.current;
           if (!currentChart || !currentSeries) return;
-          const lastBar = chartConfig.data[chartConfig.data.length - 1];
+          const currentData = chartConfigRef.current.data;
+          const lastBar = currentData[currentData.length - 1];
           if (!lastBar) {
             setLastPointPosition(null);
             return;
@@ -245,6 +295,7 @@ export function LightweightChart({
           setLastPointPosition({ x: xCoord, y: yCoord });
         };
         lastPointPositionUpdater = updateLastPointPosition;
+        lastPointPositionUpdaterRef.current = updateLastPointPosition;
         // Subscribe before fitContent so the resulting range change recomputes
         // the position once the layout (and price scale) has settled.
         chart
@@ -253,11 +304,18 @@ export function LightweightChart({
 
         chart.timeScale().fitContent();
 
-        // The first paint can leave coordinates unresolved, so recompute now and
-        // again on the next frame as a fallback.
-        updateLastPointPosition();
+        // Price autoscaling and axis label measurement settle on the next chart
+        // frame. Keep the overlay hidden until then so it never paints with the
+        // temporary full-width/unscaled coordinates.
         lastPointRafId = requestAnimationFrame(() => {
-          if (cancelled) return;
+          if (
+            cancelled ||
+            lastPointPositionGenerationRef.current !==
+              lastPointPositionGeneration
+          ) {
+            return;
+          }
+          canPublishLastPointPositionRef.current = true;
           updateLastPointPosition();
         });
 
@@ -333,6 +391,8 @@ export function LightweightChart({
 
     return () => {
       cancelled = true;
+      lastPointPositionGenerationRef.current += 1;
+      canPublishLastPointPositionRef.current = false;
       // Cleanup in correct order
       if (lastPointRafId !== undefined) {
         cancelAnimationFrame(lastPointRafId);
@@ -347,8 +407,89 @@ export function LightweightChart({
       chartRef.current = null;
       seriesRef.current = null;
       secondarySeriesRef.current = null;
+      lastPointPositionUpdaterRef.current = undefined;
     };
-  }, [chartConfig, height, onHover, showLastValue]);
+  }, [
+    chartConfig.baselineOptions,
+    chartConfig.fontSize,
+    chartConfig.horzLineColor,
+    chartConfig.horzLineStyle,
+    chartConfig.lineWidth,
+    chartConfig.lineType,
+    chartConfig.priceFormatter,
+    chartConfig.priceScalePosition,
+    chartConfig.priceScaleEntireTextOnly,
+    chartConfig.priceScaleMargins,
+    chartConfig.secondaryLineColor,
+    chartConfig.secondaryLineWidth,
+    chartConfig.seriesType,
+    chartConfig.showHorzGridLines,
+    chartConfig.showLastPointMarker,
+    chartConfig.showPriceScale,
+    chartConfig.showTimeScale,
+    chartConfig.theme.bgColor,
+    chartConfig.theme.bottomColor,
+    chartConfig.theme.lineColor,
+    chartConfig.theme.textSubduedColor,
+    chartConfig.theme.topColor,
+    chartConfig.timeZone,
+    chartConfig.useTimeScaleTickMarkWithoutUnit,
+    chartConfig.locale,
+    chartDataCreateDependency,
+    hasSecondaryLineData,
+    height,
+    onHover,
+    preserveChartInstanceOnDataChange,
+    priceScaleMinimumWidth,
+    secondaryLineDataCreateDependency,
+    showLastValue,
+  ]);
+
+  useEffect(() => {
+    if (!preserveChartInstanceOnDataChange) {
+      return undefined;
+    }
+
+    const currentChart = chartRef.current;
+    const currentSeries = seriesRef.current;
+    if (!currentChart || !currentSeries) {
+      return undefined;
+    }
+
+    const lastPointPositionGeneration =
+      lastPointPositionGenerationRef.current + 1;
+    lastPointPositionGenerationRef.current = lastPointPositionGeneration;
+    canPublishLastPointPositionRef.current = false;
+    setLastPointPosition(null);
+
+    currentSeries.setData(chartConfig.data);
+    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
+    currentChart.timeScale().fitContent();
+
+    const lastPointRafId = requestAnimationFrame(() => {
+      if (
+        lastPointPositionGenerationRef.current !== lastPointPositionGeneration
+      ) {
+        return;
+      }
+      canPublishLastPointPositionRef.current = true;
+      lastPointPositionUpdaterRef.current?.();
+    });
+
+    return () => {
+      cancelAnimationFrame(lastPointRafId);
+      if (
+        lastPointPositionGenerationRef.current === lastPointPositionGeneration
+      ) {
+        lastPointPositionGenerationRef.current += 1;
+        canPublishLastPointPositionRef.current = false;
+      }
+    };
+  }, [
+    chartConfig.data,
+    chartConfig.secondaryLineData,
+    preserveChartInstanceOnDataChange,
+  ]);
 
   return (
     <Stack position="relative" width="100%" height={height}>

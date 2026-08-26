@@ -4,7 +4,13 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useIsModalPage, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  useIsModalPage,
+  useMedia,
+  usePreventRemove,
+} from '@onekeyhq/components';
+import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -25,8 +31,8 @@ import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
-import { DesktopLayout } from './layouts/DesktopLayout';
-import { MobileLayout } from './layouts/MobileLayout';
+import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
+import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -40,6 +46,8 @@ function normalizeRouteBooleanParam(
 
 function MarketDetail({
   isChartFullscreen,
+  isTradingViewNative,
+  onChartSwitch,
   onChartFullscreenChange,
   route,
 }: IPageScreenProps<
@@ -47,6 +55,8 @@ function MarketDetail({
   ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
 > & {
   isChartFullscreen: boolean;
+  isTradingViewNative: boolean;
+  onChartSwitch: () => void;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
 }) {
   const params = route.params as
@@ -81,6 +91,7 @@ function MarketDetail({
   });
 
   const media = useMedia();
+  const isDesktopLayout = media.gtLg && !platformEnv.isNative;
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -92,6 +103,13 @@ function MarketDetail({
   const headerHeight = useHeaderHeight();
   const bodyPaddingTop =
     platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+
+  useEffect(() => {
+    preloadMarketDetailV2BodyModules({
+      layout: isDesktopLayout ? 'desktop' : 'mobile',
+      includeHeavyModules: true,
+    });
+  }, [isDesktopLayout]);
 
   return (
     <BtcMetadataProvider>
@@ -106,15 +124,18 @@ function MarketDetail({
           pt={isChartFullscreen ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >
-          {media.gtLg && !platformEnv.isNative ? (
-            <DesktopLayout
-              isChartFullscreen={isChartFullscreen}
-              onChartFullscreenChange={onChartFullscreenChange}
-              showFavoriteButton={showFavoriteButton}
-            />
-          ) : (
-            <MobileLayout disableTrade={disableTrade} />
-          )}
+          <MarketDetailResponsiveLayout
+            isDesktopLayout={isDesktopLayout}
+            isChartFullscreen={isChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={onChartSwitch}
+            onChartFullscreenChange={onChartFullscreenChange}
+            isNative={isNativeBoolean}
+            networkId={networkId}
+            tokenAddress={tokenAddress}
+            showFavoriteButton={showFavoriteButton}
+            disableTrade={disableTrade}
+          />
         </Page.Body>
       </Page>
     </BtcMetadataProvider>
@@ -129,18 +150,44 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const media = useMedia();
+  const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
-  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
-  const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
-    setIsChartFullscreen(isFullscreen);
-  }, []);
+  const supportsChartFullscreen = Boolean(
+    isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),
+  );
+  const effectiveIsChartFullscreen =
+    supportsChartFullscreen && isChartFullscreen;
+  const handleChartFullscreenChange = useCallback(
+    (isFullscreen: boolean) => {
+      setIsChartFullscreen(isFullscreen);
+      setSplitViewDetailFullscreen(isFullscreen);
+    },
+    [setSplitViewDetailFullscreen],
+  );
+  const handleChartSwitch = useCallback(() => {
+    handleChartFullscreenChange(false);
+    setIsTradingViewNative((currentValue) => !currentValue);
+  }, [handleChartFullscreenChange]);
+  const handleFullscreenRemove = useCallback(() => {
+    handleChartFullscreenChange(false);
+  }, [handleChartFullscreenChange]);
+
+  usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
+
+  useLayoutEffect(() => {
+    setSplitViewDetailFullscreen(effectiveIsChartFullscreen);
+    return () => {
+      setSplitViewDetailFullscreen(false);
+    };
+  }, [effectiveIsChartFullscreen, setSplitViewDetailFullscreen]);
 
   useEffect(() => {
-    if (!isDesktopChartLayout && isChartFullscreen) {
-      setIsChartFullscreen(false);
+    if (!supportsChartFullscreen && isChartFullscreen) {
+      handleChartFullscreenChange(false);
     }
-  }, [isChartFullscreen, isDesktopChartLayout]);
+  }, [handleChartFullscreenChange, isChartFullscreen, supportsChartFullscreen]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -154,6 +201,14 @@ function MarketDetailV2(
       },
     });
   }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        handleChartFullscreenChange(false);
+      };
+    }, [handleChartFullscreenChange]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -188,6 +243,8 @@ function MarketDetailV2(
         <MarketDetail
           {...props}
           isChartFullscreen={effectiveIsChartFullscreen}
+          isTradingViewNative={isTradingViewNative}
+          onChartSwitch={handleChartSwitch}
           onChartFullscreenChange={handleChartFullscreenChange}
         />
       </MarketWatchListProviderMirrorV2>

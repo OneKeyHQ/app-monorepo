@@ -19,6 +19,8 @@ import type { IMarketTimeRangeValue } from '../../types';
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
+  forceStockMetadataColumns?: boolean;
+  stockCategory?: string;
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
@@ -40,6 +42,8 @@ type IMarketNormalTokenListProps = {
 function MarketNormalTokenList({
   networkId = 'sol--101',
   selectedCategory,
+  forceStockMetadataColumns,
+  stockCategory,
   timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
@@ -58,6 +62,7 @@ function MarketNormalTokenList({
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
     selectedCategory,
+    stockCategory,
     timeRange,
   });
   const normalResult = useMarketTokenList({
@@ -66,6 +71,7 @@ function MarketNormalTokenList({
     initialSortType,
     pageSize: 20,
     type: selectedCategory,
+    category: stockCategory,
     timeRange,
     pollingInterval,
   });
@@ -114,6 +120,7 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle="auto"
+      forceStockMetadataColumns={forceStockMetadataColumns}
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}

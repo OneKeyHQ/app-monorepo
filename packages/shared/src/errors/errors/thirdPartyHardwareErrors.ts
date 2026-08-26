@@ -15,10 +15,16 @@ import { OneKeyHardwareError } from './hardwareErrors';
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
+  ThirdPartyHwErrorCode.NetworkError;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
+export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
+  ThirdPartyHwErrorCode.PinMismatch;
+// Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
+export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -110,7 +116,7 @@ export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
     this.vendor = props?.vendor;
   }
 
-  override code = ThirdPartyHwErrorCode.NetworkError;
+  override code = THIRD_PARTY_HW_NETWORK_ERROR_CODE;
 }
 
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {
@@ -139,6 +145,25 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.UserAborted;
 }
 
+/**
+ * The user cancelled BLE pairing while it was still waiting on the OS pairing
+ * window. Kept apart from ThirdPartyUserAborted so the pairing flow can be told
+ * from a generic in-app cancel; both stay silent and share the cancel copy until
+ * this gets its own string.
+ */
+export class ThirdPartyBlePairingCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE;
+}
+
 export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -150,6 +175,20 @@ export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.PinInvalid;
+}
+
+/** Two new-PIN entries did not match during set/change PIN (host-input models) */
+export class ThirdPartyPinMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_pins_do_not_match,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_PIN_MISMATCH_CODE;
 }
 
 export class ThirdPartyPinCancelled extends ThirdPartyHardwareError {
@@ -508,6 +547,35 @@ export class ThirdPartyDeviceBusy extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceBusy;
+}
+
+/** Our own in-flight request (queue guard / firmware Failure_Busy), not another app. */
+export class ThirdPartyDeviceBusyInternal extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_busy_internal,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceBusyInternal;
+}
+
+export class ThirdPartyDeviceNotInitialized extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.trezor_device_not_initialized__desc,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceNotInitialized;
 }
 
 /** Multiple USB devices connected — only one allowed at a time */

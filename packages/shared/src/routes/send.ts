@@ -12,6 +12,7 @@ import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
+import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSendRoutes {
@@ -19,6 +20,8 @@ export enum EModalSendRoutes {
   SendAmountInput = 'SendAmountInput',
   SendConfirmFromDApp = 'SendConfirmFromDApp',
   SendConfirmFromSwap = 'SendConfirmFromSwap',
+  // TODO(6.7.0): Remove this legacy SendModal confirmation route.
+  // Active confirmation flows use SignatureConfirmModal -> TxConfirm.
   SendConfirm = 'SendConfirm',
   SendFeedback = 'SendFeedback',
   SendReplaceTx = 'SendReplaceTx',
@@ -60,6 +63,8 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
   };
+  // TODO(6.7.0): Remove this legacy param entry with SendModal.SendConfirm.
+  // Debug confirmation issues in SignatureConfirmModal -> TxConfirm instead.
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;
     accountId: string;
@@ -86,6 +91,9 @@ export type IModalSendParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    onBeforeSend?: () => void | Promise<void>;
+    broadcastDeadline?: number;
+    beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;
   };
   [EModalSendRoutes.SendReplaceTx]: {

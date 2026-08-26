@@ -10,17 +10,16 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
+import { buildWalletHomeSwapInitParams } from './WalletActionSwap.utils';
 
 import type { IActionCustomization } from './types';
 
@@ -60,12 +59,14 @@ function WalletActionSwap({
     if (customization?.onPress) {
       void customization.onPress();
     } else {
+      const isExtPopupOrSidePanel =
+        platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
-        params: {
-          importNetworkId: network?.id ?? '',
-          swapSource: ESwapSource.WALLET_HOME,
-        },
+        params: buildWalletHomeSwapInitParams({
+          isExtPopupOrSidePanel,
+          networkId: network?.id,
+        }),
       });
     }
 
@@ -101,11 +102,9 @@ function WalletActionSwap({
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
+      label={intl.formatMessage({
+        id: customization?.labelId ?? ETranslations.global_trade,
+      })}
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       disabled={

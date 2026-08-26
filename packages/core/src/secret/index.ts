@@ -3,11 +3,11 @@ import type {
   IPbkdf2DispatchBackend,
   IPbkdf2KdfParams,
 } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureWebembedApiProxyAvailable } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
@@ -73,7 +73,9 @@ const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
 const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // legacy encrypted
-const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|'; // plaintext (new)
+// Plaintext inner payload. Native persistence wraps it in LSE; browser-class
+// persistence must convert it to HLE before applying the outer LSE.
+const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -397,10 +399,12 @@ async function sign(
   encryptedPrivateKey: Buffer,
   digest: Buffer,
   password: string,
+  kdfParams?: ISecretKdfParams,
 ): Promise<Buffer> {
   const decryptedPrivateKey = await decryptAsync({
     password,
     data: encryptedPrivateKey,
+    ...kdfParams,
   });
   return getCurveByName(curveName).sign(decryptedPrivateKey, digest);
 }
@@ -742,7 +746,7 @@ async function clearPbkdf2CacheAsync(): Promise<void> {
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await appGlobals.$webembedApiProxy.secret.clearPbkdf2Cache();
+    await ensureWebembedApiProxyAvailable().secret.clearPbkdf2Cache();
   }
 }
 
@@ -765,9 +769,11 @@ async function clearHdCredentialDecryptCache({
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    await appGlobals.$webembedApiProxy.secret.clearHdCredentialDecryptCache({
-      hdCredentialCacheScopeId,
-    });
+    await ensureWebembedApiProxyAvailable().secret.clearHdCredentialDecryptCache(
+      {
+        hdCredentialCacheScopeId,
+      },
+    );
   }
 }
 
@@ -946,7 +952,7 @@ async function decryptHyperLiquidAgentCredential({
   return undefined;
 }
 
-// Plaintext |HLP| prefix + JSON. Synchronous — no AES encryption involved.
+// Synchronous serializer only. Persistence callers must wrap the result in LSE.
 function encryptHyperLiquidAgentCredential({
   credential,
 }: {
@@ -1403,9 +1409,10 @@ async function batchGetPublicKeys(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
-      getBatchGetPublicKeysSerializableParams(params),
-    );
+    const keys =
+      await ensureWebembedApiProxyAvailable().secret.batchGetPublicKeys(
+        getBatchGetPublicKeysSerializableParams(params),
+      );
     return keys.map((key) => ({
       path: key.path,
       parentFingerPrint: Buffer.from(key.parentFingerPrint, 'hex'),
@@ -1474,6 +1481,7 @@ async function N(
   curveName: ICurveName,
   encryptedExtPriv: IBip32ExtendedKey,
   password: string,
+  kdfParams?: ISecretKdfParams,
 ): Promise<IBip32ExtendedKey> {
   if (!platformEnv.isJest) {
     ensureSensitiveTextEncoded(password);
@@ -1483,6 +1491,7 @@ async function N(
     key: await decryptAsync({
       password,
       data: encryptedExtPriv.key,
+      ...kdfParams,
     }),
     chainCode: encryptedExtPriv.chainCode,
   };
@@ -1601,7 +1610,9 @@ async function mnemonicFromEntropyAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
+    return ensureWebembedApiProxyAvailable().secret.mnemonicFromEntropyAsync(
+      params,
+    );
   }
   return Promise.resolve(
     mnemonicFromEntropy(params.hdCredential, params.password, {
@@ -1629,7 +1640,7 @@ async function seedFromHdCredentialAsync(
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const hex =
-      await appGlobals.$webembedApiProxy.secret.seedFromHdCredentialAsync(
+      await ensureWebembedApiProxyAvailable().secret.seedFromHdCredentialAsync(
         params,
       );
     return Buffer.from(hex, 'hex');
@@ -1662,12 +1673,13 @@ async function mnemonicToSeedAsync(
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
     const { kdfBackend, mnemonic, passphrase } = params;
-    const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync({
-      kdfBackend,
-      mnemonic,
-      passphrase,
-      useWebembedApi,
-    });
+    const hex =
+      await ensureWebembedApiProxyAvailable().secret.mnemonicToSeedAsync({
+        kdfBackend,
+        mnemonic,
+        passphrase,
+        useWebembedApi,
+      });
     return Buffer.from(hex, 'hex');
   }
   const validateStart = perfTrace ? perfTraceNowMs() : 0;
@@ -1713,7 +1725,7 @@ async function generateRootFingerprintHexAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    return appGlobals.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
+    return ensureWebembedApiProxyAvailable().secret.generateRootFingerprintHexAsync(
       params,
     );
   }

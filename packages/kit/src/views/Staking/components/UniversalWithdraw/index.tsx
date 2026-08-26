@@ -20,6 +20,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IAlertType } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -40,6 +41,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -47,6 +49,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
+  IEarnActionIcon,
   IEarnEstimateFeeResp,
   IEarnText,
   IEarnTokenInfo,
@@ -63,7 +66,6 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -74,7 +76,10 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import {
+  ActionPopupContent,
+  EarnActionIcon,
+} from '../ProtocolDetails/EarnActionIcon';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
@@ -93,7 +98,19 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import {
+  isLatestTransactionConfirmationRequest,
+  selectCurrentTransactionConfirmation,
+} from './transactionConfirmationRequestUtils';
+
 import type { FontSizeTokens } from 'tamagui';
+
+type IFooterActionOverride = {
+  text: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+};
 
 type IUniversalWithdrawProps = {
   accountAddress: string;
@@ -152,6 +169,7 @@ type IUniversalWithdrawProps = {
     withdrawType?: IEarnWithdrawType;
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
+  footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -168,6 +186,7 @@ type IUniversalWithdrawProps = {
     token?: IToken;
   };
   currentAllowance?: string;
+  approveType?: EApproveType;
   pendleSlippage?: number;
   initialWithdrawType?: IEarnWithdrawType;
   receiptTokenRate?: string;
@@ -274,14 +293,22 @@ function WithdrawPathDialogContent({
                   </SizableText>
                 ) : null}
               </YStack>
+              {/* textAlign is required besides ai="flex-end": long i18n copy
+                  wraps to multiple lines and wrapped lines default to
+                  left-alignment inside the text box (OK-58722) */}
               <YStack flex={1} gap="$1" ai="flex-end">
-                <EarnAmountText size="$headingMd" color="$text">
+                <EarnAmountText
+                  size="$headingMd"
+                  color="$text"
+                  textAlign="right"
+                >
                   {box.description.text}
                 </EarnAmountText>
                 {box.subtitleDescription?.text ? (
                   <SizableText
                     size="$bodyMd"
                     color={box.subtitleDescription?.color || '$textSubdued'}
+                    textAlign="right"
                   >
                     {box.subtitleDescription.text}
                   </SizableText>
@@ -291,7 +318,7 @@ function WithdrawPathDialogContent({
             {box.tip?.text ? (
               <Alert
                 icon="InfoCircleOutline"
-                type="warning"
+                type={resolveEarnAlertType(box.tip?.type)}
                 renderTitle={() => (
                   <EarnText text={box.tip?.text} size="$bodyMdMedium" />
                 )}
@@ -303,6 +330,26 @@ function WithdrawPathDialogContent({
       })}
     </YStack>
   );
+}
+
+const EARN_ALERT_TYPES = new Set<IAlertType>([
+  'info',
+  'warning',
+  'critical',
+  'success',
+  'default',
+  'danger',
+  'caution',
+]);
+
+// Server-driven tip/alert color: map the string `type` (EAlertType, e.g.
+// Spark's info banner for a liquidity request vs warning for the blocked range)
+// onto the Alert component's IAlertType. Falls back to 'warning' for legacy tips
+// that don't set a type.
+function resolveEarnAlertType(type?: string): IAlertType {
+  return EARN_ALERT_TYPES.has(type as IAlertType)
+    ? (type as IAlertType)
+    : 'warning';
 }
 
 export function UniversalWithdraw({
@@ -326,6 +373,7 @@ export function UniversalWithdraw({
 
   onConfirm,
   beforeFooter,
+  footerActionOverride,
   showApyDetail = false,
   isInModalContext = false,
   receiveInputConfig,
@@ -337,6 +385,7 @@ export function UniversalWithdraw({
   onQuoteRefreshingChange,
   approveTarget,
   currentAllowance = '0',
+  approveType = EApproveType.Legacy,
   pendleSlippage,
   initialWithdrawType,
   receiptTokenRate,
@@ -355,6 +404,13 @@ export function UniversalWithdraw({
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  // Tracks the withdraw type the user explicitly picked in the path selector.
+  // Default selection always prefers the first enabled option (instant); this
+  // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
+  // but only while a box of that type is still enabled.
+  const manualWithdrawTypeRef = useRef<IEarnWithdrawType | undefined>(
+    undefined,
+  );
   const [withdrawProgressStep, setWithdrawProgressStep] = useState(
     EStakeProgressStep.approve,
   );
@@ -363,9 +419,12 @@ export function UniversalWithdraw({
   const [pendingEthenaCooldownUnstake, setPendingEthenaCooldownUnstake] =
     useState(false);
   const ethenaCooldownCompletedRef = useRef(false);
-  const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IStakeTransactionConfirmation | undefined
-  >();
+  const [transactionConfirmationSnapshot, setTransactionConfirmation] =
+    useState<IStakeTransactionConfirmation | undefined>();
+  const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
+    useState<string>();
+  const transactionConfirmationRequestIdRef = useRef(0);
+  const transactionConfirmationRequestKeyRef = useRef('');
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -382,8 +441,11 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName: providerName ?? '' }),
+  const requiresEarnWithdrawPath = useMemo(
+    () =>
+      earnUtils.requiresEarnWithdrawPath({
+        providerName: providerName ?? '',
+      }),
     [providerName],
   );
   const shouldSendProtocolVault = useMemo(
@@ -395,21 +457,36 @@ export function UniversalWithdraw({
   );
 
   const withdrawPathConfirmBoxes = useMemo(() => {
-    if (!(isPendleProvider || isNativeProvider)) return [];
-    return transactionConfirmation?.withdrawPath?.data?.confirmBoxes ?? [];
-  }, [
-    isPendleProvider,
-    isNativeProvider,
-    transactionConfirmation?.withdrawPath?.data?.confirmBoxes,
-  ]);
+    return (
+      transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes ?? []
+    );
+  }, [transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes]);
 
   const effectiveSelectedWithdrawPathIndex = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return 0;
+    // Respect an explicit manual choice as long as a box of that withdraw type
+    // is still enabled (keeps the selector meaningful, e.g. a user opting into
+    // the queued path in the instant/queued overlap range).
+    const manualType = manualWithdrawTypeRef.current;
+    if (manualType) {
+      const manualIndex = withdrawPathConfirmBoxes.findIndex(
+        (box) => box.withdrawType === manualType && !box.disabled,
+      );
+      if (manualIndex >= 0) return manualIndex;
+    }
+    // Default: always prefer the first available option. Instant is index 0, so
+    // instant wins whenever it is enabled (even when both are selectable);
+    // queued is only auto-selected when instant is unavailable. Fall back to a
+    // clamped index only if every option is disabled (to still show its tip).
+    const firstEnabledIndex = withdrawPathConfirmBoxes.findIndex(
+      (box) => !box.disabled,
+    );
+    if (firstEnabledIndex >= 0) return firstEnabledIndex;
     return Math.min(
       Math.max(selectedWithdrawPathIndex, 0),
       withdrawPathConfirmBoxes.length - 1,
     );
-  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes.length]);
+  }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes]);
 
   useEffect(() => {
     if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
@@ -430,6 +507,54 @@ export function UniversalWithdraw({
     return selectedWithdrawPath?.withdrawType;
   }, [isCancelWithdrawal, selectedWithdrawPath?.withdrawType]);
 
+  const transactionConfirmationRequestKey = useMemo(
+    () =>
+      JSON.stringify({
+        accountAddress,
+        actionSymbol: requestSymbol || tokenSymbol || '',
+        amount: amountValue,
+        identity,
+        inputTokenAddress: transactionInputTokenAddress,
+        isDisabled,
+        networkId: networkId || '',
+        outputTokenAddress: transactionOutputTokenAddress,
+        provider: providerName || '',
+        slippage: pendleSlippage,
+        vault: shouldSendProtocolVault ? protocolVault || '' : '',
+        withdrawType: selectedWithdrawType,
+      }),
+    [
+      accountAddress,
+      amountValue,
+      identity,
+      isDisabled,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      requestSymbol,
+      selectedWithdrawType,
+      shouldSendProtocolVault,
+      tokenSymbol,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  transactionConfirmationRequestKeyRef.current =
+    transactionConfirmationRequestKey;
+
+  const isTransactionConfirmationCurrent =
+    resolvedTransactionConfirmationRequestKey ===
+    transactionConfirmationRequestKey;
+  // Preserve the last response only to retain the selected path while loading.
+  // Stale data is never rendered or submitted for providers that require it.
+  const transactionConfirmation = selectCurrentTransactionConfirmation({
+    snapshot: transactionConfirmationSnapshot,
+    currentRequestKey: transactionConfirmationRequestKey,
+    resolvedRequestKey: resolvedTransactionConfirmationRequestKey,
+    requiresCurrentRequest: requiresEarnWithdrawPath,
+  });
+
   const rootTransactionTip = useMemo(
     () =>
       transactionConfirmation?.withdrawPath?.data?.tip ??
@@ -444,8 +569,7 @@ export function UniversalWithdraw({
     [rootTransactionTip, selectedWithdrawPath?.tip],
   );
 
-  const isNativeQueuedWithdraw =
-    isNativeProvider && selectedWithdrawType === 'queued';
+  const isQueuedWithdraw = selectedWithdrawType === 'queued';
 
   const handleTipAction = useCallback(
     async (tip?: IEarnTransactionTip) => {
@@ -469,8 +593,62 @@ export function UniversalWithdraw({
     [formTransactionTip?.button, handleWithdrawAction, protocolInfo, tokenInfo],
   );
 
+  // Open the explainer dialog for a `popup` tip button (e.g. Spark's "Detail"
+  // on the liquidity-request info banner → "Why is a liquidity request
+  // required?"). Content is fully server-driven via the popup button's data.
+  const handleShowTipPopup = useCallback((button?: IEarnActionIcon) => {
+    if (button?.type !== 'popup') {
+      return;
+    }
+    Dialog.show({
+      title: button.data.title?.text ?? button.text?.text ?? '',
+      renderContent: (
+        <ActionPopupContent
+          bulletList={button.data.bulletList}
+          items={button.data.items}
+          panel={button.data.panel}
+          description={button.data.description}
+          // Dialog's Content already applies px="$5" pb="$5"; drop the
+          // component's own horizontal + bottom padding to avoid doubling
+          // (align body with the dialog title, no extra bottom gap). Keep the
+          // top padding for a comfortable title-to-body gap.
+          containerProps={{ px: '$0', pb: '$0' }}
+        />
+      ),
+      showFooter: false,
+    });
+  }, []);
+
+  // Alert action for a tip button: cancel-withdrawal keeps its existing
+  // handler; a popup button opens the explainer dialog. Other/no button → no
+  // action rendered.
+  const buildTipAlertAction = useCallback(
+    (tip?: IEarnTransactionTip) => {
+      const button = tip?.button;
+      if (!button) {
+        return undefined;
+      }
+      if (button.type === EStakingActionType.CancelWithdrawal) {
+        return {
+          primary: button.text?.text ?? '',
+          onPrimaryPress: () => {
+            void handleTipAction(tip);
+          },
+        };
+      }
+      if (button.type === 'popup') {
+        return {
+          primary: button.text?.text ?? '',
+          onPrimaryPress: () => handleShowTipPopup(button),
+        };
+      }
+      return undefined;
+    },
+    [handleTipAction, handleShowTipPopup],
+  );
+
   const approveAmountValue = useMemo(() => {
-    if (!isNativeQueuedWithdraw || !receiptTokenRate) {
+    if (!isQueuedWithdraw || !receiptTokenRate) {
       return amountValue;
     }
 
@@ -503,15 +681,14 @@ export function UniversalWithdraw({
     amountValue,
     approveTarget?.token?.decimals,
     decimals,
-    isNativeQueuedWithdraw,
+    isQueuedWithdraw,
     isWithdrawAll,
     receiptTokenRate,
   ]);
 
-  // --- Approve logic (Pendle sell and Native queued withdraw) ---
+  // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
   const useApprove =
-    (isPendleProvider || isNativeQueuedWithdraw) &&
-    !!approveTarget?.spenderAddress;
+    (isPendleProvider || isQueuedWithdraw) && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 
@@ -531,7 +708,7 @@ export function UniversalWithdraw({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
-    approveType: EApproveType.Legacy,
+    approveType,
   });
 
   const isFocus = useIsFocused();
@@ -780,6 +957,8 @@ export function UniversalWithdraw({
       if (!targetBox || targetBox.disabled) {
         return;
       }
+      // Remember the user's explicit choice so it is respected on later renders.
+      manualWithdrawTypeRef.current = targetBox.withdrawType;
       setIgnoreAllowanceCheck(false);
       setPendingEthenaCooldownUnstake(false);
       setWithdrawProgressStep(EStakeProgressStep.approve);
@@ -789,6 +968,12 @@ export function UniversalWithdraw({
   );
 
   const onPress = useCallback(async () => {
+    if (
+      requiresEarnWithdrawPath &&
+      (!isTransactionConfirmationCurrent || !selectedWithdrawType)
+    ) {
+      return;
+    }
     try {
       Keyboard.dismiss();
       setLoading(true);
@@ -912,6 +1097,8 @@ export function UniversalWithdraw({
     transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
     pendingEthenaCooldownUnstake,
+    requiresEarnWithdrawPath,
+    isTransactionConfirmationCurrent,
     selectedWithdrawType,
     isCancelWithdrawal,
   ]);
@@ -920,10 +1107,27 @@ export function UniversalWithdraw({
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
 
+  const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
+    providerName: providerName ?? '',
+    isLoading:
+      transactionConfirmationLoading ||
+      (requiresEarnWithdrawPath && !isTransactionConfirmationCurrent),
+    withdrawType: selectedWithdrawType,
+  });
+
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isInvalidAmount(amount)) {
+      return;
+    }
+    // Treat a non-positive amount (0 / "0.00" / mid-typing) as "not entered
+    // yet": clear any previous error and skip the backend check. Otherwise
+    // providers whose backend rejects 0 (e.g. Bitway) would flash an error
+    // before the user finishes typing (OK-58205).
+    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
       return;
     }
     setCheckAmountLoading(true);
@@ -957,7 +1161,7 @@ export function UniversalWithdraw({
   }, 300);
 
   const fetchTransactionConfirmation = useCallback(
-    async (amount: string) => {
+    async (amount: string, withdrawType = selectedWithdrawType) => {
       if (isDisabled) {
         return undefined;
       }
@@ -974,7 +1178,7 @@ export function UniversalWithdraw({
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
-          withdrawType: selectedWithdrawType,
+          withdrawType,
         });
       return resp;
     },
@@ -999,30 +1203,97 @@ export function UniversalWithdraw({
   fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (amount?: string) => {
-      setTransactionConfirmationLoading(true);
+    async ({
+      amount,
+      requestId,
+      requestKey,
+      withdrawType,
+    }: {
+      amount?: string;
+      requestId: number;
+      requestKey: string;
+      withdrawType?: IEarnWithdrawType;
+    }) => {
       try {
-        const resp = await fetchTransactionConfirmation(amount || '0');
+        const resp = await fetchTransactionConfirmation(
+          amount || '0',
+          withdrawType,
+        );
+        if (
+          !isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        ) {
+          return;
+        }
         setTransactionConfirmation(resp);
+        setResolvedRequestKey(requestKey);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
-        // keep stale state
+        // The previous snapshot remains internal and cannot enable submission.
       } finally {
-        setTransactionConfirmationLoading(false);
+        if (
+          isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        ) {
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
   );
 
   useEffect(() => {
-    void debouncedFetchTransactionConfirmation(amountValue);
+    transactionConfirmationRequestIdRef.current += 1;
+    const requestId = transactionConfirmationRequestIdRef.current;
+    // OK-59850: an empty / "0" / "0.000" field used to reach the server here.
+    // isInvalidAmount only rejects NaN and a trailing dot, and the fetch itself
+    // falls back to '0', so clearing the input still issued a request and lit
+    // the spinner (quoteLoading covers this flag too). The server resolves the
+    // withdraw path on-chain regardless of how small the amount is, so the wait
+    // was real — and nothing it returns for a non-positive amount is rendered.
+    // Cancelling a queued withdrawal is the one flow with no amount to enter,
+    // so it still has to be quoted.
+    const isQuotableAmount =
+      isCancelWithdrawal ||
+      (!isInvalidAmount(amountValue) &&
+        new BigNumber(amountValue).isGreaterThan(0));
+
+    if (!isQuotableAmount) {
+      // Bumping the id above already invalidates anything in flight; the
+      // previous run's cleanup cancelled any pending debounce.
+      setTransactionConfirmationLoading(false);
+      return undefined;
+    }
+
+    setTransactionConfirmationLoading(true);
+    void debouncedFetchTransactionConfirmation({
+      amount: amountValue,
+      requestId,
+      requestKey: transactionConfirmationRequestKey,
+      withdrawType: selectedWithdrawType,
+    });
+    return () => {
+      if (transactionConfirmationRequestIdRef.current === requestId) {
+        transactionConfirmationRequestIdRef.current += 1;
+      }
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
     amountValue,
     debouncedFetchTransactionConfirmation,
+    isCancelWithdrawal,
     selectedWithdrawType,
-    transactionOutputTokenAddress,
+    transactionConfirmationRequestKey,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
@@ -1046,6 +1317,9 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          // OK-59850 is handled by the checkAmount effect now: clearing the
+          // field re-runs it, whose cleanup cancels the pending debounce and
+          // whose non-checkable branch resets the loading state.
           setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
           setIgnoreAllowanceCheck(false);
@@ -1144,7 +1418,8 @@ export function UniversalWithdraw({
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
       checkAmountAlerts.length > 0 ||
-      checkAmountLoading,
+      checkAmountLoading ||
+      !isWithdrawPathReady,
     [
       isDisabled,
       amountValue,
@@ -1152,6 +1427,7 @@ export function UniversalWithdraw({
       checkAmountAlerts.length,
       checkAmountLoading,
       isCancelWithdrawal,
+      isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
     ],
   );
@@ -1242,7 +1518,9 @@ export function UniversalWithdraw({
   const isAccordionTriggerDisabled = !amountValue;
 
   const showWithdrawPathSelector =
-    withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+    (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
+    withdrawPathConfirmBoxes.length > 1 &&
+    !!selectedWithdrawPath;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
@@ -1325,7 +1603,11 @@ export function UniversalWithdraw({
   const confirmLoading = useMemo(() => {
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
-    return loading || checkAmountLoading;
+    return (
+      loading ||
+      checkAmountLoading ||
+      (requiresEarnWithdrawPath && transactionConfirmationLoading)
+    );
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
@@ -1334,6 +1616,8 @@ export function UniversalWithdraw({
     quoteRefreshing,
     loading,
     checkAmountLoading,
+    requiresEarnWithdrawPath,
+    transactionConfirmationLoading,
   ]);
 
   const confirmDisabled = useMemo(() => {
@@ -1341,6 +1625,17 @@ export function UniversalWithdraw({
     if (effectiveShowExpiredRefresh) return false;
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
+
+  const effectiveConfirmText =
+    footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
+  const effectiveConfirmOnPress =
+    footerActionOverride?.onPress ?? confirmOnPress;
+  const effectiveConfirmLoading = footerActionOverride
+    ? Boolean(footerActionOverride.loading)
+    : confirmLoading;
+  const effectiveConfirmDisabled = footerActionOverride
+    ? Boolean(footerActionOverride.disabled)
+    : confirmDisabled;
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
@@ -1482,21 +1777,20 @@ export function UniversalWithdraw({
       {formTransactionTip?.text ? (
         <Alert
           icon="InfoCircleOutline"
-          type="warning"
+          type={resolveEarnAlertType(formTransactionTip.type)}
           renderTitle={() => (
             <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
           )}
-          action={
-            formTransactionTip.button?.type ===
-            EStakingActionType.CancelWithdrawal
-              ? {
-                  primary: formTransactionTip.button.text.text,
-                  onPrimaryPress: () => {
-                    void handleTipAction();
-                  },
-                }
-              : undefined
+          descriptionComponent={
+            formTransactionTip.description ? (
+              <EarnText
+                text={formTransactionTip.description}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : undefined
           }
+          action={buildTipAlertAction(formTransactionTip)}
         />
       ) : null}
 
@@ -1522,7 +1816,7 @@ export function UniversalWithdraw({
           {checkAmountAlerts.map((alert, index) => (
             <Alert
               key={index}
-              type="warning"
+              type={resolveEarnAlertType(alert.type)}
               renderTitle={() => {
                 return <EarnText text={alert.text} size="$bodyMdMedium" />;
               }}
@@ -1634,6 +1928,51 @@ export function UniversalWithdraw({
                   </XStack>
                 );
               })}
+              {transactionConfirmation?.availableLiquidity ? (
+                // Server-driven "Available liquidity" row (e.g. Bitway:
+                // instant withdrawal is capped by the flash pool balance, so
+                // amounts above it must go through the queued path). Kept in
+                // the always-visible summary so users can see why instant
+                // withdrawal is unavailable. (OK-58353)
+                <XStack ai="center" jc="space-between" flexWrap="wrap">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.availableLiquidity.title}
+                      color={
+                        transactionConfirmation.availableLiquidity.title
+                          .color ?? '$textSubdued'
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.title.size ??
+                        '$bodyMd'
+                      }
+                    />
+                    {transactionConfirmation.availableLiquidity.tooltip ? (
+                      <EarnTooltip
+                        title={
+                          transactionConfirmation.availableLiquidity.title.text
+                        }
+                        tooltip={
+                          transactionConfirmation.availableLiquidity.tooltip
+                        }
+                      />
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.availableLiquidity.description
+                    }
+                    size={
+                      transactionConfirmation.availableLiquidity.description
+                        .size ?? '$bodyMdMedium'
+                    }
+                    color={
+                      transactionConfirmation.availableLiquidity.description
+                        .color
+                    }
+                  />
+                </XStack>
+              ) : null}
             </YStack>
           ) : null}
           {hasSummarySection && showPendleTransactionSection ? (
@@ -1684,7 +2023,7 @@ export function UniversalWithdraw({
                               borderRadius="$2"
                             />
                             <SizableText size="$bodyMd">
-                              {capitalizeString(providerName || '')}
+                              {getEarnProviderDisplayName(providerName || '')}
                             </SizableText>
                           </XStack>
                           <YStack
@@ -1733,7 +2072,7 @@ export function UniversalWithdraw({
       {beforeFooter}
       {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
-          approveType={EApproveType.Legacy}
+          approveType={approveType}
           currentStep={
             shouldApprove
               ? EStakeProgressStep.approve
@@ -1742,7 +2081,11 @@ export function UniversalWithdraw({
                   EStakeProgressStep.deposit,
                 ) as EStakeProgressStep)
           }
-          step2LabelId={ETranslations.global_swap}
+          step2LabelId={
+            isPendleProvider
+              ? ETranslations.global_swap
+              : ETranslations.global_withdraw
+          }
           step3LabelId={
             isEthenaCooldownWithdrawPath
               ? ETranslations.defi_unstake
@@ -1753,22 +2096,23 @@ export function UniversalWithdraw({
       {isInModalContext ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirmText={intl.formatMessage({ id: confirmText })}
+            onConfirmText={effectiveConfirmText}
             confirmButtonProps={{
-              onPress: confirmOnPress,
-              loading: confirmLoading,
-              disabled: confirmDisabled,
+              onPress: effectiveConfirmOnPress,
+              loading: effectiveConfirmLoading,
+              disabled: effectiveConfirmDisabled,
             }}
           />
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (
         <YStack>
           <Page.FooterActions
             p={0}
-            onConfirmText={intl.formatMessage({ id: confirmText })}
+            onConfirmText={effectiveConfirmText}
             buttonContainerProps={{
               $gtMd: {
                 ml: '0',
@@ -1776,9 +2120,9 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress: confirmOnPress,
-              loading: confirmLoading,
-              disabled: confirmDisabled,
+              onPress: effectiveConfirmOnPress,
+              loading: effectiveConfirmLoading,
+              disabled: effectiveConfirmDisabled,
               w: '100%',
             }}
           />

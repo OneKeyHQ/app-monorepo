@@ -22,20 +22,29 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
-  type ESwapSource,
+  ESwapProAnalyticsEnterFrom,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarryOptions } from '../../hooks/useSwapProTokenCarry';
+import { SwapTestIDs } from '../../testIDs';
+import {
+  getSwapAnalyticsCategoryFromSwapType,
+  getSwapAnalyticsEnterFrom,
+} from '../../utils/swapStockAnalytics';
 import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
@@ -93,6 +102,7 @@ function CustomTabItem({
             },
           })}
       {...rest}
+      testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
       onLayout={(event) => {
         handleItemLayout(itemId, event);
@@ -136,10 +146,15 @@ const SwapHeaderContainer = ({
   const { gtLg } = useMedia();
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapProEntryIntent] = useSwapProJumpTokenAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapProTokenCarryOptions = useSwapProTokenCarryOptions({
+    enabled: Boolean(platformEnv.isNative && showSwapPro),
+  });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -147,17 +162,76 @@ const SwapHeaderContainer = ({
   if (networkIdRef.current !== fromToken?.networkId) {
     networkIdRef.current = fromToken?.networkId;
   }
+  const hasPendingSwapProEntry = Boolean(
+    platformEnv.isNative && pageType !== 'modal' && swapProEntryIntent.token,
+  );
+  const isSwapProCategory = Boolean(platformEnv.isNative && showSwapPro);
+  const isSwapProActive = Boolean(
+    isSwapProCategory && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+  );
+  const swapProEntryFromRef = useRef<ESwapProAnalyticsEnterFrom | undefined>(
+    hasPendingSwapProEntry
+      ? ESwapProAnalyticsEnterFrom.MARKET_DETAIL
+      : undefined,
+  );
+  const wasSwapProActiveRef = useRef<boolean | undefined>(undefined);
+  if (hasPendingSwapProEntry) {
+    swapProEntryFromRef.current = ESwapProAnalyticsEnterFrom.MARKET_DETAIL;
+  }
   useEffect(() => {
-    if (defaultSwapType) {
-      // Avoid switching the default toToken before it has been loaded,
-      // resulting in the default network toToken across chains
-      setTimeout(
-        () => {
-          void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
-        },
-        platformEnv.isExtension ? 100 : 10,
-      );
+    if (!isSwapProActive) {
+      wasSwapProActiveRef.current = false;
+      return;
     }
+    if (wasSwapProActiveRef.current && !hasPendingSwapProEntry) {
+      return;
+    }
+    const token = swapProEntryIntent.token ?? swapProSelectToken;
+    if (!token) {
+      return;
+    }
+    defaultLogger.swap.swapPro.enterSwapPro({
+      enterFrom:
+        swapProEntryFromRef.current ??
+        (wasSwapProActiveRef.current === false
+          ? ESwapProAnalyticsEnterFrom.TRADE_TAB
+          : ESwapProAnalyticsEnterFrom.DEFAULT),
+      tokenSymbol: token.symbol,
+      network: token.networkId,
+    });
+    wasSwapProActiveRef.current = true;
+    swapProEntryFromRef.current = undefined;
+  }, [
+    isSwapProActive,
+    hasPendingSwapProEntry,
+    swapProEntryIntent.token,
+    swapProSelectToken,
+  ]);
+  const hadPendingSwapProEntryOnMountRef = useRef(hasPendingSwapProEntry);
+  useEffect(() => {
+    if (hasPendingSwapProEntry) {
+      navigation.setParams({
+        tab: getRouteTabParamFromSwapType(ESwapTabSwitchType.LIMIT),
+      });
+    }
+  }, [hasPendingSwapProEntry, navigation]);
+  useEffect(() => {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+    ) {
+      return;
+    }
+    // Avoid switching the default toToken before it has been loaded,
+    // resulting in the default network toToken across chains
+    const timer = setTimeout(
+      () => {
+        void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
+      },
+      platformEnv.isExtension ? 100 : 10,
+    );
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -191,14 +265,23 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromCategory: swapTypeSwitch,
-        toCategory: newType,
-        enterFrom,
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(
+          swapTypeSwitch,
+          isSwapProCategory,
+        ),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(
+          newType,
+          isSwapProCategory,
+        ),
+        enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
         syncRouteTabParam(newType);
-        await swapTypeSwitchAction(newType, networkId);
+        await swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
         return;
       }
 
@@ -208,12 +291,27 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
-        void swapTypeSwitchAction(newType, networkId);
+        void swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
       } else {
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        const settledFromToken = await swapTypeSwitchAction(
+          newType,
+          fromToken?.networkId || networkId,
+          {
+            carryTargetToken: true,
+            ...swapProTokenCarryOptions,
+          },
+        );
+        // Leave the Pro owner before awaiting account synchronization so its
+        // network effect cannot switch the account back while this is in flight.
+        // Cross-network carry can replace From with the target network's
+        // native token, so synchronize from the settled pair.
+        const settledFromNetworkId = settledFromToken?.networkId;
+        if (settledFromNetworkId && settledFromNetworkId !== networkId) {
+          await updateSelectedAccountNetworkAction(settledFromNetworkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
       }
     },
     [
@@ -224,6 +322,8 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      isSwapProCategory,
+      swapProTokenCarryOptions,
     ],
   );
 
@@ -233,9 +333,13 @@ const SwapHeaderContainer = ({
     pageType !== 'modal' &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const swapBridgeLabel = `${intl.formatMessage({
-    id: ETranslations.swap_page_swap,
-  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  // Single source key shared with the history modal title/dropdown so the
+  // tab label never drifts from them per locale; composing
+  // `swap_page_swap & swap_page_bridge` also hardcodes the "&" connector,
+  // which is wrong for locales like bn/hi. (OK-58055)
+  const swapBridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_history_title,
+  });
   const stockLabel = intl.formatMessage({
     id: ETranslations.perps_token_selector_stocks,
   });
@@ -244,10 +348,12 @@ const SwapHeaderContainer = ({
     {
       label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.SWAP),
     },
     {
       label: stockLabel,
       value: ESwapTabSwitchType.STOCK,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.STOCK),
     },
     {
       label: intl.formatMessage({
@@ -256,6 +362,7 @@ const SwapHeaderContainer = ({
           : ETranslations.swap_page_limit,
       }),
       value: ESwapTabSwitchType.LIMIT,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.LIMIT),
     },
   ];
 
@@ -301,6 +408,11 @@ const SwapHeaderContainer = ({
   }
 
   const isCompactLayout = !showDesktopLayout;
+  const useDesktopModalHeaderActions =
+    pageType === 'modal' &&
+    gtLg &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const tabs = (
     <>
       <CustomTabItem
@@ -367,7 +479,8 @@ const SwapHeaderContainer = ({
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
-          compact={isCompactLayout}
+          routeSwapType={defaultSwapType}
+          compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
         />
       ) : null}
     </XStack>

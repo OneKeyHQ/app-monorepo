@@ -1,5 +1,6 @@
 import {
   appendClaimedAddressPaths,
+  buildAccountAddressArrayParam,
   buildBtcSendUtxoPool,
   mergeClaimedUtxos,
 } from './findAddressUtils';
@@ -100,6 +101,90 @@ describe('appendClaimedAddressPaths', () => {
         findAddresses: undefined,
       }),
     ).toEqual({});
+  });
+});
+
+describe('buildAccountAddressArrayParam', () => {
+  test('returns undefined when no claimed addresses exist', () => {
+    expect(
+      buildAccountAddressArrayParam({ findAddresses: undefined }),
+    ).toBeUndefined();
+    expect(
+      buildAccountAddressArrayParam({ findAddresses: {} }),
+    ).toBeUndefined();
+  });
+
+  test('returns addresses sorted by claimed index', () => {
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses: {
+          '0/100': 'bc1q-a',
+          '0/21': 'bc1q-b',
+          '0/3000': 'bc1q-c',
+        },
+      }),
+    ).toEqual(['bc1q-b', 'bc1q-a', 'bc1q-c']);
+  });
+
+  test('drops malformed relPaths and empty addresses, returns undefined if none remain', () => {
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses: {
+          '1/5': 'bc1q-x',
+          'abc': 'bc1q-y',
+          '0/12x': 'bc1q-z',
+          '0/13': '',
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses: { '1/5': 'bc1q-x', '0/100': 'bc1q-a' },
+      }),
+    ).toEqual(['bc1q-a']);
+  });
+
+  test('narrows to tx-involved addresses when context is provided', () => {
+    const findAddresses = {
+      '0/21': 'bc1q-b',
+      '0/100': 'bc1q-a',
+      '0/3000': 'bc1q-c',
+    };
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses,
+        txInvolvedAddresses: ['bc1q-c', 'bc1q-other'],
+      }),
+    ).toEqual(['bc1q-c']);
+    // empty intersection may just mean the decoded tx data was incomplete
+    // (e.g. trimmed transfer arrays), fall back to the full claimed set —
+    // it is always a safe superset server-side
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses,
+        txInvolvedAddresses: ['bc1q-other'],
+      }),
+    ).toEqual(['bc1q-b', 'bc1q-a', 'bc1q-c']);
+    // empty context means "no context", falls back to the full claimed set
+    expect(
+      buildAccountAddressArrayParam({
+        findAddresses,
+        txInvolvedAddresses: [],
+      }),
+    ).toEqual(['bc1q-b', 'bc1q-a', 'bc1q-c']);
+  });
+
+  test('never truncates large claimed sets', () => {
+    // silently dropping claimed addresses would make their txs vanish
+    // from history, so the param is sent in full no matter its size
+    const findAddresses: Record<string, string> = {};
+    for (let i = 0; i < 120; i += 1) {
+      findAddresses[`0/${i + 21}`] = `bc1q-${i}`;
+    }
+    const result = buildAccountAddressArrayParam({ findAddresses }) ?? [];
+    expect(result).toHaveLength(120);
+    expect(result[0]).toBe('bc1q-0');
+    expect(result[result.length - 1]).toBe('bc1q-119');
   });
 });
 

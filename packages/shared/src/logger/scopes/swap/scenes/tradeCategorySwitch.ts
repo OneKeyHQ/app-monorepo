@@ -1,6 +1,6 @@
 import type {
-  ESwapSource,
-  ESwapTabSwitchType,
+  ESwapAnalyticsCategory,
+  ESwapAnalyticsEnterFrom,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -14,9 +14,9 @@ export class TradeCategorySwitchScene extends BaseScene {
     toCategory,
     enterFrom,
   }: {
-    fromCategory: ESwapTabSwitchType;
-    toCategory: ESwapTabSwitchType;
-    enterFrom?: ESwapSource;
+    fromCategory: ESwapAnalyticsCategory;
+    toCategory: ESwapAnalyticsCategory;
+    enterFrom?: ESwapAnalyticsEnterFrom;
   }) {
     return {
       fromCategory,

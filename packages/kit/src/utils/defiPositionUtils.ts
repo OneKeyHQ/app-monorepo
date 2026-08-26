@@ -11,6 +11,8 @@ import {
   type IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { getTokenImageResizeWidth } from '../components/Token/tokenSize';
+
 import { getCategoryConfig } from './defiCategoryConfig';
 
 type IPositionLabel = { title: string; titleId?: ETranslations };
@@ -18,6 +20,10 @@ type IProtocolPositionSourceAsset =
   IDeFiProtocol['positions'][number]['assets'][number];
 type ICategoryConfig = ReturnType<typeof getCategoryConfig>;
 type ITranslatePositionLabel = (id: ETranslations) => string;
+type IImagePreloadSourceWithResizeWidth = {
+  uri: string;
+  resizeWidth: number;
+};
 
 export type IProtocolPositionSectionAssetType =
   | 'supplied'
@@ -29,6 +35,15 @@ const POSITION_MODULE_FALLBACK_LABEL: IPositionLabel = {
   title: 'Others',
   titleId: ETranslations.global_others,
 };
+
+const DEFI_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS = [
+  getTokenImageResizeWidth('xs'),
+  getTokenImageResizeWidth('md'),
+  getTokenImageResizeWidth('lg'),
+] as const;
+const DEFI_POSITION_TOKEN_PRELOAD_RESIZE_WIDTHS = [
+  getTokenImageResizeWidth('xs'),
+] as const;
 
 const POSITION_MODULE_LABELS: Record<string, IPositionLabel> = {
   deposit: {
@@ -599,19 +614,6 @@ function positionHasBorrowed(position: IProtocolPositionItem): boolean {
   );
 }
 
-// The inline action for a section sits under the asset it acts on: Withdraw
-// with supplied balances, Repay with borrowed debt, Claim with rewards. Shared
-// by the desktop sectioned table and the mobile/detail per-asset rows so both
-// place the same button against the same asset.
-export function getSectionActionPlacement(
-  assetType: IProtocolPositionSectionAssetType,
-): 'balance' | 'rewards' | 'debt' | undefined {
-  if (assetType === 'rewards') return 'rewards';
-  if (assetType === 'supplied' || assetType === 'other') return 'balance';
-  if (assetType === 'borrowed') return 'debt';
-  return undefined;
-}
-
 // A position renders as "sectioned" (Supplied/Borrowed/Rewards blocks, each
 // asset getting its own action) when it's lending or carries debt; otherwise
 // it's a compact "unified" position with a single position-level action.
@@ -763,42 +765,82 @@ function buildProtocolDisplayInfo({
   };
 }
 
+function addPreloadSources(
+  sources: Map<string, Set<number>>,
+  uri: string | undefined,
+  resizeWidths: readonly number[],
+) {
+  if (!uri) {
+    return;
+  }
+  const sourceResizeWidths = sources.get(uri) ?? new Set<number>();
+  resizeWidths.forEach((resizeWidth) => {
+    if (resizeWidth > 0) {
+      sourceResizeWidths.add(resizeWidth);
+    }
+  });
+  if (sourceResizeWidths.size > 0) {
+    sources.set(uri, sourceResizeWidths);
+  }
+}
+
+function toPreloadImageSources(
+  sources: Map<string, Set<number>>,
+): IImagePreloadSourceWithResizeWidth[] {
+  return Array.from(sources.entries()).flatMap(([uri, resizeWidths]) =>
+    Array.from(resizeWidths).map((resizeWidth) => ({ uri, resizeWidth })),
+  );
+}
+
 // Every image URL a fully-expanded DeFi list will render: protocol logos
 // (header + chip strip), and every supplied / debt / reward token icon
-// inside the position tables. Deduplicated — many positions share the
-// same asset (USDC, ETH, etc.). Used to warm the image cache up front so
-// the Tokens inside Accordion.Content / sliced-in protocol cards hit an
-// already-resolved cache entry the moment they mount, instead of flashing
-// a skeleton on first paint.
-function collectDeFiImageUrls({
+// inside the position tables. Deduplicated by URI and consumer size because
+// optimized image cache keys include the final resized URL.
+function collectDeFiImagePreloadSources({
   protocols,
   protocolMap,
 }: {
   protocols: IDeFiProtocol[] | undefined | null;
   protocolMap: Record<string, IProtocolSummary> | undefined | null;
-}): string[] {
-  const urls = new Set<string>();
+}): IImagePreloadSourceWithResizeWidth[] {
+  const sources = new Map<string, Set<number>>();
   if (protocolMap) {
     for (const summary of Object.values(protocolMap)) {
-      if (summary?.protocolLogo) urls.add(summary.protocolLogo);
+      addPreloadSources(
+        sources,
+        summary?.protocolLogo,
+        DEFI_PROTOCOL_LOGO_PRELOAD_RESIZE_WIDTHS,
+      );
     }
   }
   if (protocols) {
     for (const protocol of protocols) {
       for (const position of protocol.positions) {
         for (const asset of position.assets) {
-          if (asset.meta?.logoUrl) urls.add(asset.meta.logoUrl);
+          addPreloadSources(
+            sources,
+            asset.meta?.logoUrl,
+            DEFI_POSITION_TOKEN_PRELOAD_RESIZE_WIDTHS,
+          );
         }
         for (const debt of position.debts) {
-          if (debt.meta?.logoUrl) urls.add(debt.meta.logoUrl);
+          addPreloadSources(
+            sources,
+            debt.meta?.logoUrl,
+            DEFI_POSITION_TOKEN_PRELOAD_RESIZE_WIDTHS,
+          );
         }
         for (const reward of position.rewards) {
-          if (reward.meta?.logoUrl) urls.add(reward.meta.logoUrl);
+          addPreloadSources(
+            sources,
+            reward.meta?.logoUrl,
+            DEFI_POSITION_TOKEN_PRELOAD_RESIZE_WIDTHS,
+          );
         }
       }
     }
   }
-  return Array.from(urls);
+  return toPreloadImageSources(sources);
 }
 
 // Badge label id for a resolved action, in the same wording the detail page
@@ -874,7 +916,7 @@ export {
   buildProtocolCategoryGroups,
   buildProtocolDisplayInfo,
   buildProtocolPositionItems,
-  collectDeFiImageUrls,
+  collectDeFiImagePreloadSources,
   getProtocolActionBadgeLabelIds,
   getProtocolPositionDisplayName,
   getPositionModuleLabel,

@@ -10,7 +10,12 @@ import {
   resolveSerializablePriceFormatterType,
 } from '../utils/priceFormatterType';
 
-import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
+import type {
+  ILightweightChartConfig,
+  ILightweightChartLineType,
+  ILightweightChartPriceScalePosition,
+  ILightweightChartTime,
+} from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IUseChartConfigProps {
@@ -25,16 +30,22 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeZone?: string;
+  locale?: string;
 }
 
 export function useChartConfig({
@@ -49,16 +60,22 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceFormatter,
+  priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
   showTimeScale = true,
+  useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
   const resolvedSeriesType = seriesType ?? 'area';
@@ -84,6 +101,7 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
@@ -102,13 +120,18 @@ export function useChartConfig({
       secondaryLineWidth,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       seriesType: resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,
       showTimeScale,
+      useTimeScaleTickMarkWithoutUnit,
+      timeZone,
+      locale,
     }),
     [
       data,
@@ -124,17 +147,23 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,
       showTimeScale,
+      useTimeScaleTickMarkWithoutUnit,
+      timeZone,
+      locale,
     ],
   );
 }

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { SizableText } from '@tamagui/text';
 
 import {
@@ -5,9 +7,11 @@ import {
   styled,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { XStack } from '../../primitives/Stack';
+import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
 
 import type { IXStackProps } from '../../primitives';
 
@@ -60,7 +64,7 @@ const BadgeFrame = styled(XStack, {
   } as const,
 });
 
-const BadgeText = styled(SizableText, {
+const BadgeTextStyled = styled(SizableText, {
   name: 'BadgeText',
   allowFontScaling: false,
   numberOfLines: 1,
@@ -93,6 +97,22 @@ const BadgeText = styled(SizableText, {
     },
   } as const,
 });
+
+// Badge.Text is styled from raw tamagui text, so it bypasses the SizableText
+// wrapper's app-wide tabular default. Re-apply it here (computed once) so badge
+// digits (countdowns, rates, counts) stay equal-width on native. On web the
+// web-fonts.css body rule already covers it, so getFontVariantStyle returns
+// undefined and this is a passthrough.
+const BADGE_TABULAR_STYLE = getFontVariantStyle(TABULAR_NUMS);
+
+function BadgeText({ style, ...props }: GetProps<typeof BadgeTextStyled>) {
+  // Merge (not overwrite) so a caller-provided `style` still wins.
+  const mergedStyle = useMemo(
+    () => (BADGE_TABULAR_STYLE ? [BADGE_TABULAR_STYLE, style] : style),
+    [style],
+  );
+  return <BadgeTextStyled {...props} style={mergedStyle} />;
+}
 
 export type IBadgeProps = IXStackProps & {
   badgeType?: IBadgeType;

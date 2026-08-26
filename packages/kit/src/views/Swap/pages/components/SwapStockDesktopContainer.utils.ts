@@ -1,4 +1,13 @@
-import { ESwapStockTradeSide } from '../../hooks/swapStockChannelUtils';
+import BigNumber from 'bignumber.js';
+
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+
+import {
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from '../../hooks/swapStockChannelUtils';
+import { normalizeSwapKLineWalletChartTimestamp } from '../modal/swapKLineChartUtils';
 
 export type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
 
@@ -11,6 +20,11 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
   pb: '$4',
 } as const;
 
+export type IStockChartCoinGeckoIdLookupResult = {
+  tokenScope: string;
+  coinGeckoId?: string;
+};
+
 export const STOCK_CHART_RANGE_ITEMS: {
   label: IStockChartRange;
   interval: string;
@@ -22,9 +36,51 @@ export const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 
+export function getStockNetworkLogoUri({
+  networkId,
+  networkLogoUri,
+}: {
+  networkId?: string;
+  networkLogoUri?: string;
+}) {
+  if (networkLogoUri) {
+    return networkLogoUri;
+  }
+  return networkId
+    ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+    : undefined;
+}
+
+export function getStockChartCoinGeckoIdState({
+  lookupResult,
+  networkId,
+  tokenDetailCoinGeckoId,
+  tokenScope,
+}: {
+  lookupResult?: IStockChartCoinGeckoIdLookupResult;
+  networkId?: string;
+  tokenDetailCoinGeckoId?: string;
+  tokenScope: string;
+}) {
+  const currentLookupResult =
+    lookupResult?.tokenScope === tokenScope ? lookupResult : undefined;
+  return {
+    coinGeckoId:
+      tokenDetailCoinGeckoId || currentLookupResult?.coinGeckoId || undefined,
+    isLoading: Boolean(
+      networkId && !tokenDetailCoinGeckoId && !currentLookupResult,
+    ),
+  };
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
+  channelStage: ESwapStockChannelStage,
 ) {
+  if (channelStage === ESwapStockChannelStage.CheckingMarketStatus) {
+    return undefined;
+  }
+
   return {
     bg:
       tradeSide === ESwapStockTradeSide.Sell
@@ -35,4 +91,152 @@ export function getStockDisabledActionButtonProps(
       opacity: 0.6,
     },
   } as const;
+}
+
+export function isStockMarketPanelLoadingStage(
+  channelStage: ESwapStockChannelStage,
+) {
+  return (
+    channelStage === ESwapStockChannelStage.InitializingStock ||
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
+}
+
+export function shouldShowStockMarketHeaderSkeleton({
+  channelStage,
+  hasStockIdentity,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasStockIdentity: boolean;
+}) {
+  return (
+    !hasStockIdentity &&
+    channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function shouldShowStockMarketTokenLabelsSkeleton({
+  channelStage,
+  hasTokenData,
+}: {
+  channelStage: ESwapStockChannelStage;
+  hasTokenData: boolean;
+}) {
+  return (
+    !hasTokenData &&
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
+  );
+}
+
+export function getStockMarketTokenSubtitle({
+  currentStockSubtitle,
+  tokenDetailStockSubtitle,
+  tokenDetailStockUnderlyingAssetName,
+}: {
+  currentStockSubtitle?: string;
+  tokenDetailStockSubtitle?: string;
+  tokenDetailStockUnderlyingAssetName?: string;
+}) {
+  if (tokenDetailStockSubtitle?.trim()) {
+    return tokenDetailStockSubtitle;
+  }
+  if (currentStockSubtitle?.trim()) {
+    return currentStockSubtitle;
+  }
+  return tokenDetailStockUnderlyingAssetName?.trim() || undefined;
+}
+
+export function shouldShowStockQuoteActionLoading({
+  inputAmount,
+  quoteEventCompleted,
+  quoteRequestMatchesStockTrade,
+}: {
+  inputAmount: string;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesStockTrade: boolean;
+}) {
+  if (!new BigNumber(inputAmount || 0).gt(0)) {
+    return false;
+  }
+
+  if (!quoteEventCompleted) {
+    return true;
+  }
+
+  return !quoteRequestMatchesStockTrade;
+}
+
+export function mergeStockChartRealtimePoint({
+  baseChartData,
+  realtimeChartPoint,
+}: {
+  baseChartData: IMarketTokenChart;
+  realtimeChartPoint?: IMarketTokenChart[number];
+}): IMarketTokenChart {
+  if (baseChartData.length === 0 || !realtimeChartPoint) {
+    return baseChartData;
+  }
+
+  const [timestamp, price] = realtimeChartPoint;
+  const normalizedTimestamp = normalizeSwapKLineWalletChartTimestamp(timestamp);
+  const normalizedPrice = Number(price);
+  if (
+    !Number.isFinite(normalizedTimestamp) ||
+    !Number.isFinite(normalizedPrice)
+  ) {
+    return baseChartData;
+  }
+
+  const pointsByTimestamp = new Map<number, number>();
+  for (const [pointTimestamp, pointPrice] of baseChartData) {
+    const normalizedPointTimestamp =
+      normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
+    const normalizedPointPrice = Number(pointPrice);
+    if (
+      Number.isFinite(normalizedPointTimestamp) &&
+      Number.isFinite(normalizedPointPrice)
+    ) {
+      pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
+    }
+  }
+  pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
+
+  return Array.from(pointsByTimestamp.entries()).toSorted(
+    (a, b) => a[0] - b[0],
+  );
+}
+
+export function getStockChartDisplayState({
+  baseChartData,
+  isChartStateForCurrentScope,
+  isLoading,
+  requestStatus,
+  realtimeChartPoint,
+}: {
+  baseChartData: IMarketTokenChart;
+  isChartStateForCurrentScope: boolean;
+  isLoading?: boolean;
+  requestStatus?: 'pending' | 'success' | 'error';
+  realtimeChartPoint?: IMarketTokenChart[number];
+}) {
+  const shouldShowChartError =
+    baseChartData.length === 0 &&
+    isChartStateForCurrentScope &&
+    !isLoading &&
+    requestStatus === 'error';
+  return {
+    chartData: mergeStockChartRealtimePoint({
+      baseChartData,
+      realtimeChartPoint: isChartStateForCurrentScope
+        ? realtimeChartPoint
+        : undefined,
+    }),
+    shouldShowChartError,
+    shouldShowChartLoading:
+      baseChartData.length === 0 &&
+      !shouldShowChartError &&
+      (requestStatus === 'pending' ||
+        Boolean(isLoading) ||
+        !isChartStateForCurrentScope),
+  };
 }

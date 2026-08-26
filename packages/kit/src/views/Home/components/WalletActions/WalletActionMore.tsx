@@ -18,7 +18,6 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -34,7 +33,6 @@ import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
-import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
@@ -156,14 +154,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                 <WalletActionBuy key="buy" onClose={handleActionListClose} />
               );
             case 'swap':
-              return platformEnv.isExtensionUiPopup ||
-                platformEnv.isExtensionUiSidePanel ? (
-                <WalletActionPerp
-                  key="perp"
-                  inList
-                  onClose={handleActionListClose}
-                />
-              ) : (
+              return (
                 <WalletActionSwap
                   key="swap"
                   onClose={handleActionListClose}

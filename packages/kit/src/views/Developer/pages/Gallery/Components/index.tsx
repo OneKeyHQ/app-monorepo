@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
@@ -30,14 +31,26 @@ const Index = () => {
     .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
     .toSorted((a, b) => natsort({ insensitive: true })(a, b));
 
-  if (galleryLastRoute) {
+  // The persisted pin may reference a gallery page that has since been
+  // removed in favor of CSF stories.
+  if (
+    galleryLastRoute &&
+    Object.values(EGalleryRoutes).includes(galleryLastRoute)
+  ) {
     filteredComponents.unshift(galleryLastRoute);
   }
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  const headerHeight = useHeaderHeight();
+  let topPadding: number | '$10' | undefined;
+  if (platformEnv.isNativeIOS26Plus) {
+    topPadding = headerHeight;
+  } else if (platformEnv.isNativeIOS) {
+    topPadding = '$10';
+  }
   return (
     <Page>
-      <Page.Body>
+      <Page.Body pt={topPadding}>
         <View
           style={{
             width: '90%',
@@ -63,6 +76,7 @@ const Index = () => {
             <ListItem
               style={{ width: '90%', maxWidth: 640, alignSelf: 'center' }}
               key={item.replace('component-', '')}
+              testID={`gallery-route-${item}`}
               drillIn
               onPress={() => {
                 // @ts-expect-error

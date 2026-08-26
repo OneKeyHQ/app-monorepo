@@ -20,11 +20,13 @@ skillshare
 bitrefill
 Bitrefill
 BITREFILL
+Bitway
 worktree
 googleusercontent
 0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229
 0xffffffffffffffffn
 reown
+Reown
 cloudfs
 morelink
 worktrees
@@ -56,9 +58,18 @@ wui
 deeplinks
 minmov
 appkit
+AppKit
+alephium
+jsbi
+JSBI
+lockdown
+Lockdown
+LOCKDOWN
+unpermitted
 wcm
 perp
 hyperliquid
+UNITREE
 Delisted
 inferrable
 PerpTrade
@@ -153,6 +164,7 @@ babylon
 backends
 backgrounded
 backgrounding
+backpackapp
 backuped
 bassed
 bch
@@ -494,6 +506,8 @@ jsx
 juno
 kaspa
 Kaspa
+katana
+Katana
 Kdsr
 keccak256
 keyframes
@@ -608,6 +622,7 @@ onboard
 onboarding
 Onchain
 oncomplete
+ondo
 onekey
 onekeyall
 onekeyfe
@@ -631,6 +646,7 @@ Outout
 p2pkh
 p2wpkh
 pageview
+pancakeswap
 passcode
 passpharse
 passphrase
@@ -785,6 +801,7 @@ sompi
 Sompi
 Sparkline
 splitter
+Stax
 sr25519
 starcoin
 Starcoin
@@ -1044,6 +1061,7 @@ Overscroll
 Flatpak
 Rspack
 rspack
+rssi
 myposition
 favs
 extractable
@@ -1393,6 +1411,7 @@ avd
 AVD
 oxlint
 oxlintrc
+oxfmt
 serviceworker
 newtab
 hrstart
@@ -1547,3 +1566,31 @@ mysten
 # web service worker / workbox (rspack migration) comments + cache names
 precaches
 navigations
+
+# OpenType tabular-figures feature tag
+tnum
+
+EXCLUDEFROMCAPTURE
+
+# KeyTag punch/verify domain terms
+mistap
+mispunch
+mispunched
+
+# Unifold deposit vendor
+unifold
+hypercore
+lookback
+
+# @rehookify/datepicker package name
+rehookify
+
+# bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
+# plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)
+bstocks
+
+# Otsu's method (wallpaper black/white threshold algorithm)
+otsu
+Otsu
+OTSU
+binarize

@@ -2,11 +2,7 @@
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import { cloneDeep } from 'lodash';
 
-import type {
-  IDialogLoadingProps,
-  IQrcodeDrawType,
-} from '@onekeyhq/components';
-import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
+import type { IDialogLoadingProps } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
@@ -41,18 +37,19 @@ import type {
 import type { EHardwareVendor } from '../../types/device';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
 import type {
   INotificationPushMessageInfo,
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { EPrimeAuthSessionSource } from '../../types/prime/primeTypes';
 import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
-  IFetchQuotesParams,
   ISwapApproveTransaction,
-  ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
   ISwapTokenBase,
 } from '../../types/swap/types';
@@ -62,6 +59,7 @@ import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -100,6 +98,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  // hardware device the error came from, when the error carries one
+  connectId?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
@@ -125,6 +125,17 @@ export type IEventBusPayloadShowLinuxUdevGuide = {
 export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
   technicalMessage: string;
 };
+
+export type IEventBusPayloadAccountDataUpdate =
+  | undefined
+  | {
+      isManualRefresh?: boolean;
+      refreshSource?: 'home-header' | 'pull-to-refresh';
+    };
+
+// The item shape is owned by kit's settings config; it stays opaque here so
+// shared never depends on kit types or its search-results presentation.
+export type ISettingsSearchResultItem = FuseResult<unknown>;
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -202,25 +213,34 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.WalletConnectOpenModal]: {
     uri: string;
+    // bg connect attempt generation; lets main-runtime consumers match
+    // terminal close/modal-state events to the pairing they belong to
+    attemptId?: number;
   };
-  [EAppEventBusNames.WalletConnectCloseModal]: undefined;
+  [EAppEventBusNames.WalletConnectCloseModal]:
+    | {
+        // scope the close to one attempt; omitted means wildcard close
+        attemptId?: number;
+      }
+    | undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectSuccess]: {
     session: IWalletConnectSession;
+    attemptId?: number;
   };
   [EAppEventBusNames.WalletConnectConnectError]: {
     error: IOneKeyError;
+    attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
-    drawType: IQrcodeDrawType;
     promiseId?: number;
-    value?: string;
-    valueUr?: IAirGapUrJson;
+    valueUr: IAirGapUrJson;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
@@ -337,6 +357,27 @@ export interface IAppEventBusPayload {
     riskyMap: Record<string, ITokenFiat>;
     storeData: IJotaiContextStoreData;
   };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    deviceConnectId?: string;
+    deviceDbId?: string;
+    indexedAccountId?: string;
+    indexedAccountIndex?: number;
+    indexedAccountName?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    totalFiat: string;
+    totalFiatCurrency: string;
+    totalTokenCount: number;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
+  };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
@@ -366,7 +407,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     networkId: string;
   };
-  [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.AccountDataUpdate]: IEventBusPayloadAccountDataUpdate;
   [EAppEventBusNames.AccountValueUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
@@ -390,13 +431,7 @@ export interface IAppEventBusPayload {
           errorMessage?: string;
         };
       };
-  [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close' | 'open';
-    event: ISwapQuoteEvent;
-    params: IFetchQuotesParams;
-    accountId?: string;
-    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-  };
+  [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
@@ -431,9 +466,45 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
-  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeLoginInvalidToken]:
+    | {
+        authSessionSource?: EPrimeAuthSessionSource;
+        clearedByBackground?: boolean;
+        // Auth-state commit generation (simpleDb.prime.getAuthStateGeneration)
+        // observed by the bg cleanup when it decided to clear. Handlers must
+        // treat the event as STALE and skip their sign-outs when the current
+        // generation differs: a login commit that landed after the clear
+        // decision owns the shared session slot, and a stale sign-out would
+        // destroy the fresh login's persisted session.
+        authStateGeneration?: number;
+      }
+    | undefined;
+  // Emitted from the bg runtime after it clears the shared keyless Supabase
+  // session storage (wallet removal / cleanup). JS heaps are isolated per
+  // runtime, so the main runtime must sign out its own in-memory keyless
+  // client copy when this arrives.
+  [EAppEventBusNames.KeylessAuthSessionCleared]: undefined;
+  [EAppEventBusNames.PrimeAuthSessionSourceCommitted]: {
+    authSessionSource: EPrimeAuthSessionSource;
+    callerName: string;
+  };
+  [EAppEventBusNames.IdentityLifecycleCommitted]: {
+    revision: number;
+    oneKeyIdState: 'loggedIn' | 'loggedOut';
+  };
+  [EAppEventBusNames.PrimeSubscriptionPurchaseSuccess]: {
+    // UI-local event: use emitToSelf so multiple Extension surfaces cannot race
+    // to show the same post-purchase dialog.
+    onekeyUserId: string;
+    // A purchase flow reserves this BG-owned claim before refreshing Prime
+    // state, preventing another Extension Home runtime from winning the race.
+    claimId?: string;
+  };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
-  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: {
+    operationId: string;
+    messageId: string;
+  };
   [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
   [EAppEventBusNames.PrimeTransferDataReceived]: {
     data: IPrimeTransferData;
@@ -468,18 +539,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
+  [EAppEventBusNames.HardwareDeviceStateUpdate]: DeviceStateEvent;
+  [EAppEventBusNames.HardwareConnectionStateUpdate]: undefined;
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
-  [EAppEventBusNames.MarketWSDataUpdate]: {
-    channel: string;
-    tokenAddress: string;
-    networkId?: string;
-    isSubscriptionAmbiguous?: boolean;
-    messageType?: string;
-    data: any;
-    originalData?: any;
-  };
+  [EAppEventBusNames.MarketWSDataUpdate]: IMarketWsDataUpdatePayload;
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
   };
@@ -488,11 +553,7 @@ export interface IAppEventBusPayload {
     sourceId: string;
   };
   [EAppEventBusNames.SettingsSearchResult]: {
-    list: {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[];
+    list: ISettingsSearchResultItem[];
     searchText: string;
   };
   [EAppEventBusNames.DesktopBleRepairRequired]: {
@@ -510,10 +571,22 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
+  [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
+    symbol: string;
+    priceScale: number;
+  };
+  [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
+    deliveryId: string;
+  };
+  [EAppEventBusNames.PerpsSubscriptionsRecovered]: undefined;
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;
   };
+  [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
+    tab: 'Positions' | 'Balances';
+  };
+  [EAppEventBusNames.PerpShowFundingHistory]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -536,6 +609,7 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
@@ -566,6 +640,9 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
+  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
+    dragging: boolean;
+  };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:
       | ETranslations.global_market
@@ -573,6 +650,7 @@ export interface IAppEventBusPayload {
       | ETranslations.global_earn;
     openUrl?: boolean;
     shouldConsumePendingUrl?: boolean;
+    showWebPage?: boolean;
     switchType?: 'default' | 'tap' | 'swipe';
   };
   [EAppEventBusNames.SwitchEarnMode]: {
@@ -618,6 +696,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */

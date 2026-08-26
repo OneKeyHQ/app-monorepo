@@ -88,8 +88,8 @@ function BannerItem<T extends IBannerData>({
       {item.isAd ? <AdCornerBadge badgeSize="lg" placement="top-left" /> : null}
 
       <Stack position="absolute" {...itemTitleContainerStyle}>
-        {// TODO：Lokalise processes \n as \\n when handling translations
-        item.title?.split(/\n|\\n/).map((text, index) => (
+        {/* TODO: Lokalise processes \n as \\n when handling translations */}
+        {item.title?.split(/\n|\\n/).map((text, index) => (
           <SizableText
             key={index}
             color={item.theme === 'dark' ? '$textDark' : '$textLight'}

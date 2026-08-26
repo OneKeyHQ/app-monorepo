@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  Button,
   DebugRenderTracker,
+  Icon,
   SizableText,
   Tabs,
   XStack,
@@ -16,22 +18,31 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
   usePerpsActiveTwapOrdersAtom,
+  useTradeRouteViewStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsPendingInfoPanelTabAtom,
   useSpotActiveOpenOrdersAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
+import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
+import { useVisibleSpotHoldingsCount } from '../../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../../utils';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 
+import { HideSmallSpotHoldingsCheckbox } from './Components/HideSmallSpotHoldingsCheckbox';
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
@@ -48,6 +59,31 @@ const tabNameToTranslationKey: Partial<Record<string, ETranslations>> = {
   'Balances': ETranslations.perp_holdings_tokens,
 };
 
+function DesktopHoldingsTabCount() {
+  const [{ balances }] = useSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
+  );
+  const hasPerpsUsdc =
+    !isUnifiedAccountMode &&
+    !!accountSummary?.totalRawUsd &&
+    new BigNumber(accountSummary.totalRawUsd).gt(0);
+  const holdingsCount = useVisibleSpotHoldingsCount({
+    balances,
+    hasPerpsUsdc,
+  });
+
+  if (holdingsCount <= 0) {
+    return null;
+  }
+
+  return <SizableText size="$bodyMdMedium">{`(${holdingsCount})`}</SizableText>;
+}
+
 function TabBarItem({
   name,
   isFocused,
@@ -63,15 +99,7 @@ function TabBarItem({
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-  const [{ balances }] = useSpotBalancesAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
-  const [abstractionMode] = usePerpsAbstractionModeAtom();
-  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
-    abstractionMode,
-    currentUser?.accountAddress,
-  );
   const currentAccountAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
@@ -97,24 +125,7 @@ function TabBarItem({
     data: twapOrdersState.twapOrders,
   }).length;
 
-  const holdingsCount = useMemo(() => {
-    const nonUsdcSpotCount = balances.filter(
-      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
-    ).length;
-    const hasSpotUsdc = balances.some(
-      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
-    );
-    const hasPerpsUsdc =
-      !isUnifiedAccountMode &&
-      !!accountSummary?.totalRawUsd &&
-      new BigNumber(accountSummary.totalRawUsd).gt(0);
-    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-  }, [accountSummary?.totalRawUsd, balances, isUnifiedAccountMode]);
-
   const tabCount = useMemo(() => {
-    if (name === 'Balances') {
-      return holdingsCount > 0 ? `(${holdingsCount})` : '';
-    }
     if (name === 'Trades History') {
       return '';
     }
@@ -128,13 +139,7 @@ function TabBarItem({
       return `(${twapOrdersLength})`;
     }
     return '';
-  }, [
-    holdingsCount,
-    name,
-    openOrdersLength,
-    positionsLength,
-    twapOrdersLength,
-  ]);
+  }, [name, openOrdersLength, positionsLength, twapOrdersLength]);
 
   const translationKey = tabNameToTranslationKey[name];
   const tabTitle = translationKey
@@ -143,8 +148,7 @@ function TabBarItem({
       })
     : name;
 
-  const displayTitle =
-    name === 'Balances' ? `${tabTitle}${tabCount}` : `${tabTitle} ${tabCount}`;
+  const displayTitle = `${tabTitle} ${tabCount}`.trim();
 
   return (
     <DebugRenderTracker
@@ -160,16 +164,95 @@ function TabBarItem({
         onPress={() => onPress(name)}
         cursor="pointer"
       >
-        <SizableText size="$bodyMdMedium">{displayTitle.trim()}</SizableText>
+        <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+        {name === 'Balances' ? <DesktopHoldingsTabCount /> : null}
       </XStack>
     </DebugRenderTracker>
   );
 }
 
 function PerpOrderInfoPanel() {
+  const intl = useIntl();
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const actions = useHyperliquidActions();
-  const [activeTab, setActiveTab] = useState('Positions');
+  const [tradeRouteViewState] = useTradeRouteViewStateAtom();
+  const [pendingInfoPanelTab, setPendingInfoPanelTab] =
+    usePerpsPendingInfoPanelTabAtom();
+  const initialTabName =
+    tradeRouteViewState.infoPanelTab === 'Balances' ? 'Balances' : 'Positions';
+  const [activeTab, setActiveTab] = useState(initialTabName);
+  const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
+    useShowUnifoldDepositTracker();
+
+  const handleShowUnifoldDepositTracker = useCallback(() => {
+    void showUnifoldDepositTracker();
+  }, [showUnifoldDepositTracker]);
+
+  const renderTabBarToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => {
+      if (focusedTab === 'Balances') {
+        return (
+          <XStack mr="$3" alignItems="center">
+            <HideSmallSpotHoldingsCheckbox />
+          </XStack>
+        );
+      }
+
+      if (focusedTab === 'Account' && isUnifoldDepositTrackerAvailable) {
+        return (
+          <Button
+            testID="perps-account-history-deposit-tracker"
+            size="small"
+            variant="secondary"
+            childrenAsText={false}
+            borderRadius="$full"
+            h={28}
+            mr="$3"
+            onPress={handleShowUnifoldDepositTracker}
+          >
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$4"
+              mr="$1.5"
+              color="$icon"
+            />
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_crypto_deposits__title,
+              })}
+            </SizableText>
+          </Button>
+        );
+      }
+
+      return null;
+    },
+    [handleShowUnifoldDepositTracker, intl, isUnifoldDepositTrackerAvailable],
+  );
+
+  useEffect(() => {
+    if (!pendingInfoPanelTab) {
+      return;
+    }
+    tabsRef.current?.jumpToTab(pendingInfoPanelTab);
+    setActiveTab(pendingInfoPanelTab);
+    actions.current.setTradeRouteViewState({
+      infoPanelTab: pendingInfoPanelTab,
+    });
+    void setPendingInfoPanelTab(undefined);
+  }, [actions, pendingInfoPanelTab, setPendingInfoPanelTab]);
+
+  useEffect(() => {
+    const handler = (payload: { tab: 'Positions' | 'Balances' }) => {
+      tabsRef.current?.jumpToTab(payload.tab);
+      setActiveTab(payload.tab);
+      actions.current.setTradeRouteViewState({ infoPanelTab: payload.tab });
+    };
+    appEventBus.on(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpSwitchInfoPanelTab, handler);
+    };
+  }, [actions]);
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
@@ -179,7 +262,7 @@ function PerpOrderInfoPanel() {
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
-      initialTabName="Positions"
+      initialTabName={initialTabName}
       disableScroll={!platformEnv.isNative}
       onTabChange={async (tab) => {
         setActiveTab(tab.tabName);
@@ -191,6 +274,10 @@ function PerpOrderInfoPanel() {
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
+          scrollable
+          fillAvailableSpace
+          keepFocusedTabVisible
+          showsHorizontalScrollIndicator
           renderItem={({ name, isFocused, onPress }) => (
             <TabBarItem
               key={name}
@@ -199,6 +286,7 @@ function PerpOrderInfoPanel() {
               onPress={onPress}
             />
           )}
+          renderToolbar={renderTabBarToolbar}
           containerStyle={{
             borderRadius: 0,
             margin: 0,

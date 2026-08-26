@@ -59,7 +59,10 @@ export interface IKaspaGetTransactionResponse {
   is_accepted: boolean;
   accepting_block_hash: string;
   accepting_block_blue_score: number;
-  inputs: IKaspaGetTransactionInput[];
+  version: number;
+  payload: string | null;
+  // null for coinbase transactions
+  inputs: IKaspaGetTransactionInput[] | null;
   outputs: IKaspaGetTransactionOutput[];
 }
 
@@ -84,4 +87,44 @@ export interface IKaspaGetTransactionOutput {
   script_public_key_address: string;
   script_public_key_type: string;
   accepting_block_hash: null;
+}
+
+// Shapes from GET /blocks/{blockId} — the only endpoint carrying sequence,
+// scriptPublicKey.version, lockTime and gas.
+export interface IKaspaBlockTransactionInput {
+  previousOutpoint: {
+    transactionId: string;
+    index?: number;
+  };
+  signatureScript: string;
+  sigOpCount?: number | string | null;
+  sequence: number | string | null;
+  computeBudget?: number | string | null;
+}
+
+export interface IKaspaBlockTransactionOutput {
+  amount: number | string;
+  scriptPublicKey: {
+    scriptPublicKey: string;
+    version?: number;
+  };
+}
+
+export interface IKaspaBlockTransaction {
+  version: number;
+  // null for coinbase transactions
+  inputs: IKaspaBlockTransactionInput[] | null;
+  outputs: IKaspaBlockTransactionOutput[];
+  lockTime?: number | string | null;
+  subnetworkId: string;
+  gas?: number | string | null;
+  payload?: string | null;
+  mass?: number | string;
+  verboseData?: {
+    transactionId?: string;
+  };
+}
+
+export interface IKaspaGetBlockResponse {
+  transactions?: IKaspaBlockTransaction[];
 }

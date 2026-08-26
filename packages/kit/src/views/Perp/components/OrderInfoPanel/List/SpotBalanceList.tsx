@@ -20,6 +20,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsComputedAccountValueAtom,
+  usePerpsCustomSettingsAtom,
   useSpotAssetCtxsMapAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,8 +37,14 @@ import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
 import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
+import { HideSmallSpotHoldingsCheckbox } from '../Components/HideSmallSpotHoldingsCheckbox';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
-import { calculateSpotHoldingPnl, isSpotHoldingStableCoin } from '../utils';
+import {
+  buildSpotTokenPriceLookup,
+  calculateSpotHoldingPnl,
+  filterSpotHoldingBalances,
+  getSpotHoldingValuation,
+} from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -55,6 +62,7 @@ export interface IBalanceDisplayItem {
   contract?: string;
   logoURI?: string;
   usdcValueNum: number;
+  hasPriceSource: boolean;
   spotUniverse?: ISpotUniverse;
   isAssetClickable?: boolean;
   // True when the same coin appears in both spot and perps (e.g. USDC)
@@ -72,6 +80,7 @@ const ZERO_USDC_BALANCE: IBalanceDisplayItem = {
   isAssetClickable: false,
   needsSuffix: false,
   usdcValueNum: 0,
+  hasPriceSource: true,
 };
 
 const ZERO_USDC_BALANCES = [ZERO_USDC_BALANCE];
@@ -103,39 +112,24 @@ function SpotBalanceList({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('balance');
   const { spotUniverses, universeByBaseName, tokenContractMap } =
     useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canDeposit = Boolean(currentUser?.accountAddress) && !isDepositDisabled;
 
   useEffect(() => {
     setCurrentListPage(1);
-  }, [currentUser?.accountAddress]);
+  }, [currentUser?.accountAddress, perpsCustomSettings.hideSmallSpotHoldings]);
 
-  const tokenPriceLookup = useMemo(() => {
-    const lookup: Record<string, string> = {};
-    // First pass: prefer USDC-quoted pairs for accurate USD value
-    for (const u of spotUniverses) {
-      if (u.quoteName === 'USDC') {
-        const ctx = priceMap[u.name];
-        if (ctx?.markPx) {
-          lookup[u.baseName] = ctx.markPx;
-        }
-      }
-    }
-    // Second pass: fill remaining from any quote
-    for (const u of spotUniverses) {
-      if (!lookup[u.baseName]) {
-        const ctx = priceMap[u.name];
-        if (ctx?.markPx) {
-          lookup[u.baseName] = ctx.markPx;
-        }
-      }
-    }
-    return lookup;
-  }, [priceMap, spotUniverses]);
+  const tokenPriceLookup = useMemo(
+    () => buildSpotTokenPriceLookup({ spotUniverses, priceMap }),
+    [priceMap, spotUniverses],
+  );
 
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
@@ -155,22 +149,16 @@ function SpotBalanceList({
         return;
       }
 
-      const totalBN = new BigNumber(b.total);
+      const midPrice = tokenPriceLookup[b.coin];
+      const { totalBN, entryNtlBN, isStable, hasPriceSource, usdcValueBN } =
+        getSpotHoldingValuation({
+          rawCoin: b.coin,
+          total: b.total,
+          entryNtl: b.entryNtl,
+          midPrice,
+        });
       const holdBN = new BigNumber(b.hold);
       const availableBN = BigNumber.max(totalBN.minus(holdBN), 0);
-      const entryNtlBN = new BigNumber(b.entryNtl || '0');
-
-      const isStable = isSpotHoldingStableCoin(b.coin);
-
-      const midPrice = tokenPriceLookup[b.coin];
-      let usdcValueBN: BigNumber;
-      if (isStable) {
-        usdcValueBN = totalBN;
-      } else if (midPrice) {
-        usdcValueBN = totalBN.multipliedBy(midPrice);
-      } else {
-        usdcValueBN = entryNtlBN;
-      }
 
       const { pnl, pnlPercent } = calculateSpotHoldingPnl({
         total: b.total,
@@ -214,6 +202,7 @@ function SpotBalanceList({
         isAssetClickable,
         needsSuffix: false,
         usdcValueNum: usdcValueBN.toNumber(),
+        hasPriceSource,
       });
     });
 
@@ -249,6 +238,7 @@ function SpotBalanceList({
         isAssetClickable: false,
         needsSuffix: false,
         usdcValueNum: mergedUsdcTotalBN.toNumber(),
+        hasPriceSource: true,
       });
     }
 
@@ -270,16 +260,28 @@ function SpotBalanceList({
     isUnifiedAccountMode,
   ]);
 
-  // Filter out zero-balance tokens
-  const filteredBalances = useMemo(
-    () => allBalances.filter((b) => !new BigNumber(b.total).isZero()),
+  const nonZeroBalances = useMemo(
+    () =>
+      filterSpotHoldingBalances({
+        balances: allBalances,
+        hideBelowThreshold: false,
+      }),
     [allBalances],
   );
+  const filteredBalances = useMemo(
+    () =>
+      filterSpotHoldingBalances({
+        balances: nonZeroBalances,
+        hideBelowThreshold: perpsCustomSettings.hideSmallSpotHoldings ?? false,
+      }),
+    [nonZeroBalances, perpsCustomSettings.hideSmallSpotHoldings],
+  );
+  const hasHiddenBalances = filteredBalances.length < nonZeroBalances.length;
   const displayBalances =
     isMobile &&
     currentUser?.accountAddress &&
     isLoaded &&
-    filteredBalances.length === 0
+    nonZeroBalances.length === 0
       ? ZERO_USDC_BALANCES
       : filteredBalances;
 
@@ -384,11 +386,7 @@ function SpotBalanceList({
           pb="$2"
         >
           <YStack flex={1} minWidth={0} gap="$1">
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
             </SizableText>
             <NumberSizeableText
@@ -428,8 +426,10 @@ function SpotBalanceList({
             px="$3"
             h={28}
             bg="$bgAccent"
+            opacity={canDeposit ? 1 : 0.5}
+            cursor={canDeposit ? 'pointer' : 'default'}
             onPress={
-              currentUser?.accountAddress
+              canDeposit
                 ? () => void showDepositWithdrawModal('deposit')
                 : undefined
             }
@@ -440,27 +440,18 @@ function SpotBalanceList({
             </SizableText>
           </Badge>
         </XStack>
+        <XStack px="$4" py="$1.5" alignItems="center">
+          <HideSmallSpotHoldingsCheckbox isMobile />
+        </XStack>
         <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$0.5">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_name })}
             </SizableText>
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               /
             </SizableText>
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_balance })}
             </SizableText>
           </XStack>
@@ -468,20 +459,14 @@ function SpotBalanceList({
             flexGrow={1}
             flexBasis={0}
             justifyContent="flex-end"
-            gap="$1"
             alignItems="center"
           >
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
             </SizableText>
             <DashText
               size="$bodyXs"
               color="$textSubdued"
-              textTransform="uppercase"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
                 id: ETranslations.marketdex_un_pnl,
@@ -500,13 +485,31 @@ function SpotBalanceList({
     );
   }, [
     ListHeaderComponent,
+    canDeposit,
     computedValue.accountValue,
     computedValue.withdrawable,
-    currentUser?.accountAddress,
     intl,
     isMobile,
     showDepositWithdrawModal,
   ]);
+
+  const renderListEmptyComponent = () => {
+    if (hasHiddenBalances) {
+      return (
+        <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_no_data })}
+          </SizableText>
+        </YStack>
+      );
+    }
+
+    if (isMobile) {
+      return <></>;
+    }
+
+    return <PerpHoldingsEmptyState isMobile={isMobile} />;
+  };
 
   return (
     <CommonTableListView
@@ -541,9 +544,7 @@ function SpotBalanceList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
-      ListEmptyComponent={
-        isMobile ? <></> : <PerpHoldingsEmptyState isMobile={isMobile} />
-      }
+      ListEmptyComponent={renderListEmptyComponent()}
       ListHeaderComponent={mobileHeaderComponent}
     />
   );

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
 import type {
@@ -23,6 +24,9 @@ export enum EPrimePages {
   OneKeyId = 'OneKeyId',
   PrimeMyOrders = 'PrimeMyOrders',
   OneKeyIdProfileEdit = 'OneKeyIdProfileEdit',
+  PrimeInfiniPayment = 'PrimeInfiniPayment',
+  // Infini crypto subscription management page
+  PrimeInfiniSubscription = 'PrimeInfiniSubscription',
 }
 
 export enum EPrimeFeatures {
@@ -74,4 +78,10 @@ export type IPrimeParamList = {
   [EPrimePages.OneKeyId]: undefined;
   [EPrimePages.PrimeMyOrders]: undefined;
   [EPrimePages.OneKeyIdProfileEdit]: undefined;
+  [EPrimePages.PrimeInfiniPayment]: {
+    selectedSubscriptionPeriod: ISubscriptionPeriod;
+    featureName?: EPrimeFeatures;
+    createNewPayment?: boolean;
+  };
+  [EPrimePages.PrimeInfiniSubscription]: undefined;
 };

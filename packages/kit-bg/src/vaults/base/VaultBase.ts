@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildTxActionDirection,
   getStakingActionLabel,
@@ -401,6 +402,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         signal: params.signal ?? undefined,
       },
     );
+    tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(resp.data.data);
     return resp;
   }
 
@@ -568,6 +570,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    // set on history detail requests whose caller already holds the decoded
+    // tx, so overrides (btc find-address) can narrow their extra params
+    txInvolvedAddresses?: string[];
   }) {
     return Promise.resolve({});
   }
@@ -1478,6 +1483,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       signal,
       headers,
     });
+    tokenRebaseUtils.normalizeAccountTokensRespBalanceMultiplier(
+      resp.data.data,
+    );
     return resp;
   }
 
@@ -1546,10 +1554,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+    // POST so array params (btc find-address accountAddressArray) travel
+    // in the JSON body; the server accepts POST on this endpoint.
+    const resp = await client.post<{ data: IFetchHistoryTxDetailsResp }>(
       '/wallet/v1/account/history/detail',
+      rest,
       {
-        params: rest,
         headers: {
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {

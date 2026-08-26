@@ -18,11 +18,9 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
-  getValidPriceDecimals,
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -34,14 +32,14 @@ import {
   getFillDirectionDisplayInfo,
 } from '../utils';
 
+import {
+  getTradeFillClosePnlBN,
+  getTradeFillDisplayInfo,
+} from './tradeFillDisplay';
+import { TradesHistoryShareAction } from './TradesHistoryShareAction';
+
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
-const formatter: INumberFormatProps = {
-  formatter: 'value',
-  formatterOptions: {
-    currency: '$',
-  },
-};
 export type ITradesHistoryRowProps = {
   fill: IFill;
   cellMinWidth: number;
@@ -69,12 +67,12 @@ const TradesHistoryRow = memo(
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
-      return (
+      return Boolean(
         fill.closedPnl &&
         !new BigNumber(fill.closedPnl).isZero() &&
         !isSpotInstrument(fill.coin) &&
         !fill.liquidation &&
-        onShare
+        onShare,
       );
     }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
     const actions = useHyperliquidActions();
@@ -130,23 +128,32 @@ const TradesHistoryRow = memo(
     }, [fill, intl]);
 
     const tradeBaseInfo = useMemo(() => {
-      const price = fill.px;
-      const size = fill.sz;
-      const fee = fill.fee;
-      const decimals = getValidPriceDecimals(price);
-      const priceBN = new BigNumber(price);
-      const sizeBN = new BigNumber(size);
-      const priceFormatted = priceBN.toFixed(decimals);
-      const feeFormatted = numberFormat(fee, formatter);
-
-      const tradeValue = priceBN.times(sizeBN).toFixed();
-      const tradeValueFormatted = numberFormat(tradeValue, formatter);
-      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
-    }, [fill.fee, fill.px, fill.sz]);
+      const {
+        priceFormatted,
+        sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      } = getTradeFillDisplayInfo({
+        coin: fill.coin,
+        px: fill.px,
+        sz: fill.sz,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
+      return {
+        priceFormatted,
+        size: sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      };
+    }, [fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
 
     const closePnlInfo = useMemo(() => {
-      const closePnl = fill.closedPnl;
-      const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
+      const closePnlBN = getTradeFillClosePnlBN({
+        closedPnl: fill.closedPnl,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
       let closePnlPlusOrMinus = '';
       let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
@@ -161,7 +168,7 @@ const TradesHistoryRow = memo(
         },
       });
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
-    }, [fill.closedPnl, fill.fee]);
+    }, [fill.closedPnl, fill.fee, fill.feeToken]);
 
     const feeTooltipContent = useMemo(() => {
       const feeRatePercentage =
@@ -220,7 +227,7 @@ const TradesHistoryRow = memo(
                 gap="$2"
                 alignItems="center"
                 onPress={handleSwitchInstrument}
-                cursor="default"
+                cursor="pointer"
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -376,7 +383,7 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
               onPress={handleSwitchInstrument}
-              cursor="default"
+              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
@@ -392,9 +399,11 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
+              minWidth={0}
             >
-              <XStack gap="$1.5" alignItems="center">
+              <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
+                  flexShrink={1}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   size="$bodySm"
@@ -477,10 +486,10 @@ const TradesHistoryRow = memo(
             {...getColumnStyle(columnConfigs[7])}
             justifyContent={calcCellAlign(columnConfigs[7].align)}
             alignItems="center"
-            gap="$1"
             cursor="default"
           >
             <SizableText
+              flexShrink={1}
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
@@ -488,20 +497,10 @@ const TradesHistoryRow = memo(
             >
               {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
             </SizableText>
-            {canShare ? (
-              <IconButton
-                testID="perp-icon-btn"
-                variant="tertiary"
-                size="small"
-                icon="ShareOutline"
-                iconSize="$4"
-                onPress={() => onShare?.(fill)}
-                hoverStyle={null}
-                pressStyle={null}
-              />
-            ) : (
-              <XStack width={16} height={16} />
-            )}
+            <TradesHistoryShareAction
+              visible={canShare}
+              onPress={() => onShare?.(fill)}
+            />
           </XStack>
         ) : null}
       </XStack>

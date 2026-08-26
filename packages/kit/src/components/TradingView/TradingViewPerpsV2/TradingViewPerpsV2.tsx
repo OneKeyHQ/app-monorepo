@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { LottieView, Stack, useTheme } from '@onekeyhq/components';
-import type { IStackStyle } from '@onekeyhq/components';
+import type { IDialogInstance, IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -23,7 +23,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import {
+  syncTradingViewTheme,
+  useNavigationHandler,
+  useTradingViewUrl,
+} from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -192,6 +196,8 @@ const WebViewMemoized = memo(
     return (
       prevProps.src === nextProps.src &&
       prevProps.customReceiveHandler === nextProps.customReceiveHandler &&
+      prevProps.containerStyle === nextProps.containerStyle &&
+      prevProps.style === nextProps.style &&
       prevProps.onShouldStartLoadWithRequest ===
         nextProps.onShouldStartLoadWithRequest
     );
@@ -285,6 +291,10 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
+  const onLoadEndRef = useRef(onLoadEnd);
+  onLoadEndRef.current = onLoadEnd;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
@@ -301,7 +311,9 @@ export function TradingViewPerpsV2(
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}${
+    const themeKey =
+      platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
+    return `${themeKey}${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
@@ -312,6 +324,15 @@ export function TradingViewPerpsV2(
     useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
+  const chartOrderDialogRef = useRef<IDialogInstance | null>(null);
+
+  const closeChartOrderDialog = useCallback(() => {
+    const dialog = chartOrderDialogRef.current;
+    chartOrderDialogRef.current = null;
+    if (dialog?.isExist()) {
+      void dialog.close();
+    }
+  }, []);
 
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
@@ -332,8 +353,52 @@ export function TradingViewPerpsV2(
     setMounted({ mounted: true });
     return () => {
       setMounted({ mounted: false });
+      closeChartOrderDialog();
     };
-  }, [setMounted]);
+  }, [closeChartOrderDialog, setMounted]);
+
+  // Warm the allMids cache AND refresh the persisted scale before the chart's
+  // resolveSymbol asks, so a cold start never waits on the REST fallback and
+  // the persisted scale keeps a refresh path even when the bridge request is
+  // skipped by future TV builds.
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid
+      .getTradingviewPriceScale({ symbol })
+      .catch(() => undefined);
+  }, [symbol]);
+
+  const latestSymbolRef = useRef(symbol);
+  latestSymbolRef.current = symbol;
+
+  // A refreshed scale that differs from the one the chart resolved with needs
+  // a forced re-resolve, or the wrong precision would persist all session.
+  useEffect(() => {
+    const handler = (payload: { symbol: string; priceScale: number }) => {
+      if (payload.symbol !== latestSymbolRef.current) {
+        return;
+      }
+      webRef.current?.sendMessageViaInjectedScript({
+        type: 'SYMBOL_CHANGE',
+        payload: {
+          symbol: payload.symbol,
+          displayPair,
+          displayCoin,
+          force: true,
+        },
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PerpsTvPriceScaleRefreshed, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpsTvPriceScaleRefreshed, handler);
+    };
+  }, [displayCoin, displayPair]);
+  const prevSymbolRef = useRef(symbol);
+  useEffect(() => {
+    if (prevSymbolRef.current !== symbol) {
+      closeChartOrderDialog();
+      prevSymbolRef.current = symbol;
+    }
+  }, [closeChartOrderDialog, symbol]);
 
   const { handleNavigation } = useNavigationHandler();
 
@@ -359,6 +424,7 @@ export function TradingViewPerpsV2(
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
+    theme,
   });
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
@@ -460,12 +526,14 @@ export function TradingViewPerpsV2(
   }, [restoreNonce]);
 
   const onChartLinesReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
   const onChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     setChartContentReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
@@ -503,8 +571,11 @@ export function TradingViewPerpsV2(
       // Fire-and-forget handler: self-own errors to avoid unhandled rejections.
       try {
         if (payload.intent === 'limitEntry') {
-          const isCurrentSymbolIntent = payload.symbol === symbol;
-          showLimitOrderDialog({
+          const isCurrentSymbolIntent =
+            payload.symbol === latestSymbolRef.current;
+          if (!isCurrentSymbolIntent) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showLimitOrderDialog({
             symbol: payload.symbol,
             price: payload.price,
             displayPair: isCurrentSymbolIntent ? displayPair : undefined,
@@ -519,7 +590,9 @@ export function TradingViewPerpsV2(
               coin: payload.symbol,
             });
           if (!meta) return;
-          showSetTpslDialog({
+          if (payload.symbol !== latestSymbolRef.current) return;
+          closeChartOrderDialog();
+          chartOrderDialogRef.current = showSetTpslDialog({
             coin: payload.symbol,
             szDecimals: meta.universe?.szDecimals ?? 0,
             assetId: meta.assetId,
@@ -532,7 +605,13 @@ export function TradingViewPerpsV2(
         console.error('[TradingViewPerpsV2] onChartOrderIntent failed:', error);
       }
     },
-    [displayCoin, displayPair, enablePerpsTradingUi, intl, symbol],
+    [
+      closeChartOrderDialog,
+      displayCoin,
+      displayPair,
+      enablePerpsTradingUi,
+      intl,
+    ],
   );
 
   const onOrderPriceUpdate = useCallback(
@@ -607,6 +686,15 @@ export function TradingViewPerpsV2(
     webRef.current = ref;
   }, []);
 
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
+
+  const handleLoadEnd = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+    onLoadEndRef.current?.();
+  }, []);
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
@@ -622,8 +710,9 @@ export function TradingViewPerpsV2(
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={customReceiveHandler}
+        skipBackgroundBridge
         onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
+        onLoadEnd={handleLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid

@@ -1,3 +1,4 @@
+import { ethers } from 'ethers';
 import { uniq } from 'lodash';
 import natsort from 'natsort';
 
@@ -6,12 +7,14 @@ import {
   decryptRevealableSeedWithMetadata,
   decryptVerifyStringWithMetadata,
   encodePasswordAsync,
+  encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
   getSecretEncryptV2LocalTargetIterations,
   readSecretEncryptPayloadMetadata,
 } from '@onekeyhq/core/src/secret';
+import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import { PBKDF2_LEGACY_NUM_OF_ITERATIONS } from '@onekeyhq/shared/src/appCrypto/consts';
 import {
   aesGcmDecrypt,
@@ -27,6 +30,7 @@ import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -38,13 +42,19 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import {
+  HyperLiquidAgentSecretSession,
+  hyperLiquidAgentSecretSession,
+} from '../dbs/local/hyperLiquidAgentSecret';
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import {
+  LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
   buildLocalSecretEnvelopeLayerAdapterResolver,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   classifyLocalSecretEnvelopeMigrationCandidate,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
+  deleteMmkvProfileKeyForLocalSecretEnvelope,
   detectLocalSecretEnvelopeRuntimePlatform,
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   isLocalSecretEnvelopeString,
@@ -52,6 +62,7 @@ import {
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
+  shouldDeferHyperLiquidPlaintextLseMigration,
   stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
@@ -69,6 +80,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 import { buildLegacyCredentialsForCloudBackup } from './ServiceCloudBackup/credentialUtils';
+import { WalletHyperliquidProxy } from './ServiceHyperLiquid/ServiceHyperliquidWallet';
 import { normalizePrimeTransferCredential } from './ServicePrimeTransfer/servicePrimeTransferUtils';
 
 import type {
@@ -149,6 +161,8 @@ const LOCAL_SECRET_ENVELOPE_E2E_PASSWORD = 'onekey-lse-e2e-password';
 const LOCAL_SECRET_ENVELOPE_E2E_CREDENTIAL_ID_PREFIX = 'hd-lse-e2e-credential';
 const LOCAL_SECRET_ENVELOPE_E2E_RESTORE_CREDENTIAL_ID_PREFIX =
   'imported-lse-restore-e2e-credential';
+const HYPERLIQUID_AGENT_MIGRATION_E2E_USER_ADDRESS =
+  '0x0000000000000000000000000000000000000e2e';
 
 function assertLocalSecretEnvelopeE2E(
   condition: boolean,
@@ -198,6 +212,39 @@ function getLocalSecretEnvelopeE2EErrorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function hyperLiquidAgentCredentialsEqual(
+  left: ICoreHyperLiquidAgentCredential | undefined,
+  right: ICoreHyperLiquidAgentCredential,
+): boolean {
+  return Boolean(
+    left &&
+    left.agentAddress === right.agentAddress &&
+    left.agentName === right.agentName &&
+    left.privateKey === right.privateKey &&
+    left.userAddress === right.userAddress &&
+    left.validUntil === right.validUntil,
+  );
+}
+
+async function isHyperLiquidAgentSigningBlocked({
+  domain,
+  types,
+  value,
+  wallet,
+}: {
+  domain: Parameters<WalletHyperliquidProxy['signTypedData']>[0];
+  types: Parameters<WalletHyperliquidProxy['signTypedData']>[1];
+  value: Parameters<WalletHyperliquidProxy['signTypedData']>[2];
+  wallet: WalletHyperliquidProxy;
+}): Promise<boolean> {
+  try {
+    await wallet.signTypedData(domain, types, value);
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 type ILocalSecretEnvelopeDiagnosticCategory =
@@ -370,9 +417,19 @@ async function describeLocalSecretEnvelopeRecordEncryption({
     recordId,
     rawValue,
   });
-  const migrationNote = candidate.canMigrate
-    ? 'migratable=yes (will wrap on next unlock)'
-    : `migratable=no (${candidate.reason})`;
+  const deferredToHyperLiquidPasswordMigration =
+    shouldDeferHyperLiquidPlaintextLseMigration({
+      candidate,
+      isNative: detectLocalSecretEnvelopeRuntimePlatform() === 'native',
+    });
+  let migrationNote: string;
+  if (deferredToHyperLiquidPasswordMigration) {
+    migrationNote = 'migratable=deferred (HLP must become HLE before LSE)';
+  } else if (candidate.canMigrate) {
+    migrationNote = 'migratable=yes (will wrap on next unlock)';
+  } else {
+    migrationNote = `migratable=no (${candidate.reason})`;
+  }
 
   // Read the inner container's plaintext header only.
   const meta = readSecretEncryptPayloadMetadata({
@@ -502,6 +559,10 @@ async function removeLocalSecretEnvelopeLayerKey({
     await deleteIndexedDbCryptoKeyForLocalSecretEnvelope({
       keyRef,
     });
+    return;
+  }
+  if (kind === 'mmkv-profile-key') {
+    await deleteMmkvProfileKeyForLocalSecretEnvelope({ keyRef });
     return;
   }
   if (kind === 'secure-storage') {
@@ -758,14 +819,18 @@ class ServiceE2E extends ServiceBase {
       [];
     const supportedLayers = [...layersByKey.values()].filter(
       (layer) =>
-        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage',
+        layer.kind === 'indexeddb-cryptokey' ||
+        layer.kind === 'mmkv-profile-key' ||
+        layer.kind === 'secure-storage',
     );
     const hasSecureStorageLayer = supportedLayers.some(
       (layer) => layer.kind === 'secure-storage',
     );
     for (const layer of layersByKey.values()) {
       const isSupportedLayer =
-        layer.kind === 'indexeddb-cryptokey' || layer.kind === 'secure-storage';
+        layer.kind === 'indexeddb-cryptokey' ||
+        layer.kind === 'mmkv-profile-key' ||
+        layer.kind === 'secure-storage';
       if (!isSupportedLayer) {
         skippedUnsupportedLayers.push(layer);
       } else if (hasSecureStorageLayer && layer.kind !== 'secure-storage') {
@@ -1336,6 +1401,449 @@ class ServiceE2E extends ServiceBase {
         // Best-effort cleanup for E2E-only local records.
       }
     }
+  }
+
+  @backgroundMethodForDev()
+  async runHyperLiquidAgentMigrationSelfTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    options: ILocalSecretEnvelopeE2ESelfTestOptions = {},
+  ): Promise<ILocalSecretEnvelopeE2ETestReport> {
+    checkDevOnlyPassword(params);
+    const reporter = createLocalSecretEnvelopeE2EReporter();
+    const testName = 'HyperLiquid Agent Migration Self-Test';
+    let runtimePlatform = detectLocalSecretEnvelopeRuntimePlatform();
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      userAddress: HYPERLIQUID_AGENT_MIGRATION_E2E_USER_ADDRESS,
+    });
+    let recordInserted = false;
+    let sessionInitialized = false;
+    const summary: Record<string, unknown> = {
+      credentialLayerKinds: [],
+      credentialStrength: 'unavailable',
+      expectedInnerPrefix: '',
+      legacySourceStored: false,
+      lockedSigningBlocked: false,
+      migratedInnerPrefix: '',
+      privateKeyAbsentFromEnvelope: false,
+      rawCredentialIsLse: false,
+      readBackMatches: false,
+      restoredSessionDecrypts: false,
+      sessionRestored: false,
+      signatureVerified: false,
+      signingAfterUnlockAgainVerified: false,
+      wrongPasswordSigningBlocked: false,
+    };
+    const toReport = () =>
+      reporter.toReport({ runtimePlatform, summary, testName });
+
+    try {
+      const existingCredentials =
+        await localDb.getAllHyperLiquidAgentCredentials();
+      const staleTestCredential = existingCredentials.find(
+        (credential) => credential.id === credentialId,
+      );
+      if (staleTestCredential) {
+        await localDb.removeCredentials({
+          credentials: [staleTestCredential],
+        });
+      }
+      const nonTestCredentialCount = existingCredentials.filter(
+        (credential) => credential.id !== credentialId,
+      ).length;
+      if (
+        !reporter.check(
+          'Safety',
+          'No existing HyperLiquid Agent credentials',
+          nonTestCredentialCount === 0,
+          nonTestCredentialCount === 0
+            ? undefined
+            : 'Refusing to run against a profile containing Agent credentials',
+        )
+      ) {
+        return toReport();
+      }
+
+      localSecretEnvelopeService.clearCredentialMigrationConfigCache();
+      const config =
+        await localDb.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      if (!config) {
+        reporter.fail(
+          'Config',
+          'LSE credential config is available',
+          'config is unavailable',
+        );
+        return toReport();
+      }
+      reporter.pass('Config', 'LSE credential config is available');
+      runtimePlatform = config.runtimePlatform ?? runtimePlatform;
+
+      let defaultExpectedLayerKinds: ILocalSecretEnvelopeLayerKind[] = [
+        'indexeddb-cryptokey',
+      ];
+      if (runtimePlatform === 'native') {
+        defaultExpectedLayerKinds = ['mmkv-profile-key', 'secure-storage'];
+      } else if (runtimePlatform === 'desktop') {
+        defaultExpectedLayerKinds = ['indexeddb-cryptokey', 'secure-storage'];
+      }
+      const expectedLayerKinds =
+        options.expectedCredentialLayerKinds ?? defaultExpectedLayerKinds;
+      const expectedStrength =
+        options.expectedStrength ??
+        (runtimePlatform === 'native' || runtimePlatform === 'desktop'
+          ? 'secure-storage-bound'
+          : 'profile-bound');
+      const configuredLayerKinds = config.layerAdapters.map(
+        (adapter) => adapter.kind,
+      );
+      const runtimeMatches = reporter.check(
+        'Config',
+        'Runtime platform matches expected',
+        !options.expectedRuntimePlatform ||
+          runtimePlatform === options.expectedRuntimePlatform,
+        options.expectedRuntimePlatform
+          ? `expected ${options.expectedRuntimePlatform}, got ${runtimePlatform}`
+          : `detected ${runtimePlatform}`,
+      );
+      const layersMatch = reporter.check(
+        'Config',
+        'Configured layers match expected',
+        localSecretEnvelopeLayerKindsEqual(
+          configuredLayerKinds,
+          expectedLayerKinds,
+        ),
+        `expected ${expectedLayerKinds.join(',')}, got ${configuredLayerKinds.join(
+          ',',
+        )}`,
+      );
+      const strengthMatches = reporter.check(
+        'Config',
+        'Config strength matches expected',
+        config.strength === expectedStrength,
+        `expected ${expectedStrength}, got ${config.strength}`,
+      );
+      if (!runtimeMatches || !layersMatch || !strengthMatches) {
+        return toReport();
+      }
+
+      const ephemeralAgentWallet = ethers.Wallet.createRandom();
+      const credential: ICoreHyperLiquidAgentCredential = {
+        agentAddress: ephemeralAgentWallet.address,
+        agentName: EHyperLiquidAgentName.OneKeyAgent1,
+        privateKey: ephemeralAgentWallet.privateKey,
+        userAddress: HYPERLIQUID_AGENT_MIGRATION_E2E_USER_ADDRESS,
+        validUntil: Date.now() + 60_000,
+      };
+      const legacyCredential = encryptHyperLiquidAgentCredential({
+        credential,
+      });
+      await localDb.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          await localDb.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [
+              {
+                credential: legacyCredential,
+                id: credentialId,
+              } satisfies IDBCredentialBase,
+            ],
+          });
+        },
+      );
+      recordInserted = true;
+      const seededCredential = await localDb.getCredentialRaw(credentialId);
+      const legacySourceStored =
+        !isLocalSecretEnvelopeString(seededCredential.credential) &&
+        seededCredential.credential.startsWith(
+          LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,
+        );
+      summary.legacySourceStored = legacySourceStored;
+      reporter.check(
+        'Legacy source',
+        'Stored as legacy HLP before migration',
+        legacySourceStored,
+      );
+
+      if (runtimePlatform === 'native') {
+        const migratedCredential = await localDb.getHyperLiquidAgentCredential({
+          agentName: credential.agentName,
+          userAddress: credential.userAddress,
+        });
+        reporter.check(
+          'Migration',
+          'Native legacy read returns the Agent credential',
+          hyperLiquidAgentCredentialsEqual(migratedCredential, credential),
+        );
+      } else {
+        const password = await encodePasswordAsync({
+          password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
+        });
+        await localDb.unlockHyperLiquidAgentSecretSession({
+          password,
+          replaceSessionKey: true,
+        });
+        sessionInitialized = true;
+        reporter.pass(
+          'Migration',
+          'Unlock migrated the legacy Agent credential',
+        );
+      }
+
+      const storedCredential = await localDb.getCredentialRaw(credentialId);
+      const rawCredentialIsLse = isLocalSecretEnvelopeString(
+        storedCredential.credential,
+      );
+      summary.rawCredentialIsLse = rawCredentialIsLse;
+      if (
+        !reporter.check(
+          'Stored envelope',
+          'Migrated credential is LSE wrapped',
+          rawCredentialIsLse,
+        )
+      ) {
+        return toReport();
+      }
+
+      const envelope = parseLocalSecretEnvelopeV1(storedCredential.credential);
+      const expectedInnerPrefix =
+        runtimePlatform === 'native'
+          ? LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential
+          : LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
+      const credentialLayerKinds = getLocalSecretEnvelopeLayerKinds(envelope);
+      const privateKeyAbsentFromEnvelope =
+        !storedCredential.credential.includes(credential.privateKey);
+      summary.credentialLayerKinds = credentialLayerKinds;
+      summary.credentialStrength = envelope.strength;
+      summary.expectedInnerPrefix = expectedInnerPrefix;
+      summary.migratedInnerPrefix = envelope.innerPrefix ?? '';
+      summary.privateKeyAbsentFromEnvelope = privateKeyAbsentFromEnvelope;
+      reporter.check(
+        'Stored envelope',
+        'Inner format matches the platform contract',
+        envelope.innerPrefix === expectedInnerPrefix,
+        `expected ${expectedInnerPrefix}, got ${envelope.innerPrefix ?? '(none)'}`,
+      );
+      reporter.check(
+        'Stored envelope',
+        'Envelope layers match expected',
+        localSecretEnvelopeLayerKindsEqual(
+          credentialLayerKinds,
+          expectedLayerKinds,
+        ),
+        `expected ${expectedLayerKinds.join(',')}, got ${credentialLayerKinds.join(
+          ',',
+        )}`,
+      );
+      reporter.check(
+        'Stored envelope',
+        'Envelope strength matches expected',
+        envelope.strength === expectedStrength,
+        `expected ${expectedStrength}, got ${envelope.strength}`,
+      );
+      reporter.check(
+        'Stored envelope',
+        'Envelope is bound to the Agent record',
+        envelope.recordId === credentialId,
+      );
+      reporter.check(
+        'Stored envelope',
+        'Serialized envelope does not contain the private key',
+        privateKeyAbsentFromEnvelope,
+      );
+
+      const readBackCredential = await localDb.getHyperLiquidAgentCredential({
+        agentName: credential.agentName,
+        userAddress: credential.userAddress,
+      });
+      const readBackMatches = hyperLiquidAgentCredentialsEqual(
+        readBackCredential,
+        credential,
+      );
+      summary.readBackMatches = readBackMatches;
+      reporter.check(
+        'Read path',
+        'Migrated credential reads back unchanged',
+        readBackMatches,
+      );
+
+      const domain = {
+        chainId: 1,
+        name: 'HyperLiquid',
+        verifyingContract: ethers.constants.AddressZero,
+        version: '1',
+      };
+      const types = {
+        MigrationProof: [{ name: 'nonce', type: 'uint256' }],
+      };
+      const value = { nonce: 1 };
+      const proxyWallet = new WalletHyperliquidProxy({
+        agentAddress: credential.agentAddress,
+        agentName: credential.agentName,
+        userAddress: credential.userAddress,
+      });
+      const signature = await proxyWallet.signTypedData(domain, types, value);
+      const recoveredAddress = ethers.utils.verifyTypedData(
+        domain,
+        types,
+        value,
+        signature,
+      );
+      const signatureVerified =
+        recoveredAddress.toLowerCase() ===
+        credential.agentAddress.toLowerCase();
+      summary.signatureVerified = signatureVerified;
+      reporter.check(
+        'Signing',
+        'Offline typed-data signature recovers the Agent address',
+        signatureVerified,
+      );
+
+      if (runtimePlatform === 'native') {
+        reporter.skip(
+          'Session',
+          'Password-session checks',
+          'Native uses the device-bound LSE chain; restart is covered by the native harness',
+        );
+      } else {
+        const supportsSessionRestore =
+          runtimePlatform === 'desktop' || runtimePlatform === 'extension';
+        if (supportsSessionRestore) {
+          await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
+        }
+        const reloadedSession = new HyperLiquidAgentSecretSession();
+        const restoreResult = await reloadedSession.restorePersistedSession();
+        summary.sessionRestored = restoreResult.restored;
+        reporter.check(
+          'Restart',
+          supportsSessionRestore
+            ? 'Unlocked session restores after runtime reload'
+            : 'Web does not persist the Agent password session',
+          supportsSessionRestore
+            ? restoreResult.restored && restoreResult.unlocked
+            : !restoreResult.restored && !restoreResult.unlocked,
+        );
+        if (supportsSessionRestore) {
+          const innerCredential = await localDb.getCredentialInner({
+            credentialId,
+          });
+          const restoredCredential = await reloadedSession.decryptCredential({
+            credential: innerCredential.credential,
+            recordId: credentialId,
+          });
+          const restoredSessionDecrypts = hyperLiquidAgentCredentialsEqual(
+            restoredCredential,
+            credential,
+          );
+          summary.restoredSessionDecrypts = restoredSessionDecrypts;
+          reporter.check(
+            'Restart',
+            'Restored session decrypts the migrated Agent credential',
+            restoredSessionDecrypts,
+          );
+        } else {
+          reporter.skip(
+            'Restart',
+            'Restored session decrypts the migrated Agent credential',
+            'not applicable on web',
+          );
+        }
+
+        await localDb.clearHyperLiquidAgentSecretSession();
+        sessionInitialized = false;
+        const lockedSigningBlocked = await isHyperLiquidAgentSigningBlocked({
+          domain,
+          types,
+          value,
+          wallet: proxyWallet,
+        });
+        summary.lockedSigningBlocked = lockedSigningBlocked;
+        reporter.check(
+          'Lock',
+          'Signing is blocked after the Agent session is cleared',
+          lockedSigningBlocked,
+        );
+
+        const wrongPassword = await encodePasswordAsync({
+          password: `${LOCAL_SECRET_ENVELOPE_E2E_PASSWORD}-wrong`,
+        });
+        await localDb.unlockHyperLiquidAgentSecretSession({
+          migrateCredentials: false,
+          password: wrongPassword,
+          replaceSessionKey: true,
+        });
+        sessionInitialized = true;
+        const wrongPasswordSigningBlocked =
+          await isHyperLiquidAgentSigningBlocked({
+            domain,
+            types,
+            value,
+            wallet: proxyWallet,
+          });
+        summary.wrongPasswordSigningBlocked = wrongPasswordSigningBlocked;
+        reporter.check(
+          'Wrong password',
+          'Signing is blocked with a different derived session key',
+          wrongPasswordSigningBlocked,
+        );
+
+        await localDb.clearHyperLiquidAgentSecretSession();
+        sessionInitialized = false;
+        const password = await encodePasswordAsync({
+          password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
+        });
+        await localDb.unlockHyperLiquidAgentSecretSession({
+          migrateCredentials: false,
+          password,
+          replaceSessionKey: true,
+        });
+        sessionInitialized = true;
+        const signatureAfterUnlockAgain = await proxyWallet.signTypedData(
+          domain,
+          types,
+          value,
+        );
+        const recoveredAfterUnlockAgain = ethers.utils.verifyTypedData(
+          domain,
+          types,
+          value,
+          signatureAfterUnlockAgain,
+        );
+        const signingAfterUnlockAgainVerified =
+          recoveredAfterUnlockAgain.toLowerCase() ===
+          credential.agentAddress.toLowerCase();
+        summary.signingAfterUnlockAgainVerified =
+          signingAfterUnlockAgainVerified;
+        reporter.check(
+          'Re-unlock',
+          'Signing succeeds again after the correct re-unlock',
+          signingAfterUnlockAgainVerified,
+        );
+      }
+    } catch (error) {
+      reporter.fail(
+        'Execution',
+        'Complete HyperLiquid Agent migration flow',
+        error instanceof Error ? error.name : 'Unknown error',
+      );
+    } finally {
+      if (sessionInitialized || hyperLiquidAgentSecretSession.isReady()) {
+        await localDb
+          .clearHyperLiquidAgentSecretSession()
+          .catch(() => undefined);
+      }
+      if (recordInserted) {
+        const storedCredential = await localDb.getCredentialSafe(credentialId);
+        if (storedCredential) {
+          await localDb
+            .removeCredentials({ credentials: [storedCredential] })
+            .catch(() => undefined);
+        }
+      }
+    }
+
+    return toReport();
   }
 
   @backgroundMethodForDev()

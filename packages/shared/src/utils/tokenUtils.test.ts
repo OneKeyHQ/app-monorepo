@@ -4,16 +4,51 @@ yarn test packages/shared/src/utils/tokenUtils.test.ts
 import { ENetworkStatus, type IServerNetwork } from '../../types';
 
 import {
+  buildSelectorTokenListFromResponses,
   buildTokenSearchKeywordQueries,
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  checkWrappedTokenPair,
   flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
   nestAggregateTokensMap,
 } from './tokenUtils';
 
-import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type {
+  IAccountToken,
+  IAggregateToken,
+  IFetchAccountTokensResp,
+  ITokenFiat,
+} from '../../types/token';
+
+describe('checkWrappedTokenPair', () => {
+  const wrappedNativeToken = {
+    networkId: 'evm--4663',
+    contractAddress: '',
+    isNative: true,
+  };
+  const wrappedContractToken = {
+    networkId: 'evm--4663',
+    contractAddress: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    isNative: false,
+  };
+
+  test('recognizes Robinhood ETH and WETH in both directions', () => {
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedNativeToken,
+        toToken: wrappedContractToken,
+      }),
+    ).toBe(true);
+    expect(
+      checkWrappedTokenPair({
+        fromToken: wrappedContractToken,
+        toToken: wrappedNativeToken,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('buildTokenSearchKeywordQueries', () => {
   test('adds ether fallback for multi-word eth network searches', () => {
@@ -134,6 +169,295 @@ describe('getFilteredTokenBySearchKey — aggregate token network search', () =>
         enableNetworkSearch: true,
       }),
     ).toEqual([ethereumUsdc]);
+  });
+
+  // Symbol/chain-name collision (ETH ≈ Ethereum, same for SOL/TRX/BNB/POL):
+  // a single keyword hitting a sub's token fields AND its network at once is
+  // NOT an explicit network qualifier — the aggregate row must stay grouped.
+  const aggregateEth = buildTestToken({
+    $key: 'aggregate_ETH_',
+    address: 'aggregate_ETH_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'ETH',
+    name: 'Ethereum',
+    commonSymbol: 'ETH',
+  });
+  const ethereumEth = buildTestToken({
+    $key: 'eth-native',
+    address: '',
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  const baseEth = buildTestToken({
+    $key: 'base-native',
+    address: '',
+    networkId: 'evm--8453',
+    symbol: 'ETH',
+    name: 'Ethereum',
+    isNative: true,
+  });
+  const ethAggregateTokenListMap = {
+    [aggregateEth.$key]: {
+      tokens: [ethereumEth, baseEth],
+    },
+  };
+
+  test('keeps the aggregate grouped when a single keyword hits both the symbol and a chain name', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth',
+        aggregateTokenListMap: ethAggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateEth]);
+  });
+
+  test('still ungroups on an explicit network qualifier beyond the symbol match', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth base',
+        aggregateTokenListMap: ethAggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([baseEth]);
+  });
+});
+
+describe('getFilteredTokenBySearchKey — separators, aliases, address fallback, sort', () => {
+  const aggregateUsdt = buildTestToken({
+    $key: 'aggregate_USDT_',
+    address: 'aggregate_USDT_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'USDT',
+    name: 'Tether USD',
+    commonSymbol: 'USDT',
+  });
+  const ethereumUsdt = buildTestToken({
+    $key: 'eth-usdt',
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    networkId: 'evm--1',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const tronUsdt = buildTestToken({
+    $key: 'tron-usdt',
+    address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    networkId: 'tron--0x2b6653dc',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  // NEAR-style contract address: contains '-' but no whitespace, so the
+  // tokenizer would split it into several AND-ed words without the fallback.
+  const nearUsdt = buildTestToken({
+    $key: 'near-usdt',
+    address: 'usdt.tether-token.near',
+    networkId: 'near--0',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const aggregateTokenListMap = {
+    [aggregateUsdt.$key]: {
+      tokens: [ethereumUsdt, tronUsdt, nearUsdt],
+    },
+  };
+  // The Tron id must be the real preset id — network aliases are keyed by
+  // getNetworkIdsMap() values.
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'tron--0x2b6653dc': buildTestNetwork({
+      id: 'tron--0x2b6653dc',
+      name: 'Tron',
+      code: 'trx',
+      shortname: 'TRX',
+    }),
+    'near--0': buildTestNetwork({
+      id: 'near--0',
+      name: 'Near',
+      code: 'near',
+      shortname: 'NEAR',
+    }),
+  };
+
+  test.each(['usdt trc20', 'usdt-trc20', 'USDT-Trc20', 'usdt波场', 'usdt trx'])(
+    'splits out the Tron sub row for %s',
+    (searchKey) => {
+      expect(
+        getFilteredTokenBySearchKey({
+          tokens: [aggregateUsdt],
+          searchKey,
+          aggregateTokenListMap,
+          networksMap,
+          enableNetworkSearch: true,
+        }),
+      ).toEqual([tronUsdt]);
+    },
+  );
+
+  test('separator-containing address still matches as a full string (aggregate sub)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt.tether-token.near',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateUsdt]);
+  });
+
+  test('separator-containing address still matches as a full string (plain token)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [nearUsdt],
+        searchKey: 'usdt.tether-token.near',
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: symbol search outputs every sub row, no aggregate row', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumUsdt, tronUsdt, nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: owned sub floats to top, unowned keep server config order', () => {
+    const tokenFiatMap = {
+      [tronUsdt.$key]: { fiatValue: '5' } as ITokenFiat,
+    };
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+        tokenFiatMap,
+      }),
+    ).toEqual([tronUsdt, ethereumUsdt, nearUsdt]);
+  });
+
+  test('flattenAggregateTokens: symbol/chain-name collision ("eth") also flattens', () => {
+    const aggregateEth = buildTestToken({
+      $key: 'aggregate_ETH_',
+      address: 'aggregate_ETH_',
+      networkId: 'aggregate',
+      isAggregateToken: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      commonSymbol: 'ETH',
+    });
+    const ethereumEth = buildTestToken({
+      $key: 'eth-native',
+      address: '',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+      name: 'Ethereum',
+      isNative: true,
+    });
+    const baseEth = buildTestToken({
+      $key: 'base-native',
+      address: '',
+      networkId: 'evm--8453',
+      symbol: 'ETH',
+      name: 'Ethereum',
+      isNative: true,
+    });
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateEth],
+        searchKey: 'eth',
+        aggregateTokenListMap: {
+          [aggregateEth.$key]: { tokens: [ethereumEth, baseEth] },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumEth, baseEth]);
+  });
+
+  test('flattenAggregateTokens: aggregate row survives via self-field match when config is missing', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt',
+        aggregateTokenListMap: {},
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([aggregateUsdt]);
+  });
+
+  test('flattenAggregateTokens: sub shared by two aggregate configs dedupes by $key', () => {
+    const secondAggregate = buildTestToken({
+      $key: 'aggregate_USDT2_',
+      address: 'aggregate_USDT2_',
+      networkId: 'aggregate',
+      isAggregateToken: true,
+      symbol: 'USDT',
+      name: 'Tether USD',
+      commonSymbol: 'USDT',
+    });
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt, secondAggregate],
+        searchKey: 'usdt',
+        aggregateTokenListMap: {
+          [aggregateUsdt.$key]: { tokens: [ethereumUsdt, tronUsdt] },
+          [secondAggregate.$key]: { tokens: [tronUsdt, nearUsdt] },
+        },
+        networksMap,
+        enableNetworkSearch: true,
+        flattenAggregateTokens: true,
+      }),
+    ).toEqual([ethereumUsdt, tronUsdt, nearUsdt]);
+  });
+
+  test('exact symbol hits sort before includes hits at equal strength, ahead of fiat', () => {
+    const ethAusdt = buildTestToken({
+      $key: 'eth-ausdt',
+      address: '0x3ed3b47dd13ec9a98b44e6204a523e766b225811',
+      networkId: 'evm--1',
+      symbol: 'aUSDT',
+      name: 'Aave interest bearing USDT',
+    });
+    const tokenFiatMap = {
+      [ethAusdt.$key]: { fiatValue: '1000' } as ITokenFiat,
+      [ethereumUsdt.$key]: { fiatValue: '1' } as ITokenFiat,
+    };
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [ethAusdt, ethereumUsdt],
+        searchKey: 'usdt',
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap,
+      }),
+    ).toEqual([ethereumUsdt, ethAusdt]);
   });
 });
 
@@ -513,5 +837,541 @@ describe('nest+flatten aggregateTokenMap — token selector seam (PR-6)', () => 
         }),
       ),
     ).toEqual({});
+  });
+
+  it('scaled-UI (rebase) members: multiplies each member by its OWN balanceMultiplier before summing balanceParsed, raw balance stays unmultiplied, and the flattened entry carries NO balanceMultiplier', () => {
+    const flattened = flattenAggregateTokensMap({
+      'eth-agg': {
+        'evm--1': {
+          balance: '4',
+          balanceParsed: '4',
+          fiatValue: '0',
+          price: 0,
+          balanceMultiplier: '1.1',
+        },
+        'sol--101': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '0',
+          price: 0,
+        },
+      },
+    });
+
+    // 4 * 1.1 + 1 = 5.4 (display basis)
+    expect(flattened['eth-agg'].balanceParsed).toBe('5.4');
+    // raw balance is summed as-is (not multiplied)
+    expect(flattened['eth-agg'].balance).toBe('5');
+    // the flattened entry is display-basis already; it must NOT carry a
+    // multiplier, otherwise a display selector would multiply it again
+    expect(flattened['eth-agg'].balanceMultiplier).toBeUndefined();
+  });
+});
+
+describe('buildSelectorTokenListFromResponses — token selector self-fetch merge', () => {
+  const buildFiat = (fiatValue: string, balanceParsed = '1'): ITokenFiat => ({
+    balance: balanceParsed,
+    balanceParsed,
+    fiatValue,
+    price: 1,
+    price24h: 0,
+    currency: 'usd',
+  });
+
+  const buildResp = ({
+    networkId,
+    tokens,
+    smallBalanceTokens = [],
+    tokensMap = {},
+    smallBalanceTokensMap = {},
+    aggregateTokenMap,
+  }: {
+    networkId?: string;
+    tokens: IAccountToken[];
+    smallBalanceTokens?: IAccountToken[];
+    tokensMap?: Record<string, ITokenFiat>;
+    smallBalanceTokensMap?: Record<string, ITokenFiat>;
+    aggregateTokenMap?: Record<string, ITokenFiat>;
+  }): IFetchAccountTokensResp => ({
+    networkId,
+    tokens: { data: tokens, keys: '', map: tokensMap },
+    smallBalanceTokens: {
+      data: smallBalanceTokens,
+      keys: '',
+      map: smallBalanceTokensMap,
+    },
+    riskTokens: { data: [], keys: '', map: {} },
+    aggregateTokenMap,
+  });
+
+  it('single response reproduces the legacy single-network selector shape', () => {
+    const eth = buildTestToken({ $key: 'evm--1_0xeth', networkId: 'evm--1' });
+    const dust = buildTestToken({ $key: 'evm--1_0xdust', networkId: 'evm--1' });
+    const r = buildResp({
+      networkId: 'evm--1',
+      tokens: [eth],
+      smallBalanceTokens: [dust],
+      tokensMap: { 'evm--1_0xeth': buildFiat('3000') },
+      smallBalanceTokensMap: { 'evm--1_0xdust': buildFiat('0.01') },
+      aggregateTokenMap: { 'eth-agg': buildFiat('3000') },
+    });
+
+    const merged = buildSelectorTokenListFromResponses({ responses: [r] });
+
+    expect(merged.tokens).toEqual([eth]);
+    expect(merged.smallBalanceTokens).toEqual([dust]);
+    expect(merged.tokenListMap).toEqual({
+      'evm--1_0xeth': buildFiat('3000'),
+      'evm--1_0xdust': buildFiat('0.01'),
+    });
+    expect(merged.aggregateTokenFiatMap['eth-agg'].fiatValue).toBe('3000');
+  });
+
+  it('multi-network responses concat sub-tokens and dedupe aggregate rows by $key', () => {
+    const usdtAggEth = buildTestToken({
+      $key: 'usdt-agg',
+      symbol: 'USDT',
+      isAggregateToken: true,
+    });
+    const usdtAggTron = buildTestToken({
+      $key: 'usdt-agg',
+      symbol: 'USDT',
+      isAggregateToken: true,
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+    const trxNative = buildTestToken({
+      $key: 'tron--0x2b6653dc_native',
+      networkId: 'tron--0x2b6653dc',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, usdtAggEth],
+          tokensMap: { 'evm--1_native': buildFiat('3000') },
+          aggregateTokenMap: { 'usdt-agg': buildFiat('100') },
+        }),
+        buildResp({
+          networkId: 'tron--0x2b6653dc',
+          tokens: [trxNative, usdtAggTron],
+          tokensMap: { 'tron--0x2b6653dc_native': buildFiat('5000') },
+          aggregateTokenMap: { 'usdt-agg': buildFiat('25') },
+        }),
+      ],
+    });
+
+    // The aggregate common row appears ONCE (first response wins); per-network
+    // sub-token rows all survive.
+    expect(merged.tokens.filter((t) => t.$key === 'usdt-agg')).toHaveLength(1);
+    // Multi-network merge re-sorts by fiat value (network-grouped concat order
+    // would be eth, usdt-agg, trx); the aggregate row sorts by its SUMMED fiat
+    // (100 + 25 = 125).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'tron--0x2b6653dc_native',
+      'evm--1_native',
+      'usdt-agg',
+    ]);
+    // Sub-token fiat maps union across networks.
+    expect(Object.keys(merged.tokenListMap).toSorted()).toEqual([
+      'evm--1_native',
+      'tron--0x2b6653dc_native',
+    ]);
+    // Aggregate fiat sums across the per-network flat maps (home
+    // `flattenAggregateTokensMapAtom` semantics).
+    expect(merged.aggregateTokenFiatMap['usdt-agg'].fiatValue).toBe('125');
+    expect(merged.aggregateTokenFiatMap['usdt-agg'].balanceParsed).toBe('2');
+  });
+
+  it('single response keeps the server-provided order verbatim (no re-sort)', () => {
+    const lowValueFirst = buildTestToken({
+      $key: 'evm--1_0xlow',
+      networkId: 'evm--1',
+    });
+    const highValueSecond = buildTestToken({
+      $key: 'evm--1_0xhigh',
+      networkId: 'evm--1',
+    });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [lowValueFirst, highValueSecond],
+          tokensMap: {
+            'evm--1_0xlow': buildFiat('1'),
+            'evm--1_0xhigh': buildFiat('9999'),
+          },
+        }),
+      ],
+    });
+
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'evm--1_0xlow',
+      'evm--1_0xhigh',
+    ]);
+  });
+
+  it('aggregate rows dedupe across tokens and smallBalanceTokens buckets', () => {
+    const agg = buildTestToken({ $key: 'usdc-agg', isAggregateToken: true });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({ networkId: 'evm--1', tokens: [agg] }),
+        buildResp({
+          networkId: 'evm--10',
+          tokens: [],
+          smallBalanceTokens: [agg],
+        }),
+      ],
+    });
+
+    expect(merged.tokens).toHaveLength(1);
+    expect(merged.smallBalanceTokens).toHaveLength(0);
+  });
+
+  it('multi-network merge globally sorts across the high/low buckets (home parity)', () => {
+    // Network A classifies a $5 asset as high-value; network B classifies a $50
+    // asset as a small balance. The selector renders `tokens` ++
+    // `smallBalanceTokens` verbatim, so a per-bucket sort would strand B's $50
+    // BELOW A's $5. Home (`buildMergedAllNetworkSnapshot`) merges both buckets,
+    // value-sorts once, then re-splits — the $50 must lead.
+    const aHigh = buildTestToken({ $key: 'evm--1_0xa', networkId: 'evm--1' });
+    const bSmall = buildTestToken({
+      $key: 'evm--56_0xb',
+      networkId: 'evm--56',
+    });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [aHigh],
+          tokensMap: { 'evm--1_0xa': buildFiat('5') },
+        }),
+        buildResp({
+          networkId: 'evm--56',
+          tokens: [],
+          smallBalanceTokens: [bSmall],
+          smallBalanceTokensMap: { 'evm--56_0xb': buildFiat('50') },
+        }),
+      ],
+    });
+
+    // Combined display = tokens ++ smallBalanceTokens; the $50 small-balance row
+    // now leads the $5 high-value row.
+    expect(
+      merged.tokens.concat(merged.smallBalanceTokens).map((t) => t.$key),
+    ).toEqual(['evm--56_0xb', 'evm--1_0xa']);
+  });
+
+  it('multi-network merge pushes zero-balance rows to the tail by order', () => {
+    // Two zero-value rows plus one priced row: the priced row leads, and the
+    // two zero rows fall to the tail ordered by their `order` field (home
+    // parity) rather than the network-grouped arrival order.
+    const priced = buildTestToken({ $key: 'evm--1_0xp', networkId: 'evm--1' });
+    const zeroLate = buildTestToken({
+      $key: 'evm--1_0xz2',
+      networkId: 'evm--1',
+      order: 2,
+    });
+    const zeroEarly = buildTestToken({
+      $key: 'evm--56_0xz1',
+      networkId: 'evm--56',
+      order: 1,
+    });
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [priced, zeroLate],
+          tokensMap: {
+            'evm--1_0xp': buildFiat('10'),
+            'evm--1_0xz2': buildFiat('0'),
+          },
+        }),
+        buildResp({
+          networkId: 'evm--56',
+          tokens: [zeroEarly],
+          tokensMap: { 'evm--56_0xz1': buildFiat('0') },
+        }),
+      ],
+    });
+
+    expect(
+      merged.tokens.concat(merged.smallBalanceTokens).map((t) => t.$key),
+    ).toEqual(['evm--1_0xp', 'evm--56_0xz1', 'evm--1_0xz2']);
+  });
+
+  it('all-networks raw member rows fold into ONE aggregate row via the config map', () => {
+    const buildAggregateConfig = (params: {
+      commonSymbol: string;
+      order?: number;
+    }) =>
+      ({
+        commonSymbol: params.commonSymbol,
+        order: params.order ?? 1,
+        name: params.commonSymbol,
+        logoURI: '',
+      }) as unknown as IAggregateToken;
+
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const tronUsdt = buildTestToken({
+      $key: 'tron_usdt_key',
+      address: 'TUsdtAddr',
+      networkId: 'tron--0x2b6653dc',
+      symbol: 'USDT',
+      accountId: 'acc-tron',
+      networkName: 'Tron',
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, ethUsdt],
+          tokensMap: {
+            'evm--1_native': buildFiat('10'),
+            'evm--1_usdt_key': buildFiat('100'),
+          },
+        }),
+        buildResp({
+          networkId: 'tron--0x2b6653dc',
+          tokens: [tronUsdt],
+          tokensMap: { tron_usdt_key: buildFiat('25') },
+        }),
+      ],
+      // Config keys are `${networkId}_${tokenAddress.toLowerCase()}`.
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': buildAggregateConfig({ commonSymbol: 'USDT' }),
+        'tron--0x2b6653dc_tusdtaddr': buildAggregateConfig({
+          commonSymbol: 'USDT',
+        }),
+      },
+    });
+
+    // Member rows fold out of the list into ONE common row, sorted by the
+    // SUMMED aggregate fiat (125 > 10).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_USDT_',
+      'evm--1_native',
+    ]);
+    const aggregateRow = merged.tokens.find(
+      (t) => t.$key === 'aggregate_USDT_',
+    );
+    expect(aggregateRow?.isAggregateToken).toBe(true);
+    // Sub-token member list accumulates across networks (drives the
+    // AggregateTokenSelector sub-page).
+    expect(
+      merged.aggregateTokenListMap.aggregate_USDT_.tokens.map((t) => t.$key),
+    ).toEqual(['evm--1_usdt_key', 'tron_usdt_key']);
+    // Aggregate fiat sums per-network member fiat; member fiat stays in the
+    // flat map for checkIsOnlyOneTokenHasBalance.
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('125');
+    expect(merged.tokenListMap['evm--1_usdt_key'].fiatValue).toBe('100');
+  });
+
+  it('single all-networks response still value-sorts client-folded aggregate rows', () => {
+    // All-networks mode with exactly ONE enabled network: the fan-out yields a
+    // single response, but folded aggregate common rows are appended after the
+    // loop — they must re-sort by summed fiat instead of sinking to the tail.
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative, ethUsdt],
+          tokensMap: {
+            'evm--1_native': buildFiat('10'),
+            'evm--1_usdt_key': buildFiat('100'),
+          },
+        }),
+      ],
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': {
+          commonSymbol: 'USDT',
+          order: 1,
+          name: 'USDT',
+          logoURI: '',
+        } as unknown as IAggregateToken,
+      },
+    });
+
+    // Without the re-sort the folded row would trail ethNative verbatim.
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'aggregate_USDT_',
+      'evm--1_native',
+    ]);
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('100');
+  });
+
+  it('single all-networks response globally re-splits a low-value folded aggregate across the high/low buckets', () => {
+    // Regression: a client-folded aggregate common row is appended to the HIGH
+    // bucket (`tokens`) after the loop regardless of its summed value. If the
+    // single-response path only value-sorts WITHIN each bucket, a low-value
+    // folded aggregate stays stranded in the high bucket ahead of a
+    // higher-value small-balance token — and TokenListView renders
+    // `tokens ++ smallBalanceTokens` as a plain concat, so it would show a
+    // cheaper aggregate above a pricier asset. The fold case must fall through
+    // to the global concat -> sort -> re-split (home's all-networks merge).
+    const ethUsdt = buildTestToken({
+      $key: 'evm--1_usdt_key',
+      address: '0xTetherAddr',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+      accountId: 'acc-eth',
+      networkName: 'Ethereum',
+    });
+    const ethDust = buildTestToken({
+      $key: 'evm--1_0xdust',
+      networkId: 'evm--1',
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'evm--1',
+          // Server split: the aggregate member sits in the HIGH bucket (fiat 5)
+          // while a plain token worth 50 sits in the small-balance bucket — the
+          // exact incoherence a client fold can leave behind.
+          tokens: [ethUsdt],
+          smallBalanceTokens: [ethDust],
+          tokensMap: { 'evm--1_usdt_key': buildFiat('5') },
+          smallBalanceTokensMap: { 'evm--1_0xdust': buildFiat('50') },
+        }),
+      ],
+      aggregateTokenConfigMapRawData: {
+        'evm--1_0xtetheraddr': {
+          commonSymbol: 'USDT',
+          order: 1,
+          name: 'USDT',
+          logoURI: '',
+        } as unknown as IAggregateToken,
+      },
+    });
+
+    // The RENDERED order (tokens ++ smallBalanceTokens) is globally fiat-desc:
+    // the 50-value plain token precedes the 5-value folded aggregate.
+    expect(
+      [...merged.tokens, ...merged.smallBalanceTokens].map((t) => t.$key),
+    ).toEqual(['evm--1_0xdust', 'aggregate_USDT_']);
+    expect(merged.aggregateTokenFiatMap.aggregate_USDT_.fiatValue).toBe('5');
+  });
+
+  it('same-network derive-account responses merge into one group row (BTC-like)', () => {
+    const taprootBtc = buildTestToken({
+      $key: 'acct-1_taproot_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+    const segwitBtc = buildTestToken({
+      $key: 'acct-1_segwit_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+    const ethNative = buildTestToken({
+      $key: 'evm--1_native',
+      networkId: 'evm--1',
+      isNative: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [taprootBtc],
+          tokensMap: { 'acct-1_taproot_btc--0': buildFiat('100') },
+        }),
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [segwitBtc],
+          tokensMap: { 'acct-1_segwit_btc--0': buildFiat('50') },
+        }),
+        buildResp({
+          networkId: 'evm--1',
+          tokens: [ethNative],
+          tokensMap: { 'evm--1_native': buildFiat('10') },
+        }),
+      ],
+    });
+
+    // Both derive slices collapse into ONE row keyed by the `first_last`
+    // group key; group fiat sums (150 > 10 so BTC sorts first).
+    expect(merged.tokens.map((t) => t.$key)).toEqual([
+      'acct-1_btc--0',
+      'evm--1_native',
+    ]);
+    expect(merged.tokenListMap['acct-1_btc--0'].fiatValue).toBe('150');
+  });
+
+  it('single-response mergeAssets rows still rewrite to the home group `$key`', () => {
+    // All-networks fan-out that yields exactly ONE response (one enabled
+    // merge-derive network with a single derive account): the derive `$key`
+    // rewrite must still run so the selector matches home. A count-based gate
+    // (`responses.length > 1`) would skip it and leave `acct-1_taproot_btc--0`
+    // instead of the grouped `acct-1_btc--0`.
+    const taprootBtc = buildTestToken({
+      $key: 'acct-1_taproot_btc--0',
+      networkId: 'btc--0',
+      symbol: 'BTC',
+      isNative: true,
+      mergeAssets: true,
+    });
+
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          networkId: 'btc--0',
+          tokens: [taprootBtc],
+          tokensMap: { 'acct-1_taproot_btc--0': buildFiat('100') },
+        }),
+      ],
+    });
+
+    expect(merged.tokens.map((t) => t.$key)).toEqual(['acct-1_btc--0']);
+    expect(merged.tokenListMap['acct-1_btc--0'].fiatValue).toBe('100');
+  });
+
+  it('responses without aggregateTokenMap or networkId yield an empty aggregate fiat map', () => {
+    const merged = buildSelectorTokenListFromResponses({
+      responses: [
+        buildResp({
+          tokens: [buildTestToken({ $key: 'evm--1_0xa', networkId: 'evm--1' })],
+        }),
+      ],
+    });
+
+    expect(merged.aggregateTokenFiatMap).toEqual({});
   });
 });

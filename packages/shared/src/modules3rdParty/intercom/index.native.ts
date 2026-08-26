@@ -1,6 +1,11 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
-import { buildIntercomUrl, getCustomerJWT, getInstanceId } from './utils';
+import {
+  buildIntercomUrl,
+  getCustomerJWT,
+  getInstanceId,
+  getIntercomLanguageOverride,
+} from './utils';
 
 export const initIntercom = async () => {
   console.log('initIntercom');
@@ -9,6 +14,7 @@ export const initIntercom = async () => {
 export const showIntercom = async (params?: { requestId?: string }) => {
   const token = await getCustomerJWT();
   const instanceId = await getInstanceId();
+  const languageOverride = await getIntercomLanguageOverride();
 
   const supportUrl = 'https://intercom.onekey.so/';
 
@@ -16,6 +22,7 @@ export const showIntercom = async (params?: { requestId?: string }) => {
     token,
     instanceId,
     requestId: params?.requestId,
+    languageOverride,
   });
 
   openUrlUtils.openUrlInApp(url, 'Support');

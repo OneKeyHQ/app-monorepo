@@ -25,6 +25,7 @@ import {
   Image,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   Page,
   ScrollView,
@@ -59,6 +60,7 @@ import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -93,6 +95,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
@@ -109,12 +112,13 @@ import {
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
-  IFetchQuotesParams,
+  ISwapNativeTokenConfig,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
   ISwapQuoteEventError,
   ISwapQuoteEventInfo,
+  ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
   ISwapTxHistory,
@@ -125,6 +129,7 @@ import {
   ESwapQuoteKind,
   ESwapSource,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -142,11 +147,16 @@ import {
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import { AttentionPulse } from './components/AttentionPulse';
+import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';
 import { useAutoSwitchDeriveType } from './hooks/useAutoSwitchDeriveType';
 import {
   type ISiblingDeriveBalance,
   useSiblingDeriveBalances,
 } from './hooks/useSiblingDeriveBalances';
+import {
+  calcPrivateSendNativeTokenMaxAmount,
+  getMaxSendStateAfterModeChange,
+} from './privateSendMaxAmountUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -219,13 +229,7 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
-type IPrivateSendQuoteEvent = {
-  type: 'message' | 'done' | 'error' | 'close' | 'open';
-  event: ISwapQuoteEvent;
-  params: IFetchQuotesParams;
-  accountId?: string;
-  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
-};
+type IPrivateSendQuoteEvent = ISwapQuoteEventPayload;
 
 type IPrivateSendQuoteEventRequest = {
   fromToken: ISwapToken;
@@ -807,7 +811,8 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -916,15 +921,13 @@ function SendAmountInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -944,6 +947,8 @@ function SendAmountInputContainer() {
       // balance was fetched for — it lags `currentAccountId` after a switch.
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       isNFT,
@@ -953,7 +958,8 @@ function SendAmountInputContainer() {
       serviceToken,
       token,
       tokenInfo,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       watchLoading: true,
@@ -1029,10 +1035,10 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const hasOpenedPrivateSendGuideRef = useRef(false);
   const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
   const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
-  const shouldUsePrivateSendQuoteCollapse =
-    sendMode === ESendMode.PRIVATE && !media.gtMd;
+  const shouldUsePrivateSendQuoteCollapse = sendMode === ESendMode.PRIVATE;
   const [
     isPrivateSendQuoteDetailsExpanded,
     setIsPrivateSendQuoteDetailsExpanded,
@@ -1042,6 +1048,34 @@ function SendAmountInputContainer() {
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
   );
+  const isPrivateSendNativeToken =
+    sendMode === ESendMode.PRIVATE && privateSendToken?.isNative === true;
+  const privateSendNativeTokenNetworkId = isPrivateSendNativeToken
+    ? privateSendToken.networkId
+    : undefined;
+  const {
+    result: privateSendNativeTokenConfig,
+    isLoading: isPrivateSendNativeTokenConfigLoading,
+  } = usePromiseResult<ISwapNativeTokenConfig | undefined>(
+    async () => {
+      if (!privateSendNativeTokenNetworkId) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+        networkId: privateSendNativeTokenNetworkId,
+        throwOnError: true,
+      });
+    },
+    [privateSendNativeTokenNetworkId],
+    {
+      watchLoading: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+  const isPrivateSendNativeTokenConfigReady =
+    !isPrivateSendNativeToken ||
+    privateSendNativeTokenConfig?.networkId === privateSendNativeTokenNetworkId;
   const sendSwapTargetToken = useMemo(
     () =>
       privateSendToken ??
@@ -1065,31 +1099,24 @@ function SendAmountInputContainer() {
       if (
         isNFT ||
         isLightningNetwork ||
-        !privateSendToken ||
+        !tokenInfo ||
         !account?.address ||
         !currentAccountId
       ) {
         return false;
       }
       try {
-        const privateSendTokens =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+        // Keyed identically to the recipient-page prefetch, so this resolves
+        // from the ServiceSwap memo cache (or joins the in-flight request)
+        // instead of chaining behind the token-details fetch above.
+        return await backgroundApiProxy.serviceSwap.checkTokenPrivateSendSupported(
+          {
             networkId,
-            contractAddress: privateSendToken.contractAddress,
+            contractAddress: tokenInfo.address,
             accountAddress: account.address,
             accountId: currentAccountId,
-            protocol: EProtocolOfExchange.PRIVATE_SEND,
-          });
-        const matchedPrivateSendToken = privateSendTokens?.find((item) =>
-          equalTokenNoCaseSensitive({
-            token1: item,
-            token2: privateSendToken,
-          }),
+          },
         );
-        if (!matchedPrivateSendToken) {
-          return false;
-        }
-        return matchedPrivateSendToken.supportProtocol === true;
       } catch {
         return false;
       }
@@ -1100,7 +1127,7 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       isNFT,
       networkId,
-      privateSendToken,
+      tokenInfo,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
@@ -1109,6 +1136,13 @@ function SendAmountInputContainer() {
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
+      setIsMaxSend((currentIsMaxSend) =>
+        getMaxSendStateAfterModeChange({
+          isMaxSend: currentIsMaxSend,
+          isCurrentModePrivate: true,
+          isNextModePrivate: false,
+        }),
+      );
       setSendMode(ESendMode.PUBLIC);
     }
   }, [sendMode, showPrivateSendModeSwitch]);
@@ -1165,6 +1199,21 @@ function SendAmountInputContainer() {
     return undefined;
   }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
 
+  // Scaled-UI (rebase) token multiplier shared by every display-basis leaf
+  // (maxBalance, the fiat-overflow rewrite) and the display->raw submit
+  // conversion. A scaled-UI multiplier is a Token-2022 / jetton feature and
+  // can never legitimately appear on a native coin, so native resolves to
+  // undefined here; guarding once at the source keeps multiply and divide
+  // symmetric — a hypothetical bad server value on a native coin must not
+  // inflate the display while the submit conversion refuses to divide.
+  const rebaseMultiplier = useMemo(
+    () =>
+      tokenDetails && !tokenDetails.info.isNative
+        ? tokenRebaseUtils.pickBalanceMultiplier(tokenDetails)
+        : undefined,
+    [tokenDetails],
+  );
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
@@ -1176,8 +1225,22 @@ function SendAmountInputContainer() {
       return chainValueUtils.convertSatsToBtc(balance);
     }
 
-    return balance;
-  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
+    // Scaled-UI (rebase) tokens: show the multiplied display balance. UTXO
+    // subtotals and Lightning never belong to such tokens, so applying
+    // unconditionally is a no-op for every other chain.
+    return (
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: balance,
+        balanceMultiplier: rebaseMultiplier,
+      }) ?? balance
+    );
+  }, [
+    selectedUtxoTotalAmount,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails,
+    rebaseMultiplier,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1194,6 +1257,39 @@ function SendAmountInputContainer() {
     }
     return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, selectedUtxoTotalAmount]);
+
+  const privateSendMaxTokenAmount = useMemo(() => {
+    if (!isPrivateSendNativeToken || !isPrivateSendNativeTokenConfigReady) {
+      return undefined;
+    }
+    return calcPrivateSendNativeTokenMaxAmount({
+      balance: maxBalance,
+      reserveGas: privateSendNativeTokenConfig?.reserveGas,
+      decimals: privateSendToken?.decimals,
+    });
+  }, [
+    isPrivateSendNativeToken,
+    isPrivateSendNativeTokenConfigReady,
+    maxBalance,
+    privateSendNativeTokenConfig?.reserveGas,
+    privateSendToken?.decimals,
+  ]);
+
+  const privateSendMaxInputAmount = useMemo(() => {
+    if (privateSendMaxTokenAmount === undefined) {
+      return undefined;
+    }
+    if (!isUseFiat) {
+      return privateSendMaxTokenAmount;
+    }
+    const priceBN = new BigNumber(tokenDetails?.price ?? '');
+    if (!priceBN.isFinite() || priceBN.lte(0)) {
+      return undefined;
+    }
+    return new BigNumber(privateSendMaxTokenAmount)
+      .multipliedBy(priceBN)
+      .toFixed();
+  }, [isUseFiat, privateSendMaxTokenAmount, tokenDetails?.price]);
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
@@ -1266,6 +1362,45 @@ function SendAmountInputContainer() {
     () => new BigNumber(privateSendAmount || 0),
     [privateSendAmount],
   );
+  const shouldApplyPrivateSendNativeMax = isPrivateSendNativeToken && isMaxSend;
+  const isPrivateSendNativeMaxAmountReady = useMemo(() => {
+    if (!shouldApplyPrivateSendNativeMax) {
+      return true;
+    }
+    if (
+      !isPrivateSendNativeTokenConfigReady ||
+      privateSendMaxTokenAmount === undefined ||
+      privateSendAmountBN.isNaN()
+    ) {
+      return false;
+    }
+    return privateSendAmountBN.lte(privateSendMaxTokenAmount);
+  }, [
+    isPrivateSendNativeTokenConfigReady,
+    privateSendAmountBN,
+    privateSendMaxTokenAmount,
+    shouldApplyPrivateSendNativeMax,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldApplyPrivateSendNativeMax ||
+      privateSendMaxInputAmount === undefined ||
+      privateSendMaxTokenAmount === undefined ||
+      privateSendAmountBN.lte(privateSendMaxTokenAmount)
+    ) {
+      return;
+    }
+    form.setValue('amount', privateSendMaxInputAmount, {
+      shouldValidate: true,
+    });
+  }, [
+    form,
+    privateSendAmountBN,
+    privateSendMaxInputAmount,
+    privateSendMaxTokenAmount,
+    shouldApplyPrivateSendNativeMax,
+  ]);
   const {
     result: privateSendQuoteRecipientResult,
     isLoading: isPrivateSendRecipientResolving,
@@ -1340,10 +1475,12 @@ function SendAmountInputContainer() {
       !!privateSendToken &&
       !!account?.address &&
       !!recipientAddress &&
+      isPrivateSendNativeMaxAmountReady &&
       !privateSendAmountBN.isNaN() &&
       privateSendAmountBN.isGreaterThan(0),
     [
       account?.address,
+      isPrivateSendNativeMaxAmountReady,
       isPrivateSendSupported,
       privateSendAmountBN,
       privateSendToken,
@@ -1751,6 +1888,27 @@ function SendAmountInputContainer() {
     sendMode,
   ]);
 
+  // Scaled-UI (rebase) tokens: `displayAmount` is the multiplied display
+  // amount, but ITransferInfo.amount carries the raw parsed amount. The
+  // conversion (full-send threshold detection + truncating division) lives
+  // in tokenRebaseUtils.convertDisplayAmountToRawAmount so it stays
+  // unit-testable; it is shared by the submit path and the form validator
+  // so the amount that gets validated is exactly the amount that gets sent.
+  const convertDisplayAmountToRawAmount = useCallback(
+    (displayAmount: string): { rawAmount: string; isFullSend: boolean } => {
+      if (isNFT || !tokenDetails) {
+        return { rawAmount: displayAmount, isFullSend: false };
+      }
+      return tokenRebaseUtils.convertDisplayAmountToRawAmount({
+        displayAmount,
+        balanceParsed: tokenDetails.balanceParsed,
+        balanceMultiplier: rebaseMultiplier,
+        decimals: tokenDetails.info.decimals,
+      });
+    },
+    [isNFT, tokenDetails, rebaseMultiplier],
+  );
+
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
       if (!value) {
@@ -1854,6 +2012,37 @@ function SendAmountInputContainer() {
         });
       }
 
+      // Scaled-UI (rebase) tokens: the checks above ran on the display-basis
+      // amount, but the transfer carries display ÷ multiplier truncated
+      // (ROUND_DOWN) at token decimals. An input at the minimal display unit
+      // (e.g. 0.00000001 with multiplier 1.1) passes the display-basis min
+      // check yet divides to a raw 0, which would build — and pay fees for —
+      // a zero-amount transfer. Reject it here with the exact conversion the
+      // submit path uses. Full sends are exempt: they bypass the division and
+      // a zero raw balance is the insufficient-balance path's concern.
+      if (
+        !isNFT &&
+        !tokenAmountBN.isZero() &&
+        tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+      ) {
+        try {
+          const { rawAmount, isFullSend } = convertDisplayAmountToRawAmount(
+            tokenAmountBN.toFixed(),
+          );
+          if (!isFullSend && new BigNumber(rawAmount).isZero()) {
+            return intl.formatMessage({
+              id: ETranslations.send_amount_too_small,
+            });
+          }
+        } catch {
+          // removeBalanceMultiplier fails closed on invalid token decimals;
+          // surface it as an invalid amount instead of an unhandled rejection.
+          return intl.formatMessage({
+            id: ETranslations.send_amount_invalid,
+          });
+        }
+      }
+
       // Zero native token transfer prevention
       if (
         !isNFT &&
@@ -1906,6 +2095,8 @@ function SendAmountInputContainer() {
       networkId,
       maxBalance,
       recipientAddress,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 
@@ -1995,10 +2186,6 @@ function SendAmountInputContainer() {
     networkId,
     indexedAccountId: account?.indexedAccountId ?? '',
     tokenAddress: tokenInfo?.address ?? '',
-    // Spendable balance depends on this setting; feeding it in (and keying the
-    // sibling cache on it) keeps siblings on the same balance contract as the
-    // current page and invalidates the cache when the user toggles it mid-flow.
-    inscriptionProtection: !!settings.inscriptionProtection,
   });
 
   const performAutoSwitchToAccount = useCallback(
@@ -2135,6 +2322,16 @@ function SendAmountInputContainer() {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
+      if (stage === 100 && isPrivateSendNativeToken) {
+        if (privateSendMaxInputAmount === undefined) {
+          return;
+        }
+        form.setValue('amount', privateSendMaxInputAmount, {
+          shouldValidate: true,
+        });
+        setIsMaxSend(true);
+        return;
+      }
       const balance = isUseFiat ? maxBalanceFiat : maxBalance;
       let decimals = tokenDetails?.info.decimals;
       if (isUseFiat) {
@@ -2160,10 +2357,12 @@ function SendAmountInputContainer() {
       form,
       isIntegerAmount,
       isLightningNetwork,
+      isPrivateSendNativeToken,
       isUseFiat,
       lnUnit,
       maxBalance,
       maxBalanceFiat,
+      privateSendMaxInputAmount,
       tokenDetails?.info.decimals,
     ],
   );
@@ -2294,10 +2493,12 @@ function SendAmountInputContainer() {
 
   const handleAmountInputFocus = useCallback(() => {
     setIsAmountInputFocused(true);
-    if (shouldUsePrivateSendQuoteCollapse) {
+    // Auto-collapse quote details only on small screens where vertical space
+    // is limited; large screens keep the expanded state while typing.
+    if (shouldUsePrivateSendQuoteCollapse && !media.gtMd) {
       setIsPrivateSendQuoteDetailsExpanded(false);
     }
-  }, [shouldUsePrivateSendQuoteCollapse]);
+  }, [media.gtMd, shouldUsePrivateSendQuoteCollapse]);
 
   const handleAmountInputBlur = useCallback(() => {
     setIsAmountInputFocused(false);
@@ -2606,7 +2807,10 @@ function SendAmountInputContainer() {
                 realAmount =
                   isLightningNetwork && lnUnit === ELightningUnit.BTC
                     ? chainValueUtils.convertSatsToBtc(balance)
-                    : balance;
+                    : (tokenRebaseUtils.applyBalanceMultiplier({
+                        amount: balance,
+                        balanceMultiplier: rebaseMultiplier,
+                      }) ?? balance);
               } else {
                 realAmount = linkedAmount.originalAmount;
               }
@@ -2654,6 +2858,17 @@ function SendAmountInputContainer() {
                 }),
               );
             }
+            // Scaled-UI (rebase) tokens are display-basis in this branch and
+            // never reach the display->raw conversion below; fail closed
+            // instead of silently over-sending by the multiplier if one ever
+            // gets listed for private send. A multiplier of exactly 1 is a
+            // no-op (raw == display) and must not block.
+            if (tokenRebaseUtils.isScalingBalanceMultiplier(rebaseMultiplier)) {
+              throw new OneKeyLocalError(
+                'Private send does not support scaled-UI tokens',
+              );
+            }
+
             const submitPrivateSendQuoteScopeKey =
               buildPrivateSendQuoteScopeKey({
                 accountId: currentAccountId,
@@ -2689,6 +2904,7 @@ function SendAmountInputContainer() {
                 quoteResultCtx: privateSendQuote.quoteResultCtx,
                 protocol: EProtocolOfExchange.PRIVATE_SEND,
                 kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
+                tradeSource: ESwapTradeSource.UNKNOWN,
               });
 
             if (!buildSwapRes?.changellyOrder) {
@@ -2896,6 +3112,9 @@ function SendAmountInputContainer() {
                   instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
                   oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  isFreeNetworkFee:
+                    data?.[0]?.isNetworkFeeSponsored ??
+                    normalizedBuildSwapRes.result.fee?.isFreeNetworkFee,
                   protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
@@ -2977,11 +3196,19 @@ function SendAmountInputContainer() {
             return;
           }
 
+          // Scaled-UI (rebase) tokens: `realAmount` is the multiplied display
+          // amount, but ITransferInfo.amount carries the raw parsed amount.
+          // The conversion (full-send detection + truncating division) lives
+          // in convertDisplayAmountToRawAmount, shared with the form
+          // validator so what was validated is exactly what is sent.
+          const transferAmount =
+            convertDisplayAmountToRawAmount(realAmount).rawAmount;
+
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
               to: submitRecipientAddress,
-              amount: realAmount,
+              amount: transferAmount,
               nftInfo:
                 isNFT && nftDetails
                   ? {
@@ -3086,6 +3313,8 @@ function SendAmountInputContainer() {
       validateRecipientBeforeSubmit,
       wallet?.type,
       intl,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 
@@ -3210,11 +3439,23 @@ function SendAmountInputContainer() {
     networkId,
   ]);
 
+  const openPrivateSendGuide = useCallback(async () => {
+    await dismissAmountInputKeyboardBeforeOverlayOpen();
+    showPrivateSendGuideDialog({ intl });
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, intl]);
+
   const handleSendModeChange = useCallback(
     (value: string | number) => {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
       if (nextMode !== sendMode) {
+        setIsMaxSend((currentIsMaxSend) =>
+          getMaxSendStateAfterModeChange({
+            isMaxSend: currentIsMaxSend,
+            isCurrentModePrivate: sendMode === ESendMode.PRIVATE,
+            isNextModePrivate: nextMode === ESendMode.PRIVATE,
+          }),
+        );
         defaultLogger.transaction.send.sendModeSwitch({
           fromMode: sendMode,
           toMode: nextMode,
@@ -3222,9 +3463,29 @@ function SendAmountInputContainer() {
           tokenSymbol,
         });
       }
+      if (
+        nextMode === ESendMode.PRIVATE &&
+        nextMode !== sendMode &&
+        !settings.isPrivateSendGuideClicked &&
+        !hasOpenedPrivateSendGuideRef.current
+      ) {
+        hasOpenedPrivateSendGuideRef.current = true;
+        setSettings((currentSettings) => ({
+          ...currentSettings,
+          isPrivateSendGuideClicked: true,
+        }));
+        void openPrivateSendGuide();
+      }
       setSendMode(nextMode);
     },
-    [networkId, sendMode, tokenSymbol],
+    [
+      networkId,
+      openPrivateSendGuide,
+      sendMode,
+      setSettings,
+      settings.isPrivateSendGuideClicked,
+      tokenSymbol,
+    ],
   );
 
   // Shared Public | Private segmented control, reused by the desktop
@@ -3249,6 +3510,7 @@ function SendAmountInputContainer() {
         minWidth: number;
       }) => (
         <XStack
+          testID={`send-mode-${value}`}
           minWidth={minWidth}
           h={28}
           px="$2"
@@ -3826,8 +4088,25 @@ function SendAmountInputContainer() {
           variant="secondary"
           size="small"
           ml="$2"
+          disabled={
+            isPrivateSendNativeToken && privateSendMaxInputAmount === undefined
+          }
+          loading={
+            isPrivateSendNativeToken &&
+            (isPrivateSendNativeTokenConfigLoading ||
+              !isPrivateSendNativeTokenConfigReady)
+          }
           onPress={() => {
-            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance, {
+            let maxInputAmount: string | undefined = isUseFiat
+              ? maxBalanceFiat
+              : maxBalance;
+            if (isPrivateSendNativeToken) {
+              maxInputAmount = privateSendMaxInputAmount;
+            }
+            if (maxInputAmount === undefined) {
+              return;
+            }
+            form.setValue('amount', maxInputAmount, {
               shouldValidate: true,
             });
             setIsMaxSend(true);
@@ -3844,11 +4123,15 @@ function SendAmountInputContainer() {
     form,
     intl,
     isLoadingAssets,
+    isPrivateSendNativeToken,
+    isPrivateSendNativeTokenConfigLoading,
+    isPrivateSendNativeTokenConfigReady,
     isUseFiat,
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
     nftDetails,
+    privateSendMaxInputAmount,
     sendMode,
     tokenDetails,
     tokenInfo?.logoURI,
@@ -3945,16 +4228,9 @@ function SendAmountInputContainer() {
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
-    const isPrivateSendQuoteDetailsVisible =
-      !shouldUsePrivateSendQuoteCollapse || isPrivateSendQuoteDetailsExpanded;
-    const privateSendQuoteSummaryRowMinHeight =
-      shouldUsePrivateSendQuoteCollapse ? 48 : 56;
-    const privateSendQuoteDetailRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 28
-      : 36;
-    const privateSendQuoteBalanceRowHeight = shouldUsePrivateSendQuoteCollapse
-      ? 48
-      : 56;
+    const privateSendQuoteSummaryRowMinHeight = 48;
+    const privateSendQuoteDetailRowHeight = 28;
+    const privateSendQuoteBalanceRowHeight = 48;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -3982,7 +4258,6 @@ function SendAmountInputContainer() {
       estimatedTime: privateSendQuote?.estimatedTime,
     });
     const handleTogglePrivateSendQuoteDetails = () => {
-      if (!shouldUsePrivateSendQuoteCollapse) return;
       if (!isPrivateSendQuoteDetailsExpanded) {
         void (async () => {
           await dismissAmountInputKeyboardBeforeOverlayOpen();
@@ -4065,7 +4340,6 @@ function SendAmountInputContainer() {
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
-              autoRefresh={false}
             />
           </XStack>
           <XStack
@@ -4074,6 +4348,34 @@ function SendAmountInputContainer() {
             gap="$1"
             flexShrink={1}
             minWidth={0}
+            px="$1"
+            py="$1"
+            mr="$-1"
+            borderRadius="$2"
+            borderCurve="continuous"
+            userSelect="none"
+            hitSlop={NATIVE_HIT_SLOP}
+            role="button"
+            aria-expanded={isPrivateSendQuoteDetailsExpanded}
+            focusable
+            cursor="pointer"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: 1,
+            }}
+            onPress={handleTogglePrivateSendQuoteDetails}
+            {...(!platformEnv.isNative && {
+              onKeyDown: (event: KeyboardEvent) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                handleTogglePrivateSendQuoteDetails();
+              },
+            })}
           >
             {showPrivateSendQuoteSkeleton ? (
               <Skeleton h="$4" w="$24" />
@@ -4113,40 +4415,30 @@ function SendAmountInputContainer() {
                 ) : null}
               </YStack>
             )}
-            {shouldUsePrivateSendQuoteCollapse ? (
+            <Stack
+              w="$5"
+              h="$5"
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+            >
               <Stack
-                w="$5"
-                h="$5"
-                alignItems="center"
-                justifyContent="center"
-                borderRadius="$full"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={handleTogglePrivateSendQuoteDetails}
+                animation="quick"
+                rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
+                transformOrigin="center"
               >
-                <Stack
-                  animation="quick"
-                  rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
-                  transformOrigin="center"
-                >
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </Stack>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
               </Stack>
-            ) : null}
+            </Stack>
           </XStack>
         </XStack>
-        {shouldUsePrivateSendQuoteCollapse ? (
-          <HeightTransition hide={!isPrivateSendQuoteDetailsVisible}>
-            {renderPrivateSendQuoteDetails}
-          </HeightTransition>
-        ) : (
-          renderPrivateSendQuoteDetails
-        )}
+        <HeightTransition hide={!isPrivateSendQuoteDetailsExpanded}>
+          {renderPrivateSendQuoteDetails}
+        </HeightTransition>
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />
@@ -4179,7 +4471,6 @@ function SendAmountInputContainer() {
     renderPrivateSendProviderContent,
     refreshPrivateSendQuote,
     sendMode,
-    shouldUsePrivateSendQuoteCollapse,
     canFetchPrivateSendQuote,
   ]);
 
@@ -4218,6 +4509,7 @@ function SendAmountInputContainer() {
         }}
       >
         <DashText
+          testID="private-send-how-it-works"
           size="$bodyMd"
           color="$textSubdued"
           dashColor="$textSubdued"
@@ -4226,14 +4518,14 @@ function SendAmountInputContainer() {
           hoverStyle={{ color: '$text' }}
           pressStyle={{ opacity: 0.7 }}
           onPress={() => {
-            openUrlExternal(privateSendHelpCenterUrl);
+            void openPrivateSendGuide();
           }}
         >
           {intl.formatMessage({ id: ETranslations.private_send_how_it_works })}
         </DashText>
       </XStack>
     );
-  }, [intl, sendMode, shouldHidePrivateSendFooterHelp]);
+  }, [intl, openPrivateSendGuide, sendMode, shouldHidePrivateSendFooterHelp]);
 
   const footerConfirmText = isInsufficientBalance
     ? intl.formatMessage({

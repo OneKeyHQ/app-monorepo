@@ -48,16 +48,19 @@ describe('tokenSelectorInitialListCache', () => {
             isDelisted: true,
           }),
         ],
+        [buildUniverse({ name: 'SECOND', assetId: 180_000 })],
       ],
       assetCtxsByDex: [
         [buildAssetCtx('10'), buildAssetCtx('100')],
         [buildAssetCtx('50')],
+        [buildAssetCtx('70')],
       ],
       requireDefaultSortSnapshot: true,
     });
 
     expect(result.map((item) => item.tokenName)).toEqual([
       'HIGH',
+      'SECOND',
       'XYZ',
       'LOW',
     ]);
@@ -77,10 +80,38 @@ describe('tokenSelectorInitialListCache', () => {
       ctxs: [
         ['', [buildAssetCtx('1')]],
         ['xyz', [buildAssetCtx('2')]],
+        ['para', [buildAssetCtx('3')]],
       ],
     });
 
     expect(ctxsByDex[0]?.[0]?.dayNtlVlm).toBe('1');
     expect(ctxsByDex[1]?.[0]?.dayNtlVlm).toBe('2');
+    expect(ctxsByDex[2]?.[0]?.dayNtlVlm).toBe('3');
+  });
+
+  it('ignores sub dexs that are not in the registry', () => {
+    const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot({
+      ctxs: [
+        ['', [buildAssetCtx('1')]],
+        ['unsupported', [buildAssetCtx('9')]],
+        ['para', [buildAssetCtx('3')]],
+      ],
+    });
+
+    expect(ctxsByDex).toHaveLength(3);
+    expect(ctxsByDex[2]?.[0]?.dayNtlVlm).toBe('3');
+    expect(ctxsByDex.some((ctxs) => ctxs?.[0]?.dayNtlVlm === '9')).toBe(false);
+  });
+
+  it('keeps a stable slot for a registered dex the server did not send', () => {
+    const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot({
+      ctxs: [
+        ['', [buildAssetCtx('1')]],
+        ['para', [buildAssetCtx('3')]],
+      ],
+    });
+
+    expect(ctxsByDex[1]).toEqual([]);
+    expect(ctxsByDex[2]?.[0]?.dayNtlVlm).toBe('3');
   });
 });

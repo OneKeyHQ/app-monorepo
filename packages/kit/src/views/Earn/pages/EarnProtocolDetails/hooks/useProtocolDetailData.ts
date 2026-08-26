@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
@@ -27,6 +30,8 @@ export function useProtocolDetailData({
   provider: string;
   vault: string | undefined;
 }) {
+  const { locale } = useIntl();
+  const { id: currencyId } = useCurrency();
   const {
     earnAccount,
     refreshAccount,
@@ -50,8 +55,23 @@ export function useProtocolDetailData({
         provider,
         vault,
       }),
-    [networkId, symbol, provider, vault],
-    { watchLoading: true },
+    // Locale and currency invalidate interceptor-owned request headers even
+    // though getProtocolDetailsV2 does not receive them as explicit params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [networkId, symbol, provider, vault, locale, currencyId],
+    {
+      watchLoading: true,
+      swrKey: swrKeys.earnProtocolDetail({
+        networkId,
+        symbol,
+        provider,
+        vault,
+        locale,
+        currencyId,
+      }),
+      swrShouldPersist: (result) =>
+        Boolean(result.protocol || result.subscriptionValue?.token),
+    },
   );
 
   const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
@@ -93,6 +113,7 @@ export function useProtocolDetailData({
       stakeTag: buildLocalTxStatusSyncId({
         providerName: provider,
         tokenSymbol: symbol,
+        protocolVault: detailInfo.protocol.vault ?? vault,
       }),
       overflowBalance: detailInfo.nums?.overflow,
       maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
@@ -106,7 +127,7 @@ export function useProtocolDetailData({
         detailInfo.protocol.morphoTokenRate,
       morphoTokenRate: detailInfo.protocol.morphoTokenRate,
     };
-  }, [detailInfo, earnAccount, provider, symbol]);
+  }, [detailInfo, earnAccount, provider, symbol, vault]);
 
   return {
     earnAccount,

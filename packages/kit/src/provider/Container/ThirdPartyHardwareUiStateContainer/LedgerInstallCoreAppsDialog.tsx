@@ -103,7 +103,10 @@ function InstallCoreAppsContent({
       });
     } catch (error) {
       installError = error;
-      Toast.error({ title: (error as Error)?.message ?? 'Install failed' });
+      Toast.error({
+        title:
+          (error instanceof Error ? error.message : '') || 'Install failed',
+      });
     } finally {
       await thirdPartyAppInstallAtom.set(undefined);
       await thirdPartyBatchInstallAtom.set(undefined);

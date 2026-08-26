@@ -1,7 +1,6 @@
 import type { Ref } from 'react';
 
 import { SizableText } from '@tamagui/text';
-import { Linking } from 'react-native';
 
 import type {
   SizableTextProps,
@@ -9,6 +8,7 @@ import type {
 } from '@onekeyhq/components/src/shared/tamagui';
 import { styled } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export interface IAnchorExtraProps {
   href?: string;
@@ -65,7 +65,7 @@ export const Anchor = AnchorFrame.styleable<IAnchorProps, any, any>(
               onPress: (event) => {
                 props.onPress?.(event);
                 if (href !== undefined) {
-                  void Linking.openURL(href);
+                  openUrlExternal(href);
                 }
               },
             })}

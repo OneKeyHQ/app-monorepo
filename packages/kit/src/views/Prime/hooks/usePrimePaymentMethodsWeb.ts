@@ -27,12 +27,6 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
-async function loadStripeV3() {
-  // Load Stripe before RevenueCat opens checkout, otherwise RevenueCat injects
-  // https://js.stripe.com/v3 itself.
-  await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
-}
-
 export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
   const { user, isReady: isAuthReady } = useOneKeyAuth();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
@@ -60,7 +54,6 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       // TODO VPN required
       // await Purchases.setProxyURL('https://api.rc-backup.com/');
 
-      await loadStripeV3();
       const { Purchases } = await loadPurchasesSdkWeb();
 
       // TODO how to configure another userId when user login with another account
@@ -68,7 +61,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.onekeyUserId ||
+          purchaseSdkUtils.generateRevenueCatAnonymousAppUserId(),
       );
       return { apiKey, isSandboxKey };
     },
@@ -237,6 +231,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
+          // purchases-js = RevenueCat web billing (Stripe embedded form)
+          paymentMethod: 'stripe',
         });
 
         // test credit card
@@ -245,7 +241,15 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+        });
+        if (reason !== 'userCancelled') {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
       } finally {
         // will block stripe modal

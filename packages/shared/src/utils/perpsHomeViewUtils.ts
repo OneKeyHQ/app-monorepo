@@ -1,6 +1,10 @@
 import BigNumber from 'bignumber.js';
 
-import { getSpotTokenDisplayName } from './perpsUtils';
+import {
+  calculateHyperliquidSpotHoldingPnl,
+  getSpotTokenDisplayName,
+  isHyperliquidSpotStableCoin,
+} from './perpsUtils';
 
 import type { IHyperliquidPortfolioSnapshot } from '../../types/hyperliquid/portfolio';
 
@@ -38,46 +42,55 @@ export interface IPerpsHomeView {
 export function mapSnapshotToPerpsHomeView(
   snapshot: IHyperliquidPortfolioSnapshot,
 ): IPerpsHomeView {
-  const positions: IPerpsHomePosition[] = snapshot.perpPositions.map((p) => {
-    const sziBN = new BigNumber(p.szi);
-    const absSz = sziBN.abs();
-    const markPx = absSz.gt(0)
-      ? new BigNumber(p.positionValue).div(absSz).toFixed()
-      : p.entryPx;
-    return {
-      coin: p.coin,
-      side: sziBN.isNegative() ? 'short' : 'long',
-      leverageType: p.leverageType,
-      leverageValue: p.leverageValue,
-      pnlUsd: Number(p.unrealizedPnl) || 0,
-      roi: Number(p.returnOnEquity) || 0,
-      sizeCoin: absSz.toFixed(),
-      marginUsd: Number(p.marginUsed) || 0,
-      entryPx: p.entryPx,
-      fundingUsd: Number(p.cumFundingSinceOpen) || 0,
-      markPx,
-      liqPx: p.liquidationPx,
-    };
-  });
+  const positions: IPerpsHomePosition[] = snapshot.perpPositions
+    .toSorted(
+      (a, b) => Number(b.positionValue || 0) - Number(a.positionValue || 0),
+    )
+    .map((p) => {
+      const sziBN = new BigNumber(p.szi);
+      const absSz = sziBN.abs();
+      const markPx = absSz.gt(0)
+        ? new BigNumber(p.positionValue).div(absSz).toFixed()
+        : p.entryPx;
+      return {
+        coin: p.coin,
+        side: sziBN.isNegative() ? 'short' : 'long',
+        leverageType: p.leverageType,
+        leverageValue: p.leverageValue,
+        pnlUsd: Number(p.unrealizedPnl) || 0,
+        roi: Number(p.returnOnEquity) || 0,
+        sizeCoin: absSz.toFixed(),
+        marginUsd: Number(p.marginUsed) || 0,
+        entryPx: p.entryPx,
+        fundingUsd: Number(p.cumFundingSinceOpen) || 0,
+        markPx,
+        liqPx: p.liquidationPx,
+      };
+    });
 
   const holdings: IPerpsHomeHolding[] = snapshot.spotBalances
     .filter((b) => Number(b.total) > 0)
+    .toSorted((a, b) => {
+      if (a.coin === 'USDC' && b.coin !== 'USDC') return -1;
+      if (a.coin !== 'USDC' && b.coin === 'USDC') return 1;
+      return Number(b.valueUsd || 0) - Number(a.valueUsd || 0);
+    })
     .map((b) => {
       const priced = b.valueUsd !== undefined && b.priceUsd !== undefined;
       const valueUsd = priced ? Number(b.valueUsd) : undefined;
-      const pnlUsd =
-        priced && b.entryNtl !== undefined
-          ? Number(
-              new BigNumber(b.valueUsd as string).minus(b.entryNtl).toFixed(),
-            )
-          : undefined;
+      const pnlUsd = calculateHyperliquidSpotHoldingPnl({
+        total: b.total,
+        entryNtl: b.entryNtl,
+        priceUsd: b.priceUsd,
+        isStable: isHyperliquidSpotStableCoin(b.coin),
+      });
       return {
         symbol: b.coin,
         displaySymbol: getSpotTokenDisplayName(b.coin),
         spotUniverseName: b.spotUniverseName,
         balance: b.total,
         valueUsd,
-        pnlUsd,
+        pnlUsd: pnlUsd !== undefined ? Number(pnlUsd) : undefined,
       };
     });
 

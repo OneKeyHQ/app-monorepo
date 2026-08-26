@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   isUnavailableOrZeroFiatValue,
+  isValidNumberValue,
   sumFiatValuesFromTokens,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -48,12 +49,21 @@ export interface IAllNetworkSnapshotRound {
   /**
    * Per-round merge-derive flag. When defined it OVERRIDES the
    * `mergeDeriveAssetsByNetworkId[networkId]` lookup for THIS round. Required by
-   * the cold-owner cache∪live merge: a cache round (already derive-merged →
-   * `false`) and a live round (raw → the network's real flag) for the SAME
-   * networkId can coexist during a partial-settle window, so the flag must live
-   * on the round, not be looked up per-networkId.
+   * the cold-owner cache∪live merge: a cache round can carry the cached token
+   * rows' merge hint while a live round uses the network's real flag for the
+   * SAME networkId during a partial-settle window, so the flag must live on the
+   * round, not be looked up per-networkId.
    */
   mergeDeriveAssets?: boolean;
+  /**
+   * Explicit precomputed worth for THIS round, taking precedence over the
+   * map-derived sum. Cache-floor rounds
+   * (useTokenListReactivePipeline.seedAndFlushCache) MUST carry the cached
+   * `tokenListValue` (tokens + smallBalanceTokens only): their three group
+   * maps share the ONE cached full tokenListMap, so a map-derived sum would
+   * leak risk-only keys into the account worth even after per-$key dedup.
+   */
+  accountWorth?: string;
 }
 
 /**
@@ -197,7 +207,13 @@ export function buildMergedAllNetworkSnapshot({
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
 
-    const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+    // Prefer the round's explicit precomputed worth (see the
+    // `IAllNetworkSnapshotRound.accountWorth` contract): summing a cache-floor
+    // round's maps would count risk-only keys the cached tokenListValue
+    // deliberately excludes.
+    const accountWorth = isValidNumberValue(r.accountWorth)
+      ? r.accountWorth
+      : sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
     accountsWorth[
       accountUtils.buildAccountValueKey({
@@ -233,17 +249,18 @@ export function buildMergedAllNetworkSnapshot({
   };
 
   const flattenAggregateTokenMap = flattenAggregateTokensMap(aggregateTokenMap);
+  const displayTokenFiatMap = {
+    ...mergeTokenListMap,
+    ...flattenAggregateTokenMap,
+  };
 
   let mergedTokens = sortTokensByFiatValue({
     tokens: [...tokenList.tokens, ...smallBalanceTokenList.smallBalanceTokens],
-    map: {
-      ...mergeTokenListMap,
-      ...flattenAggregateTokenMap,
-    },
+    map: displayTokenFiatMap,
   });
 
   const index = mergedTokens.findIndex((token) =>
-    isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
+    isUnavailableOrZeroFiatValue(displayTokenFiatMap[token.$key]?.fiatValue),
   );
 
   if (index > -1) {
@@ -265,7 +282,7 @@ export function buildMergedAllNetworkSnapshot({
 
   smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
     smallBalanceTokenList.smallBalanceTokens,
-    mergeTokenListMap,
+    displayTokenFiatMap,
   );
 
   riskyTokenList.riskyTokens = sortTokensByFiatValue({

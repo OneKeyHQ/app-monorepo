@@ -4,12 +4,23 @@ import { forEach, isEmpty, isNil, isUndefined, uniqBy } from 'lodash';
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
-import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import {
+  SEARCH_KEY_MIN_LENGTH,
+  TOKEN_LIST_HIGH_VALUE_MAX,
+} from '../consts/walletConsts';
 import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
-import { isValidNumberValue } from './tokenValueUtils';
+import tokenRebaseUtils from './tokenRebaseUtils';
+import {
+  getTokenNetworkAliasMap,
+  tokenizeTokenSearchKeywords,
+} from './tokenSelectorCrossNetworkUtils';
+import {
+  isUnavailableOrZeroFiatValue,
+  isValidNumberValue,
+} from './tokenValueUtils';
 
 import type { IServerNetwork } from '../../types';
 import type {
@@ -125,6 +136,9 @@ function networkFieldsContainKeyword(
     network.code?.toLowerCase().includes(kw) ||
     network.shortname?.toLowerCase().includes(kw) ||
     network.shortcode?.toLowerCase().includes(kw) ||
+    // Curated aliases ("trc20", "波场") are exact-equality only, so a partial
+    // word like "trc" can never scope a search through them.
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
     false
   );
 }
@@ -167,17 +181,45 @@ function computeSearchStrength(
   token: IAccountToken,
   keywords: string[],
   network: IServerNetwork | undefined,
-): { matched: boolean; strength: ESearchStrength } {
+  // Original trimmed search string, set ONLY when the tokenizer split a
+  // whitespace-free input (e.g. "usdt.tether-token.near"). Contract addresses
+  // legitimately contain separator chars (TON base64url, NEAR dots, Move ::),
+  // and per-word AND matching would never reassemble them — so an exact
+  // full-string address hit short-circuits as matched.
+  fullSearchKey?: string,
+): {
+  matched: boolean;
+  strength: ESearchStrength;
+  // TRUE when some keyword hits the network but NOT the token's own fields —
+  // an EXPLICIT network qualifier ('eth' in "usdc eth"). A keyword hitting
+  // both sides at once ('eth' vs the ETH token on Ethereum) is NOT a
+  // qualifier: it is a symbol search that merely collides with a chain name.
+  hasPureNetworkKeyword: boolean;
+} {
+  if (fullSearchKey && token.address?.toLowerCase() === fullSearchKey) {
+    return {
+      matched: true,
+      strength: ESearchStrength.TOKEN_ONLY,
+      hasPureNetworkKeyword: false,
+    };
+  }
+
   let anyTokenHit = false;
   let anyNetworkHit = false;
+  let hasPureNetworkKeyword = false;
 
   for (const kw of keywords) {
     const hitToken = tokenFieldsContainKeyword(token, kw);
     const hitNetwork = networkFieldsContainKeyword(network, kw);
     if (!hitToken && !hitNetwork)
-      return { matched: false, strength: ESearchStrength.TOKEN_ONLY };
+      return {
+        matched: false,
+        strength: ESearchStrength.TOKEN_ONLY,
+        hasPureNetworkKeyword: false,
+      };
     if (hitToken) anyTokenHit = true;
     if (hitNetwork) anyNetworkHit = true;
+    if (hitNetwork && !hitToken) hasPureNetworkKeyword = true;
   }
 
   let strength = ESearchStrength.TOKEN_ONLY;
@@ -187,7 +229,7 @@ function computeSearchStrength(
     strength = ESearchStrength.NETWORK_ONLY;
   }
 
-  return { matched: true, strength };
+  return { matched: true, strength, hasPureNetworkKeyword };
 }
 
 export function getFilteredTokenBySearchKey({
@@ -202,6 +244,7 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch,
   tokenFiatMap,
   localAggregateTokenListMap,
+  flattenAggregateTokens,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -214,6 +257,10 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch?: boolean;
   tokenFiatMap?: Record<string, ITokenFiat>;
   localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  // Search-mode aggregate flatten (Receive): output every matched sub row
+  // instead of the grouped aggregate row. Off by default — all other callers
+  // keep the grouped behavior.
+  flattenAggregateTokens?: boolean;
 }) {
   let mergedTokens = tokens;
 
@@ -260,13 +307,28 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  const keywords = tokenizeTokenSearchKeywords(trimmedSearchKey);
   if (keywords.length === 0) return [];
+
+  // A1 fallback: only a whitespace-free input can be a contract address the
+  // tokenizer tore apart, so only then is the full-string check armed.
+  const fullSearchKey =
+    keywords.length > 1 && !/\s/.test(trimmedSearchKey)
+      ? trimmedSearchKey
+      : undefined;
 
   const results: Array<{
     token: IAccountToken;
     strength: ESearchStrength;
+    exactSymbolHit: boolean;
   }> = [];
+
+  const hasExactSymbolKeywordHit = (token: IAccountToken): boolean =>
+    keywords.some(
+      (kw) =>
+        kw === token.symbol?.toLowerCase() ||
+        kw === token.commonSymbol?.toLowerCase(),
+    );
 
   for (const token of mergedTokens) {
     if (token.isAggregateToken) {
@@ -275,42 +337,67 @@ export function getFilteredTokenBySearchKey({
       const matchedSubs: Array<{
         token: IAccountToken;
         strength: ESearchStrength;
+        exactSymbolHit: boolean;
+        hasPureNetworkKeyword: boolean;
       }> = [];
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
-        const { matched, strength } = computeSearchStrength(
-          sub,
-          keywords,
-          network,
-        );
+        const { matched, strength, hasPureNetworkKeyword } =
+          computeSearchStrength(sub, keywords, network, fullSearchKey);
         if (matched) {
           const localSub = localAggregateTokenListMap?.[
             token.$key
           ]?.tokens?.find((t) => t.networkId === sub.networkId);
-          matchedSubs.push({ token: localSub ?? sub, strength });
+          matchedSubs.push({
+            token: localSub ?? sub,
+            strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(localSub ?? sub),
+            hasPureNetworkKeyword,
+          });
         }
       }
 
       if (matchedSubs.length > 0) {
-        const networkQualifiedMatches = matchedSubs.filter(
-          (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
-        );
-        if (networkQualifiedMatches.length > 0) {
-          results.push(...networkQualifiedMatches);
+        if (flattenAggregateTokens) {
+          // Search-mode flatten: every matched sub becomes its own
+          // per-network row, whether or not the query carried an explicit
+          // network qualifier. Owned copies were already substituted above.
+          results.push(...matchedSubs);
         } else {
-          results.push({
-            token,
-            strength: ESearchStrength.TOKEN_ONLY,
-          });
+          // Split into network-specific sub rows ONLY on an EXPLICIT network
+          // qualifier ('usdc eth'). A single word hitting a sub's token AND
+          // network at once ('eth' = ETH symbol + Ethereum chain — same for
+          // sol/trx/bnb/pol) is a symbol search: keep the aggregate row
+          // grouped.
+          const networkQualifiedMatches = matchedSubs.filter(
+            (s) => s.hasPureNetworkKeyword,
+          );
+          if (networkQualifiedMatches.length > 0) {
+            results.push(...networkQualifiedMatches);
+          } else {
+            results.push({
+              token,
+              // Rank the grouped row by its best sub match so a token+network
+              // double-hit ('eth') is not buried at TOKEN_ONLY below every
+              // network-qualified plain row.
+              strength: Math.min(...matchedSubs.map((s) => s.strength)),
+              exactSymbolHit: hasExactSymbolKeywordHit(token),
+            });
+          }
         }
       } else {
         const { matched, strength } = computeSearchStrength(
           token,
           keywords,
           undefined,
+          fullSearchKey,
         );
         if (matched) {
-          results.push({ token, strength });
+          results.push({
+            token,
+            strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(token),
+          });
         }
       }
     } else {
@@ -319,9 +406,14 @@ export function getFilteredTokenBySearchKey({
         token,
         keywords,
         network,
+        fullSearchKey,
       );
       if (matched) {
-        results.push({ token, strength });
+        results.push({
+          token,
+          strength,
+          exactSymbolHit: hasExactSymbolKeywordHit(token),
+        });
       }
     }
   }
@@ -329,6 +421,11 @@ export function getFilteredTokenBySearchKey({
   if (tokenFiatMap) {
     results.sort((a, b) => {
       if (a.strength !== b.strength) return a.strength - b.strength;
+      // Exact symbol hits ("usdt" → USDT) outrank includes hits (aUSDT) even
+      // when the includes hit carries more fiat value.
+      if (a.exactSymbolHit !== b.exactSymbolHit) {
+        return a.exactSymbolHit ? -1 : 1;
+      }
       const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
       const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
       return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
@@ -337,7 +434,12 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  return results.map((r) => r.token);
+  // Two server aggregate configs may share one sub token; emitting it twice
+  // would collide FlashList keys. First occurrence wins, preserving sort.
+  return uniqBy(
+    results.map((r) => r.token),
+    (token) => token.$key,
+  );
 }
 
 export function sortTokensByFiatValue({
@@ -706,6 +808,18 @@ export function nestAggregateTokensMap({
   return result;
 }
 
+/**
+ * Sums each aggregate token's per-network member entries into one flattened
+ * entry. `balance` / `fiatValue` / `frozen*` / `total*` are BigNumber.plus
+ * summed as-is; `balanceParsed` scales EACH member by its own
+ * `balanceMultiplier` before summing (scaled-UI / rebase tokens, OK-58046 Plan
+ * A — cross-network members of one aggregate token can carry DIFFERENT
+ * multipliers, so a single scalar multiplier is ill-defined on the summed
+ * entry). The resulting `aggregated.balanceParsed` is already display-basis
+ * and deliberately does NOT carry a `balanceMultiplier`, so downstream
+ * display selectors pass it through unchanged (no double multiply). Verbatim
+ * twin of `sumAggregateEntry` (kit-bg cellsPure/pure.ts) — keep both in sync.
+ */
 export function flattenAggregateTokensMap(aggregateTokensMap: {
   [key: string]: {
     [key: string]: ITokenFiat;
@@ -737,8 +851,15 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
       aggregated.balance = new BigNumber(aggregated.balance)
         .plus(tokenFiat.balance)
         .toFixed();
+      // Scale THIS member by its own multiplier before summing — the summed
+      // entry has no single scalar multiplier of its own (see doc comment).
       aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
-        .plus(tokenFiat.balanceParsed)
+        .plus(
+          tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenFiat.balanceParsed,
+            balanceMultiplier: tokenFiat.balanceMultiplier,
+          }),
+        )
         .toFixed();
       aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
         .plus(tokenFiat.fiatValue)
@@ -788,6 +909,326 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
   });
 
   return result;
+}
+
+// Pre-merges same-network responses in the all-networks fan-out: merge-derive
+// networks (BTC/LTC-like, `getDefaultDeriveTypeVisibleNetworks`) enumerate one
+// child request PER DERIVE ACCOUNT, so their responses arrive as N slices of
+// the same network. Home collapses those with the derive merge
+// (`getMergedDeriveTokenData` — `mergeAssets` rows rewrite to the
+// `first_last` group $key, fiat sums per group key); without it the selector
+// would list every derive path as its own row. Groups keep first-seen order;
+// single-response groups whose rows carry `mergeAssets` also pass through the
+// merge so their $keys match the home/group shape.
+function mergeDeriveSelectorResponsesByNetwork(
+  responses: IFetchAccountTokensResp[],
+): IFetchAccountTokensResp[] {
+  // Map iteration is insertion-ordered, so grouping by networkId already keeps
+  // first-seen order — no parallel key array is needed.
+  const groups = new Map<string, IFetchAccountTokensResp[]>();
+  responses.forEach((r, index) => {
+    // Responses without a networkId can never merge — key them uniquely.
+    const key = r.networkId ?? `__no-network-${index}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(r);
+    } else {
+      groups.set(key, [r]);
+    }
+  });
+
+  const result: IFetchAccountTokensResp[] = [];
+  for (const group of groups.values()) {
+    const networkId = group[0]?.networkId;
+    const hasMergeAssets =
+      !!networkId &&
+      group.some(
+        (r) =>
+          r.tokens.data.some((t) => t.mergeAssets) ||
+          r.smallBalanceTokens.data.some((t) => t.mergeAssets),
+      );
+    if (!networkId || (group.length <= 1 && !hasMergeAssets)) {
+      result.push(...group);
+    } else {
+      result.push(
+        mergeDeriveSelectorResponseGroup({ group, networkId, hasMergeAssets }),
+      );
+    }
+  }
+  return result;
+}
+
+function mergeDeriveSelectorResponseGroup({
+  group,
+  networkId,
+  hasMergeAssets,
+}: {
+  group: IFetchAccountTokensResp[];
+  networkId: string;
+  hasMergeAssets: boolean;
+}): IFetchAccountTokensResp {
+  const merged = getMergedDeriveTokenData({
+    data: group,
+    mergeDeriveAssetsEnabled: hasMergeAssets,
+  });
+  // `merged.aggregateTokenMap` is nested (aggKey -> networkId -> fiat) for
+  // this single-network group — un-nest back to the FLAT per-response shape.
+  const flatAggregateTokenMap: Record<string, ITokenFiat> = {};
+  Object.entries(merged.aggregateTokenMap).forEach(([aggregateKey, byNet]) => {
+    const fiat = byNet[networkId];
+    if (fiat) {
+      flatAggregateTokenMap[aggregateKey] = fiat;
+    }
+  });
+
+  return {
+    networkId,
+    accountId: group[0]?.accountId,
+    tokens: {
+      data: merged.tokenList.tokens,
+      keys: merged.tokenList.keys,
+      map: merged.tokenListMap,
+      fiatValue: merged.tokenList.fiatValue,
+    },
+    smallBalanceTokens: {
+      data: merged.smallBalanceTokenList.smallBalanceTokens,
+      keys: merged.smallBalanceTokenList.keys,
+      map: merged.smallBalanceTokenListMap,
+      fiatValue: merged.smallBalanceTokenList.fiatValue,
+    },
+    riskTokens: {
+      data: merged.riskyTokenList.riskyTokens,
+      keys: merged.riskyTokenList.keys,
+      map: merged.riskyTokenListMap,
+      fiatValue: merged.riskyTokenList.fiatValue,
+    },
+    aggregateTokenMap: Object.keys(flatAggregateTokenMap).length
+      ? flatAggregateTokenMap
+      : undefined,
+    aggregateTokenListMap: Object.keys(merged.aggregateTokenListMap).length
+      ? merged.aggregateTokenListMap
+      : undefined,
+  };
+}
+
+// Aggregate-group map keyed by aggregate `$key`: the common (grouped) row plus
+// its per-network member rows. Shared by the selector merge's return shape and
+// its internal accumulator.
+type ISelectorAggregateTokenListMap = Record<
+  string,
+  {
+    commonToken: IAccountToken;
+    tokens: IAccountToken[];
+  }
+>;
+
+// Merges the token-selector self-fetch responses (one per network in
+// all-networks mode, exactly one in single-network mode) into the shape the
+// selector threads into TokenListView. Each response's `aggregateTokenMap` is
+// FLAT ($key -> ITokenFiat) and scoped to that response's networkId, and each
+// response may repeat the SAME aggregate common row ($key) that another
+// network already contributed — so aggregate rows dedupe by $key across
+// responses/buckets while their per-network fiat nests by networkId and
+// re-flattens with the home sum semantics.
+//
+// `aggregateTokenConfigMapRawData` (all-networks fan-out only): the per-network
+// child responses carry RAW rows — aggregation is CLIENT-side authority in
+// all-networks mode (the same `buildAggregateTokenListData` walk the home
+// per-network handler runs). When provided, raw member rows fold out of the
+// list into ONE common row per aggregate while their fiat joins the nested map.
+export function buildSelectorTokenListFromResponses({
+  responses,
+  aggregateTokenConfigMapRawData,
+}: {
+  responses: IFetchAccountTokensResp[];
+  aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
+}): {
+  tokens: IAccountToken[];
+  smallBalanceTokens: IAccountToken[];
+  tokenListMap: Record<string, ITokenFiat>;
+  aggregateTokenFiatMap: Record<string, ITokenFiat>;
+  aggregateTokenListMap: ISelectorAggregateTokenListMap;
+} {
+  // Pre-merge same-network derive-account slices to the home group shape BEFORE
+  // the aggregate fold / concat. Run unconditionally (not just when
+  // `responses.length > 1`): a single-response fan-out whose rows carry
+  // `mergeAssets` (BTC/LTC-like network with exactly one derive account) must
+  // still rewrite its derive `$key` to the home group shape, because home always
+  // runs the derive merge regardless of response count — gating on the response
+  // count would leave the selector's `$key` diverging from home for that edge
+  // case. `mergeDeriveSelectorResponsesByNetwork` already passes pure
+  // single-network, no-`mergeAssets` responses through verbatim, so this is a
+  // no-op for the common single-network path.
+  const normalizedResponses = mergeDeriveSelectorResponsesByNetwork(responses);
+
+  const tokens: IAccountToken[] = [];
+  const smallBalanceTokens: IAccountToken[] = [];
+  const tokenListMap: Record<string, ITokenFiat> = {};
+  const nestedAggregateTokenMap: Record<
+    string,
+    Record<string, ITokenFiat>
+  > = {};
+  const seenAggregateTokenKeys = new Set<string>();
+  // Accumulates ACROSS responses so each aggregate keeps ONE common row while
+  // members from every network append to its sub-token list (home semantics).
+  let aggregateTokenListMap: ISelectorAggregateTokenListMap = {};
+  // FLAT per-network aggregate fiat contributed by the CURRENT response's folded
+  // members; reset at the top of each response iteration.
+  let responseAggregateTokenMap: Record<string, ITokenFiat> = {};
+
+  // Declared once outside the response loop (not per-iteration, so it never
+  // trips no-loop-func); it reads/writes the two accumulators above via closure.
+  const appendTokens = (
+    source: IAccountToken[],
+    target: IAccountToken[],
+    responseNetworkId: string | undefined,
+    responseTokenMap: Record<string, ITokenFiat>,
+  ) => {
+    for (const token of source) {
+      if (token.isAggregateToken) {
+        if (!seenAggregateTokenKeys.has(token.$key)) {
+          seenAggregateTokenKeys.add(token.$key);
+          target.push(token);
+        }
+      } else if (aggregateTokenConfigMapRawData && responseNetworkId) {
+        // Cheap membership check FIRST: `buildAggregateTokenListData` shallow-
+        // copies both accumulator maps before it tests membership, so calling
+        // it for every raw row (the majority in all-networks mode) would be
+        // O(rows × aggregates). Only fold when the config carries this token.
+        const aggregateConfig =
+          aggregateTokenConfigMapRawData[
+            buildAggregateTokenMapKeyForAggregateConfig({
+              networkId: responseNetworkId,
+              tokenAddress: token.address,
+            })
+          ];
+        if (aggregateConfig) {
+          const data = buildAggregateTokenListData({
+            networkId: responseNetworkId,
+            accountId: token.accountId ?? '',
+            token,
+            tokenMap: responseTokenMap,
+            aggregateTokenListMap,
+            aggregateTokenMap: responseAggregateTokenMap,
+            aggregateTokenConfigMapRawData,
+            networkName: token.networkName ?? '',
+          });
+          aggregateTokenListMap = data.aggregateTokenListMap;
+          responseAggregateTokenMap = data.aggregateTokenMap;
+        } else {
+          target.push(token);
+        }
+      } else {
+        target.push(token);
+      }
+    }
+  };
+
+  for (const r of normalizedResponses) {
+    const responseNetworkId = r.networkId;
+    const responseTokenMap = { ...r.tokens.map, ...r.smallBalanceTokens.map };
+    responseAggregateTokenMap = {};
+
+    appendTokens(r.tokens.data, tokens, responseNetworkId, responseTokenMap);
+    appendTokens(
+      r.smallBalanceTokens.data,
+      smallBalanceTokens,
+      responseNetworkId,
+      responseTokenMap,
+    );
+    Object.assign(tokenListMap, r.tokens.map, r.smallBalanceTokens.map);
+
+    if (responseNetworkId) {
+      // Client-folded member fiat first, then the response's own (server) flat
+      // map — server wins per (aggKey, networkId) slot on collision. Mutate the
+      // nested slot in place (it is function-local) rather than rebuilding it.
+      const flatAggregateFiat = {
+        ...responseAggregateTokenMap,
+        ...r.aggregateTokenMap,
+      };
+      for (const [aggregateKey, fiat] of Object.entries(flatAggregateFiat)) {
+        const slot = nestedAggregateTokenMap[aggregateKey] ?? {};
+        slot[responseNetworkId] = fiat;
+        nestedAggregateTokenMap[aggregateKey] = slot;
+      }
+    }
+  }
+
+  // Append ONE common row per client-folded aggregate (deduped against any
+  // aggregate rows a response already carried).
+  Object.values(aggregateTokenListMap).forEach(({ commonToken }) => {
+    if (!seenAggregateTokenKeys.has(commonToken.$key)) {
+      seenAggregateTokenKeys.add(commonToken.$key);
+      tokens.push(commonToken);
+    }
+  });
+
+  const aggregateTokenFiatMap = flattenAggregateTokensMap(
+    nestedAggregateTokenMap,
+  );
+
+  // Client-folded aggregate common rows are appended AFTER the loop, so any
+  // fold requires the value re-sort even for a single response (all-networks
+  // mode with exactly one enabled network) — otherwise the aggregate rows
+  // would always sink to the list tail regardless of their summed value.
+  const hasClientFoldedAggregates =
+    Object.keys(aggregateTokenListMap).length > 0;
+
+  const sortMap = { ...tokenListMap, ...aggregateTokenFiatMap };
+
+  // Single-network selector with NO client fold: one network's server high/low
+  // split is already globally coherent, so return the two buckets verbatim (the
+  // server order), matching the single-network selector live shape and home's
+  // single-network display. The client-folded case does NOT early-return here:
+  // its common rows were appended to `tokens` out of value order (above), so the
+  // two buckets are no longer coherent and it MUST fall through to the global
+  // concat -> sort -> re-split below — a within-bucket sort would strand a
+  // low-value folded aggregate in the high bucket ahead of higher-value
+  // small-balance rows (TokenListView renders `tokens ++ smallBalanceTokens` as
+  // a plain concat). Home's all-networks merge re-splits globally regardless of
+  // response count, so folding through the same path keeps the selector's order
+  // identical to home's for this single-response edge case.
+  if (normalizedResponses.length <= 1 && !hasClientFoldedAggregates) {
+    return {
+      tokens,
+      smallBalanceTokens,
+      tokenListMap,
+      aggregateTokenFiatMap,
+      aggregateTokenListMap,
+    };
+  }
+
+  // Multi-network fan-out (AND the single-response client-folded case above):
+  // mirror Home's all-networks merge
+  // (`buildMergedAllNetworkSnapshot`). The per-network high/low split the server
+  // returns is NOT globally coherent — one network's `smallBalanceTokens` can
+  // be worth more than another network's `tokens`, and TokenListView renders
+  // as a PLAIN concat of the two buckets (no re-sort). Concat BOTH buckets,
+  // value-sort once globally, push the zero/unavailable-value tail to a stable
+  // `order` sort, then re-split by the same high-value COUNT threshold so the
+  // concatenated list stays strictly descending by value — no high-value asset
+  // stranded below a low-value one, and no floor/live reshuffle across the
+  // bucket boundary.
+  let mergedTokens = sortTokensByFiatValue({
+    tokens: [...tokens, ...smallBalanceTokens],
+    map: sortMap,
+  });
+  const zeroBalanceIndex = mergedTokens.findIndex((token) =>
+    isUnavailableOrZeroFiatValue(sortMap[token.$key]?.fiatValue),
+  );
+  if (zeroBalanceIndex > -1) {
+    mergedTokens = [
+      ...mergedTokens.slice(0, zeroBalanceIndex),
+      ...sortTokensByOrder({ tokens: mergedTokens.slice(zeroBalanceIndex) }),
+    ];
+  }
+  return {
+    tokens: mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX),
+    smallBalanceTokens: mergedTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX),
+    tokenListMap,
+    aggregateTokenFiatMap,
+    aggregateTokenListMap,
+  };
 }
 
 export function getMergedDeriveTokenData(params: {

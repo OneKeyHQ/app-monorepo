@@ -1,6 +1,6 @@
 ---
 name: 1k-debug-logging
-description: Standardize temporary debug console logs in OneKey code with a consistent prefix and safe stringify helper. Use when adding, reviewing, or cleaning local debug logs, temporary console.log output, debug helpers, or troubleshooting-only logging. Do not use for analytics, server logs, LogToServer, or permanent business metrics.
+description: Add or clean temporary OneKey debug console logs with consistent prefixes and safe stringify. Excludes analytics and permanent server logs.
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

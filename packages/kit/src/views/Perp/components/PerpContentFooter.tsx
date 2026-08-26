@@ -26,13 +26,7 @@ function PerpNetworkStatus() {
     return undefined;
   }, [networkStatus?.connected, pingMs]);
 
-  return (
-    <NetworkStatusBadge
-      connected={connected}
-      monoLabel={monoLabel}
-      minWidth={135}
-    />
-  );
+  return <NetworkStatusBadge connected={connected} monoLabel={monoLabel} />;
 }
 
 export function PerpContentFooter() {

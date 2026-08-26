@@ -160,6 +160,16 @@ export function isWalletAssetStatusAggregationComplete({
   );
 }
 
+export function shouldDeferEmptyHardwarePortfolioSync({
+  aggregationComplete,
+  totalTokenCount,
+}: {
+  aggregationComplete: boolean;
+  totalTokenCount: number;
+}) {
+  return totalTokenCount === 0 && !aggregationComplete;
+}
+
 export function getWalletAssetStatusCurrency(
   result: IWalletAssetStatusCurrencyRef[],
 ) {

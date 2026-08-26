@@ -1,7 +1,7 @@
 ---
 name: 1k-i18n
-description: Internationalization — translations (ETranslations, useIntl, formatMessage) and locale management. NEVER modify auto-generated translation files.
-allowed-tools: Read, Grep, Glob
+description: OneKey i18n and Lokalise workflow for searching, adding, updating, pulling, and using translation keys. Verify the target project and full locale coverage; never edit generated translation files.
+allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
 # Internationalization (i18n)
@@ -32,13 +32,20 @@ intl.formatMessage({ id: ETranslations.global__confirm })
 
 ## Existing Keys First
 
-When updating an existing translation:
+Search locally and remotely before creating a key. Reuse a key only when its
+meaning, placeholders, and UI context match.
 
-- Do not edit generated locale files directly.
-- Update the source translation in Lokalise:
-  - Use the `lokalise` MCP if it is available in the current environment.
-  - Otherwise use Lokalise Web.
-- After the source change, sync locally with `yarn i18n:pull` or `yarn i18n:pull:keychain`.
+For any Lokalise create or update:
+
+- Verify the actual target project name and ID before mutating it.
+- Fetch that project's configured languages; do not infer them from an
+  environment-variable name.
+- Prefer repository scripts and credential wrappers. `yarn op` is the default;
+  `keychain` and `oenv` variants are supported alternatives.
+- A configured Lokalise MCP or Lokalise Web may be used for an existing
+  translation, but the same project and language checks still apply.
+- After the remote change, sync locally with `yarn i18n:pull`,
+  `yarn i18n:pull:keychain`, or `yarn i18n:pull:oenv`.
 
 ## Key Shape Mapping
 
@@ -63,6 +70,39 @@ Query guidance:
 - Lokalise / MCP: prefer the exact source key. Legacy namespaced keys often use `::`.
 - Local `yarn i18n:search`: searches pulled `en_US.json`, so legacy keys should be queried with `.`, while newer suffix-style keys should be queried with `__`.
 - Code usage: refer to the generated `ETranslations` member with `_`.
+
+## End-to-End Delivery Requirements
+
+For any task that creates or updates a translation:
+
+1. Check the current branch and worktree before pulling generated files.
+2. Resolve credentials without printing tokens.
+3. Retrieve `GET /projects/{project_id}` and confirm the returned project name
+   and ID match the intended target.
+4. Retrieve `GET /projects/{project_id}/languages` and record its exact
+   `lang_iso` values.
+5. Search for the exact key in that verified project before creating it.
+6. Use `yarn i18n:add` for a missing key. It only creates `en_US` and optional
+   `zh_CN` source translations; it does not complete the remaining locales.
+7. Ensure the key has valid translations for every checked-in locale. The
+   repository currently has 19 locale JSON files.
+8. Pull generated files, verify the enum and all locale JSON files, and inspect
+   the full generated diff for unrelated remote updates.
+9. Wire the generated `ETranslations` member in code and validate placeholder
+   consistency.
+
+Do not silently skip a repository locale because the target project uses a
+different code format. Map repository locale names to the project's configured
+`lang_iso` values. If the project genuinely lacks a required language, stop
+before upload and report the mismatch.
+
+The completion report must state the verified project name/ID, covered locale
+set, pull command used, generated-file scope, and any unrelated keys brought in
+by the pull. Review code changes separately from generated locale changes.
+
+Read [i18n.md](references/rules/i18n.md) before performing any remote Lokalise
+mutation or `i18n:pull`. It contains the project preflight, current 19-locale
+set, translation-record update flow, and generated-diff verification.
 
 ## Quick Reference
 
@@ -96,10 +136,13 @@ const message = appLocale.intl.formatMessage({
 
 1. **Search first**
    - Local search: `yarn i18n:search "global.contact_us"` or `yarn i18n:search "address_book__action"`
-   - Lokalise / MCP: try the exact source key, such as `global::contact_us`
-2. **If the key already exists, update it in Lokalise** and then run `yarn i18n:pull`
-3. **If it is a new key, add it via `yarn i18n:add`** using the suffix-style underscore format
-4. **Use in code**:
+2. **Verify the target** — confirm project name/ID and fetch exact project languages
+3. **Search remotely** — query the exact source key, such as `global::contact_us`, in that verified project
+4. **If the key already exists, update it in Lokalise** by translation record
+5. **If it is a new key, add it via `yarn i18n:add`** using the suffix-style underscore format
+6. **Complete every repository locale** — do not stop after `en_US`/`zh_CN`
+7. **Pull and inspect** — verify the key everywhere and call out unrelated generated changes
+8. **Use in code**:
    ```tsx
    {intl.formatMessage({ id: ETranslations.global_contact_us })}
    ```
@@ -118,15 +161,19 @@ Examples:
 
 ## Detailed Guide
 
-For comprehensive i18n guidelines and examples, see [i18n.md](references/rules/i18n.md).
+For comprehensive i18n guidelines and the end-to-end Lokalise workflow, see
+[i18n.md](references/rules/i18n.md).
 
 Topics covered:
 - Translation management restrictions
 - Using translations in components
 - Translation key naming conventions
+- Target project and language verification
+- Full 19-locale coverage
+- Safe Lokalise create/update and pull flow
+- Generated-diff inspection
 - Locale handling and fallbacks
 - Code examples
-- Workflow summary
 
 ## Key Files
 
@@ -136,8 +183,10 @@ Topics covered:
 | Locale JSON (auto-generated) | `packages/shared/src/locale/json/` |
 | App locale | `packages/shared/src/locale/appLocale.ts` |
 | Default locale | `packages/shared/src/locale/getDefaultLocale.ts` |
+| Lokalise add script | `development/scripts/i18n/i18n-add.js` |
+| Lokalise pull script | `development/scripts/i18n/i18n-pull.js` |
 
 ## Related Skills
 
-- `/1k-date-formatting` - Date formatting with locale support
+- `/1k-coding-patterns` - Date formatting with locale support
 - `/1k-coding-patterns` - General coding patterns

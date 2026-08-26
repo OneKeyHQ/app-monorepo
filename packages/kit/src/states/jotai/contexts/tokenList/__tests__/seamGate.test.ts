@@ -2,14 +2,21 @@
  * TokenList cells — cell-seam GATE tests (PR-S blocker #1 regression).
  *
  * `resolveUseCellSeam` decides whether a `<TokenListView>` mount binds its
- * leaves to the per-key cells (HOME projection path). The home mount passes
- * `scopedActiveAccountTokenListMap={}` (from `useState({})`), which is NOT
- * `undefined`. The OLD truthiness gate (`!props.scopedActiveAccountTokenListMap`)
- * was always `false` for `{}` → the seam was DEAD on home.
+ * leaves to the per-key cells (HOME projection path). Two regressions anchor
+ * this suite:
  *
- * The first case below (home config: enableCellSeam, scoped map = {}, not
- * selector, not active-account) MUST be `true`. It FAILS on the old gate and
- * PASSES after the fix.
+ * 1. (blocker #1) The home mount passes `scopedActiveAccountTokenListMap={}`
+ *    (from `useState({})`), which is NOT `undefined`. The OLD truthiness gate
+ *    (`!props.scopedActiveAccountTokenListMap`) was always `false` for `{}` →
+ *    the seam was DEAD on home.
+ * 2. (DeFi-switch residue) The gate later keyed on the scoped map's CONTENT
+ *    (`hasActiveScopedOverride`). Turning the home DeFi-token switch OFF left
+ *    the last populated scoped LP map in component state, which kept the seam
+ *    OFF while `showActiveAccountTokenList` was already false — and the legacy
+ *    path has NO data source on home (hostTokenList is undefined), so the home
+ *    list rendered empty until a remount. The gate therefore takes NO map
+ *    input at all: display-mode flags are the only authority, data residue can
+ *    never flip the render path.
  *
  * Pure / node — no React / jotai / native.
  */
@@ -21,38 +28,26 @@ function makeFiat(): ITokenFiat {
   return { balance: '1', balanceParsed: '1', fiatValue: '1', price: 1 };
 }
 
-describe('resolveUseCellSeam — home seam activation (blocker #1)', () => {
-  it('home config (enableCellSeam, scoped map = {}, not selector, not active-account) → true', () => {
-    // This is the EXACT shape the home <TokenListView> mounts with. It FAILS on
-    // the old `!props.scopedActiveAccountTokenListMap` gate (`!{}` === false).
+describe('resolveUseCellSeam — home seam activation', () => {
+  it('home config (enableCellSeam, not selector, not active-account) → true', () => {
+    // The EXACT shape the home <TokenListView> mounts with — including after
+    // the DeFi-token switch turns OFF while a residual scoped LP map is still
+    // held in TokenListBlock state (the map is not a gate input).
     expect(
       resolveUseCellSeam({
         enableCellSeam: true,
         isTokenSelector: false,
         showActiveAccountTokenList: false,
-        scopedActiveAccountTokenListMap: {},
       }),
     ).toBe(true);
   });
 
-  it('home config with scoped map undefined → true', () => {
+  it('LP-dapp mode (showActiveAccountTokenList) → false', () => {
     expect(
       resolveUseCellSeam({
         enableCellSeam: true,
         isTokenSelector: false,
-        showActiveAccountTokenList: false,
-        scopedActiveAccountTokenListMap: undefined,
-      }),
-    ).toBe(true);
-  });
-
-  it('populated scoped LP map → false (seam OFF in LP-dapp mode)', () => {
-    expect(
-      resolveUseCellSeam({
-        enableCellSeam: true,
-        isTokenSelector: false,
-        showActiveAccountTokenList: false,
-        scopedActiveAccountTokenListMap: { 'eth__0xabc': makeFiat() },
+        showActiveAccountTokenList: true,
       }),
     ).toBe(false);
   });
@@ -63,18 +58,6 @@ describe('resolveUseCellSeam — home seam activation (blocker #1)', () => {
         enableCellSeam: true,
         isTokenSelector: true,
         showActiveAccountTokenList: false,
-        scopedActiveAccountTokenListMap: {},
-      }),
-    ).toBe(false);
-  });
-
-  it('showActiveAccountTokenList → false', () => {
-    expect(
-      resolveUseCellSeam({
-        enableCellSeam: true,
-        isTokenSelector: false,
-        showActiveAccountTokenList: true,
-        scopedActiveAccountTokenListMap: {},
       }),
     ).toBe(false);
   });
@@ -85,7 +68,6 @@ describe('resolveUseCellSeam — home seam activation (blocker #1)', () => {
         enableCellSeam: false,
         isTokenSelector: false,
         showActiveAccountTokenList: false,
-        scopedActiveAccountTokenListMap: {},
       }),
     ).toBe(false);
   });

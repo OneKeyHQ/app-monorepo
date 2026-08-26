@@ -33,7 +33,10 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
-import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionProtocolSwitchConfig,
+} from './ManagePositionContent';
 
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
@@ -54,6 +57,7 @@ interface INormalManageContentProps {
   withdrawDisabled: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   historyAction?: IEarnHistoryActionIcon;
   onHistory?: (params?: { filterType?: string }) => void;
   indicatorAccountId?: string;
@@ -89,6 +93,7 @@ export function NormalManageContent({
   withdrawDisabled,
   stakeBeforeFooter,
   withdrawBeforeFooter,
+  footerActionOverride,
   historyAction,
   onHistory,
   indicatorAccountId,
@@ -732,6 +737,7 @@ export function NormalManageContent({
           isDisabled={depositDisabled}
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
@@ -760,6 +766,7 @@ export function NormalManageContent({
           isDisabled={withdrawDisabled}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
+          footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}

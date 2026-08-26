@@ -76,9 +76,8 @@ const legacyResult = legacyApi.call();
 # ❌ FORBIDDEN
 git commit  # with lint errors or TypeScript errors
 
-# ✅ CORRECT - Fast pre-commit (recommended)
-yarn lint:staged  # Only lint staged files
-yarn tsc:staged   # Type check
+# ✅ CORRECT - Fast agent pre-commit gate (recommended)
+yarn agent:check --profile commit
 git commit
 ```
 
@@ -104,8 +103,7 @@ Before every commit:
 - [ ] No direct `localDbInstance` imports
 - [ ] No edits to `translations.ts` or locale JSON files
 - [ ] No unjustified `any` or `@ts-ignore`
-- [ ] `yarn lint:staged` passes
-- [ ] `yarn tsc:staged` passes
+- [ ] `yarn agent:check --profile commit` passes
 
 **Note:** Full lint (`yarn lint`) runs in CI only.
 

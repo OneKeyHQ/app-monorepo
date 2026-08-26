@@ -9,6 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
+  type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
@@ -29,6 +30,7 @@ import {
 // Mirrors the Swap & Bridge clear menu: both menu items stay enabled and the
 // handlers no-op when there is nothing to clear.
 type ISwapHistoryClearScope = 'swap' | 'stock';
+type ISwapHistoryClearTriggerVariant = 'text' | 'icon';
 
 function getCleanOptions(scope: ISwapHistoryClearScope) {
   // Both scopes exclude limit / private-send: those live in their own surfaces
@@ -39,17 +41,16 @@ function getCleanOptions(scope: ISwapHistoryClearScope) {
     : { excludeStock: true, excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS };
 }
 
-function SwapHistoryClearButton({
+export function SwapHistoryClearButtonView({
   scope,
+  swapTxHistoryList,
   triggerVariant = 'text',
 }: {
   scope: ISwapHistoryClearScope;
-  triggerVariant?: 'text' | 'icon';
+  swapTxHistoryList: ISwapTxHistory[] | undefined;
+  triggerVariant?: ISwapHistoryClearTriggerVariant;
 }) {
   const intl = useIntl();
-  const { swapTxHistoryList } = useSwapMarketHistoryList(
-    EProtocolOfExchange.SWAP,
-  );
 
   const scopedHistoryList = useMemo(() => {
     const marketList = filterSwapMarketHistoryItems({
@@ -151,6 +152,26 @@ function SwapHistoryClearButton({
           </Button>
         )
       }
+    />
+  );
+}
+
+function SwapHistoryClearButton({
+  scope,
+  triggerVariant = 'text',
+}: {
+  scope: ISwapHistoryClearScope;
+  triggerVariant?: ISwapHistoryClearTriggerVariant;
+}) {
+  const { swapTxHistoryList } = useSwapMarketHistoryList(
+    EProtocolOfExchange.SWAP,
+  );
+
+  return (
+    <SwapHistoryClearButtonView
+      scope={scope}
+      swapTxHistoryList={swapTxHistoryList}
+      triggerVariant={triggerVariant}
     />
   );
 }

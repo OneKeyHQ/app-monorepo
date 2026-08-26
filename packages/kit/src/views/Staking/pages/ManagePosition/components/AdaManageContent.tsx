@@ -29,6 +29,7 @@ import {
 import { SpecialManageContent } from './SpecialManageContent';
 import { ESpecialManageLayoutType } from './types';
 
+import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { ISpecialManageButtonConfig } from './types';
 
 interface IAdaManageContentProps {
@@ -41,6 +42,7 @@ interface IAdaManageContentProps {
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   beforeFooter?: React.ReactElement | null;
+  footerActionOverride?: IManagePositionFooterAction;
   fallbackTokenImageUri?: string;
   earnAccount?: {
     walletId: string;
@@ -68,6 +70,7 @@ export function AdaManageContent({
   showApyDetail = false,
   isInModalContext = false,
   beforeFooter,
+  footerActionOverride,
   fallbackTokenImageUri,
   earnAccount,
   protocolInfo,
@@ -384,6 +387,7 @@ export function AdaManageContent({
       showApyDetail={showApyDetail}
       isInModalContext={isInModalContext}
       beforeFooter={beforeFooter}
+      footerActionOverride={footerActionOverride}
       buttonConfig={buttonConfig}
       transactionConfirmation={transactionConfirmation}
       fallbackTokenImageUri={fallbackTokenImageUri}

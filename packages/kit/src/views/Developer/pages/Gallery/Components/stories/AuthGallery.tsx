@@ -9,6 +9,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { useSupabaseAuthContext } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/SupabaseAuthContext';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -49,11 +50,11 @@ export function AuthApiTests() {
   const {
     user,
     supabaseUser,
-    supabaseSignOut,
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
     getSupabaseClient,
   } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const supabaseContext = useSupabaseAuthContext();
 
   const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
@@ -117,7 +118,10 @@ export function AuthApiTests() {
           onPress={async () => {
             try {
               setSignOutLoading(true);
-              const res = await supabaseSignOut();
+              const res = await runIdentityExit({
+                type: 'logoutOneKeyId',
+                scene: 'profile',
+              });
               demoLog(res, 'sign out');
             } catch (e) {
               demoError(e, 'sign out');

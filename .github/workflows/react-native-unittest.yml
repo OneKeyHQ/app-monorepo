@@ -40,6 +40,12 @@ jobs:
           check-latest: true
           scope: '@onekeyhq'
 
+      - name: Write RN unit AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt react-native-unittest > ci-ai/react-native-unittest-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and RN harness/logcat logs." > ci-ai/react-native-unittest-ai-prompt.md
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -80,7 +86,7 @@ jobs:
           AVD_DIR=$(dirname "$AVD_INI")
           echo "Found AVD ini at: $AVD_INI"
           echo "Setting ANDROID_AVD_HOME=$AVD_DIR"
-          echo "ANDROID_AVD_HOME=$AVD_DIR" >> $GITHUB_ENV
+          echo "ANDROID_AVD_HOME=$AVD_DIR" >> "$GITHUB_ENV"
 
       - name: Install Dependencies
         env:
@@ -148,7 +154,7 @@ jobs:
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
+          "$ANDROID_HOME/emulator/emulator" -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save -memory 6144 &
           adb wait-for-device
           SECONDS=0
           TIMEOUT=300
@@ -174,19 +180,51 @@ jobs:
       - name: Run Harness Tests (Android)
         timeout-minutes: 60
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HARNESS_ANDROID_AVD: test_avd
         working-directory: apps/mobile
-        run: yarn harness:test:android
+        run: |
+          mkdir -p ../../ci-ai
+          set +e
+          yarn harness:test:android 2>&1 | tee ../../ci-ai/react-native-harness-android.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
 
       - name: Dump logcat on failure
         if: failure()
         run: |
-          echo "=== Last 200 lines of logcat ==="
-          tail -200 /tmp/logcat.txt || true
-          echo ""
-          echo "=== App-specific logs ==="
-          grep -i -E "(onekey|ReactNative|ReactNativeJS|AndroidRuntime|FATAL|crash|WebSocket)" /tmp/logcat.txt | tail -100 || true
+          mkdir -p ci-ai
+          {
+            echo "=== Last 200 lines of logcat ==="
+            tail -200 /tmp/logcat.txt || true
+          } | tee ci-ai/logcat-tail.txt
+          {
+            echo "=== App-specific logs ==="
+            grep -i -E "(onekey|ReactNative|ReactNativeJS|AndroidRuntime|FATAL|crash|WebSocket)" /tmp/logcat.txt | tail -100 || true
+          } | tee ci-ai/app-logcat.txt
+
+      - name: Upload RN unit AI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-rn-unittest-diagnostics
+          path: |
+            ci-ai/react-native-unittest-ai-prompt.md
+            ci-ai/react-native-harness-android.log
+            ci-ai/logcat-tail.txt
+            ci-ai/app-logcat.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain RN unit failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-rn-unittest-diagnostics\`"
+            echo "- Open: \`react-native-harness-android.log\`, \`logcat-tail.txt\`, \`app-logcat.txt\`, and \`react-native-unittest-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-rn-unittest-diagnostics and inspect react-native-harness-android.log"
 
   notify-failure:
     name: Notify on Failure
@@ -200,26 +238,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `Nightly RN unit tests failed on ${new Date().toISOString().split('T')[0]}`;
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'rn-unittest-failure',
-              state: 'open',
+            const {
+              ciFailureConfigs,
+              upsertCiFailureIssue,
+            } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/ciFailureIssue`);
+
+            await upsertCiFailureIssue({
+              github,
+              context,
+              config: ciFailureConfigs['react-native-unittest'],
             });
-            if (issues.length > 0) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues[0].number,
-                body: `Still failing: [Run #${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
-              });
-            } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body: `The nightly RN unit test run failed.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
-                labels: ['rn-unittest-failure'],
-              });
-            }

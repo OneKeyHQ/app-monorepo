@@ -119,6 +119,7 @@ function SupportHubBannerItem({
           right="0"
           source={item.image}
           resizeMode="cover"
+          resizeWidth={320}
           zIndex={0}
           opacity={themeVariant === 'dark' ? 0.9 : 1}
         />
@@ -137,12 +138,18 @@ function SupportHubBannerItem({
   );
 }
 
-function SupportHub() {
+function SupportHub({
+  helpCenterTitle,
+  helpCenterLink,
+}: {
+  helpCenterTitle?: string;
+  helpCenterLink?: string;
+} = {}) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
 
-  const helpCenterCommonFaqLink = useHelpLink({
+  const defaultHelpCenterLink = useHelpLink({
     path: '',
   });
 
@@ -192,6 +199,13 @@ function SupportHub() {
 
   const [bannerWidth, setBannerWidth] = useState(0);
 
+  const resolvedHelpCenterTitle =
+    helpCenterTitle ??
+    intl.formatMessage({
+      id: ETranslations.settings_help_center,
+    });
+  const resolvedHelpCenterLink = helpCenterLink ?? defaultHelpCenterLink;
+
   const renderBannerItem = useCallback(
     ({ item }: { item: ISupportHubBanner }) => (
       <SupportHubBannerItem
@@ -205,7 +219,12 @@ function SupportHub() {
 
   const renderContent = useCallback(() => {
     return (
-      <Stack flexDirection="row" $md={{ flexDirection: 'column' }} gap="$3">
+      <Stack
+        flexDirection="row"
+        $md={{ flexDirection: 'column' }}
+        gap="$3"
+        width="100%"
+      >
         <Stack
           flex={1}
           $gtMd={{ flexBasis: 0 }}
@@ -281,10 +300,8 @@ function SupportHub() {
             content={
               <SupportHubItem
                 icon="BookOpenOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.settings_help_center,
-                })}
-                link={helpCenterCommonFaqLink}
+                title={resolvedHelpCenterTitle}
+                link={resolvedHelpCenterLink}
               />
             }
             contentContainerProps={{
@@ -298,7 +315,8 @@ function SupportHub() {
     );
   }, [
     intl,
-    helpCenterCommonFaqLink,
+    resolvedHelpCenterTitle,
+    resolvedHelpCenterLink,
     bannerData,
     renderBannerItem,
     bannerWidth,

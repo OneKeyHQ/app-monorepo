@@ -71,6 +71,10 @@ export function isPrintableASCII(buffer: Buffer): boolean {
   );
 }
 
+export function isAsciiAlphanumericWithSpaces(value: string): boolean {
+  return /^[A-Za-z0-9 ]+$/u.test(value);
+}
+
 export function isUTF8(buf: Buffer): boolean {
   if (!buf) return false;
 
@@ -326,6 +330,7 @@ export default {
   equalsIgnoreCase,
   capitalizeWords,
   isPrintableASCII,
+  isAsciiAlphanumericWithSpaces,
   isUTF8,
   decodeJWT,
   stripLineBreaks,

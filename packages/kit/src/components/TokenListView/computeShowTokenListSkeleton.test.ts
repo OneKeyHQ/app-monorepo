@@ -75,12 +75,60 @@ describe('computeShowTokenListSkeleton — other branches unchanged', () => {
     ).toBe(true);
   });
 
+  it('active-account refresh with cached rows does NOT skeleton', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        showActiveAccountTokenList: true,
+        activeAccountTokenListInitialized: false,
+        activeAccountTokenListIsRefreshing: true,
+        displayCount: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('active-account owner switch skeletons even with cached rows', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        showActiveAccountTokenList: true,
+        activeAccountTokenListInitialized: false,
+        activeAccountTokenListIsRefreshing: true,
+        ownerMismatch: true,
+        displayCount: 3,
+      }),
+    ).toBe(true);
+  });
+
   it('selector not yet initialized skeletons', () => {
     expect(
       computeShowTokenListSkeleton({
         ...baseHomeFirstLoad(),
         isTokenSelector: true,
         tokenSelectorInitialized: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('selector not yet initialized with cached rows does NOT skeleton', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        isTokenSelector: true,
+        tokenSelectorInitialized: false,
+        displayCount: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('selector owner switch skeletons even with cached rows', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        isTokenSelector: true,
+        tokenSelectorInitialized: false,
+        ownerMismatch: true,
+        displayCount: 3,
       }),
     ).toBe(true);
   });

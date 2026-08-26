@@ -18,28 +18,22 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
-import type {
-  IEarnManagePageActionData,
-  IEarnManagePageResponse,
-  IStakeProtocolListItem,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
   ProtocolImage,
   formatTvl,
 } from '../../Staking/components/ProtocolDisplayShared';
-import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
-import { shouldShowProtocolListBalances } from './showProtocolListDialog.utils';
+import { EarnAprSuffixText } from './EarnAprSuffixText';
+import { getProtocolAprColor } from './showProtocolListDialog.utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -48,12 +42,6 @@ type ISelectedProtocol = {
   provider: string;
   vault?: string;
 };
-
-type IProtocolBalanceInfo = {
-  balanceParsed: string;
-};
-
-type IProtocolBalanceMap = Record<string, IProtocolBalanceInfo>;
 
 function getProtocolKey({ networkId, provider, vault }: ISelectedProtocol) {
   return `${provider.toLowerCase()}-${networkId}-${vault ?? ''}`;
@@ -73,16 +61,6 @@ function getProtocolItemKey(item: IStakeProtocolListItem) {
     provider: item.provider.name,
     vault: getProtocolVault(item),
   });
-}
-
-function getManagePageDepositAction(
-  managePageData: IEarnManagePageResponse,
-): IEarnManagePageActionData | undefined {
-  const isSwapManagePage = !!(managePageData.buy || managePageData.sell);
-  if (isSwapManagePage) {
-    return managePageData.buy?.payButton ?? managePageData.deposit;
-  }
-  return managePageData.deposit ?? managePageData.buy?.payButton;
 }
 
 // Adapter function to convert IStakeProtocolListItem to IEarnAvailableAsset format
@@ -185,15 +163,23 @@ const groupProtocolsByGroup = (
   return sections;
 };
 
-const getProtocolAprValue = (item: IStakeProtocolListItem) => {
-  const aprText =
+// Keep the APY/APR suffix; EarnAprSuffixText splits it into "value + smaller
+// unit" rendering (OK-58854)
+const getProtocolAprText = (item: IStakeProtocolListItem) => {
+  return (
     item.aprInfo?.highlight?.text ||
     item.aprInfo?.normal?.text ||
     item.aprInfo?.deprecated?.text ||
-    `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)} ${item.provider.rewardUnit || 'APR'}`;
-
-  return aprText.replace(/\s*(APR|APY)\s*$/iu, '').trim();
+    `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)}% ${
+      item.provider.rewardUnit || 'APR'
+    }`
+  );
 };
+
+// Quick-switcher provider grouping (OK-58854): native is hidden; bitway is
+// folded into the More group
+const SWITCHER_HIDDEN_PROVIDERS = new Set(['native']);
+const SWITCHER_MORE_PROVIDERS = new Set(['bitway']);
 
 export function ProtocolListContent({
   symbol,
@@ -204,7 +190,6 @@ export function ProtocolListContent({
   onProtocolSelect,
   protocols,
   isLoading: isLoadingProp,
-  isOpen = true,
   variant = 'dialog',
 }: {
   symbol: string;
@@ -215,6 +200,8 @@ export function ProtocolListContent({
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
   protocols?: IStakeProtocolListItem[];
   isLoading?: boolean;
+  // Kept on the type for existing callers; unused inside the component since
+  // the balance column was removed (OK-58854)
   isOpen?: boolean;
   variant?: IProtocolListVariant;
 }) {
@@ -285,89 +272,43 @@ export function ProtocolListContent({
     () => protocolData.flatMap((section) => section.data),
     [protocolData],
   );
-  const shouldShowProtocolBalances = useMemo(
-    () => shouldShowProtocolListBalances(flatProtocolData),
-    [flatProtocolData],
-  );
-  const {
-    result: protocolBalanceMap = {},
-    isLoading: isProtocolBalanceLoading,
-  } = usePromiseResult(
-    async () => {
-      if (
-        variant !== 'switcher' ||
-        !isOpen ||
-        !shouldShowProtocolBalances ||
-        flatProtocolData.length === 0 ||
-        (!accountId && !indexedAccountId)
-      ) {
-        return {};
-      }
+  // The wallet balance column was removed per design (OK-58854); no more
+  // per-protocol managePage balance fetching
 
-      const results = await Promise.allSettled(
-        flatProtocolData.map(async (protocol) => {
-          const networkId = protocol.network.networkId;
-          const earnAccount =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId,
-              indexedAccountId,
-              networkId,
-              btcOnlyTaproot: true,
-            });
-
-          if (!earnAccount?.accountAddress) {
-            return undefined;
-          }
-
-          const managePageData =
-            await backgroundApiProxy.serviceStaking.getManagePage({
-              accountId: earnAccount.accountId,
-              networkId,
-              symbol,
-              provider: protocol.provider.name,
-              vault: getProtocolVault(protocol),
-              accountAddress: earnAccount.accountAddress,
-              publicKey: networkUtils.isBTCNetwork(networkId)
-                ? earnAccount.account.pub
-                : undefined,
-            });
-          const actionData = getManagePageDepositAction(managePageData);
-          const balance = actionData?.data?.balance;
-          if (balance === undefined || balance === null || balance === '') {
-            return undefined;
-          }
-
-          const balanceBN = BigNumber(balance);
-          return {
-            key: getProtocolItemKey(protocol),
-            balanceParsed: balanceBN.isNaN() ? '0' : balanceBN.toFixed(),
-          };
-        }),
-      );
-
-      return results.reduce<IProtocolBalanceMap>((acc, result) => {
-        if (result.status === 'fulfilled' && result.value) {
-          acc[result.value.key] = {
-            balanceParsed: result.value.balanceParsed,
-          };
+  // Quick-switcher grouping (OK-58854): native hidden; bitway etc. folded
+  // into More. If the currently selected provider is in the More group, expand
+  // it by default so the selection stays visible.
+  // The currently selected item is exempt from the hidden/More rules and is
+  // always kept in the main group — otherwise a user sitting on a hidden
+  // provider (e.g. native staking entered from the protocol list) would lose
+  // their selection and could never switch back. If filtering empties both
+  // groups, fall back to the full list.
+  const { switcherMainProtocols, switcherMoreProtocols } = useMemo(() => {
+    const main: IStakeProtocolListItem[] = [];
+    const more: IStakeProtocolListItem[] = [];
+    for (const item of flatProtocolData) {
+      const providerKey = item.provider.name.toLowerCase();
+      const isSelected = getProtocolItemKey(item) === selectedProtocolKey;
+      if (!SWITCHER_HIDDEN_PROVIDERS.has(providerKey) || isSelected) {
+        if (SWITCHER_MORE_PROVIDERS.has(providerKey) && !isSelected) {
+          more.push(item);
+        } else {
+          main.push(item);
         }
-        return acc;
-      }, {});
-    },
-    [
-      accountId,
-      flatProtocolData,
-      indexedAccountId,
-      isOpen,
-      shouldShowProtocolBalances,
-      symbol,
-      variant,
-    ],
-    {
-      initResult: {},
-      watchLoading: true,
-    },
-  );
+      }
+    }
+    if (main.length === 0 && more.length === 0) {
+      main.push(...flatProtocolData);
+    }
+    return { switcherMainProtocols: main, switcherMoreProtocols: more };
+  }, [flatProtocolData, selectedProtocolKey]);
+  const [isMoreExpandedManually, setIsMoreExpanded] = useState(false);
+  const isMoreExpanded =
+    isMoreExpandedManually ||
+    (selectedProtocolKey !== undefined &&
+      switcherMoreProtocols.some(
+        (item) => getProtocolItemKey(item) === selectedProtocolKey,
+      ));
 
   const handleProtocolPress = useCallback(
     async (protocol: IStakeProtocolListItem) => {
@@ -430,7 +371,7 @@ export function ProtocolListContent({
             primary={
               <XStack ai="center" gap="$1.5">
                 <SizableText>
-                  {capitalizeString(item.provider.name)}
+                  {getEarnProviderDisplayName(item.provider.name)}
                 </SizableText>
                 {item.provider.badges?.map((badge) => (
                   <Badge
@@ -471,16 +412,9 @@ export function ProtocolListContent({
         selectedProtocolKey !== undefined &&
         protocolKey === selectedProtocolKey;
       const tvlText = formatTvl(item.provider.tvl);
-      const secondaryText = [
-        item.provider.vaultName,
-        tvlText ? `TVL ${tvlText}` : undefined,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      const balanceInfo = protocolBalanceMap[protocolKey];
-      const balanceText = balanceInfo
-        ? numberFormat(balanceInfo.balanceParsed, { formatter: 'balance' })
-        : undefined;
+      const aprColor = getProtocolAprColor(item.aprInfo);
+      // TVL moved to the bottom-right; bottom-left keeps only vaultName (OK-58854)
+      const secondaryText = item.provider.vaultName || '';
 
       return (
         <XStack
@@ -507,9 +441,24 @@ export function ProtocolListContent({
             networkLogoURI={item.network.logoURI}
           />
           <YStack flex={1} minWidth={0} gap="$0.5">
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {capitalizeString(item.provider.name)}
-            </SizableText>
+            <XStack alignItems="center" gap="$1.5" minWidth={0}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {getEarnProviderDisplayName(item.provider.name)}
+              </SizableText>
+              {item.provider.badges?.map((badge) => (
+                <Badge
+                  key={badge.tag}
+                  badgeType={badge.badgeType}
+                  badgeSize="sm"
+                >
+                  <Badge.Text>{badge.tag}</Badge.Text>
+                </Badge>
+              ))}
+            </XStack>
             {secondaryText ? (
               <SizableText
                 size="$bodySm"
@@ -521,37 +470,20 @@ export function ProtocolListContent({
             ) : null}
           </YStack>
           <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
-            <SizableText size="$bodyLgMedium">
-              {getProtocolAprValue(item)}
-            </SizableText>
-            {shouldShowProtocolBalances &&
-            (balanceText || isProtocolBalanceLoading) ? (
-              <XStack ai="center" gap="$1">
-                <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-                {balanceText ? (
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                  >
-                    {balanceText}
-                  </SizableText>
-                ) : (
-                  <Skeleton h="$3" w={40} borderRadius="$2" />
-                )}
-              </XStack>
+            <EarnAprSuffixText
+              text={getProtocolAprText(item)}
+              color={aprColor}
+            />
+            {tvlText ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {`TVL ${tvlText}`}
+              </SizableText>
             ) : null}
           </YStack>
         </XStack>
       );
     },
-    [
-      handleProtocolPress,
-      isProtocolBalanceLoading,
-      protocolBalanceMap,
-      selectedProtocolKey,
-      shouldShowProtocolBalances,
-    ],
+    [handleProtocolPress, selectedProtocolKey],
   );
 
   if (isLoading) {
@@ -628,22 +560,39 @@ export function ProtocolListContent({
   }
 
   if (variant === 'switcher') {
+    // Column header removed per design; native hidden, More group collapsed (OK-58854)
     return (
       <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
-        <XStack px="$2" py="$1.5" alignItems="center">
-          <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
-            {intl.formatMessage({
-              id: ETranslations.global_protocol,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.defi_apr_apy,
-            })}
-          </SizableText>
-        </XStack>
         <YStack gap="$0.5">
-          {flatProtocolData.map((item) => renderSwitcherItem({ item }))}
+          {switcherMainProtocols.map((item) => renderSwitcherItem({ item }))}
+          {switcherMoreProtocols.length > 0 && !isMoreExpanded ? (
+            <XStack
+              role="button"
+              userSelect="none"
+              alignItems="center"
+              gap="$3"
+              px="$2"
+              py="$2"
+              mx="$1"
+              borderRadius="$2"
+              cursor="pointer"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgHover' }}
+              onPress={() => setIsMoreExpanded(true)}
+            >
+              <SizableText size="$bodyLgMedium" color="$textSubdued" flex={1}>
+                {intl.formatMessage({ id: ETranslations.global_more })}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          ) : null}
+          {isMoreExpanded
+            ? switcherMoreProtocols.map((item) => renderSwitcherItem({ item }))
+            : null}
         </YStack>
       </YStack>
     );

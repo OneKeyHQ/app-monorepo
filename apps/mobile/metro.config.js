@@ -10,6 +10,9 @@ const path = require('path');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const {
+  withStorybook,
+} = require('@storybook/react-native/metro/withStorybook');
 const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
@@ -148,6 +151,13 @@ const devRouterStub = path.resolve(
   monorepoRoot,
   'packages/kit/src/views/Developer/router.empty.ts',
 );
+// react-native-purchases statically imports its browser implementation, which
+// otherwise pulls the full purchases-js runtime into native bundles even
+// though the linked RNPurchases module is always selected on iOS and Android.
+const revenueCatBrowserMappingsStub = path.resolve(
+  projectRoot,
+  'shims/revenueCatBrowserMappings.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -171,6 +181,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@revenuecat/purchases-js-hybrid-mappings'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: revenueCatBrowserMappingsStub,
+    };
+  }
   if (moduleName === '@nktkas/hyperliquid/signing') {
     return {
       type: 'sourceFile',
@@ -280,10 +299,21 @@ if (process.env.RN_HARNESS === 'true') {
         }
       }
     }
-    // Replace react-native-mmkv with an in-memory mock during harness tests.
-    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
-    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
-    if (moduleName === 'react-native-mmkv') {
+    const normalizedOriginModulePath = context.originModulePath?.replaceAll(
+      '\\',
+      '/',
+    );
+    const isLocalSecretEnvelopeNativeMmkvStorage =
+      normalizedOriginModulePath?.includes(
+        '/packages/kit-bg/src/dbs/local/localSecretEnvelope/mmkvProfileKeyStorage.native.',
+      );
+    // Most harness tests use an in-memory MMKV facade because appStorage is
+    // mocked. The native LSE storage adapter is the deliberate exception: its
+    // restart suite must exercise the real JSI-backed persistent MMKV instance.
+    if (
+      moduleName === 'react-native-mmkv' &&
+      !isLocalSecretEnvelopeNativeMmkvStorage
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
@@ -325,6 +355,26 @@ if (process.env.RN_HARNESS === 'true') {
 }
 
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+// Metro does not include environment variables read by Babel plugins in its
+// transform cache key. Keep bundles compiled with different runtime layouts
+// in separate cache namespaces.
+config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
+  buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
+}`;
+
+if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
+  const configuredMaxWorkers = Number.parseInt(
+    process.env.NATIVE_DEV_METRO_MAX_WORKERS || '',
+    10,
+  );
+  // Native development builds the main and background graphs concurrently.
+  // Cap the transform pool so a full refresh does not exhaust host memory.
+  config.maxWorkers =
+    Number.isInteger(configuredMaxWorkers) && configuredMaxWorkers > 0
+      ? configuredMaxWorkers
+      : 2;
+}
+
 const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
@@ -482,8 +532,32 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
   connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
 
-module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
-  enabled: process.env.WITH_ROZENITE === 'true',
-  // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
-  enhanceMetroConfig: (cfg) => cfg,
-});
+// STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
+// transform-cache key cannot see — flipping modes would serve stale transforms
+// (e.g. the wallet entry inside storybook mode). Namespace the cache per mode
+// so both stay correct and cached without `--clear` on every switch.
+config.cacheVersion = [
+  config.cacheVersion,
+  process.env.STORYBOOK_ENABLED === 'true' ? 'storybook' : 'app',
+]
+  .filter(Boolean)
+  .join('-');
+
+module.exports = withRozenite(
+  // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
+  // strips every storybook module from the bundle via its resolver, so normal
+  // and production builds are unaffected.
+  withStorybook(splitCodePlugin(config, projectRoot), {
+    enabled: process.env.STORYBOOK_ENABLED === 'true',
+    configPath: path.resolve(projectRoot, './.rnstorybook'),
+    // Explicit localhost keeps the generated storybook.requires.ts stable —
+    // 'auto' would embed this machine's LAN IP. The iOS simulator reaches the
+    // host's localhost directly.
+    websockets: { host: 'localhost', port: 7007 },
+  }),
+  {
+    enabled: process.env.WITH_ROZENITE === 'true',
+    // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
+    enhanceMetroConfig: (cfg) => cfg,
+  },
+);

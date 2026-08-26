@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,17 +31,19 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
-
-import type { IntlShape } from 'react-intl';
+import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLimitPriceWarning';
 
 type IPosition =
   IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
@@ -66,6 +69,7 @@ interface IClosePositionFormProps extends IClosePositionParams {
 const ClosePositionForm = memo(
   ({ position, type, onClose }: IClosePositionFormProps) => {
     const intl = useIntl();
+    const { gtMd } = useMedia();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
 
@@ -133,6 +137,26 @@ const ClosePositionForm = memo(
     }, []);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const orderBookTop = useCoinOrderBookTop(position.coin);
+
+    const aggressiveLimitPriceWarning = useMemo(
+      () =>
+        formData.type === 'limit'
+          ? getAggressiveLimitPriceWarning({
+              side: isLongPosition ? 'short' : 'long',
+              limitPrice: formData.limitPrice,
+              bestBid: orderBookTop.bestBid,
+              bestAsk: orderBookTop.bestAsk,
+            })
+          : undefined,
+      [
+        formData.limitPrice,
+        formData.type,
+        isLongPosition,
+        orderBookTop.bestAsk,
+        orderBookTop.bestBid,
+      ],
+    );
 
     const calculatedAmount = useMemo(() => {
       const percentage = Number.isNaN(formData.percentage)
@@ -213,18 +237,6 @@ const ClosePositionForm = memo(
       [userSetPrice],
     );
 
-    const handleUseMid = useCallback(() => {
-      const latestMidPrice = midPrice;
-      if (latestMidPrice && latestMidPrice !== '0') {
-        setFormData((prev) => ({
-          ...prev,
-          limitPrice: formatPriceToSignificantDigits(latestMidPrice),
-        }));
-        setUserSetPrice(false);
-        initPriceRef.current = true;
-      }
-    }, [midPrice]);
-
     const handleTypeChange = useCallback((value: string) => {
       setFormData((prev) => ({
         ...prev,
@@ -251,6 +263,13 @@ const ClosePositionForm = memo(
           return;
         }
 
+        const finishClosePosition = () => {
+          hyperliquidActions.current.resetTradingForm();
+          if (isMountedRef.current) {
+            onClose();
+          }
+        };
+
         if (formData.type === 'market') {
           const latestMidPrice = midPrice;
           if (!latestMidPrice || latestMidPrice === '0') {
@@ -268,6 +287,7 @@ const ClosePositionForm = memo(
               midPx: latestMidPrice,
             },
           ]);
+          finishClosePosition();
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
@@ -277,19 +297,19 @@ const ClosePositionForm = memo(
             return;
           }
 
-          await hyperliquidActions.current.ordersClose([
+          const closeOrderParams = [
             {
               assetId,
               isBuy: isLongPosition,
               size: closeAmount,
               limitPx: formData.limitPrice,
             },
-          ]);
-        }
-
-        hyperliquidActions.current.resetTradingForm();
-        if (isMountedRef.current) {
-          onClose();
+          ];
+          const closePosition = async () => {
+            await hyperliquidActions.current.ordersClose(closeOrderParams);
+            finishClosePosition();
+          };
+          await closePosition();
         }
       } finally {
         if (isMountedRef.current) {
@@ -384,6 +404,10 @@ const ClosePositionForm = memo(
 
     return (
       <YStack gap="$4">
+        {aggressiveLimitPriceWarning ? (
+          <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+        ) : null}
+
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -462,7 +486,6 @@ const ClosePositionForm = memo(
             })}
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
-            onUseMidPrice={handleUseMid}
             disabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
@@ -490,7 +513,9 @@ const ClosePositionForm = memo(
           onChange={handlePercentageChange}
           max={100}
           min={0}
-          segments={0}
+          segments={4}
+          snapTapToSegment
+          sliderHeight={gtMd ? 4 : 2}
         />
 
         <XStack justifyContent="space-between" gap="$1">
@@ -539,14 +564,16 @@ export function showClosePositionDialog({
     disableDrag: true,
     renderContent: (
       <PerpsProviderMirror>
-        <ClosePositionForm
-          position={position}
-          type={type}
-          onClose={() => dialogInstance.close()}
-        />
+        <PerpKeyboardAwareDialogContent>
+          <ClosePositionForm
+            position={position}
+            type={type}
+            onClose={() => dialogInstance.close()}
+          />
+        </PerpKeyboardAwareDialogContent>
       </PerpsProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
 

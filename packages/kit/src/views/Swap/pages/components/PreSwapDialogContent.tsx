@@ -7,11 +7,14 @@ import {
   useState,
 } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
+  Dialog,
   Divider,
   HeightTransition,
   Icon,
@@ -24,16 +27,22 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useSwapLimitPriceMarketPriceAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   filterSwapHistoryPendingList,
   useInAppNotificationAtom,
+  useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapNetworkFeeLevel,
   IFetchLimitOrderRes,
@@ -47,10 +56,10 @@ import type {
 import {
   ESwapApproveTransactionStatus,
   ESwapLimitOrderStatus,
+  ESwapSlippageSegmentKey,
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
@@ -61,7 +70,25 @@ import PreSwapInfoGroup, {
 import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
+import {
+  type ISwapReviewSlippageSaveScope,
+  SwapReviewSlippageEditor,
+} from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import {
+  isSwapReviewConfirmBlocked,
+  isSwapReviewRebuildInProgress,
+} from '../../utils/swapReviewRebuildStateMachine';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  invalidateSwapReviewForSlippageChange,
+  shouldShowSwapReviewToAmountSkeleton,
+} from '../../utils/swapReviewState';
+import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
+import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
+
+import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
+import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -80,6 +107,17 @@ interface IPreSwapDialogContentProps {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  isSwapPro?: boolean;
+  rebuildReviewWithSlippage?: (
+    slippagePercentage: number,
+    options?: ISwapReviewRebuildOptions,
+  ) => Promise<void>;
+  reviewRebuildState?: ISwapReviewRebuildState;
+  resetUncommittedReviewRebuildError?: () => void;
+  saveSlippageForFutureOrders?: (
+    slippagePercentage: number,
+  ) => Promise<void> | void;
+  disableSaveSlippageForFutureOrders?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -91,8 +129,20 @@ const PreSwapDialogContent = ({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  isSwapPro,
+  rebuildReviewWithSlippage,
+  reviewRebuildState,
+  resetUncommittedReviewRebuildError,
+  saveSlippageForFutureOrders,
+  disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
+  const [, setSettings] = useSettingsAtom();
+  const [slippageEditorOpen, setSlippageEditorOpen] = useState(false);
+  const [slippageSavingScope, setSlippageSavingScope] = useState<
+    ISwapReviewSlippageSaveScope | undefined
+  >(undefined);
+  const isMountedRef = useRef(true);
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
@@ -141,6 +191,12 @@ const PreSwapDialogContent = ({
     customNetworkFeeOptionKey,
   );
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  useEffect(() => {
     customNetworkFeeOptionRef.current = customNetworkFeeOption;
 
     if (!customNetworkFeeOptionKey) {
@@ -182,6 +238,58 @@ const PreSwapDialogContent = ({
       toAmount: preSwapData?.toTokenAmount || '0',
     };
   }, [preSwapData]);
+  const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
+  // A limit order whose rate the market already beats will likely fill
+  // immediately at the market price — surface that before the user confirms.
+  // Both rates are "toToken per fromToken", so a single comparison covers the
+  // BUY and SELL directions; gate on the quote's own protocol (not UI state)
+  // and require both rates to belong to the reviewed pair.
+  const showMarketableFillTip = useMemo(() => {
+    if (
+      getSwapExecutionTypeFromQuoteResult(quoteResult) !==
+      ESwapTabSwitchType.LIMIT
+    ) {
+      return false;
+    }
+    const userRate = new BigNumber(limitPriceUseRate?.rate ?? '0');
+    const marketRate = new BigNumber(limitPriceMarketPrice?.rate ?? '0');
+    if (
+      !userRate.isFinite() ||
+      !marketRate.isFinite() ||
+      userRate.lte(0) ||
+      marketRate.lte(0)
+    ) {
+      return false;
+    }
+    const pairMatched =
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate?.fromToken,
+        token2: preSwapData?.fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceUseRate?.toToken,
+        token2: preSwapData?.toToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice?.fromToken,
+        token2: preSwapData?.fromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: limitPriceMarketPrice?.toToken,
+        token2: preSwapData?.toToken,
+      });
+    if (!pairMatched) {
+      return false;
+    }
+    return userRate.lt(marketRate);
+  }, [
+    quoteResult,
+    limitPriceUseRate,
+    limitPriceMarketPrice,
+    preSwapData?.fromToken,
+    preSwapData?.toToken,
+  ]);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const isHwWallet = useMemo(
     () =>
@@ -238,13 +346,89 @@ const PreSwapDialogContent = ({
         preSwapData?.estimateNetworkFeeLoading ||
         preSwapData?.swapBuildLoading ||
         preSwapData?.stepBeforeActionsLoading ||
-        preSwapData?.stepBeforeActionsError,
+        preSwapData?.stepBeforeActionsError ||
+        isSwapReviewConfirmBlocked(reviewRebuildState?.phase),
       ),
     [
       preSwapData?.estimateNetworkFeeLoading,
       preSwapData?.stepBeforeActionsError,
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
+      reviewRebuildState?.phase,
+    ],
+  );
+
+  const handleSlippageEditorOpenChange = useCallback(
+    (open: boolean) => {
+      if (
+        !slippageSavingScope &&
+        !isSwapReviewRebuildInProgress(reviewRebuildState?.phase)
+      ) {
+        if (!open) {
+          resetUncommittedReviewRebuildError?.();
+        }
+        setSlippageEditorOpen(open);
+      }
+    },
+    [
+      resetUncommittedReviewRebuildError,
+      reviewRebuildState?.phase,
+      slippageSavingScope,
+    ],
+  );
+  const handleSaveSlippage = useCallback(
+    async (scope: ISwapReviewSlippageSaveScope, slippagePercentage: number) => {
+      if (!rebuildReviewWithSlippage || slippageSavingScope) {
+        return;
+      }
+
+      setSlippageSavingScope(scope);
+      let editorReleased = false;
+      const releaseEditor = () => {
+        if (editorReleased || !isMountedRef.current) {
+          return;
+        }
+        editorReleased = true;
+        setSlippageEditorOpen(false);
+        setSlippageSavingScope(undefined);
+
+        if (scope !== 'future') {
+          return;
+        }
+        if (saveSlippageForFutureOrders) {
+          void Promise.resolve(
+            saveSlippageForFutureOrders(slippagePercentage),
+          ).catch((error: unknown) => {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          });
+        } else {
+          setSettings((prev) => ({
+            ...prev,
+            swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+            swapSlippagePercentageCustomValue: slippagePercentage,
+          }));
+        }
+      };
+      try {
+        await rebuildReviewWithSlippage(slippagePercentage, {
+          onExecutionReady: releaseEditor,
+        });
+        releaseEditor();
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      } finally {
+        if (isMountedRef.current) {
+          setSlippageSavingScope(undefined);
+        }
+      }
+    },
+    [
+      rebuildReviewWithSlippage,
+      saveSlippageForFutureOrders,
+      setSettings,
+      slippageSavingScope,
     ],
   );
 
@@ -425,27 +609,18 @@ const PreSwapDialogContent = ({
           (item) => item.orderId === lastStep?.orderId,
         );
       }
-      if (
-        findStepItem &&
-        preSwapData?.swapType !== ESwapTabSwitchType.LIMIT &&
-        findStepItem.status !== ESwapTxHistoryStatus.PENDING
-      ) {
-        let stepStatus = ESwapStepStatus.PENDING;
-        if (findStepItem.status === ESwapTxHistoryStatus.SUCCESS) {
-          stepStatus = ESwapStepStatus.SUCCESS;
-        } else if (findStepItem.status === ESwapTxHistoryStatus.FAILED) {
-          stepStatus = ESwapStepStatus.FAILED;
-        }
+      if (findStepItem && preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
         setSwapSteps(
           (prevSteps: {
             steps: ISwapStep[];
             preSwapData: ISwapPreSwapData;
           }) => {
             const newSteps = [...prevSteps.steps];
-            newSteps[newSteps.length - 1] = {
-              ...newSteps[newSteps.length - 1],
-              status: stepStatus,
-            };
+            newSteps[newSteps.length - 1] = reconcileSwapStepWithHistory({
+              step: newSteps[newSteps.length - 1],
+              historyStatus: (findStepItem as ISwapTxHistory).status,
+              txId: (findStepItem as ISwapTxHistory).txInfo.txId,
+            });
             return {
               ...prevSteps,
               steps: newSteps,
@@ -505,6 +680,29 @@ const PreSwapDialogContent = ({
       );
     }
   }, [lastStep?.status, swapSteps.steps.length]);
+  const supportSlippageRebuild = Boolean(
+    rebuildReviewWithSlippage &&
+    preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
+      .supportRebuildTx &&
+    !preSwapData?.unSupportSlippage &&
+    swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
+    !showResultContent,
+  );
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (supportSlippageRebuild) {
+      void handleSaveSlippage('current', NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE);
+      return;
+    }
+
+    setSwapSteps((prev) =>
+      invalidateSwapReviewForSlippageChange({
+        reviewState: prev,
+        slippagePercentage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    );
+  }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
+  const showMobileSlippageEditor =
+    platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
 
   const actionBtnTest = useMemo(() => {
     if (preSwapData?.isHWAndExBatchTransfer) {
@@ -536,8 +734,48 @@ const PreSwapDialogContent = ({
     quoteResult?.allowanceResult?.shouldResetApprove,
   ]);
 
+  if (showMobileSlippageEditor) {
+    return (
+      <>
+        <Dialog.Header showExitButton={false}>
+          <XStack
+            testID="swap-review-slippage-back"
+            alignItems="center"
+            gap="$2"
+            cursor="pointer"
+            onPress={() => handleSlippageEditorOpenChange(false)}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$6" color="$icon" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.trade_silp_edit_slippage,
+              })}
+            </Dialog.Title>
+          </XStack>
+        </Dialog.Header>
+        <HeightTransition initialHeight={355}>
+          <Stack pt="$2">
+            <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                disableSaveSlippageForFutureOrders
+              }
+              initialValue={preSwapData.slippage ?? 0}
+              savingScope={slippageSavingScope}
+              showTitle={false}
+              onSave={handleSaveSlippage}
+            />
+          </Stack>
+        </HeightTransition>
+      </>
+    );
+  }
+
   return (
     <HeightTransition initialHeight={355}>
+      <Dialog.Header
+        title={intl.formatMessage({ id: ETranslations.global_review_order })}
+        showExitButton={!slippageSavingScope}
+      />
       {showResultContent && swapSteps.steps.length > 0 ? (
         <PreSwapConfirmResult
           onConfirm={onDone}
@@ -550,7 +788,9 @@ const PreSwapDialogContent = ({
           {/* You pay */}
           <YStack gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
+              {intl.formatMessage({
+                id: ETranslations.swap_review_you_pay,
+              })}
             </SizableText>
 
             {/* From token item */}
@@ -605,11 +845,24 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.toToken}
               amount={toAmount}
-              loading={preSwapData.swapBuildLoading}
+              loading={shouldShowSwapReviewToAmountSkeleton({
+                swapBuildLoading: preSwapData.swapBuildLoading,
+                toTokenAmount: preSwapData.toTokenAmount,
+              })}
               isFloating={quoteResult?.isFloating}
               rateDifference={preSwapData.rateDifference}
             />
           </YStack>
+
+          {showMarketableFillTip ? (
+            <Alert
+              type="warning"
+              icon="InfoCircleOutline"
+              title={intl.formatMessage({
+                id: ETranslations.limit_marketable_fill_tip,
+              })}
+            />
+          ) : null}
 
           <Divider />
 
@@ -631,11 +884,27 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
+                    onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
+                    nativeBtcMinSlippageSaving={
+                      slippageSavingScope === 'current'
+                    }
+                    isSwapPro={isSwapPro}
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label
                     }
                     networkFeeSelectValue={networkFeeSelectValue}
+                    slippageEditor={
+                      supportSlippageRebuild
+                        ? {
+                            disableSaveSlippageForFutureOrders,
+                            open: slippageEditorOpen,
+                            savingScope: slippageSavingScope,
+                            onOpenChange: handleSlippageEditorOpenChange,
+                            onSave: handleSaveSlippage,
+                          }
+                        : undefined
+                    }
                   />
                   {/* Primary button */}
                   <Button

@@ -24,6 +24,7 @@ import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -106,6 +107,14 @@ function getSelectedTokensColdStartSwapType({
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
 }) {
+  if (
+    currentSwapType === ESwapTabSwitchType.STOCK ||
+    fromToken?.isStock ||
+    toToken?.isStock
+  ) {
+    return ESwapTabSwitchType.STOCK;
+  }
+
   if (
     fromToken?.networkId &&
     toToken?.networkId &&
@@ -191,8 +200,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapTips] = useSwapTipsAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
-  const [swapStockSelectedToken, setSwapStockSelectedToken] =
-    useSwapStockSelectedTokenAtom();
+  const [swapStockSelectedToken] = useSwapStockSelectedTokenAtom();
   const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
@@ -373,6 +381,25 @@ export function useSwapInit(params?: ISwapInitParams) {
     [swapTypeSwitchAction],
   );
 
+  const lastRouteSwapTabSwitchTypeRef = useRef(params?.swapTabSwitchType);
+  useEffect(() => {
+    // Cold mount is owned by SwapHeaderContainer's mount-time switch (which
+    // delays to avoid racing default-token init). This effect only serves warm
+    // navigation: the tab route param changing while the Swap page is already
+    // mounted, e.g. a stocks universal link arriving with the app alive.
+    if (lastRouteSwapTabSwitchTypeRef.current === params?.swapTabSwitchType) {
+      return;
+    }
+    lastRouteSwapTabSwitchTypeRef.current = params?.swapTabSwitchType;
+    if (!params?.swapTabSwitchType) {
+      return;
+    }
+    switchSwapTypeIfNeeded(
+      params.swapTabSwitchType,
+      swapAddressInfoRef.current?.networkId ?? fromTokenRef.current?.networkId,
+    );
+  }, [params?.swapTabSwitchType, switchSwapTypeIfNeeded]);
+
   const validateSelectedTokensColdStartContext = useCallback(() => {
     if (!fromTokenRef.current && !toTokenRef.current) {
       return true;
@@ -495,7 +522,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       toTokenRef.current = undefined;
       void resetSwapTokenData(ESwapDirectionType.FROM);
       void resetSwapTokenData(ESwapDirectionType.TO);
-      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(undefined);
       if (resetSwapType) {
         switchSwapTypeIfNeeded(
@@ -507,7 +533,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       params?.swapTabSwitchType,
       resetSwapTokenData,
       setSelectedTokensColdStartContext,
-      setSwapStockSelectedToken,
       switchSwapTypeIfNeeded,
     ],
   );
@@ -574,7 +599,6 @@ export function useSwapInit(params?: ISwapInitParams) {
         selectedTokensColdStartContextRef.current = defaultTokens.context;
         setSwapFromToken(defaultTokens.fromToken);
         setToToken(defaultTokens.toToken);
-        setSwapStockSelectedToken(undefined);
         setSelectedTokensColdStartContext(defaultTokens.context);
         switchSwapTypeIfNeeded(
           defaultTokens.swapType,
@@ -617,7 +641,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       shouldPreserveUserInputAmount,
       setSelectedTokensColdStartContext,
       setSwapFromToken,
-      setSwapStockSelectedToken,
       setToToken,
       switchSwapTypeIfNeeded,
       updateSelectedAccount,
@@ -890,6 +913,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     const isStockDefaultTokenFlow =
       swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
       params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
+    const hasStockExecutionSelectedTokens =
+      fromTokenRef.current?.isStock === true ||
+      toTokenRef.current?.isStock === true;
     const hasInitFromAmount = Boolean(
       hasUnconsumedSwapInitParams && params?.fromAmount,
     );
@@ -905,8 +931,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     if (isStockDefaultTokenFlow) {
       if (
+        !hasStockExecutionSelectedTokens &&
         selectedTokensColdStartContextRef.current?.swapType !==
-        ESwapTabSwitchType.STOCK
+          ESwapTabSwitchType.STOCK
       ) {
         if (fromTokenRef.current) {
           setSwapFromToken(undefined);
@@ -1021,6 +1048,12 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importFromToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          // Scaled-UI (rebase) tokens: fail-closed, same policy as the
+          // selectFromToken gate (setSwapFromToken writes the atom
+          // directly and bypasses it).
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importFromToken.balanceMultiplier,
           ),
         );
         const isImportToTokenSupported = Boolean(
@@ -1028,6 +1061,9 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importToToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importToToken.balanceMultiplier,
           ),
         );
         const hasUnsupportedImportToken =
@@ -1227,7 +1263,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           : undefined;
         if (defaultFromToken) {
           setSwapFromToken(defaultFromTokenWithLogo);
-          setSwapStockSelectedToken(undefined);
           didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultFromToken.networkId);
         }
@@ -1238,7 +1273,6 @@ export function useSwapInit(params?: ISwapInitParams) {
               ? defaultToToken.networkLogoURI
               : netInfo?.logoURI,
           });
-          setSwapStockSelectedToken(undefined);
           didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultToToken.networkId);
           if (shouldResetInvalidColdStartSwapType) {
@@ -1280,7 +1314,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           });
           if (needChangeToToken) {
             setToToken(needChangeToToken);
-            setSwapStockSelectedToken(undefined);
             didSetDefaultSelectedTokens = true;
             void syncNetworksSort(needChangeToToken.networkId);
             if (
@@ -1329,7 +1362,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     fromTokenAmount.value,
     setFromTokenAmount,
     setSelectedTokensColdStartContext,
-    setSwapStockSelectedToken,
     setToTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
@@ -1424,21 +1456,26 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
-      const simpleDbTips =
-        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
-      if (tips && !simpleDbTips.includes(tips.tipsId)) {
+      try {
+        const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+        const simpleDbTips =
+          await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+        if (tips && !simpleDbTips.includes(tips.tipsId)) {
+          setSwapTips({
+            tips,
+            status: 'ready',
+            updatedAt: Date.now(),
+          });
+          return;
+        }
         setSwapTips({
-          tips,
-          status: 'ready',
+          status: 'empty',
           updatedAt: Date.now(),
         });
-        return;
+      } catch (_error) {
+        // Keep the last settled presentation when remote config or local
+        // dismissal state cannot be loaded.
       }
-      setSwapTips({
-        status: 'empty',
-        updatedAt: Date.now(),
-      });
     })();
   }, [setSwapTips]);
 

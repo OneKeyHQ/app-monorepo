@@ -1,72 +1,58 @@
-import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
-import QRCodeUtil from 'qrcode';
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  G,
-  Image,
-  LinearGradient,
-  Path,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Image, Path, Rect } from 'react-native-svg';
 
 import {
   TamaguiTheme as Theme,
   getTokenValue,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
 
+import {
+  ensureQRCodeUtilLoaded,
+  generateMatrix,
+  getQRCodeDotCells,
+  getQRCodeDotsPath,
+  getQRCodeFinderRings,
+  getQRCodeLayoutMetrics,
+  getQRCodeLogoClearArenaSize,
+  getQRCodePlateBorderRadius,
+  isQRCodeUtilLoaded,
+} from './QRCode.utils';
+
+import type { IQRCodeErrorCorrectionLevel } from './QRCode.utils';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
-export type IQrcodeDrawType = 'dot' | 'line' | 'animated';
+export type IQrcodeDrawType = 'dot' | 'line';
 
 type IBasicQRCodeProps = {
   size: number;
-  ecl?: 'L' | 'M' | 'Q' | 'H';
+  ecl?: IQRCodeErrorCorrectionLevel;
   logo?: ImageProps['source'];
   logoSvg?: IIconProps['name'];
   logoSvgColor?: IIconProps['color'];
   // Use RGB color, please avoid using colors that are close to black.
   logoBackgroundColor?: string;
+  logoBorderRadius?: number;
   logoMargin?: number;
   logoSize?: number;
   value: string;
-  interval?: number;
-  quietZone?: number;
-  enableLinearGradient?: boolean;
-  gradientDirection?: string[];
-  linearGradient?: string[];
-  // If drawType is line, the logo will not be displayed
+  // Color of the dark modules. Keep it far from the light background so the
+  // code stays scannable.
+  darkColor?: string;
   drawType?: IQrcodeDrawType;
 };
 
-const generateMatrix = (
-  value: string,
-  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H',
-): number[][] => {
-  const arr: number[] = Array.prototype.slice.call(
-    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
-    0,
-  );
-  const sqrt = Math.sqrt(arr.length);
-  return arr.reduce((rows: number[][], key, index) => {
-    if (index % sqrt === 0) {
-      rows.push([key]);
-    } else {
-      rows[rows.length - 1].push(key);
-    }
-    return rows;
-  }, []);
-};
+const DEFAULT_LOGO_MARGIN = 3;
+const DEFAULT_LOGO_SIZE = 62;
+// The wrapper's layout metrics and BasicQRCode must default to the same
+// level, or the quiet-zone math describes a different symbol than the one
+// drawn.
+const DEFAULT_ECL: IQRCodeErrorCorrectionLevel = 'H';
 
 const transformMatrixIntoPath = (matrix: number[][], size: number) => {
   const cellSize = size / matrix.length;
@@ -88,173 +74,119 @@ const transformMatrixIntoPath = (matrix: number[][], size: number) => {
       }
     });
   });
-  return {
-    cellSize,
-    path,
-  };
+  return path;
 };
 
 function BasicQRCode({
-  ecl = 'H',
+  ecl = DEFAULT_ECL,
   logo,
   logoSvg,
   logoBackgroundColor: logoBGColor,
+  logoBorderRadius,
   logoSvgColor = '$text',
-  logoMargin = 5,
-  logoSize = 62,
+  logoMargin = DEFAULT_LOGO_MARGIN,
+  logoSize = DEFAULT_LOGO_SIZE,
   size,
   value,
-  quietZone = 0,
-  drawType = 'line',
-  enableLinearGradient = false,
-  gradientDirection = ['0%', '0%', '100%', '100%'],
-  linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
+  drawType = 'dot',
+  darkColor: darkColorProp,
 }: IBasicQRCodeProps) {
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = getTokenValue('$textLight', 'color');
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
   const logoBackgroundColor = logoBGColor || secondaryColor;
+  const hasLogo = Boolean(logo || logoSvg);
+  const darkColor = darkColorProp || primaryColor;
   const result = useMemo(() => {
     const matrix = generateMatrix(value, ecl);
+    const cellSize = size / matrix.length;
     if (drawType === 'dot') {
-      const arr: ReactElement[] = [];
-      const qrList = [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
-        { x: 0, y: 1 },
-      ];
-      const cellSize = size / matrix.length;
-      qrList.forEach(({ x, y }) => {
-        const x1 = (matrix.length - 7) * cellSize * x;
-        const y1 = (matrix.length - 7) * cellSize * y;
-        for (let i = 0; i < 3; i += 1) {
-          arr.push(
-            <Rect
-              key={`Rect${x}${y}${i}`}
-              fill={i % 2 !== 0 ? secondaryColor : primaryColor}
-              x={x1 + cellSize * i}
-              y={y1 + cellSize * i}
-              width={cellSize * (7 - i * 2)}
-              height={cellSize * (7 - i * 2)}
-              rx={(i - 3) * -6 + (i === 0 ? 2 : 0)} // calculated border radius for corner squares
-              ry={(i - 3) * -6 + (i === 0 ? 2 : 0)} // calculated border radius for corner squares
-            />,
-          );
-        }
+      const clearArenaModules = hasLogo
+        ? getQRCodeLogoClearArenaSize({ logoSize, logoMargin, cellSize })
+        : 0;
+      // one path for the whole dot field: the dots share a fill and never
+      // overlap, so this is a single node instead of one per dark module
+      const dotsPath = getQRCodeDotsPath({
+        cells: getQRCodeDotCells({ matrix, clearArenaModules }),
+        cellSize,
       });
-
-      const clearArenaSize = Math.floor((logoSize + 3) / cellSize);
-      const matrixMiddleStart = matrix.length / 2 - clearArenaSize / 2;
-      const matrixMiddleEnd = matrix.length / 2 + clearArenaSize / 2 - 1;
-      matrix.forEach((row: any[], i: number) => {
-        row.forEach((column, j) => {
-          if (matrix[i][j]) {
-            if (
-              !(
-                (i < 7 && j < 7) ||
-                (i > matrix.length - 8 && j < 7) ||
-                (i < 7 && j > matrix.length - 8)
-              )
-            ) {
-              if (
-                !(
-                  i >= matrixMiddleStart &&
-                  i <= matrixMiddleEnd &&
-                  j >= matrixMiddleStart &&
-                  j <= matrixMiddleEnd
-                )
-              ) {
-                arr.push(
-                  <Circle
-                    key={`circle row${i} col${j}`}
-                    cx={i * cellSize + cellSize / 2}
-                    cy={j * cellSize + cellSize / 2}
-                    fill={primaryColor}
-                    r={cellSize / 3} // calculate size of single dots
-                  />,
-                );
-              }
-            }
-          }
-        });
-      });
-      return arr;
+      return (
+        <>
+          {getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).map(
+            (ring) => (
+              <Rect
+                key={`finder-${ring.x}-${ring.y}-${ring.size}`}
+                fill={ring.isDark ? darkColor : secondaryColor}
+                x={ring.x}
+                y={ring.y}
+                width={ring.size}
+                height={ring.size}
+                rx={ring.radius}
+                ry={ring.radius}
+              />
+            ),
+          )}
+          <Path d={dotsPath} fill={darkColor} />
+        </>
+      );
     }
-    const { path, cellSize } = transformMatrixIntoPath(matrix, size);
     return (
-      <>
-        <Defs>
-          <LinearGradient
-            id="grad"
-            x1={gradientDirection[0]}
-            y1={gradientDirection[1]}
-            x2={gradientDirection[2]}
-            y2={gradientDirection[3]}
-          >
-            <Stop offset="0" stopColor={linearGradient[0]} stopOpacity="1" />
-            <Stop offset="1" stopColor={linearGradient[1]} stopOpacity="1" />
-          </LinearGradient>
-        </Defs>
-        <G>
-          <Rect
-            x={-quietZone}
-            y={-quietZone}
-            width={size + quietZone * 2}
-            height={size + quietZone * 2}
-            fill={secondaryColor}
-          />
-        </G>
-        <G>
-          <Path
-            d={path}
-            strokeLinecap="butt"
-            stroke={enableLinearGradient ? 'url(#grad)' : primaryColor}
-            strokeWidth={cellSize}
-          />
-        </G>
-      </>
+      <Path
+        d={transformMatrixIntoPath(matrix, size)}
+        strokeLinecap="butt"
+        stroke={darkColor}
+        strokeWidth={cellSize}
+      />
     );
   }, [
     ecl,
-    enableLinearGradient,
-    gradientDirection,
+    darkColor,
     drawType,
-    linearGradient,
+    hasLogo,
+    logoMargin,
     logoSize,
-    primaryColor,
-    quietZone,
     secondaryColor,
     size,
     value,
   ]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
+  const logoRadius = logoBorderRadius ?? 9999;
+  // clipPath ids live in the document, not the <Svg>, so two codes on one
+  // screen would both resolve to whichever defined the id first and the
+  // second logo would be clipped to the first one's shape. Only the logo
+  // image needs a clip — the plate is a <Rect> that rounds itself.
+  const logoClipId = `qrLogo${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <Svg height={size} width={size}>
-      <Defs>
-        <ClipPath id="clip-wrapper">
-          <Rect height={logoWrapperSize} width={logoWrapperSize} />
-        </ClipPath>
-        <ClipPath id="clip-logo">
-          <Rect height={logoSize} width={logoSize} />
-        </ClipPath>
-      </Defs>
+      {logo ? (
+        <Defs>
+          <ClipPath id={logoClipId}>
+            <Rect
+              height={logoSize}
+              width={logoSize}
+              rx={logoRadius}
+              ry={logoRadius}
+            />
+          </ClipPath>
+        </Defs>
+      ) : null}
       <Rect fill={secondaryColor} height={size} width={size} />
       {result}
-      {logo || logoSvg ? (
+      {hasLogo ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
-            clipPath="url(#clip-wrapper)"
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
-            rx={drawType === 'line' ? 9999 : undefined}
+            rx={logoRadius}
+            ry={logoRadius}
           />
           <G x={logoMargin} y={logoMargin}>
             {logo ? (
               <Image
-                clipPath="url(#clip-logo)"
+                clipPath={`url(#${logoClipId})`}
                 height={logoSize}
                 href={href}
                 preserveAspectRatio="xMidYMid slice"
@@ -280,26 +212,69 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   valueUr?: IAirGapUrJson;
   interval?: number;
   padding?: number;
+  // Uses size + padding as the fixed canvas and shrinks the symbol so each
+  // side keeps this many full modules of quiet zone.
+  quietZoneModules?: number;
+  // Fires once, after the commit in which a symbol is actually drawn. The
+  // encoder loads lazily, so a freshly started runtime renders nothing for a
+  // moment — native share generators gate their ViewShot capture on this.
+  onRenderReady?: () => void;
 }
 
 export function QRCode({
   value,
   valueUr,
   interval = 500,
-  drawType,
   padding = 10,
+  quietZoneModules = 0,
+  onRenderReady,
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
-  const isAnimatedCode = useMemo(() => drawType === 'animated', [drawType]);
+  // The encoder library loads behind an async edge so it stays out of the
+  // native startup bundle; only the first code rendered in a session waits
+  // for it, one effect tick.
+  const [isEncoderReady, setIsEncoderReady] = useState(isQRCodeUtilLoaded);
+
+  useEffect(() => {
+    if (isEncoderReady) {
+      return;
+    }
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    let retryDelayMs = 2000;
+    const attempt = () => {
+      ensureQRCodeUtilLoaded().then(
+        () => {
+          if (!cancelled) {
+            setIsEncoderReady(true);
+          }
+        },
+        () => {
+          if (cancelled) {
+            return;
+          }
+          // a failed chunk load usually heals once the network is back, so
+          // keep retrying while the code is on screen; back off so a
+          // permanent failure (chunk replaced by an app update) stays quiet
+          timerId = setTimeout(attempt, retryDelayMs);
+          retryDelayMs = Math.min(retryDelayMs * 2, 30_000);
+        },
+      );
+    };
+    attempt();
+    return () => {
+      cancelled = true;
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
+  }, [isEncoderReady]);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
-    if (isAnimatedCode) {
-      if (!valueUr) {
-        throw new OneKeyLocalError('valueUr is required for animated QRCode');
-      }
+    if (valueUr) {
       void (async () => {
         const { airGapUrUtils } = await import('@onekeyhq/qr-wallet-sdk');
         // Guard against unmount/deps-change during the async import so we
@@ -313,8 +288,9 @@ export function QRCode({
           },
         );
         if (process.env.NODE_ENV !== 'production') {
-          console.log('QRCode >>>> encodeWhole', encodeWhole());
-          console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
+          const wholeParts = encodeWhole();
+          console.log('QRCode >>>> encodeWhole', wholeParts);
+          console.log(`\n\n ${wholeParts.join('\n\n').toUpperCase()} \n\n`);
         }
         timerId = setInterval(() => {
           const part = nextPart();
@@ -326,22 +302,53 @@ export function QRCode({
       cancelled = true;
       if (timerId) clearInterval(timerId);
     };
-  }, [value, interval, isAnimatedCode, valueUr]);
+  }, [value, interval, valueUr]);
 
-  if (!partValue) {
+  // An air-gap UR is inherently multi-frame, so its presence is what makes the
+  // code animated. Callers that want a static code pass `value` instead.
+  const displayValue = valueUr ? partValue : value || '';
+  const hasRenderedSymbol = Boolean(displayValue) && isEncoderReady;
+  const hasFiredRenderReadyRef = useRef(false);
+  useEffect(() => {
+    if (hasRenderedSymbol && !hasFiredRenderReadyRef.current) {
+      hasFiredRenderReadyRef.current = true;
+      onRenderReady?.();
+    }
+  }, [hasRenderedSymbol, onRenderReady]);
+  if (!displayValue || !isEncoderReady) {
     // TODO return Skeleton
     return null;
   }
+  const { canvasSize, qrCodeSize, symbolScale, quietZoneSize } =
+    getQRCodeLayoutMetrics({
+      value: displayValue,
+      ecl: props.ecl ?? DEFAULT_ECL,
+      size: props.size,
+      padding,
+      quietZoneModules,
+    });
+  const scaledLogoSize = (props.logoSize ?? DEFAULT_LOGO_SIZE) * symbolScale;
+  const scaledLogoMargin =
+    (props.logoMargin ?? DEFAULT_LOGO_MARGIN) * symbolScale;
+  const plateBorderRadius = getQRCodePlateBorderRadius(quietZoneSize);
   return (
     <Theme name="light">
       <Stack
-        width={props.size + padding}
-        height={props.size + padding}
+        width={canvasSize}
+        height={canvasSize}
         bg="$bgApp"
+        borderRadius={plateBorderRadius}
+        borderCurve="continuous"
         jc="center"
         ai="center"
       >
-        <BasicQRCode value={partValue} drawType={drawType} {...props} />
+        <BasicQRCode
+          value={displayValue}
+          {...props}
+          size={qrCodeSize}
+          logoSize={scaledLogoSize}
+          logoMargin={scaledLogoMargin}
+        />
       </Stack>
     </Theme>
   );

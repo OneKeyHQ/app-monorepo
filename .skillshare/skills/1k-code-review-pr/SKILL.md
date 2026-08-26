@@ -1,6 +1,6 @@
 ---
 name: 1k-code-review-pr
-description: Comprehensive PR code review for OneKey monorepo. Use when reviewing PRs, code changes, or diffs — covers security (secrets/PII leakage, supply-chain, AuthN/AuthZ), code quality (hooks, race conditions, null safety, concurrent requests), and OneKey-specific patterns (Fabric crashes, MIUI, BigNumber). Triggers on "review PR", "review this PR", "code review", "check this diff", "审查 PR", "代码审查", "review #123". Always use this skill for any PR review task in this repo, even if the user doesn't explicitly mention "code review".
+description: Review OneKey PRs and diffs for security, correctness, concurrency, React/RN pitfalls, and repository-specific regressions. Use for code review or 审查 PR.
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
 
@@ -24,7 +24,7 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
-10. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
+10. **GH Comment** — Post qualifying findings as inline PR comments immediately (do not wait for confirmation)
 
 ## Codex Cross-Review Integration
 
@@ -241,7 +241,7 @@ Do NOT generate auto-fix for:
 
 ## GH CLI Inline Comments
 
-After generating the report, if there are findings that meet the comment threshold:
+After generating the report, if there are findings that meet the comment threshold, **post them immediately**. Do not ask "是否确认？" and do not wait for a follow-up message. New conversations have no memory of a verbal "以后都自动发" — this section is the source of truth.
 
 **Comment threshold**: 🔴 高 priority (any confidence) OR 🟡 中 priority with 🔵 High confidence. This means:
 - All 🔴 高 findings (regardless of confidence)
@@ -249,8 +249,7 @@ After generating the report, if there are findings that meet the comment thresho
 - Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
 
 1. List the qualifying findings that warrant PR comments
-2. **Ask the reviewer**: "以下问题建议直接评论到 PR 上，是否确认？"
-3. **Only after explicit yes**, post via:
+2. Post them in the same turn as the report, using `ManagePullRequest` `post_comment` (path + line) when available, otherwise:
 
 ```bash
 # Inline comment on specific file:line
@@ -270,10 +269,12 @@ _— Auto-review by Claude_" \
 ```
 
 **Rules:**
-- Never post without explicit reviewer confirmation
+- Always post qualifying findings in the same turn as the review report
 - Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
 - Maximum 5 inline comments per PR
+- GitHub can only attach review comments to lines in the PR diff; if the real site is unchanged, comment on the nearest changed line and name the unchanged site in the body
+- If an existing inline thread already states the same issue, reply to that thread instead of opening a duplicate
 
 ## Unified Report Format
 
@@ -354,7 +355,7 @@ _— Auto-review by Claude_" \
 - [ ] 问题1 — `file.tsx:42`
 - [ ] 问题2 — `file.tsx:88`
 
-> 确认后将通过 `gh` CLI 发送 inline comments。
+> 达标问题已在本回合直接发为 inline comments，无需再确认。
 ```
 
 ## Priority Definitions

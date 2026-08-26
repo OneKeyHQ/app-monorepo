@@ -13,6 +13,8 @@ import Animated, {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
@@ -117,6 +119,22 @@ function OuterTabPagerViewComponent({
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
+  // OK-59246: pause outer horizontal scrolling while the earn home banner
+  // (a nested horizontal pager) is being dragged, otherwise the outer pager
+  // steals the gesture and switches top tabs
+  const [isEarnBannerDragging, setIsEarnBannerDragging] = useState(false);
+  useEffect(() => {
+    const listener = (payload: { dragging: boolean }) => {
+      setIsEarnBannerDragging(payload.dragging);
+    };
+    appEventBus.on(EAppEventBusNames.EarnHomeBannerDragStateChanged, listener);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.EarnHomeBannerDragStateChanged,
+        listener,
+      );
+    };
+  }, []);
   const wasUserDragRef = useRef(false);
   const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
@@ -398,7 +416,7 @@ function OuterTabPagerViewComponent({
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
-      scrollEnabled={showDiscoveryPage}
+      scrollEnabled={showDiscoveryPage && !isEarnBannerDragging}
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}

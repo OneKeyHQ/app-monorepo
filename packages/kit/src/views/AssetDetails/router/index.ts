@@ -11,8 +11,12 @@ const HistoryDetails = LazyLoadPage(
 const TokenDetails = LazyLoadPage(() => import('../pages/TokenDetails'));
 const UTXODetails = LazyLoadPage(() => import('../pages/UTXODetails'));
 const MarketDetail = LazyLoadPage(() => import('../../Market/MarketDetail'));
+const MarketChart = LazyLoadPage(() => import('../pages/MarketChart'));
 const DeFiProtocolDetails = LazyLoadPage(
   () => import('../pages/DeFiProtocolDetails'),
+);
+const DeFiProtocolAction = LazyLoadPage(
+  () => import('../pages/DeFiProtocolAction'),
 );
 const KytRiskDetail = LazyLoadPage(() => import('../pages/KytRiskDetail'));
 
@@ -29,8 +33,16 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
     component: DeFiProtocolDetails,
   },
   {
+    name: EModalAssetDetailRoutes.DeFiProtocolAction,
+    component: DeFiProtocolAction,
+  },
+  {
     name: EModalAssetDetailRoutes.MarketDetail,
     component: MarketDetail,
+  },
+  {
+    name: EModalAssetDetailRoutes.MarketChart,
+    component: MarketChart,
   },
   {
     name: EModalAssetDetailRoutes.NFTDetails,

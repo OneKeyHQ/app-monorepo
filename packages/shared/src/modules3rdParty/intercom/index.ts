@@ -1,4 +1,8 @@
-import { getCustomerJWT, getInstanceId } from './utils';
+import {
+  getCustomerJWT,
+  getInstanceId,
+  getIntercomLanguageOverride,
+} from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
 
@@ -43,6 +47,8 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
 
     const APP_ID =
       settings?.app_id || process.env.INTERCOM_APP_ID || 'vbbj4ssb';
+    const languageOverride =
+      settings?.language_override || (await getIntercomLanguageOverride());
 
     // Clear previous session's openOnBoot state to prevent auto-opening messenger on cold start
     clearIntercomOpenOnBoot(APP_ID);
@@ -53,6 +59,7 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
       alignment: 'right',
       horizontal_padding: 10,
       vertical_padding: 55,
+      ...(languageOverride ? { language_override: languageOverride } : {}),
       ...settings,
     });
 
@@ -78,13 +85,20 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
 
 export const showIntercom = async (params?: { requestId?: string }) => {
   await initIntercom();
-  const { show, trackEvent } = await loadIntercomSdk();
+  const { show, trackEvent, update: updateIntercom } = await loadIntercomSdk();
   const instanceIdValue = await getInstanceId();
+  const languageOverride = await getIntercomLanguageOverride();
 
   trackEvent('client info', {
     instanceId: instanceIdValue,
     requestId: params?.requestId,
   });
+
+  if (languageOverride) {
+    updateIntercom({
+      language_override: languageOverride,
+    });
+  }
 
   show();
 };

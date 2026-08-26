@@ -3,6 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import type { IDeviceStateSnapshot } from './deviceStateManagement';
 import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 const {
@@ -27,6 +28,16 @@ export const {
   use: useWalletWithDeviceStateAtom,
 } = contextAtom<IHwQrWalletWithDevice | undefined>(undefined);
 
+export const {
+  atom: deviceStateSnapshotAtom,
+  use: useDeviceStateSnapshotAtom,
+} = contextAtom<IDeviceStateSnapshot | undefined>(undefined);
+
+// True once the first refresh settles; distinguishes "still loading" from
+// "loaded, no device" for the header skeleton gate.
+export const { atom: refreshSettledAtom, use: useRefreshSettledAtom } =
+  contextAtom<boolean>(false);
+
 export const { atom: walletWithDeviceAtom, use: useWalletWithDeviceAtom } =
   contextAtomComputed((get) => {
     return get(walletWithDeviceStateAtom());
@@ -38,6 +49,8 @@ export const { atom: deviceAtom, use: useDeviceAtom } = contextAtomComputed(
 
 export type IDeviceMetaStatic = {
   deviceName?: string;
+  bleName?: string;
+  serialNo?: string;
   deviceType?: EDeviceType;
   firmwareType?: Awaited<ReturnType<typeof deviceUtils.getFirmwareType>>;
   firmwareVersion: string;
@@ -46,8 +59,10 @@ export type IDeviceMetaStatic = {
   addWallpaperTitleId?: ETranslations;
 };
 
-const emptyMetaStatic: IDeviceMetaStatic = {
+export const emptyMetaStatic: IDeviceMetaStatic = {
   deviceName: undefined,
+  bleName: undefined,
+  serialNo: undefined,
   deviceType: undefined,
   firmwareType: undefined,
   firmwareVersion: '0.0.0',
@@ -61,22 +76,35 @@ export const { atom: deviceMetaStaticAtom, use: useDeviceMetaStaticAtom } =
 
 export type IDeviceMetaState = {
   isVerified: boolean;
-  passphraseEnabled: boolean;
-  pinOnAppEnabled: boolean;
+  unlocked: boolean | undefined;
+  initialized: boolean | undefined;
+  backupRequired: boolean | undefined;
+  unlockedByAttachToPin: boolean | undefined;
+  passphraseEnabled: boolean | undefined;
+  pinOnAppEnabled: boolean | undefined;
   autoLockDelayMs: number | undefined;
   autoShutDownDelayMs: number | undefined;
   language: string | undefined;
-  hapticFeedback: boolean;
+  brightness: number | undefined;
+  hapticFeedback: boolean | undefined;
+  /** false = still the loading placeholder; true = real device data resolved */
+  isReady: boolean;
 };
 
-const emptyMetaState: IDeviceMetaState = {
+export const emptyMetaState: IDeviceMetaState = {
   isVerified: false,
+  unlocked: false,
+  initialized: false,
+  backupRequired: false,
+  unlockedByAttachToPin: false,
   passphraseEnabled: false,
   pinOnAppEnabled: false,
   autoLockDelayMs: undefined,
   autoShutDownDelayMs: undefined,
   language: undefined,
+  brightness: undefined,
   hapticFeedback: false,
+  isReady: false,
 };
 
 export const { atom: deviceMetaStateAtom, use: useDeviceMetaStateAtom } =
@@ -103,10 +131,18 @@ export const {
 export const { atom: deviceLanguageAtom, use: useDeviceLanguageAtom } =
   contextAtomComputed((get) => get(deviceMetaStateAtom())?.language);
 
+export const { atom: deviceBrightnessAtom, use: useDeviceBrightnessAtom } =
+  contextAtomComputed((get) => get(deviceMetaStateAtom())?.brightness);
+
 export const {
   atom: deviceHapticFeedbackAtom,
   use: useDeviceHapticFeedbackAtom,
 } = contextAtomComputed((get) => get(deviceMetaStateAtom())?.hapticFeedback);
+
+export const {
+  atom: deviceSettingsAccessibleAtom,
+  use: useDeviceSettingsAccessibleAtom,
+} = contextAtomComputed((get) => get(deviceMetaStateAtom())?.unlocked);
 
 export const {
   atom: devicePassphraseEnabledAtom,

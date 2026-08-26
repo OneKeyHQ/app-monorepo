@@ -42,7 +42,7 @@ import type {
   IChainValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -115,8 +115,8 @@ type ISendAmountInputParams =
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
-  const [settings] = useSettingsPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
@@ -188,6 +188,37 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
+
+  // Prefetch the private-send support flag while the user is still picking a
+  // recipient, so the Regular/Private switch on the amount page can render
+  // without a visible delay. Fire-and-forget: the result lands in the
+  // ServiceSwap memo cache and the amount page issues the same (deduped)
+  // call; failures are silent because the amount page retries on its own.
+  useEffect(() => {
+    if (
+      isNFT ||
+      !tokenInfo ||
+      !account?.address ||
+      networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
+    ) {
+      return;
+    }
+    void backgroundApiProxy.serviceSwap
+      .checkTokenPrivateSendSupported({
+        networkId: currentAccount.networkId,
+        contractAddress: tokenInfo.address,
+        accountAddress: account.address,
+        accountId: currentAccount.accountId,
+      })
+      .catch(() => {});
+  }, [
+    account?.address,
+    currentAccount.accountId,
+    currentAccount.networkId,
+    isNFT,
+    tokenInfo,
+  ]);
+
   const [
     displayMemoForm,
     displayPaymentIdForm,
@@ -235,15 +266,13 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -261,6 +290,8 @@ function SendDataInputContainer() {
 
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       isNFT,
@@ -270,7 +301,8 @@ function SendDataInputContainer() {
       serviceToken,
       token,
       tokenInfo,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
@@ -814,6 +846,8 @@ function SendDataInputContainer() {
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/ScanQrCode/pages/ScanQrCodeModal'
         ),
+        // TODO(6.7.0): Remove this legacy SendModal confirmation prefetch.
+        // Active confirmation flows use SignatureConfirmModal -> TxConfirm.
         import(
           /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer'
         ),

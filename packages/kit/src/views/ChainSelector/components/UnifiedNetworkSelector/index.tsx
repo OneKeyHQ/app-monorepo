@@ -828,13 +828,13 @@ function UnifiedNetworkSelector() {
               variant="primary"
               loading={isCreatingEnabledAddresses}
               disabled={isConfirmDisabled}
-              onPress={async () => {
-                try {
-                  await handlePortfolioDone();
-                } catch {
-                  // error already handled inside handlePortfolioDone
-                }
-              }}
+              // Let rejections stay unhandled so GlobalErrorHandlerContainer
+              // can surface them: DeviceNotOpenedPassphrase (hidden wallet on
+              // a passphrase-disabled device) is excluded from auto-toasts by
+              // design and only shows its "enable passphrase" dialog through
+              // the unhandled-rejection path. handlePortfolioDone resets its
+              // own loading state in a finally block.
+              onPress={handlePortfolioDone}
               testID={ChainSelectorTestIDs.unifiedPortfolioConfirmBtn}
             >
               {confirmButtonText}

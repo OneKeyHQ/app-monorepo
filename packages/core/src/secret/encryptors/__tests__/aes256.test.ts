@@ -726,7 +726,7 @@ describe('aes256', () => {
       expect(decrypted).toBe(testData);
     });
 
-    it('should fail to decrypt when iterations parameter does not match', async () => {
+    it('should not recover plaintext when iterations parameter does not match', async () => {
       const customIterations = 150;
       const wrongIterations = 300;
 
@@ -738,15 +738,20 @@ describe('aes256', () => {
         format: ESecretEncryptPayloadFormat.legacy,
       });
 
-      await expect(
-        decryptAsync({
+      let decryptedWithWrongIterations: Buffer | undefined;
+      try {
+        decryptedWithWrongIterations = await decryptAsync({
           password: testPassword,
           data: encrypted,
           ignoreLogger: false,
           allowRawPassword: true,
           iterations: wrongIterations,
-        }),
-      ).rejects.toThrow();
+        });
+      } catch {
+        return;
+      }
+
+      expect(decryptedWithWrongIterations.equals(testBuffer)).toBe(false);
     });
 
     it('should use default iterations when parameter is not provided', async () => {

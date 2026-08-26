@@ -1,5 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { filterTokenSelectorTokensByBackendIndexedNetworks } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
@@ -25,6 +27,20 @@ type IFetchFilteredTokenSelectorTokensParams = {
   tokenSelectorFilterParams: ITokenSelectorFilterParams;
 };
 
+export type IFetchFilteredTokenSelectorTokensResult = {
+  /** The SUCCESSFUL child responses (failures are dropped by continue-on-error). */
+  responses: IFetchAccountTokensResp[];
+  /**
+   * How many child requests the fan-out ATTEMPTED, BEFORE continue-on-error
+   * dropped any failures. For the all-networks fan-out this is the enabled
+   * network count; callers compare it against `responses.length` to detect a
+   * PARTIAL failure (a silently-dropped network) so they don't commit an
+   * incomplete list as an authoritative snapshot. Single-network and
+   * derive-merge paths attempt exactly one request per account.
+   */
+  expectedResponseCount: number;
+};
+
 export type IScopedActiveTokenList = {
   tokens: IAccountToken[];
   keys: string;
@@ -34,6 +50,45 @@ export type IScopedActiveTokenListState = {
   isRefreshing: boolean;
   initialized: boolean;
 };
+
+export type ISpecifiedTokenSelectorTarget = {
+  networkId: string;
+  contractAddress: string;
+};
+
+export type IFetchSpecifiedTokenSelectorTokensResult = {
+  responsesByNetworkId: Record<string, IFetchAccountTokensResp>;
+  expectedResponseCount: number;
+  issues: unknown[];
+};
+
+type ITokenSelectorAccountTokensParams = IFetchAccountTokensParams & {
+  dbAccount?: IAllNetworkAccountInfo['dbAccount'];
+};
+
+// All-networks mode must be derivable synchronously from the networkId:
+// deriving it from the async-loaded network object let the selector's
+// mount-frame fetch run in single-network mode and POST the all-network mock
+// id to the wallet API. A stale `false` route param must not win over an
+// all-network id for the same reason.
+export function resolveIsSelectorAllNetworks({
+  isAllNetworks,
+  networkId,
+}: {
+  isAllNetworks: boolean | undefined;
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(isAllNetworks) || networkUtils.isAllNetwork({ networkId });
+}
+
+export async function fetchTokenSelectorAccountTokens(
+  params: ITokenSelectorAccountTokensParams,
+) {
+  return backgroundApiProxy.serviceToken.fetchAccountTokens({
+    ...params,
+    flag: 'token-selector',
+  });
+}
 
 function isValidIndexedAccountId(indexedAccountId: string | undefined) {
   if (!indexedAccountId) {
@@ -138,7 +193,7 @@ export async function fetchFilteredTokenSelectorTokens({
   mergeDeriveAddressData,
   onlyBackendIndexedNetworks,
   tokenSelectorFilterParams,
-}: IFetchFilteredTokenSelectorTokensParams) {
+}: IFetchFilteredTokenSelectorTokensParams): Promise<IFetchFilteredTokenSelectorTokensResult> {
   if (isAllNetworks) {
     const {
       accountId: allNetworksAccountId,
@@ -171,12 +226,11 @@ export async function fetchFilteredTokenSelectorTokens({
     const requestFactories = filteredAccountsInfo.map(
       ({ accountId: itemAccountId, networkId: itemNetworkId, dbAccount }) =>
         () =>
-          backgroundApiProxy.serviceToken.fetchAccountTokens({
+          fetchTokenSelectorAccountTokens({
             accountId: itemAccountId,
             networkId: itemNetworkId,
             dbAccount,
             indexedAccountId: allNetworksIndexedAccountId,
-            flag: 'token-selector',
             isAllNetworks: shouldFetchAsAllNetworks,
             allNetworksAccountId,
             allNetworksNetworkId: networkId,
@@ -185,12 +239,15 @@ export async function fetchFilteredTokenSelectorTokens({
           }),
     );
 
-    return (
+    const responses = (
       await promiseAllSettledEnhanced(requestFactories, {
         continueOnError: true,
         concurrency: 10,
       })
     ).filter((item): item is IFetchAccountTokensResp => Boolean(item));
+    // `requestFactories.length` is the enabled-network count; a shorter
+    // `responses` array means a network was silently dropped (continue-on-error).
+    return { responses, expectedResponseCount: requestFactories.length };
   }
 
   if (mergeDeriveAddressData) {
@@ -207,34 +264,161 @@ export async function fetchFilteredTokenSelectorTokens({
       const itemAccountId = networkAccount.account?.id;
       return () =>
         itemAccountId
-          ? backgroundApiProxy.serviceToken.fetchAccountTokens({
+          ? fetchTokenSelectorAccountTokens({
               accountId: itemAccountId,
               networkId,
               indexedAccountId,
-              flag: 'token-selector',
               saveToLocal: false,
               ...tokenSelectorFilterParams,
             })
           : Promise.resolve(undefined);
     });
 
-    return (
+    const responses = (
       await promiseAllSettledEnhanced(requestFactories, {
         continueOnError: true,
         concurrency: 10,
       })
     ).filter((item): item is IFetchAccountTokensResp => Boolean(item));
+    return { responses, expectedResponseCount: requestFactories.length };
   }
 
-  const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+  const r = await fetchTokenSelectorAccountTokens({
     accountId,
     networkId,
     indexedAccountId,
-    flag: 'token-selector',
     saveToLocal: false,
     ...tokenSelectorFilterParams,
   });
-  return [r];
+  return { responses: [r], expectedResponseCount: 1 };
+}
+
+export async function fetchSpecifiedTokenSelectorTokens({
+  accountId,
+  networkId,
+  indexedAccountId,
+  targets,
+}: {
+  accountId: string;
+  networkId: string;
+  indexedAccountId?: string;
+  targets: ISpecifiedTokenSelectorTarget[];
+}): Promise<IFetchSpecifiedTokenSelectorTokensResult> {
+  const contractListByNetwork = new Map<string, string[]>();
+  targets.forEach((target) => {
+    const contractList = contractListByNetwork.get(target.networkId) ?? [];
+    if (!contractList.includes(target.contractAddress)) {
+      contractList.push(target.contractAddress);
+    }
+    contractListByNetwork.set(target.networkId, contractList);
+  });
+
+  const expectedResponseCount = contractListByNetwork.size;
+  if (!expectedResponseCount) {
+    return {
+      responsesByNetworkId: {},
+      expectedResponseCount: 0,
+      issues: [],
+    };
+  }
+
+  const accountInfoByNetwork = new Map<
+    string,
+    Pick<IAllNetworkAccountInfo, 'accountId' | 'dbAccount'>
+  >();
+  accountInfoByNetwork.set(networkId, { accountId, dbAccount: undefined });
+
+  if (contractListByNetwork.size > 1 || !contractListByNetwork.has(networkId)) {
+    const { accountsInfo } =
+      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId,
+        networkId,
+        indexedAccountId,
+        fetchAllNetworkAccounts: true,
+        networksEnabledOnly: false,
+        excludeTestNetwork: false,
+        excludeIncompatibleWithWalletAccounts: true,
+      });
+    accountsInfo.forEach((accountInfo) => {
+      if (
+        accountInfo.accountId &&
+        contractListByNetwork.has(accountInfo.networkId) &&
+        !accountInfoByNetwork.has(accountInfo.networkId)
+      ) {
+        accountInfoByNetwork.set(accountInfo.networkId, {
+          accountId: accountInfo.accountId,
+          dbAccount: accountInfo.dbAccount,
+        });
+      }
+    });
+  }
+
+  const requestFactories = Array.from(contractListByNetwork.entries()).flatMap(
+    ([targetNetworkId, contractList]) => {
+      const accountInfo = accountInfoByNetwork.get(targetNetworkId);
+      if (!accountInfo?.accountId) {
+        return [];
+      }
+      return [
+        async () => ({
+          networkId: targetNetworkId,
+          response: await fetchTokenSelectorAccountTokens({
+            accountId: accountInfo.accountId,
+            networkId: targetNetworkId,
+            indexedAccountId,
+            dbAccount: accountInfo.dbAccount,
+            contractList,
+            saveToLocal: false,
+          }),
+        }),
+      ];
+    },
+  );
+
+  const requestResults = await promiseAllSettledEnhanced(
+    requestFactories.map((request) => async () => {
+      try {
+        return {
+          status: 'fulfilled' as const,
+          value: await request(),
+        };
+      } catch (error) {
+        return {
+          status: 'rejected' as const,
+          error,
+        };
+      }
+    }),
+    {
+      concurrency: 10,
+    },
+  );
+  const responseEntries = requestResults
+    .filter(
+      (
+        item,
+      ): item is {
+        status: 'fulfilled';
+        value: {
+          networkId: string;
+          response: IFetchAccountTokensResp;
+        };
+      } => item?.status === 'fulfilled',
+    )
+    .map((item) => item.value);
+
+  return {
+    responsesByNetworkId: Object.fromEntries(
+      responseEntries.map(({ networkId: targetNetworkId, response }) => [
+        targetNetworkId,
+        response,
+      ]),
+    ),
+    expectedResponseCount,
+    issues: requestResults.flatMap((item) =>
+      item?.status === 'rejected' ? [item.error] : [],
+    ),
+  };
 }
 
 export function buildScopedActiveTokenListFromResponses({

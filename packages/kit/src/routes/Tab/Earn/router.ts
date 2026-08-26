@@ -1,15 +1,35 @@
+import { createElement } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
+import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 
 const EarnHome = LazyLoadRootTabPage(
   () => import('../../../views/Earn/EarnHome'),
+  createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Earn }),
 );
 
 const EarnProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocols'),
+);
+
+const EarnTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnTokens'),
+);
+
+const EarnFixedRateTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnFixedRateTokens'),
+);
+
+const EarnAllProtocols = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnAllProtocols'),
+);
+
+const EarnProtocolTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnProtocolTokens'),
 );
 
 const EarnProtocolDetails = LazyLoadRootTabPage(
@@ -30,6 +50,26 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnProtocols,
     component: EarnProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnTokens,
+    component: EarnTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnFixedRateTokens,
+    component: EarnFixedRateTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnAllProtocols,
+    component: EarnAllProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnProtocolTokens,
+    component: EarnProtocolTokens,
     headerShown: !platformEnv.isNative,
   },
   {

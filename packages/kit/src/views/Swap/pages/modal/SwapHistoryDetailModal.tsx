@@ -1,17 +1,9 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import Svg, { Line } from 'react-native-svg';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -24,12 +16,11 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
-  Spinner,
   Stack,
   XStack,
-  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -56,6 +47,7 @@ import {
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -79,15 +71,32 @@ import {
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
+import { SwapOrderProgress } from '../../components/SwapOrderProgress';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFee';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
+import {
+  buildSwapHistoryOrderExplorerUrl,
+  getSwapHistoryProviderOrderId,
+  shortenSwapOrderId,
+} from '../../utils/swapHistoryIdentity';
+import {
+  type ISwapHistoryTransactionIdKind,
+  type ISwapHistoryTransactionIdRow,
+  getSwapHistoryTransactionIdRows,
+  isSwapHistoryRefundStatus,
+} from '../../utils/swapHistoryTransactionIds';
+import {
+  type ISwapOrderProgressStepLabel,
+  getSwapOrderProgressSteps,
+} from '../../utils/swapOrderProgress';
 import {
   getSwapCrossChainStatusTextProps,
   getSwapHistoryStatusTextProps,
 } from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent } from 'react-native';
 
 type ISwapHistoryDetailAssetItem = {
   name: string;
@@ -122,12 +131,6 @@ const privateSendProgressStepLabels = [
   ETranslations.private_send_pending,
   ETranslations.private_send_done,
 ] as const;
-const privateSendProgressStepLabelWidth = 72;
-const privateSendProgressStepIconSize = 24;
-const privateSendProgressStepCircleSize = 20;
-const privateSendProgressStepCircleInset =
-  (privateSendProgressStepIconSize - privateSendProgressStepCircleSize) / 2;
-const privateSendProgressConnectorIconGap = 4;
 
 function getPrivateSendProgressStepLabel({
   index,
@@ -247,180 +250,6 @@ function getPrivateSendHistoryStatusTextProps({
   } as const;
 }
 
-function PrivateSendProgressStatusIcon({
-  status,
-}: {
-  status: IPrivateSendProgressStepStatus;
-}) {
-  if (status === 'done') {
-    return <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />;
-  }
-
-  if (status === 'error') {
-    return <Icon name="XCircleSolid" size="$6" color="$iconCritical" />;
-  }
-
-  if (status === 'process') {
-    return (
-      <Stack
-        w={privateSendProgressStepIconSize}
-        h={privateSendProgressStepIconSize}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Spinner
-          size="small"
-          color="$textCaution"
-          w={privateSendProgressStepCircleSize}
-          h={privateSendProgressStepCircleSize}
-        />
-      </Stack>
-    );
-  }
-
-  return (
-    <Stack
-      w={privateSendProgressStepIconSize}
-      h={privateSendProgressStepIconSize}
-      alignItems="center"
-      justifyContent="center"
-    >
-      <Stack
-        w={privateSendProgressStepCircleSize}
-        h={privateSendProgressStepCircleSize}
-        borderRadius="$full"
-        borderWidth={2}
-        borderColor="$iconDisabled"
-      />
-    </Stack>
-  );
-}
-
-function PrivateSendProgressConnector({
-  index,
-  nextStepStatus,
-  total,
-}: {
-  index: number;
-  nextStepStatus: IPrivateSendProgressStepStatus;
-  total: number;
-}) {
-  const theme = useTheme();
-  const [width, setWidth] = useState(0);
-  const isNextStepTodo = nextStepStatus === 'todo';
-  const prevStepIndex = index - 1;
-  const getStepIconLeft = (stepIndex: number) => {
-    if (stepIndex === 0) {
-      return 0;
-    }
-    if (stepIndex === total - 1) {
-      return (
-        privateSendProgressStepLabelWidth - privateSendProgressStepIconSize
-      );
-    }
-    return (
-      (privateSendProgressStepLabelWidth - privateSendProgressStepIconSize) / 2
-    );
-  };
-  const prevCircleRight =
-    getStepIconLeft(prevStepIndex) +
-    privateSendProgressStepCircleInset +
-    privateSendProgressStepCircleSize;
-  const nextCircleLeft =
-    getStepIconLeft(index) + privateSendProgressStepCircleInset;
-  const marginLeft =
-    prevCircleRight +
-    privateSendProgressConnectorIconGap -
-    privateSendProgressStepLabelWidth;
-  const marginRight = privateSendProgressConnectorIconGap - nextCircleLeft;
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    const nextWidth = e.nativeEvent.layout.width;
-    setWidth((prevWidth) => (prevWidth === nextWidth ? prevWidth : nextWidth));
-  }, []);
-
-  return (
-    <Stack
-      flex={1}
-      minWidth={0}
-      height="$6"
-      ml={marginLeft}
-      mr={marginRight}
-      position="relative"
-      justifyContent="center"
-      onLayout={isNextStepTodo ? handleLayout : undefined}
-    >
-      {isNextStepTodo ? (
-        <Stack position="absolute" left={0} right={0} top={0} bottom={0}>
-          {width > 0 ? (
-            <Svg height={privateSendProgressStepIconSize} width={width}>
-              <Line
-                x1={0}
-                y1={privateSendProgressStepIconSize / 2}
-                x2={width}
-                y2={privateSendProgressStepIconSize / 2}
-                stroke={theme.borderSubdued.val}
-                strokeWidth={2}
-                strokeDasharray="6 6"
-                strokeLinecap="square"
-              />
-            </Svg>
-          ) : null}
-        </Stack>
-      ) : (
-        <Stack height={2} bg="$borderSubdued" />
-      )}
-    </Stack>
-  );
-}
-
-function PrivateSendProgressStep({
-  index,
-  label,
-  status,
-  total,
-}: {
-  index: number;
-  label: ETranslations;
-  status: IPrivateSendProgressStepStatus;
-  total: number;
-}) {
-  const intl = useIntl();
-  const isFirst = index === 0;
-  const isLast = index === total - 1;
-  let alignItems: 'flex-start' | 'center' | 'flex-end' = 'center';
-  let textAlign: 'left' | 'center' | 'right' = 'center';
-  if (isFirst) {
-    alignItems = 'flex-start';
-    textAlign = 'left';
-  } else if (isLast) {
-    alignItems = 'flex-end';
-    textAlign = 'right';
-  }
-
-  return (
-    <Stack w={privateSendProgressStepLabelWidth} alignItems={alignItems}>
-      <Stack
-        w={privateSendProgressStepIconSize}
-        h={privateSendProgressStepIconSize}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <PrivateSendProgressStatusIcon status={status} />
-      </Stack>
-      <SizableText
-        mt="$1"
-        size="$bodySmMedium"
-        color="$textSubdued"
-        width={privateSendProgressStepLabelWidth}
-        numberOfLines={2}
-        textAlign={textAlign}
-      >
-        {intl.formatMessage({ id: label })}
-      </SizableText>
-    </Stack>
-  );
-}
-
 function PrivateSendProgress({
   status,
   extraStatus,
@@ -430,49 +259,73 @@ function PrivateSendProgress({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }) {
-  const stepStatuses = useMemo(
+  const intl = useIntl();
+  const steps = useMemo(
     () =>
       getPrivateSendProgressStepStatuses({
         status,
         extraStatus,
         crossChainStatus,
-      }),
-    [crossChainStatus, extraStatus, status],
+      }).map((stepStatus, index) => ({
+        status: stepStatus,
+        label: intl.formatMessage({
+          id: getPrivateSendProgressStepLabel({
+            index,
+            status: stepStatus,
+          }),
+        }),
+      })),
+    [crossChainStatus, extraStatus, intl, status],
   );
 
-  return (
-    <Stack
-      mx="$5"
-      mb="$2.5"
-      px="$4"
-      py="$3"
-      bg="$bgSubdued"
-      borderRadius="$2.5"
-    >
-      <XStack alignItems="flex-start">
-        {stepStatuses.map((stepStatus, index) => (
-          <Fragment key={`${stepStatus}-${index}`}>
-            {index > 0 ? (
-              <PrivateSendProgressConnector
-                index={index}
-                nextStepStatus={stepStatus}
-                total={stepStatuses.length}
-              />
-            ) : null}
-            <PrivateSendProgressStep
-              index={index}
-              label={getPrivateSendProgressStepLabel({
-                index,
-                status: stepStatus,
-              })}
-              status={stepStatus}
-              total={stepStatuses.length}
-            />
-          </Fragment>
-        ))}
-      </XStack>
-    </Stack>
+  return <SwapOrderProgress steps={steps} />;
+}
+
+const swapOrderProgressLabelKeys: Record<
+  ISwapOrderProgressStepLabel,
+  ETranslations
+> = {
+  submitted: ETranslations.private_send_submitted,
+  pending: ETranslations.private_send_pending,
+  fromChain: ETranslations.trade_status_from_chain,
+  toChain: ETranslations.trade_status_to_chain,
+  done: ETranslations.private_send_done,
+  failed: ETranslations.private_send_failed,
+  refund: ETranslations.refund__title,
+};
+
+const swapHistoryTransactionIdLabelKeys: Record<
+  ISwapHistoryTransactionIdKind,
+  ETranslations
+> = {
+  transaction: ETranslations.swap_history_detail_transaction_hash,
+  sent: ETranslations.transaction_sent_transaction_id,
+  received: ETranslations.transaction_received_transaction_id,
+  source: ETranslations.transaction_source_chain_transaction_id,
+  target: ETranslations.transaction_target_chain_transaction_id,
+  refund: ETranslations.transaction_refund_transaction_id,
+};
+
+function SwapHistoryOrderProgress({
+  status,
+  crossChainStatus,
+}: {
+  status?: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+}) {
+  const intl = useIntl();
+  const steps = useMemo(
+    () =>
+      getSwapOrderProgressSteps({ status, crossChainStatus }).map((step) => ({
+        status: step.status,
+        label: intl.formatMessage({
+          id: swapOrderProgressLabelKeys[step.label],
+        }),
+      })),
+    [crossChainStatus, intl, status],
   );
+
+  return <SwapOrderProgress steps={steps} />;
 }
 
 function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
@@ -940,19 +793,29 @@ const SwapHistoryDetailModal = () => {
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, shouldShowSwapLocalData],
   );
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
   const longPendingWarningLoggedKeysRef = useRef(new Set<string>());
   useEffect(() => {
+    if (!shouldShowSwapLocalData) {
+      if (txHistoryListState?.length) {
+        setTxHistoryListState([]);
+      }
+      return;
+    }
     if (!swapTxHistoryList?.length) return;
     const routeTxHistory = txHistoryList?.find(
       (item) => item.swapInfo.orderId === txHistoryOrderId,
@@ -1002,14 +865,33 @@ const SwapHistoryDetailModal = () => {
     ) {
       setTxHistoryListState(nextTxHistoryList);
     }
-  }, [swapTxHistoryList, txHistoryList, txHistoryListState, txHistoryOrderId]);
+  }, [
+    shouldShowSwapLocalData,
+    swapTxHistoryList,
+    txHistoryList,
+    txHistoryListState,
+    txHistoryOrderId,
+  ]);
   const txHistory = useMemo(
     () =>
-      txHistoryListState?.find(
-        (item) => item.swapInfo.orderId === txHistoryOrderId,
-      ),
-    [txHistoryListState, txHistoryOrderId],
+      shouldShowSwapLocalData
+        ? txHistoryListState?.find(
+            (item) => item.swapInfo.orderId === txHistoryOrderId,
+          )
+        : undefined,
+    [shouldShowSwapLocalData, txHistoryListState, txHistoryOrderId],
   );
+  const transactionIdRows = useMemo(
+    () => (txHistory ? getSwapHistoryTransactionIdRows(txHistory) : []),
+    [txHistory],
+  );
+  const hasProviderExplorer = Boolean(
+    (txHistory?.swapInfo.socketBridgeScanUrl && txHistory.txInfo.txId) ||
+    txHistory?.swapInfo.chainFlipExplorerUrl,
+  );
+  const shouldShowStatusExplorer =
+    hasProviderExplorer ||
+    (transactionIdRows.length === 1 && !transactionIdRows[0].showExplorer);
   const [longPendingWarningNow, setLongPendingWarningNow] = useState(() =>
     Date.now(),
   );
@@ -1085,8 +967,16 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
+  // Only show Order ID when the provider has a third-party order explorer
+  // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
+  // hidden per OK-57251. (OK-59978)
+  const providerOrderId = txHistory
+    ? getSwapHistoryProviderOrderId(txHistory)
+    : undefined;
   const shouldRenderOrderId =
-    !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
+    !!providerOrderId &&
+    !!txHistory?.swapInfo.orderSupportUrl &&
+    !isPrivateSendHistory;
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -1319,6 +1209,52 @@ const SwapHistoryDetailModal = () => {
     ],
   );
 
+  const viewTransactionIdInBrowser = useCallback(
+    async (row: ISwapHistoryTransactionIdRow) => {
+      if (!row.networkId || !row.transactionId) {
+        return;
+      }
+      const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+        networkId: row.networkId,
+        type: 'transaction',
+        param: row.transactionId,
+      });
+      if (url) {
+        onViewInBrowser(url);
+      }
+    },
+    [onViewInBrowser],
+  );
+
+  const renderSwapTransactionIdRows = useCallback(
+    () =>
+      transactionIdRows.map((row) => (
+        <InfoItem
+          key={row.kind}
+          testID={`swap-history-${row.kind}-transaction-id`}
+          label={intl.formatMessage({
+            id: swapHistoryTransactionIdLabelKeys[row.kind],
+          })}
+          renderContent={
+            row.showPendingNote
+              ? intl.formatMessage({
+                  id: ETranslations.transaction_funds_arrival_note,
+                })
+              : row.transactionId
+          }
+          showCopy={Boolean(row.transactionId)}
+          openWithUrl={
+            row.showExplorer && row.networkId && row.transactionId
+              ? () => {
+                  void viewTransactionIdInBrowser(row);
+                }
+              : undefined
+          }
+        />
+      )),
+    [intl, transactionIdRows, viewTransactionIdInBrowser],
+  );
+
   const renderSwapOrderStatus = useCallback(() => {
     const { crossChainStatus, extraStatus, status } = txHistory ?? {};
     if (isPrivateSendHistory) {
@@ -1332,7 +1268,7 @@ const SwapHistoryDetailModal = () => {
           <SizableText size={16} color={statusTextProps.color}>
             {intl.formatMessage({ id: statusTextProps.key })}
           </SizableText>
-          {txHistory?.txInfo.txId ? (
+          {shouldShowStatusExplorer && txHistory?.txInfo.txId ? (
             <SwapTxHistoryViewInBrowser
               item={txHistory}
               onViewInBrowser={onViewInBrowser}
@@ -1352,7 +1288,7 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory?.txInfo.txId ? (
+        {shouldShowStatusExplorer && txHistory?.txInfo.txId ? (
           <SwapTxHistoryViewInBrowser
             item={txHistory}
             onViewInBrowser={onViewInBrowser}
@@ -1367,6 +1303,7 @@ const SwapHistoryDetailModal = () => {
     intl,
     isPrivateSendHistory,
     onViewInBrowser,
+    shouldShowStatusExplorer,
     toTxExplorer,
     txHistory,
   ]);
@@ -1381,7 +1318,9 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory?.swapOrderHash?.refundHash ? (
+        {isSwapHistoryRefundStatus(txHistory?.crossChainStatus) &&
+        txHistory?.swapOrderHash?.refundHash &&
+        !transactionIdRows.some((row) => row.kind === 'refund') ? (
           <XStack
             onPress={async () => {
               const explorerInfo = await fromTxExplorer(
@@ -1406,7 +1345,7 @@ const SwapHistoryDetailModal = () => {
         ) : null}
       </XStack>
     );
-  }, [fromTxExplorer, intl, onViewInBrowser, txHistory]);
+  }, [fromTxExplorer, intl, onViewInBrowser, transactionIdRows, txHistory]);
   const renderSwapDate = useCallback(() => {
     const { created } = txHistory?.date ?? {};
     const dateObj = new Date(created ?? 0);
@@ -1472,6 +1411,10 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
+    const isSponsored = txHistory?.swapInfo?.isFreeNetworkFee === true;
+    if (isSponsored) {
+      return <SwapSponsoredNetworkFee />;
+    }
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
     if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
       return (
@@ -1552,6 +1495,9 @@ const SwapHistoryDetailModal = () => {
   );
 
   const renderProtocolFee = useCallback(() => {
+    if (txHistory?.swapInfo.hideProtocolFee) {
+      return null;
+    }
     const protocolFee = txHistory?.swapInfo.protocolFee;
     const protocolFeeBN = new BigNumber(protocolFee ?? 0);
     const positiveOtherFeeInfos = txHistory?.swapInfo.otherFeeInfos?.filter(
@@ -1612,6 +1558,7 @@ const SwapHistoryDetailModal = () => {
     displayCurrencyId,
     displayCurrencySymbol,
     historySourceCurrencyId,
+    txHistory?.swapInfo.hideProtocolFee,
     txHistory?.swapInfo.otherFeeInfos,
     txHistory?.swapInfo.protocolFee,
   ]);
@@ -1633,7 +1580,12 @@ const SwapHistoryDetailModal = () => {
             extraStatus={txHistory.extraStatus}
             crossChainStatus={txHistory.crossChainStatus}
           />
-        ) : null}
+        ) : (
+          <SwapHistoryOrderProgress
+            status={txHistory.status}
+            crossChainStatus={txHistory.crossChainStatus}
+          />
+        )}
         <Stack>
           <InfoItemGroup>
             <InfoItem
@@ -1697,15 +1649,7 @@ const SwapHistoryDetailModal = () => {
                 showCopy
               />
             ) : null}
-            {txHistory.txInfo.txId ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.swap_history_detail_transaction_hash,
-                })}
-                renderContent={txHistory.txInfo.txId}
-                showCopy
-              />
-            ) : null}
+            {renderSwapTransactionIdRows()}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,
@@ -1724,19 +1668,20 @@ const SwapHistoryDetailModal = () => {
             />
             {shouldRenderOrderId ? (
               <InfoItem
-                label="Order ID"
-                renderContent={txHistory.txInfo.orderId}
+                label={intl.formatMessage({
+                  id: ETranslations.Limit_order_history_order_id,
+                })}
+                renderContent={shortenSwapOrderId(providerOrderId)}
+                copyContent={providerOrderId}
                 showCopy
-                {...(txHistory.swapInfo.orderSupportUrl
-                  ? {
-                      openWithUrl: () =>
-                        onViewInBrowser(
-                          `${txHistory.swapInfo.orderSupportUrl ?? ''}${
-                            txHistory.txInfo.orderId ?? ''
-                          }`,
-                        ),
-                    }
-                  : {})}
+                openWithUrl={() =>
+                  onViewInBrowser(
+                    buildSwapHistoryOrderExplorerUrl({
+                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
+                      orderId: providerOrderId,
+                    }) ?? '',
+                  )
+                }
               />
             ) : null}
             {isPrivateSendHistory ? null : (
@@ -1773,7 +1718,6 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     intl,
-    onViewInBrowser,
     renderNetworkFee,
     renderProtocolFee,
     renderRate,
@@ -1783,7 +1727,10 @@ const SwapHistoryDetailModal = () => {
     renderSwapLongPendingWarning,
     renderSwapOrderStatus,
     renderSwapProvider,
+    renderSwapTransactionIdRows,
     shouldRenderOrderId,
+    providerOrderId,
+    onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
   ]);
@@ -1816,16 +1763,17 @@ const SwapHistoryDetailModal = () => {
   }, [intl, navigation, txHistory?.txInfo]);
 
   const headerRight = useCallback(
-    () => (
-      <Button
-        variant="tertiary"
-        onPress={onDeleteOneHistory}
-        testID="swap-header-right-btn"
-      >
-        {intl.formatMessage({ id: ETranslations.global_clear })}
-      </Button>
-    ),
-    [intl, onDeleteOneHistory],
+    () =>
+      shouldShowSwapLocalData && txHistory ? (
+        <Button
+          variant="tertiary"
+          onPress={onDeleteOneHistory}
+          testID="swap-header-right-btn"
+        >
+          {intl.formatMessage({ id: ETranslations.global_clear })}
+        </Button>
+      ) : null,
+    [intl, onDeleteOneHistory, shouldShowSwapLocalData, txHistory],
   );
 
   return (
@@ -1861,4 +1809,15 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-export default SwapHistoryDetailModal;
+export default function SwapHistoryDetailModalWithProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+      enabledNum={[0, 1]}
+    >
+      <SwapHistoryDetailModal />
+    </AccountSelectorProviderMirror>
+  );
+}

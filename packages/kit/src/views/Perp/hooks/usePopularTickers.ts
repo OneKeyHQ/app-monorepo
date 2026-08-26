@@ -6,9 +6,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  usePerpTokenSelectorTabsAtom,
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  isPerpsUniverseCacheComplete,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   getSpotMarketCapValue,
@@ -18,21 +23,16 @@ import type {
   IPerpsUniverse,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  type IPopularTickerItem,
+  POPULAR_TICKER_COUNT,
+  pickPopularPerpTickers,
+} from '../utils/popularTickers';
+import { getPerpTokenSelectorHotTab } from '../utils/tokenSelectorTabs';
 
-const POPULAR_TICKER_COUNT = 10;
-
-export interface IPopularTickerItem {
-  mode: 'perp' | 'spot';
-  coinName: string;
-  displayName: string;
-  imageTokenName: string;
-  assetId: number;
-  dexIndex: number;
-  hotScore: number;
-}
+export type { IPopularTickerItem };
 
 /**
  * Computes top popular tickers ranked by turnover rate:
@@ -47,6 +47,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
+  const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
   const mode = activeTradeInstrument.mode;
 
   // Must not read from search-filtered atom — popular tickers would disappear
@@ -73,15 +74,16 @@ export function usePopularTickers(): IPopularTickerItem[] {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        universesByDex = res.universesByDex;
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+          universesByDex = res.universesByDex;
+        } catch {
+          // Same reasoning as usePerpsFavorites: a rejection empties the list
+          // for the whole session.
+        }
       }
 
       return { mode: 'perp', data: universesByDex ?? [] };
@@ -131,23 +133,19 @@ export function usePopularTickers(): IPopularTickerItem[] {
         .map(({ marketCap, ...item }) => item);
     }
 
-    const { assetCtxsByDex } = allAssetCtxs;
-
     const perpUniverse = taggedUniverse.data;
-    if (!assetCtxsByDex.length || !perpUniverse?.length) return [];
-    const scored: IPopularTickerItem[] = [];
+    if (!perpUniverse?.length) return [];
+    const { assetCtxsByDex } = allAssetCtxs;
+    const items: IPopularTickerItem[] = [];
 
     for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
       const assets = perpUniverse[dexIndex] ?? [];
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
       if (Array.isArray(assets)) {
         for (const asset of assets) {
-          // XYZ DEX assets have offset IDs; array is indexed from 0
-          const ctxIndex =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const ctx = ctxs[ctxIndex] ?? null;
+          // Sub-DEX assets have offset IDs; each dex's ctx array is indexed from 0
+          const ctx = ctxs[toCtxIndex(asset.assetId, dexIndex)] ?? null;
+          let hotScore = 0;
           if (ctx) {
             const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
             const oi = new BigNumber(ctx.openInterest ?? '0');
@@ -155,26 +153,38 @@ export function usePopularTickers(): IPopularTickerItem[] {
             const denominator = oi.multipliedBy(price);
 
             if (!denominator.isZero() && denominator.isFinite()) {
-              const hotScore = volume.dividedBy(denominator).toNumber();
-              if (Number.isFinite(hotScore) && hotScore > 0) {
-                const parsed = parseDexCoin(asset.name);
-                scored.push({
-                  mode: 'perp',
-                  coinName: asset.name,
-                  displayName: parsed.displayName,
-                  imageTokenName: parsed.displayName,
-                  assetId: asset.assetId,
-                  dexIndex,
-                  hotScore,
-                });
+              const nextHotScore = volume.dividedBy(denominator).toNumber();
+              if (Number.isFinite(nextHotScore) && nextHotScore > 0) {
+                hotScore = nextHotScore;
               }
             }
           }
+
+          const parsed = parseDexCoin(asset.name);
+          items.push({
+            mode: 'perp',
+            coinName: asset.name,
+            displayName: parsed.displayName,
+            imageTokenName: parsed.displayName,
+            assetId: asset.assetId,
+            dexIndex,
+            hotScore,
+          });
         }
       }
     }
 
-    scored.sort((a, b) => b.hotScore - a.hotScore);
-    return scored.slice(0, POPULAR_TICKER_COUNT);
-  }, [allAssetCtxs, mode, spotMarketCaps, spotPriceMap, taggedUniverse]);
+    const hotTab = getPerpTokenSelectorHotTab(dynamicTabsRaw);
+    return pickPopularPerpTickers({
+      items,
+      hotTabTokens: hotTab?.tokens,
+    });
+  }, [
+    allAssetCtxs,
+    dynamicTabsRaw,
+    mode,
+    spotMarketCaps,
+    spotPriceMap,
+    taggedUniverse,
+  ]);
 }

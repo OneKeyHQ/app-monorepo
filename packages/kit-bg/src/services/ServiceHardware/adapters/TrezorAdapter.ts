@@ -82,6 +82,36 @@ type ITrezorHardwareWalletExtensions = {
   ) => Promise<Response<Record<string, unknown>>>;
 };
 
+function summarizeTrezorSearchDevice(
+  device: DeviceInfo,
+): Record<string, unknown> {
+  const extra = device as DeviceInfo & {
+    name?: unknown;
+    raw?: { transport?: unknown };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    name: extra.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof extra.raw?.transport === 'string'
+        ? extra.raw.transport
+        : undefined,
+  };
+}
+
+function stringifyTrezorSearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /**
  * Trezor third-party hardware adapter.
  *
@@ -127,9 +157,7 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
-  // While a USB→BLE binding probe is connecting to a candidate, a non-matching
-  // device asks to pair. That's the "not this one" signal — cancel it silently
-  // instead of popping the THP pairing dialog. Set by beginBindingProbe().
+  // Probe lifecycle marker; bookkeeping only, nothing reads it.
   private _bindingProbeConnectId?: string;
 
   beginBindingProbe(connectId: string): void {
@@ -216,16 +244,9 @@ export class TrezorAdapter
         selectedMethod?: number;
         nfcData?: string;
       };
-      // During a binding probe, a candidate asking to pair means "not this
-      // device" — cancel silently rather than surfacing the pairing dialog.
-      if (
-        this._bindingProbeConnectId &&
-        (!payload.connectId ||
-          payload.connectId === this._bindingProbeConnectId)
-      ) {
-        void this.hw.cancel(this._bindingProbeConnectId);
-        return;
-      }
+      // Never suppress this during a binding probe: an expired THP credential
+      // makes our own device ask to pair too. Identity = device_id after the
+      // handshake, which needs this dialog to complete.
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_TREZOR_THP_PAIRING method=${
           payload.selectedMethod ?? '-'
@@ -652,7 +673,7 @@ export class TrezorAdapter
       }
     } catch (error) {
       this._traceThp('persist.miss.devices.error', {
-        message: (error as Error)?.message ?? String(error),
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -754,7 +775,7 @@ export class TrezorAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] persist credentials failed: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -813,6 +834,29 @@ export class TrezorAdapter
     }
   }
 
+  // A failed connect can leave a zombie link the next attempt would reuse,
+  // talking into a dead pipe ("Malformed protocol format"). Best-effort.
+  private async _teardownBleLinkAfterFailure(connectId: string): Promise<void> {
+    try {
+      const bridge = (
+        globalThis as {
+          window?: {
+            desktopApi?: {
+              thirdPartyBle?: { disconnect?: (id: string) => Promise<unknown> };
+            };
+          };
+        }
+      ).window?.desktopApi?.thirdPartyBle;
+      if (!bridge?.disconnect) return;
+      await bridge.disconnect(connectId);
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Trezor] post-failure BLE link teardown done connectId=${connectId}`,
+      );
+    } catch {
+      // nothing to release
+    }
+  }
+
   async connectDevice(
     connectId: string,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
@@ -823,6 +867,7 @@ export class TrezorAdapter
       action: EThirdPartyHardwareUiAction.connecting,
       vendor: EHardwareVendor.trezor,
     });
+    let connected = false;
     try {
       const result = await this.hw.connectDevice(connectId);
       defaultLogger.hardware.sdkLog.log(
@@ -882,6 +927,7 @@ export class TrezorAdapter
             features,
             raw,
           };
+          connected = true;
           return {
             success: true,
             payload,
@@ -893,12 +939,18 @@ export class TrezorAdapter
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] connectDevice threw: ${
-          (error as Error)?.message ?? String(error)
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       throw error;
     } finally {
       void thirdPartyHardwareUiStateAtom.set(undefined);
+      // Every non-success exit, including a thrown one and a getDeviceInfo
+      // failure after the link came up — otherwise the next attempt reuses a
+      // dead link and reports "Malformed protocol format".
+      if (!connected) {
+        await this._teardownBleLinkAfterFailure(connectId);
+      }
     }
   }
 
@@ -987,35 +1039,5 @@ export class TrezorAdapter
     this._disposeSdkEvents?.();
     this._disposeSdkEvents = undefined;
     void this.hw.dispose();
-  }
-}
-
-function summarizeTrezorSearchDevice(
-  device: DeviceInfo,
-): Record<string, unknown> {
-  const extra = device as DeviceInfo & {
-    name?: unknown;
-    raw?: { transport?: unknown };
-  };
-  return {
-    connectId: device.connectId,
-    deviceId: device.deviceId,
-    name: extra.name,
-    model: device.model,
-    connectionType: device.connectionType,
-    rawTransport:
-      typeof extra.raw?.transport === 'string'
-        ? extra.raw.transport
-        : undefined,
-  };
-}
-
-function stringifyTrezorSearchDebugValue(value: unknown): string {
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    return JSON.stringify({
-      stringifyError: error instanceof Error ? error.message : String(error),
-    });
   }
 }

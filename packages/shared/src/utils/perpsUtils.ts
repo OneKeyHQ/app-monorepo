@@ -348,6 +348,26 @@ function analyzeOrderBookPrecision(
   };
 }
 
+function resolveOrderBookSizeDecimals({
+  bids,
+  asks,
+  szDecimals,
+}: {
+  bids: Array<{ px: string; sz: string }>;
+  asks: Array<{ px: string; sz: string }>;
+  szDecimals?: number;
+}): number {
+  if (
+    szDecimals !== undefined &&
+    Number.isInteger(szDecimals) &&
+    szDecimals >= 0
+  ) {
+    return szDecimals;
+  }
+
+  return analyzeOrderBookPrecision(bids, asks).sizeDecimals;
+}
+
 /**
  * Calculate bid-ask spread percentage
  *
@@ -533,6 +553,151 @@ function formatHlPrice(
   }
   r = _truncateToSigFigs(r, MAX_SIGNIFICANT_FIGURES);
   return r === '0' ? '' : r;
+}
+
+function getHlPriceTick(
+  price: BigNumber.Value,
+  szDecimals: number,
+  type: 'perp' | 'spot' = 'perp',
+): BigNumber | null {
+  const priceBN = price instanceof BigNumber ? price : new BigNumber(price);
+  if (
+    !priceBN.isFinite() ||
+    priceBN.lte(0) ||
+    !Number.isInteger(szDecimals) ||
+    szDecimals < 0
+  ) {
+    return null;
+  }
+
+  const exponent = Number(priceBN.toExponential().split('e')[1]);
+  const significantFigureStep = BigNumber.minimum(
+    new BigNumber(10).pow(exponent - MAX_SIGNIFICANT_FIGURES + 1),
+    1,
+  );
+  const maxDecimals = Math.max(
+    (type === 'perp' ? MAX_DECIMALS_PERP : MAX_DECIMALS_SPOT) - szDecimals,
+    0,
+  );
+  const decimalStep = new BigNumber(10).pow(-maxDecimals);
+
+  return BigNumber.maximum(significantFigureStep, decimalStep);
+}
+
+function snapHlPriceToGrid(
+  price: BigNumber.Value,
+  direction: 'up' | 'down' | 'nearest',
+  szDecimals: number,
+  type: 'perp' | 'spot' = 'perp',
+): BigNumber | null {
+  const priceBN = price instanceof BigNumber ? price : new BigNumber(price);
+  const tick = getHlPriceTick(priceBN, szDecimals, type);
+  if (!tick) {
+    return null;
+  }
+
+  let roundingMode: BigNumber.RoundingMode = BigNumber.ROUND_HALF_UP;
+  if (direction === 'up') {
+    roundingMode = BigNumber.ROUND_CEIL;
+  } else if (direction === 'down') {
+    roundingMode = BigNumber.ROUND_FLOOR;
+  }
+  const snappedPrice = priceBN
+    .dividedBy(tick)
+    .integerValue(roundingMode)
+    .multipliedBy(tick);
+
+  return snappedPrice.gt(0) ? snappedPrice : null;
+}
+
+function getNextHlPrice(
+  price: BigNumber.Value,
+  direction: 'up' | 'down',
+  szDecimals: number,
+  type: 'perp' | 'spot' = 'perp',
+): BigNumber | null {
+  const priceBN = price instanceof BigNumber ? price : new BigNumber(price);
+  if (
+    !priceBN.isFinite() ||
+    priceBN.lte(0) ||
+    !Number.isInteger(szDecimals) ||
+    szDecimals < 0
+  ) {
+    return null;
+  }
+
+  const maxDecimals = Math.max(
+    (type === 'perp' ? MAX_DECIMALS_PERP : MAX_DECIMALS_SPOT) - szDecimals,
+    0,
+  );
+  const minimumStep = new BigNumber(10).pow(-maxDecimals);
+  const probe =
+    direction === 'up' ? priceBN.plus(minimumStep) : priceBN.minus(minimumStep);
+  if (probe.lte(0)) {
+    return null;
+  }
+
+  const tick = getHlPriceTick(probe, szDecimals, type);
+  if (!tick) {
+    return null;
+  }
+
+  const roundingMode =
+    direction === 'up' ? BigNumber.ROUND_CEIL : BigNumber.ROUND_FLOOR;
+  let nextPrice = priceBN
+    .dividedBy(tick)
+    .integerValue(roundingMode)
+    .multipliedBy(tick);
+  if (direction === 'up' && nextPrice.lte(priceBN)) {
+    nextPrice = nextPrice.plus(tick);
+  } else if (direction === 'down' && nextPrice.gte(priceBN)) {
+    nextPrice = nextPrice.minus(tick);
+  }
+
+  return nextPrice.gt(0) ? nextPrice : null;
+}
+
+function resolveBboOrderPrice({
+  bid,
+  ask,
+  side,
+  type,
+  offsetTicks,
+  szDecimals,
+  assetType = 'perp',
+}: {
+  bid: BigNumber.Value;
+  ask: BigNumber.Value;
+  side: 'long' | 'short';
+  type: 'counterparty' | 'queue';
+  offsetTicks: 0 | 5;
+  szDecimals: number;
+  assetType?: 'perp' | 'spot';
+}): BigNumber | null {
+  const useAsk =
+    (side === 'long' && type === 'counterparty') ||
+    (side === 'short' && type === 'queue');
+  const direction: 'up' | 'down' = useAsk ? 'up' : 'down';
+  let price = new BigNumber(useAsk ? ask : bid);
+
+  if (!price.isFinite() || price.lte(0)) {
+    return null;
+  }
+  if (offsetTicks === 0) {
+    return price;
+  }
+
+  for (let index = 0; index < offsetTicks; index += 1) {
+    // Spot ticks resolve against MAX_DECIMALS_SPOT (8); reusing the perp rule
+    // (6) makes low-priced spot ticks 100x too coarse.
+    const nextPrice = getNextHlPrice(price, direction, szDecimals, assetType);
+    if (!nextPrice) {
+      return null;
+    }
+    price = nextPrice;
+  }
+
+  return price;
 }
 
 /**
@@ -1205,8 +1370,38 @@ type ISpotBalanceValueItem = {
 
 const HYPERLIQUID_SPOT_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
 
-const isHyperliquidSpotStableCoin = (coin: string) =>
-  HYPERLIQUID_SPOT_STABLE_COINS.has(coin.toUpperCase());
+const isHyperliquidSpotStableCoin = (coin: string) => {
+  const normalizedCoin = getSpotTokenDisplayName(coin.toUpperCase());
+  return HYPERLIQUID_SPOT_STABLE_COINS.has(normalizedCoin.toUpperCase());
+};
+
+function calculateHyperliquidSpotHoldingPnl({
+  total,
+  entryNtl,
+  priceUsd,
+  isStable,
+}: {
+  total: string;
+  entryNtl?: string;
+  priceUsd?: string;
+  isStable: boolean;
+}): string | undefined {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const priceUsdBN = new BigNumber(priceUsd || '0');
+
+  if (
+    isStable ||
+    !priceUsd ||
+    !totalBN.isFinite() ||
+    !entryNtlBN.isFinite() ||
+    !priceUsdBN.isFinite()
+  ) {
+    return undefined;
+  }
+
+  return totalBN.multipliedBy(priceUsdBN).minus(entryNtlBN).toFixed();
+}
 
 function calculateSpotBalancesTotalUsd({
   balances,
@@ -1649,9 +1844,16 @@ export function findTokensByAlias(
     return [];
   }
 
+  const shouldMatchAliasPrefix = /^[a-z0-9]{1,2}$/.test(query);
+
   return Object.entries(serverAliases)
     .filter(([, item]) =>
-      item.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+      item.aliases?.some((alias) => {
+        const normalizedAlias = alias.toLowerCase();
+        return shouldMatchAliasPrefix
+          ? normalizedAlias.startsWith(query)
+          : normalizedAlias.includes(query);
+      }),
     )
     .map(([symbol]) => symbol);
 }
@@ -1999,6 +2201,22 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
   return `https://uni.onekey-asset.com/static/hyperliquid/${normalizedSymbol}.png`;
 }
 
+// Images are keyed by bare symbol, so `para:STX` (Seagate) would render the
+// Stacks icon. Sub-DEX assets prefer `<prefix><SYMBOL>.png` (no separator keeps
+// the filename URL-safe) and fall back to the bare file.
+function getHyperliquidTokenImageUris(coin: string): string[] {
+  const { displayName, dexLabel } = parseDexCoin(coin);
+  if (!dexLabel) {
+    return [getHyperliquidTokenImageUrl(displayName)];
+  }
+  // No bare fallback: the bare path belongs to the main dex namespace, so for a
+  // symbol listed on both it resolves to a different asset (`STX` is Stacks on
+  // the main dex and Seagate on para). A generic icon beats another asset's.
+  return [
+    `https://uni.onekey-asset.com/static/hyperliquid/${dexLabel}${displayName}.png`,
+  ];
+}
+
 function formatSpotPairDisplayName(
   baseName: string,
   quoteName: string,
@@ -2053,6 +2271,17 @@ function isSpotInstrument(coin?: string | null): boolean {
   return coin.startsWith('@') || coin.includes('/');
 }
 
+/**
+ * Hyperliquid denominates spot-buy fees in the BASE token (`feeToken` e.g.
+ * "MAX"), not USDC. Such a fee amount must never be rendered with a `$` or
+ * netted against the USDC-denominated `closedPnl` — a low-priced token fee of
+ * 12,319 base units is worth cents, not $12,319. A missing `feeToken` is
+ * treated as USDC to keep older cached fills behaving as before.
+ */
+function isUsdcDenominatedFee(feeToken: string | undefined): boolean {
+  return !feeToken || feeToken === 'USDC';
+}
+
 function isPredictionMarketInstrument(coin?: string | null): boolean {
   if (!coin) return false;
   return coin.startsWith('#');
@@ -2078,6 +2307,7 @@ export {
   calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
+  resolveOrderBookSizeDecimals,
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
@@ -2097,18 +2327,21 @@ export {
   resolveTradingSize,
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
   isHyperliquidSpotStableCoin,
+  calculateHyperliquidSpotHoldingPnl,
   calculateSpotBalancesTotalUsd,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -2121,6 +2354,9 @@ export {
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
   formatHlPrice,
+  getHlPriceTick,
+  snapHlPriceToGrid,
+  resolveBboOrderPrice,
 };
 export default {
   formatAssetCtx,
@@ -2133,6 +2369,7 @@ export default {
   calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
+  resolveOrderBookSizeDecimals,
   formatWithPrecision,
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
@@ -2153,6 +2390,7 @@ export default {
   resolveTradingSizeBN,
   parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   findTokensByAlias,
   getTokenSubtitle,
   mapTriggerOrderType,
@@ -2165,10 +2403,12 @@ export default {
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
   isHyperliquidSpotStableCoin,
+  calculateHyperliquidSpotHoldingPnl,
   calculateSpotBalancesTotalUsd,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -2183,4 +2423,7 @@ export default {
   formatSpotPriceToValid,
   formatHlSize,
   formatHlPrice,
+  getHlPriceTick,
+  snapHlPriceToGrid,
+  resolveBboOrderPrice,
 };

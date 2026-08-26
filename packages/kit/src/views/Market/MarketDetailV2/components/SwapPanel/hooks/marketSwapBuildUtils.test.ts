@@ -4,11 +4,9 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
-  pickMarketQuoteResultByProvider,
-  shouldFetchMarketQuoteFallbackData,
+  resolveMarketQuoteActionState,
 } from './marketSwapBuildUtils';
 
 function createQuoteResult(
@@ -58,6 +56,86 @@ function createBuildRes(
 }
 
 describe('marketSwapBuildUtils', () => {
+  it('only allows review for a settled quote matching the current input', () => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: false,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: false,
+        hasQuoteError: false,
+      }),
+    ).toEqual({
+      canRefresh: false,
+      canReview: true,
+      isRefreshAction: false,
+      isLoading: false,
+    });
+  });
+
+  it.each([
+    { quoteRequestMatchesCurrentInput: false },
+    { quoteRequestLocked: true },
+    { quoteFetching: true },
+    { quoteEventFetching: true },
+    { hasActionableQuote: false },
+    { hasQuoteError: true },
+  ])('blocks review when quote state is not executable: %#', (overrides) => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: false,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: false,
+        hasQuoteError: false,
+        ...overrides,
+      }).canReview,
+    ).toBe(false);
+  });
+
+  it('requires an explicit refresh after automatic quote refresh expires', () => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: false,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: true,
+        hasQuoteError: false,
+      }),
+    ).toEqual({
+      canRefresh: true,
+      canReview: false,
+      isRefreshAction: true,
+      isLoading: false,
+    });
+  });
+
+  it('keeps the refresh action active while a manual quote request is loading', () => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: true,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: false,
+        hasQuoteError: false,
+        manualRefreshRequest: true,
+      }),
+    ).toEqual({
+      canRefresh: false,
+      canReview: false,
+      isRefreshAction: true,
+      isLoading: true,
+    });
+  });
+
   it('aligns Market fallback logic with Swap fallback networks', () => {
     expect(
       buildMarketReviewShouldFallback({
@@ -78,58 +156,6 @@ describe('marketSwapBuildUtils', () => {
         isCustomRpcUnavailable: true,
       }),
     ).toBe(true);
-  });
-
-  it('builds a full default speed-check reset state', () => {
-    expect(buildDefaultMarketSpeedCheckState()).toEqual({
-      speedCheckError: '',
-      checkSpenderAddress: '',
-      isStock: false,
-      shouldApprove: false,
-      shouldResetApprove: false,
-    });
-  });
-
-  it('detects when Market build data needs quote fallbacks', () => {
-    expect(
-      shouldFetchMarketQuoteFallbackData(
-        createBuildRes({
-          result: {
-            ...createBuildRes().result,
-            gasLimit: 0,
-          },
-        }),
-      ),
-    ).toBe(true);
-    expect(
-      shouldFetchMarketQuoteFallbackData(
-        createBuildRes({
-          result: {
-            ...createBuildRes().result,
-            gasLimit: 21_000,
-            routesData: [{ subRoutes: [] }] as never,
-          },
-        }),
-      ),
-    ).toBe(false);
-  });
-
-  it('picks the matching quote by provider and provider name', () => {
-    const matchedQuote = createQuoteResult({
-      info: {
-        provider: 'provider-b',
-        providerName: 'Provider B',
-      },
-    });
-    const fallbackQuote = createQuoteResult();
-
-    expect(
-      pickMarketQuoteResultByProvider({
-        quotes: [fallbackQuote, matchedQuote],
-        provider: 'provider-b',
-        providerName: 'Provider B',
-      }),
-    ).toBe(matchedQuote);
   });
 
   it('hydrates missing gasLimit and routesData from the selected quote', () => {

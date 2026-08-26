@@ -13,15 +13,12 @@ describe('buildTrezorSolSignTransactionParams', () => {
     });
   });
 
-  it('passes Solana token definition bytes when available', () => {
-    const encodedToken = new ArrayBuffer(3);
-    new Uint8Array(encodedToken).set([1, 2, 3]);
-
+  it('passes Solana token definition hex when available', () => {
     expect(
       buildTrezorSolSignTransactionParams({
         path: "m/44'/501'/0'/0'",
         serializedTx: 'abcd',
-        encodedToken,
+        encodedToken: '010203',
         ataDetails: [
           {
             owner: 'BVRFH6vt5bNXub6WnnFRgaHFTcbkjBrf7x1troU1izGg',
@@ -36,7 +33,7 @@ describe('buildTrezorSolSignTransactionParams', () => {
       path: "m/44'/501'/0'/0'",
       serializedTx: 'abcd',
       additionalInfo: {
-        encodedToken,
+        encodedToken: '010203',
         tokenAccountsInfos: [
           {
             baseAddress: 'BVRFH6vt5bNXub6WnnFRgaHFTcbkjBrf7x1troU1izGg',

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type { IXrpMemoField } from '@onekeyhq/core/src/chains/xrp/types';
 import type {
@@ -42,6 +43,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
@@ -89,6 +91,7 @@ export enum EVaultKeyringTypes {
 }
 
 export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+export type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
@@ -578,6 +581,10 @@ export type IApproveInfo = {
   isMax?: boolean;
   tokenInfo?: IToken;
   swapApproveRes?: IFetchBuildTxResult;
+  permit2Info?: {
+    permit2Address: string;
+    expirationSeconds: string;
+  };
 };
 
 export type ITransferPayload = {
@@ -760,10 +767,12 @@ export interface IBatchSignTransactionParamsBase {
   // retry loop registers an AbortController against this id so the UI can
   // cancel an in-flight 90212 retry via ServiceSend.abortGasAccountSubmit.
   gasAccountSubmitId?: string;
+  broadcastDeadline?: number;
+  beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   useDefaultRpc?: boolean;
 }
 
-export interface ISignMessageParams {
+export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;

@@ -26,12 +26,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { selectSwapHistoryPreviewItems } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { SwapTestIDs } from '../../testIDs';
 import {
   filterSwapMarketHistoryItems,
@@ -51,19 +53,25 @@ const SwapPendingHistoryListComponent = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const shouldShowSwapLocalData = useShouldShowSwapLocalData();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
       const histories =
         await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, shouldShowSwapLocalData],
     {
       // Sync-read the cached list on (re)mount so returning to this surface
       // (e.g. from the Stock/Limit tab, which unmounts this component) shows
       // the rows immediately instead of flashing empty before the async fetch.
-      swrKey: 'swapHistoryPreviewList',
+      swrKey: shouldShowSwapLocalData
+        ? swrKeys.swapHistoryPreviewList()
+        : undefined,
       // Keep re-fetching even while the Swap tab is blurred, so archiving on
       // leave (mark-all-read) is reflected before the user returns instead of
       // briefly showing the stale rows and removing them on refocus.
@@ -100,6 +108,7 @@ const SwapPendingHistoryListComponent = ({
   );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
+    !shouldShowSwapLocalData ||
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
     listData.length === 0 ||
     swapTabSwitchType === ESwapTabSwitchType.LIMIT

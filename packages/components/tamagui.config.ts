@@ -40,10 +40,14 @@ import {
   whiteA as primitiveWhiteA,
   purple,
   purpleDark,
+  red,
+  redDark,
   success,
   successDark,
   teal,
   tealDark,
+  yellow,
+  yellowDark,
 } from './colors';
 import { fs, s } from './src/utils/scale';
 import { webFontFamily } from './src/utils/webFontFamily';
@@ -162,6 +166,12 @@ const basicFontVariants = {
 };
 
 const tamaguiWebFontFamily = webFontFamily;
+const monoRegularFontFamily = isTamaguiNative
+  ? 'GeistMono-Regular'
+  : '"GeistMono-Regular", monospace';
+const monoMediumFontFamily = isTamaguiNative
+  ? 'GeistMono-Medium'
+  : '"GeistMono-Medium", "GeistMono-Regular", monospace';
 
 const font = createFont({
   family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
@@ -179,12 +189,12 @@ const font = createFont({
 });
 
 const monoRegularFont = createFont({
-  family: 'GeistMono-Regular',
+  family: monoRegularFontFamily,
   ...basicFontVariants,
 });
 
 const monoMediumFont = createFont({
-  family: 'GeistMono-Medium',
+  family: monoMediumFontFamily,
   ...basicFontVariants,
 });
 
@@ -279,6 +289,7 @@ const lightColors = {
   ...critical,
   ...purple,
   ...pink,
+  ...red,
   ...gray,
   ...blue,
   ...orange,
@@ -286,6 +297,7 @@ const lightColors = {
   ...green,
   ...cyan,
   ...amber,
+  ...yellow,
   ...lime,
   ...jade,
   bg: '#FFFFFF',
@@ -389,6 +401,7 @@ const darkColors: typeof lightColors = {
   ...criticalDark,
   ...purpleDark,
   ...pinkDark,
+  ...redDark,
   ...grayDark,
   ...blueDark,
   ...orangeDark,
@@ -396,6 +409,7 @@ const darkColors: typeof lightColors = {
   ...greenDark,
   ...cyanDark,
   ...amberDark,
+  ...yellowDark,
   ...limeDark,
   ...jadeDark,
   bg: '#1b1b1b',

@@ -26,6 +26,7 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
@@ -101,6 +102,9 @@ export type IModalSignatureConfirmParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    onBeforeSend?: () => void | Promise<void>;
+    broadcastDeadline?: number;
+    beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
     isQueueMode?: boolean;
@@ -132,6 +136,9 @@ export type IModalSignatureConfirmParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    onBeforeSend?: () => void | Promise<void>;
+    broadcastDeadline?: number;
+    beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: ITransferPayload;
     gasAccountScenario?: IGasAccountScenario;
   };

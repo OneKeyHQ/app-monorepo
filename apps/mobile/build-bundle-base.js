@@ -1,8 +1,8 @@
 /* eslint-disable onekey/no-raw-error */
-/* cspell:ignore debugid */
+/* cspell:ignore debugid postbuild */
 require('../../development/env');
 
-const { execSync, spawn, spawnSync } = require('child_process');
+const { execFileSync, execSync, spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -60,6 +60,15 @@ const resolveSentryRelease = () => {
 
 const SENTRY_RELEASE = resolveSentryRelease();
 
+const resolveWebEmbedSentryRelease = () => {
+  const appVersion = process.env.BUILD_APP_VERSION;
+  const buildNumber = process.env.BUILD_NUMBER;
+  if (!(appVersion && buildNumber)) {
+    return '';
+  }
+  return `${appVersion} (${buildNumber})`;
+};
+
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 // cspell:ignore hermesc
@@ -93,7 +102,7 @@ const cleanBundleOutput = async ({ platform } = {}) => {
   // Only wipe web-embed in legacy "build both platforms" mode. In per-platform
   // CI mode the web-embed bundle is built once by an upstream job and
   // downloaded into webEmbedOutputPath as an artifact — wiping it here would
-  // force every platform to rebuild webpack and defeat the optimization.
+  // force every platform to rebuild web-embed and defeat the optimization.
   if (!platform) {
     fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
   }
@@ -465,7 +474,12 @@ const sleepSeconds = (seconds) => {
 //   glitch never kills the entire JS bundle build. The bundle itself is
 //   valid and shippable without sourcemaps; missing sourcemaps just degrade
 //   Sentry stack traces for the affected files.
-const runSentryCliWithRetry = ({ args, label, missingDescription }) => {
+const runSentryCliWithRetry = ({
+  args,
+  label,
+  missingDescription,
+  release = SENTRY_RELEASE,
+}) => {
   const cli = path.join(
     projectRootPath,
     'node_modules/@sentry/cli/bin/sentry-cli',
@@ -503,7 +517,7 @@ const runSentryCliWithRetry = ({ args, label, missingDescription }) => {
       sleepSeconds(backoff);
     } else {
       console.warn(
-        `::warning::[sentry-upload][${label}] sentry-cli exited ${result.status} after ${SENTRY_UPLOAD_MAX_ATTEMPTS} attempts; giving up. Bundle build CONTINUES — ${missingDescription} WILL be missing in Sentry (release ${SENTRY_RELEASE || '<unset>'}).`,
+        `::warning::[sentry-upload][${label}] sentry-cli exited ${result.status} after ${SENTRY_UPLOAD_MAX_ATTEMPTS} attempts; giving up. Bundle build CONTINUES — ${missingDescription} WILL be missing in Sentry (release ${release || '<unset>'}).`,
       );
     }
   }
@@ -542,7 +556,11 @@ const uploadSourceMapsToSentry = ({ bundlePath, sourceMapPath, label }) => {
 // .hbc/.bundle/.jsbundle script with its sibling .map, and ships everything
 // as one artifact bundle. Replaces O(N) per-segment HTTP round-trips
 // (which dominated bundle build time at ~1.6s each × 2200 segments).
-const uploadDirectoryToSentry = ({ directory, label }) => {
+const uploadDirectoryToSentry = ({
+  directory,
+  label,
+  release = SENTRY_RELEASE,
+}) => {
   if (!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT)) {
     return;
   }
@@ -555,7 +573,7 @@ const uploadDirectoryToSentry = ({ directory, label }) => {
     'sourcemaps',
     'upload',
     '--debug-id-reference',
-    ...(SENTRY_RELEASE ? ['--release', SENTRY_RELEASE] : []),
+    ...(release ? ['--release', release] : []),
     '--strip-prefix',
     projectRootPath,
     // Default --ext set is js,cjs,mjs,map. Add the React Native bytecode
@@ -579,6 +597,7 @@ const uploadDirectoryToSentry = ({ directory, label }) => {
   runSentryCliWithRetry({
     args,
     label,
+    release,
     missingDescription: `sourcemaps under ${path.relative(
       projectRootPath,
       directory,
@@ -600,6 +619,23 @@ const cleanupSourceMapsUnder = (directory) => {
       fs.rmSync(entryPath, { force: true });
     }
   });
+};
+
+const finalizeWebEmbedProductionAssets = () => {
+  execFileSync(
+    nodeExecutablePath,
+    [
+      path.join(
+        projectRootPath,
+        'apps/web-embed/scripts/finalize-production-assets.js',
+      ),
+      '--strip-only',
+    ],
+    {
+      stdio: 'inherit',
+      cwd: projectRootPath,
+    },
+  );
 };
 
 const buildBackgroundBundle = async ({
@@ -871,29 +907,71 @@ const runUnionBuild = ({
 };
 
 const buildWebEmbed = async () => {
-  // Skip the (~2 min) webpack build if web-build/ is already populated.
+  // Skip the web-embed build if web-build/ is already populated.
   // In CI we run web-embed-build as an upstream job and let each platform
   // job download its `web-build/` as an artifact, so this skip path lets
-  // both iOS and Android jobs share one webpack run instead of duplicating
+  // both iOS and Android jobs share one Rspack run instead of duplicating
   // it. Locally (and in legacy "build both" mode) the directory does not
-  // pre-exist and webpack runs as before.
+  // pre-exist and Rspack runs through the workspace build command.
   if (
     fs.existsSync(webEmbedOutputPath) &&
     fs.readdirSync(webEmbedOutputPath).length > 0
   ) {
     log(`web embed already present at ${webEmbedOutputPath}, skipping build`);
+    finalizeWebEmbedProductionAssets();
     return;
   }
   log('build web embed');
-  execSync(`npx webpack build`, {
+  execSync(`yarn workspace @onekeyhq/web-embed build`, {
     stdio: 'inherit',
-    cwd: path.join(projectRootPath, 'apps/web-embed'),
+    cwd: projectRootPath,
     env: {
       ...process.env,
       NODE_OPTIONS: '--max-old-space-size=8192',
       NODE_ENV: 'production',
+      SENTRY_UPLOAD_BY_CLI: 'true',
+      WEB_EMBED_SKIP_POSTBUILD: 'true',
     },
   });
+
+  try {
+    if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
+      const sentryCli = path.join(
+        projectRootPath,
+        'node_modules/@sentry/cli/bin/sentry-cli',
+      );
+      const injectResult = spawnSync(
+        sentryCli,
+        ['sourcemaps', 'inject', webEmbedOutputPath],
+        {
+          stdio: 'inherit',
+          cwd: projectRootPath,
+        },
+      );
+      if (injectResult.status !== 0) {
+        console.warn(
+          '::warning::Web-embed Sentry debug-id injection failed; falling back to release-based sourcemap upload.',
+        );
+      }
+      const browserCompatScriptPath = path.join(
+        projectRootPath,
+        'apps/web-embed/scripts/check-browser-compat.js',
+      );
+      execFileSync(nodeExecutablePath, [browserCompatScriptPath], {
+        stdio: 'inherit',
+        cwd: projectRootPath,
+      });
+      uploadDirectoryToSentry({
+        directory: webEmbedOutputPath,
+        label: 'web embed',
+        release: resolveWebEmbedSentryRelease(),
+      });
+    }
+  } finally {
+    // Web-embed is copied into the native OTA zip immediately after this step.
+    finalizeWebEmbedProductionAssets();
+  }
+
   log('build web embed done');
 };
 

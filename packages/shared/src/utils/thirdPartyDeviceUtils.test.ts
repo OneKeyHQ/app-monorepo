@@ -1,15 +1,14 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { EFirmwareType } from '@onekeyfe/hd-shared';
+// Test-only import (node env, never bundled): the SDK original is the source
+// of truth the local copy must stay in parity with.
 import { isTrezorBleSupportedModel as isSdkTrezorBleSupportedModel } from '@onekeyfe/hwk-trezor-adapter';
 
 import { EHardwareVendor } from '../../types/device';
 
 import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
-
-jest.mock('@onekeyfe/hwk-trezor-adapter', () => ({
-  isTrezorBleSupportedModel: jest.fn(
-    (model?: string) => model === 'SDK_ONLY_BLE_MODEL',
-  ),
-}));
 
 describe('thirdPartyDeviceUtils', () => {
   beforeEach(() => {
@@ -72,6 +71,61 @@ describe('thirdPartyDeviceUtils', () => {
       wireless_connected: false,
       serial_no: 'SN-1',
       third_party_firmware_version: '2.12.0',
+    });
+  });
+
+  it('reads persisted Trezor identity and settings from snake_case features', () => {
+    const utils = thirdPartyDeviceUtils as unknown as {
+      getDeviceId?: (features: Record<string, unknown>) => string | undefined;
+      getDeviceState?: (params: {
+        features: Record<string, unknown>;
+      }) => Record<string, unknown>;
+    };
+    const features = {
+      device_id: 'TREZOR-DEVICE-ID',
+      auto_lock_delay_ms: 600_000,
+      haptic_feedback: true,
+      initialized: true,
+      passphrase_protection: true,
+      unlocked: false,
+    };
+
+    expect(utils.getDeviceId?.(features)).toBe('TREZOR-DEVICE-ID');
+    expect(utils.getDeviceState?.({ features })).toEqual({
+      autoLockDelayMs: 600_000,
+      autoShutDownDelayMs: 600_000,
+      hapticFeedback: true,
+      initialized: true,
+      passphraseProtection: true,
+      unlocked: false,
+    });
+  });
+
+  it('keeps camelCase compatibility for already-normalized features', () => {
+    const utils = thirdPartyDeviceUtils as unknown as {
+      getDeviceId?: (features: Record<string, unknown>) => string | undefined;
+      getDeviceState?: (params: {
+        features: Record<string, unknown>;
+      }) => Record<string, unknown>;
+    };
+    const features = {
+      deviceId: 'NORMALIZED-DEVICE-ID',
+      autoLockDelayMs: 30_000,
+      autoShutdownDelayMs: 60_000,
+      hapticFeedback: false,
+      initialized: false,
+      passphraseProtection: false,
+      unlocked: true,
+    };
+
+    expect(utils.getDeviceId?.(features)).toBe('NORMALIZED-DEVICE-ID');
+    expect(utils.getDeviceState?.({ features })).toEqual({
+      autoLockDelayMs: 30_000,
+      autoShutDownDelayMs: 60_000,
+      hapticFeedback: false,
+      initialized: false,
+      passphraseProtection: false,
+      unlocked: true,
     });
   });
 
@@ -193,22 +247,68 @@ describe('thirdPartyDeviceUtils', () => {
     ).toBe(false);
   });
 
-  it('detects Trezor BLE support through the SDK model helper', () => {
-    expect(
-      thirdPartyDeviceUtils.isTrezorBleSupportedModel('SDK_ONLY_BLE_MODEL'),
-    ).toBe(true);
-    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('T3W1')).toBe(false);
-    expect(isSdkTrezorBleSupportedModel).toHaveBeenCalledWith(
-      'SDK_ONLY_BLE_MODEL',
+  it('detects Trezor BLE support by model name', () => {
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('T3W1')).toBe(true);
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('t3w1')).toBe(true);
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('Safe 7')).toBe(
+      true,
     );
-    expect(isSdkTrezorBleSupportedModel).toHaveBeenCalledWith('T3W1');
+    expect(
+      thirdPartyDeviceUtils.isTrezorBleSupportedModel('  Trezor   Safe 7  '),
+    ).toBe(true);
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('T2T1')).toBe(false);
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('')).toBe(false);
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel(undefined)).toBe(
+      false,
+    );
+  });
+
+  it('stays in parity with the SDK isTrezorBleSupportedModel', () => {
+    // The local copy exists so UI bundles skip the adapter graph. If the SDK
+    // model list or normalization changes, this matrix fails and the local
+    // copy must be updated to match.
+    const samples = [
+      undefined,
+      '',
+      'T3W1',
+      't3w1',
+      ' T3W1 ',
+      'Safe 7',
+      'safe   7',
+      'Trezor Safe 7',
+      'TREZOR SAFE 7',
+      'T2T1',
+      'T2B1',
+      'model t',
+      'Safe 5',
+    ];
+    for (const sample of samples) {
+      expect({
+        sample,
+        supported: thirdPartyDeviceUtils.isTrezorBleSupportedModel(sample),
+      }).toEqual({
+        sample,
+        supported: isSdkTrezorBleSupportedModel(sample),
+      });
+    }
+  });
+
+  it('keeps the adapter SDK out of the runtime import graph', () => {
+    // The whole point of the local copy: thirdPartyDeviceUtils is pulled into
+    // every platform's main bundle, and a runtime import of
+    // @onekeyfe/hwk-trezor-adapter drags in hwk-trezor-core (~620KB total).
+    const source = readFileSync(
+      join(__dirname, 'thirdPartyDeviceUtils.ts'),
+      'utf8',
+    );
+    expect(source).not.toContain("from '@onekeyfe/hwk-trezor-adapter'");
   });
 
   it('detects Trezor BLE support from persisted device settings', () => {
     expect(
       thirdPartyDeviceUtils.isTrezorBleSupportedDevice({
         settings: {
-          vendorModel: 'SDK_ONLY_BLE_MODEL',
+          vendorModel: 'T3W1',
           vendorModelName: 'Safe 7',
         },
       }),
@@ -217,10 +317,14 @@ describe('thirdPartyDeviceUtils', () => {
     expect(
       thirdPartyDeviceUtils.isTrezorBleSupportedDevice({
         settings: {
-          vendorModel: 'Safe 7',
-          vendorModelName: 'Safe 7',
+          vendorModel: 'T2T1',
+          vendorModelName: 'Model T',
         },
       }),
     ).toBe(false);
+
+    expect(thirdPartyDeviceUtils.isTrezorBleSupportedDevice(undefined)).toBe(
+      false,
+    );
   });
 });

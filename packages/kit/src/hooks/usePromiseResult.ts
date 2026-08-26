@@ -48,6 +48,7 @@ export type IPromiseResultOptions<T> = {
    * - The real async request always fires (cache never blocks)
    */
   swrKey?: string;
+  swrShouldPersist?: (result: T) => boolean;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -299,7 +300,11 @@ export function usePromiseResult<T>(
               // `undefined` would later override the caller's explicit
               // initResult on next mount. (Scope identity is already
               // guaranteed by the outer check.)
-              if (capturedSwrKey && r !== undefined) {
+              if (
+                capturedSwrKey &&
+                r !== undefined &&
+                optionsRef.current.swrShouldPersist?.(r) !== false
+              ) {
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }

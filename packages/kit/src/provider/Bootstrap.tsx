@@ -71,6 +71,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -87,6 +88,7 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
+import { preloadComponentsOnIdle } from './preloadComponents';
 import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
 
 import type { IntlShape } from 'react-intl';
@@ -811,6 +813,9 @@ export function Bootstrap() {
     devSettings,
     !!platformEnv.isNative,
   );
+  const performanceMonitorEnabled =
+    devSettings.enabled &&
+    devSettings.settings?.showPerformanceMonitorV2 === true;
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -818,6 +823,8 @@ export function Bootstrap() {
   useEffect(() => {
     setOnboardingConnectWalletLoading(false);
   }, [setOnboardingConnectWalletLoading]);
+
+  useEffect(() => preloadComponentsOnIdle(), []);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -838,6 +845,15 @@ export function Bootstrap() {
       })
       .catch(() => undefined);
   }, [devSettings.enabled, networkThrottleEnabled]);
+
+  // Push the dev-settings escape hatch into the shared module flag on
+  // startup and whenever it changes (shared cannot read kit-bg atoms).
+  const useSystemBrowserForExternalLinks =
+    !!devSettings.enabled &&
+    !!devSettings.settings?.useSystemBrowserForExternalLinks;
+  useEffect(() => {
+    setForceSystemBrowserForDebug(useSystemBrowserForExternalLinks);
+  }, [useSystemBrowserForExternalLinks]);
 
   useEffect(() => {
     if (
@@ -899,7 +915,7 @@ export function Bootstrap() {
   }, []);
 
   useEffect(() => {
-    if (devSettings.enabled && devSettings.settings?.showPerformanceMonitor) {
+    if (performanceMonitorEnabled) {
       performance.showOverlay();
     } else {
       performance.hideOverlay();
@@ -907,7 +923,7 @@ export function Bootstrap() {
     return () => {
       performance.hideOverlay();
     };
-  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+  }, [performanceMonitorEnabled]);
 
   // Dev-only: expose a global handle to control the native performance
   // overlay from the JS console or an automation harness. On iOS the overlay
@@ -927,9 +943,7 @@ export function Bootstrap() {
         toggle: () => void;
       };
     };
-    let shown = Boolean(
-      devSettings.enabled && devSettings.settings?.showPerformanceMonitor,
-    );
+    let shown = performanceMonitorEnabled;
     globalRef.$onekeyPerfMonitor = {
       show: () => {
         shown = true;
@@ -951,7 +965,7 @@ export function Bootstrap() {
     return () => {
       delete globalRef.$onekeyPerfMonitor;
     };
-  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+  }, [performanceMonitorEnabled]);
 
   // Bridge native memory-warning notifications to the cross-process
   // appEventBus, so background services and JS-side caches can react.

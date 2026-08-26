@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IKytIntroClaimLease } from '@onekeyhq/shared/types/kyt';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -8,6 +9,11 @@ export type IWalletAssetStatusAnalyticsState = {
   assetStatus?: IWalletAssetStatus;
   lastStatusChangedAt?: number;
   lastSnapshotReportedAt?: number;
+};
+
+export type IHardwareConnectProtocolCacheEntry = {
+  protocol: 'V1' | 'V2';
+  updatedAt: number;
 };
 
 export interface ISimpleDBAppStatus {
@@ -28,10 +34,21 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  /** Version of the one-time connect protocol backfill for existing devices. */
+  hardwareConnectProtocolMigrationVersion?: number;
+  lastWalletProfileAnalyticsAt?: number;
   walletAssetStatusAnalytics?: IWalletAssetStatusAnalyticsState;
+  /** Confirmed protocols keyed by normalized transport endpoint. */
+  hardwareConnectProtocolByConnectId?: Record<
+    string,
+    IHardwareConnectProtocolCacheEntry
+  >;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];
+  // Short-lived cross-runtime leases prevent multiple Extension UI surfaces
+  // from showing the same KYT intro concurrently.
+  kytIntroClaimLeases?: Record<string, IKytIntroClaimLease>;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {

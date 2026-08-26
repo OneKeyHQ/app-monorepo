@@ -4,7 +4,6 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
@@ -29,9 +28,12 @@ import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
+import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
+import PageTrackerContainer from './PageTrackerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
+import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
@@ -42,11 +44,6 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-
-const PageTrackerContainer = LazyLoad(
-  () => import('./PageTrackerContainer'),
-  100,
-);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -74,12 +71,14 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />
+      <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
+      <PerpsUnifoldDepositTerminalDeliveryContainer />
       <GlobalErrorHandlerContainer />
       <ForceFirmwareUpdateContainer />
       <ColdStartByNotification />
@@ -116,6 +115,8 @@ export function Container() {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
+          {/* Page.Every must register before routers render their active page. */}
+          <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
             mainRouter={
               <SplitViewContext.Provider value={splitMainViewContext}>
@@ -129,7 +130,6 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-          <GlobalWalletConnectModalContainer />
         </AppStateLockContainer>
       </RootSiblingParent>
     );
@@ -137,8 +137,9 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <DetailRouter />
+        {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
+        <DetailRouter />
       </AppStateLockContainer>
     </RootSiblingParent>
   );

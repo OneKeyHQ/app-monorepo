@@ -83,7 +83,7 @@ private enum BackgroundThreadBridge {
 
 /// Single flag controlling HBC + segment profile on native side. Read from
 /// either the env var (Xcode scheme → Arguments → Environment Variables) or
-/// Info.plist. See `.skillshare/skills/1k-startup-profile/skill.md`.
+/// Info.plist. See `.skillshare/skills/1k-startup-profile/SKILL.md`.
 private func isStartupProfileEnabled() -> Bool {
   if let env = ProcessInfo.processInfo.environment["ONEKEY_STARTUP_PROFILE"]?.lowercased() {
     if ["1", "true", "yes", "on"].contains(env) { return true }
@@ -249,16 +249,8 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Background URLSession events (concurrent/background downloads).
-  // When the app is relaunched in the background to finish a background
-  // download, hand the completion handler to the downloader via a notification.
-  // We post rather than call directly because the Nitro module's C++ umbrella
-  // header can't be imported into this Swift AppDelegate (see the
-  // NSClassFromString bridges above). If the downloader instance isn't live yet
-  // the events are processed on the next foreground launch instead — the
-  // download itself still completed in the background.
-  //
   // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
-  // of channels (bundle / apk / chart) route through one notification; the
+  // of channels route through one notification; the
   // shared range-downloader filters by its own session identifier prefix (and
   // still recognizes the legacy identifier prefix for in-flight downloads that
   // span an app update).
@@ -341,14 +333,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   private func backgroundDebugBundleURLString() -> String? {
     if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
        var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
-      components.port = 8082
       components.path = "/background.bundle"
       return components.url?.absoluteString
     }
 
-    let packagerHost = RCTBundleURLProvider.sharedSettings().packagerServerHost()
-    if !packagerHost.isEmpty {
-      return "http://\(packagerHost):8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    let packagerHostPort = RCTBundleURLProvider.sharedSettings().packagerServerHostPort()
+    if !packagerHostPort.isEmpty {
+      return "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
     }
 
     return nil
@@ -357,7 +348,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   private func backgroundBundleEntryURL() -> String {
 #if DEBUG
     let debugURL = backgroundDebugBundleURLString() ??
-      "http://localhost:8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
     NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
     return debugURL
 #else

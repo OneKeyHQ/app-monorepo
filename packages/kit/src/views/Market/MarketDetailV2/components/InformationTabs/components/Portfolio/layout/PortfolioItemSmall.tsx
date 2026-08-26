@@ -1,6 +1,8 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -16,17 +18,15 @@ function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
   return (
     <XStack mx="$2" px="$3" py="$2.5" borderRadius="$3" alignItems="center">
       <YStack w={100} minWidth={0} alignItems="flex-start">
-        <NumberSizeableText
+        <Currency
           size="$bodySm"
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
-          formatterOptions={{
-            currency: '$',
-          }}
+          sourceCurrency={USD_CURRENCY_ID}
         >
           {item.totalPrice}
-        </NumberSizeableText>
+        </Currency>
         <NumberSizeableText
           size="$bodySm"
           color="$textSubdued"

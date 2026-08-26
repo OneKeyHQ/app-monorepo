@@ -7,7 +7,7 @@ import type {
 
 const fetchMarketTokenListForPlatform = (
   params: IMarketTokenListRequestParams,
-  _options?: IFetchMarketTokenListForPlatformOptions,
-) => backgroundApiProxy.serviceMarketV2.fetchMarketTokenList(params);
+  options?: IFetchMarketTokenListForPlatformOptions,
+) => backgroundApiProxy.serviceMarketV2.fetchMarketTokenList(params, options);
 
 export { fetchMarketTokenListForPlatform };

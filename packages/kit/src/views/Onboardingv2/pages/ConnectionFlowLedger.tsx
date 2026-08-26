@@ -9,19 +9,25 @@ import {
   Button,
   EVideoResizeMode,
   HeightTransition,
+  LottieView,
   SizableText,
+  Stack,
   Toast,
   Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  ThirdPartyWalletAvatarImages,
+  getThirdPartyDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -69,6 +75,36 @@ function DeviceVideo({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
   );
 }
 
+function DevicePlaceholder({
+  isBle,
+  themeVariant,
+}: {
+  isBle: boolean;
+  themeVariant: 'light' | 'dark';
+}) {
+  return (
+    <Stack
+      w="100%"
+      h="100%"
+      alignItems="center"
+      justifyContent="center"
+      bg="$bgSubdued"
+    >
+      {isBle ? (
+        <LottieView
+          source={BluetoothSignalSpreading}
+          width={320}
+          height={320}
+          autoPlay
+          loop
+        />
+      ) : (
+        <DeviceVideo themeVariant={themeVariant} />
+      )}
+    </Stack>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main Ledger connection flow — same structure as USBOrBLEConnectionIndicator
 // ---------------------------------------------------------------------------
@@ -84,7 +120,7 @@ export default function LedgerConnectionFlow() {
   const tabValue = EConnectDeviceChannel.usbOrBle;
   const deviceLabel = 'Ledger';
   // Mobile (iOS/Android) uses BLE; extension and desktop use USB.
-  const isBle = platformEnv.isNative;
+  const isBle = Boolean(platformEnv.isNative);
 
   // --- Device connection state (copied from useDeviceConnection) ---
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -190,11 +226,23 @@ export default function LedgerConnectionFlow() {
   // --- Device list data ---
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: ThirdPartyWalletAvatarImages.ledger,
-        device: item,
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const vendorFields = item as SearchDevice & {
+          vendorModel?: string;
+          vendorModelName?: string;
+        };
+        return {
+          title: item.name,
+          src: ThirdPartyWalletAvatarImages.ledger,
+          device: item,
+          avatarImg: getThirdPartyDeviceAvatarImage({
+            vendor: EHardwareVendor.ledger,
+            vendorModel: vendorFields.vendorModel,
+            vendorModelName: vendorFields.vendorModelName,
+            fallback: 'ledger',
+          }),
+        };
+      }),
     [searchedDevices],
   );
 
@@ -273,13 +321,13 @@ export default function LedgerConnectionFlow() {
     [stopScan],
   );
 
-  // --- Render (1:1 copy of USBOrBLEConnectionIndicator USB branch) ---
+  // --- Render ---
   return (
     <>
       <ConnectionIndicator>
         <ConnectionIndicator.Card>
           <ConnectionIndicator.Animation>
-            <DeviceVideo themeVariant={themeVariant} />
+            <DevicePlaceholder isBle={isBle} themeVariant={themeVariant} />
           </ConnectionIndicator.Animation>
           <ConnectionIndicator.Content gap="$2">
             <ConnectionIndicator.Title>
@@ -364,7 +412,10 @@ export default function LedgerConnectionFlow() {
                       }}
                       userSelect="none"
                     >
-                      <WalletAvatar wallet={undefined} img="ledger" />
+                      <WalletAvatar
+                        wallet={undefined}
+                        img={data.avatarImg ?? 'ledger'}
+                      />
                       <ListItem.Text primary={data.device?.name} flex={1} />
                     </ListItem>
                   ))}

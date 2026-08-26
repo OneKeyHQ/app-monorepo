@@ -6,6 +6,45 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { SwapBuildShouldFallBackNetworkIds } from '@onekeyhq/shared/types/swap/types';
 
+export function resolveMarketQuoteActionState({
+  hasActionableQuote,
+  quoteRequestMatchesCurrentInput,
+  quoteRequestLocked,
+  quoteFetching,
+  quoteEventFetching,
+  shouldRefreshQuote,
+  hasQuoteError,
+  manualRefreshRequest = false,
+}: {
+  hasActionableQuote: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
+  quoteRequestLocked: boolean;
+  quoteFetching: boolean;
+  quoteEventFetching: boolean;
+  shouldRefreshQuote: boolean;
+  hasQuoteError: boolean;
+  manualRefreshRequest?: boolean;
+}) {
+  const isLoading = quoteRequestLocked || quoteFetching || quoteEventFetching;
+  const quoteRequestSettled = !isLoading;
+  const canRefresh =
+    shouldRefreshQuote &&
+    quoteRequestMatchesCurrentInput &&
+    quoteRequestSettled;
+
+  return {
+    canRefresh,
+    canReview:
+      hasActionableQuote &&
+      quoteRequestMatchesCurrentInput &&
+      quoteRequestSettled &&
+      !shouldRefreshQuote &&
+      !hasQuoteError,
+    isRefreshAction: canRefresh || (manualRefreshRequest && isLoading),
+    isLoading,
+  };
+}
+
 export function buildMarketReviewShouldFallback({
   networkId,
   isCustomRpcUnavailable,
@@ -16,52 +55,6 @@ export function buildMarketReviewShouldFallback({
   return (
     SwapBuildShouldFallBackNetworkIds.includes(networkId ?? '') ||
     Boolean(isCustomRpcUnavailable)
-  );
-}
-
-export function buildDefaultMarketSpeedCheckState() {
-  return {
-    speedCheckError: '',
-    checkSpenderAddress: '',
-    isStock: false,
-    shouldApprove: false,
-    shouldResetApprove: false,
-  };
-}
-
-export function shouldFetchMarketQuoteFallbackData(
-  buildRes?: IFetchBuildTxResponse,
-) {
-  const buildGasLimitBN = new BigNumber(buildRes?.result?.gasLimit ?? 0);
-
-  return (
-    buildGasLimitBN.isNaN() ||
-    buildGasLimitBN.isZero() ||
-    !buildRes?.result?.routesData?.length
-  );
-}
-
-export function pickMarketQuoteResultByProvider({
-  quotes,
-  provider,
-  providerName,
-}: {
-  quotes?: IFetchQuoteResult[];
-  provider?: string;
-  providerName?: string;
-}) {
-  if (!quotes?.length) {
-    return undefined;
-  }
-
-  return (
-    quotes.find(
-      (item) =>
-        item.info.provider === provider &&
-        item.info.providerName === providerName,
-    ) ??
-    quotes.find((item) => item.info.provider === provider) ??
-    quotes.find((item) => item.info.providerName === providerName)
   );
 }
 

@@ -129,6 +129,11 @@ class ServiceDApp extends ServiceBase {
 
   private existingWindowId: number | null | undefined = null;
 
+  // Origin of the request the pending approval window belongs to; focusing is
+  // restricted to same-origin repeats so DApp B's connect click never surfaces
+  // DApp A's approval window.
+  private existingWindowOrigin: string | null = null;
+
   private isAlignPrimaryAccountProcessing = false;
 
   // Temporary store for sensitive clipboard text to avoid logging through
@@ -173,7 +178,7 @@ class ServiceDApp extends ServiceBase {
       params,
     });
     // Try to open an existing window anyway in the extension
-    this.tryOpenExistingExtensionWindow();
+    this.tryOpenExistingExtensionWindow({ origin: request.origin });
 
     return this.semaphore.runExclusive(async () => {
       try {
@@ -212,6 +217,8 @@ class ServiceDApp extends ServiceBase {
             walletConnectVerifyContext,
           };
 
+          this.existingWindowOrigin = request.origin;
+
           const routeParams = {
             // stringify required, nested object not working with Ext route linking
             query: JSON.stringify(
@@ -237,15 +244,63 @@ class ServiceDApp extends ServiceBase {
             routeNames,
             routeParams,
             modalParams,
+            // Without this the request can never settle when the push itself
+            // fails (chrome.windows.create rejected, or openSidePanel throwing
+            // because the panel closed inside the debounce window). The
+            // debounced call returns undefined to this caller and invokes on a
+            // later timer, so its rejection is unreachable from here — the
+            // callback has to be handed down. Left unsettled, `finally` never
+            // runs and existingWindowOrigin stays set, which now also gates
+            // user-visible update UI.
+            //
+            // Goes through servicePromise rather than the raw `reject` so the
+            // registration is removed too; rejecting the promise directly would
+            // settle the caller but leave the entry dangling until the
+            // 30-minute expiry sweep re-rejects an already-settled promise.
+            onError: (error) => {
+              void this.backgroundApi.servicePromise.rejectCallback({
+                id,
+                error,
+              });
+            },
           });
         });
       } finally {
         this.existingWindowId = null;
+        this.existingWindowOrigin = null;
       }
     });
   }
 
   _openModalByRouteParams = async ({
+    modalParams,
+    routeParams,
+    routeNames,
+    onError,
+  }: {
+    routeNames: any[];
+    routeParams: { query: string };
+    modalParams: { screen: any; params: any };
+    onError?: (error: unknown) => void;
+  }) => {
+    try {
+      await this._doOpenModalByRouteParams({
+        modalParams,
+        routeParams,
+        routeNames,
+      });
+    } catch (error) {
+      // Surface the failure to the waiting request instead of leaving it (and
+      // the pending-approval bookkeeping) hanging until the 30-minute sweep.
+      if (onError) {
+        onError(error);
+        return;
+      }
+      throw error;
+    }
+  };
+
+  _doOpenModalByRouteParams = async ({
     modalParams,
     routeParams,
     routeNames,
@@ -297,8 +352,28 @@ class ServiceDApp extends ServiceBase {
     },
   );
 
-  private tryOpenExistingExtensionWindow() {
-    if (platformEnv.isExtension && this.existingWindowId) {
+  // True from the moment a DApp approval is queued — set before the debounced
+  // modal push and cleared when the request settles — so it already reads true
+  // in the window before the modal actually appears.
+  @backgroundMethod()
+  async hasPendingDappRequest(): Promise<boolean> {
+    return !!this.existingWindowOrigin;
+  }
+
+  // Public so provider APIs that queue connect requests on their own
+  // semaphore (e.g. eth_requestAccounts) can surface the pending approval
+  // window before the queued call ever reaches openModal. Focusing requires
+  // the caller's origin to own the pending window — surfacing DApp A's
+  // approval window on DApp B's connect click invites approving the wrong
+  // origin; cross-origin requests just stay queued until their own modal
+  // window is created.
+  tryOpenExistingExtensionWindow({ origin }: { origin?: string | null } = {}) {
+    if (
+      platformEnv.isExtension &&
+      this.existingWindowId &&
+      origin &&
+      origin === this.existingWindowOrigin
+    ) {
       extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }

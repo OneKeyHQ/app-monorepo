@@ -25,6 +25,8 @@ import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
+import tokenRebaseUtils from './tokenRebaseUtils';
+
 import type {
   IDisplayComponent,
   IDisplayComponentAddress,
@@ -64,6 +66,39 @@ export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
   return (
     (outputActions && outputActions.length ? outputActions : actions) || []
   );
+}
+
+// collect every address that appears in a decoded tx's asset-transfer
+// actions (transfer from/to plus raw UTXO inputs/outputs). Callers that
+// already hold a decoded tx use this to tell vaults which addresses a
+// history detail request actually involves (btc find-address narrowing).
+export function collectDecodedTxInvolvedAddresses({
+  decodedTx,
+}: {
+  decodedTx: IDecodedTx;
+}): string[] {
+  const addresses = new Set<string>();
+  const add = (address: string | undefined) => {
+    if (address) {
+      addresses.add(address);
+    }
+  };
+  for (const action of decodedTx.actions ?? []) {
+    const transfer = action.assetTransfer;
+    if (transfer) {
+      transfer.sends.forEach((send) => {
+        add(send.from);
+        add(send.to);
+      });
+      transfer.receives.forEach((receive) => {
+        add(receive.from);
+        add(receive.to);
+      });
+      transfer.utxoFrom?.forEach((utxo) => add(utxo.address));
+      transfer.utxoTo?.forEach((utxo) => add(utxo.address));
+    }
+  }
+  return Array.from(addresses);
 }
 
 export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
@@ -162,6 +197,125 @@ export function calculateTokenAmountInActions({
   return {
     tokenAmount,
   };
+}
+
+// True when any decoded action involves a token whose balanceMultiplier
+// actually scales (valid and !== 1). Used by the signature-confirm service
+// to force the LOCAL txDisplay path: local decode emits display-basis
+// amounts (and fail-closed approve editing), while server display
+// components would carry raw amounts for these tokens.
+export function checkDecodedTxHasScalingBalanceMultiplier(
+  decodedTx: IDecodedTx,
+): boolean {
+  return (decodedTx.actions ?? []).some((action) => {
+    if (
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        action.tokenApprove?.balanceMultiplier,
+      )
+    ) {
+      return true;
+    }
+    const transfers = [
+      ...(action.assetTransfer?.sends ?? []),
+      ...(action.assetTransfer?.receives ?? []),
+    ];
+    return transfers.some((transfer) =>
+      tokenRebaseUtils.isScalingBalanceMultiplier(transfer.balanceMultiplier),
+    );
+  });
+}
+
+// Address-tag severities that must survive a local-display replacement.
+// Mirrors SecurityCheckCard's RISK_BADGE_TYPES (kit cannot be imported here).
+const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
+  'warning',
+  'critical',
+]);
+
+// When the signature-confirm service replaces server display components with
+// locally decoded ones (scaled-UI forced-local path), the local Address
+// components carry `tags: []`. The server may flag a risky counterparty ONLY
+// via `Address.tags` without emitting `display.alerts`, so dropping the tags
+// would let SecurityCheckCard render "No issues" for a flagged address. Merge
+// the server's risk tags back onto matching local Address components, and
+// preserve risk-tagged server Address rows that have no local counterpart
+// (the server may flag an address the local decoder never renders, e.g. the
+// token contract on a plain transfer) by appending them verbatim — Address
+// rows carry no amounts, so raw-basis contamination is impossible.
+export function mergeServerAddressRiskTagsIntoComponents({
+  localComponents,
+  serverComponents,
+}: {
+  localComponents: IDisplayComponent[];
+  serverComponents: IDisplayComponent[] | undefined;
+}): IDisplayComponent[] {
+  const serverRiskAddressComponents = (serverComponents ?? []).filter(
+    (component): component is IDisplayComponentAddress =>
+      component.type === EParseTxComponentType.Address &&
+      Boolean(component.address) &&
+      (component.tags ?? []).some((tag) =>
+        ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+      ),
+  );
+  if (serverRiskAddressComponents.length === 0) {
+    return localComponents;
+  }
+
+  const riskTagsByAddress = new Map<string, IDisplayComponentAddress['tags']>();
+  for (const component of serverRiskAddressComponents) {
+    const riskTags = (component.tags ?? []).filter((tag) =>
+      ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType),
+    );
+    const key = component.address.toLowerCase();
+    const existing = riskTagsByAddress.get(key) ?? [];
+    const existingKeys = new Set(
+      existing.map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    riskTagsByAddress.set(key, [
+      ...existing,
+      ...riskTags.filter(
+        (tag) => !existingKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ]);
+  }
+
+  const localAddressKeys = new Set(
+    localComponents
+      .filter(
+        (component): component is IDisplayComponentAddress =>
+          component.type === EParseTxComponentType.Address &&
+          Boolean(component.address),
+      )
+      .map((component) => component.address.toLowerCase()),
+  );
+
+  const merged = localComponents.map((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return component;
+    }
+    const serverRiskTags = component.address
+      ? riskTagsByAddress.get(component.address.toLowerCase())
+      : undefined;
+    if (!serverRiskTags?.length) {
+      return component;
+    }
+    const existingTagKeys = new Set(
+      (component.tags ?? []).map((tag) => `${tag.displayType}:${tag.value}`),
+    );
+    const mergedTags = [
+      ...(component.tags ?? []),
+      ...serverRiskTags.filter(
+        (tag) => !existingTagKeys.has(`${tag.displayType}:${tag.value}`),
+      ),
+    ];
+    return { ...component, tags: mergedTags };
+  });
+
+  const unmatchedServerRiskComponents = serverRiskAddressComponents.filter(
+    (component) => !localAddressKeys.has(component.address.toLowerCase()),
+  );
+
+  return [...merged, ...unmatchedServerRiskComponents];
 }
 
 export function isSendNativeTokenAction(action: IDecodedTxAction) {
@@ -435,10 +589,12 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   action,
   isMultiTxs,
   networkId,
+  interactWithContract,
 }: {
   action: IDecodedTxActionTokenApprove;
   isMultiTxs?: boolean;
   networkId: string;
+  interactWithContract?: string;
 }) {
   // Only absolute `approve(spender, 0)` is a revoke. `increaseAllowance(spender, 0)`
   // and `increaseApproval(spender, 0)` are no-op increments, not revocations.
@@ -462,6 +618,14 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     });
   }
 
+  // Scaled-UI (rebase) tokens: `action.amount` is display-basis (multiplied
+  // at decode). The editor write-back re-encodes amountParsed verbatim as
+  // raw units, so editing must be fail-closed to prevent over-approval by
+  // the multiplier. Multiplier === 1 is the documented no-op — never block.
+  const isScalingMultiplier = tokenRebaseUtils.isScalingBalanceMultiplier(
+    action.balanceMultiplier,
+  );
+
   const approveComponent: IDisplayComponentApprove = {
     type: EParseTxComponentType.Approve,
     label: approveLabel,
@@ -474,10 +638,11 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         isNative: false,
         decimals: action.decimals,
         logoURI: action.icon,
+        balanceMultiplier: action.balanceMultiplier,
       },
     },
     amountParsed: action.amount,
-    isEditable: !isRevoke && !isMultiTxs,
+    isEditable: !isRevoke && !isMultiTxs && !isScalingMultiplier,
     isInfiniteAmount: action.isInfiniteAmount,
     networkId,
     approveType: action.approveType,
@@ -500,7 +665,24 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         isNavigable: true,
       };
 
-  return [approveComponent, spenderComponent].filter(Boolean);
+  const interactWithContractComponent: IDisplayComponentAddress | null =
+    interactWithContract && !isMultiTxs
+      ? {
+          type: EParseTxComponentType.Address,
+          label: appLocale.intl.formatMessage({
+            id: ETranslations.sig_interact_contract_label,
+          }),
+          address: interactWithContract,
+          tags: [],
+          isNavigable: true,
+        }
+      : null;
+
+  return [
+    approveComponent,
+    spenderComponent,
+    interactWithContractComponent,
+  ].filter(Boolean);
 }
 
 function convertTokenActiveActionToSignatureConfirmComponent({
@@ -621,6 +803,9 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           action: action.tokenApprove,
           isMultiTxs,
           networkId,
+          interactWithContract: unsignedTx.approveInfo?.permit2Info
+            ? action.tokenApprove.to
+            : undefined,
         }),
       );
     } else if (

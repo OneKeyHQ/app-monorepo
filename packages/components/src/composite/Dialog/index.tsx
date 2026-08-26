@@ -21,6 +21,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -29,7 +30,10 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import {
+  createLazyModuleComponent,
+  preloadLazyComponents,
+} from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -91,28 +95,48 @@ import type { IYStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
 import type { GestureResponderEvent } from 'react-native';
 
+type IDialogFormModule = typeof import('./DialogForm');
 type IDialogFormFieldProps = ComponentProps<
   (typeof import('./DialogForm'))['DialogFormField']
 >;
 
-const LazyDialogFormComponent = LazyLoad<IDialogFormProps>(async () => {
-  const { DialogForm } = await import('./DialogForm');
-  return { default: DialogForm };
-});
-
-function LazyDialogForm(props: IDialogFormProps) {
-  return <LazyDialogFormComponent {...props} />;
+let loadDialogFormModulePromise: Promise<IDialogFormModule> | undefined;
+function loadDialogFormModule() {
+  if (!loadDialogFormModulePromise) {
+    loadDialogFormModulePromise = import('./DialogForm')
+      .then(async (dialogFormModule) => {
+        await dialogFormModule.preloadDialogForm();
+        return dialogFormModule;
+      })
+      .catch((error: unknown) => {
+        loadDialogFormModulePromise = undefined;
+        throw error;
+      });
+  }
+  return loadDialogFormModulePromise;
 }
 
-const LazyDialogFormFieldComponent = LazyLoad<IDialogFormFieldProps>(
-  async () => {
-    const { DialogFormField } = await import('./DialogForm');
-    return { default: DialogFormField };
-  },
-);
+const LazyDialogFormFieldComponent = createLazyModuleComponent<
+  IDialogFormFieldProps,
+  IDialogFormModule
+>(loadDialogFormModule, ({ DialogFormField }) => DialogFormField);
 
-function LazyDialogFormField(props: IDialogFormFieldProps) {
-  return <LazyDialogFormFieldComponent {...props} />;
+async function loadDialogFormComponentModule() {
+  const dialogFormModule = await loadDialogFormModule();
+  await LazyDialogFormFieldComponent.preload();
+  return dialogFormModule;
+}
+
+const LazyDialogFormComponent = createLazyModuleComponent<
+  IDialogFormProps,
+  IDialogFormModule
+>(loadDialogFormComponentModule, ({ DialogForm }) => DialogForm);
+
+export function preloadDialogFormComponents() {
+  return preloadLazyComponents([
+    LazyDialogFormComponent,
+    LazyDialogFormFieldComponent,
+  ]);
 }
 
 export * from './dialogInstances';
@@ -146,10 +170,21 @@ const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
 } as any;
 const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
 const EMPTY_DIALOG_STYLE = {} as const;
+const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
-const useSafeKeyboardAnimationStyle = () => {
+const useSafeKeyboardAnimationStyle = ({
+  useInitialSafeAreaBottomInsetFallback = false,
+}: {
+  useInitialSafeAreaBottomInsetFallback?: boolean;
+}) => {
   const { bottom } = useSafeAreaInsets();
+  // Root-sibling portals can report zero before safe-area context propagates.
+  // Opt in only for flows that must preserve the initial window inset.
+  const safeAreaBottom =
+    useInitialSafeAreaBottomInsetFallback && bottom === 0
+      ? INITIAL_BOTTOM_INSET
+      : bottom;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -158,7 +193,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // They must not stack — once the keyboard is up it already covers the
   // safe area, so take the larger of the two instead of summing them.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, bottom),
+    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
   }));
 
   useKeyboardEventWithoutNavigation({
@@ -176,7 +211,7 @@ const useSafeKeyboardAnimationStyle = () => {
   // clear the home indicator there too — footers only carry their design
   // padding now, and rely on the frame for the inset on every platform.
   if (!platformEnv.isNative) {
-    return bottom ? { paddingBottom: bottom } : undefined;
+    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
   }
   return animatedStyles;
 };
@@ -221,6 +256,7 @@ function DialogFrame({
   isAsync,
   trackID,
   forceMount,
+  useInitialSafeAreaBottomInsetFallback = false,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -293,7 +329,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+  });
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
       {showHeader ? (
@@ -816,8 +854,9 @@ export const Dialog = {
   HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
-  Form: LazyDialogForm,
-  FormField: LazyDialogFormField,
+  Form: LazyDialogFormComponent,
+  FormField: LazyDialogFormFieldComponent,
+  preloadForm: preloadDialogFormComponents,
   Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,

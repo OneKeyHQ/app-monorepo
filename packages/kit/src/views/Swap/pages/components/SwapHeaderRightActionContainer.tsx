@@ -39,6 +39,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStockExecutionTokensAtom,
@@ -77,7 +78,12 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
+import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
+import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
+import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
+import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
@@ -86,6 +92,7 @@ import {
   getSwapLimitOpenOrderCount,
 } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
+import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -289,8 +296,12 @@ const SwapSlippageCustomContent = ({
 };
 
 const SwapSettingsDialogContent = ({
+  activityHubAction,
   marketPresetSettings,
 }: {
+  activityHubAction?: {
+    onOpenInviteeReward: () => void;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
   const intl = useIntl();
@@ -300,6 +311,7 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
@@ -377,10 +389,15 @@ const SwapSettingsDialogContent = ({
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const handleProviderManagerSaved = useCallback(() => {
     cleanQuoteInterval();
-    closeQuoteEvent();
+    closeQuoteEvent(quoteActionLock.quoteRequestId);
     void resetQuoteAction();
     void dialogRef.current?.close();
-  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteActionLock.quoteRequestId,
+    resetQuoteAction,
+  ]);
   return (
     <ScrollView
       mx="$-5"
@@ -487,6 +504,14 @@ const SwapSettingsDialogContent = ({
                   showCancelButton: false,
                 });
               }}
+            />
+          </>
+        ) : null}
+        {activityHubAction ? (
+          <>
+            <Divider />
+            <SwapActivityHubSettingsItem
+              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
             />
           </>
         ) : null}
@@ -628,6 +653,9 @@ type ISwapSettingsHeaderButtonProps = {
   iconColor?: ColorTokens;
   compact?: boolean;
   showCustomSlippageValue?: boolean;
+  activityHubAction?: {
+    onOpenInviteeReward: () => void;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -637,6 +665,7 @@ export function SwapSettingsHeaderButton({
   iconColor,
   compact,
   showCustomSlippageValue,
+  activityHubAction,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -687,6 +716,7 @@ export function SwapSettingsHeaderButton({
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
+            activityHubAction={activityHubAction}
             marketPresetSettings={marketPresetSettings}
           />
         </SwapProviderMirror>
@@ -698,7 +728,7 @@ export function SwapSettingsHeaderButton({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, swapStoreName]);
+  }, [activityHubAction, intl, marketPresetSettings, swapStoreName]);
 
   if (slippageTitle) {
     return (
@@ -741,31 +771,57 @@ export function SwapSettingsHeaderButton({
   );
 }
 
+// The reward action needs the active account, so it is resolved here in the page
+// tree and handed to the settings dialog, which renders outside of it.
+function SwapSettingsHeaderButtonWithActivityHub(
+  props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
+) {
+  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const activityHubAction = useMemo(
+    () => ({
+      onOpenInviteeReward: showSwapInviteeReward,
+    }),
+    [showSwapInviteeReward],
+  );
+
+  return (
+    <SwapSettingsHeaderButton
+      {...props}
+      activityHubAction={activityHubAction}
+    />
+  );
+}
+
 const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
   iconColor,
   compact,
   marketPresetSettings,
+  routeSwapType,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  routeSwapType?: ESwapTabSwitchType;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [
+    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
+  ] = useInAppNotificationAtom();
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtLg, md } = useMedia();
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
+    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
@@ -795,15 +851,37 @@ const SwapHeaderRightActionContainer = ({
     [historyProtocolType, swapHistoryPendingList],
   );
   const limitOpenOrderCount = useMemo(
-    () => getSwapLimitOpenOrderCount(swapLimitOrders),
-    [swapLimitOrders],
+    () =>
+      shouldShowSwapLimitOrders
+        ? getSwapLimitOpenOrderCount(swapLimitOrders)
+        : 0,
+    [shouldShowSwapLimitOrders, swapLimitOrders],
   );
-  const historyBadgeCount = swapPendingStatusList.length + limitOpenOrderCount;
+  const historyBadgeCount = shouldShowSwapLocalData
+    ? swapPendingStatusList.length + limitOpenOrderCount
+    : 0;
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  // Settings is the only hub entry outside the wide desktop header, so it has to
+  // resolve its placement from the same route/store reconciliation the header
+  // uses — otherwise the hub can linger on Limit/Stock (or be missing on Swap)
+  // until the route-driven tab switch lands in the store.
+  const pendingRouteSwapType = useSwapActivityHubPendingRouteSwapType({
+    routeSwapType,
+    swapTypeSwitch,
+  });
+  const swapActivityHubActionPlacement = getSwapActivityHubActionPlacement({
+    isDesktop: Boolean(platformEnv.isDesktop),
+    isMediumLayout: md,
+    isModal: pageType === EPageType.modal,
+    pendingRouteSwapType,
+    swapTypeSwitch,
+  });
+  const showActivityHubInSettings =
+    swapActivityHubActionPlacement === 'settings';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -823,6 +901,13 @@ const SwapHeaderRightActionContainer = ({
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
@@ -904,6 +989,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
+          onPressIn={onSwapKLinePressIn}
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
@@ -914,18 +1000,28 @@ const SwapHeaderRightActionContainer = ({
   }
 
   return (
-    // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
+    // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
       <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
         {kLineButton}
-        <SwapSettingsHeaderButton
-          pageType={pageType}
-          iconSize={iconSize}
-          iconColor={iconColor}
-          compact={compact}
-          marketPresetSettings={marketPresetSettings}
-        />
+        {showActivityHubInSettings ? (
+          <SwapSettingsHeaderButtonWithActivityHub
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        ) : (
+          <SwapSettingsHeaderButton
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        )}
 
         {/* On mobile every tab has its own Order History list, so the global
             history button is hidden there; keep it on desktop / web / ext. */}

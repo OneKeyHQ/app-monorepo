@@ -1,6 +1,8 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
+  EDAppConnectionModal,
+  EModalFirmwareUpdateRoutes,
   EModalReferFriendsRoutes,
   EModalRewardCenterRoutes,
   EModalRoutes,
@@ -57,6 +59,14 @@ const appUpdatePathConfig = [
     name: EAppUpdateRoutes.UpdatePreview,
     rewrite: '/preview',
   }),
+  route({
+    name: EAppUpdateRoutes.FeaturedChangelogPreview,
+    rewrite: '/changelog-preview',
+  }),
+];
+
+const firmwareUpdatePathConfig = [
+  route({ name: EModalFirmwareUpdateRoutes.ChangeLog }),
 ];
 
 const stakingPathConfig = [
@@ -78,9 +88,23 @@ const stakingPathConfig = [
   route({ name: EModalStakingRoutes.ManagePosition, exact: true }),
 ];
 
+// Ext standalone windows cold-start from the URL hash (see
+// getStateFromPath.ext.ts), so every screen opened via ServiceDApp.openModal
+// must be listed here, or the window resolves to NotFound.
+// VerifyMessage is excluded: DAppConnectionRouter registers no screen for it,
+// and a parsed route pointing at an unregistered screen creates navigation
+// state the navigator cannot render.
+const dAppConnectionPathConfig = Object.values(EDAppConnectionModal)
+  .filter((name) => name !== EDAppConnectionModal.VerifyMessage)
+  .map((name) => route({ name }));
+
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlPayRequest }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),
+  route({ name: EModalSignatureConfirmRoutes.LnurlAuth }),
+  route({ name: EModalSignatureConfirmRoutes.WeblnSendPayment }),
 ];
 
 const onboardingV2PagePathConfig = [
@@ -118,6 +142,10 @@ const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
     rewrite: '/update',
     children: appUpdatePathConfig,
   }),
+  [EModalRoutes.FirmwareUpdateModal]: route({
+    name: EModalRoutes.FirmwareUpdateModal,
+    children: firmwareUpdatePathConfig,
+  }),
   [EModalRoutes.StakingModal]: route({
     name: EModalRoutes.StakingModal,
     children: stakingPathConfig,
@@ -125,6 +153,10 @@ const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
   [EModalRoutes.ReferFriendsModal]: route({
     name: EModalRoutes.ReferFriendsModal,
     children: [route({ name: EModalReferFriendsRoutes.ReferAFriend })],
+  }),
+  [EModalRoutes.DAppConnectionModal]: route({
+    name: EModalRoutes.DAppConnectionModal,
+    children: dAppConnectionPathConfig,
   }),
   [EModalRoutes.SignatureConfirmModal]: route({
     name: EModalRoutes.SignatureConfirmModal,
@@ -151,7 +183,10 @@ export const fullModalRouterPathConfig: IRoutePathConfig[] = [
     name: EModalRoutes.AppUpdateModal,
     children: appUpdatePathConfig,
   }),
-  route({ name: EModalRoutes.DAppConnectionModal }),
+  route({
+    name: EModalRoutes.DAppConnectionModal,
+    children: dAppConnectionPathConfig,
+  }),
   route({ name: EModalRoutes.ReceiveModal }),
   route({ name: EModalRoutes.SendModal }),
   route({

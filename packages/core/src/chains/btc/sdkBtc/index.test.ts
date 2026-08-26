@@ -1,11 +1,12 @@
 import {
   convertLtcXpub,
+  findBtcSighashNoneInput,
   getBtcForkNetwork,
   getInputsToSignFromPsbt,
   getSignPsbtOptionsForPsbtIndex,
 } from '.';
 
-import { Psbt } from 'bitcoinjs-lib';
+import { Psbt, Transaction } from 'bitcoinjs-lib';
 
 import type { ISignPsbtOptions } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
@@ -170,5 +171,66 @@ describe('getInputsToSignFromPsbt - Babylon signPsbts regression', () => {
         isBtcWalletProvider: fixedOptions?.isBtcWalletProvider ?? false,
       }),
     ).toHaveLength(1);
+  });
+});
+
+describe('findBtcSighashNoneInput', () => {
+  const psbtNetwork = getBtcForkNetwork('tbtc');
+  const buildPsbt = (sighashType?: number) => {
+    const psbt = Psbt.fromHex(BABYLON_SINGLE_PSBT_HEX, {
+      network: psbtNetwork,
+    });
+    if (sighashType !== undefined) {
+      psbt.updateInput(0, { sighashType });
+    }
+    return psbt;
+  };
+
+  it('detects SIGHASH_NONE selected by automatic input discovery', () => {
+    const psbt = buildPsbt(Transaction.SIGHASH_NONE);
+    const inputsToSign = getInputsToSignFromPsbt({
+      psbt,
+      psbtNetwork,
+      account: BABYLON_ACCOUNT,
+      isBtcWalletProvider: true,
+    });
+
+    expect(inputsToSign[0].sighashTypes).toEqual([Transaction.SIGHASH_NONE]);
+    expect(findBtcSighashNoneInput({ psbt, inputsToSign })).toBe(
+      inputsToSign[0],
+    );
+  });
+
+  it('detects SIGHASH_NONE with ANYONECANPAY for explicit inputs', () => {
+    const psbt = buildPsbt(
+      Transaction.SIGHASH_NONE | Transaction.SIGHASH_ANYONECANPAY,
+    );
+    const inputsToSign = [{ index: 0 }];
+
+    expect(findBtcSighashNoneInput({ psbt, inputsToSign })).toBe(
+      inputsToSign[0],
+    );
+  });
+
+  it('preserves an implicit SIGHASH_DEFAULT', () => {
+    const psbt = buildPsbt();
+
+    expect(psbt.data.inputs[0].sighashType).toBeUndefined();
+    expect(
+      findBtcSighashNoneInput({ psbt, inputsToSign: [{ index: 0 }] }),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    Transaction.SIGHASH_ALL,
+    Transaction.SIGHASH_SINGLE,
+    Transaction.SIGHASH_ALL | Transaction.SIGHASH_ANYONECANPAY,
+    Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY,
+  ])('preserves compatible sighash type %s', (sighashType) => {
+    const psbt = buildPsbt(sighashType);
+
+    expect(
+      findBtcSighashNoneInput({ psbt, inputsToSign: [{ index: 0 }] }),
+    ).toBeUndefined();
   });
 });

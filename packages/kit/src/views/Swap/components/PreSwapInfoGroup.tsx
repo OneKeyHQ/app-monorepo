@@ -1,16 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
-  Button,
-  Dialog,
+  Alert,
   Icon,
   Image,
   NumberSizeableText,
+  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -20,24 +19,28 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
+import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  shouldShowNativeBtcLowSlippageWarning,
+} from '../utils/swapReviewState';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
+import {
+  type ISwapReviewSlippageSaveScope,
+  SwapReviewSlippageEditor,
+} from './SwapReviewSlippageEditor';
+import { SwapSponsoredNetworkFee } from './SwapSponsoredNetworkFee';
 
 export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
-
-const SPONSORED_COUPON_INFO_WIDTH = 56;
-const SPONSORED_COUPON_SEPARATOR_STROKE = 2;
-const SPONSORED_COUPON_CUTOUT_SIZE = 18;
-const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
-const SPONSORED_FEES_HELP_CENTER_URL =
-  'https://help.onekey.so/articles/14994693';
 
 export type ISwapReviewNetworkFeeSelectValue =
   | ESwapNetworkFeeLevel
@@ -48,6 +51,19 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
+  onSetNativeBtcMinSlippage: () => void;
+  nativeBtcMinSlippageSaving?: boolean;
+  isSwapPro?: boolean;
+  slippageEditor?: {
+    disableSaveSlippageForFutureOrders?: boolean;
+    open: boolean;
+    savingScope?: ISwapReviewSlippageSaveScope;
+    onOpenChange: (open: boolean) => void;
+    onSave: (
+      scope: ISwapReviewSlippageSaveScope,
+      slippagePercentage: number,
+    ) => void | Promise<void>;
+  };
 }
 
 const PreSwapInfoGroup = ({
@@ -55,6 +71,10 @@ const PreSwapInfoGroup = ({
   onSelectNetworkFeeLevel,
   customNetworkFeeOptionLabel,
   networkFeeSelectValue,
+  onSetNativeBtcMinSlippage,
+  nativeBtcMinSlippageSaving,
+  isSwapPro,
+  slippageEditor,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -110,6 +130,58 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
+  const shouldShowLowSlippageWarning = useMemo(
+    () =>
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken: preSwapData.fromToken,
+        toToken: preSwapData.toToken,
+        slippage: preSwapData.slippage,
+        swapType: preSwapData.swapType,
+        isSwapPro,
+      }),
+    [
+      isSwapPro,
+      preSwapData.fromToken,
+      preSwapData.slippage,
+      preSwapData.swapType,
+      preSwapData.toToken,
+    ],
+  );
+  const lowSlippageWarningTrackedRef = useRef(false);
+  useEffect(() => {
+    if (
+      shouldShowLowSlippageWarning &&
+      !lowSlippageWarningTrackedRef.current &&
+      !isNil(preSwapData.slippage)
+    ) {
+      lowSlippageWarningTrackedRef.current = true;
+      defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningShow({
+        slippage: preSwapData.slippage,
+        swapProvider: preSwapData.providerInfo?.provider ?? '',
+      });
+    }
+  }, [
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+    shouldShowLowSlippageWarning,
+  ]);
+
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (isNil(preSwapData.slippage) || nativeBtcMinSlippageSaving) {
+      return;
+    }
+    defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningQuickSet({
+      fromSlippage: preSwapData.slippage,
+      toSlippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      swapProvider: preSwapData.providerInfo?.provider ?? '',
+    });
+    onSetNativeBtcMinSlippage();
+  }, [
+    nativeBtcMinSlippageSaving,
+    onSetNativeBtcMinSlippage,
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+  ]);
 
   const activeNetworkFeeSelectValue =
     networkFeeSelectValue ??
@@ -149,188 +221,17 @@ const PreSwapInfoGroup = ({
   // pre-check and is not sufficient.
   const isGasSponsored = useMemo(
     () =>
-      !!preSwapData.netWorkFee?.gasInfos?.some(
-        (item) =>
-          item.gasInfo.gasAccountEligible ||
-          item.gasInfo.megafuelEligible?.sponsorable ||
-          item.gasInfo.payer === 'megafuel',
+      !!preSwapData.netWorkFee?.gasInfos?.some(({ gasInfo }) =>
+        isSwapGasSponsored(gasInfo),
       ),
     [preSwapData.netWorkFee?.gasInfos],
   );
-
-  const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
-    openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
-  }, []);
-
-  const renderSponsoredCoupon = useCallback(
-    () => (
-      <Stack position="relative" alignSelf="stretch">
-        <XStack overflow="hidden" borderRadius="$5" bg="$brand3">
-          <XStack
-            flex={1}
-            px="$3.5"
-            py="$3"
-            gap="$3"
-            alignItems="center"
-            minWidth={0}
-          >
-            <Stack
-              width={42}
-              height={42}
-              borderRadius="$full"
-              bg="$brand9"
-              alignItems="center"
-              justifyContent="center"
-              flexShrink={0}
-            >
-              <Icon name="GiftSolid" size="$4.5" color="$iconOnColor" />
-            </Stack>
-            <Stack flex={1} minWidth={0} gap="$1">
-              <SizableText size="$headingMd" color="$text" numberOfLines={1}>
-                {intl.formatMessage({
-                  id: ETranslations.wallet_zero_network_fee__title,
-                })}
-              </SizableText>
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.wallet_sponsored_by_onekey__title,
-                })}
-              </SizableText>
-            </Stack>
-          </XStack>
-          <Stack
-            width={SPONSORED_COUPON_INFO_WIDTH}
-            position="relative"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Stack
-              position="absolute"
-              left={-(SPONSORED_COUPON_SEPARATOR_STROKE / 2)}
-              top="$3"
-              bottom="$3"
-              borderLeftWidth={SPONSORED_COUPON_SEPARATOR_STROKE}
-              borderStyle="dashed"
-              borderColor="$borderSubdued"
-              opacity={0.52}
-            />
-            <Stack
-              width={28}
-              height={28}
-              borderRadius="$full"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              onPress={handleOpenSponsoredFeesHelpCenter}
-              hoverStyle={{ opacity: 0.72 }}
-              pressStyle={{ opacity: 0.56 }}
-            >
-              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
-            </Stack>
-          </Stack>
-        </XStack>
-        <Stack
-          position="absolute"
-          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
-          top={-SPONSORED_COUPON_CUTOUT_OFFSET}
-          width={SPONSORED_COUPON_CUTOUT_SIZE}
-          height={SPONSORED_COUPON_CUTOUT_SIZE}
-          borderRadius="$full"
-          bg="$bg"
-          pointerEvents="none"
-        />
-        <Stack
-          position="absolute"
-          right={SPONSORED_COUPON_INFO_WIDTH - SPONSORED_COUPON_CUTOUT_OFFSET}
-          bottom={-SPONSORED_COUPON_CUTOUT_OFFSET}
-          width={SPONSORED_COUPON_CUTOUT_SIZE}
-          height={SPONSORED_COUPON_CUTOUT_SIZE}
-          borderRadius="$full"
-          bg="$bg"
-          pointerEvents="none"
-        />
-      </Stack>
-    ),
-    [handleOpenSponsoredFeesHelpCenter, intl],
-  );
-
-  const handleShowSponsoredInfo = useCallback(() => {
-    const dialogInstance = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.wallet_fee_sponsorship__title,
-      }),
-      showFooter: false,
-      showCancelButton: false,
-      renderContent: (
-        <Stack gap="$4">
-          {renderSponsoredCoupon()}
-          <Stack px="$1" gap="$3">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_sponsorship_availability_rules__desc,
-              })}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_sponsored_tx_confirmation_may_take_longer__desc,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodySmMedium"
-              color="$text"
-              textDecorationLine="underline"
-              cursor="pointer"
-              alignSelf="flex-start"
-              hoverStyle={{ opacity: 0.8 }}
-              pressStyle={{ opacity: 0.7 }}
-              onPress={handleOpenSponsoredFeesHelpCenter}
-            >
-              {intl.formatMessage({
-                id: ETranslations.wallet_learn_about_sponsored_fees__action,
-              })}
-            </SizableText>
-          </Stack>
-          <Button
-            testID="swap-sponsored-fee-got-it-btn"
-            size="medium"
-            onPress={() => {
-              void dialogInstance?.close?.();
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_got_it })}
-          </Button>
-        </Stack>
-      ),
-    });
-    return dialogInstance;
-  }, [handleOpenSponsoredFeesHelpCenter, intl, renderSponsoredCoupon]);
 
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
     if (isGasSponsored) {
-      return (
-        <XStack
-          alignItems="center"
-          gap="$2"
-          cursor="pointer"
-          onPress={handleShowSponsoredInfo}
-          hoverStyle={{ opacity: 0.9 }}
-          pressStyle={{ opacity: 0.82 }}
-        >
-          <Badge badgeType="success" badgeSize="sm">
-            <Badge.Text>
-              {intl.formatMessage({
-                id: ETranslations.wallet_onekey_sponsored__title,
-              })}
-            </Badge.Text>
-          </Badge>
-        </XStack>
-      );
+      return <SwapSponsoredNetworkFee />;
     }
     return (
       <XStack alignItems="center" gap="$2">
@@ -353,7 +254,8 @@ const PreSwapInfoGroup = ({
           value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
-        {preSwapData.stepBeforeActionsLoading ? (
+        {preSwapData.stepBeforeActionsLoading ||
+        preSwapData.estimateNetworkFeeLoading ? (
           <Skeleton width="$10" height="$4" />
         ) : (
           <NumberSizeableText
@@ -370,15 +272,94 @@ const PreSwapInfoGroup = ({
   }, [
     intl,
     isGasSponsored,
-    handleShowSponsoredInfo,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
+    preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,
   ]);
+
+  const slippageValue = useMemo(() => {
+    if (isNil(slippage)) {
+      return undefined;
+    }
+    if (!slippageEditor) {
+      return shouldShowLowSlippageWarning ? (
+        <XStack px="$2.5" py="$1" borderRadius="$1" bg="$bgCautionSubdued">
+          <SizableText size="$bodyMd" color="$textCaution">
+            {slippage}%
+          </SizableText>
+        </XStack>
+      ) : (
+        `${slippage}%`
+      );
+    }
+
+    const trigger = (
+      <XStack
+        testID="swap-review-slippage-edit"
+        cursor="pointer"
+        alignItems="center"
+        gap="$1"
+        px={shouldShowLowSlippageWarning ? '$2.5' : undefined}
+        py={shouldShowLowSlippageWarning ? '$1' : undefined}
+        borderRadius={shouldShowLowSlippageWarning ? '$1' : undefined}
+        bg={shouldShowLowSlippageWarning ? '$bgCautionSubdued' : undefined}
+        onPress={
+          platformEnv.isNative
+            ? () => slippageEditor.onOpenChange(true)
+            : undefined
+        }
+      >
+        <SizableText
+          size="$bodyMd"
+          color={shouldShowLowSlippageWarning ? '$textCaution' : '$text'}
+        >
+          {`${slippage}%`}
+        </SizableText>
+        <Icon
+          name="PencilOutline"
+          size="$4"
+          color={shouldShowLowSlippageWarning ? '$iconCaution' : '$iconSubdued'}
+        />
+      </XStack>
+    );
+
+    if (platformEnv.isNative) {
+      return trigger;
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.trade_silp_edit_slippage,
+        })}
+        open={slippageEditor.open}
+        onOpenChange={slippageEditor.onOpenChange}
+        showHeader={false}
+        placement="bottom-end"
+        offset={{ mainAxis: 8, crossAxis: 20 }}
+        floatingPanelProps={{ width: 400 }}
+        renderTrigger={trigger}
+        renderContent={
+          <Stack p="$5" width={400}>
+            <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                slippageEditor.disableSaveSlippageForFutureOrders
+              }
+              initialValue={slippage}
+              savingScope={slippageEditor.savingScope}
+              showTitle={false}
+              onSave={slippageEditor.onSave}
+            />
+          </Stack>
+        }
+      />
+    );
+  }, [intl, shouldShowLowSlippageWarning, slippage, slippageEditor]);
 
   return (
     <YStack gap="$3">
@@ -420,10 +401,33 @@ const PreSwapInfoGroup = ({
           title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
-          value={`${slippage}%`}
+          value={slippageValue}
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}
+        />
+      ) : null}
+      {shouldShowLowSlippageWarning ? (
+        <Alert
+          testID="swap-native-btc-low-slippage-alert"
+          type="warning"
+          icon="InfoCircleOutline"
+          px="$3"
+          py="$2.5"
+          borderRadius="$3"
+          title={intl.formatMessage({
+            id: ETranslations.btc_trade_btc_slow_to_confirm,
+          })}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.btc_trade_set_to_1_percent,
+            }),
+            primaryVariant: 'secondary',
+            primaryTestID: 'swap-native-btc-set-min-slippage-btn',
+            isPrimaryDisabled: nativeBtcMinSlippageSaving,
+            isPrimaryLoading: nativeBtcMinSlippageSaving,
+            onPrimaryPress: handleSetNativeBtcMinSlippage,
+          }}
         />
       ) : null}
       {!isNil(preSwapData?.minToAmount) &&

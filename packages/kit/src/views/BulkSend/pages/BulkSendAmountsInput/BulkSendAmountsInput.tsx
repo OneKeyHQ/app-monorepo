@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -22,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -41,6 +43,7 @@ import {
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
@@ -115,6 +118,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderAccountIdMap,
     minTransferAmount,
     hasDuplicateSenders,
+    rebaseMultiplier,
+    displayBalance,
+    isScaledUiUnsupported,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -156,7 +162,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     setTransfersInfo: setTransfersInfoWithModeUpdate,
     previewState,
     setPreviewState,
-    balance: isOneToMany ? tokenDetails?.balanceParsed : undefined,
+    balance: isOneToMany
+      ? (displayBalance ?? tokenDetails?.balanceParsed)
+      : undefined,
   });
 
   // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range
@@ -300,6 +308,77 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       const sender = effectiveTransfersInfo[0]?.from;
       if (!sender) return;
 
+      // Scaled-UI (rebase) tokens: user input and the effective totals are
+      // display-basis; convert every transfer to its raw on-chain amount
+      // before any tx or approval is built and before transfersInfo rides
+      // the route to Review/Process (Process rebuilds txs from it right
+      // before signing). The snapshot multiplier is stamped onto each
+      // transfer's tokenInfo so downstream display leaves can re-derive the
+      // display amount. No full-send shortcut is needed here: the per-address
+      // MAX is a user-editable balance/count split, and per-row ROUND_DOWN
+      // division can never sum above the raw balance the validators checked.
+      let rawTransfersInfo = effectiveTransfersInfo;
+      let approvalTokenAmount = effectiveTotalTokenAmount;
+      let finalTotalTokenAmount = effectiveTotalTokenAmount;
+      let finalTotalFiatAmount = effectiveTotalFiatAmount;
+      if (tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)) {
+        rawTransfersInfo = effectiveTransfersInfo.map((transfer) => ({
+          ...transfer,
+          amount: tokenRebaseUtils.removeBalanceMultiplier({
+            amount: transfer.amount,
+            balanceMultiplier: rebaseMultiplier,
+            decimals: tokenInfo.decimals,
+          }),
+          tokenInfo: transfer.tokenInfo
+            ? { ...transfer.tokenInfo, balanceMultiplier: rebaseMultiplier }
+            : transfer.tokenInfo,
+        }));
+        // A display amount below one raw unit × multiplier truncates to a
+        // raw 0; block instead of building a zero transfer that costs fees.
+        if (
+          rawTransfersInfo.some((transfer, index) => {
+            const displayAmount = effectiveTransfersInfo[index]?.amount ?? '0';
+            return (
+              !new BigNumber(displayAmount).isZero() &&
+              new BigNumber(transfer.amount).isZero()
+            );
+          })
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.send_amount_too_small,
+            }),
+          });
+          return;
+        }
+        // The on-chain allowance must cover the raw amounts actually spent,
+        // not the display-basis total.
+        approvalTokenAmount = rawTransfersInfo
+          .reduce(
+            (acc, transfer) => acc.plus(transfer.amount || '0'),
+            new BigNumber(0),
+          )
+          .toFixed();
+        // The per-row display->raw division floors at token decimals, so the
+        // pre-division totals can exceed what actually gets signed. Rebuild
+        // the Grand Summary totals from the raw amounts — the same numbers
+        // Review/Process re-derive their per-row display from — so summary
+        // and details always agree.
+        ({
+          totalTokenAmount: finalTotalTokenAmount,
+          totalFiatAmount: finalTotalFiatAmount,
+        } = calculateTotalAmounts({
+          transfersInfo: rawTransfersInfo.map((transfer) => ({
+            ...transfer,
+            amount: tokenRebaseUtils.applyBalanceMultiplier({
+              amount: transfer.amount,
+              balanceMultiplier: rebaseMultiplier,
+            }),
+          })),
+          tokenPrice: tokenDetails?.price,
+        }));
+      }
+
       const unsignedTxs: IUnsignedTxPro[] = [];
       const approvesInfo: IApproveInfo[] = [];
 
@@ -311,7 +390,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           await backgroundApiProxy.serviceSend.buildBulkSendUnsignedTxs({
             networkId,
             accountId,
-            transfersInfo: effectiveTransfersInfo,
+            transfersInfo: rawTransfersInfo,
           });
         unsignedTxs.push(...batchResult.unsignedTxs);
         ataCount = batchResult.ataCount;
@@ -325,14 +404,20 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
               spenderAddress: bulkSendContractAddress,
               walletAddress: sender,
               accountId,
-              amount: effectiveTotalTokenAmount,
+              amount: approvalTokenAmount,
             });
 
           if (!allowanceResponse?.isApproved) {
+            // Stamp the same snapshot multiplier the transfers carry so the
+            // review card re-derives the display-basis approve amount and
+            // the approve editors keep failing closed on scaled tokens.
             const baseTokenInfo = {
               ...tokenInfo,
               isNative: !!tokenInfo.isNative,
               name: tokenInfo.name ?? tokenInfo.symbol,
+              ...(tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+                ? { balanceMultiplier: rebaseMultiplier }
+                : {}),
             };
 
             // USDT-like tokens require reset approval first
@@ -350,7 +435,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             approvesInfo.push({
               owner: sender,
               spender: bulkSendContractAddress,
-              amount: effectiveTotalTokenAmount,
+              amount: approvalTokenAmount,
               isMax: false,
               tokenInfo: baseTokenInfo,
             });
@@ -373,7 +458,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
             networkId,
             accountId,
-            transfersInfo: effectiveTransfersInfo,
+            transfersInfo: rawTransfersInfo,
             prevNonce,
           }),
         );
@@ -385,11 +470,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         unsignedTxs,
         approvesInfo,
         tokenInfo,
-        transfersInfo: effectiveTransfersInfo,
+        transfersInfo: rawTransfersInfo,
         bulkSendMode,
         isInModal,
-        totalTokenAmount: effectiveTotalTokenAmount,
-        totalFiatAmount: effectiveTotalFiatAmount,
+        totalTokenAmount: finalTotalTokenAmount,
+        totalFiatAmount: finalTotalFiatAmount,
         ataCount,
       });
     } catch (error) {
@@ -401,6 +486,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     accountId,
     networkId,
     tokenInfo,
+    tokenDetails?.price,
     bulkSendContractAddress,
     isNativeBatchTransfer,
     needsApproval,
@@ -408,11 +494,25 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInModal,
     getEffectiveData,
     navigateToReviewOrInterval,
+    rebaseMultiplier,
+    intl,
   ]);
 
   // Submit handler for ManyToOne / ManyToMany modes
   const handleSubmitManyToManyOrManyToOne = useCallback(async () => {
     if (!accountId || !networkId || !tokenInfo) return;
+
+    // Scaled-UI (rebase) tokens: the per-sender balance pipeline only keeps
+    // raw balances with the multiplier stripped, so display-basis input
+    // cannot be converted per sender here. Fail closed (same policy as
+    // private send) instead of building txs that would move multiplier× the
+    // intended amount.
+    if (isScaledUiUnsupported) {
+      Toast.error({
+        title: 'Bulk send does not support scaled-UI tokens yet',
+      });
+      return;
+    }
 
     setIsBuilding(true);
 
@@ -495,6 +595,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     getEffectiveData,
     navigateToReviewOrInterval,
     isOneToMany,
+    isScaledUiUnsupported,
   ]);
 
   // Main submit dispatcher
@@ -642,8 +743,10 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       return;
     }
 
-    // OneToMany token transfer: calculate max token amount per address from balance
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    // OneToMany token transfer: calculate max token amount per address from
+    // balance. Display basis for scaled-UI tokens — the per-address amount
+    // stays user-editable and is converted back to raw at submit.
+    const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
     if (!balance || transfersInfo.length === 0) return;
     const maxAmountPerAddress = new BigNumber(balance)
       .dividedBy(transfersInfo.length)
@@ -683,6 +786,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isOneToMany,
     isMaxMode,
     setIsMaxMode,
+    displayBalance,
     tokenDetails?.balanceParsed,
     transfersInfo.length,
     setAmountInputValues,
@@ -814,6 +918,7 @@ function BulkSendAmountsInputContent({
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
@@ -948,6 +1053,78 @@ function BulkSendAmountsInputContent({
     currencyMap,
   ]);
 
+  // Scaled-UI (rebase) tokens (OK-58046): user-entered amounts and balances
+  // shown on this page are display-basis; ITransferInfo.amount must stay raw.
+  // One multiplier for the whole page is correct because every transfer moves
+  // the same token. Native coins can never legitimately carry a multiplier —
+  // same guard as the Send page.
+  //
+  // Multiplier precedence: live detail > last rendered live value > route
+  // token snapshot. tokenInfo is the token-list snapshot taken when the user
+  // picked the token on the addresses page, and BulkSend is a long form —
+  // by submit time that snapshot can be arbitrarily stale. Once a live
+  // detail has rendered amounts, a failed poll (which clears
+  // matchedTokenDetails) must not swap the basis back to the stale snapshot:
+  // tokenRebaseUtils requires the display->raw conversion at submit to use
+  // the same multiplier that rendered the amounts the user confirmed. The
+  // remembered value is keyed by token identity so a mid-flow token change
+  // can never leak the previous token's multiplier under fresh amounts.
+  const rebaseTokenKey = useMemo(
+    () =>
+      tokenInfo
+        ? `${tokenInfo.networkId ?? networkId ?? ''}__${(
+            tokenInfo.address ?? ''
+          ).toLowerCase()}`
+        : undefined,
+    [tokenInfo, networkId],
+  );
+  const lastLiveMultiplierRef = useRef<
+    | {
+        tokenKey: string;
+        balanceMultiplier: string | undefined;
+      }
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      matchedTokenDetails &&
+      rebaseTokenKey
+    ) {
+      lastLiveMultiplierRef.current = {
+        tokenKey: rebaseTokenKey,
+        balanceMultiplier:
+          tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
+          tokenInfo.balanceMultiplier,
+      };
+    }
+  }, [tokenInfo, matchedTokenDetails, rebaseTokenKey]);
+  const rebaseMultiplier = useMemo(() => {
+    if (!tokenInfo || tokenInfo.isNative) {
+      return undefined;
+    }
+    if (matchedTokenDetails) {
+      return (
+        tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
+        tokenInfo.balanceMultiplier
+      );
+    }
+    const lastLive = lastLiveMultiplierRef.current;
+    if (lastLive && lastLive.tokenKey === rebaseTokenKey) {
+      return lastLive.balanceMultiplier;
+    }
+    return tokenInfo.balanceMultiplier;
+  }, [tokenInfo, matchedTokenDetails, rebaseTokenKey]);
+
+  const displayBalance = useMemo(() => {
+    const raw = matchedTokenDetails?.balanceParsed;
+    return tokenRebaseUtils.applyBalanceMultiplier({
+      amount: raw,
+      balanceMultiplier: rebaseMultiplier,
+    });
+  }, [matchedTokenDetails?.balanceParsed, rebaseMultiplier]);
+
   useEffect(() => {
     setTokenDetails(sanitizedInitialTokenDetails);
   }, [sanitizedInitialTokenDetails]);
@@ -978,6 +1155,10 @@ function BulkSendAmountsInputContent({
   const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
     new Set(),
   );
+  // Whether any fetched sender token detail carries a scaled-UI multiplier.
+  // The senderBalances map itself only keeps raw balanceParsed, so this flag
+  // is the only trace of the multiplier on the ManyToOne/ManyToMany path.
+  const [senderHasScaledUiToken, setSenderHasScaledUiToken] = useState(false);
   const buildSenderBalanceAddressKey = useCallback(
     (address: string) => {
       const trimmedAddress = address.trim();
@@ -1013,7 +1194,9 @@ function BulkSendAmountsInputContent({
         tokenPrice: matchedTokenDetails.price,
       });
       const modeIsInsufficient = isOneToMany
-        ? new BigNumber(modeTotalToken).gt(matchedTokenDetails.balanceParsed)
+        ? new BigNumber(modeTotalToken).gt(
+            displayBalance ?? matchedTokenDetails.balanceParsed,
+          )
         : !isMaxMode &&
           checkSenderInsufficientBalance({
             transfersInfo: modeData.transfersInfo,
@@ -1047,6 +1230,7 @@ function BulkSendAmountsInputContent({
     senderBalances,
     matchedTokenDetails?.price,
     matchedTokenDetails?.balanceParsed,
+    displayBalance,
   ]);
 
   const isAmountValid = useMemo(
@@ -1097,9 +1281,22 @@ function BulkSendAmountsInputContent({
     return map;
   }, [senders]);
 
+  // ManyToOne/ManyToMany with a scaled-UI token: sender balances arrive raw
+  // with the multiplier stripped, so display-basis input cannot be converted
+  // per sender. Fail closed at submit (same policy as private send) instead
+  // of building txs that would move multiplier× the intended amount. A
+  // multiplier of exactly 1 is a no-op (raw == display) and must not block.
+  const isScaledUiUnsupported = useMemo(
+    () =>
+      !isOneToMany &&
+      (senderHasScaledUiToken ||
+        tokenRebaseUtils.isScalingBalanceMultiplier(rebaseMultiplier)),
+    [isOneToMany, senderHasScaledUiToken, rebaseMultiplier],
+  );
+
   const validateSpecifiedAmountValue = useCallback(
     (specifiedAmount: string): IAmountInputError => {
-      const balance = matchedTokenDetails?.balanceParsed ?? '0';
+      const balance = displayBalance ?? '0';
       const minTransferAmountBN = new BigNumber(minTransferAmount);
       const valueBN = new BigNumber(specifiedAmount || '0');
 
@@ -1150,7 +1347,7 @@ function BulkSendAmountsInputContent({
       isOneToMany,
       minTransferAmount,
       minTransferDisplayAmount,
-      matchedTokenDetails?.balanceParsed,
+      displayBalance,
       tokenInfo,
       transfersInfo.length,
     ],
@@ -1162,7 +1359,7 @@ function BulkSendAmountsInputContent({
     // doesn't exceed any sender's balance.
     let balance: string | undefined;
     if (isOneToMany) {
-      balance = matchedTokenDetails?.balanceParsed ?? '0';
+      balance = displayBalance ?? '0';
     } else {
       const balanceValues = Object.values(senderBalances);
       if (balanceValues.length > 0) {
@@ -1188,7 +1385,7 @@ function BulkSendAmountsInputContent({
     isOneToMany,
     minTransferAmount,
     senderBalances,
-    matchedTokenDetails?.balanceParsed,
+    displayBalance,
     tokenInfo.decimals,
     tokenInfo.symbol,
     intl,
@@ -1261,10 +1458,12 @@ function BulkSendAmountsInputContent({
     if (bulkSendMode === EBulkSendMode.OneToMany && matchedTokenDetails) {
       const totalTokenAmountBN = new BigNumber(totalTokenAmount ?? '0');
       setIsInsufficientBalance(
-        totalTokenAmountBN.gt(matchedTokenDetails.balanceParsed),
+        totalTokenAmountBN.gt(
+          displayBalance ?? matchedTokenDetails.balanceParsed,
+        ),
       );
     }
-  }, [matchedTokenDetails, totalTokenAmount, bulkSendMode]);
+  }, [matchedTokenDetails, totalTokenAmount, bulkSendMode, displayBalance]);
 
   usePromiseResult(
     async () => {
@@ -1280,9 +1479,9 @@ function BulkSendAmountsInputContent({
           ...prev,
           isRefreshing: true,
         }));
-        const [checkInscriptionProtectionEnabled, vaultSettings] =
+        const [effectiveInscriptionProtection, vaultSettings] =
           await Promise.all([
-            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
               {
                 networkId,
                 accountId,
@@ -1293,7 +1492,7 @@ function BulkSendAmountsInputContent({
             }),
           ]);
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+          effectiveInscriptionProtection && vaultSettings.hasFrozenBalance;
 
         try {
           const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
@@ -1343,7 +1542,16 @@ function BulkSendAmountsInputContent({
         }
       }
     },
-    [networkId, accountId, tokenInfo, bulkSendMode],
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      accountId,
+      tokenInfo,
+      bulkSendMode,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -1378,7 +1586,7 @@ function BulkSendAmountsInputContent({
               try {
                 const withCheckInscription =
                   vaultSettings.hasFrozenBalance &&
-                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  (await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                     {
                       networkId,
                       accountId: sender.accountId,
@@ -1394,6 +1602,13 @@ function BulkSendAmountsInputContent({
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;
+                  if (
+                    tokenRebaseUtils.isScalingBalanceMultiplier(
+                      tokenRebaseUtils.pickBalanceMultiplier(resp[0]),
+                    )
+                  ) {
+                    setSenderHasScaledUiToken(true);
+                  }
                 } else {
                   failedSet.add(sender.address);
                 }
@@ -1488,6 +1703,13 @@ function BulkSendAmountsInputContent({
           );
           if (matchedToken?.balanceParsed !== undefined) {
             batchBalancesByKey.set(addressKey, matchedToken.balanceParsed);
+            if (
+              tokenRebaseUtils.isScalingBalanceMultiplier(
+                tokenRebaseUtils.pickBalanceMultiplier(matchedToken),
+              )
+            ) {
+              setSenderHasScaledUiToken(true);
+            }
           }
         });
 
@@ -1517,6 +1739,8 @@ function BulkSendAmountsInputContent({
         setSenderBalancesLoading(false);
       }
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       networkId,
       tokenInfo,
@@ -1524,6 +1748,8 @@ function BulkSendAmountsInputContent({
       senders,
       accountId,
       buildSenderBalanceAddressKey,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -1547,6 +1773,17 @@ function BulkSendAmountsInputContent({
   }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
+    // ITransferInfo.amount is display-basis while it lives on this page, so
+    // strip any scaled-UI multiplier the route token happens to carry:
+    // display leaves (BulkSendTxDetails / BulkSendProcessItem) re-derive
+    // display amounts from tokenInfo.balanceMultiplier and must treat these
+    // amounts as-is. The submit conversion stamps the snapshot multiplier
+    // back at the moment amounts become raw, making "tokenInfo carries a
+    // multiplier" synonymous with "amount is raw".
+    const transferTokenInfo: IToken = {
+      ...tokenInfo,
+      balanceMultiplier: undefined,
+    };
     const generateTransfersInfo = (): ITransferInfo[] => {
       switch (bulkSendMode) {
         case EBulkSendMode.OneToMany: {
@@ -1556,7 +1793,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receiver.address,
             amount: receiver.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         case EBulkSendMode.ManyToOne: {
@@ -1566,7 +1803,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receiver.address,
             amount: sender.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         case EBulkSendMode.ManyToMany: {
@@ -1579,7 +1816,7 @@ function BulkSendAmountsInputContent({
             from: sender.address,
             to: receivers[i].address,
             amount: receivers[i].amount ?? sender.amount ?? '',
-            tokenInfo,
+            tokenInfo: transferTokenInfo,
           }));
         }
         default:
@@ -1713,6 +1950,9 @@ function BulkSendAmountsInputContent({
       updateCurrentModeData,
       currentModeData,
       minTransferAmount,
+      rebaseMultiplier,
+      displayBalance,
+      isScaledUiUnsupported,
       intervalSettings,
       setIntervalSettings,
       senderBalances,
@@ -1749,6 +1989,9 @@ function BulkSendAmountsInputContent({
       updateCurrentModeData,
       currentModeData,
       minTransferAmount,
+      rebaseMultiplier,
+      displayBalance,
+      isScaledUiUnsupported,
       intervalSettings,
       senderBalances,
       senderBalancesLoading,

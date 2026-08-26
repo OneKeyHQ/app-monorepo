@@ -289,10 +289,14 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
+    // Gate on isEmptyAddress (the "address not created yet" signal that also
+    // drives the create-address button) instead of the address string:
+    // created Lightning accounts have an empty address text but should still
+    // show their value, like BTC/LTC accounts that hide the address.
     if (
       platformEnv.isWebDappMode ||
       platformEnv.isE2E ||
-      (linkNetwork && !subTitleInfo.address)
+      (linkNetwork && subTitleInfo.isEmptyAddress)
     )
       return null;
 
@@ -317,7 +321,7 @@ export function AccountSelectorAccountListItem({
     );
   }, [
     linkNetwork,
-    subTitleInfo.address,
+    subTitleInfo.isEmptyAddress,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
     focusedWalletInfo?.wallet?.id,
@@ -419,19 +423,25 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId =
                   selectedAccount?.networkId;
               }
-              await actions.current.confirmAccountSelect({
+              const confirmed = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount: undefined,
                 othersWalletAccount: account,
                 autoChangeToAccountMatchedNetworkId,
               });
+              if (!confirmed) {
+                return;
+              }
             } else if (focusedWalletInfo) {
-              await actions.current.confirmAccountSelect({
+              const confirmed = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount,
                 othersWalletAccount: undefined,
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
+              if (!confirmed) {
+                return;
+              }
             }
             resetAccountManagerStacksModal();
           },

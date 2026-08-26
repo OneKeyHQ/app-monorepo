@@ -5,15 +5,14 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { showDeFiActionTxConfirmDialog } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
-  EEarnLabels,
+  type IBorrowEModeSwitchCheck,
+  type IBorrowTransactionConfirmation,
   type IRepayWithCollateralQuote,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -24,27 +23,16 @@ import {
   getBorrowLutFinalizationErrorTranslation,
   mapBorrowLutFinalizationToTxStatus,
 } from './borrowLutFinalization';
+import {
+  type IBorrowBuildTxParams,
+  attachBorrowOrderId,
+  handleBorrowSuccess,
+  parseBorrowEncodedTx,
+  useUniversalBorrowRepay,
+  useUniversalBorrowWithdraw,
+} from './useUniversalBorrowWithdrawRepayHooks';
 
-function parseBorrowEncodedTx(tx: string): IEncodedTx {
-  try {
-    const parsed = JSON.parse(tx) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as IEncodedTx;
-    }
-  } catch {
-    // Ignore parsing errors and fallback to raw string
-  }
-  return tx;
-}
-
-const attachBorrowOrderId = ({
-  stakingInfo,
-  orderId,
-}: {
-  stakingInfo?: IStakingInfo;
-  orderId?: string;
-}): IStakingInfo | undefined =>
-  stakingInfo ? { ...stakingInfo, orderId } : undefined;
+export { useUniversalBorrowRepay, useUniversalBorrowWithdraw };
 
 const attachRepayWithCollateralAmount = ({
   stakingInfo,
@@ -145,81 +133,8 @@ const syncBorrowOrder = async ({
   });
 };
 
-const handleBorrowSuccess = async ({
-  data,
-  orderId,
-  networkId,
-  accountId,
-  stakingInfo,
-  onSuccess,
-}: {
-  data: ISendTxOnSuccessData[];
-  orderId?: string;
-  networkId: string;
-  accountId?: string;
-  stakingInfo?: IStakingInfo;
-  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-}) => {
-  const latestTxId =
-    Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
-
-  // Aave withdraw / repay get the shared confirming sheet before the caller's
-  // refresh; supply / borrow keep the existing pending-badge flow.
-  const label = stakingInfo?.label;
-  const shouldShowConfirmSheet =
-    !!accountId &&
-    (label === EEarnLabels.Withdraw || label === EEarnLabels.Repay);
-
-  if (orderId && latestTxId) {
-    const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
-      orderId,
-      networkId,
-      txId: latestTxId,
-      status: data[data.length - 1]?.decodedTx.status,
-      ...getEarnOrderTrackingInfo(stakingInfo),
-    });
-    // Don't block the confirming sheet on order tagging: showing the sheet in
-    // the same tick the confirm modal pops is what keeps the handoff smooth.
-    // Non-sheet flows keep awaiting so their pending badge is ready on return.
-    if (shouldShowConfirmSheet) {
-      void addEarnOrderPromise.catch(() => undefined);
-    } else {
-      await addEarnOrderPromise;
-    }
-  }
-
-  if (shouldShowConfirmSheet && accountId) {
-    const finalStatus = await showDeFiActionTxConfirmDialog({
-      accountId,
-      networkId,
-      data,
-    });
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
-      return;
-    }
-  }
-  onSuccess?.(data);
-};
-
 // Buffer after RPC finalization to allow all RPC nodes to sync the LUT state
 const LUT_PROPAGATION_BUFFER_MS = 5000;
-
-type IBorrowBuildTxParams = {
-  amount: string;
-  provider: string;
-  marketAddress: string;
-  reserveAddress: string;
-  collateralReserveAddress?: string;
-  withdrawAll?: boolean;
-  repayAll?: boolean;
-  needsSetupLut?: boolean;
-  slippageBps?: number;
-  routeKey?: string;
-  stakingInfo?: IStakingInfo;
-  onSetupLutReadyForRepay?: () => void;
-  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-  onFail?: IModalSendParamList['SendConfirm']['onFail'];
-};
 
 export function useUniversalBorrowSupply({
   networkId,
@@ -251,65 +166,6 @@ export function useUniversalBorrowSupply({
           marketAddress,
           reserveAddress,
           amount,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: resp.tx,
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
-            networkId,
-            accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
-        onFail,
-      });
-    },
-    [accountId, networkId, navigationToTxConfirm],
-  );
-}
-
-export function useUniversalBorrowWithdraw({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
-
-  return useCallback(
-    async ({
-      amount,
-      provider,
-      marketAddress,
-      reserveAddress,
-      withdrawAll,
-      stakingInfo,
-      onSuccess,
-      onFail,
-    }: IBorrowBuildTxParams) => {
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          withdrawAll,
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -355,6 +211,7 @@ export function useUniversalBorrowBorrow({
       provider,
       marketAddress,
       reserveAddress,
+      unwrap,
       stakingInfo,
       onSuccess,
       onFail,
@@ -367,65 +224,7 @@ export function useUniversalBorrowBorrow({
           marketAddress,
           reserveAddress,
           amount,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
-            networkId,
-            accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
-        onFail,
-      });
-    },
-    [accountId, networkId, navigationToTxConfirm],
-  );
-}
-
-export function useUniversalBorrowRepay({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
-
-  return useCallback(
-    async ({
-      amount,
-      provider,
-      marketAddress,
-      reserveAddress,
-      repayAll,
-      stakingInfo,
-      onSuccess,
-      onFail,
-    }: IBorrowBuildTxParams) => {
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          repayAll,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -755,5 +554,240 @@ export function useUniversalBorrowClaim({
       });
     },
     [accountId, networkId, navigationToTxConfirm],
+  );
+}
+
+export function useUniversalBorrowSetEMode({
+  networkId,
+  accountId,
+  waitForFinalStatus = true,
+}: {
+  networkId: string;
+  accountId: string;
+  waitForFinalStatus?: boolean;
+}) {
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+  const intl = useIntl();
+  return useCallback(
+    async ({
+      provider,
+      marketAddress,
+      eModeId,
+      stakingInfo,
+      ignoreOrderTrackingError,
+      onSuccess,
+      onFail,
+      onCancel,
+    }: {
+      provider: string;
+      marketAddress: string;
+      eModeId: number;
+      stakingInfo?: IStakingInfo;
+      ignoreOrderTrackingError?: boolean;
+      onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+      onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onCancel?: () => void;
+    }): Promise<IBorrowEModeSwitchCheck> => {
+      let switchCheckResp;
+      try {
+        switchCheckResp =
+          await backgroundApiProxy.serviceStaking.borrowSwitchCheckEMode({
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            targetEModeId: eModeId,
+            autoHandleError: false,
+          });
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      if (switchCheckResp.code !== 0 || !switchCheckResp.data) {
+        const message =
+          switchCheckResp.message ||
+          intl.formatMessage({ id: ETranslations.global_failed });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
+      const latestCheck = switchCheckResp.data;
+      if (!latestCheck.canSwitch) {
+        return latestCheck;
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceStaking.borrowBuildSetEModeTransaction({
+          networkId,
+          accountId,
+          provider,
+          marketAddress,
+          eModeId,
+        });
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+      await navigationToTxConfirm({
+        encodedTx: parseBorrowEncodedTx(resp.tx),
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            accountId,
+            stakingInfo: stakingInfoWithOrderId,
+            waitForFinalStatus,
+            ignoreOrderTrackingError,
+            onSuccess,
+          });
+        },
+        onFail,
+        onCancel,
+      });
+      return latestCheck;
+    },
+    [accountId, intl, networkId, navigationToTxConfirm, waitForFinalStatus],
+  );
+}
+
+export function useUniversalBorrowSetCollateral({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+  const intl = useIntl();
+  return useCallback(
+    async ({
+      provider,
+      marketAddress,
+      reserveAddress,
+      useAsCollateral,
+      eModeId,
+      stakingInfo,
+      onSuccess,
+      onFail,
+      onCancel,
+    }: {
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      useAsCollateral: boolean;
+      eModeId?: number;
+      stakingInfo?: IStakingInfo;
+      onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+      onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onCancel?: () => void;
+    }) => {
+      let confirmation: IBorrowTransactionConfirmation | undefined;
+      try {
+        confirmation =
+          await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
+            {
+              networkId,
+              accountId,
+              provider,
+              marketAddress,
+              reserveAddress,
+              action: 'setCollateral',
+              amount: '0',
+              useAsCollateral,
+              ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+            },
+          );
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      const unavailable =
+        !confirmation ||
+        confirmation.liquidationRisk === true ||
+        (useAsCollateral && confirmation.canBeCollateral === false);
+      if (unavailable) {
+        const message = intl.formatMessage({
+          id:
+            confirmation?.liquidationRisk === true
+              ? ETranslations.defi_disable_collateral_liquidation_risk__desc
+              : ETranslations.defi_action_unavailable__msg,
+        });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceStaking.borrowBuildSetCollateralTransaction(
+          {
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            useAsCollateral,
+            ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+          },
+        );
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+      await navigationToTxConfirm({
+        encodedTx: parseBorrowEncodedTx(resp.tx),
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            accountId,
+            stakingInfo: stakingInfoWithOrderId,
+            // Order tracking is auxiliary after broadcast. Collateral state
+            // reconciliation must continue even if that request is unavailable.
+            ignoreOrderTrackingError: true,
+            onSuccess,
+          });
+        },
+        onFail,
+        onCancel,
+      });
+    },
+    [accountId, intl, networkId, navigationToTxConfirm],
   );
 }

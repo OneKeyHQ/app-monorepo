@@ -42,6 +42,7 @@ import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 import { CloudBackupListEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
+import { KeylessWalletBackupInfo } from '../components/KeylessWalletBackupInfo';
 import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { OnboardingTestIDs } from '../testIDs';
@@ -103,7 +104,11 @@ export default function ICloudBackup() {
     }
 
     if (!allBackups?.items?.length) {
-      return <CloudBackupListEmptyView />;
+      return (
+        <YStack flex={1} justifyContent="center">
+          <CloudBackupListEmptyView />
+        </YStack>
+      );
     }
 
     return (
@@ -191,16 +196,19 @@ export default function ICloudBackup() {
       contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
     >
       <CloudAccountBar />
-      {renderContent()}
-      {showLegacyBackupsButton ? (
-        <Button
-          testID={OnboardingTestIDs.iCloudBackupViewOlderBackupsBtn}
-          size="large"
-          onPress={handleOpenLegacyBackups}
-        >
-          {intl.formatMessage({ id: ETranslations.view_older_backups })}
-        </Button>
-      ) : null}
+      <YStack flex={1} gap="$3">
+        {renderContent()}
+        {showLegacyBackupsButton ? (
+          <Button
+            testID={OnboardingTestIDs.iCloudBackupViewOlderBackupsBtn}
+            size="large"
+            onPress={handleOpenLegacyBackups}
+          >
+            {intl.formatMessage({ id: ETranslations.view_older_backups })}
+          </Button>
+        ) : null}
+        <KeylessWalletBackupInfo />
+      </YStack>
 
       <MultipleClickStack
         h="$10"

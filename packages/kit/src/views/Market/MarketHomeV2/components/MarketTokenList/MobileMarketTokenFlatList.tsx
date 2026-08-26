@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
@@ -26,6 +28,8 @@ import type { FlatListProps } from 'react-native';
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
   selectedCategory?: string;
+  stockCategory?: string;
+  hasCompactHeader?: boolean;
   timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
@@ -39,6 +43,8 @@ const EMPTY_DATA: IMarketToken[] = [];
 function MobileMarketTokenFlatListBase({
   networkId,
   selectedCategory,
+  stockCategory,
+  hasCompactHeader = false,
   timeRange,
   listContainerProps,
   onStockDataChange,
@@ -53,6 +59,7 @@ function MobileMarketTokenFlatListBase({
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
   } = useMarketTokenList({
@@ -61,6 +68,7 @@ function MobileMarketTokenFlatListBase({
     initialSortType: 'desc',
     pageSize: 20,
     type: selectedCategory,
+    category: stockCategory,
     timeRange,
   });
 
@@ -85,6 +93,7 @@ function MobileMarketTokenFlatListBase({
             return;
           }
           void toMarketDetailPage({
+            ...item,
             symbol: item.symbol,
             tokenAddress: item.address,
             networkId: item.networkId,
@@ -104,10 +113,10 @@ function MobileMarketTokenFlatListBase({
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore) {
+    if (canLoadMore && !isLoadingMore && !isProvisionalFirstPageResult) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadingMore, isProvisionalFirstPageResult, loadMore]);
 
   // List footer - loading spinner or end indicator
   const ListFooterComponent = useMemo(() => {
@@ -119,12 +128,12 @@ function MobileMarketTokenFlatListBase({
       );
     }
 
-    if (!canLoadMore && data.length > 0) {
+    if (!isProvisionalFirstPageResult && !canLoadMore && data.length > 0) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, canLoadMore, data.length]);
+  }, [isLoadingMore, isProvisionalFirstPageResult, canLoadMore, data.length]);
 
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
@@ -163,7 +172,9 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
+        ...(platformEnv.isNative
+          ? getMarketNativeCompactListStyle(hasCompactHeader)
+          : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

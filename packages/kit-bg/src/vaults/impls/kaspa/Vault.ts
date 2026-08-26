@@ -17,8 +17,9 @@ import {
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
+import { RestAPIClient } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
+import type { IKaspaBlockTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
@@ -69,6 +70,8 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { buildKaspaRefTx } from './refTxUtils';
+import { ClientKaspa } from './sdkKaspa/ClientKaspa';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -84,6 +87,12 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
+
+// hd-core defines this internally but doesn't export it; derive from the params.
+export type IKaspaRefTransaction = NonNullable<
+  KaspaSignTransactionParams['refTxs']
+>[number];
 
 // Minimum spendable KAS required to fund a KRC20 commit transaction, surfaced to
 // the user via Toast when their balance is too low (instead of the generic
@@ -775,7 +784,7 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const client = new ClientKaspa(params.rpcUrl);
+    const client = new RestAPIClient(params.rpcUrl);
     const start = performance.now();
     const { virtualDaaScore: blockNumber } = await client.getNetworkInfo();
     const bestBlockNumber = parseInt(blockNumber, 10);
@@ -793,7 +802,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const client = new ClientKaspa(rpcUrl);
+    const client = new RestAPIClient(rpcUrl);
     const txId = await client.sendRawTransaction(signedTx.rawTx);
     console.log('broadcastTransaction END:', {
       txid: txId,
@@ -803,6 +812,27 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  buildPrevTx(tx: IKaspaBlockTransaction): IKaspaRefTransaction {
+    return buildKaspaRefTx({ tx, networkId: this.networkId });
+  }
+
+  // Fetch previous transactions as refTxs for on-device input verification.
+  async collectRefTxsByApi(txids: string[]): Promise<IKaspaRefTransaction[]> {
+    const client = new ClientKaspa({
+      networkId: this.networkId,
+      backgroundApi: this.backgroundApi,
+    });
+    const prevTxs = await client.getRefTransactions(txids);
+    const refTxs = Array.from(prevTxs.values()).map((tx) =>
+      this.buildPrevTx(tx),
+    );
+    // The refTx stream only carries the fields a v0 txid is computed from.
+    if (refTxs.some((tx) => tx.version !== 0)) {
+      throw new OneKeyLocalError('kaspa refTx: unsupported non-v0 prev tx');
+    }
+    return refTxs;
   }
 
   // -------------------KRC20-----------------------------------------

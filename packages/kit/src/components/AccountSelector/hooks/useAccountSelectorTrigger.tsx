@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { Haptics } from '@onekeyhq/components';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -24,6 +25,7 @@ export function useAccountSelectorTrigger({
   const callAccountSelectorAction = useAccountSelectorLazyAction();
 
   const showAccountSelector = useCallback(() => {
+    Haptics.selection();
     void callAccountSelectorAction('showAccountSelector', {
       activeWallet: activeAccount.wallet,
       num,

@@ -31,6 +31,12 @@ export interface IDesktopApiPlatformInfo {
   // spawn — matching the native LaunchOptionsManager — instead of renderer
   // document load. Falls back to `Date.now()` at build time if unavailable.
   processStartAt: number;
+  // True when the running BINARY implements the `system.shareImageFile` IPC
+  // (macOS ShareMenu). Capability must be declared binary-side: the renderer
+  // JS bundle hot-updates independently, so a newer bundle on an older binary
+  // reads `undefined` here and must treat it as false (hide the share entry
+  // instead of showing a button that degrades into a duplicate of "save").
+  supportsShareImageFile: boolean;
 }
 
 export interface IDesktopApiGlobal extends IDesktopApiPlatformInfo {

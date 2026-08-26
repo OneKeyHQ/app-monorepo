@@ -10,12 +10,12 @@ import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,6 +54,7 @@ const PerpTradingButtonMidPriceRef = memo(
 PerpTradingButtonMidPriceRef.displayName = 'PerpTradingButtonMidPriceRef';
 
 export function PerpTradingButton({
+  isMobile = false,
   disabledForAccountLoading,
   handleShowConfirm,
   formData,
@@ -62,6 +63,7 @@ export function PerpTradingButton({
   isSubmitting,
   isNoEnoughMargin,
 }: {
+  isMobile?: boolean;
   disabledForAccountLoading: boolean;
   handleShowConfirm: () => void;
   formData: ITradingFormData;
@@ -77,7 +79,8 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const midPriceRef = useRef<string | undefined>(undefined);
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
@@ -107,7 +110,8 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal('tradingPanel');
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
@@ -127,6 +131,7 @@ export function PerpTradingButton({
           testID={PerpTestIDs.MarginToastDepositButton}
           size="small"
           variant="primary"
+          disabled={isDepositDisabled}
           onPress={handleDepositFromToast}
         >
           {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
@@ -135,7 +140,7 @@ export function PerpTradingButton({
       actionsAlign: 'left',
       toastId: `perp-no-enough-margin-${isSpot ? 'spot' : 'perp'}`,
     });
-  }, [handleDepositFromToast, intl, isSpot]);
+  }, [handleDepositFromToast, intl, isDepositDisabled, isSpot]);
 
   const buttonDisabled = useMemo(() => {
     return (
@@ -308,7 +313,10 @@ export function PerpTradingButton({
         childrenAsText={false}
         testID="perp-order-confirm-btn"
       >
-        <SizableText color="$textDisabled" size="$bodyMdMedium">
+        <SizableText
+          color="$textDisabled"
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        >
           {buttonText}
         </SizableText>
       </Button>
@@ -370,7 +378,10 @@ export function PerpTradingButton({
         disabled={buttonDisabled}
         childrenAsText={false}
       >
-        <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
+        <SizableText
+          color={buttonStyles.textColor}
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        >
           {buttonText}
         </SizableText>
       </Button>

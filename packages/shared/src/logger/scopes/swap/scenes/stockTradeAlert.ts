@@ -1,8 +1,10 @@
+import type { EStockTradeAlertType } from '@onekeyhq/shared/types/swap/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 type IStockTradeAlertParams = {
-  alertType: string;
+  alertType: EStockTradeAlertType;
   alertLevel?: string;
   tradeDisabled?: boolean;
   tradeSide?: string;

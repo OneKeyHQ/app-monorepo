@@ -18,6 +18,7 @@ import {
   prepareColdStartSnapshotForWrite,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   MMKV_MIGRATION_COMPLETE_KEY,
@@ -438,6 +439,21 @@ const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
 const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
 const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
 
+function isDappConnectionBackedAccountSelectorColdStartScope(
+  coldStartScopeKey: string,
+) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return false;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  return (
+    sceneId === EAccountSelectorSceneName.discover ||
+    sceneId.startsWith(`${EAccountSelectorSceneName.discover}--`)
+  );
+}
+
 type IAccountSelectorRecentSelectionCacheItem = {
   version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
   updatedAt: number;
@@ -464,6 +480,14 @@ function getRecentAccountSelectorColdStartValue({
     ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
   );
   if (!sceneId) {
+    return undefined;
+  }
+  // OK-57139: discover (dApp) scenes are backed by the dApp connection
+  // record, not by the recent-selection cache. Hydrating them from this
+  // cache resurrects a stale browser-side selection which then overwrites
+  // the re-aligned connection session. New builds no longer write discover
+  // entries; this guard also ignores entries written by older builds.
+  if (isDappConnectionBackedAccountSelectorColdStartScope(coldStartScopeKey)) {
     return undefined;
   }
 
@@ -700,11 +724,7 @@ function getColdStartCacheStorage() {
  * the cells slim hydrate on web/desktop (native reads the already-parsed
  * `__ONEKEY_CTX_ATOM_SNAPSHOT__` directly).
  */
-export function readColdStartSnapshotKey({
-  scopedKey,
-}: {
-  scopedKey: string;
-}): unknown {
+function readColdStartSnapshotFromStorage() {
   try {
     const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -713,14 +733,18 @@ export function readColdStartSnapshotKey({
     const raw = storage.getString(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
-    const snapshot = parseColdStartSnapshotRaw(raw);
-    if (!snapshot) {
-      return undefined;
-    }
-    return snapshot[scopedKey];
+    return parseColdStartSnapshotRaw(raw);
   } catch {
     return undefined;
   }
+}
+
+export function readColdStartSnapshotKey({
+  scopedKey,
+}: {
+  scopedKey: string;
+}): unknown {
+  return readColdStartSnapshotFromStorage()?.[scopedKey];
 }
 
 // Pending slim writes (scopedKey -> value), flushed on a ~2s debounce or on the
@@ -844,10 +868,10 @@ export function hydrateContextColdStartCacheForProvider({
   scopeSet.add(scope);
 
   try {
-    const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-      | Record<string, unknown>
-      | undefined;
-
+    const snapshot =
+      ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+        | Record<string, unknown>
+        | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
       { atom: atomBuilder },
@@ -858,9 +882,11 @@ export function hydrateContextColdStartCacheForProvider({
           coldStartScopeKey: scope,
           coldStartCacheKey: typedCacheKey,
         });
+      const shouldSkipScopedSnapshot =
+        isDappConnectionBackedAccountSelectorColdStartScope(scope);
       const cached =
         recentAccountSelectorCached ??
-        (snapshot
+        (!shouldSkipScopedSnapshot && snapshot
           ? getScopedColdStartSnapshotValue({
               snapshot,
               coldStartScopeKey: scope,

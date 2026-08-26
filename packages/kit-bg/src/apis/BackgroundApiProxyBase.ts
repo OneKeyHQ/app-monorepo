@@ -13,6 +13,7 @@ import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEvent
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -22,11 +23,13 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
+import { getLocalBackgroundServiceMethod } from './lazyServiceProxy';
 
 import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 // NOTE: `waitForDataLoaded`, `timerUtils`, `isWebEmbedApiAllowedOrigin`
 // and `IBackgroundApiWebembedCallMessage` used to be imported here for the
@@ -216,11 +219,13 @@ export class BackgroundApiProxyBase
         backgroundApi,
       });
 
-      if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(
-          serviceApi,
-          ...params,
-        );
+      const serviceMethod = getLocalBackgroundServiceMethod({
+        serviceApi,
+        methodName,
+        backgroundMethodName: backgroundMethodNameLocal,
+      });
+      if (serviceMethod) {
+        const resultPromise = Reflect.apply(serviceMethod, serviceApi, params);
         ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,
@@ -340,7 +345,12 @@ export class BackgroundApiProxyBase
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
+    if (atomNames) {
+      return this.callBackground('getAtomStates', atomNames);
+    }
     return this.callBackground('getAtomStates');
   }
 
@@ -355,6 +365,10 @@ export class BackgroundApiProxyBase
     originNodeId?: string,
   ): Promise<boolean> {
     return this.callBackground('emitEvent', type, payload, originNodeId);
+  }
+
+  async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    return this.callBackground('writeAsyncStorage', request);
   }
 
   bridge = {} as JsBridgeBase;

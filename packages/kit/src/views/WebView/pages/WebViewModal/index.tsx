@@ -18,6 +18,7 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
+import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -144,7 +145,8 @@ export default function WebViewModal() {
                 icon: 'GlobusOutline',
                 testID: WebViewTestIDs.openInBrowserBtn,
                 onPress: async () => {
-                  openUrlExternal(currentUrl);
+                  // Explicit "open in browser" action: leave the app.
+                  openUrlExternal(currentUrl, { useSystemBrowser: true });
                 },
               },
             ].filter(Boolean) as IActionListItemProps[],
@@ -183,6 +185,18 @@ export default function WebViewModal() {
       if (data.method === EWebEmbedPrivateRequestMethod.closeWebViewModal) {
         navigation.pop();
       }
+      if (
+        data.method ===
+        EWebEmbedPrivateRequestMethod.closeWebViewModalAfterPrimePurchaseSuccess
+      ) {
+        handlePrimePurchaseSuccessCloseRequest({
+          params: data.params,
+          hashRoutePath,
+          routePrimeUserId: hashRouteQueryParams?.primeUserId,
+          isWebEmbed,
+          pop: () => navigation.pop(),
+        });
+      }
       if (data.method === EWebEmbedPrivateRequestMethod.showToast) {
         const toastParams = data.params as
           | {
@@ -205,7 +219,7 @@ export default function WebViewModal() {
         });
       }
     },
-    [navigation],
+    [hashRoutePath, hashRouteQueryParams?.primeUserId, isWebEmbed, navigation],
   );
 
   const { onShouldStartLoadWithRequest, onOpenWindow } = useCrossDomainRedirect(

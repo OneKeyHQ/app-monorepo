@@ -35,7 +35,7 @@ import {
 import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
-import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import { LazyAccountSelectorCreateAddressButton } from './LazyAccountSelectorCreateAddressButton';
 
 const AllNetworkAccountSelector = ({
   num,
@@ -423,7 +423,7 @@ export function AccountSelectorActiveAccountHome({
   if (activeAccount.canCreateAddress && showCreateAddressButton) {
     // show create button if account not exists
     return (
-      <AccountSelectorCreateAddressButton
+      <LazyAccountSelectorCreateAddressButton
         // autoCreateAddress // use EmptyAccount autoCreateAddress instead
         num={num}
         account={selectedAccount}

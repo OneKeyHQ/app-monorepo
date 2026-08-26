@@ -101,6 +101,28 @@ export interface IPerpsAccountDisplayCacheEntry {
   };
 }
 
+export interface IPerpsDepositTokenListCacheToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokenListCacheEntry {
+  cacheKey: string;
+  ownerKey?: string;
+  updatedAt: number;
+  tokens: IPerpsDepositTokenListCacheToken[];
+  tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+}
+
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
@@ -121,6 +143,7 @@ export interface ISimpleDbPerpData {
   tradingUniverse?: IPerpsUniverse[] | undefined; // legacy single-dex
   marginTablesMap?: IMarginTablesMap; // legacy single-dex
   tradingUniverses?: IPerpsUniverse[][]; // multi-dex
+  tradingUniversesUpdatedAt?: number;
   marginTablesMapList?: Array<IMarginTablesMap | undefined>;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
@@ -164,12 +187,17 @@ export interface ISimpleDbPerpData {
     string,
     IHyperliquidPortfolioSnapshot
   >;
+  perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  // Everything here can be rebuilt from server/WS data or cheap re-acceptance,
+  // so dropping a corrupted record is safe (OK-59997).
+  protected override readonly enableUnreadableRecordSelfHeal = true;
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
@@ -271,6 +299,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getTradingUniverse(): Promise<{
     universesByDex: IPerpsUniverse[][];
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
+    updatedAt?: number;
   }> {
     const config = await this.getPerpData();
     const tradingUniverses = config.tradingUniverses;
@@ -299,6 +328,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     return {
       universesByDex,
       marginTablesMapByDex,
+      updatedAt: config.tradingUniversesUpdatedAt,
     };
   }
 
@@ -317,6 +347,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         marginTablesMap: marginTablesMapList?.[0],
         tradingUniverses: universes,
         tradingUniverse: universes?.[0],
+        tradingUniversesUpdatedAt: Date.now(),
       }),
     );
   }
@@ -394,24 +425,40 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     mantissa?: number | null;
     data: IBook;
   }) {
-    if (!coin || !data) {
+    await this.setL2BookSnapshotCaches([{ coin, nSigFigs, mantissa, data }]);
+  }
+
+  @backgroundMethod()
+  async setL2BookSnapshotCaches(
+    snapshots: Array<{
+      coin: string;
+      nSigFigs?: number | null;
+      mantissa?: number | null;
+      data: IBook;
+    }>,
+  ) {
+    const validSnapshots = snapshots.filter(
+      (snapshot) => snapshot.coin && snapshot.data,
+    );
+    if (validSnapshots.length === 0) {
       return;
     }
     await this.setPerpData((prev): ISimpleDbPerpData => {
-      const key = this._getL2BookSnapshotCacheKey({
-        coin,
-        nSigFigs,
-        mantissa,
-      });
-      const nextCache = {
-        ...prev?.l2BookSnapshotCache,
-        [key]: {
-          data,
-          updatedAt: Date.now(),
+      const updatedAt = Date.now();
+      const nextCache = { ...prev?.l2BookSnapshotCache };
+      validSnapshots.forEach(({ coin, nSigFigs, mantissa, data }) => {
+        const key = this._getL2BookSnapshotCacheKey({
+          coin,
           nSigFigs,
           mantissa,
-        },
-      };
+        });
+        nextCache[key] = {
+          data,
+          updatedAt,
+          nSigFigs,
+          mantissa,
+        };
+      });
       return {
         ...prev,
         l2BookSnapshotCache: this._limitSnapshotCacheEntries(nextCache),
@@ -930,6 +977,62 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       return {
         ...prev,
         hyperliquidPortfolioSnapshotByAddress: map,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async getPerpsDepositTokenListCache({
+    cacheKey,
+    maxAgeMs,
+  }: {
+    cacheKey: string;
+    maxAgeMs: number;
+  }): Promise<IPerpsDepositTokenListCacheEntry | undefined> {
+    if (!cacheKey) {
+      return undefined;
+    }
+    const config = await this.getPerpData();
+    const entry = config.perpsDepositTokenListCache?.[cacheKey];
+    if (!entry || entry.cacheKey !== cacheKey) {
+      return undefined;
+    }
+    if (!this._isCacheEntryFresh(entry.updatedAt, maxAgeMs)) {
+      return undefined;
+    }
+    return entry;
+  }
+
+  @backgroundMethod()
+  async setPerpsDepositTokenListCache({
+    cacheKey,
+    ownerKey,
+    tokens,
+    tokensByNetwork,
+  }: {
+    cacheKey: string;
+    ownerKey: string;
+    tokens: IPerpsDepositTokenListCacheToken[];
+    tokensByNetwork: Record<string, IPerpsDepositTokenListCacheToken[]>;
+  }) {
+    if (!cacheKey) {
+      return;
+    }
+    await this.setPerpData((prev): ISimpleDbPerpData => {
+      const map = { ...prev?.perpsDepositTokenListCache };
+      map[cacheKey] = {
+        cacheKey,
+        ownerKey,
+        updatedAt: Date.now(),
+        tokens,
+        tokensByNetwork,
+      };
+      return {
+        ...prev,
+        perpsDepositTokenListCache: this._limitSnapshotCacheEntries(
+          map,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
+        ),
       };
     });
   }

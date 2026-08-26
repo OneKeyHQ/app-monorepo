@@ -16,7 +16,9 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
+import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
@@ -26,11 +28,17 @@ import {
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
+import {
+  getDefaultMarketStockCategoryId,
+  getMarketStockCategoryRequestParam,
+} from './marketStockCategoryUtils';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
+import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
+const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
   const { MarketWatchlistTokenList } =
@@ -112,6 +120,29 @@ export function DesktopLayout({
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
+  const stockCategories =
+    filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
+  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
+    getDefaultMarketStockCategoryId(stockCategories),
+  );
+  useEffect(() => {
+    if (stockCategories.length === 0) {
+      if (selectedStockCategoryId !== 'all') {
+        setSelectedStockCategoryId('all');
+      }
+      return;
+    }
+
+    if (
+      !stockCategories.some(
+        (category) => category.id === selectedStockCategoryId,
+      )
+    ) {
+      setSelectedStockCategoryId(
+        getDefaultMarketStockCategoryId(stockCategories),
+      );
+    }
+  }, [selectedStockCategoryId, stockCategories]);
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -133,12 +164,15 @@ export function DesktopLayout({
   // commit; the other two stay as empty placeholders until first press.
   const everActiveTabsRef = useRef<Set<string>>(new Set([activeTabName]));
   const [, bumpEverActive] = useState(0);
-  useEffect(() => {
-    if (!everActiveTabsRef.current.has(activeTabName)) {
-      everActiveTabsRef.current.add(activeTabName);
-      bumpEverActive((n) => n + 1);
+  const ensureTabActivated = useCallback((tabName: string) => {
+    if (!everActiveTabsRef.current.has(tabName)) {
+      everActiveTabsRef.current.add(tabName);
+      bumpEverActive((version) => version + 1);
     }
-  }, [activeTabName]);
+  }, []);
+  useEffect(() => {
+    ensureTabActivated(activeTabName);
+  }, [activeTabName, ensureTabActivated]);
   const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
 
   // Ref so renderTabBar can update activeTabName immediately on press
@@ -161,6 +195,7 @@ export function DesktopLayout({
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
+        ensureTabActivated(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -214,15 +249,16 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [getSpotCategoryIdByTabName, portalRefCallback],
+    [ensureTabActivated, getSpotCategoryIdByTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      ensureTabActivated(tabName);
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [ensureTabActivated, handleTabChange, setActiveTabName],
   );
 
   const listContainerProps = useMemo(() => {
@@ -243,6 +279,19 @@ export function DesktopLayout({
     [],
   );
 
+  const stockCategoryToolbar = useMemo(() => {
+    if (stockCategories.length === 0) {
+      return null;
+    }
+    return (
+      <MarketStockCategorySelector
+        categories={stockCategories}
+        selectedCategoryId={selectedStockCategoryId}
+        onSelectCategory={setSelectedStockCategoryId}
+      />
+    );
+  }, [selectedStockCategoryId, stockCategories]);
+
   const stickyHeaderCtx = useMemo(
     () => ({ portalTarget, activeTabName }),
     [portalTarget, activeTabName],
@@ -257,7 +306,7 @@ export function DesktopLayout({
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
       <YStack px="$4" flex={1}>
         {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={null}>
+          <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
               tabIntegrated
               tabName={watchlistTabName}
@@ -275,7 +324,27 @@ export function DesktopLayout({
             <MarketNormalTokenList
               networkId={selectedNetworkId}
               selectedCategory={item.categoryId}
+              forceStockMetadataColumns={isMarketStockCategoryById(
+                filterBarProps.categories,
+                item.categoryId,
+              )}
+              stockCategory={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
+                  : undefined
+              }
               timeRange={filterBarProps.timeRange}
+              toolbar={
+                isMarketStockCategoryById(
+                  filterBarProps.categories,
+                  item.categoryId,
+                )
+                  ? stockCategoryToolbar
+                  : undefined
+              }
               tabIntegrated
               tabName={item.tabName}
               listContainerProps={listContainerProps}

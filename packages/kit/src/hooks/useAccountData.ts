@@ -28,7 +28,7 @@ type IUseAccountDataResult = {
   addressType: string | undefined;
 };
 
-export function useAccountData<T extends IUseAccountDataResult>({
+export function useAccountData({
   accountId,
   networkId,
   walletId,
@@ -37,7 +37,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
   accountId?: string;
   networkId?: string;
   walletId?: string;
-  options?: IPromiseResultOptions<T>;
+  options?: IPromiseResultOptions<IUseAccountDataResult>;
 }) {
   const intl = useIntl();
   const { serviceAccount, serviceNetwork } = backgroundApiProxy;

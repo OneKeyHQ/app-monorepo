@@ -49,6 +49,10 @@ function buildAccountSelectorSceneId({
     return `${sceneName}--${origin}`;
   }
 
+  if (sceneName === EAccountSelectorSceneName.rewardCenter && sceneUrl) {
+    return `${sceneName}--${sceneUrl}`;
+  }
+
   if (!sceneName) {
     throw new OneKeyLocalError('buildSceneId ERROR: sceneName is required');
   }
@@ -126,6 +130,8 @@ function isSceneCanPersist({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
+      EAccountSelectorSceneName.rewardCenter,
     ].includes(sceneName)
   ) {
     return false;
@@ -140,7 +146,10 @@ function isSceneCanAutoSelect({
 }): boolean {
   if (
     sceneName &&
-    [EAccountSelectorSceneName.addressInput].includes(sceneName)
+    [
+      EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
+    ].includes(sceneName)
   ) {
     return false;
   }
@@ -169,6 +178,7 @@ function isSceneAutoSaveToGlobalDeriveType({
     [
       EAccountSelectorSceneName.discover,
       EAccountSelectorSceneName.addressInput,
+      EAccountSelectorSceneName.primePayment,
     ].includes(sceneName)
   ) {
     return false;

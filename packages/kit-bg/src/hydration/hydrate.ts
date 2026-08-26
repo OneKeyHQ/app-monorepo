@@ -34,7 +34,8 @@
 //      releases regardless of value.
 //
 // Failure modes (all caught, all degrade to defaults):
-//   • Dev (NODE_ENV !== 'production') — skip entirely to avoid schema drift
+//   • Dev (NODE_ENV !== 'production') — skip generic L2 to avoid schema drift;
+//     prime only SWR plus versioned, display-only Swap balance caches
 //   • Kill switch — localStorage.__cold_start_kill__ set
 //   • Private mode / quota=0 — openIDB rejects
 //   • Build hash mismatch — clear DB, fall back to defaults
@@ -46,11 +47,11 @@
 //   'success' | 'timeout' | 'error' | 'killed' | 'skipped'
 // describing the terminal state. 'success' means at least the L2 ctx
 // snapshot was primed from IDB; everything else fell back to defaults
-// ('skipped' is the deliberate dev-mode no-op).
+// ('skipped' is the deliberate dev-mode restricted-prime path).
 
-/* eslint-disable no-console */
-
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   flushColdStartCacheNow,
@@ -59,6 +60,7 @@ import {
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
@@ -68,10 +70,16 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 // ---- Constants ----
 
 const META_KEY_PREFIX = '__meta:';
-const CTX_SNAPSHOT_KEY = 'onekey_jotai_context_atoms_snapshot';
 const BUILD_HASH_KEY = '__meta:buildHash';
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
+const CTX_SNAPSHOT_KEY =
+  EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
+const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
+const DEV_SAFE_L2_BALANCE_CACHE_KEYS = new Set<string>([
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+]);
 // Hard cap on how long we wait for IDB before giving up and degrading to
 // defaults. The ready gate is awaited by GlobalJotaiReady on web/desktop,
 // so an unbounded await here would block React mount on a stalled IDB.
@@ -155,6 +163,27 @@ function parseL2CtxSnapshot(
   } catch {
     return {};
   }
+}
+
+export function filterDevSafeL2CtxSnapshot(snapshot: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(snapshot).filter(([scopedKey, value]) => {
+      const separatorIndex = scopedKey.lastIndexOf('::');
+      if (separatorIndex < 0) {
+        return false;
+      }
+      const cacheKey = scopedKey.slice(separatorIndex + 2);
+      if (!DEV_SAFE_L2_BALANCE_CACHE_KEYS.has(cacheKey)) {
+        return false;
+      }
+      return Boolean(
+        value &&
+        typeof value === 'object' &&
+        typeof (value as { version?: unknown }).version === 'number' &&
+        Array.isArray((value as { entries?: unknown }).entries),
+      );
+    }),
+  );
 }
 
 /**
@@ -244,13 +273,43 @@ export function shouldProceedAfterReset(
 }
 
 const promise: Promise<void> = (async () => {
-  // Skip in development to avoid schema drift between code changes.
-  // Atoms will use defaults and jotaiInit will populate from JotaiStorage
-  // as today. To test cold-start manually, build a production bundle.
+  // In development, keep generic L2 context-atom hydration disabled to avoid
+  // schema drift between local code changes. Prime only the SWR blob and the
+  // versioned, display-only Swap balance caches so localhost can verify the
+  // real first-frame experience without hydrating executable Swap state.
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      '[ColdStartHydration] dev mode, skipping (cold-start is production-only)',
+    defaultLogger.app.appUpdate.log(
+      '[ColdStartHydration] dev mode, priming SWR and safe display caches',
     );
+    try {
+      const result = await withTimeout(
+        readAllColdStartEntriesFromIdb(),
+        HYDRATION_TIMEOUT_MS,
+      );
+      const entriesToPrime: [string, unknown][] = [];
+      const swrCache = result?.get(SWR_CACHE_KEY);
+      if (typeof swrCache === 'string') {
+        entriesToPrime.push([SWR_CACHE_KEY, swrCache]);
+      }
+      if (result) {
+        const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
+          parseL2CtxSnapshot(result),
+        );
+        if (Object.keys(safeCtxSnapshot).length) {
+          entriesToPrime.push([
+            CTX_SNAPSHOT_KEY,
+            JSON.stringify(safeCtxSnapshot),
+          ]);
+          setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', safeCtxSnapshot);
+        }
+      }
+      if (entriesToPrime.length) {
+        primeColdStartCacheMap(entriesToPrime);
+      }
+    } catch {
+      // Dev-only best effort: keep the old skipped behavior if IDB is missing
+      // or slow.
+    }
     // Deliberate no-op: mark as 'skipped' so the finally block does not log
     // this as 'error' (the initial value). Keeps dev-mode skips distinct from
     // genuine IDB failures for any telemetry / debugging that inspects status.
@@ -394,10 +453,10 @@ const promise: Promise<void> = (async () => {
     setGlobal(COLD_START_RESULT_GLOBAL, status);
     globalColdStartHydrationReadyHandler.status = status;
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `[ColdStartHydration] ready in ${Math.round(t1 - t0)}ms`,
-        `status=${status}`,
-        `didHydrate=${didHydrate}`,
+      defaultLogger.app.appUpdate.log(
+        `[ColdStartHydration] ready in ${Math.round(
+          t1 - t0,
+        )}ms status=${status} didHydrate=${didHydrate}`,
       );
     }
     // Pass didHydrate (telemetry); GlobalJotaiReady ignores the value and

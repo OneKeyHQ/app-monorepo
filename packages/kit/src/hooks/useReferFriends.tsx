@@ -19,6 +19,7 @@ import {
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
+import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +32,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -42,11 +44,53 @@ import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
 import useAppNavigation from './useAppNavigation';
 
+const shouldUseReferralModalNav = platformEnv.isNative;
+const shouldOpenReferralInExtensionExpandTab =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
+function openExtensionReferralInExpandTab(path: string, params?: object) {
+  return backgroundApiProxy.serviceApp
+    .openExtensionExpandTab({
+      path,
+      params,
+    })
+    .then(closeExtensionPopupAfterExpandTabOpen);
+}
+
+const EMPTY_SHARE_SOURCE_CONFIG: IInvitePostConfig['locales']['Earn'] = {
+  title: '',
+  subtitle: '',
+  for_you: { title: '', subtitle: '' },
+  for_your_friend: { title: '', subtitle: '' },
+};
+
+// Earn is the fallback copy: Perps / Swap locales are optional on the config.
+function getInviteShareSourceConfig({
+  source,
+  postConfig,
+}: {
+  source: IReferralShareSource;
+  postConfig?: IInvitePostConfig;
+}): IInvitePostConfig['locales']['Earn'] {
+  return (
+    postConfig?.locales[source] ??
+    postConfig?.locales.Earn ??
+    EMPTY_SHARE_SOURCE_CONFIG
+  );
+}
+
 export function useToReferFriendsModalByRootNavigation() {
   return useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    if (platformEnv.isNative) {
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        isLogin ? '/refer-friends/invite-reward' : '/refer-friends',
+      );
+      return;
+    }
+
+    if (shouldUseReferralModalNav) {
       const screen = isLogin
         ? EModalReferFriendsRoutes.InviteReward
         : EModalReferFriendsRoutes.ReferAFriend;
@@ -92,7 +136,7 @@ export function useReplaceToReferFriends() {
       const isLogin =
         knownLoginState ?? (await backgroundApiProxy.servicePrime.isLoggedIn());
 
-      if (platformEnv.isNative) {
+      if (shouldUseReferralModalNav) {
         const screen = isLogin
           ? EModalReferFriendsRoutes.InviteReward
           : EModalReferFriendsRoutes.ReferAFriend;
@@ -129,7 +173,14 @@ export const useReferFriends = () => {
     async (params?: { showRewardDistributionHistory?: boolean }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
-        if (platformEnv.isNative) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/invite-reward',
+            params,
+          );
+          return;
+        }
+        if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.InviteReward,
             params,
@@ -153,7 +204,14 @@ export const useReferFriends = () => {
     async (params?: { showOrderDetail?: boolean; orderId?: string }) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
-        if (platformEnv.isNative) {
+        if (shouldOpenReferralInExtensionExpandTab) {
+          await openExtensionReferralInExpandTab(
+            '/refer-friends/hardware-sales-reward',
+            params,
+          );
+          return;
+        }
+        if (shouldUseReferralModalNav) {
           navigation.pushModal(EModalRoutes.ReferFriendsModal, {
             screen: EModalReferFriendsRoutes.HardwareSalesReward,
             params,
@@ -187,7 +245,16 @@ export const useReferFriends = () => {
 
     const shouldShowInviteReward = isLogin && isVisited;
 
-    if (platformEnv.isNative) {
+    if (shouldOpenReferralInExtensionExpandTab) {
+      await openExtensionReferralInExpandTab(
+        shouldShowInviteReward
+          ? '/refer-friends/invite-reward'
+          : '/refer-friends',
+      );
+      return;
+    }
+
+    if (shouldUseReferralModalNav) {
       // Native: use Modal
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: shouldShowInviteReward
@@ -195,7 +262,7 @@ export const useReferFriends = () => {
           : EModalReferFriendsRoutes.ReferAFriend,
       });
     } else {
-      // Web: use Tab
+      // Web / desktop: use Tab
       navigation.switchTab(ETabRoutes.ReferFriends);
       await timerUtils.wait(50);
       rootNavigationRef.current?.reset({
@@ -217,7 +284,7 @@ export const useReferFriends = () => {
     async (
       _onSuccess?: () => void,
       _onFail?: () => void,
-      source: 'Earn' | 'Perps' = 'Earn',
+      source: IReferralShareSource = 'Earn',
       copyAsUrl = false,
     ) => {
       const [isLogin, postConfig] = await Promise.all([
@@ -246,15 +313,7 @@ export const useReferFriends = () => {
           await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
       }
 
-      const sourceConfig: IInvitePostConfig['locales']['Earn'] =
-        source === 'Perps' && postConfig?.locales.Perps
-          ? postConfig.locales.Perps
-          : (postConfig?.locales.Earn ?? {
-              title: '',
-              subtitle: '',
-              for_you: { title: '', subtitle: '' },
-              for_your_friend: { title: '', subtitle: '' },
-            });
+      const sourceConfig = getInviteShareSourceConfig({ source, postConfig });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({
@@ -269,7 +328,13 @@ export const useReferFriends = () => {
 
       const handleConfirm = async () => {
         if (isLogin) {
-          if (platformEnv.isNative) {
+          if (shouldOpenReferralInExtensionExpandTab) {
+            await openExtensionReferralInExpandTab(
+              '/refer-friends/invite-reward',
+            );
+            return;
+          }
+          if (shouldUseReferralModalNav) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
             });

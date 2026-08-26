@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { buildMarketHolderPercentages } from './useMarketHolders.utils';
 import { useTokenDetail } from './useTokenDetail';
 
 interface IUseMarketHoldersProps {
@@ -19,15 +18,33 @@ export function useMarketHolders({
   networkId,
 }: IUseMarketHoldersProps) {
   const { tokenDetail } = useTokenDetail();
-  const [cacheTokenDetail, setCacheTokenDetail] = useState<
-    IMarketTokenDetail | undefined
-  >(undefined);
+  const tokenKey = `${networkId}:${tokenAddress}`;
+  const [cachedTokenDetail, setCachedTokenDetail] = useState<
+    | {
+        tokenKey: string;
+        detail: IMarketTokenDetail;
+      }
+    | undefined
+  >();
 
   useEffect(() => {
-    if (tokenDetail && tokenDetail?.fdv && tokenDetail?.price) {
-      setCacheTokenDetail(tokenDetail);
+    if (
+      tokenDetail?.fdv &&
+      tokenDetail.price &&
+      tokenDetail.networkId === networkId &&
+      tokenDetail.address.toLowerCase() === tokenAddress.toLowerCase()
+    ) {
+      setCachedTokenDetail({
+        tokenKey,
+        detail: tokenDetail,
+      });
+      return;
     }
-  }, [tokenDetail]);
+
+    setCachedTokenDetail((previous) =>
+      previous?.tokenKey === tokenKey ? previous : undefined,
+    );
+  }, [networkId, tokenAddress, tokenDetail, tokenKey]);
 
   const {
     result: holdersData,
@@ -35,55 +52,12 @@ export function useMarketHolders({
     run: fetchHolders,
   } = usePromiseResult(
     async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
-          tokenAddress,
-          networkId,
-        });
-
-      // Process holders data with percentage calculation based on total supply from FDV
-      const processedList = response.list.map((holder) => {
-        let percentage: string | undefined;
-
-        if (
-          holder.amount &&
-          cacheTokenDetail &&
-          cacheTokenDetail?.fdv &&
-          cacheTokenDetail?.price
-        ) {
-          try {
-            const holderAmount = new BigNumber(holder.amount);
-            const fdv = new BigNumber(cacheTokenDetail.fdv);
-            const price = new BigNumber(cacheTokenDetail.price);
-
-            if (fdv.isGreaterThan(0) && price.isGreaterThan(0)) {
-              // Calculate total supply = fdv / price
-              const totalSupply = fdv.dividedBy(price);
-
-              if (totalSupply.isGreaterThan(0)) {
-                const percentageValue = holderAmount
-                  .dividedBy(totalSupply)
-                  .multipliedBy(100);
-                percentage = percentageValue.toFixed(2);
-              }
-            }
-          } catch (_error) {
-            // Keep percentage as undefined on error
-          }
-        }
-
-        return {
-          ...holder,
-          percentage,
-        };
+      return backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
+        tokenAddress,
+        networkId,
       });
-
-      return {
-        ...response,
-        list: processedList,
-      };
     },
-    [tokenAddress, networkId, cacheTokenDetail],
+    [tokenAddress, networkId],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
@@ -93,9 +67,20 @@ export function useMarketHolders({
   const onRefresh = useCallback(async () => {
     await fetchHolders();
   }, [fetchHolders]);
+  const holders = useMemo(
+    () =>
+      buildMarketHolderPercentages({
+        holders: holdersData?.list ?? [],
+        tokenDetail:
+          cachedTokenDetail?.tokenKey === tokenKey
+            ? cachedTokenDetail.detail
+            : undefined,
+      }),
+    [cachedTokenDetail, holdersData?.list, tokenKey],
+  );
 
   return {
-    holders: holdersData?.list || [],
+    holders,
     fetchHolders,
     isRefreshing,
     onRefresh,

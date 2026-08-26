@@ -9,11 +9,13 @@ type IMarketTokenListRequestParams = {
   minLiquidity?: number;
   maxLiquidity?: number;
   type?: string;
+  category?: string;
   timeFrame?: string;
 };
 
 type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
   __fromSeed?: boolean;
+  __fromColdCacheFallback?: boolean;
 };
 
 type IFetchMarketTokenListForPlatformOptions = {

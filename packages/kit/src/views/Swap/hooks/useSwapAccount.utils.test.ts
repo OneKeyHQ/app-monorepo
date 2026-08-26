@@ -1,10 +1,474 @@
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
+  getSwapAddressAccountSelectorNum,
+  getSwapRecipientActionState,
+  getSwapRecipientEditorAccountInfo,
+  getSwapRecipientValidationAccountId,
+  resolveSettledSwapRecipientRequired,
+  resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
+  shouldShowSwapRecipientEntry,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+function buildAccountInfo({
+  accountId,
+  ready = true,
+}: {
+  accountId?: string;
+  ready?: boolean;
+} = {}): IAccountSelectorActiveAccountInfo {
+  return {
+    ready,
+    account: accountId
+      ? ({ id: accountId } as IAccountSelectorActiveAccountInfo['account'])
+      : undefined,
+    indexedAccount: undefined,
+    dbAccount: undefined,
+    accountName: '',
+    wallet: undefined,
+    device: undefined,
+    network: undefined,
+    vaultSettings: undefined,
+    deriveType: undefined,
+    deriveInfoItems: [],
+  };
+}
+
+describe('getSwapRecipientEditorAccountInfo', () => {
+  it('prefers ready recipient ownership information', () => {
+    const recipientAccountInfo = buildAccountInfo({
+      accountId: 'recipient-account',
+    });
+    const activeAccount = buildAccountInfo({ accountId: 'active-account' });
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo,
+        activeAccount,
+      }),
+    ).toBe(recipientAccountInfo);
+  });
+
+  it('falls back to a ready active account for an external recipient', () => {
+    const activeAccount = buildAccountInfo({ accountId: 'active-account' });
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('allows a ready editor context before its network account is created', () => {
+    const activeAccount = buildAccountInfo();
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('waits until an account context is ready', () => {
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: buildAccountInfo({ ready: false }),
+        activeAccount: buildAccountInfo({ ready: false }),
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveSwapTargetNetworkAccount', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('keeps derive lookup failures unresolved', async () => {
+    const getDeriveType = jest.fn(async () => {
+      throw new OneKeyLocalError('derive lookup failed');
+    });
+    const getNetworkAccount = jest.fn(async () => ({ id: 'account-1' }));
+
+    const resolvePromise = resolveSwapTargetNetworkAccount({
+      getDeriveType,
+      getNetworkAccount,
+    });
+    const resolveErrorPromise = resolvePromise.catch((error: unknown) => error);
+    await jest.runAllTimersAsync();
+
+    await expect(resolveErrorPromise).resolves.toMatchObject({
+      message: 'derive lookup failed',
+    });
+    expect(getDeriveType).toHaveBeenCalledTimes(2);
+    expect(getNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('retries one transient derive lookup failure', async () => {
+    const getDeriveType = jest
+      .fn()
+      .mockRejectedValueOnce(new OneKeyLocalError('derive lookup failed'))
+      .mockResolvedValueOnce('BIP84');
+    const getNetworkAccount = jest.fn(async () => ({ id: 'account-1' }));
+
+    const resolvePromise = resolveSwapTargetNetworkAccount({
+      getDeriveType,
+      getNetworkAccount,
+    });
+    await jest.runAllTimersAsync();
+
+    await expect(resolvePromise).resolves.toEqual({
+      account: { id: 'account-1' },
+      deriveType: 'BIP84',
+    });
+    expect(getDeriveType).toHaveBeenCalledTimes(2);
+    expect(getNetworkAccount).toHaveBeenCalledWith('BIP84');
+  });
+
+  it('preserves the target derive type when its account is missing', async () => {
+    const getDeriveType = jest.fn(async () => 'BIP84' as const);
+    const getNetworkAccount = jest.fn(async () => {
+      throw new OneKeyLocalError('account not found');
+    });
+
+    await expect(
+      resolveSwapTargetNetworkAccount({
+        getDeriveType,
+        getNetworkAccount,
+      }),
+    ).resolves.toEqual({
+      account: undefined,
+      deriveType: 'BIP84',
+    });
+    expect(getNetworkAccount).toHaveBeenCalledWith('BIP84');
+  });
+});
+
+describe('getSwapRecipientActionState', () => {
+  const validState = {
+    isActionDisabled: false,
+    isRefreshAction: false,
+    noConnectWallet: false,
+    hasQuoteToAmount: true,
+    recipientAddress: undefined,
+    isAddressInfoReady: true,
+    providerSupportReceiveAddress: true,
+  };
+
+  it('allows recipient entry after target address resolution completes', () => {
+    expect(getSwapRecipientActionState(validState)).toEqual({
+      shouldEnterRecipient: true,
+      shouldDisableAction: false,
+    });
+  });
+
+  it('disables the action while target address resolution is pending', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isAddressInfoReady: false,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('disables the action when the provider does not support a recipient', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        providerSupportReceiveAddress: false,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('preserves an existing disabled state when recipient entry is otherwise allowed', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isActionDisabled: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('preserves a refresh action when the recipient address is missing', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isRefreshAction: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: false,
+    });
+  });
+
+  it('preserves a connect-wallet action when the recipient address is missing', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        noConnectWallet: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: false,
+    });
+  });
+});
+
+describe('shouldShowSwapRecipientEntry', () => {
+  const baseParams = {
+    swapType: ESwapTabSwitchType.SWAP,
+    incognitoMode: false,
+    recipientAddressSettingOn: false,
+    recipientRequired: false,
+    providerSupportReceiveAddress: true,
+    hasFromToken: true,
+    hasToToken: true,
+  };
+
+  it('shows the entry when the custom recipient setting is on', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientAddressSettingOn: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('hides the entry when the setting is off and no recipient is required', () => {
+    expect(shouldShowSwapRecipientEntry(baseParams)).toBe(false);
+  });
+
+  it('forces the entry when a recipient is required even with the setting off (OK-58326)', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('never shows the entry when the provider does not support a recipient', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        recipientAddressSettingOn: true,
+        providerSupportReceiveAddress: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the entry hidden in incognito mode on Swap where the inline input owns it', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows the entry in incognito mode on Limit and Stock', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).toBe(true);
+  });
+
+  it('requires both tokens to be selected', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        hasToToken: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveSettledSwapRecipientRequired', () => {
+  const settledScope = { scopeKey: 'swap|eth|usdc|sol|sol|acc-1', value: true };
+
+  it('keeps the held verdict while a quote for the same scope is pending', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('adopts the new verdict once the quote settles', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: settledScope.scopeKey, value: false });
+  });
+
+  it('waits for target address resolution before adopting a verdict', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: false,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('drops a previous tab verdict when the scope changes (OK-58326)', () => {
+    // Switching Swap -> Limit clears the quote list and quoteEventCompleted
+    // without settling a quote, so the stale verdict must not leak over.
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: 'limit|eth|usdc|sol|sol|acc-1',
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: 'limit|eth|usdc|sol|sol|acc-1', value: false });
+  });
+
+  it('drops the verdict when the token pair or account changes', () => {
+    for (const scopeKey of [
+      'swap|eth|dai|sol|sol|acc-1',
+      'swap|eth|usdc|sol|sol|acc-2',
+    ]) {
+      expect(
+        resolveSettledSwapRecipientRequired({
+          previous: settledScope,
+          scopeKey,
+          quoteSettled: false,
+          isAddressInfoReady: true,
+          recipientRequiredNow: true,
+        }),
+      ).toEqual({ scopeKey, value: false });
+    }
+  });
+
+  it('adopts the verdict on the very render that changes the scope', () => {
+    // The verdict lives in a ref, so a scope change that arrives together with
+    // already-settled inputs (e.g. sourceAccountId resolving from undefined to
+    // a real id) must not discard them — nothing would schedule the follow-up
+    // render that recomputes it.
+    const scopeKey = 'swap|eth|usdc|sol|sol|acc-1';
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: { scopeKey: 'swap|eth|usdc|sol|sol|undefined', value: false },
+        scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: true,
+      }),
+    ).toEqual({ scopeKey, value: true });
+  });
+});
+
+describe('getSwapRecipientValidationAccountId', () => {
+  it('uses the account when it owns the resolved recipient address', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'account-1',
+        accountAddress: '0xABCD',
+        recipientAddress: '0xabcd',
+      }),
+    ).toBe('account-1');
+  });
+
+  it('omits a source account that could not resolve on the recipient network', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'watching--ltc',
+        accountAddress: 'ltc1source',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('omits an account that does not own the recipient address', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'account-1',
+        accountAddress: '0xaaaa',
+        recipientAddress: '0xbbbb',
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('getSwapAddressAccountSelectorNum', () => {
+  it('uses the source account for the FROM address', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.FROM,
+        swapToAnotherAccountSwitchOn: true,
+      }),
+    ).toBe(0);
+  });
+
+  it('uses the source account for the TO address when custom recipient is off', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: false,
+      }),
+    ).toBe(0);
+  });
+
+  it('uses the recipient account for the TO address when custom recipient is on', () => {
+    expect(
+      getSwapAddressAccountSelectorNum({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+      }),
+    ).toBe(1);
+  });
+});
 
 describe('shouldResetSwapRecipientOnAccountNetworkSync', () => {
   it('keeps a saved recipient while the current tab temporarily uses another token network', () => {
