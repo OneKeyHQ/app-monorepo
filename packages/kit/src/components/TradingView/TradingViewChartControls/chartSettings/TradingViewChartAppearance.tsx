@@ -2,21 +2,33 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IIconProps } from '@onekeyhq/components';
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  LinearGradient,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
-  OKX_CHART_BG,
-  OKX_CHART_DOWN,
-  OKX_CHART_SIDE_ACTIVE_BG,
-  OKX_CHART_TEXT,
-  OKX_CHART_TEXT_SUBDUED,
-  OKX_CHART_UP,
-  OkxChartCheckbox,
-  OkxChartColorPalette,
-  OkxChartColorPicker,
-  OkxChartSelectMock,
-  OkxChartSolidSwatch,
+  TRADING_VIEW_CHART_BG,
+  TRADING_VIEW_CHART_DOWN,
+  TRADING_VIEW_CHART_SIDE_ACTIVE_BG,
+  TRADING_VIEW_CHART_TEXT,
+  TRADING_VIEW_CHART_TEXT_SUBDUED,
+  TRADING_VIEW_CHART_UP,
+  TradingViewChartCheckbox,
+  TradingViewChartColorPalette,
+  TradingViewChartColorPicker,
+  TradingViewChartSelectMock,
+  TradingViewChartSolidSwatch,
 } from './TradingViewSettingsShared';
+import {
+  resolveTradingViewSettingsThemeColor,
+  useTradingViewSettingsThemeColors,
+} from './TradingViewSettingsThemeColors';
 
 import type {
   ITradingViewChartSettingsBackgroundStyle,
@@ -32,10 +44,10 @@ import type {
   ITradingViewSettingsMockColorRole,
 } from './TradingViewSettingsMockState';
 
-const OKX_CHART_SIDEBAR_WIDTH = 130;
-const OKX_LINE_STYLE_OPTIONS = ['实线', '虚线'];
-const OKX_BACKGROUND_STYLE_OPTIONS = ['实色', '渐变'];
-const OKX_GRID_LINE_OPTIONS = ['垂直和水平', '仅水平', '仅垂直', '无'];
+const TRADING_VIEW_CHART_SIDEBAR_WIDTH = 130;
+const TRADING_VIEW_LINE_STYLE_OPTIONS = ['实线', '虚线'];
+const TRADING_VIEW_BACKGROUND_STYLE_OPTIONS = ['实色', '渐变'];
+const TRADING_VIEW_GRID_LINE_OPTIONS = ['垂直和水平', '仅水平', '仅垂直', '无'];
 
 export function AppearanceSidebar({
   sections,
@@ -47,7 +59,11 @@ export function AppearanceSidebar({
   onSelect: (sectionId: ITradingViewSettingsMockAppearanceSectionId) => void;
 }) {
   return (
-    <YStack w={OKX_CHART_SIDEBAR_WIDTH} pt={12} bg={OKX_CHART_BG}>
+    <YStack
+      w={TRADING_VIEW_CHART_SIDEBAR_WIDTH}
+      pt={12}
+      bg={TRADING_VIEW_CHART_BG}
+    >
       {sections.map((section) => {
         const selected = section.id === selectedSectionId;
         return (
@@ -57,27 +73,31 @@ export function AppearanceSidebar({
             px={20}
             gap={9}
             alignItems="center"
-            bg={selected ? OKX_CHART_SIDE_ACTIVE_BG : OKX_CHART_BG}
+            bg={
+              selected
+                ? TRADING_VIEW_CHART_SIDE_ACTIVE_BG
+                : TRADING_VIEW_CHART_BG
+            }
             hoverStyle={{
-              bg: selected ? OKX_CHART_SIDE_ACTIVE_BG : '$bgHover',
+              bg: selected ? TRADING_VIEW_CHART_SIDE_ACTIVE_BG : '$bgHover',
             }}
-            pressStyle={{ bg: OKX_CHART_SIDE_ACTIVE_BG }}
+            pressStyle={{ bg: TRADING_VIEW_CHART_SIDE_ACTIVE_BG }}
             cursor="pointer"
             userSelect="none"
             onPress={() => onSelect(section.id)}
           >
             <Icon
-              name={getOkxAppearanceSectionIcon(section.id)}
+              name={getTradingViewAppearanceSectionIcon(section.id)}
               size="$5"
               color="$icon"
             />
             <SizableText
               fontSize={14}
               lineHeight={16}
-              color={OKX_CHART_TEXT}
+              color={TRADING_VIEW_CHART_TEXT}
               numberOfLines={1}
             >
-              {getOkxAppearanceSectionLabel(section.id)}
+              {getTradingViewAppearanceSectionLabel(section.id)}
             </SizableText>
           </XStack>
         );
@@ -86,7 +106,7 @@ export function AppearanceSidebar({
   );
 }
 
-function getOkxAppearanceSectionLabel(
+function getTradingViewAppearanceSectionLabel(
   sectionId: ITradingViewSettingsMockAppearanceSectionId,
 ) {
   const labelMap: Record<ITradingViewSettingsMockAppearanceSectionId, string> =
@@ -100,7 +120,7 @@ function getOkxAppearanceSectionLabel(
   return labelMap[sectionId];
 }
 
-function getOkxAppearanceSectionIcon(
+function getTradingViewAppearanceSectionIcon(
   sectionId: ITradingViewSettingsMockAppearanceSectionId,
 ): IIconProps['name'] {
   const iconMap: Record<
@@ -116,7 +136,7 @@ function getOkxAppearanceSectionIcon(
   return iconMap[sectionId];
 }
 
-function getOkxAppearanceItemLabel(itemId: string) {
+function getTradingViewAppearanceItemLabel(itemId: string) {
   const labelMap: Record<string, string> = {
     body: '主体',
     border: '边框',
@@ -132,20 +152,20 @@ function getOkxAppearanceItemLabel(itemId: string) {
   return labelMap[itemId] ?? itemId;
 }
 
-function OkxChartSectionTitle({ children }: { children: ReactNode }) {
+function TradingViewChartSectionTitle({ children }: { children: ReactNode }) {
   return (
     <SizableText
       h={12}
       fontSize={12}
       lineHeight={12}
-      color={OKX_CHART_TEXT_SUBDUED}
+      color={TRADING_VIEW_CHART_TEXT_SUBDUED}
     >
       {children}
     </SizableText>
   );
 }
 
-function OkxChartSettingRow({ children }: { children: ReactNode }) {
+function TradingViewChartSettingRow({ children }: { children: ReactNode }) {
   return (
     <XStack h={50} w={380} alignItems="center">
       {children}
@@ -153,15 +173,15 @@ function OkxChartSettingRow({ children }: { children: ReactNode }) {
   );
 }
 
-function OkxChartRowLabel({ children }: { children: ReactNode }) {
+function TradingViewChartRowLabel({ children }: { children: ReactNode }) {
   return (
-    <SizableText fontSize={14} lineHeight={16} color={OKX_CHART_TEXT}>
+    <SizableText fontSize={14} lineHeight={16} color={TRADING_VIEW_CHART_TEXT}>
       {children}
     </SizableText>
   );
 }
 
-function OkxChartCheckboxWithLabel({
+function TradingViewChartCheckboxWithLabel({
   checked,
   children,
   onChange,
@@ -172,15 +192,20 @@ function OkxChartCheckboxWithLabel({
 }) {
   return (
     <XStack h={20} alignItems="center">
-      <OkxChartCheckbox checked={checked} onChange={onChange} />
-      <SizableText ml={8} fontSize={14} lineHeight={16} color={OKX_CHART_TEXT}>
+      <TradingViewChartCheckbox checked={checked} onChange={onChange} />
+      <SizableText
+        ml={8}
+        fontSize={14}
+        lineHeight={16}
+        color={TRADING_VIEW_CHART_TEXT}
+      >
         {children}
       </SizableText>
     </XStack>
   );
 }
 
-function OkxChartPriceSwatch({
+function TradingViewChartPriceSwatch({
   upColor,
   downColor,
   open,
@@ -194,6 +219,15 @@ function OkxChartPriceSwatch({
   onChange: (upColor: string, downColor: string) => void;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const themeColors = useTradingViewSettingsThemeColors();
+  const resolvedUpColor = resolveTradingViewSettingsThemeColor(
+    upColor,
+    themeColors,
+  );
+  const resolvedDownColor = resolveTradingViewSettingsThemeColor(
+    downColor,
+    themeColors,
+  );
   const isPaletteOpen = open ?? uncontrolledOpen;
   const setIsPaletteOpen = (nextOpen: boolean) => {
     if (open === undefined) {
@@ -218,24 +252,30 @@ function OkxChartPriceSwatch({
         cursor="pointer"
         onPress={() => setIsPaletteOpen(!isPaletteOpen)}
       >
-        <Stack
+        <LinearGradient
           w={22}
           h={22}
           overflow="hidden"
           borderRadius={2}
-          style={{
-            background: `linear-gradient(45deg, ${downColor} 0 50%, ${upColor} 50% 100%)`,
-          }}
+          colors={[
+            resolvedDownColor,
+            resolvedDownColor,
+            resolvedUpColor,
+            resolvedUpColor,
+          ]}
+          locations={[0, 0.5, 0.5, 1]}
+          start={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 0 }}
         />
       </Stack>
 
       {isPaletteOpen ? (
-        <OkxChartColorPalette
+        <TradingViewChartColorPalette
           placement="bottom"
           align="left"
           selectedColor={upColor === downColor ? upColor : ''}
           onSelect={(color) => {
-            // OKX switches the automatic two-color state to one explicit color.
+            // Choosing a swatch replaces the automatic two-color state.
             onChange(color, color);
             setIsPaletteOpen(false);
           }}
@@ -245,12 +285,18 @@ function OkxChartPriceSwatch({
   );
 }
 
-function getOkxChartTrendColors(
+function getTradingViewChartTrendColors(
   colorMode: ITradingViewChartSettingsColorMode,
   priceColorMode: ITradingViewChartSettingsPriceColorMode,
 ) {
-  const positiveColor = colorMode === 'modern' ? '#D6FF00' : OKX_CHART_UP;
-  const negativeColor = colorMode === 'modern' ? '#FF3CD9' : OKX_CHART_DOWN;
+  const positiveColor =
+    colorMode === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.brand
+      : TRADING_VIEW_CHART_UP;
+  const negativeColor =
+    colorMode === 'modern'
+      ? TRADING_VIEW_NATIVE_THEME_COLORS.quaternary
+      : TRADING_VIEW_CHART_DOWN;
 
   if (priceColorMode === 'greenUpRedDown') {
     return {
@@ -265,12 +311,12 @@ function getOkxChartTrendColors(
   };
 }
 
-export function applyOkxChartTrendColors(
+export function applyTradingViewChartTrendColors(
   value: ITradingViewChartSettingsValue,
   colorMode: ITradingViewChartSettingsColorMode,
   priceColorMode: ITradingViewChartSettingsPriceColorMode,
 ): ITradingViewChartSettingsValue {
-  const trendColors = getOkxChartTrendColors(colorMode, priceColorMode);
+  const trendColors = getTradingViewChartTrendColors(colorMode, priceColorMode);
 
   return {
     ...value,
@@ -307,11 +353,11 @@ function AppearanceColorPair({
 }) {
   return (
     <XStack gap={12} alignItems="center">
-      <OkxChartColorPicker
+      <TradingViewChartColorPicker
         value={item.upColor}
         onChange={(color) => onColorChange(item.id, 'up', color)}
       />
-      <OkxChartColorPicker
+      <TradingViewChartColorPicker
         value={item.downColor}
         onChange={(color) => onColorChange(item.id, 'down', color)}
       />
@@ -338,10 +384,10 @@ export function AppearanceCandleSettingsContent({
     color: string,
   ) => void;
 }) {
-  const trendColors = getOkxChartTrendColors(colorMode, priceColorMode);
+  const trendColors = getTradingViewChartTrendColors(colorMode, priceColorMode);
 
   return (
-    <YStack pt={24} pl={20} bg={OKX_CHART_BG}>
+    <YStack pt={24} pl={20} bg={TRADING_VIEW_CHART_BG}>
       <XStack
         h={32}
         w={213}
@@ -353,20 +399,16 @@ export function AppearanceCandleSettingsContent({
           w={164}
           fontSize={14}
           lineHeight={16}
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           颜色设置
         </SizableText>
         <XStack gap={0} alignItems="center">
-          <Icon
-            name="ArrowTopOutline"
-            size="$4"
-            style={{ color: trendColors.upColor }}
-          />
+          <Icon name="ArrowTopOutline" size="$4" color={trendColors.upColor} />
           <Icon
             name="ArrowBottomOutline"
             size="$4"
-            style={{ color: trendColors.downColor }}
+            color={trendColors.downColor}
           />
           <Icon
             name="ChevronRightSmallOutline"
@@ -378,13 +420,13 @@ export function AppearanceCandleSettingsContent({
 
       <Stack h={12} />
 
-      <OkxChartSectionTitle>K线</OkxChartSectionTitle>
+      <TradingViewChartSectionTitle>K线</TradingViewChartSectionTitle>
 
       <YStack>
         {items.map((item) => (
-          <OkxChartSettingRow key={item.id}>
+          <TradingViewChartSettingRow key={item.id}>
             <Stack testID={`trading-view-settings-mock-appearance-${item.id}`}>
-              <OkxChartCheckbox
+              <TradingViewChartCheckbox
                 checked={item.enabled}
                 onChange={(checked) => onToggleItem(item.id, checked)}
               />
@@ -394,12 +436,12 @@ export function AppearanceCandleSettingsContent({
               w={116}
               fontSize={14}
               lineHeight={16}
-              color={OKX_CHART_TEXT}
+              color={TRADING_VIEW_CHART_TEXT}
             >
-              {getOkxAppearanceItemLabel(item.id)}
+              {getTradingViewAppearanceItemLabel(item.id)}
             </SizableText>
             <AppearanceColorPair item={item} onColorChange={onColorChange} />
-          </OkxChartSettingRow>
+          </TradingViewChartSettingRow>
         ))}
       </YStack>
     </YStack>
@@ -429,44 +471,46 @@ export function AppearanceCoordinatesSettingsContent({
   >();
 
   return (
-    <YStack pt={24} pl={20} bg={OKX_CHART_BG}>
-      <OkxChartSectionTitle>价格坐标</OkxChartSectionTitle>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+    <YStack pt={24} pl={20} bg={TRADING_VIEW_CHART_BG}>
+      <TradingViewChartSectionTitle>价格坐标</TradingViewChartSectionTitle>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.countdown}
           onChange={(checked) => onOptionChange('countdown', checked)}
         >
           倒计时
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.depth}
           onChange={(checked) => onOptionChange('depth', checked)}
         >
           深度显示
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.priceChange}
           onChange={(checked) => onOptionChange('priceChange', checked)}
         >
           价格涨跌幅
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
 
       <Stack h={12} />
-      <OkxChartSectionTitle>价格标签和价格线</OkxChartSectionTitle>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+      <TradingViewChartSectionTitle>
+        价格标签和价格线
+      </TradingViewChartSectionTitle>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.latestPrice}
           onChange={(checked) => onOptionChange('latestPrice', checked)}
         >
           最新价格
-        </OkxChartCheckboxWithLabel>
+        </TradingViewChartCheckboxWithLabel>
         <Stack ml={52}>
-          <OkxChartPriceSwatch
+          <TradingViewChartPriceSwatch
             upColor={latestPriceLine.upColor}
             downColor={latestPriceLine.downColor}
             open={activeLatestPriceControl === 'color'}
@@ -477,21 +521,24 @@ export function AppearanceCoordinatesSettingsContent({
           />
         </Stack>
         <Stack ml={8}>
-          <OkxChartSelectMock
-            value={getOkxChartLineStyleLabel(latestPriceLine.style)}
+          <TradingViewChartSelectMock
+            value={getTradingViewChartLineStyleLabel(latestPriceLine.style)}
             width={97}
-            options={OKX_LINE_STYLE_OPTIONS}
+            options={TRADING_VIEW_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getTradingViewChartLineStyleFromLabel}
             open={activeLatestPriceControl === 'style'}
             onOpenChange={(open) =>
               setActiveLatestPriceControl(open ? 'style' : undefined)
             }
             onChange={(label) =>
-              onLatestPriceLineStyleChange(getOkxChartLineStyleFromLabel(label))
+              onLatestPriceLineStyleChange(
+                getTradingViewChartLineStyleFromLabel(label),
+              )
             }
           />
         </Stack>
-      </OkxChartSettingRow>
+      </TradingViewChartSettingRow>
     </YStack>
   );
 }
@@ -507,51 +554,55 @@ export function AppearanceEventsSettingsContent({
   ) => void;
 }) {
   return (
-    <YStack pt={24} pl={20} bg={OKX_CHART_BG}>
-      <OkxChartSectionTitle>财经日历</OkxChartSectionTitle>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+    <YStack pt={24} pl={20} bg={TRADING_VIEW_CHART_BG}>
+      <TradingViewChartSectionTitle>财经日历</TradingViewChartSectionTitle>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.futureEvents}
           onChange={(checked) => onOptionChange('futureEvents', checked)}
         >
           显示未来事件
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.pastEvents}
           onChange={(checked) => onOptionChange('pastEvents', checked)}
         >
           显示过往事件
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
     </YStack>
   );
 }
 
-function getOkxChartLineStyleLabel(style: ITradingViewChartSettingsLineStyle) {
+function getTradingViewChartLineStyleLabel(
+  style: ITradingViewChartSettingsLineStyle,
+) {
   return style === 'dashed' ? '虚线' : '实线';
 }
 
-function getOkxChartLineStyleFromLabel(
+function getTradingViewChartLineStyleFromLabel(
   label: string,
 ): ITradingViewChartSettingsLineStyle {
   return label === '虚线' ? 'dashed' : 'solid';
 }
 
-function getOkxBackgroundStyleLabel(
+function getTradingViewBackgroundStyleLabel(
   style: ITradingViewChartSettingsBackgroundStyle,
 ) {
   return style === 'gradient' ? '渐变' : '实色';
 }
 
-function getOkxBackgroundStyleFromLabel(
+function getTradingViewBackgroundStyleFromLabel(
   label: string,
 ): ITradingViewChartSettingsBackgroundStyle {
   return label === '渐变' ? 'gradient' : 'solid';
 }
 
-function getOkxGridStyleLabel(style: ITradingViewChartSettingsGridStyle) {
+function getTradingViewGridStyleLabel(
+  style: ITradingViewChartSettingsGridStyle,
+) {
   const labels: Record<ITradingViewChartSettingsGridStyle, string> = {
     both: '垂直和水平',
     horizontal: '仅水平',
@@ -561,7 +612,7 @@ function getOkxGridStyleLabel(style: ITradingViewChartSettingsGridStyle) {
   return labels[style];
 }
 
-function getOkxGridStyleFromLabel(
+function getTradingViewGridStyleFromLabel(
   label: string,
 ): ITradingViewChartSettingsGridStyle {
   if (label === '仅水平') {
@@ -576,7 +627,7 @@ function getOkxGridStyleFromLabel(
   return 'both';
 }
 
-function getOkxGridSwatches(
+function getTradingViewGridSwatches(
   grid: ITradingViewChartSettingsValue['grid'],
 ): Array<readonly ['horizontalColor' | 'verticalColor', string]> {
   if (grid.style === 'both') {
@@ -628,39 +679,41 @@ export function AppearanceLayoutSettingsContent({
   onCrossLineStyleChange: (style: ITradingViewChartSettingsLineStyle) => void;
 }) {
   const backgroundSwatchCount = background.style === 'gradient' ? 2 : 1;
-  const gridSwatches = getOkxGridSwatches(grid);
+  const gridSwatches = getTradingViewGridSwatches(grid);
 
   return (
-    <YStack pt={24} pl={20} bg={OKX_CHART_BG}>
-      <OkxChartSectionTitle>图表交互</OkxChartSectionTitle>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+    <YStack pt={24} pl={20} bg={TRADING_VIEW_CHART_BG}>
+      <TradingViewChartSectionTitle>图表交互</TradingViewChartSectionTitle>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.clickInteraction}
           onChange={(checked) => onOptionChange('clickInteraction', checked)}
         >
           点击启用交互
-        </OkxChartCheckboxWithLabel>
-      </OkxChartSettingRow>
+        </TradingViewChartCheckboxWithLabel>
+      </TradingViewChartSettingRow>
 
       <Stack h={12} />
-      <OkxChartSectionTitle>图表样式</OkxChartSectionTitle>
-      <OkxChartSettingRow>
-        <OkxChartRowLabel>背景</OkxChartRowLabel>
+      <TradingViewChartSectionTitle>图表样式</TradingViewChartSectionTitle>
+      <TradingViewChartSettingRow>
+        <TradingViewChartRowLabel>背景</TradingViewChartRowLabel>
         <Stack ml={91}>
-          <OkxChartSelectMock
-            value={getOkxBackgroundStyleLabel(background.style)}
+          <TradingViewChartSelectMock
+            value={getTradingViewBackgroundStyleLabel(background.style)}
             width={140}
             height={32}
-            options={OKX_BACKGROUND_STYLE_OPTIONS}
+            options={TRADING_VIEW_BACKGROUND_STYLE_OPTIONS}
             onChange={(label) =>
-              onBackgroundStyleChange(getOkxBackgroundStyleFromLabel(label))
+              onBackgroundStyleChange(
+                getTradingViewBackgroundStyleFromLabel(label),
+              )
             }
           />
         </Stack>
         {backgroundSwatchCount > 0 ? (
           <XStack ml={12} gap={10}>
             {Array.from({ length: backgroundSwatchCount }).map((_, index) => (
-              <OkxChartSolidSwatch
+              <TradingViewChartSolidSwatch
                 key={index}
                 color={background.colors[index]}
                 onChange={(color) =>
@@ -670,24 +723,24 @@ export function AppearanceLayoutSettingsContent({
             ))}
           </XStack>
         ) : null}
-      </OkxChartSettingRow>
-      <OkxChartSettingRow>
-        <OkxChartRowLabel>网格线</OkxChartRowLabel>
+      </TradingViewChartSettingRow>
+      <TradingViewChartSettingRow>
+        <TradingViewChartRowLabel>网格线</TradingViewChartRowLabel>
         <Stack ml={77}>
-          <OkxChartSelectMock
-            value={getOkxGridStyleLabel(grid.style)}
+          <TradingViewChartSelectMock
+            value={getTradingViewGridStyleLabel(grid.style)}
             width={140}
             height={32}
-            options={OKX_GRID_LINE_OPTIONS}
+            options={TRADING_VIEW_GRID_LINE_OPTIONS}
             onChange={(label) =>
-              onGridStyleChange(getOkxGridStyleFromLabel(label))
+              onGridStyleChange(getTradingViewGridStyleFromLabel(label))
             }
           />
         </Stack>
         {gridSwatches.length > 0 ? (
           <XStack ml={12} gap={10}>
             {gridSwatches.map(([role, color]) => (
-              <OkxChartSolidSwatch
+              <TradingViewChartSolidSwatch
                 key={role}
                 color={color}
                 onChange={(nextColor) => onGridColorChange(role, nextColor)}
@@ -695,32 +748,35 @@ export function AppearanceLayoutSettingsContent({
             ))}
           </XStack>
         ) : null}
-      </OkxChartSettingRow>
-      <OkxChartSettingRow>
-        <OkxChartCheckboxWithLabel
+      </TradingViewChartSettingRow>
+      <TradingViewChartSettingRow>
+        <TradingViewChartCheckboxWithLabel
           checked={optionState.crossLine}
           onChange={(checked) => onOptionChange('crossLine', checked)}
         >
           十字线
-        </OkxChartCheckboxWithLabel>
+        </TradingViewChartCheckboxWithLabel>
         <Stack ml={52}>
-          <OkxChartSolidSwatch
+          <TradingViewChartSolidSwatch
             color={crossLine.color}
             onChange={onCrossLineColorChange}
           />
         </Stack>
         <Stack ml={8}>
-          <OkxChartSelectMock
-            value={getOkxChartLineStyleLabel(crossLine.style)}
+          <TradingViewChartSelectMock
+            value={getTradingViewChartLineStyleLabel(crossLine.style)}
             width={97}
-            options={OKX_LINE_STYLE_OPTIONS}
+            options={TRADING_VIEW_LINE_STYLE_OPTIONS}
             showLinePreview
+            getLinePreviewVariant={getTradingViewChartLineStyleFromLabel}
             onChange={(label) =>
-              onCrossLineStyleChange(getOkxChartLineStyleFromLabel(label))
+              onCrossLineStyleChange(
+                getTradingViewChartLineStyleFromLabel(label),
+              )
             }
           />
         </Stack>
-      </OkxChartSettingRow>
+      </TradingViewChartSettingRow>
     </YStack>
   );
 }

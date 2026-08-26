@@ -131,8 +131,8 @@ function EnablePushNotificationsTutorial() {
     return (
       <SharedWrapper bg="$bgSubdued" outlineColor="$neutral3">
         <XStack alignItems="center" p="$2" gap="$3">
-          <NotificationsHelpCenterInstruction />
-          <NotificationsTestButton size="small" />
+          <NotificationsHelpCenterInstruction showDescription />
+          <NotificationsTestButton size="small" flexShrink={0} />
         </XStack>
       </SharedWrapper>
     );

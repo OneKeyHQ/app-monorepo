@@ -11,6 +11,7 @@ import {
 import type {
   ITradingViewChartControlsProps,
   ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -30,7 +31,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
-  maxNativeSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -40,6 +41,10 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorChange: (
     indicator: ITradingViewNativeAnyIndicator,
     desiredActive: boolean,
+  ) => void;
+  onIndicatorSettingsPress: () => void;
+  onIndicatorSelectionConfirm: (
+    selection: ITradingViewNativeIndicatorSelection,
   ) => void;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
@@ -52,7 +57,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     calendarAvailableTimeRange,
     enableNativeChartSettings = false,
     intervalConfig,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
     isFullscreen = false,
     fullscreenHeader,
@@ -60,6 +65,8 @@ export const TradingViewNativeChartControlsContainer = memo(
     onChartSwitch,
     onIntervalChange,
     onIndicatorChange,
+    onIndicatorSettingsPress,
+    onIndicatorSelectionConfirm,
     onCalendarPanelOpen,
     onCalendarPanelSubmit,
     onFullscreenChange,
@@ -128,6 +135,11 @@ export const TradingViewNativeChartControlsContainer = memo(
       [onIndicatorChange],
     );
     const showIndicatorsDialog = useCallback(() => {
+      if (layoutMode === 'desktop') {
+        onIndicatorSettingsPress();
+        return;
+      }
+
       Dialog.show({
         title: indicatorsTitle,
         showFooter: false,
@@ -135,8 +147,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         renderContent: (
           <IndicatorListDialogContent
             indicators={indicators}
-            maxSubIndicatorCount={maxNativeSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onSelect={handleIndicatorSelect}
+            onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
           />
         ),
@@ -145,7 +158,10 @@ export const TradingViewNativeChartControlsContainer = memo(
       handleIndicatorSelect,
       indicators,
       indicatorsTitle,
-      maxNativeSubIndicatorCount,
+      layoutMode,
+      maxSelectableSubIndicatorCount,
+      onIndicatorSettingsPress,
+      onIndicatorSelectionConfirm,
     ]);
 
     return (
@@ -166,13 +182,13 @@ export const TradingViewNativeChartControlsContainer = memo(
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
-        maxSubIndicatorCount={maxNativeSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
         showChartTypeSelect={false}
         showChartTypeToggle={false}
-        showIndicatorPopover={layoutMode === 'desktop'}
+        showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}

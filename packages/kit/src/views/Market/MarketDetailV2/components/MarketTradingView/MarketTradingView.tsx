@@ -106,7 +106,7 @@ export interface IMarketTradingViewProps {
     count: number | null,
     options?: { layoutRestored?: boolean },
   ) => void;
-  maxNativeSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onChartError?: () => void;
   onChartReady?: () => void;
   onVisualReady?: () => void;
@@ -135,7 +135,7 @@ export const MarketTradingView = memo(
     onIndicatorsDialogOpenChange,
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     onChartError,
     onChartReady,
     onVisualReady,
@@ -189,7 +189,7 @@ export const MarketTradingView = memo(
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
-        maxNativeSubIndicatorCount={maxNativeSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
         onChartError={onChartError}
         onChartReady={onChartReady}

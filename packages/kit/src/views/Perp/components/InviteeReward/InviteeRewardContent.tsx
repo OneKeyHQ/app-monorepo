@@ -14,11 +14,14 @@ import { RewardSummaryCard } from './components/RewardSummaryCard';
 interface IInviteeRewardContentProps {
   walletAddress: string;
   isMobile?: boolean;
+  // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
+  onBeforeNavigate?: () => void | Promise<void>;
 }
 
 export function InviteeRewardContent({
   walletAddress,
   isMobile,
+  onBeforeNavigate,
 }: IInviteeRewardContentProps) {
   const { result: data, isLoading } = usePromiseResult(
     async () => {
@@ -35,7 +38,12 @@ export function InviteeRewardContent({
   );
 
   if (!walletAddress) {
-    return <InviteeRewardNoWallet testID="perp-to-on-boarding-page-btn" />;
+    return (
+      <InviteeRewardNoWallet
+        testID="perp-to-on-boarding-page-btn"
+        onBeforeNavigate={onBeforeNavigate}
+      />
+    );
   }
 
   const content = (
@@ -77,7 +85,12 @@ export async function showInviteeRewardDialog(
     },
     renderContent: (
       <PerpsProviderMirror>
-        <InviteeRewardContent walletAddress={walletAddress} />
+        <InviteeRewardContent
+          walletAddress={walletAddress}
+          onBeforeNavigate={async () => {
+            await dialogInTabRef.close();
+          }}
+        />
       </PerpsProviderMirror>
     ),
     showFooter: false,

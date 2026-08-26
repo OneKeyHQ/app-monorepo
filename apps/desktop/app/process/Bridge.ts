@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import logger from 'electron-log/main';
-import fetch from 'node-fetch';
 
 import BaseProcess from './BaseProcess';
 
@@ -27,7 +26,7 @@ class BridgeProcess extends BaseProcess {
       });
       logger.debug(`Checking status (${resp.status})`);
       if (resp.status === 200) {
-        const data = await resp.json();
+        const data = (await resp.json()) as { version?: unknown };
         if (data?.version) {
           return {
             service: true,
@@ -52,17 +51,18 @@ async function fetchWithTimeout(
   url: string,
   options: RequestInit & { timeout: number },
 ) {
-  const { timeout = 3000 } = options;
+  const { timeout = 3000, ...requestOptions } = options;
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
-  // @ts-expect-error
-  const response = await fetch(url, {
-    ...options,
-    signal: controller.signal as any,
-  });
-  clearTimeout(id);
-  return response;
+  try {
+    return await fetch(url, {
+      ...requestOptions,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 export const BridgeHeart = {

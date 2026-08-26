@@ -2,9 +2,14 @@ import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecor
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
+import {
+  passwordAtom,
+  passwordPersistAtom,
+} from '../states/jotai/atoms/password';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -24,6 +29,18 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      void import('./ServiceFirmwareUpdate/FirmwareUpdateRuntime')
+        .then(({ firmwareArtifactAdapter }) =>
+          firmwareArtifactAdapter.sweepOrphans(),
+        )
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareArtifactOrphanSweep (FAILED)',
+            0,
+          );
+        });
+    }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
         void this.initDeferred();
@@ -52,6 +69,23 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+    if (platformEnv.isExtension || platformEnv.isDesktop) {
+      try {
+        const { restored, unlocked } =
+          await localDb.restoreHyperLiquidAgentSecretSession();
+        const { appLockDuration } = await passwordPersistAtom.get();
+        if (unlocked && isNeverLockDuration(appLockDuration)) {
+          await passwordAtom.set((value) => ({ ...value, unLock: true }));
+        } else if (restored) {
+          await localDb.clearHyperLiquidAgentSecretSession();
+        }
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'hyperLiquidAgentSessionRestore (FAILED)',
+          0,
+        );
+      }
+    }
     try {
       await this.timed('identityLifecycle.recoverInterruptedOperations', () =>
         recoverInterruptedIdentityLifecycleOperations(this.backgroundApi),
@@ -61,6 +95,18 @@ class ServiceBootstrap extends ServiceBase {
       markIdentityRecoveryFailed();
       defaultLogger.app.bootstrap.initCriticalStep(
         'identityRecovery (FAILED)',
+        0,
+      );
+    }
+    try {
+      await this.timed(
+        'serviceHardware.migrateExistingDeviceConnectProtocols',
+        () =>
+          this.backgroundApi.serviceHardware.migrateExistingDeviceConnectProtocols(),
+      );
+    } catch (_error) {
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'hardwareConnectProtocolMigration (FAILED)',
         0,
       );
     }
@@ -133,6 +179,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
         ),
+        timedDeferred('serviceSetting.fetchInscriptionProtectionControl', () =>
+          this.backgroundApi.serviceSetting.fetchInscriptionProtectionControl(),
+        ),
         timedDeferred(
           'servicePassword.addExtIntervalCheckLockStatusListener',
           () =>
@@ -143,6 +192,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
+        ),
+        timedDeferred('serviceHardwarePortfolioSync.init', async () =>
+          this.backgroundApi.serviceHardwarePortfolioSync.init(),
         ),
       ]);
     } catch (_error) {

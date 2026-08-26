@@ -10,8 +10,6 @@ import {
 import { migrateLegacyTradingViewStorage } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
-import { preloadTasksOnIdle } from './preloadComponents';
-
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 
 async function runImmediatePreload(
@@ -31,8 +29,6 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
   const { baseUrl, finalUrl } = useTradingViewUrl();
 
   useEffect(() => {
-    let cancelled = false;
-    let cleanupIdlePreload: (() => void) | undefined;
     let isLocalRuntime = false;
     try {
       isLocalRuntime = LOCAL_HOSTNAMES.has(new URL(baseUrl).hostname);
@@ -42,6 +38,9 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
       );
     }
     const immediatePreloads = [
+      runImmediatePreload('LegacyTradingViewStorageMigration', () =>
+        migrateLegacyTradingViewStorage(finalUrl),
+      ),
       runImmediatePreload('TradingViewEmbedModule', () =>
         loadTradingViewEmbedModule(finalUrl),
       ),
@@ -55,31 +54,7 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
         : []),
     ];
 
-    void Promise.all(immediatePreloads)
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        cleanupIdlePreload = preloadTasksOnIdle(
-          [
-            {
-              name: 'LegacyTradingViewStorageMigration',
-              preload: () => migrateLegacyTradingViewStorage(finalUrl),
-            },
-          ],
-          'TradingViewEmbedPreload',
-        );
-      })
-      .catch((error: unknown) => {
-        defaultLogger.app.error.log(
-          `[TradingViewEmbedPreload] Startup preload failed: ${String(error)}`,
-        );
-      });
-
-    return () => {
-      cancelled = true;
-      cleanupIdlePreload?.();
-    };
+    void Promise.all(immediatePreloads);
   }, [baseUrl, finalUrl]);
 
   return null;

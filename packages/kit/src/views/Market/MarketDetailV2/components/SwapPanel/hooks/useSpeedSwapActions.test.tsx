@@ -229,6 +229,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     SwapSpeedApprovingReset: 'SwapSpeedApprovingReset',
     SwapSpeedBalanceUpdate: 'SwapSpeedBalanceUpdate',
     SwapSpeedBuildTxSuccess: 'SwapSpeedBuildTxSuccess',
+    SwapQuoteEvent: 'SwapQuoteEvent',
   },
   appEventBus: {
     on: jest.fn(),
@@ -620,7 +621,47 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
-  it('opens signed quote review without building before the signature', async () => {
+  it('pauses Market quotes while review is open and resumes after close', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { rerender } = renderSwapHook(
+      ({ isReviewDialogOpen }: { isReviewDialogOpen: boolean }) =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          isReviewDialogOpen,
+        }),
+      {
+        initialProps: {
+          isReviewDialogOpen: false,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const initialQuoteRequestId = mockSwapStore.get(
+      swapQuoteActionLockAtom(),
+    ).quoteRequestId;
+
+    rerender({ isReviewDialogOpen: true });
+
+    await waitFor(() => {
+      expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
+        initialQuoteRequestId,
+      );
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+
+    rerender({ isReviewDialogOpen: false });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('defers signed quote building but still rebuilds an invalidated review', async () => {
     mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
       Promise.resolve(
         accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
@@ -686,6 +727,29 @@ describe('useSpeedSwapActions', () => {
     expect(reviewState?.steps.map((step) => step.type)).toEqual([
       ESwapStepType.SIGN_MESSAGE,
     ]);
+
+    mockFetchBuildTx.mockResolvedValue({
+      result: {
+        ...signedQuote,
+        slippage: 1,
+      },
+    });
+
+    await act(async () => {
+      reviewState = await result.current.rebuildMarketSwapReview({
+        slippagePercentage: 1,
+        isCurrent: () => true,
+        onPhaseChange: jest.fn(),
+        onExecutionReady: jest.fn(),
+      });
+    });
+
+    expect(mockFetchBuildTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slippagePercentage: 1,
+      }),
+    );
+    expect(reviewState?.preSwapData.slippage).toBe(1);
   });
 
   it('clears a previous token balance while the next balance is loading', async () => {

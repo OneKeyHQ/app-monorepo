@@ -11,7 +11,11 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent, View } from 'react-native';
+import {
+  type GestureResponderEvent,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
@@ -31,6 +35,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
+import { getTradingViewNativeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -158,7 +163,7 @@ const LazyStockTokenOverview = LazyLoad<Record<string, never>>(
 );
 
 const MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT = 1;
-const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
+const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
 const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
 const MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS = 500;
@@ -193,6 +198,7 @@ function MobileMarketTradingView({
   tokenAddress,
   networkId,
   tokenSymbol,
+  decimal,
   dataSource,
   storageNamespace,
   pageWidth,
@@ -205,6 +211,7 @@ function MobileMarketTradingView({
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
+  decimal: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
@@ -231,6 +238,7 @@ function MobileMarketTradingView({
       tokenAddress={tokenAddress}
       networkId={networkId}
       tokenSymbol={tokenSymbol}
+      decimal={decimal}
       dataSource={dataSource}
       storageNamespace={storageNamespace}
       pageWidth={pageWidth}
@@ -238,8 +246,8 @@ function MobileMarketTradingView({
       onChartSwitch={onChartSwitch}
       onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
-      maxNativeSubIndicatorCount={
-        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT
+      maxSelectableSubIndicatorCount={
+        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
       }
       onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
       onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
@@ -249,7 +257,9 @@ function MobileMarketTradingView({
 
 export interface IMobileLayoutProps {
   disableTrade?: boolean;
+  isChartFullscreen: boolean;
   isTradingViewNative: boolean;
+  onChartFullscreenChange: (isFullscreen: boolean) => void;
   onChartSwitch: () => void;
   isNative?: boolean;
   networkId?: string;
@@ -258,7 +268,9 @@ export interface IMobileLayoutProps {
 
 export function MobileLayout({
   disableTrade,
+  isChartFullscreen,
   isTradingViewNative,
+  onChartFullscreenChange,
   onChartSwitch,
   isNative: routeIsNative = false,
   networkId: routeNetworkId = '',
@@ -268,6 +280,7 @@ export function MobileLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
@@ -284,6 +297,7 @@ export function MobileLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -385,7 +399,35 @@ export function MobileLayout({
   );
   const dialogRef = useRef<IDialogInstance>(null);
 
-  const { top, bottom } = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const { top, right, bottom, left } = useSafeAreaInsets();
+  const fullscreenLayout = useMemo(
+    () =>
+      getTradingViewNativeFullscreenLayout({
+        height:
+          isChartFullscreen && containerHeight > 0
+            ? containerHeight
+            : windowHeight,
+        insets: { top, right, bottom, left },
+        width:
+          isChartFullscreen && containerWidth > 0
+            ? containerWidth
+            : windowWidth,
+      }),
+    [
+      bottom,
+      containerHeight,
+      containerWidth,
+      isChartFullscreen,
+      left,
+      right,
+      top,
+      windowHeight,
+      windowWidth,
+    ],
+  );
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
   const isIOSModalPage = platformEnv.isNativeIOS && isModalPage;
@@ -393,13 +435,12 @@ export function MobileLayout({
   const height = useMemo(() => {
     if (platformEnv.isNative) {
       const topInset = isIOSModalPage ? 0 : top;
-      return Dimensions.get('window').height - topInset - bottom - 158;
+      return windowHeight - topInset - bottom - 158;
     }
     return 'calc(100vh - 96px - 74px)';
-  }, [bottom, top, isIOSModalPage]);
+  }, [bottom, top, isIOSModalPage, windowHeight]);
 
   const width = usePageWidth();
-  const [containerWidth, setContainerWidth] = useState<number>(0);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -407,8 +448,14 @@ export function MobileLayout({
     if (typeof width === 'number' && width > 0) {
       return width;
     }
-    return Dimensions.get('window').width;
-  }, [containerWidth, width]);
+    return windowWidth;
+  }, [containerWidth, width, windowWidth]);
+  const layoutHeight = isChartFullscreen
+    ? fullscreenLayout.contentHeight
+    : height;
+  const layoutPageWidth = isChartFullscreen
+    ? fullscreenLayout.contentWidth
+    : effectivePageWidth;
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
@@ -467,16 +514,24 @@ export function MobileLayout({
     (tabName: string) => {
       focusedTab.value = tabName;
       scrollViewRef.current?.scrollTo({
-        x: effectivePageWidth * tabNames.indexOf(tabName),
+        x: layoutPageWidth * tabNames.indexOf(tabName),
         animated: true,
       });
     },
-    [focusedTab, tabNames, effectivePageWidth],
+    [focusedTab, layoutPageWidth, tabNames],
   );
 
   const handleContainerLayout = useCallback(
-    (event: { nativeEvent: { layout: { width: number } } }) => {
-      const nextWidth = Math.round(event.nativeEvent.layout.width);
+    (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
+      const { height: nextLayoutHeight, width: nextLayoutWidth } =
+        event.nativeEvent.layout;
+      const nextHeight = Math.round(nextLayoutHeight);
+      const nextWidth = Math.round(nextLayoutWidth);
+      if (nextHeight > 0) {
+        setContainerHeight((prevHeight) =>
+          prevHeight === nextHeight ? prevHeight : nextHeight,
+        );
+      }
       if (nextWidth > 0) {
         setContainerWidth((prevWidth) =>
           prevWidth === nextWidth ? prevWidth : nextWidth,
@@ -488,20 +543,24 @@ export function MobileLayout({
 
   useEffect(() => {
     const activeTabIndex = tabNames.indexOf(focusedTab.value);
-    if (activeTabIndex < 0 || effectivePageWidth <= 0) {
+    if (
+      activeTabIndex < 0 ||
+      typeof layoutPageWidth !== 'number' ||
+      layoutPageWidth <= 0
+    ) {
       return;
     }
 
     // Keep horizontal pages aligned after fold/unfold or split-width changes.
     const alignTimer = setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        x: effectivePageWidth * activeTabIndex,
+        x: layoutPageWidth * activeTabIndex,
         animated: false,
       });
     }, 0);
 
     return () => clearTimeout(alignTimer);
-  }, [effectivePageWidth, focusedTab, tabNames]);
+  }, [focusedTab, layoutPageWidth, tabNames]);
 
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
@@ -572,6 +631,15 @@ export function MobileLayout({
     );
 
   const tradingViewChartHeight = useMemo(() => {
+    if (isChartFullscreen) {
+      return Math.max(
+        fullscreenLayout.contentHeight -
+          (shouldReserveNativeIndicatorQuickBar
+            ? TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
+            : 0),
+        0,
+      );
+    }
     if (
       typeof tradingViewHeight === 'number' &&
       shouldReserveNativeIndicatorQuickBar
@@ -583,7 +651,12 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [shouldReserveNativeIndicatorQuickBar, tradingViewHeight]);
+  }, [
+    fullscreenLayout.contentHeight,
+    isChartFullscreen,
+    shouldReserveNativeIndicatorQuickBar,
+    tradingViewHeight,
+  ]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -614,6 +687,30 @@ export function MobileLayout({
     [handleHeaderHorizontalSwipe],
   );
 
+  const nativeIndicatorQuickBarContent = useMemo(() => {
+    if (!shouldReserveNativeIndicatorQuickBar) {
+      return nativeIndicatorQuickBar;
+    }
+
+    return (
+      <Stack
+        h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+        bg="$bgApp"
+        overflow="hidden"
+      >
+        {nativeIndicatorQuickBar ? (
+          <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
+            {nativeIndicatorQuickBar}
+          </MobileIndicatorQuickBar>
+        ) : null}
+      </Stack>
+    );
+  }, [
+    isTradingViewScrollLocked,
+    nativeIndicatorQuickBar,
+    shouldReserveNativeIndicatorQuickBar,
+  ]);
+
   const informationHeader = useMemo(() => {
     const chartAreaHorizontalSwipeHandler =
       isTradingViewNative || platformEnv.isNativeAndroid
@@ -630,19 +727,20 @@ export function MobileLayout({
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
         <HeaderScrollGestureWrapper
+          disabled={isChartFullscreen}
           panActiveOffsetY={[-4, 4]}
           scrollScale={1}
           onHorizontalSwipe={handleHeaderHorizontalSwipe}
           horizontalSwipeThreshold={36}
         >
-          <YStack>
+          <YStack display={isChartFullscreen ? 'none' : undefined}>
             <PerpetualTradingBanner px="$5" />
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
           <HeaderScrollGestureWrapper
-            disabled={isTradingViewScrollLocked}
+            disabled={isChartFullscreen || isTradingViewScrollLocked}
             panActiveOffsetY={[-4, 4]}
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
@@ -665,12 +763,14 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
-                      maxNativeSubIndicatorCount={
-                        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT
+                      maxSelectableSubIndicatorCount={
+                        MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }
                       nativeControlsLayoutMode="mobile"
+                      isNativeChartFullscreen={isChartFullscreen}
                       isChartSwitchDisabled={!marketTradingViewParams}
                       onChartSwitch={onChartSwitch}
+                      onNativeChartFullscreenChange={onChartFullscreenChange}
                       onNativeSubIndicatorCountChange={
                         handleNativeSubIndicatorCountChange
                       }
@@ -689,9 +789,10 @@ export function MobileLayout({
                       tokenAddress={marketTradingViewParams.tokenAddress}
                       networkId={marketTradingViewParams.networkId}
                       tokenSymbol={marketTradingViewParams.tokenSymbol}
+                      decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
-                      pageWidth={effectivePageWidth}
+                      pageWidth={layoutPageWidth}
                       onChartSwitch={onChartSwitch}
                       onNativeIndicatorQuickBarChange={
                         handleNativeIndicatorQuickBarChange
@@ -713,8 +814,9 @@ export function MobileLayout({
                     tokenAddress={marketTradingViewParams.tokenAddress}
                     networkId={marketTradingViewParams.networkId}
                     tokenSymbol={marketTradingViewParams.tokenSymbol}
+                    decimal={marketTradingViewParams.decimal}
                     dataSource={marketTradingViewParams.dataSource}
-                    pageWidth={effectivePageWidth}
+                    pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
                   />
                 );
@@ -722,22 +824,8 @@ export function MobileLayout({
             </Stack>
           </HeaderScrollGestureWrapper>
           {/* Reserve the async quick bar until its availability is known. */}
-          {shouldReserveNativeIndicatorQuickBar ? (
-            <Stack
-              h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-              bg="$bgApp"
-              overflow="hidden"
-            >
-              {nativeIndicatorQuickBar ? (
-                <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
-                  {nativeIndicatorQuickBar}
-                </MobileIndicatorQuickBar>
-              ) : null}
-            </Stack>
-          ) : (
-            nativeIndicatorQuickBar
-          )}
-          {platformEnv.isNativeIOS ? (
+          {nativeIndicatorQuickBarContent}
+          {platformEnv.isNativeIOS && !isChartFullscreen ? (
             <View
               style={{
                 position: 'absolute',
@@ -753,21 +841,22 @@ export function MobileLayout({
       </YStack>
     );
   }, [
-    effectivePageWidth,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
+    isChartFullscreen,
     isTradingViewScrollLocked,
     isTradingViewNative,
+    layoutPageWidth,
     marketTradingViewKey,
     marketTradingViewParams,
     marketTradingViewStorageNamespace,
-    nativeIndicatorQuickBar,
+    nativeIndicatorQuickBarContent,
     networkId,
+    onChartFullscreenChange,
     onChartSwitch,
-    shouldReserveNativeIndicatorQuickBar,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);
@@ -781,11 +870,14 @@ export function MobileLayout({
     ({ index }: { index: number }) => {
       if (index === 0) {
         return (
-          <YStack flex={1} height={height}>
+          <YStack flex={1} height={layoutHeight}>
             <MobileInformationTabs
+              containerWidth={
+                isChartFullscreen ? fullscreenLayout.contentWidth : undefined
+              }
               onScrollEnd={noop}
               renderHeader={renderInformationHeader}
-              scrollEnabled={!isTradingViewScrollLocked}
+              scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               tokenLogoUrl={tokenDetail?.logoUrl}
@@ -794,7 +886,7 @@ export function MobileLayout({
         );
       }
       return (
-        <YStack flex={1} height={height}>
+        <YStack flex={1} height={layoutHeight}>
           <ScrollView
             onTouchStart={handleSecondTabTouchStart}
             onTouchEnd={handleSecondTabTouchEnd}
@@ -813,7 +905,9 @@ export function MobileLayout({
       );
     },
     [
-      height,
+      fullscreenLayout.contentWidth,
+      isChartFullscreen,
+      layoutHeight,
       renderInformationHeader,
       isTradingViewScrollLocked,
       portfolioData,
@@ -885,26 +979,43 @@ export function MobileLayout({
   };
 
   return (
-    <YStack flex={1} position="relative" onLayout={handleContainerLayout}>
-      <Tabs.TabBar
-        divider={false}
-        onTabPress={handleTabChange}
-        tabNames={tabNames}
-        focusedTab={focusedTab}
-      />
+    <YStack
+      flex={1}
+      position={isChartFullscreen ? 'absolute' : 'relative'}
+      top={isChartFullscreen ? 0 : undefined}
+      right={isChartFullscreen ? 0 : undefined}
+      bottom={isChartFullscreen ? 0 : undefined}
+      left={isChartFullscreen ? 0 : undefined}
+      pt={isChartFullscreen ? fullscreenLayout.insets.top : undefined}
+      pr={isChartFullscreen ? fullscreenLayout.insets.right : undefined}
+      pb={isChartFullscreen ? fullscreenLayout.insets.bottom : undefined}
+      pl={isChartFullscreen ? fullscreenLayout.insets.left : undefined}
+      overflow="hidden"
+      bg="$bgApp"
+      zIndex={isChartFullscreen ? 10 : undefined}
+      onLayout={handleContainerLayout}
+    >
+      <Stack display={isChartFullscreen ? 'none' : undefined}>
+        <Tabs.TabBar
+          divider={false}
+          onTabPress={handleTabChange}
+          tabNames={tabNames}
+          focusedTab={focusedTab}
+        />
+      </Stack>
       <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
         {tabNames.map((_, index) => (
           <YStack
             key={index}
-            h={height}
+            h={layoutHeight}
             overflow="hidden"
-            w={effectivePageWidth}
+            w={layoutPageWidth}
           >
             {renderItem({ index })}
           </YStack>
         ))}
       </ScrollView>
-      {disableTrade ? null : (
+      {disableTrade || isChartFullscreen ? null : (
         <LazySwapPanel
           swapToken={toSwapPanelToken}
           portfolioData={portfolioData}

@@ -6,11 +6,41 @@ import {
   checkBiometricAuthChanged,
   requestVerificationAsync,
 } from '@onekeyhq/desktop/app/service';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
+
+export type IDesktopHyperLiquidAgentSessionPayload = {
+  ciphertext: string;
+  iv: string;
+  unlocked: boolean;
+  version: 1;
+};
+
+const HYPERLIQUID_AGENT_SESSION_MAX_FIELD_LENGTH = 1024;
+
+function validateHyperLiquidAgentSessionPayload(
+  payload: IDesktopHyperLiquidAgentSessionPayload,
+): void {
+  if (
+    !payload ||
+    payload.version !== 1 ||
+    typeof payload.ciphertext !== 'string' ||
+    payload.ciphertext.length === 0 ||
+    payload.ciphertext.length > HYPERLIQUID_AGENT_SESSION_MAX_FIELD_LENGTH ||
+    typeof payload.iv !== 'string' ||
+    payload.iv.length === 0 ||
+    payload.iv.length > HYPERLIQUID_AGENT_SESSION_MAX_FIELD_LENGTH ||
+    typeof payload.unlocked !== 'boolean'
+  ) {
+    throw new OneKeyLocalError(
+      'Invalid HyperLiquid agent desktop session payload',
+    );
+  }
+}
 
 class DesktopApiSecurity {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -18,6 +48,29 @@ class DesktopApiSecurity {
   }
 
   desktopApi: IDesktopApi;
+
+  private hyperLiquidAgentSession:
+    | IDesktopHyperLiquidAgentSessionPayload
+    | undefined;
+
+  async setHyperLiquidAgentSession(
+    payload: IDesktopHyperLiquidAgentSessionPayload,
+  ): Promise<void> {
+    validateHyperLiquidAgentSessionPayload(payload);
+    this.hyperLiquidAgentSession = { ...payload };
+  }
+
+  async getHyperLiquidAgentSession(): Promise<
+    IDesktopHyperLiquidAgentSessionPayload | undefined
+  > {
+    return this.hyperLiquidAgentSession
+      ? { ...this.hyperLiquidAgentSession }
+      : undefined;
+  }
+
+  async clearHyperLiquidAgentSession(): Promise<void> {
+    this.hyperLiquidAgentSession = undefined;
+  }
 
   async canPromptTouchID(): Promise<boolean> {
     if (isWin) {

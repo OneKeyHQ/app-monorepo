@@ -11,6 +11,7 @@ import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewProps } from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
@@ -19,6 +20,7 @@ import {
   isTradingViewChartReadyPayload,
   isTradingViewVisualReadyPayload,
 } from './tradingViewEmbedReady.web';
+import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
 import type { ITradingViewRuntimeViewProps } from './TradingViewRuntimeView.types';
@@ -27,6 +29,8 @@ import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTyp
 type ILoadedTradingViewEmbed = Awaited<
   ReturnType<typeof loadTradingViewEmbedModule>
 >;
+
+export const TRADING_VIEW_EMBED_STARTUP_TIMEOUT_MS = 10_000;
 
 interface ITradingViewRuntimeRefs {
   customReceiveHandler: {
@@ -53,6 +57,7 @@ interface ITradingViewRuntimeLifecycle {
   cancelled: boolean;
   failed: boolean;
   ready: boolean;
+  startupTimeout: ReturnType<typeof setTimeout> | undefined;
   visualReady: boolean;
   monitor: ReturnType<typeof createTradingViewEmbedReadyMonitor>;
 }
@@ -76,6 +81,15 @@ function clearMountedTradingViewRuntime(refs: ITradingViewRuntimeRefs): void {
   refs.mountingModule.current = null;
 }
 
+function clearTradingViewStartupTimeout(
+  lifecycle: ITradingViewRuntimeLifecycle,
+): void {
+  if (lifecycle.startupTimeout) {
+    clearTimeout(lifecycle.startupTimeout);
+    lifecycle.startupTimeout = undefined;
+  }
+}
+
 function switchToIframeFallback(
   context: ITradingViewRuntimeContext,
   lifecycle: ITradingViewRuntimeLifecycle,
@@ -85,6 +99,7 @@ function switchToIframeFallback(
     return;
   }
   lifecycle.failed = true;
+  clearTradingViewStartupTimeout(lifecycle);
   lifecycle.monitor.cancel();
   if (lifecycle.cancelled) {
     return;
@@ -109,6 +124,7 @@ function forwardTradingViewEmbedMessage(
   }
   if (!lifecycle.visualReady && isTradingViewVisualReadyPayload(payload)) {
     lifecycle.visualReady = true;
+    clearTradingViewStartupTimeout(lifecycle);
     context.setVisualReady(true);
     context.refs.onVisualReady.current?.();
   }
@@ -154,6 +170,7 @@ function stopTradingViewRuntime(
 ): void {
   lifecycle.cancelled = true;
   lifecycle.failed = true;
+  clearTradingViewStartupTimeout(lifecycle);
   lifecycle.monitor.cancel();
   clearMountedTradingViewRuntime(context.refs);
 }
@@ -165,15 +182,30 @@ function startTradingViewRuntime(
     cancelled: false,
     failed: false,
     ready: false,
+    startupTimeout: undefined,
     visualReady: false,
     monitor: createTradingViewEmbedReadyMonitor(),
   };
   const handleFailure = (error: unknown) =>
     switchToIframeFallback(context, lifecycle, error);
+  lifecycle.startupTimeout = setTimeout(() => {
+    handleFailure(
+      new OneKeyLocalError('TradingView embed visual startup timed out'),
+    );
+  }, TRADING_VIEW_EMBED_STARTUP_TIMEOUT_MS);
   context.refs.onLoadStart.current?.(createLoadStartEvent(context.runtimeUrl));
   // Chart readiness includes the first data request, so only explicit chart
   // errors should trigger fallback while the embed module is mounting.
   void lifecycle.monitor.wait().catch(handleFailure);
+  void migrateLegacyTradingViewStorage(context.runtimeUrl).catch(
+    (error: unknown) => {
+      defaultLogger.app.error.log(
+        `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+          error,
+        )}`,
+      );
+    },
+  );
   void loadTradingViewEmbedModule(context.runtimeUrl)
     .then((loaded) => mountLoadedTradingViewEmbed(loaded, context, lifecycle))
     .catch(handleFailure);

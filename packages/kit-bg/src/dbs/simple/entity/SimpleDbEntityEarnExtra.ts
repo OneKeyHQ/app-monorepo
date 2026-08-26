@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -8,6 +9,12 @@ export interface IEarnExtraData {
   // OK-59196: one-time earn risk disclaimer. Device-scoped (same as the perp
   // Hyperliquid terms flag) — once accepted, the dialog never shows again.
   riskDisclaimerAccepted?: boolean;
+  /**
+   * Last banner list the Earn home successfully fetched. Persisted so a cold
+   * start can paint the banner at its real height instead of occupying 0pt and
+   * expanding once the network answers (OK-60299).
+   */
+  pageBannerList?: IEarnPageBannerListItem[];
 }
 
 export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> {
@@ -46,6 +53,20 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
     await this.setRawData((v) => ({
       ...v,
       ethenaKycAddresses: addresses,
+    }));
+  }
+
+  @backgroundMethod()
+  async getPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+    const data = await this.getRawData();
+    return data?.pageBannerList ?? [];
+  }
+
+  @backgroundMethod()
+  async setPageBannerList(pageBannerList: IEarnPageBannerListItem[]) {
+    await this.setRawData((v) => ({
+      ...v,
+      pageBannerList,
     }));
   }
 

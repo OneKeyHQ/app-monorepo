@@ -6,7 +6,11 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
 import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web';
-import { TradingViewRuntimeView } from './TradingViewRuntimeView.web-only';
+import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
+import {
+  TRADING_VIEW_EMBED_STARTUP_TIMEOUT_MS,
+  TradingViewRuntimeView,
+} from './TradingViewRuntimeView.web-only';
 
 const webViewProps = jest.fn();
 const mockFallbackSendMessage = jest.fn();
@@ -47,6 +51,10 @@ jest.mock('./tradingViewEmbedLoader.web', () => ({
   loadTradingViewEmbedModule: jest.fn(),
 }));
 
+jest.mock('./tradingViewLegacyStorageMigration.web', () => ({
+  migrateLegacyTradingViewStorage: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('./tradingViewEmbedReady.web', () => ({
   createTradingViewEmbedReadyMonitor: jest.fn(() => ({
     cancel: jest.fn(),
@@ -77,6 +85,7 @@ describe('TradingViewRuntimeView web fallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     globalThis.sessionStorage.clear();
+    jest.mocked(migrateLegacyTradingViewStorage).mockResolvedValue();
     jest
       .mocked(loadTradingViewEmbedModule)
       .mockRejectedValue(new Error('embed unavailable'));
@@ -142,6 +151,60 @@ describe('TradingViewRuntimeView web fallback', () => {
     });
     await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
     expect(createTradingViewEmbedReadyMonitor).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not wait for legacy storage migration before loading the DOM embed', async () => {
+    let resolveMigration: (() => void) | undefined;
+    const mountTradingView = jest.fn(() =>
+      Promise.resolve({ postMessage: jest.fn(), unmount: jest.fn() }),
+    );
+    jest.mocked(migrateLegacyTradingViewStorage).mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveMigration = resolve;
+      }),
+    );
+    jest.mocked(loadTradingViewEmbedModule).mockResolvedValue({
+      assetBaseUrl: 'https://app-bundle.onekeytest.com/tv/',
+      module: {
+        mountTradingView,
+        postTradingViewMessage: jest.fn(() => true),
+      },
+    });
+
+    render(<TradingViewRuntimeView src="https://tradingview.onekeytest.com" />);
+
+    await waitFor(() => {
+      expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
+        'https://tradingview.onekeytest.com',
+      );
+    });
+    await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      resolveMigration?.();
+      await Promise.resolve();
+    });
+  });
+
+  it('does not fall back when legacy storage migration fails', async () => {
+    const mountTradingView = jest.fn(() =>
+      Promise.resolve({ postMessage: jest.fn(), unmount: jest.fn() }),
+    );
+    jest
+      .mocked(migrateLegacyTradingViewStorage)
+      .mockRejectedValue(new Error('migration unavailable'));
+    jest.mocked(loadTradingViewEmbedModule).mockResolvedValue({
+      assetBaseUrl: 'https://app-bundle.onekeytest.com/tv/',
+      module: {
+        mountTradingView,
+        postTradingViewMessage: jest.fn(() => true),
+      },
+    });
+
+    render(<TradingViewRuntimeView src="https://tradingview.onekeytest.com" />);
+
+    await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('fallback-webview')).toBeNull();
   });
 
   it('reports readiness when the DOM embed chart is actually ready', async () => {
@@ -361,7 +424,7 @@ describe('TradingViewRuntimeView web fallback', () => {
     resolveReady?.();
   });
 
-  it('keeps waiting for the embed module instead of falling back to iframe', async () => {
+  it('falls back when the DOM embed does not become visually ready in time', async () => {
     jest.useFakeTimers();
     const runtimeUrl = 'https://tradingview.onekeytest.com';
     let resolveModule:
@@ -381,12 +444,15 @@ describe('TradingViewRuntimeView web fallback', () => {
 
     const firstView = render(<TradingViewRuntimeView src={runtimeUrl} />);
 
-    expect(loadTradingViewEmbedModule).toHaveBeenCalledTimes(1);
     await act(async () => {
-      jest.advanceTimersByTime(60_000);
       await Promise.resolve();
     });
-    expect(screen.queryByTestId('fallback-webview')).toBeNull();
+    expect(loadTradingViewEmbedModule).toHaveBeenCalledTimes(1);
+    act(() => {
+      jest.advanceTimersByTime(TRADING_VIEW_EMBED_STARTUP_TIMEOUT_MS);
+    });
+    expect(screen.getByTestId('fallback-webview')).toBeTruthy();
+
     await act(async () => {
       resolveModule?.({
         assetBaseUrl: 'https://app-bundle.onekeytest.com/tv/',
@@ -396,12 +462,10 @@ describe('TradingViewRuntimeView web fallback', () => {
         },
       });
       await modulePromise;
-    });
-    await act(async () => {
       await Promise.resolve();
     });
-    expect(mountTradingView).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('fallback-webview')).toBeNull();
+    expect(mountTradingView).not.toHaveBeenCalled();
+    expect(screen.getByTestId('fallback-webview')).toBeTruthy();
     firstView.unmount();
   });
 

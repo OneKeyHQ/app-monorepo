@@ -56,7 +56,7 @@ export default function PickYourDevice() {
     const devices = [
       {
         name: 'OneKey Pro',
-        deviceType: [EDeviceType.Pro],
+        deviceType: [EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {

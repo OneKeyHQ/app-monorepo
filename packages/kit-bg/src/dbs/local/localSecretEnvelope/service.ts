@@ -5,16 +5,22 @@ import {
   buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter,
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
 } from './indexedDbCryptoKeyLayerAdapter';
+import {
+  buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter,
+  isMmkvProfileKeyLocalSecretEnvelopeLayerAvailable,
+} from './mmkvProfileKeyLayerAdapter';
 import { parseLocalSecretEnvelopeV1 } from './parser';
 import {
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
-  isSecureStorageLocalSecretEnvelopeLayerAvailable,
+  getSecureStorageLocalSecretEnvelopeLayerAvailability,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
 } from './secureStorageLayerAdapter';
 
 import type {
   ILocalSecretEnvelopeLayerAdapter,
   ILocalSecretEnvelopeLayerAdapterResolver,
+  ILocalSecretEnvelopeLayerAvailability,
+  ILocalSecretEnvelopeLayerKind,
   ILocalSecretEnvelopeStrength,
 } from './types';
 
@@ -33,13 +39,22 @@ export type ILocalSecretEnvelopeCredentialMigrationConfig = {
 
 type ILocalSecretEnvelopeLayerProvider = {
   buildLayerAdapter: () => ILocalSecretEnvelopeLayerAdapter;
-  isAvailable: () => Promise<boolean>;
+  getAvailability: () => Promise<ILocalSecretEnvelopeLayerAvailability>;
+  kind: ILocalSecretEnvelopeLayerKind;
+};
+
+type ILocalSecretEnvelopeLayerProviderComposition = {
+  base: ILocalSecretEnvelopeLayerProvider;
+  enhancements: ILocalSecretEnvelopeLayerProvider[];
 };
 
 type ILocalSecretEnvelopeServiceParams = {
   buildIndexedDbCryptoKeyLayerAdapter?: () => ILocalSecretEnvelopeLayerAdapter;
+  buildMmkvProfileKeyLayerAdapter?: () => ILocalSecretEnvelopeLayerAdapter;
   buildSecureStorageLayerAdapter?: () => ILocalSecretEnvelopeLayerAdapter;
+  getSecureStorageLayerAvailability?: () => Promise<ILocalSecretEnvelopeLayerAvailability>;
   isIndexedDbCryptoKeyLayerAvailable?: () => Promise<boolean>;
+  isMmkvProfileKeyLayerAvailable?: () => Promise<boolean>;
   isSecureStorageLayerAvailable?: () => Promise<boolean>;
   platform?: ILocalSecretEnvelopeRuntimePlatform;
   platformEnv?: Pick<
@@ -51,6 +66,31 @@ type ILocalSecretEnvelopeServiceParams = {
 type ILocalSecretEnvelopeCredentialMigrationConfigCache = {
   value: ILocalSecretEnvelopeCredentialMigrationConfig | undefined;
 };
+
+type ILocalSecretEnvelopeCredentialMigrationConfigBuildResult = {
+  cacheable: boolean;
+  value: ILocalSecretEnvelopeCredentialMigrationConfig | undefined;
+};
+
+async function getBaseLayerAvailability(
+  isAvailable: () => Promise<boolean>,
+): Promise<ILocalSecretEnvelopeLayerAvailability> {
+  try {
+    return (await isAvailable()) ? 'available' : 'temporarily-unavailable';
+  } catch {
+    return 'temporarily-unavailable';
+  }
+}
+
+async function getOptionalLayerAvailability(
+  isAvailable: () => Promise<boolean>,
+): Promise<ILocalSecretEnvelopeLayerAvailability> {
+  try {
+    return (await isAvailable()) ? 'available' : 'unsupported';
+  } catch {
+    return 'temporarily-unavailable';
+  }
+}
 
 export function detectLocalSecretEnvelopeRuntimePlatform(
   env: Pick<
@@ -130,7 +170,7 @@ export class LocalSecretEnvelopeService {
   private credentialMigrationConfigCacheGeneration = 0;
 
   private credentialMigrationConfigPromise:
-    | Promise<ILocalSecretEnvelopeCredentialMigrationConfig | undefined>
+    | Promise<ILocalSecretEnvelopeCredentialMigrationConfigBuildResult>
     | undefined;
 
   constructor(
@@ -144,35 +184,67 @@ export class LocalSecretEnvelopeService {
     );
   }
 
-  buildLayerProviders(): ILocalSecretEnvelopeLayerProvider[] {
+  buildLayerProviders(): ILocalSecretEnvelopeLayerProviderComposition {
     const indexedDbCryptoKeyProvider = {
       buildLayerAdapter:
         this.params.buildIndexedDbCryptoKeyLayerAdapter ??
         buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter,
-      isAvailable:
-        this.params.isIndexedDbCryptoKeyLayerAvailable ??
-        isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
+      getAvailability: () =>
+        getBaseLayerAvailability(
+          this.params.isIndexedDbCryptoKeyLayerAvailable ??
+            isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
+        ),
+      kind: 'indexeddb-cryptokey' as const,
+    };
+    const mmkvProfileKeyProvider = {
+      buildLayerAdapter:
+        this.params.buildMmkvProfileKeyLayerAdapter ??
+        buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter,
+      getAvailability: () =>
+        getBaseLayerAvailability(
+          this.params.isMmkvProfileKeyLayerAvailable ??
+            isMmkvProfileKeyLocalSecretEnvelopeLayerAvailable,
+        ),
+      kind: 'mmkv-profile-key' as const,
     };
     const secureStorageProvider = {
       buildLayerAdapter:
         this.params.buildSecureStorageLayerAdapter ??
         buildSecureStorageLocalSecretEnvelopeLayerAdapter,
-      isAvailable:
-        this.params.isSecureStorageLayerAvailable ??
-        isSecureStorageLocalSecretEnvelopeLayerAvailable,
+      getAvailability: this.params.getSecureStorageLayerAvailability
+        ? this.params.getSecureStorageLayerAvailability
+        : () =>
+            this.params.isSecureStorageLayerAvailable
+              ? getOptionalLayerAvailability(
+                  this.params.isSecureStorageLayerAvailable,
+                )
+              : getSecureStorageLocalSecretEnvelopeLayerAvailability(),
+      kind: 'secure-storage' as const,
     };
 
     switch (this.getRuntimePlatform()) {
       case 'desktop':
-        return [indexedDbCryptoKeyProvider, secureStorageProvider];
+        return {
+          base: indexedDbCryptoKeyProvider,
+          enhancements: [secureStorageProvider],
+        };
       case 'native':
-        return [secureStorageProvider];
+        return {
+          base: mmkvProfileKeyProvider,
+          enhancements: [secureStorageProvider],
+        };
       case 'extension':
       case 'web':
-        return [indexedDbCryptoKeyProvider];
+        return {
+          base: indexedDbCryptoKeyProvider,
+          enhancements: [secureStorageProvider],
+        };
       case 'unknown':
       default:
-        return [indexedDbCryptoKeyProvider, secureStorageProvider];
+        return {
+          base: indexedDbCryptoKeyProvider,
+          enhancements: [secureStorageProvider],
+        };
     }
   }
 
@@ -193,18 +265,29 @@ export class LocalSecretEnvelopeService {
     resetSecureStorageLocalSecretEnvelopeProbeCache();
   }
 
-  private async buildCredentialMigrationConfigUncached(): Promise<
-    ILocalSecretEnvelopeCredentialMigrationConfig | undefined
-  > {
-    const layerAdapters: ILocalSecretEnvelopeLayerAdapter[] = [];
-    for (const provider of this.buildLayerProviders()) {
-      if (await provider.isAvailable()) {
-        layerAdapters.push(provider.buildLayerAdapter());
-      }
+  private async buildCredentialMigrationConfigUncached(): Promise<ILocalSecretEnvelopeCredentialMigrationConfigBuildResult> {
+    const providers = this.buildLayerProviders();
+    const baseAvailability = await providers.base.getAvailability();
+    if (baseAvailability !== 'available') {
+      return { cacheable: false, value: undefined };
     }
 
-    if (!layerAdapters.length) {
-      return undefined;
+    const layerAdapters: ILocalSecretEnvelopeLayerAdapter[] = [
+      providers.base.buildLayerAdapter(),
+    ];
+    let cacheable = true;
+    for (const provider of providers.enhancements) {
+      let availability: ILocalSecretEnvelopeLayerAvailability;
+      try {
+        availability = await provider.getAvailability();
+      } catch {
+        availability = 'temporarily-unavailable';
+      }
+      if (availability === 'available') {
+        layerAdapters.push(provider.buildLayerAdapter());
+      } else if (availability === 'temporarily-unavailable') {
+        cacheable = false;
+      }
     }
 
     const strength: ILocalSecretEnvelopeStrength = layerAdapters.some(
@@ -214,9 +297,12 @@ export class LocalSecretEnvelopeService {
       : 'profile-bound';
 
     return {
-      layerAdapters,
-      runtimePlatform: this.getRuntimePlatform(),
-      strength,
+      cacheable,
+      value: {
+        layerAdapters,
+        runtimePlatform: this.getRuntimePlatform(),
+        strength,
+      },
     };
   }
 
@@ -227,25 +313,24 @@ export class LocalSecretEnvelopeService {
       return this.credentialMigrationConfigCache.value;
     }
     if (this.credentialMigrationConfigPromise) {
-      return this.credentialMigrationConfigPromise;
+      return (await this.credentialMigrationConfigPromise).value;
     }
 
     const cacheGeneration = this.credentialMigrationConfigCacheGeneration;
     const promise = this.buildCredentialMigrationConfigUncached()
-      .then((config) => {
-        // Only cache a successfully-resolved config. A `undefined` result means
-        // no layer was available right now (e.g. keychain busy / not yet first
-        // unlocked at cold start). Permanently caching that would freeze a
-        // transient capability-probe failure for the whole session and block
-        // unwrapping every LSE-wrapped credential/verifyString until restart.
-        // Leaving it uncached lets the next read re-probe.
+      .then((result) => {
+        // A base-layer outage, or a temporarily unavailable enhancement, must
+        // not freeze a degraded topology for the whole session. The provider's
+        // short failure TTL prevents probe storms while a later write can still
+        // upgrade back to the full layer set after recovery.
         if (
-          config &&
+          result.value &&
+          result.cacheable &&
           this.credentialMigrationConfigCacheGeneration === cacheGeneration
         ) {
-          this.credentialMigrationConfigCache = { value: config };
+          this.credentialMigrationConfigCache = { value: result.value };
         }
-        return config;
+        return result;
       })
       .finally(() => {
         if (this.credentialMigrationConfigPromise === promise) {
@@ -253,7 +338,7 @@ export class LocalSecretEnvelopeService {
         }
       });
     this.credentialMigrationConfigPromise = promise;
-    return promise;
+    return (await promise).value;
   }
 
   async buildLayerAdapterResolver(): Promise<
@@ -263,6 +348,40 @@ export class LocalSecretEnvelopeService {
     return buildLocalSecretEnvelopeLayerAdapterResolver(
       config?.layerAdapters ?? [],
     );
+  }
+
+  async buildRequiredLayerAdapterResolver({
+    requiredLayerKinds,
+  }: {
+    requiredLayerKinds: ILocalSecretEnvelopeLayerKind[];
+  }): Promise<ILocalSecretEnvelopeLayerAdapterResolver | undefined> {
+    const providers = this.buildLayerProviders();
+    const providersByKind = new Map(
+      [providers.base, ...providers.enhancements].map((provider) => [
+        provider.kind,
+        provider,
+      ]),
+    );
+    const layerAdapters: ILocalSecretEnvelopeLayerAdapter[] = [];
+
+    for (const kind of new Set(requiredLayerKinds)) {
+      const provider = providersByKind.get(kind);
+      if (!provider) {
+        return undefined;
+      }
+      let availability: ILocalSecretEnvelopeLayerAvailability;
+      try {
+        availability = await provider.getAvailability();
+      } catch {
+        availability = 'temporarily-unavailable';
+      }
+      if (availability !== 'available') {
+        return undefined;
+      }
+      layerAdapters.push(provider.buildLayerAdapter());
+    }
+
+    return buildLocalSecretEnvelopeLayerAdapterResolver(layerAdapters);
   }
 }
 

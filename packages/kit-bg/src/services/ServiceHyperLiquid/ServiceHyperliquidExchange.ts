@@ -109,6 +109,11 @@ import type {
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
+type IHyperLiquidAgentCredentialInfo = Omit<
+  ICoreHyperLiquidAgentCredential,
+  'privateKey'
+>;
+
 interface IOrderLogOptions {
   action?: IHyperLiquidOrderAction;
   originalParams?: unknown;
@@ -356,7 +361,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setup(params: {
     userAddress: IHex | undefined;
     userAccountId?: string;
-    agentCredential?: ICoreHyperLiquidAgentCredential;
+    agentCredential?: IHyperLiquidAgentCredentialInfo;
   }): Promise<void> {
     try {
       const { hyperliquidBuilderAddress, hyperliquidMaxBuilderFee } =
