@@ -25,24 +25,20 @@ import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  DeviceNotFoundDialogContent,
-  TrezorDeviceNotFoundDialogContent,
-} from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
-import {
   usePromptWebDeviceAccess,
   useToPromptWebDeviceAccessPage,
 } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
-  useDeviceStageEnabledAtom,
+  useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -77,7 +73,6 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
@@ -471,13 +466,17 @@ function HardwareUiStateContainerCmpControlled() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // OK-59934: while the DeviceStage driver is on, this container's
-  // dialog/toast surfaces are muted (the stage replaces them). The
-  // permission-dialog event listeners below stay live — permission popups
-  // are explicitly outside the stage's scope.
-  const [deviceStageEnabled] = useDeviceStageEnabledAtom();
-  const deviceStageEnabledRef = useRef(deviceStageEnabled);
-  deviceStageEnabledRef.current = deviceStageEnabled;
+  // OK-59934: the DeviceStage plays the interactions it owns, so this
+  // container renders only what is left to it — bluetooth pairing, the
+  // firmware-update surfaces, and the permission popups below (whose
+  // listeners always stay live). One shared table decides, so an action
+  // is never shown twice or by nobody.
+  const [firmwareUpdateRunning] = useFirmwareUpdateWorkflowRunningAtom();
+  const stageOwnsAction = isDeviceStageOwnedHardwareUiAction({
+    action: state?.action,
+    eventType: state?.payload?.eventType,
+    firmwareUpdateRunning,
+  });
 
   const { serviceHardwareUI } = backgroundApiProxy;
 
@@ -667,8 +666,9 @@ function HardwareUiStateContainerCmpControlled() {
   shouldSkipCancelRef.current = shouldSkipCancel;
 
   const actionStatus = useMemo(() => {
-    const isToastAction = hasToastAction(state);
-    const isDialogAction = hasDialogAction(state);
+    // Stage-owned actions render on the stage, not here.
+    const isToastAction = !stageOwnsAction && hasToastAction(state);
+    const isDialogAction = !stageOwnsAction && hasDialogAction(state);
     const isToastCloseAction = hasToastCloseAction(state);
     const isOperationAction = hasOperationAction(state);
     const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
@@ -688,6 +688,7 @@ function HardwareUiStateContainerCmpControlled() {
     hasOperationAction,
     hasToastAction,
     hasToastCloseAction,
+    stageOwnsAction,
     state,
   ]);
 
@@ -794,57 +795,9 @@ function HardwareUiStateContainerCmpControlled() {
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
   const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
 
-  // Handle hardware error dialog
-  useEffect(() => {
-    const callback = throttle(
-      (errorDialogPayload: IHardwareErrorDialogPayload) => {
-        const { errorType } = errorDialogPayload;
-        // Only handle DeviceNotFound errors for now, can be extended for other error types
-        if (errorType !== 'DeviceNotFound') {
-          return;
-        }
-        // OK-59934: the DeviceStage error outcome replaces this dialog.
-        if (deviceStageEnabledRef.current) {
-          return;
-        }
-        // Prevent duplicate dialog instances
-        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
-          return;
-        }
-
-        void serviceHardwareUI.cleanHardwareUiState();
-
-        const isTrezorError =
-          isTrezorHardwareErrorDialogPayload(errorDialogPayload);
-
-        hardwareErrorDialogInstanceRef.current = Dialog.show({
-          title: intl.formatMessage({
-            id: isTrezorError
-              ? ETranslations.hardware_third_party_device_not_found_title
-              : ETranslations.device_not_connected,
-          }),
-          description: intl.formatMessage({
-            id: isTrezorError
-              ? ETranslations.hardware_third_party_device_not_found
-              : ETranslations.troubleshooting_show_helper_cta_label,
-          }),
-          showFooter: false,
-          renderContent: isTrezorError ? (
-            <TrezorDeviceNotFoundDialogContent />
-          ) : (
-            <DeviceNotFoundDialogContent />
-          ),
-        });
-      },
-      2500, // Same throttle duration as other hardware dialog instances
-    );
-
-    appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
-      hardwareErrorDialogInstanceRef.current = null;
-    };
-  }, [intl, serviceHardwareUI]);
+  // OK-59934: hardware failures land on the DeviceStage as its error
+  // outcome, so the DeviceNotFound dialog this container used to raise is
+  // gone — one failure, one surface (handover doc §06 "失败落在舞台上").
 
   useEffect(() => {
     const instanceRef: {
@@ -915,10 +868,6 @@ function HardwareUiStateContainerCmpControlled() {
       instanceRef.current = undefined;
     };
   }, [intl, toPromptWebDeviceAccessPage, promptWebUsbDeviceAccess]);
-
-  if (deviceStageEnabled) {
-    return null;
-  }
 
   return (
     <>
