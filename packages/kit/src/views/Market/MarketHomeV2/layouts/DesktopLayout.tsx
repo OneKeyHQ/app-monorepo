@@ -12,6 +12,7 @@ import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -26,10 +27,7 @@ import {
   shouldHideSpotExtendedStats,
 } from '../utils';
 
-import {
-  DESKTOP_MARKET_CONTENT_WIDTH,
-  DesktopStickyHeaderContext,
-} from './DesktopStickyHeaderContext';
+import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 
@@ -106,7 +104,7 @@ export function DesktopLayout({
       allowHeaderOverscroll: true,
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
-          <YStack width={DESKTOP_MARKET_CONTENT_WIDTH} mx="auto">
+          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
             <MarketBannerList />
           </YStack>
         </YStack>
@@ -227,8 +225,7 @@ export function DesktopLayout({
       return (
         <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
           <XStack
-            width={DESKTOP_MARKET_CONTENT_WIDTH}
-            mx="auto"
+            {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
             alignItems="center"
             testID={MarketTestIDs.marketTabs}
           >
@@ -306,7 +303,7 @@ export function DesktopLayout({
 
   const tabElements = [
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack width={DESKTOP_MARKET_CONTENT_WIDTH} mx="auto" px="$3" flex={1}>
+      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
         {hasActivated(watchlistTabName) ? (
           <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
@@ -362,8 +359,11 @@ export function DesktopLayout({
       return (
         <Tabs.Tab key={item.categoryId} name={item.tabName}>
           <YStack
-            width={isStockCategory ? '100%' : DESKTOP_MARKET_CONTENT_WIDTH}
-            mx={isStockCategory ? undefined : 'auto'}
+            // The stock list owns its own centered frame (it has to keep the
+            // horizontal scroller full-bleed), so it opts out of this one.
+            {...(isStockCategory
+              ? { width: '100%' as const }
+              : MARKET_DESKTOP_CONTENT_FRAME_PROPS)}
             px={isStockCategory ? '$0' : '$3'}
             flex={1}
           >
@@ -375,12 +375,7 @@ export function DesktopLayout({
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack
-              width={DESKTOP_MARKET_CONTENT_WIDTH}
-              mx="auto"
-              px="$3"
-              flex={1}
-            >
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(perpsTabName) ? (
                 <Suspense fallback={null}>
                   <LazyMarketPerpsTokenList

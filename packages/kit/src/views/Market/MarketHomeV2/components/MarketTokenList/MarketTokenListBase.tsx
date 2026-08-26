@@ -43,11 +43,9 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
-import {
-  DESKTOP_MARKET_CONTENT_WIDTH,
-  DesktopStickyHeaderContext,
-} from '../../layouts/DesktopStickyHeaderContext';
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -774,10 +772,11 @@ function MarketTokenListBase({
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
         <YStack
-          width={
-            centerDesktopPortalContent ? DESKTOP_MARKET_CONTENT_WIDTH : '100%'
-          }
-          mx={centerDesktopPortalContent ? 'auto' : undefined}
+          // Must resolve to the same frame as the rows this header labels,
+          // otherwise the column titles drift once the header sticks.
+          {...(centerDesktopPortalContent
+            ? MARKET_DESKTOP_CONTENT_FRAME_PROPS
+            : { width: '100%' as const })}
           bg="$bgApp"
           px={centerDesktopPortalContent ? '$3' : '$4'}
         >

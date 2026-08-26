@@ -19,6 +19,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { MARKET_DESKTOP_CONTENT_MAX_WIDTH } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -364,7 +365,17 @@ export function DesktopLayout({
       flex={1}
       style={SCROLL_CONTAINER_STYLE}
     >
-      <XStack>
+      {/* Centered 1240 frame, shared with the market list and stock detail
+          pages. Fullscreen drops the cap so the chart still fills the viewport:
+          the chart itself is `position: fixed` and escapes the frame anyway,
+          but the columns behind it must not reflow to a narrower band. */}
+      <XStack
+        width="100%"
+        maxWidth={
+          isChartFullscreen ? undefined : MARKET_DESKTOP_CONTENT_MAX_WIDTH
+        }
+        alignSelf="center"
+      >
         {/* Left column */}
         <YStack
           flex={1}
