@@ -16,7 +16,7 @@ import Animated, {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
-import { Input } from '../../forms/Input';
+import { Input, passwordManagerIgnoreProps } from '../../forms/Input';
 import {
   Anchor,
   Button,
@@ -484,6 +484,7 @@ export function PassphraseForm({
             value={value}
             onChangeText={handleChange}
             secureTextEntry={secure}
+            {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
             addOns={addOns}
