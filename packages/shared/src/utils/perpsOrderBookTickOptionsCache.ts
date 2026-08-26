@@ -22,10 +22,6 @@ export function getPerpsOrderBookTickOptionsCache(): IPerpsOrderBookTickOptionsC
 export function setPerpsOrderBookTickOptionsCache(
   options: IPerpsOrderBookTickOptionsCache,
 ) {
-  // Debounced like every other SWR writer. flushNow() is for app-background,
-  // and forcing it here made each write a synchronous full-store read, merge
-  // and MMKV rewrite on the calling runtime; simpleDb holds the durable copy,
-  // so this cache only needs to be eventually consistent.
   swrCacheUtils.set(ORDER_BOOK_TICK_OPTIONS_CACHE_KEY, options);
 }
 

@@ -1507,23 +1507,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
-        // 'seed' means "establish a default if this symbol has none"; the
-        // render-time check the caller made can be stale by the time the effect
-        // runs, so the authoritative one happens here against the live atom.
         source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
       const { symbol, option, source } = payload;
-      const prev = get(orderBookTickOptionsAtom());
-      // Merged rather than atom-only: seeding happens early in app life, when
-      // the atom can still be missing symbols the module cache already holds.
-      const prevMerged = getPerpsOrderBookTickOptionsWithCache(prev);
-      if (source === 'seed' && option && prevMerged[symbol]) {
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
         return;
       }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
-        ...prevMerged,
+        ...prev,
       };
 
       if (!option) {
