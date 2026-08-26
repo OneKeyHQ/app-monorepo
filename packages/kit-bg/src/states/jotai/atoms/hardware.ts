@@ -233,16 +233,6 @@ export const { target: deviceStageAtom, use: useDeviceStageAtom } = globalAtom<
   name: EAtomNames.deviceStageAtom,
 });
 
-/** Dev rollout gate: when true the DeviceStage driver renders and the legacy
- * HardwareUiStateContainer surfaces are muted. */
-export const {
-  target: deviceStageEnabledAtom,
-  use: useDeviceStageEnabledAtom,
-} = globalAtom<boolean>({
-  initialValue: false,
-  name: EAtomNames.deviceStageEnabledAtom,
-});
-
 // third-party hardware ui state -----------------------------------
 
 export enum EThirdPartyHardwareUiAction {
