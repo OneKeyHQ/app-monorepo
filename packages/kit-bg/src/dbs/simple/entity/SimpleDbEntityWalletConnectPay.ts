@@ -155,7 +155,17 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     }
   }
 
-  private async removeProgressByKeys(progressKeys: string[]): Promise<void> {
+  // `strictCiphertext` is for explicit, user/flow-initiated discards: there
+  // a swallowed removeSecureItem failure followed by the index delete would
+  // orphan the ciphertext where getProgress (index-driven) and the TTL
+  // sweep can never reach it again — while saveActionResult still reads it
+  // by key and keeps refusing writes, closing the damaged-record escape
+  // permanently. Best-effort remains right for background cleanup (TTL,
+  // orphan index), where the index delete hiding a leftover is acceptable.
+  private async removeProgressByKeys(
+    progressKeys: string[],
+    options?: { strictCiphertext?: boolean },
+  ): Promise<void> {
     if (!progressKeys.length) {
       return;
     }
@@ -166,7 +176,12 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
           await appStorage.secureStorage.removeSecureItem(
             buildSecurePayloadKey(key),
           );
-        } catch {
+        } catch (error) {
+          if (options?.strictCiphertext) {
+            // fail the discard loudly instead of deleting the index over a
+            // still-present ciphertext (see the note above)
+            throw error;
+          }
           // removal is best-effort; the index delete below still hides it
         }
       }),
@@ -373,14 +388,18 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       // fromIndex 0 is an explicit discard of the whole record — an
       // unusable one included; this is the one deletion path open to a
       // record that cannot be read (the UI's user-confirmed damaged-record
-      // escape goes through here)
-      await this.removeProgressByKeys([key]);
+      // escape goes through here). Strict: a swallowed ciphertext-removal
+      // failure would close that escape permanently (see
+      // removeProgressByKeys)
+      await this.removeProgressByKeys([key], { strictCiphertext: true });
       return;
     }
     const entries = read.status === 'ok' ? read.entries : [];
     const kept = entries.slice(0, Math.max(0, fromIndex));
     if (!kept.length) {
-      await this.removeProgressByKeys([key]);
+      // every truncate is an explicit discard request; strict for the same
+      // reason as the unusable branch above
+      await this.removeProgressByKeys([key], { strictCiphertext: true });
       return;
     }
     try {
@@ -390,7 +409,7 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       );
     } catch {
       // stale longer progress must not survive a discard request
-      await this.removeProgressByKeys([key]);
+      await this.removeProgressByKeys([key], { strictCiphertext: true });
       return;
     }
     await this.setRawData((rawData) => {

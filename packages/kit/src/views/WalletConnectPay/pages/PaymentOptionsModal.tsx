@@ -276,10 +276,10 @@ function PaymentOptionsPage() {
   // The signal is only ever consulted before signing, so aborting can never
   // lose an in-flight broadcast — and once an action of the attempt has
   // broadcast, the executor stops aborting on it: it ends the sequence at
-  // the next UI boundary and returns the results produced so far, so
-  // handlePay still submits the broadcast txid to confirmPayment even when
-  // this page is already gone, and no context-free confirm modal is pushed
-  // at the user from a dismissed flow.
+  // the next UI boundary and returns the results produced so far. handlePay
+  // detects that partial set by length and ends without submitting it (the
+  // broadcast txid is durably recorded for resume), and no context-free
+  // confirm modal is pushed at the user from a dismissed flow.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
   useEffect(
     () => () => {
@@ -693,6 +693,20 @@ function PaymentOptionsPage() {
         },
       });
 
+      // A result set shorter than the action list is the executor's
+      // stopped-after-broadcast exit: the page went away after an on-chain
+      // result existed and the remaining actions were never executed. Do
+      // NOT submit a known-partial signature set — confirmPayment's
+      // contract for short arrays is unverified, and ANY isFinal verdict it
+      // returns (failed included) clears the whole progress record,
+      // deleting the broadcast evidence. Every produced result is already
+      // durably persisted, so ending here keeps the resume machinery
+      // intact: the next entry into this payment resumes from the stored
+      // prefix, and an abandoned payment expires server-side.
+      if (signatures.length < actions.length) {
+        return;
+      }
+
       // 4. submit and show result. The transaction may already be broadcast
       // by this point, so a confirmPayment failure must NOT drop the
       // signatures back on the options page (retrying there would sign and
@@ -745,21 +759,45 @@ function PaymentOptionsPage() {
         // is provably undecodable — a readable record carrying a txid can
         // never surface this message (see getStoredActionResults), so this
         // path cannot delete real duplicate-payment evidence.
+        //
+        // Never from a dead page: the fetches above can outlive a close
+        // (the executor got the same gate), and a destructive dialog over
+        // whatever screen the user is on now would carry no context. The
+        // record is not lost — the dialog re-surfaces on the next entry
+        // into this payment, or the TTL cleans it up.
+        if (cancelController.signal.aborted) {
+          return;
+        }
         Dialog.show({
           // copy pending product i18n keys
           title: 'Payment progress damaged',
           description:
             'The progress saved for this payment on this device is damaged and cannot be resumed. Discard it to start this payment over.',
           onConfirmText: 'Discard and start over',
-          onConfirm: async () => {
-            await backgroundApiProxy.serviceWalletConnectPay.discardActionResultsFrom(
-              {
-                paymentId: payResult.paymentId,
-                optionId: selectedOption.id,
-                accountKey: indexedAccountId ?? accountId ?? '',
-                fromIndex: 0,
-              },
-            );
+          onConfirm: async ({ close }) => {
+            try {
+              await backgroundApiProxy.serviceWalletConnectPay.discardActionResultsFrom(
+                {
+                  paymentId: payResult.paymentId,
+                  optionId: selectedOption.id,
+                  accountKey: indexedAccountId ?? accountId ?? '',
+                  fromIndex: 0,
+                },
+              );
+            } catch (discardError) {
+              // a failed discard must not leave the dialog sitting silent
+              // (Dialog only auto-closes on a settled onConfirm): say it
+              // failed and close — the record is untouched and the dialog
+              // returns on the next attempt
+              console.error(
+                'wcPay discard damaged progress failed',
+                discardError,
+              );
+              Toast.error({
+                title: intl.formatMessage({ id: ETranslations.global_failed }),
+              });
+              await close();
+            }
           },
         });
       } else if (!(error instanceof WcPayUserCancelledError)) {

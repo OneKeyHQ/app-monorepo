@@ -129,7 +129,19 @@ export class SupabaseStorage {
       key = withPrefixedKey(key);
 
       if (await shouldUseSecureStorage()) {
-        return (await secureStorageInstance.getSecureItem(key)) ?? null;
+        try {
+          return (await secureStorageInstance.getSecureItem(key)) ?? null;
+        } catch (error) {
+          // Secure storage reports read/decrypt failures by throwing — it
+          // must not conflate them with absence for consumers holding
+          // irreplaceable records (see the desktop safeStorage adapter). A
+          // supabase session is the opposite kind of value: re-obtainable
+          // via OAuth. An unreadable session therefore maps to "no
+          // session" here, mirroring the sealed-codec decrypt-failure
+          // semantics below.
+          console.error('SupabaseStorage secure read failed', error);
+          return null;
+        }
       }
       const rawValue = (await appStorage.getItem(key)) ?? null;
       if (rawValue === null) {

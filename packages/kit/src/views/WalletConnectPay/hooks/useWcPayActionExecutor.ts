@@ -128,11 +128,12 @@ export function useWcPayActionExecutor() {
       // an aborted signal ends the flow with WcPayUserCancelledError, which
       // callers treat as a silent end. Once an action of THIS run has
       // broadcast a transaction the signal stops aborting: an aborted-late
-      // sequence instead RETURNS the result prefix at the next UI boundary,
-      // so the caller still submits the on-chain result to confirmPayment
-      // and no context-free confirm modal is pushed from a page that is
-      // gone. Cancelling may stop work that has not started, never abandon
-      // a payment already sent.
+      // sequence instead RETURNS the result prefix at the next UI boundary
+      // — the caller detects the partial set by length, skips
+      // confirmPayment, and relies on the durable record for resume — and
+      // no context-free confirm modal is pushed from a page that is gone.
+      // Cancelling may stop work that has not started, never abandon a
+      // payment already sent.
       cancelSignal?: AbortSignal;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
@@ -236,11 +237,14 @@ export function useWcPayActionExecutor() {
       // the page is gone, so that modal would appear with no payment
       // context and its most likely dismissal would strand the broadcast
       // all the same. When the signal fired after retirement, stop BEFORE
-      // the next UI step and return the results collected so far: the
-      // caller submits this prefix to confirmPayment (the server accepts
-      // non-final submissions and keeps settling server-side), so the
-      // broadcast txid always reaches the server, and the remaining
-      // actions stay re-enterable through the durable progress record.
+      // the next UI step and return the results collected so far. Every
+      // such exit returns a PROPER PREFIX (results.length <
+      // actions.length), which is the caller's contract for detecting it:
+      // a partial set must NOT be submitted to confirmPayment (the
+      // short-array contract is unverified, and an isFinal verdict there
+      // clears the progress record — the broadcast evidence). Every
+      // produced result is already durably persisted, so the payment
+      // resumes on the next entry or expires server-side.
       const isStoppedAfterBroadcast = () =>
         hasBroadcastInThisRun && Boolean(cancelSignal?.aborted);
       throwIfCancelled();

@@ -38,8 +38,18 @@ const storage: ISecureStorage = {
   removeSecureItem,
   supportSecureStorage,
   async hasSecureItem(key: string): Promise<boolean> {
-    const value = await getSecureItem(key);
-    return !!value;
+    // existence checks keep the historical "unreadable counts as not
+    // stored" semantics: getSecureItem now throws on decrypt failure (so
+    // record-keeping callers can tell failure from absence), but has-style
+    // consumers (e.g. biology-auth enrollment state) treat an unusable
+    // value as unusable — re-enrolling overwrites it, which is the healing
+    // path for re-obtainable secrets
+    try {
+      const value = await getSecureItem(key);
+      return !!value;
+    } catch {
+      return false;
+    }
   },
   async getCredentialId(): Promise<string | null> {
     return null;
