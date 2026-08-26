@@ -32,6 +32,7 @@ function BasicNotificationPermissionRecoveryAlert({
     undefined,
   );
   const requestSequenceRef = useRef(0);
+  const isMountedRef = useRef(false);
 
   const clearPendingCheck = useCallback(() => {
     if (timeoutRef.current) {
@@ -98,6 +99,13 @@ function BasicNotificationPermissionRecoveryAlert({
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isFocused) {
       invalidatePendingCheck();
       setResult(undefined);
@@ -136,10 +144,18 @@ function BasicNotificationPermissionRecoveryAlert({
   }, [invalidatePendingCheck]);
 
   const handleRecovery = useCallback(async () => {
+    invalidatePendingCheck();
+    const actionSequence = requestSequenceRef.current;
     try {
       setIsActionLoading(true);
       await backgroundApiProxy.serviceNotification.recoverNotificationPermission();
       await timerUtils.wait(300);
+      if (
+        actionSequence !== requestSequenceRef.current ||
+        !isMountedRef.current
+      ) {
+        return;
+      }
       await checkPermissionRecovery({
         ignoreCooldown: true,
         source:
@@ -150,9 +166,11 @@ function BasicNotificationPermissionRecoveryAlert({
     } catch {
       // The background method already displays the user-facing error toast.
     } finally {
-      setIsActionLoading(false);
+      if (isMountedRef.current) {
+        setIsActionLoading(false);
+      }
     }
-  }, [checkPermissionRecovery, scene]);
+  }, [checkPermissionRecovery, invalidatePendingCheck, scene]);
 
   if (!result?.shouldShow) {
     return null;

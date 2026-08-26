@@ -13,6 +13,9 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { NotificationPermissionRecoveryAlert } from './index.native';
 
 type IMockAlertProps = {
+  action?: {
+    onPrimaryPress?: () => void;
+  };
   title?: string;
 };
 
@@ -195,5 +198,43 @@ describe('NotificationPermissionRecoveryAlert', () => {
       pushEnabled: true,
       source: ENotificationPermissionRecoverySource.settings,
     });
+  });
+
+  it('does not re-check after a recovery action loses focus', async () => {
+    const recoveryDeferred = createDeferred<void>();
+    notificationService.checkNotificationPermissionRecovery.mockResolvedValueOnce(
+      visibleResult,
+    );
+    notificationService.recoverNotificationPermission.mockReturnValueOnce(
+      recoveryDeferred.promise,
+    );
+
+    render(
+      <NotificationPermissionRecoveryAlert scene="home" initialDelayMs={0} />,
+    );
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    act(() => {
+      mockAlertProps?.action?.onPrimaryPress?.();
+    });
+    expect(
+      notificationService.recoverNotificationPermission,
+    ).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      focusControl.__setFocus(false);
+    });
+    await act(async () => {
+      recoveryDeferred.resolve();
+      await recoveryDeferred.promise;
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(1);
   });
 });
