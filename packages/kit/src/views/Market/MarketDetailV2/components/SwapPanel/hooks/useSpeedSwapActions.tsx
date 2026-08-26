@@ -49,6 +49,7 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import { ESwapReviewRebuildPhase } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewRebuildStateMachine';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -140,6 +141,7 @@ import {
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   estimateMarketPresetGasFeeFiatValues,
+  prepareMarketDirectUnsignedTx,
   resolveMarketPresetNativeTokenPrice,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
@@ -1462,7 +1464,10 @@ export function useSpeedSwapActions(props: {
       snapshot: IMarketReviewExecutionSnapshot,
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee?: ISwapReviewCustomPriorityFee,
-      options?: { throwOnEstimateError?: boolean },
+      options?: {
+        throwOnEstimateError?: boolean;
+        onExecutionReady?: (reviewState: ISwapReviewState) => void;
+      },
     ) => {
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
@@ -1485,6 +1490,28 @@ export function useSpeedSwapActions(props: {
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
 
+      const buildReviewStateWithFee = ({
+        netWorkFee,
+        estimateNetworkFeeLoading,
+      }: {
+        netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
+        estimateNetworkFeeLoading: boolean;
+      }): ISwapReviewState => ({
+        steps: nextReviewState.steps,
+        preSwapData: {
+          ...nextReviewState.preSwapData,
+          swapBuildLoading: false,
+          estimateNetworkFeeLoading,
+          swapBuildResultData: {
+            swapInfo: snapshot.swapInfo,
+            encodedTx: snapshot.buildUnsignedParams.encodedTx,
+            transferInfo: snapshot.buildUnsignedParams.transfersInfo?.[0],
+          },
+          netWorkFee,
+        },
+        quoteResult: snapshot.quoteResult,
+      });
+
       let netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
       try {
         const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
@@ -1495,15 +1522,47 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
         });
-        if (
+        const shouldEstimateApproveOnly = Boolean(
           snapshot.quoteResult.swapShouldSignedData &&
-          approveUnsignedTxArr?.length
+          approveUnsignedTxArr?.length,
+        );
+        const shouldSkipSignedPrebuild = shouldSkipMarketSignedPrebuild({
+          quoteResult: snapshot.quoteResult,
+          approveUnsignedTxCount: approveUnsignedTxArr?.length,
+        });
+        const preparedUnsignedTx =
+          !shouldEstimateApproveOnly && !shouldSkipSignedPrebuild
+            ? await prepareMarketDirectUnsignedTx({
+                accountId: snapshot.accountId,
+                networkId: snapshot.networkId,
+                buildUnsignedParams: snapshot.buildUnsignedParams,
+                approveUnsignedTxArr,
+              })
+            : undefined;
+
+        if (
+          !snapshot.buildUnsignedParams.encodedTx &&
+          preparedUnsignedTx?.encodedTx
         ) {
+          snapshot.buildUnsignedParams = {
+            ...snapshot.buildUnsignedParams,
+            encodedTx: preparedUnsignedTx.encodedTx,
+          };
+        }
+
+        options?.onExecutionReady?.(
+          buildReviewStateWithFee({
+            netWorkFee: undefined,
+            estimateNetworkFeeLoading: true,
+          }),
+        );
+
+        if (shouldEstimateApproveOnly) {
           const feeState = await estimateMarketApproveGasInfos({
             accountAddress: snapshot.accountAddress,
             accountId: snapshot.accountId,
             networkId: snapshot.networkId,
-            approveUnsignedTxArr,
+            approveUnsignedTxArr: approveUnsignedTxArr ?? [],
             networkFeeLevel,
             customPriorityFee,
           });
@@ -1512,12 +1571,7 @@ export function useSpeedSwapActions(props: {
             gasInfos: feeState.gasInfos,
             gasFeeFiatValue: feeState.gasFeeFiatValue,
           };
-        } else if (
-          shouldSkipMarketSignedPrebuild({
-            quoteResult: snapshot.quoteResult,
-            approveUnsignedTxCount: approveUnsignedTxArr?.length,
-          })
-        ) {
+        } else if (shouldSkipSignedPrebuild) {
           netWorkFee = undefined;
         } else {
           const feeState = await estimateMarketDirectGasInfos({
@@ -1528,6 +1582,7 @@ export function useSpeedSwapActions(props: {
             approveUnsignedTxArr,
             networkFeeLevel,
             customPriorityFee,
+            preparedUnsignedTx,
             gasAccountAnalytics:
               snapshot.kind === 'swap'
                 ? {
@@ -1576,19 +1631,10 @@ export function useSpeedSwapActions(props: {
         });
       }
 
-      return {
-        steps: nextReviewState.steps,
-        preSwapData: {
-          ...nextReviewState.preSwapData,
-          swapBuildResultData: {
-            swapInfo: snapshot.swapInfo,
-            encodedTx: snapshot.buildUnsignedParams.encodedTx,
-            transferInfo: snapshot.buildUnsignedParams.transfersInfo?.[0],
-          },
-          netWorkFee,
-        },
-        quoteResult: snapshot.quoteResult,
-      };
+      return buildReviewStateWithFee({
+        netWorkFee,
+        estimateNetworkFeeLoading: false,
+      });
     },
     [
       assertLatestWrappedExecutionBalancesSufficient,
@@ -1817,6 +1863,9 @@ export function useSpeedSwapActions(props: {
       slippagePercentage,
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee,
+      isCurrent,
+      onPhaseChange,
+      onExecutionReady,
     }) => {
       const snapshot = reviewExecutionSnapshotRef.current;
       if (snapshot?.kind !== 'swap') {
@@ -1835,6 +1884,12 @@ export function useSpeedSwapActions(props: {
         accountAddress: snapshot.accountAddress,
         accountId: snapshot.accountId,
       });
+      if (!isCurrent()) {
+        throw new OneKeyLocalError(
+          'Market swap review changed while rebuilding.',
+        );
+      }
+      onPhaseChange(ESwapReviewRebuildPhase.BuildingTransaction);
 
       const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
         fromToken: fromTokenFinal,
@@ -1857,6 +1912,12 @@ export function useSpeedSwapActions(props: {
       if (!buildRes) {
         throw new OneKeyLocalError('Market swap review rebuild failed.');
       }
+      if (!isCurrent()) {
+        throw new OneKeyLocalError(
+          'Market swap review changed while rebuilding.',
+        );
+      }
+      onPhaseChange(ESwapReviewRebuildPhase.PreparingExecution);
 
       const mergedBuildRes = mergeMarketBuildResultWithQuote({
         buildRes,
@@ -1903,14 +1964,27 @@ export function useSpeedSwapActions(props: {
         nextSnapshot,
         networkFeeLevel,
         customPriorityFee,
-        { throwOnEstimateError: true },
+        {
+          throwOnEstimateError: true,
+          onExecutionReady: (reviewState) => {
+            if (
+              !isCurrent() ||
+              reviewExecutionSnapshotRef.current !== snapshot
+            ) {
+              throw new OneKeyLocalError(
+                'Market swap review changed while rebuilding.',
+              );
+            }
+            onExecutionReady(reviewState);
+            reviewExecutionSnapshotRef.current = nextSnapshot;
+          },
+        },
       );
-      if (reviewExecutionSnapshotRef.current !== snapshot) {
+      if (!isCurrent() || reviewExecutionSnapshotRef.current !== nextSnapshot) {
         throw new OneKeyLocalError(
           'Market swap review changed while rebuilding.',
         );
       }
-      reviewExecutionSnapshotRef.current = nextSnapshot;
       return nextReviewState;
     },
     [

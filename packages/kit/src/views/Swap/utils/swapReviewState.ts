@@ -18,6 +18,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
+
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
 
 type INativeBtcSwapTokenIdentity = Pick<ISwapToken, 'isNative' | 'networkId'>;
@@ -275,6 +277,13 @@ export type ISwapReviewAdapter = {
     slippagePercentage: number;
     networkFeeLevel?: ESwapNetworkFeeLevel;
     customPriorityFee?: ISwapReviewCustomPriorityFee;
+    isCurrent: () => boolean;
+    onPhaseChange: (
+      phase:
+        | ESwapReviewRebuildPhase.BuildingTransaction
+        | ESwapReviewRebuildPhase.PreparingExecution,
+    ) => void;
+    onExecutionReady: (reviewState: ISwapReviewState) => void;
   }) => Promise<ISwapReviewState>;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,
