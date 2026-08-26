@@ -64,6 +64,12 @@ const mockVariants: IMarketStockTokenVariant[] = [
   },
 ];
 
+// NetworkAvatarBase transitively pulls backgroundApiProxy, which cannot
+// initialize inside jsdom — stub it like other suites do.
+jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
+  NetworkAvatarBase: () => null,
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => {
