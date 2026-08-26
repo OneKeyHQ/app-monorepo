@@ -360,6 +360,10 @@ function createService() {
     tryClaimOneKeyIdOAuthBindPrompt: jest.fn(async () => true),
     completeOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
     releaseOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
+    isIdentityLinkDue: jest.fn(async () => false),
+    recordIdentityLinkReported: jest.fn(async () => undefined),
+    isPrimeProfileDue: jest.fn(async () => false),
+    recordPrimeProfileReported: jest.fn(async () => undefined),
   };
   const backgroundApi: any = {
     simpleDb: {
