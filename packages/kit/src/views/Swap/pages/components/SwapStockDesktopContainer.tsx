@@ -2146,6 +2146,7 @@ function StockMobilePositionsSection({
   const { selectStockSwapToken } = stockChannel;
   const {
     cachedPositionTokenList,
+    positionNetworkStatuses,
     hasCachedPositionSnapshot,
     hasPositionOwner,
     isLiveTokenListForCurrentOwner,
@@ -2243,6 +2244,7 @@ function StockMobilePositionsSection({
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
             cachedTokenList={cachedPositionTokenList}
+            positionNetworkStatuses={positionNetworkStatuses}
             hasPositionOwner={hasPositionOwner}
             hasCachedTokenSnapshot={hasCachedPositionSnapshot}
             isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}

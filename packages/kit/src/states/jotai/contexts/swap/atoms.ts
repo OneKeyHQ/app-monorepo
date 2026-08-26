@@ -758,14 +758,6 @@ export const {
   use: useSwapNativeTokenReserveGasAtom,
 } = contextAtom<ISwapNativeTokenReserveGas[]>([]);
 
-export const { atom: swapUserSelectedTokensAtom } = contextAtom<
-  | {
-      fromToken?: ISwapToken;
-      toToken?: ISwapToken;
-    }
-  | undefined
->(undefined);
-
 // swap pro
 export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
@@ -865,6 +857,21 @@ export const {
   atom: swapProPositionsDataOwnerKeyAtom,
   use: useSwapProPositionsDataOwnerKeyAtom,
 } = contextAtom<string>('');
+
+export type ISwapProPositionNetworkStatus = 'loading' | 'ready' | 'error';
+
+export type ISwapProPositionNetworkStates = {
+  ownerKey: string;
+  statusByNetworkId: Record<string, ISwapProPositionNetworkStatus>;
+};
+
+export const {
+  atom: swapProPositionNetworkStatesAtom,
+  use: useSwapProPositionNetworkStatesAtom,
+} = contextAtom<ISwapProPositionNetworkStates>({
+  ownerKey: '',
+  statusByNetworkId: {},
+});
 
 export const { atom: swapProTokenBalanceRequestIdAtom } =
   contextAtom<number>(0);

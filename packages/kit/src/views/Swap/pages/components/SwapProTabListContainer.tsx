@@ -91,6 +91,7 @@ const SwapProTabListContainer = memo(
 
     const {
       cachedPositionTokenList,
+      positionNetworkStatuses,
       hasCachedPositionSnapshot,
       hasPositionOwner,
       isLiveTokenListForCurrentOwner,
@@ -227,6 +228,7 @@ const SwapProTabListContainer = memo(
                 onSearchClick={onSearchClick}
                 filterToken={filterToken}
                 cachedTokenList={cachedPositionTokenList}
+                positionNetworkStatuses={positionNetworkStatuses}
                 hasPositionOwner={hasPositionOwner}
                 hasCachedTokenSnapshot={hasCachedPositionSnapshot}
                 isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}

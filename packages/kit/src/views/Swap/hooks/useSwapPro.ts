@@ -65,6 +65,7 @@ import {
   useSwapProDirectionAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
+  useSwapProPositionNetworkStatesAtom,
   useSwapProPositionsCacheAtom,
   useSwapProPositionsDataOwnerKeyAtom,
   useSwapProSelectTokenAtom,
@@ -1563,6 +1564,7 @@ export function useSwapProSupportNetworksTokenList(
     [swapProPositionsCache],
   );
   const [swapProPositionsDataOwnerKey] = useSwapProPositionsDataOwnerKeyAtom();
+  const [swapProPositionNetworkStates] = useSwapProPositionNetworkStatesAtom();
   const { updateSwapProPositionTokenBalances } = useSwapActions().current;
   const { syncTokensToPosition } = useSwapTokenPairBalanceSyncForPosition();
   const positionAccountId =
@@ -1612,6 +1614,13 @@ export function useSwapProSupportNetworksTokenList(
   const cachedPositionTokenList = hasCachedPositionSnapshot
     ? (cachedPositionEntry?.tokens ?? [])
     : [];
+  const positionNetworkStatuses = useMemo(
+    () =>
+      swapProPositionNetworkStates.ownerKey === positionOwnerKey
+        ? swapProPositionNetworkStates.statusByNetworkId
+        : {},
+    [positionOwnerKey, swapProPositionNetworkStates],
+  );
   const swapProSelectTokenRef = useRef(swapSelectToken);
   if (swapProSelectTokenRef.current !== swapSelectToken) {
     swapProSelectTokenRef.current = swapSelectToken;
@@ -1721,6 +1730,7 @@ export function useSwapProSupportNetworksTokenList(
 
   return {
     cachedPositionTokenList,
+    positionNetworkStatuses,
     hasPositionOwner,
     hasCachedPositionSnapshot,
     isLiveTokenListForCurrentOwner,

@@ -224,13 +224,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const {
-    cleanQuoteInterval,
-    quoteAction,
-    selectFromToken,
-    selectFromTokenByUser,
-    selectToTokenByUser,
-  } = useSwapActions().current;
+  const { cleanQuoteInterval, quoteAction, selectFromToken, selectToToken } =
+    useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -637,7 +632,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         token2: toTokenPair,
       });
       void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
-      void selectToTokenByUser(toTokenPair, { skipCheckEqualToken });
+      void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
         tokenListType: getSwapAnalyticsTokenListType({
@@ -645,7 +640,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         }),
       });
     },
-    [selectFromToken, selectToTokenByUser, swapTypeSwitch],
+    [selectFromToken, selectToToken, swapTypeSwitch],
   );
   const onOpenProviderList = useCallback(() => {
     dismissKeyboard();
@@ -1222,19 +1217,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ) {
           setSwapSelectToToken(swapFromTokenRef.current);
         }
-        void selectFromTokenByUser(token);
+        void selectFromToken(token);
         scrollViewRef.current?.scrollTo({
           y: 0,
           animated: true,
         });
       }
     },
-    [
-      focusSwapPro,
-      selectFromTokenByUser,
-      selectSwapProToken,
-      setSwapSelectToToken,
-    ],
+    [focusSwapPro, selectFromToken, selectSwapProToken, setSwapSelectToToken],
   );
 
   const {
