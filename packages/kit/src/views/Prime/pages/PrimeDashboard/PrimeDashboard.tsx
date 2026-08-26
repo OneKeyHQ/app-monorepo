@@ -15,6 +15,7 @@ import {
   Theme,
   XStack,
   YStack,
+  useIsModalPage,
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
@@ -111,9 +112,12 @@ export default function PrimeDashboard({
     useState<ISubscriptionPeriod>('P1Y');
 
   const { top } = useSafeAreaInsets();
+  const isModalPage = useIsModalPage();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
-  const mobileTopValue = isMobile ? top + 25 : '$10';
+  // iOS sheets already exclude the status-bar inset from their content frame.
+  const safeAreaTop = platformEnv.isNativeIOS && isModalPage ? 0 : top;
+  const mobileTopValue = isMobile ? safeAreaTop + 25 : '$10';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
     usePrimeRequirements();
@@ -371,7 +375,12 @@ export default function PrimeDashboard({
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+        <Stack
+          position="absolute"
+          left="$5"
+          top={safeAreaTop || '$5'}
+          zIndex="$5"
+        >
           <NavCloseButton onPress={() => navigation.popStack()} />
         </Stack>
         <Page scrollEnabled>
@@ -418,6 +427,11 @@ export default function PrimeDashboard({
                       id: ETranslations.prime_subscription_manage_app_store,
                     })}
                   </SizableText>
+                </Stack>
+              ) : null}
+              {shouldShowConfirmButton ? (
+                <Stack>
+                  <PrimeTermsAndPrivacy />
                 </Stack>
               ) : null}
               {!isPrimeSubscriptionActive &&
@@ -473,7 +487,7 @@ export default function PrimeDashboard({
                   />
                 </XStack>
 
-                {/* Mobile layout: column with subscribe, login, terms */}
+                {/* Mobile layout: column with subscribe and login */}
                 <YStack
                   display="flex"
                   gap="$3"
@@ -489,11 +503,6 @@ export default function PrimeDashboard({
                   />
                   {renderLoginPrompt}
                 </YStack>
-
-                {/* Terms & Privacy — always at bottom on both platforms */}
-                <Stack alignItems="center" $gtMd={{ alignItems: 'flex-start' }}>
-                  <PrimeTermsAndPrivacy />
-                </Stack>
               </Stack>
             </Page.Footer>
           ) : null}

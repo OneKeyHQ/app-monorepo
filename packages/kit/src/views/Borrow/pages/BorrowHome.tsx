@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
@@ -226,9 +227,9 @@ const BorrowHomeContent = memo(
           ) : (
             // Mobile layout - tabbed
             // Both tabs stay mounted via position:absolute overlay so
-            // FlatList items are pre-rendered and switching is instant.
-            // minHeight = max(both tabs) prevents container from shrinking
-            // on tab switch, which would clamp scroll position to 0.
+            // FlatList items are pre-rendered and switching is instant. On
+            // native, only the active tab participates in layout: reserving
+            // the taller tab's height left blank space below Borrow content.
             <YStack flex={1} gap="$5">
               <SegmentControl
                 testID={BorrowTestIDs.segmentControl}
@@ -241,7 +242,8 @@ const BorrowHomeContent = memo(
               />
               <YStack
                 position="relative"
-                {...(maxTabHeight > 0 && { minHeight: maxTabHeight })}
+                {...(!platformEnv.isNative &&
+                  maxTabHeight > 0 && { minHeight: maxTabHeight })}
               >
                 <YStack
                   gap="$5"
