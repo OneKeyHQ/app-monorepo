@@ -212,28 +212,39 @@ export function resolveSwapReviewNeedFetchGasAfterRebuild({
   return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
 }
 
-export function hasInFlightSwapReviewSteps({ steps }: { steps: ISwapStep[] }) {
-  return steps.some(
-    (step) =>
-      step.status === ESwapStepStatus.LOADING ||
-      step.status === ESwapStepStatus.PENDING,
+export function hasInFlightSwapReviewWork({
+  steps,
+  preSwapData,
+}: {
+  steps: ISwapStep[];
+  preSwapData: ISwapPreSwapData;
+}) {
+  return Boolean(
+    preSwapData.swapBuildLoading ||
+    preSwapData.estimateNetworkFeeLoading ||
+    preSwapData.stepBeforeActionsLoading ||
+    steps.some(
+      (step) =>
+        step.status === ESwapStepStatus.LOADING ||
+        step.status === ESwapStepStatus.PENDING,
+    ),
   );
 }
 
 export function shouldCloseSwapReviewOnFocusLoss({
   isFocused,
   isAppLocked,
-  hasInFlightSteps,
+  hasInFlightReviewWork,
   initialRootRouterCount,
   currentRootRouterCount,
 }: {
   isFocused: boolean;
   isAppLocked: boolean;
-  hasInFlightSteps: boolean;
+  hasInFlightReviewWork: boolean;
   initialRootRouterCount: number;
   currentRootRouterCount: number;
 }) {
-  if (isFocused || isAppLocked || hasInFlightSteps) {
+  if (isFocused || isAppLocked || hasInFlightReviewWork) {
     return false;
   }
 

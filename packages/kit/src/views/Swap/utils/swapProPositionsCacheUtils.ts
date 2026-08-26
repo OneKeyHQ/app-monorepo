@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-export const SWAP_PRO_POSITIONS_CACHE_TTL_MS = 30_000;
+export const SWAP_PRO_POSITIONS_RUNTIME_TTL_MS = 30_000;
 export {
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
   SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
@@ -31,6 +31,17 @@ export type ISwapProPositionsCache = {
   version: typeof SWAP_PRO_POSITIONS_CACHE_VERSION;
   byOwner: Record<string, ISwapProPositionsCacheEntry>;
 };
+
+export type ISwapProPositionsRuntimeEntry = {
+  status: 'loading' | 'success' | 'error';
+  tokens: ISwapToken[];
+  updatedAt: number;
+};
+
+export type ISwapProPositionsRuntimeData = Record<
+  string,
+  ISwapProPositionsRuntimeEntry
+>;
 
 export const EMPTY_SWAP_PRO_POSITIONS_CACHE: ISwapProPositionsCache = {
   version: SWAP_PRO_POSITIONS_CACHE_VERSION,
@@ -106,55 +117,25 @@ export function upsertSwapProPositionsCacheEntry({
   });
 }
 
-export function shouldReuseSwapProPositionsCache({
-  cacheEntry,
-  forceRefresh,
-  now = Date.now(),
+export function upsertSwapProPositionsRuntimeEntry({
+  entries,
+  entry,
   ownerKey,
 }: {
-  cacheEntry?: {
-    ownerKey: string;
-    updatedAt: number;
-  };
-  forceRefresh?: boolean;
-  now?: number;
+  entries: ISwapProPositionsRuntimeData;
+  entry: ISwapProPositionsRuntimeEntry;
   ownerKey: string;
-}) {
-  return Boolean(
-    !forceRefresh &&
-    ownerKey &&
-    cacheEntry?.ownerKey === ownerKey &&
-    now - cacheEntry.updatedAt < SWAP_PRO_POSITIONS_CACHE_TTL_MS,
-  );
-}
-
-export function resolveSwapProPositionsDisplayOwner({
-  cacheByOwner,
-  dataOwnerKey,
-  hasPositionAccount,
-  positionOwnerKey,
-  supportNetworksReady,
-}: {
-  cacheByOwner: Record<string, ISwapProPositionsCacheEntry>;
-  dataOwnerKey: string;
-  hasPositionAccount: boolean;
-  positionOwnerKey: string;
-  supportNetworksReady: boolean;
-}) {
-  const cachedPositionEntry = positionOwnerKey
-    ? cacheByOwner[positionOwnerKey]
-    : undefined;
-
-  return {
-    cachedPositionEntry,
-    hasCachedPositionSnapshot: Boolean(
-      cachedPositionEntry?.ownerKey === positionOwnerKey,
-    ),
-    hasPositionOwner:
-      Boolean(positionOwnerKey) ||
-      (!supportNetworksReady && hasPositionAccount),
-    isLiveTokenListForCurrentOwner: positionOwnerKey
-      ? dataOwnerKey === positionOwnerKey
-      : !hasPositionAccount && !dataOwnerKey,
+}): ISwapProPositionsRuntimeData {
+  const nextEntries = {
+    ...entries,
+    [ownerKey]: entry,
   };
+  const sortedOwnerKeys = Object.keys(nextEntries).toSorted(
+    (left, right) => nextEntries[right].updatedAt - nextEntries[left].updatedAt,
+  );
+  return Object.fromEntries(
+    sortedOwnerKeys
+      .slice(0, SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS)
+      .map((key) => [key, nextEntries[key]]),
+  );
 }
