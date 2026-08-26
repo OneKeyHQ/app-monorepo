@@ -47,6 +47,8 @@ import TransactionPreview from './TransactionPreview';
 import {
   getParserAlertDisplay,
   hasAddressRiskTags,
+  isTrustedPermitSign,
+  shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -92,11 +94,13 @@ const STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
   info: 1,
 };
 
-const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
+const STATUS_LABEL_ID: Record<
+  Exclude<ISecurityCheckStatus, 'info'>,
+  ETranslations
+> = {
   critical: ETranslations.global_risk,
   warning: ETranslations.global_warning,
   unknown: ETranslations.global_unverified,
-  info: ETranslations.global_info,
 };
 
 const SECURITY_CHECK_ACCORDION_VALUE = 'security-check';
@@ -333,6 +337,7 @@ function dedupeAlertTexts(alerts: string[]) {
 function getOperationFindings({
   kind,
   origin,
+  urlSecurityInfo,
   decodedTxs,
   messageDisplay,
   unsignedMessage,
@@ -343,6 +348,7 @@ function getOperationFindings({
 }: {
   kind: ISecurityCheckKind;
   origin?: string;
+  urlSecurityInfo?: IHostSecurity;
   decodedTxs?: IDecodedTx[];
   messageDisplay?: ISignatureConfirmDisplay;
   unsignedMessage?: IUnsignedMessage;
@@ -352,6 +358,18 @@ function getOperationFindings({
   intl: ReturnType<typeof useIntl>;
 }): ISecurityCheckFinding[] {
   const findings: ISecurityCheckFinding[] = [];
+  const isPermitSignMethod = Boolean(
+    kind === 'message' &&
+    unsignedMessage &&
+    isPrimaryTypePermitSign({ unsignedMessage }),
+  );
+  const genericPermitAlert = intl.formatMessage({
+    id: ETranslations.dapp_connect_permit_sign_alert,
+  });
+  const shouldHidePermitWarning = isTrustedPermitSign({
+    isPermitSignMethod,
+    isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
+  });
 
   const parserAlerts =
     kind === 'transaction'
@@ -359,18 +377,27 @@ function getOperationFindings({
           (decodedTx) => decodedTx.txDisplay?.alerts ?? [],
         ) ?? [])
       : (messageDisplay?.alerts ?? []);
-  const validParserAlerts = dedupeAlertTexts(parserAlerts.filter(Boolean));
+  const validParserAlerts = dedupeAlertTexts(
+    parserAlerts.filter(Boolean),
+  ).filter(
+    (alert) =>
+      !shouldHideGenericPermitAlert({
+        alert,
+        genericPermitAlert,
+        isPermitSignMethod,
+        isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
+      }),
+  );
   const localMessageFindings: ISecurityCheckFinding[] = [];
 
   if (kind === 'message' && unsignedMessage) {
     const isTypedData =
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-    const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
     const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
 
     if (isTypedData) {
-      if (isPermitSignMethod) {
+      if (isPermitSignMethod && !shouldHidePermitWarning) {
         localMessageFindings.push({
           id: 'message-permit',
           category: 'operation',
@@ -467,7 +494,11 @@ function getOperationFindings({
     });
   }
 
-  if (kind === 'message' && isConfirmationRequired) {
+  if (
+    kind === 'message' &&
+    isConfirmationRequired &&
+    !shouldHidePermitWarning
+  ) {
     findings.push({
       id: 'message-confirmation-required',
       category: 'operation',
@@ -696,6 +727,7 @@ function SecurityCheckCard(props: IProps) {
         ...getOperationFindings({
           kind,
           origin,
+          urlSecurityInfo,
           decodedTxs,
           messageDisplay,
           unsignedMessage,
@@ -870,7 +902,7 @@ function SecurityCheckCard(props: IProps) {
   const hasNoCardFindings = findings.length === 0;
 
   const renderSummary = useCallback(() => {
-    if (!highestStatus) {
+    if (!highestStatus || highestStatus === 'info') {
       return null;
     }
     const style = getFindingStyle(highestStatus);
