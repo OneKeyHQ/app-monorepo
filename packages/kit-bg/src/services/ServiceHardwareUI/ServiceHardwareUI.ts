@@ -263,6 +263,16 @@ class ServiceHardwareUI extends ServiceBase {
       if (!device) {
         return;
       }
+      // The stage opens on these beats before anything has named the
+      // device — this lookup is where the model and name first exist, so
+      // the replica and its label arrive with it. Fed ahead of the guard
+      // below, which is about the legacy atom's own staleness, not the
+      // stage's (OK-59934).
+      void this.deviceStageBurst.mergeDeviceIdentity({
+        connectId,
+        deviceType: device.deviceType,
+        deviceName: device.name,
+      });
       const currentState = await hardwareUiStateAtom.get();
       if (
         currentState?.action !== action ||

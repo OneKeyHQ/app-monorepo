@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -103,6 +103,25 @@ const AUTH_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'authSuccess',
   'authFailure',
 ]);
+
+/**
+ * Who is on stage, kept across the burst.
+ *
+ * A payload saying `unknown` is one that does not know — the SDK stamps
+ * that on every event carrying no device (progress ticks above all), and
+ * taking it at face value would drop the replica mid-flow every time one
+ * arrived. Identity only ever sharpens: once the stage knows the model,
+ * only another real model replaces it.
+ */
+export function pickDeviceType(
+  next: IDeviceStageState['deviceType'],
+  prev: IDeviceStageState['deviceType'],
+): IDeviceStageState['deviceType'] {
+  if (next && next !== EDeviceType.Unknown) {
+    return next;
+  }
+  return prev ?? next;
+}
 
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
@@ -480,8 +499,9 @@ export class DeviceStageBurstScope {
     await this.forceOff();
   }
 
-  /** Refreshes who is on stage without touching the step or the beat. */
-  private async mergeDeviceIdentity(params: IDeviceStageBurstBeginParams) {
+  /** Refreshes who is on stage without touching the step or the beat —
+   * the device often becomes known after the stage is already up. */
+  async mergeDeviceIdentity(params: IDeviceStageBurstBeginParams) {
     const hasIdentity =
       params.connectId ||
       params.deviceType ||
@@ -499,7 +519,7 @@ export class DeviceStageBurstScope {
       return {
         ...prev,
         connectId: params.connectId ?? prev.connectId,
-        deviceType: params.deviceType ?? prev.deviceType,
+        deviceType: pickDeviceType(params.deviceType, prev.deviceType),
         deviceName: params.deviceName ?? prev.deviceName,
         vendor: params.vendor ?? prev.vendor,
         vendorModel: params.vendorModel ?? prev.vendorModel,
@@ -595,7 +615,7 @@ export class DeviceStageBurstScope {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
         step,
         connectId: extras.connectId ?? base?.connectId,
-        deviceType: extras.deviceType ?? base?.deviceType,
+        deviceType: pickDeviceType(extras.deviceType, base?.deviceType),
         deviceName: extras.deviceName ?? base?.deviceName,
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
