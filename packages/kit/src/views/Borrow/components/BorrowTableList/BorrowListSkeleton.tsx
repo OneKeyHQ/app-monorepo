@@ -107,9 +107,16 @@ export const EmptyStateSkeleton = <T,>({
   emptyContent: string;
 }) => (
   <Stack position="relative" overflow="hidden">
+    {/* Height spacer only: rendering the real empty copy keeps the loading box
+        exactly as tall as the empty state that replaces it, so the card does
+        not jump when loading finishes. Hidden on the container with opacity —
+        a transparent text color did not hold on Android and the copy showed
+        through the skeleton. */}
     <Empty
       title={emptyContent}
-      titleProps={{ size: '$bodyMd', color: 'transparent' }}
+      titleProps={{ size: '$bodyMd' }}
+      opacity={0}
+      pointerEvents="none"
     />
     <Stack
       position="absolute"
