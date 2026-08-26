@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 
 import { Gesture } from 'react-native-gesture-handler';
-import { cancelAnimation, withDecay } from 'react-native-reanimated';
+import {
+  cancelAnimation,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import {
@@ -56,6 +60,9 @@ export function useTradingViewNativeChartGestures({
   priceAxisWidth: SharedValue<number>;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
 }) {
+  const pressedSubIndicatorSettingsTarget =
+    useSharedValue<ITradingViewNativeSubIndicator | null>(null);
+
   return useMemo(() => {
     const isMainPriceAxisTouch = (x: number, y: number) => {
       'worklet';
@@ -177,23 +184,25 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (
-          !touch ||
-          getSubIndicatorSettingsTarget(touch.x, touch.y) === null
-        ) {
+        pressedSubIndicatorSettingsTarget.value = touch
+          ? getSubIndicatorSettingsTarget(touch.x, touch.y)
+          : null;
+        if (pressedSubIndicatorSettingsTarget.value === null) {
           stateManager.fail();
         }
       })
-      .onEnd((event, success) => {
+      .onEnd((_event, success) => {
         'worklet';
 
-        if (!success) {
-          return;
-        }
-        const indicator = getSubIndicatorSettingsTarget(event.x, event.y);
-        if (indicator) {
+        const indicator = pressedSubIndicatorSettingsTarget.value;
+        if (success && indicator) {
           scheduleOnRN(onSubIndicatorSettingsPress, indicator);
         }
+      })
+      .onFinalize(() => {
+        'worklet';
+
+        pressedSubIndicatorSettingsTarget.value = null;
       });
 
     const panGesture = Gesture.Pan()
@@ -411,6 +420,7 @@ export function useTradingViewNativeChartGestures({
     isClickInteractionEnabled,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,
+    pressedSubIndicatorSettingsTarget,
     priceAxisResetGesture,
     priceAxisScaleGesture,
     priceAxisWidth,
