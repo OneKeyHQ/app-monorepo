@@ -166,12 +166,16 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
   // best-effort (background cleanup: TTL, orphan index, final states)
   // swallows the failure but KEEPS that key's index entry, so the next
   // sweep retries the removal instead of stranding the ciphertext.
+  // Returns the keys whose ciphertext AND index entry were actually
+  // removed, so callers can tell a completed deletion from a kept-for-retry
+  // one (the TTL read path must not report "gone" for a record that in
+  // fact refused to delete — that would shadow a damaged record's escape).
   private async removeProgressByKeys(
     progressKeys: string[],
     options?: { strictCiphertext?: boolean },
-  ): Promise<void> {
+  ): Promise<string[]> {
     if (!progressKeys.length) {
-      return;
+      return [];
     }
     const removedKeys: string[] = [];
     await Promise.all(
@@ -192,7 +196,7 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       }),
     );
     if (!removedKeys.length) {
-      return;
+      return [];
     }
     await this.setRawData((rawData) => {
       const progress = { ...rawData?.progress };
@@ -201,6 +205,7 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       }
       return { progress };
     });
+    return removedKeys;
   }
 
   async getProgress(params: {
@@ -214,9 +219,18 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     if (!meta) {
       return undefined;
     }
-    if (Date.now() - meta.updatedAt > PROGRESS_TTL_MS) {
-      await this.removeProgressByKeys([key]);
-      return undefined;
+    const isExpired = Date.now() - meta.updatedAt > PROGRESS_TTL_MS;
+    if (isExpired) {
+      const removedKeys = await this.removeProgressByKeys([key]);
+      if (removedKeys.includes(key)) {
+        return undefined;
+      }
+      // The expired record refused to delete (ciphertext removal failed;
+      // its index entry was kept for a later sweep). "Expired" must not
+      // shadow "damaged": fall through to the payload read so a corrupt
+      // record still throws and re-surfaces the user-confirmed discard
+      // escape instead of silently starting a fresh attempt that
+      // saveActionResult will refuse anyway.
     }
     const read = await this.readSecureEntries(key);
     if (read.status === 'unreadable' || read.status === 'corrupt') {
@@ -231,6 +245,12 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
           ? WC_PAY_PROGRESS_CORRUPT_ERROR
           : WC_PAY_PROGRESS_UNREADABLE_ERROR,
       );
+    }
+    if (isExpired) {
+      // expired but readable (only reachable when the deletion above
+      // failed): never resume an expired record — report absent; the kept
+      // index entry lets a later sweep retry the deletion
+      return undefined;
     }
     if (read.status === 'absent' || !read.entries.length) {
       // confirmed-empty payload: the index is an orphan; drop the leftover

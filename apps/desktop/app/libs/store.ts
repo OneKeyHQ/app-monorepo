@@ -122,12 +122,16 @@ export const getSecureItem = (key: string) => {
       // consumers of re-obtainable values (supabase sessions) may map it to
       // absent; the environmental !available failure above stays unlabeled
       // (transient).
+      // The sentinel must ride in the MESSAGE: the DESKTOP_API_CALL IPC
+      // boundary preserves only `message` (makeIpcSafeError in app.ts →
+      // unwrapElectronIpcError rebuilds the error under its own name), and
+      // the renderer-side adapter (secureStorage/index.desktop.ts) re-tags
+      // `name` from it. The in-process `name` tag below is for main-side
+      // consumers only. Assigned through the Error base type: OneKey errors
+      // type `name` as their class-name enum.
       const decryptError = new OneKeyLocalError(
-        'failed to decrypt secure item',
+        `[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}] failed to decrypt secure item`,
       );
-      // through the Error base type: OneKey errors type `name` as their
-      // class-name enum, while this label is a cross-layer structural
-      // identity (see SECURE_STORAGE_PERMANENT_READ_ERROR_NAME)
       (decryptError as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
       throw decryptError;
     }

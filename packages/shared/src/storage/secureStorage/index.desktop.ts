@@ -1,6 +1,8 @@
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from './types';
+
 import type { ISecureStorage, ISecureStorageSetOptions } from './types';
 
 const setSecureItem = async (
@@ -16,8 +18,27 @@ const setSecureItem = async (
 };
 
 const getSecureItem = async (key: string) => {
-  const v = await globalThis?.desktopApiProxy?.storage?.secureGetItemAsync(key);
-  return v ?? null;
+  try {
+    const v =
+      await globalThis?.desktopApiProxy?.storage?.secureGetItemAsync(key);
+    return v ?? null;
+  } catch (error) {
+    // Only `message` crosses the DESKTOP_API_CALL IPC boundary verbatim
+    // (makeIpcSafeError in the main process; unwrapElectronIpcError on this
+    // side rebuilds the error under its own hardcoded name). Restore the
+    // permanent-read label from the message sentinel so consumers
+    // (SupabaseStorage) can structurally match it again — without this, a
+    // permanently unreadable value would forever classify as transient
+    // and its owner could never fall back to re-obtaining it.
+    const message = (error as Error | undefined)?.message;
+    if (
+      typeof message === 'string' &&
+      message.includes(SECURE_STORAGE_PERMANENT_READ_ERROR_NAME)
+    ) {
+      (error as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+    }
+    throw error;
+  }
 };
 
 const removeSecureItem = async (key: string) =>
