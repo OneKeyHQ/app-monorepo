@@ -6,11 +6,34 @@ jest.mock('./ipTableAdapter', () => ({
   getSelectedIpForHost: jest.fn(),
 }));
 
+jest.mock('../../logger/logger', () => ({
+  defaultLogger: {
+    ipTable: {
+      request: {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      },
+    },
+  },
+}));
+
 jest.mock('./sniRequest', () => ({
   isProxyActiveForUrl: jest.fn(),
   isSniSupported: jest.fn(),
   sniRequest: jest.fn(),
 }));
+
+const mockedLogger = jest.requireMock('../../logger/logger') as {
+  defaultLogger: {
+    ipTable: {
+      request: {
+        warn: jest.Mock;
+        error: jest.Mock;
+      };
+    };
+  };
+};
 
 const mockedGetSelectedIpForHost = getSelectedIpForHost as unknown as jest.Mock;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
@@ -151,6 +174,12 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
     ).rejects.toThrow('fallback disabled to avoid replay');
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      mockedLogger.defaultLogger.ipTable.request.warn,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockedLogger.defaultLogger.ipTable.request.error,
+    ).not.toHaveBeenCalled();
   });
 
   test('does not replay POST after an ambiguous SNI error', async () => {

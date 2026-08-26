@@ -211,6 +211,7 @@ export async function healthCheckRequest(
     durationMs: Date.now() - startedAt,
   });
 
+  let replayBlockedError: OneKeyLocalError | undefined;
   try {
     const urlObj = new URL(url);
     const path = urlObj.pathname + urlObj.search;
@@ -245,9 +246,11 @@ export async function healthCheckRequest(
         durationMs: Date.now() - startedAt,
       });
       if (!fallbackAllowed) {
-        throw new OneKeyLocalError(
+        const error = new OneKeyLocalError(
           '[HealthCheck] SNI POST returned no response; fallback disabled to avoid replay',
         );
+        replayBlockedError = error;
+        throw error;
       }
       return await fallbackToFetch(normalizedConfig);
     }
@@ -273,6 +276,9 @@ export async function healthCheckRequest(
       ok: sniResponse.statusCode >= 200 && sniResponse.statusCode < 300,
     };
   } catch (error) {
+    if (error === replayBlockedError) {
+      throw error;
+    }
     if (isSniFailClosedError(error)) {
       logHealthCheckSniDecision('error', {
         hostname,
