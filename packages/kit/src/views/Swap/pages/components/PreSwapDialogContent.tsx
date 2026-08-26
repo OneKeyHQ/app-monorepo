@@ -76,12 +76,19 @@ import {
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 import {
+  isSwapReviewConfirmBlocked,
+  isSwapReviewRebuildInProgress,
+} from '../../utils/swapReviewRebuildStateMachine';
+import {
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   invalidateSwapReviewForSlippageChange,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
+
+import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
+import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -101,7 +108,12 @@ interface IPreSwapDialogContentProps {
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   isSwapPro?: boolean;
-  rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
+  rebuildReviewWithSlippage?: (
+    slippagePercentage: number,
+    options?: ISwapReviewRebuildOptions,
+  ) => Promise<void>;
+  reviewRebuildState?: ISwapReviewRebuildState;
+  resetUncommittedReviewRebuildError?: () => void;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,
   ) => Promise<void> | void;
@@ -119,6 +131,8 @@ const PreSwapDialogContent = ({
   showCustomNetworkFeeOption,
   isSwapPro,
   rebuildReviewWithSlippage,
+  reviewRebuildState,
+  resetUncommittedReviewRebuildError,
   saveSlippageForFutureOrders,
   disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
@@ -177,6 +191,7 @@ const PreSwapDialogContent = ({
     customNetworkFeeOptionKey,
   );
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -331,23 +346,35 @@ const PreSwapDialogContent = ({
         preSwapData?.estimateNetworkFeeLoading ||
         preSwapData?.swapBuildLoading ||
         preSwapData?.stepBeforeActionsLoading ||
-        preSwapData?.stepBeforeActionsError,
+        preSwapData?.stepBeforeActionsError ||
+        isSwapReviewConfirmBlocked(reviewRebuildState?.phase),
       ),
     [
       preSwapData?.estimateNetworkFeeLoading,
       preSwapData?.stepBeforeActionsError,
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
+      reviewRebuildState?.phase,
     ],
   );
 
   const handleSlippageEditorOpenChange = useCallback(
     (open: boolean) => {
-      if (!slippageSavingScope) {
+      if (
+        !slippageSavingScope &&
+        !isSwapReviewRebuildInProgress(reviewRebuildState?.phase)
+      ) {
+        if (!open) {
+          resetUncommittedReviewRebuildError?.();
+        }
         setSlippageEditorOpen(open);
       }
     },
-    [slippageSavingScope],
+    [
+      resetUncommittedReviewRebuildError,
+      reviewRebuildState?.phase,
+      slippageSavingScope,
+    ],
   );
   const handleSaveSlippage = useCallback(
     async (scope: ISwapReviewSlippageSaveScope, slippagePercentage: number) => {
@@ -356,23 +383,38 @@ const PreSwapDialogContent = ({
       }
 
       setSlippageSavingScope(scope);
-      try {
-        await rebuildReviewWithSlippage(slippagePercentage);
-        if (!isMountedRef.current) {
+      let editorReleased = false;
+      const releaseEditor = () => {
+        if (editorReleased || !isMountedRef.current) {
           return;
         }
-        if (scope === 'future') {
-          if (saveSlippageForFutureOrders) {
-            await saveSlippageForFutureOrders(slippagePercentage);
-          } else {
-            setSettings((prev) => ({
-              ...prev,
-              swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
-              swapSlippagePercentageCustomValue: slippagePercentage,
-            }));
-          }
-        }
+        editorReleased = true;
         setSlippageEditorOpen(false);
+        setSlippageSavingScope(undefined);
+
+        if (scope !== 'future') {
+          return;
+        }
+        if (saveSlippageForFutureOrders) {
+          void Promise.resolve(
+            saveSlippageForFutureOrders(slippagePercentage),
+          ).catch((error: unknown) => {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          });
+        } else {
+          setSettings((prev) => ({
+            ...prev,
+            swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+            swapSlippagePercentageCustomValue: slippagePercentage,
+          }));
+        }
+      };
+      try {
+        await rebuildReviewWithSlippage(slippagePercentage, {
+          onExecutionReady: releaseEditor,
+        });
+        releaseEditor();
       } catch (error) {
         errorToastUtils.toastIfError(error);
         errorToastUtils.showToastOfError(error);

@@ -33,6 +33,10 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
+const mockShowTradingViewNativeIndicatorSettingsDialog = jest.fn<
+  void,
+  [unknown]
+>();
 const mockTradingViewNativeFullscreenButton = jest.fn<
   ReactNode,
   [{ onPress: () => void }]
@@ -183,6 +187,11 @@ jest.mock('./TradingViewNativeChart', () => ({
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
   TradingViewNativeChartControlsContainer: (props: unknown) =>
     mockTradingViewNativeChartControlsContainer(props),
+}));
+
+jest.mock('./showTradingViewNativeIndicatorSettingsDialog', () => ({
+  showTradingViewNativeIndicatorSettingsDialog: (options: unknown) =>
+    mockShowTradingViewNativeIndicatorSettingsDialog(options),
 }));
 
 jest.mock('./TradingViewNativeFullscreenButton', () => ({
@@ -341,6 +350,66 @@ describe('TradingViewNativeContainer', () => {
     expect(
       chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
     ).toEqual(['VOL']);
+  });
+
+  it('opens settings on the selected sub-indicator from its chart legend', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      onSubIndicatorSettingsPress: (indicator: 'RSI') => void;
+    };
+    act(() => chartProps.onSubIndicatorSettingsPress('RSI'));
+
+    expect(
+      mockShowTradingViewNativeIndicatorSettingsDialog,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayMode: 'focused',
+        initialIndicatorId: 'RSI',
+        onConfirm: expect.any(Function),
+        value: expect.objectContaining({ indicators: expect.any(Array) }),
+      }),
+    );
+  });
+
+  it('opens the full indicator editor from desktop chart controls', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        nativeControlsLayoutMode="desktop"
+      />,
+    );
+
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onIndicatorSettingsPress: () => void;
+      };
+    act(() => controlsProps.onIndicatorSettingsPress());
+
+    expect(
+      mockShowTradingViewNativeIndicatorSettingsDialog,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayMode: 'full',
+        initialIndicatorId: undefined,
+      }),
+    );
   });
   it('starts without indicators and updates series from indicator controls', () => {
     mockDataState = { status: 'live' };

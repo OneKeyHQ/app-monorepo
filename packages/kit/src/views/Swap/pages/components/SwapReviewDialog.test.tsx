@@ -6,6 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { initialSwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 import { ESwapReviewApproveTransactionSource } from '../../utils/swapReviewState';
 
 import { SwapReviewDialog } from './SwapReviewDialog';
@@ -123,6 +124,9 @@ describe('SwapReviewDialog', () => {
       onConfirm: reviewConfirmMock,
       preSwapBeforeStepActions: jest.fn(),
       preSwapStepsStart: jest.fn(),
+      rebuildReviewWithSlippage: jest.fn(),
+      reviewRebuildState: initialSwapReviewRebuildState,
+      resetUncommittedReviewRebuildError: jest.fn(),
     });
   });
 
