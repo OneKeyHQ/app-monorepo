@@ -21,7 +21,6 @@ import {
   buildTradablePerpMaxLeverageMap,
   isPerpsUniverseCacheComplete,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
-import { matchesTokenSearchAlias } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -63,6 +62,29 @@ const PERPS_ASSET_TYPE_VERSION = 2;
 // such as `nasdaq` are the point, and a non-ASCII one is where the localized
 // aliases the server may hold beyond our cached map are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
+const PERPS_SEARCH_PAIR_ALIAS_REGEX = /[-/]usdc?$/;
+
+function matchesTokenSearchAlias({
+  query,
+  aliases,
+}: {
+  query: string;
+  aliases: string[] | undefined;
+}): boolean {
+  if (!query || !aliases?.length) {
+    return false;
+  }
+  const shouldMatchAliasPrefix = /^[a-z0-9]{1,2}$/.test(query);
+  return aliases.some((alias) => {
+    const normalizedAlias = alias.toLowerCase();
+    if (PERPS_SEARCH_PAIR_ALIAS_REGEX.test(normalizedAlias)) {
+      return false;
+    }
+    return shouldMatchAliasPrefix
+      ? normalizedAlias.startsWith(query)
+      : normalizedAlias.includes(query);
+  });
+}
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
