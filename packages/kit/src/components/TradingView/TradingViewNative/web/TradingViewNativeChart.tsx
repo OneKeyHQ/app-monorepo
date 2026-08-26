@@ -19,6 +19,7 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
+import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import {
   type ITradingViewNativeSubIndicator,
   getTradingViewNativeIndicatorPriceAxisLabel,
@@ -79,7 +80,6 @@ const ONEKEY_WATERMARK_URI =
   typeof ONEKEY_WATERMARK_ASSET === 'string'
     ? ONEKEY_WATERMARK_ASSET
     : ONEKEY_WATERMARK_ASSET.default;
-
 interface IPointerPanDragState {
   currentClientX: number;
   pointerId: number;
@@ -93,6 +93,7 @@ interface IPointerPanDragState {
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartComponents,
     chartSettings,
     chartType,
     hasVolume,
@@ -164,6 +165,8 @@ export const TradingViewNativeChart = memo(
     const priceAxisLabels = useMemo<ITradingViewNativeCanvasPriceAxisLabels>(
       () => ({
         autoPriceRange,
+        chartComponentPrice:
+          getTradingViewNativeChartComponentPriceAxisLabel(chartComponents),
         currentPrice: chartSettings.options.latestPrice
           ? currentPriceLabel
           : '',
@@ -179,6 +182,7 @@ export const TradingViewNativeChart = memo(
       }),
       [
         autoPriceRange,
+        chartComponents,
         chartSettings.options.latestPrice,
         chartSettings.options.yAxis,
         currentPriceLabel,
@@ -257,6 +261,7 @@ export const TradingViewNativeChart = memo(
         const scene = drawTradingViewNativeCanvasChart({
           candleIntervalSeconds,
           canvas,
+          chartComponents,
           chartSettings,
           chartType,
           colors: {
@@ -297,6 +302,7 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        chartComponents,
         chartSettings,
         chartType,
         currentPriceLabel,

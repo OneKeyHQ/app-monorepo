@@ -8,6 +8,7 @@ import {
 } from '../utils/chartRuntime';
 
 import type {
+  ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
   ITradingViewNativePriceScaleMode,
@@ -22,6 +23,7 @@ export interface ITradingViewNativeChartSize {
 
 export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
+  chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   currentPriceLabel: string;
@@ -53,6 +55,7 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
 
 export function createTradingViewNativeChartRuntime({
   candleIntervalSeconds,
+  chartComponents,
   chartSettings,
   chartType,
   currentPriceLabel,
@@ -63,6 +66,7 @@ export function createTradingViewNativeChartRuntime({
   subIndicatorPanes,
 }: {
   candleIntervalSeconds: number;
+  chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   currentPriceLabel: string;
@@ -75,6 +79,7 @@ export function createTradingViewNativeChartRuntime({
   return {
     ...createTradingViewNativeChartRuntimeState({ initialRightOffset }),
     candleIntervalSeconds,
+    chartComponents,
     chartSettings,
     chartType,
     currentPriceLabel,
