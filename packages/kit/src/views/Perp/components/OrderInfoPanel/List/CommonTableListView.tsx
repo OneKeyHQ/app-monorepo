@@ -1042,21 +1042,21 @@ export function CommonTableListView<T>({
         showsVerticalScrollIndicator
       >
         {desktopTable}
-        {enablePagination && currentListPage ? (
-          <PaginationFooter
-            currentPage={currentListPage}
-            totalPages={totalPages}
-            onPreviousPage={handlePreviousPage}
-            onNextPage={handleNextPage}
-            onPageChange={handlePageChange}
-            isMobile={isMobile}
-            headerBgColor={headerBgColor}
-            headerTextColor={headerTextColor}
-            borderColor={borderColor}
-            onViewAll={onViewAll}
-          />
-        ) : null}
       </ScrollView>
+      {enablePagination && currentListPage ? (
+        <PaginationFooter
+          currentPage={currentListPage}
+          totalPages={totalPages}
+          onPreviousPage={handlePreviousPage}
+          onNextPage={handleNextPage}
+          onPageChange={handlePageChange}
+          isMobile={isMobile}
+          headerBgColor={headerBgColor}
+          headerTextColor={headerTextColor}
+          borderColor={borderColor}
+          onViewAll={onViewAll}
+        />
+      ) : null}
     </YStack>
   );
 }
