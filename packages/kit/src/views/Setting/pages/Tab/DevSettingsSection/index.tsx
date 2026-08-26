@@ -1033,6 +1033,15 @@ const BaseDevSettingsSection = () => {
                       />
 
                       <SectionFieldItem
+                        icon="PhoneOutline"
+                        name="deviceStageEnabled"
+                        title="硬件交互舞台 DeviceStage"
+                        subtitle="开启后硬件交互走新舞台，旧硬件弹窗/Toast 静音（OK-59934）"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
+                      <SectionFieldItem
                         icon="ServerOutline"
                         name="enableTestEndpoint"
                         title="启用 OneKey 测试网络节点"
