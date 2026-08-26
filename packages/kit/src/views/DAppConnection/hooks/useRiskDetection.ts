@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { buildPrimeAnalyticsProfileSnapshot } from '@onekeyhq/kit-bg/src/services/ServicePrime/primeAnalyticsProfile';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -16,15 +17,12 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
-import {
-  getSiteScanRiskWarningAccountKey,
-  isPrimeActiveFromPersist,
-  shouldStartSiteScanRiskWarningAttempt,
-} from './siteScanRiskWarning';
+import { shouldStartSiteScanRiskWarningAttempt } from './siteScanRiskWarning';
 
 import type { Verify } from '@walletconnect/types';
 
 let siteScanRiskWarnedReportedUserId: string | undefined;
+let siteScanRiskWarnedInFlight = false;
 
 function overrideSecurityLevel(
   base: IHostSecurity | undefined,
@@ -154,36 +152,32 @@ function useRiskDetection({
   // source and non-Prime users skip the event without a bg auth hop.
   // Session-level emit flag is keyed by OneKey user so an account switch in
   // the same JS runtime can still report; no URL/domain is reported.
-  const siteScanRiskWarnedTrackedUserIdRef = useRef<string | undefined>(
-    undefined,
-  );
-  const siteScanRiskWarnedInFlightRef = useRef(false);
   useEffect(() => {
     if (
       !shouldStartSiteScanRiskWarningAttempt({
         riskLevel,
-        sessionReportedUserId: siteScanRiskWarnedReportedUserId,
-        instanceTrackedUserId: siteScanRiskWarnedTrackedUserIdRef.current,
-        inFlight: siteScanRiskWarnedInFlightRef.current,
+        inFlight: siteScanRiskWarnedInFlight,
       })
     ) {
       return;
     }
-    siteScanRiskWarnedInFlightRef.current = true;
+    siteScanRiskWarnedInFlight = true;
     void (async () => {
       try {
         const persist = await primePersistAtom.get();
-        const currentUserId = getSiteScanRiskWarningAccountKey(
-          persist.onekeyUserId,
-        );
+        const { isPrimeActive } = buildPrimeAnalyticsProfileSnapshot({
+          isLoggedIn: persist.isLoggedIn,
+          isLoggedInOnServer: persist.isLoggedInOnServer,
+          isPrimeSubscriptionActive: persist.primeSubscription?.isActive,
+        });
+        const currentUserId = persist.onekeyUserId;
         if (
-          !isPrimeActiveFromPersist(persist) ||
-          siteScanRiskWarnedReportedUserId === currentUserId ||
-          siteScanRiskWarnedTrackedUserIdRef.current === currentUserId
+          !isPrimeActive ||
+          !currentUserId ||
+          siteScanRiskWarnedReportedUserId === currentUserId
         ) {
           return;
         }
-        siteScanRiskWarnedTrackedUserIdRef.current = currentUserId;
         siteScanRiskWarnedReportedUserId = currentUserId;
         defaultLogger.prime.usage.siteScanRiskWarned({
           featureName: EPrimeFeatures.BlockaidSiteScan,
@@ -193,7 +187,7 @@ function useRiskDetection({
       } catch {
         // Analytics must never affect the risk detection flow.
       } finally {
-        siteScanRiskWarnedInFlightRef.current = false;
+        siteScanRiskWarnedInFlight = false;
       }
     })();
   }, [riskLevel]);

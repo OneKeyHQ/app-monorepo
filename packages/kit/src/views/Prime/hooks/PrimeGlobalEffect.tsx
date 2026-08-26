@@ -261,9 +261,7 @@ function PrimeGlobalEffectAfterAuthReady() {
             await backgroundApiProxy.simpleDb.prime.getActiveAuthToken();
         }
 
-        if (accessToken) {
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-        } else {
+        if (!accessToken) {
           // Local-only: expected state for every never-logged-in user at
           // startup, not an auth anomaly.
           defaultLogger.prime.subscription.onekeyIdStateTrace({
@@ -273,10 +271,8 @@ function PrimeGlobalEffectAfterAuthReady() {
               },
             )}`,
           });
-          // The no-token fetch branch clears guarded auth state and is the
-          // guaranteed trigger for never-logged-in membership attributes.
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         }
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdStateTrace({
           reason: `PrimeGlobalEffect: fetch user info failed: ${getSanitizedErrorLogText(

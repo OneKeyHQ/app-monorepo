@@ -479,13 +479,18 @@ export class PrimeSubscriptionScene extends BaseScene {
    * device person merges with the person used by server-side subscription
    * events (RevenueCat app_user_id = onekeyUserId).
    *
-   * Deduplicated by the caller (per user, per bg session, plus persisted TTL)
-   * to keep event volume bounded.
+   * Deduplicated by the caller via a persisted TTL.
    */
   @LogToLocal()
   @LogToServer({ level: 'info', waitForServer: true })
-  public onekeyIdIdentityLinked({ onekeyUserId }: { onekeyUserId: string }) {
+  private onekeyIdIdentityLinked({ onekeyUserId }: { onekeyUserId: string }) {
     return { onekeyUserId };
+  }
+
+  public reportOneKeyIdIdentityLinked(params: {
+    onekeyUserId: string;
+  }): Promise<void> {
+    return this.onekeyIdIdentityLinked(params) as unknown as Promise<void>;
   }
 
   /**

@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import { chunk, cloneDeep, isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
-import { analytics } from '@onekeyhq/shared/src/analytics';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -101,9 +100,8 @@ import {
 } from '../ServiceIdentityExit/identityLifecycleMutex';
 
 import {
-  buildPrimeAnalyticsProfileSnapshot,
-  emitAnalyticsAfterDue,
-  shouldDropStalePrimeProfileReport,
+  enqueuePrimeProfileAnalyticsReport as enqueuePrimeProfileAnalyticsReportImpl,
+  trackOneKeyIdIdentityLinked as trackOneKeyIdIdentityLinkedImpl,
 } from './primeAnalyticsProfile';
 import {
   allowAuthSessionStorageWritesBySessionSource,
@@ -388,185 +386,25 @@ type IOneKeyIdAuthSnapshot = {
 class ServicePrime extends ServiceBase {
   private primeUserInfoFetchGeneration = 0;
 
-  // Per-bg-session dedup for the analytics identity link; the persisted TTL
-  // in simpleDb.prime.markIdentityLinkReported bounds volume across sessions.
-  private identityLinkReportedUserIds = new Set<string>();
-
-  // Per-bg-session snapshot of the last membership profile values handled,
-  // so hot state-maintenance paths skip the persisted check entirely.
-  private lastHandledPrimeProfileKey: string | undefined;
-
-  // Serialize profile reports so a stale logged-out persist/emit cannot
-  // overwrite a later login snapshot in the same session.
-  private primeProfileReportChain: Promise<void> = Promise.resolve();
-
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
-  /**
-   * Report the analytics identity link (app instanceId <-> onekeyUserId) so
-   * the analytics proxy can merge the device person with the account person
-   * used by server-side subscription events. Deduplicated per user per bg
-   * session, plus a persisted TTL across sessions.
-   */
-  private async trackOneKeyIdIdentityLinked({
+  private trackOneKeyIdIdentityLinked({
     onekeyUserId,
   }: {
     onekeyUserId: string | undefined;
   }) {
-    try {
-      if (!onekeyUserId) {
-        return;
-      }
-      if (this.identityLinkReportedUserIds.has(onekeyUserId)) {
-        return;
-      }
-      const now = Date.now();
-      await emitAnalyticsAfterDue({
-        isDue: () =>
-          this.backgroundApi.simpleDb.prime.isIdentityLinkDue({
-            onekeyUserId,
-            now,
-          }),
-        emit: () =>
-          defaultLogger.prime.subscription.onekeyIdIdentityLinked({
-            onekeyUserId,
-          }) as unknown as Promise<void>,
-        persist: () =>
-          this.backgroundApi.simpleDb.prime.recordIdentityLinkReported({
-            onekeyUserId,
-            now,
-          }),
-      });
-      this.identityLinkReportedUserIds.add(onekeyUserId);
-    } catch (error) {
-      if (onekeyUserId) {
-        this.identityLinkReportedUserIds.delete(onekeyUserId);
-      }
-      defaultLogger.prime.subscription.onekeyIdStateTrace({
-        reason: `trackOneKeyIdIdentityLinked failed: ${getSanitizedAuthErrorLog(
-          error,
-        )}`,
-      });
-    }
+    void trackOneKeyIdIdentityLinkedImpl({
+      simpleDb: this.backgroundApi.simpleDb.prime,
+      onekeyUserId,
+    });
   }
 
-  /**
-   * Report the OneKey ID / Prime membership dimensions as analytics user
-   * profile attributes for EVERY user (false for never-logged-in users), so
-   * any event stream can be segmented by membership without joining
-   * subscription events. Value-change driven with a persisted TTL re-assert;
-   * updateUserProfile is a documented direct-call exception for persistent
-   * user attributes.
-   */
   private enqueuePrimeProfileAnalyticsReport() {
-    this.primeProfileReportChain = this.primeProfileReportChain
-      .then(() => this.reportPrimeProfileToAnalytics())
-      .catch(() => undefined);
-  }
-
-  private async readPrimeAnalyticsProfileSnapshot() {
-    const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
-      await primePersistAtom.get();
-    return buildPrimeAnalyticsProfileSnapshot({
-      isLoggedIn,
-      isLoggedInOnServer,
-      isPrimeSubscriptionActive: primeSubscription?.isActive,
+    void enqueuePrimeProfileAnalyticsReportImpl({
+      simpleDb: this.backgroundApi.simpleDb.prime,
     });
-  }
-
-  private dropStalePrimeProfileSnapshot({
-    expectedKey,
-    currentKey,
-  }: {
-    expectedKey: string;
-    currentKey: string;
-  }): boolean {
-    const { drop, clearLastHandled } = shouldDropStalePrimeProfileReport({
-      expectedKey,
-      currentKey,
-      lastHandledKey: this.lastHandledPrimeProfileKey,
-    });
-    if (clearLastHandled) {
-      this.lastHandledPrimeProfileKey = undefined;
-    }
-    return drop;
-  }
-
-  private async persistAndEmitPrimeProfile({
-    isOneKeyIdLoggedIn,
-    isPrimeActive,
-    profileKey,
-  }: {
-    isOneKeyIdLoggedIn: boolean;
-    isPrimeActive: boolean;
-    profileKey: string;
-  }) {
-    const now = Date.now();
-    const due = await this.backgroundApi.simpleDb.prime.isPrimeProfileDue({
-      isOneKeyIdLoggedIn,
-      isPrimeActive,
-      now,
-    });
-    if (!due) {
-      return;
-    }
-    // Web LastActivityTracker inits analytics after a 3s delay. Wait so a
-    // startup false:false report is not dropped, then re-read so a login
-    // that landed during the wait still wins.
-    await analytics.whenInitialized();
-    const confirmed = await this.readPrimeAnalyticsProfileSnapshot();
-    if (
-      this.dropStalePrimeProfileSnapshot({
-        expectedKey: profileKey,
-        currentKey: confirmed.profileKey,
-      })
-    ) {
-      return;
-    }
-    await analytics.updateUserProfileAsync({
-      isOneKeyIdLoggedIn: confirmed.isOneKeyIdLoggedIn,
-      isPrimeActive: confirmed.isPrimeActive,
-    });
-    await this.backgroundApi.simpleDb.prime.recordPrimeProfileReported({
-      isOneKeyIdLoggedIn: confirmed.isOneKeyIdLoggedIn,
-      isPrimeActive: confirmed.isPrimeActive,
-      now,
-    });
-  }
-
-  private async reportPrimeProfileToAnalytics() {
-    let profileKey: string | undefined;
-    try {
-      const snapshot = await this.readPrimeAnalyticsProfileSnapshot();
-      profileKey = snapshot.profileKey;
-      if (this.lastHandledPrimeProfileKey === profileKey) {
-        return;
-      }
-      const latest = await this.readPrimeAnalyticsProfileSnapshot();
-      if (
-        this.dropStalePrimeProfileSnapshot({
-          expectedKey: profileKey,
-          currentKey: latest.profileKey,
-        })
-      ) {
-        return;
-      }
-      await this.persistAndEmitPrimeProfile(latest);
-      // Only mark handled after a successful peek/emit/persist cycle so a
-      // failed POST can retry in this session.
-      this.lastHandledPrimeProfileKey = latest.profileKey;
-    } catch (error) {
-      if (profileKey && this.lastHandledPrimeProfileKey === profileKey) {
-        this.lastHandledPrimeProfileKey = undefined;
-      }
-      defaultLogger.prime.subscription.onekeyIdStateTrace({
-        reason: `reportPrimeProfileToAnalytics failed: ${getSanitizedAuthErrorLog(
-          error,
-        )}`,
-      });
-    }
   }
 
   async getPrimeClient() {
@@ -4132,11 +3970,6 @@ class ServicePrime extends ServiceBase {
       );
       if (tombstoneRepair.handled) {
         this.resetSourceLessOneKeyIdRecoveryRetry();
-        if (!tombstoneRepair.cleared) {
-          // Already-logged-out / never-logged-in: setPrimePersistAtomNotLoggedIn
-          // was skipped, so this is the guaranteed false:false profile trigger.
-          this.enqueuePrimeProfileAnalyticsReport();
-        }
         return { cleared: tombstoneRepair.cleared };
       }
     }
@@ -4925,8 +4758,8 @@ class ServicePrime extends ServiceBase {
     );
 
     // Runs for never-logged-in users too (hot startup paths), which is what
-    // gives every user the membership profile attributes; the in-memory
-    // snapshot inside keeps repeats free.
+    // gives every user the membership profile attributes; the reporter's
+    // lastHandled snapshot keeps repeats free.
     this.enqueuePrimeProfileAnalyticsReport();
 
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();

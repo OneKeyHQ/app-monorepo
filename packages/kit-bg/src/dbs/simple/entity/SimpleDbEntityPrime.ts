@@ -720,30 +720,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     });
   }
 
-  /**
-   * Check-and-mark for the onekeyIdIdentityLinked analytics event.
-   * Returns shouldReport=true (and records the timestamp) when the link for
-   * this user has not been reported within the TTL; a future timestamp from
-   * clock rollback also re-reports rather than blocking forever.
-   * Reads first and only writes when reporting, so hot no-op checks never
-   * touch storage (callers additionally hold per-session in-memory guards,
-   * and a rare duplicate report is harmless — $identify is idempotent).
-   */
-  async markIdentityLinkReported({
-    onekeyUserId,
-    now,
-  }: {
-    onekeyUserId: string;
-    now: number;
-  }): Promise<{ shouldReport: boolean }> {
-    const shouldReport = await this.isIdentityLinkDue({ onekeyUserId, now });
-    if (!shouldReport) {
-      return { shouldReport };
-    }
-    await this.recordIdentityLinkReported({ onekeyUserId, now });
-    return { shouldReport };
-  }
-
   async isPrimeProfileDue({
     isOneKeyIdLoggedIn,
     isPrimeActive,
@@ -784,40 +760,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         reportedAt: now,
       },
     }));
-  }
-
-  /**
-   * Check-and-mark for the membership user-profile attributes.
-   * Reports when the values changed since the last report, or when the
-   * unchanged values are older than the TTL (periodic self-healing
-   * re-assert); a future timestamp from clock rollback also re-reports.
-   * Reads first and only writes when reporting: never-logged-in users on
-   * hot startup paths must not trigger storage writes (and must not turn a
-   * null prime record into an empty object).
-   */
-  async markPrimeProfileReported({
-    isOneKeyIdLoggedIn,
-    isPrimeActive,
-    now,
-  }: {
-    isOneKeyIdLoggedIn: boolean;
-    isPrimeActive: boolean;
-    now: number;
-  }): Promise<{ shouldReport: boolean }> {
-    const shouldReport = await this.isPrimeProfileDue({
-      isOneKeyIdLoggedIn,
-      isPrimeActive,
-      now,
-    });
-    if (!shouldReport) {
-      return { shouldReport };
-    }
-    await this.recordPrimeProfileReported({
-      isOneKeyIdLoggedIn,
-      isPrimeActive,
-      now,
-    });
-    return { shouldReport };
   }
 
   async getKeylessOAuthSessionPersistenceJournal(): Promise<

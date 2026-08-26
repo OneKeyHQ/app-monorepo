@@ -152,7 +152,7 @@ describe('PrimeSubscriptionScene sanitized event payloads', () => {
   it('sends onekeyIdIdentityLinked with the onekeyUserId to server', () => {
     const { scene, emitLog } = createSceneWithSpy();
 
-    scene.onekeyIdIdentityLinked({ onekeyUserId: 'user-uuid-1' });
+    void scene.reportOneKeyIdIdentityLinked({ onekeyUserId: 'user-uuid-1' });
 
     const call = emitLog.mock.calls.find(
       ([methodName]) => methodName === 'onekeyIdIdentityLinked',

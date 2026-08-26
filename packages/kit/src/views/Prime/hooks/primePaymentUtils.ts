@@ -2,6 +2,7 @@ import { BigNumber } from 'bignumber.js';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IPrimePaymentMethod,
@@ -200,19 +201,6 @@ function trackPrimeSubscriptionSuccess({
 const REVENUECAT_WEB_USER_CANCELLED_ERROR_CODE = 1;
 const REVENUECAT_NATIVE_CANCELLED_MESSAGE = 'Purchase was cancelled.';
 
-function isOneKeyLocalError(error: unknown): boolean {
-  if (error instanceof OneKeyLocalError) {
-    return true;
-  }
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'className' in error &&
-    (error as { className?: string }).className ===
-      EOneKeyErrorClassNames.OneKeyLocalError
-  );
-}
-
 function classifyPurchaseError(error: unknown): {
   reason: IPrimeSubscribeFailedReason;
   errorCode?: string;
@@ -242,7 +230,12 @@ function classifyPurchaseError(error: unknown): {
   let reason: IPrimeSubscribeFailedReason = 'paymentFailed';
   if (isUserCancelled) {
     reason = 'userCancelled';
-  } else if (isOneKeyLocalError(error)) {
+  } else if (
+    errorUtils.isErrorByClassName({
+      error,
+      className: EOneKeyErrorClassNames.OneKeyLocalError,
+    })
+  ) {
     reason = 'clientError';
   }
   return {

@@ -2986,16 +2986,17 @@ function createPrimeAnalyticsEntityWithStore(initial: ISimpleDBPrime = {}) {
   return { entity, getPersisted: () => persisted, setRawDataSpy };
 }
 
-describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
+describe('SimpleDbEntityPrime identity-link analytics TTL', () => {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
-  test('reports and records the first link for a user', async () => {
+  test('records the first link for a user', async () => {
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const now = Date.now();
 
     await expect(
-      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
-    ).resolves.toEqual({ shouldReport: true });
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+    await entity.recordIdentityLinkReported({ onekeyUserId: 'user-1', now });
     expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
       'user-1': now,
     });
@@ -3009,8 +3010,8 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
       });
 
     await expect(
-      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
-    ).resolves.toEqual({ shouldReport: false });
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(false);
     expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
       'user-1': now - DAY_MS,
     });
@@ -3029,16 +3030,13 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
 
   test('re-reports after the TTL elapses', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+    const { entity } = createPrimeAnalyticsEntityWithStore({
       identityLinkReportedAtByUserId: { 'user-1': now - 8 * DAY_MS },
     });
 
     await expect(
-      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
-    ).resolves.toEqual({ shouldReport: true });
-    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
-      'user-1': now,
-    });
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
   });
 
   test('re-reports when the recorded timestamp is in the future (clock rollback)', async () => {
@@ -3048,8 +3046,8 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
     });
 
     await expect(
-      entity.markIdentityLinkReported({ onekeyUserId: 'user-1', now }),
-    ).resolves.toEqual({ shouldReport: true });
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
   });
 
   test('prunes the record to the most recent users', async () => {
@@ -3064,9 +3062,7 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
       },
     });
 
-    await expect(
-      entity.markIdentityLinkReported({ onekeyUserId: 'user-6', now }),
-    ).resolves.toEqual({ shouldReport: true });
+    await entity.recordIdentityLinkReported({ onekeyUserId: 'user-6', now });
     const persistedRecord = getPersisted().identityLinkReportedAtByUserId;
     expect(Object.keys(persistedRecord ?? {})).toHaveLength(5);
     expect(persistedRecord?.['user-6']).toBe(now);
@@ -3074,20 +3070,25 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
   });
 });
 
-describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
+describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
-  test('reports the first profile snapshot', async () => {
+  test('records the first profile snapshot', async () => {
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const now = Date.now();
 
     await expect(
-      entity.markPrimeProfileReported({
+      entity.isPrimeProfileDue({
         isOneKeyIdLoggedIn: false,
         isPrimeActive: false,
         now,
       }),
-    ).resolves.toEqual({ shouldReport: true });
+    ).resolves.toBe(true);
+    await entity.recordPrimeProfileReported({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+      now,
+    });
     expect(getPersisted().analyticsPrimeProfileReport).toEqual({
       isOneKeyIdLoggedIn: false,
       isPrimeActive: false,
@@ -3121,12 +3122,12 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
       });
 
     await expect(
-      entity.markPrimeProfileReported({
+      entity.isPrimeProfileDue({
         isOneKeyIdLoggedIn: true,
         isPrimeActive: false,
         now,
       }),
-    ).resolves.toEqual({ shouldReport: false });
+    ).resolves.toBe(false);
     expect(getPersisted().analyticsPrimeProfileReport?.reportedAt).toBe(
       now - DAY_MS,
     );
@@ -3135,7 +3136,7 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
 
   test('reports immediately when a value changes', async () => {
     const now = Date.now();
-    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+    const { entity } = createPrimeAnalyticsEntityWithStore({
       analyticsPrimeProfileReport: {
         isOneKeyIdLoggedIn: true,
         isPrimeActive: false,
@@ -3144,17 +3145,12 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
     });
 
     await expect(
-      entity.markPrimeProfileReported({
+      entity.isPrimeProfileDue({
         isOneKeyIdLoggedIn: true,
         isPrimeActive: true,
         now,
       }),
-    ).resolves.toEqual({ shouldReport: true });
-    expect(getPersisted().analyticsPrimeProfileReport).toEqual({
-      isOneKeyIdLoggedIn: true,
-      isPrimeActive: true,
-      reportedAt: now,
-    });
+    ).resolves.toBe(true);
   });
 
   test('re-asserts unchanged values after the TTL', async () => {
@@ -3168,11 +3164,11 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
     });
 
     await expect(
-      entity.markPrimeProfileReported({
+      entity.isPrimeProfileDue({
         isOneKeyIdLoggedIn: true,
         isPrimeActive: true,
         now,
       }),
-    ).resolves.toEqual({ shouldReport: true });
+    ).resolves.toBe(true);
   });
 });
