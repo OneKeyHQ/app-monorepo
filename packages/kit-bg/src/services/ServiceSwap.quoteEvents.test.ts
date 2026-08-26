@@ -71,7 +71,11 @@ function createService() {
       },
     },
   });
-  const getUri = jest.fn(() => 'https://example.com/swap/v1/quote/events');
+  const getUri = jest.fn(
+    (_params: { url: string; params: Record<string, unknown> }) =>
+      'https://example.com/swap/v1/quote/events',
+  );
+  jest.spyOn(service, 'getDenyCrossChainProvider').mockResolvedValue(undefined);
   jest.spyOn(service, 'getDenySingleSwapProvider').mockResolvedValue(undefined);
   jest.spyOn(service, 'getClient').mockResolvedValue({
     getUri,
@@ -170,7 +174,7 @@ describe('ServiceSwap quote event request ownership', () => {
     expect(activeEventSource?.close).not.toHaveBeenCalled();
   });
 
-  it('forwards the Market source to the quote event request', async () => {
+  it('scopes Market requests except native BTC outbound routes', async () => {
     const { getUri, service } = createService();
 
     await service.fetchQuotesEvents({
@@ -187,5 +191,36 @@ describe('ServiceSwap quote event request ownership', () => {
       }),
     );
     await service.cancelFetchQuoteEvents('market-quote-request');
+
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('btc-market-quote-request'),
+      source: ESwapQuoteSource.MARKET,
+      fromToken: {
+        ...fromToken,
+        networkId: 'btc--0',
+        contractAddress: '',
+        symbol: 'BTC',
+        isNative: true,
+      },
+    });
+
+    const requestParams = getUri.mock.calls.at(-1)?.[0]?.params;
+    expect(requestParams).not.toHaveProperty('source');
+    await service.cancelFetchQuoteEvents('btc-market-quote-request');
+  });
+
+  it('omits empty optional quote amounts from the request', async () => {
+    const { getUri, service } = createService();
+
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('empty-amount-quote-request'),
+      fromTokenAmount: '',
+      toTokenAmount: '',
+    });
+
+    const requestParams = getUri.mock.calls[0]?.[0]?.params;
+    expect(requestParams).not.toHaveProperty('fromTokenAmount');
+    expect(requestParams).not.toHaveProperty('toTokenAmount');
+    await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
 });
