@@ -369,6 +369,12 @@ export const ARG_TYPES = {
     control: 'inline-radio',
     options: ['classic', 'mini', 'pro', 'touch', 'pro2'],
   },
+  // 'usb' is the original look — the replica in the capsule seat; only
+  // 'bluetooth' wears the badge.
+  connectionType: {
+    control: 'inline-radio',
+    options: ['bluetooth', 'usb'],
+  },
   passphraseMode: {
     control: 'inline-radio',
     options: ['create', 'verify'],
