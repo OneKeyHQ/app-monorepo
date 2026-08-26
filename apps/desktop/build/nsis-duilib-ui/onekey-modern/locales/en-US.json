@@ -34,7 +34,7 @@
   "scope.recommended": "Recommended",
   "welcome.moreOptions": "More options",
   "welcome.lessOptions": "Fewer options",
-  "welcome.terms": "By continuing, you agree to the Terms and Privacy Policy",
+  "welcome.terms": "By continuing, you agree to the {a terms}Terms{/a}  and {a privacy}Privacy Policy{/a} ",
   "welcome.change": "Change",
   "scope.title": "Choose who can use OneKey",
   "scope.subtitle": "You can change this later by reinstalling OneKey.",

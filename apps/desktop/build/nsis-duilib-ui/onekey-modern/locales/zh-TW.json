@@ -32,7 +32,7 @@
   "scope.recommended": "建議",
   "welcome.moreOptions": "更多選項",
   "welcome.lessOptions": "收合選項",
-  "welcome.terms": "繼續即表示你同意服務條款與隱私權政策",
+  "welcome.terms": "繼續即表示你同意{a terms}服務條款{/a} 與{a privacy}隱私權政策{/a} ",
   "welcome.change": "變更",
   "scope.title": "選擇 OneKey 的使用範圍",
   "scope.subtitle": "日後重新安裝 OneKey 時仍可變更。",

@@ -34,7 +34,7 @@
   "scope.recommended": "推荐",
   "welcome.moreOptions": "更多选项",
   "welcome.lessOptions": "收起选项",
-  "welcome.terms": "继续即表示你同意服务条款与隐私政策",
+  "welcome.terms": "继续即表示你同意{a terms}服务条款{/a} 与{a privacy}隐私政策{/a} ",
   "welcome.change": "更改",
   "scope.title": "选择 OneKey 的使用范围",
   "scope.subtitle": "以后重新安装 OneKey 时仍可更改。",
