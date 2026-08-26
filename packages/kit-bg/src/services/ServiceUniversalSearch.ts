@@ -21,6 +21,7 @@ import {
   buildTradablePerpMaxLeverageMap,
   isPerpsUniverseCacheComplete,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { matchesTokenSearchAlias } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -56,6 +57,12 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 const PERPS_ASSET_TYPE_VERSION = 2;
+// Every market's search aliases include its pair notations (`btc-usdc`), so
+// `usdc` returns every USDC settled market. Only short ASCII tickers are held
+// to a literal match: a longer query is where the index's description hits
+// such as `nasdaq` are the point, and a non-ASCII one is where the localized
+// aliases the server may hold beyond our cached map are.
+const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -1292,19 +1299,47 @@ class ServiceUniversalSearch extends ServiceBase {
             ? await this.readTradablePerpMaxLeverageMap()
             : cachedPerpMaxLeverage;
 
+        const normalizedQuery = input.trim().toLowerCase();
+        const requiresLiteralMatch =
+          /^[a-z0-9]+$/.test(normalizedQuery) &&
+          normalizedQuery.length <= PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH;
+        // Read only when the filter can drop something: an alias is the only
+        // way a query reaches a market whose ticker and subtitle both miss it.
+        const tokenSearchAliases = requiresLiteralMatch
+          ? await this.backgroundApi.serviceHyperliquid.getTokenSearchAliases()
+          : undefined;
+
         const items: IUniversalSearchPerpResult['items'] =
           rawAssets
             ?.filter((asset) => {
+              const coin = buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              });
+              // `asset.type` is the dex prefix, so matching it exactly keeps
+              // `xyz` browsing that sub-dex without a fragment such as `ar`
+              // waving through every `para` row.
+              if (
+                requiresLiteralMatch &&
+                asset.type?.toLowerCase() !== normalizedQuery &&
+                ![asset.name, asset.subtitle].some((field) =>
+                  field?.toLowerCase().includes(normalizedQuery),
+                ) &&
+                !matchesTokenSearchAlias({
+                  query: normalizedQuery,
+                  aliases: coin
+                    ? tokenSearchAliases?.[coin]?.aliases
+                    : undefined,
+                })
+              ) {
+                return false;
+              }
               // The search index still carries delisted assets — `xyz:UNITREE`
               // survives there after moving to `para`, so the same ticker would
               // appear twice with one dead row.
               if (!tradablePerpMaxLeverage) {
                 return true;
               }
-              const coin = buildCoinFromSearchAssetType({
-                assetType: asset.type,
-                name: asset.name,
-              });
               return Boolean(coin && tradablePerpMaxLeverage.has(coin));
             })
             .map((asset) => {
