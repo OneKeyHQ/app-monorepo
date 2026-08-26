@@ -14,7 +14,7 @@ import {
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { EBorrowDataStatus, isBorrowDataLoading } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
@@ -39,6 +39,7 @@ export const BorrowDataGate = ({
     markets,
     isLoading: marketsLoading,
     refetchMarkets,
+    hasSettled: marketsSettled,
   } = useBorrowMarkets({ isActive: isViewActive });
   const market = useMemo(() => markets?.[0], [markets]);
   const borrowNetworkIds = useMemo(() => {
@@ -227,10 +228,24 @@ export const BorrowDataGate = ({
   const dataStatus = useMemo(() => {
     if (!isViewActive) return EBorrowDataStatus.Idle;
     if (marketsLoading) {
-      if (!market) return EBorrowDataStatus.LoadingMarkets;
+      // Refreshing means "keep what is already on screen". With no reserves
+      // rendered yet there is nothing to keep, and since Refreshing is not a
+      // loading status the cards would paint their empty copy for the frame —
+      // mirror the reserves branch below and stay in a loading status.
+      if (!market || !prevReservesDataRef.current) {
+        return EBorrowDataStatus.LoadingMarkets;
+      }
       return EBorrowDataStatus.Refreshing;
     }
-    if (!market || !fetchKey) return EBorrowDataStatus.Idle;
+    // The markets runner bails out with an empty list while the view is
+    // inactive, so an empty `markets` is only a settled result once a real
+    // request has finished (a failed one counts, so errors still reach the
+    // empty state rather than spinning).
+    if (!market || !fetchKey) {
+      return marketsSettled
+        ? EBorrowDataStatus.Idle
+        : EBorrowDataStatus.LoadingMarkets;
+    }
     if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
 
     if (reservesLoading) {
@@ -251,6 +266,7 @@ export const BorrowDataGate = ({
   }, [
     isViewActive,
     marketsLoading,
+    marketsSettled,
     market,
     fetchKey,
     shouldWaitForAccount,
@@ -292,10 +308,7 @@ export const BorrowDataGate = ({
 
   // Sync reserves to Context using IAsyncData format
   useEffect(() => {
-    const isLoading =
-      dataStatus === EBorrowDataStatus.LoadingMarkets ||
-      dataStatus === EBorrowDataStatus.WaitingForAccount ||
-      dataStatus === EBorrowDataStatus.LoadingReserves;
+    const isLoading = isBorrowDataLoading(dataStatus);
 
     // Determine the data to set
     let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
