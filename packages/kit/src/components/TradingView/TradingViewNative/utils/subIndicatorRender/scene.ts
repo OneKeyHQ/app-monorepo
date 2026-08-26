@@ -781,9 +781,9 @@ export function appendTradingViewNativeSubIndicatorLegendCommands({
     commands.push({ kind: 'restore' });
   }
 
-  return legendLayouts.map(({ backgroundRect, paneLayout }) => ({
+  return legendLayouts.map(({ hitRect, paneLayout }) => ({
     indicator: paneLayout.pane.indicator,
-    rect: backgroundRect,
+    rect: hitRect,
   }));
 }
 

@@ -56,7 +56,7 @@ describe('TradingViewNative sub-indicator scene', () => {
       priceAxisX: 280,
       startIndex: 20,
     });
-    appendTradingViewNativeSubIndicatorLegendCommands({
+    const legendHitRegions = appendTradingViewNativeSubIndicatorLegendCommands({
       commands,
       layouts,
       measureTextWidth: (text) => text.length * 6,
@@ -93,13 +93,14 @@ describe('TradingViewNative sub-indicator scene', () => {
       (command) => command.kind === 'text' && command.text === 'RSI',
     );
     expect(commands[legendBackgroundIndex]).toMatchObject({
-      height: 24,
+      height: 15,
       kind: 'rect',
       paint: 'legendBackground',
       width: expect.any(Number),
       x: 4,
       y: 244,
     });
+    expect(legendHitRegions[0]?.rect.height).toBe(24);
     expect(legendBackgroundIndex).toBeLessThan(legendTitleIndex);
     expect(Object.keys(customPaintStyles)).toEqual(
       expect.arrayContaining([

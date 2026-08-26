@@ -15,6 +15,7 @@ import {
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+  getTradingViewNativeSubIndicatorLegendLayouts,
 } from './legend';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 
@@ -155,7 +156,7 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     ).toBeNull();
   });
 
-  it('uses the full wrapped legend background as the settings target', () => {
+  it('keeps the full wrapped legend inside the settings target', () => {
     const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
       configs: [{ id: 'dmi', indicator: 'DMI' }],
       points: POINTS,
@@ -181,5 +182,37 @@ describe('TradingViewNative sub-indicator pane layout', () => {
         y: region.rect.y + region.rect.height - 1,
       }),
     ).toBe('DMI');
+  });
+
+  it('wraps a short legend tightly without shrinking its tap target', () => {
+    const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'wr', indicator: 'WR' }],
+      points: POINTS,
+    }).map(({ pane }) => pane);
+    const stackHeight = getTradingViewNativeSubIndicatorPaneStackHeight({
+      height: 300,
+      paneCount: panes.length,
+    });
+    const paneLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes,
+      stackBottom: 300 - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+      stackTop: 300 - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT - stackHeight,
+      startIndex: 0,
+    });
+    const [legendLayout] = getTradingViewNativeSubIndicatorLegendLayouts({
+      layouts: paneLayouts,
+      measureTextWidth: (text) => text.length * 6,
+      pointIndex: POINTS.length - 1,
+      priceAxisX: 300,
+    });
+
+    expect(legendLayout?.backgroundRect).toEqual(
+      expect.objectContaining({ height: 15 }),
+    );
+    expect(legendLayout?.backgroundRect.width).toBeLessThan(96);
+    expect(legendLayout?.hitRect).toEqual(
+      expect.objectContaining({ height: 24, width: 96 }),
+    );
   });
 });

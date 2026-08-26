@@ -2,8 +2,8 @@ import {
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
-  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_MIN_HEIGHT,
-  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_MIN_WIDTH,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_HIT_MIN_HEIGHT,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_HIT_MIN_WIDTH,
 } from '../../chartConstants';
 import { getTradingViewNativeChartLegendRowLayout } from '../chartLegend';
 
@@ -32,6 +32,7 @@ export interface ITradingViewNativeSubIndicatorLegendTextEntry {
 export interface ITradingViewNativeSubIndicatorLegendLayout {
   backgroundRect: ITradingViewNativeLegendRect;
   clipRect: ITradingViewNativeLegendRect;
+  hitRect: ITradingViewNativeLegendRect;
   paneLayout: ITradingViewNativeSubIndicatorPaneLayout;
   textBaselineY: number;
   textEntries: ITradingViewNativeSubIndicatorLegendTextEntry[];
@@ -118,19 +119,13 @@ function getTradingViewNativeSubIndicatorLegendLayout({
 
   const backgroundRect = {
     height: Math.min(
-      Math.max(
-        contentBottom - rowLayout.backgroundRect.y,
-        TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_MIN_HEIGHT,
-      ),
+      contentBottom - rowLayout.backgroundRect.y,
       Math.max(paneLayout.bottom - rowLayout.backgroundRect.y, 0),
     ),
     width: Math.min(
-      Math.max(
-        contentRight -
-          rowLayout.backgroundRect.x +
-          TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
-        TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_MIN_WIDTH,
-      ),
+      contentRight -
+        rowLayout.backgroundRect.x +
+        TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
       Math.max(priceAxisX - rowLayout.backgroundRect.x, 0),
     ),
     x: rowLayout.backgroundRect.x,
@@ -147,6 +142,23 @@ function getTradingViewNativeSubIndicatorLegendLayout({
       width: Math.max(priceAxisX - rowLayout.clipRect.x, 0),
       x: rowLayout.clipRect.x,
       y: paneLayout.top,
+    },
+    hitRect: {
+      ...backgroundRect,
+      height: Math.min(
+        Math.max(
+          backgroundRect.height,
+          TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_HIT_MIN_HEIGHT,
+        ),
+        Math.max(paneLayout.bottom - backgroundRect.y, 0),
+      ),
+      width: Math.min(
+        Math.max(
+          backgroundRect.width,
+          TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_HIT_MIN_WIDTH,
+        ),
+        Math.max(priceAxisX - backgroundRect.x, 0),
+      ),
     },
     paneLayout,
     textBaselineY: rowLayout.textBaselineY,
@@ -224,9 +236,9 @@ export function getTradingViewNativeSubIndicatorLegendHitRegions({
     measureTextWidth,
     pointIndex,
     priceAxisX,
-  }).map(({ backgroundRect, paneLayout }) => ({
+  }).map(({ hitRect, paneLayout }) => ({
     indicator: paneLayout.pane.indicator,
-    rect: backgroundRect,
+    rect: hitRect,
   }));
 }
 
