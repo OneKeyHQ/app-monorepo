@@ -22,6 +22,8 @@ import {
   getSimulationAssets,
   getSimulationGroups,
   hasAddressRiskTags,
+  isTrustedPermitSign,
+  shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -159,6 +161,48 @@ describe('SecurityCheckCard parser alert display', () => {
       description:
         'The spender is unverified and may transfer all of your funds.',
     });
+  });
+});
+
+describe('SecurityCheckCard trusted Permit alert boundaries', () => {
+  const genericPermitAlert =
+    'This Permit signature may authorize a dApp to use your tokens.';
+
+  it('hides only the generic Permit alert for a trusted site', () => {
+    expect(
+      shouldHideGenericPermitAlert({
+        alert:
+          '  THIS PERMIT SIGNATURE may authorize a dApp to use your tokens. ',
+        genericPermitAlert,
+        isPermitSignMethod: true,
+        isSiteVerified: true,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['trusted Permit', true, true, true],
+    ['untrusted Permit', true, false, false],
+    ['trusted non-Permit', false, true, false],
+  ])('identifies %s', (_case, isPermitSignMethod, isSiteVerified, expected) => {
+    expect(isTrustedPermitSign({ isPermitSignMethod, isSiteVerified })).toBe(
+      expected,
+    );
+  });
+
+  it.each([
+    ['a specific parser risk', 'The spender is malicious.', true, true],
+    ['an untrusted site', genericPermitAlert, true, false],
+    ['a non-Permit request', genericPermitAlert, false, true],
+  ])('keeps %s', (_case, alert, isPermitSignMethod, isSiteVerified) => {
+    expect(
+      shouldHideGenericPermitAlert({
+        alert,
+        genericPermitAlert,
+        isPermitSignMethod,
+        isSiteVerified,
+      }),
+    ).toBe(false);
   });
 });
 
