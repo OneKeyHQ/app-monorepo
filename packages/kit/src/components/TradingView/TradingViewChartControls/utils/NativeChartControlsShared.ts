@@ -16,6 +16,48 @@ export type {
   ITradingViewNativePriceMarketCapControlMode,
 } from '../types';
 
+/**
+ * Shared chrome for the option grids in the interval and indicator popovers so
+ * the two stay visually identical.
+ */
+export const NATIVE_CHART_OPTION_GRID_GAP = '$2';
+export const NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS = {
+  flex: 1,
+  flexBasis: 0,
+  h: 32,
+  minWidth: 0,
+  px: '$2.5',
+  borderWidth: 1,
+  borderRadius: '$2',
+  borderCurve: 'continuous',
+} as const;
+
+export function getNativeChartOptionPillColors({
+  isHighlighted,
+  isDisabled,
+}: {
+  isHighlighted: boolean;
+  isDisabled?: boolean;
+}) {
+  const showsHighlight = isHighlighted && !isDisabled;
+  return {
+    bg: showsHighlight ? ('$bgActive' as const) : ('$bgStrong' as const),
+    borderColor: showsHighlight
+      ? ('$borderActive' as const)
+      : ('$transparent' as const),
+    color: isDisabled ? ('$textDisabled' as const) : ('$text' as const),
+  };
+}
+
+/** Section header action that reads as a link rather than a filled button. */
+export const NATIVE_CHART_SECTION_ACTION_BUTTON_PROPS = {
+  size: 'small',
+  variant: 'tertiary',
+  hoverStyle: {
+    bg: '$transparent',
+  },
+} as const;
+
 export const HEADER_ICON_BUTTON_STYLE_PROPS = {
   m: '$0',
   bg: '$transparent',
