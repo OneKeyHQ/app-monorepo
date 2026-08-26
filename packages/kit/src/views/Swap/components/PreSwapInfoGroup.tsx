@@ -341,10 +341,11 @@ const PreSwapInfoGroup = ({
         onOpenChange={slippageEditor.onOpenChange}
         showHeader={false}
         placement="bottom-end"
+        offset={{ mainAxis: 8, crossAxis: 20 }}
         floatingPanelProps={{ width: 400 }}
         renderTrigger={trigger}
         renderContent={
-          <Stack p="$4" width={400}>
+          <Stack p="$5" width={400}>
             <SwapReviewSlippageEditor
               disableSaveSlippageForFutureOrders={
                 slippageEditor.disableSaveSlippageForFutureOrders
