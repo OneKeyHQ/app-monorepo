@@ -256,9 +256,10 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
           onError(newErrorText, exceptionValue.stacktrace);
           exceptionValue.value = newErrorText;
         }
-        // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
+        // WebEmbed forwards exceptions to the host through onError; do not also
+        // send them directly to Sentry from the embedded runtime.
         if (platformEnv.isWebEmbed) {
-          return event;
+          return null;
         }
         // Sanitize stacktrace (local variables, context lines)
         sanitizeStacktrace(exceptionValue.stacktrace);
