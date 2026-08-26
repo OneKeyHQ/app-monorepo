@@ -275,6 +275,7 @@ function PerpOrderInfoPanel() {
         <Tabs.TabBar
           {...props}
           scrollable
+          fillAvailableSpace
           keepFocusedTabVisible
           showsHorizontalScrollIndicator
           renderItem={({ name, isFocused, onPress }) => (
