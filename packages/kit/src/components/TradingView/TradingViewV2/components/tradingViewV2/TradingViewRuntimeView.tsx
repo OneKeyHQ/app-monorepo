@@ -2,7 +2,7 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import type { ITradingViewRuntimeViewProps } from './TradingViewRuntimeView.types';
 
-export default function TradingViewRuntimeView({
+export function TradingViewRuntimeView({
   onChartError: _onChartError,
   onChartReady: _onChartReady,
   onVisualReady: _onVisualReady,

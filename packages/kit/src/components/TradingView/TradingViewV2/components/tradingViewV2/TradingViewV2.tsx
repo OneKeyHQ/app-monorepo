@@ -52,7 +52,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
-import TradingViewRuntimeView from './TradingViewRuntimeView';
+import { TradingViewRuntimeView } from './TradingViewRuntimeView';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';

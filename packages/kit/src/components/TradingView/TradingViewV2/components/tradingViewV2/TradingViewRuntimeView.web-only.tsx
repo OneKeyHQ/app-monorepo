@@ -180,7 +180,7 @@ function startTradingViewRuntime(
   return () => stopTradingViewRuntime(context, lifecycle);
 }
 
-export default function TradingViewRuntimeView({
+export function TradingViewRuntimeView({
   src = '',
   containerProps,
   customReceiveHandler,

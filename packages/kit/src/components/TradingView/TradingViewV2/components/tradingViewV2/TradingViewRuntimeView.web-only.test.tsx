@@ -6,7 +6,7 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
 import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web';
-import TradingViewRuntimeView from './TradingViewRuntimeView.web-only';
+import { TradingViewRuntimeView } from './TradingViewRuntimeView.web-only';
 
 const webViewProps = jest.fn();
 const mockFallbackSendMessage = jest.fn();
