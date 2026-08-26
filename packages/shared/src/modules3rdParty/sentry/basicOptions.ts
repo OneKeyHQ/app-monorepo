@@ -258,6 +258,10 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
         }
         // WebEmbed forwards exceptions to the host through onError; do not also
         // send them directly to Sentry from the embedded runtime.
+        // TODO: Remove the WebEmbed Sentry runtime dependency. Replace it with
+        // a small global error/unhandled rejection bridge that sanitizes and
+        // forwards errors through postMessage, then remove the WebEmbed Sentry
+        // entry and its vendor-transpilation allowlist.
         if (platformEnv.isWebEmbed) {
           return null;
         }
