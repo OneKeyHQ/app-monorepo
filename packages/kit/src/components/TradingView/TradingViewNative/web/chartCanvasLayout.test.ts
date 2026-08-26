@@ -11,6 +11,7 @@ import type { ITradingViewNativeCanvasPriceAxisLabels } from './chartCanvasLayou
 
 const LABELS: ITradingViewNativeCanvasPriceAxisLabels = {
   autoPriceRange: { maxPrice: 200, minPrice: 100 },
+  chartComponentPrice: '',
   currentPrice: '150.00',
   widestIndicatorPrice: '',
   widestPrice: '888.88',

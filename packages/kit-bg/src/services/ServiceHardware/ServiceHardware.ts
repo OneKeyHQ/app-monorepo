@@ -734,6 +734,12 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async waitForLegacyHardwareCallBoundary(connectId: string) {
+    if ((await this.getKnownDeviceProtocol(connectId)) !== 'V2') {
+      await timerUtils.wait(600);
+    }
+  }
+
   handleHardwareLabelChanged = cacheUtils.memoizee(
     async ({
       walletId,
@@ -3941,8 +3947,9 @@ class ServiceHardware extends ServiceBase {
         },
       );
     }
+    let compatibleConnectId = params.connectId;
     try {
-      const compatibleConnectId = await this.getCompatibleConnectId({
+      compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
@@ -3950,7 +3957,7 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
       });
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
       const evmAddressResponse = await convertDeviceResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
@@ -3967,7 +3974,7 @@ class ServiceHardware extends ServiceBase {
       console.error('getEvmAddress error', error);
       return null;
     } finally {
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
     }
   }
 
@@ -4029,8 +4036,9 @@ class ServiceHardware extends ServiceBase {
         return undefined;
       }
     }
+    let compatibleConnectId = connectId;
     try {
-      const compatibleConnectId = await this.getCompatibleConnectId({
+      compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
         hardwareCallContext: withUserInteraction
@@ -4040,7 +4048,7 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
       });
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(
           compatibleConnectId,
@@ -4069,7 +4077,7 @@ class ServiceHardware extends ServiceBase {
       }
       console.error('getHwWalletXfp ERROR: ', error);
     } finally {
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
     }
   }
 

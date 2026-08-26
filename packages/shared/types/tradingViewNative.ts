@@ -18,6 +18,7 @@ export const TRADING_VIEW_NATIVE_THEME_COLORS = {
   positiveSubdued: '$green6',
   quaternary: '$pink9',
   quinary: '$cyan9',
+  referenceLine: '$textDisabled',
   warning: '$amber9',
 } as const;
 

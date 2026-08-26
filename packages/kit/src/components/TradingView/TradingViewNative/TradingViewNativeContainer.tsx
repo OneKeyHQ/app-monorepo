@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 
@@ -37,6 +38,7 @@ import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewN
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
+import { useTradingViewNativeChartComponents } from './useTradingViewNativeChartComponents';
 import {
   type ITradingViewNativeAnyIndicator,
   type ITradingViewNativeSubIndicator,
@@ -147,6 +149,7 @@ export const TradingViewNativeContainer = memo(
     testID,
     source,
     forcedChartType,
+    chartComponents,
     enableNativeChartSettings,
     initialRightOffset,
     maxSelectableSubIndicatorCount,
@@ -385,6 +388,13 @@ export const TradingViewNativeContainer = memo(
       () => getTradingViewNativeCurrentPriceLabel(points),
       [points],
     );
+    const chartComponentRenderNodes = useTradingViewNativeChartComponents({
+      chartComponents,
+      dataProviderKey,
+      latestPrice,
+      referenceLineColor:
+        themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
+    });
 
     useEffect(() => {
       emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
@@ -683,6 +693,7 @@ export const TradingViewNativeContainer = memo(
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
+            chartComponents={chartComponentRenderNodes}
             chartSettings={chartSettings}
             chartType={forcedChartType ?? chartType}
             chartPictureVersion={chartPictureVersion}

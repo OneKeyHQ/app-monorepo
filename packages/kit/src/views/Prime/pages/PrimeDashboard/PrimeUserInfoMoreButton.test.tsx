@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { PrimeTestIDs } from '../../testIDs';
 
@@ -12,6 +12,8 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 const mockActionListClose = jest.fn();
 const mockShowPrimeRedemptionDialog = jest.fn();
 const mockPrimeRedemptionEntryClick = jest.fn();
+const mockPrimeManageSubscriptionClick = jest.fn();
+const mockResolvePrimeSubscriptionManagementTarget = jest.fn();
 const mockUser: {
   displayEmail: string;
   onekeyUserId: string;
@@ -140,9 +142,23 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         primeRedemptionEntryClick: (...args: unknown[]) => {
           mockPrimeRedemptionEntryClick(...args);
         },
+        primeManageSubscriptionClick: (...args: unknown[]) => {
+          mockPrimeManageSubscriptionClick(...args);
+        },
       },
     },
   },
+}));
+
+jest.mock('./primeSubscriptionManagementUtils', () => ({
+  getPrimeSubscriptionManagementTarget: () => ({
+    type: 'unavailable',
+    reason: 'missing-channel-and-management-url',
+  }),
+  resolvePrimeSubscriptionManagementTarget: (
+    ...args: unknown[]
+  ): Promise<unknown> =>
+    mockResolvePrimeSubscriptionManagementTarget(...args) as Promise<unknown>,
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
@@ -189,4 +205,29 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
       expect(mockActionListClose).toHaveBeenCalled();
     },
   );
+});
+
+describe('PrimeUserInfoMoreButton manage subscription', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUser.primeSubscription = { isActive: true };
+    mockUser.subscriptionManageUrl = undefined;
+    mockResolvePrimeSubscriptionManagementTarget.mockRejectedValue(
+      new Error('subscription lookup failed'),
+    );
+  });
+
+  it('records an unresolved click when destination resolution throws', async () => {
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    await waitFor(() =>
+      expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+        target: 'unresolved',
+      }),
+    );
+  });
 });
