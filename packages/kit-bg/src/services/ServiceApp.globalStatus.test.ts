@@ -27,6 +27,9 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    // Keep isJest true so storage singletons resolve their jest-safe lazy
+    // variants instead of constructing real IndexedDB-backed instances.
+    isJest: true,
     isDesktop: false,
     isNative: true,
     isNativeBackgroundThread: true,

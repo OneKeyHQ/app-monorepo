@@ -1,34 +1,16 @@
 import platformEnv from '../../platformEnv';
-import { broadcastNativeSyncStorageMutation } from '../nativeSyncStorageBroadcast';
+
+import {
+  broadcastNativeDevSettingMutation,
+  createNativeDevSettingStorageMirror,
+} from './nativeSyncStorageParts';
 
 import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EDevSettingSyncStorageKeys } from '../syncStorageKeys';
 
 function broadcastMutation(mutation: INativeSyncStorageLocalMutation) {
   if (platformEnv.isNativeBackgroundThread) {
-    if (mutation.operation === 'set') {
-      broadcastNativeSyncStorageMutation({
-        store: 'devSettings',
-        operation: 'set',
-        key: mutation.key,
-        value: mutation.value,
-      });
-    } else if (mutation.operation === 'remove') {
-      broadcastNativeSyncStorageMutation({
-        store: 'devSettings',
-        operation: 'remove',
-        key: mutation.key,
-      });
-    } else {
-      broadcastNativeSyncStorageMutation({
-        store: 'devSettings',
-        operation: 'clear',
-      });
-    }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { scheduleNativeStorageMMKVSync } =
-      require('../nativeStorageMigrationModule') as typeof import('../nativeStorageMigrationModule');
-    scheduleNativeStorageMMKVSync('onekey-app-dev-setting');
+    broadcastNativeDevSettingMutation(mutation);
   }
 }
 
@@ -41,10 +23,7 @@ type IDevSettingStorageInstance = {
 
 function getDevSettingStorageInstance(): IDevSettingStorageInstance {
   if (platformEnv.isNative && !platformEnv.isNativeBackgroundThread) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createNativeSyncStorageMirror } =
-      require('./nativeSyncStorageMirror') as typeof import('./nativeSyncStorageMirror');
-    return createNativeSyncStorageMirror('devSettings');
+    return createNativeDevSettingStorageMirror();
   }
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('./mmkvDevSettingStorageInstance')

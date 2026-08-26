@@ -28,7 +28,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock(
-  '@onekeyhq/shared/src/storage/nativeStorageContractViolation',
+  '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription',
   () => ({
     subscribeNativeStorageContractViolations: (
       listener: (violation: unknown) => void,
