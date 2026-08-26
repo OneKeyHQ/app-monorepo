@@ -205,7 +205,7 @@ export function PerpFundingBreakdown({
       {marketBreakdownPanel}
       <YStack bg="$bgSubdued" borderRadius="$3" p="$3.5">
         <XStack alignItems="center">
-          <YStack flex={1} gap="$1">
+          <YStack flex={1} gap={isMobile ? '$1' : '$0.5'}>
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_funding_total_paid__label,
@@ -223,7 +223,7 @@ export function PerpFundingBreakdown({
               </SizableText>
             )}
           </YStack>
-          <YStack flex={1} gap="$1" alignItems="flex-end">
+          <YStack flex={1} gap={isMobile ? '$1' : '$0.5'} alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_funding_total_received__label,

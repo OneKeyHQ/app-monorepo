@@ -121,6 +121,7 @@ const CHART_HEIGHT_MOBILE = 260;
 const PORTFOLIO_CONTENT_HEIGHT_DESKTOP = 608;
 const HOVER_TOOLTIP_WIDTH = 148;
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+const CHART_PRICE_SCALE_MARGINS_MOBILE = { top: 0.06, bottom: 0.12 };
 const CHART_AREA_FILL_ALPHA = 0.1;
 
 type IPortfolioPalette = {
@@ -812,52 +813,22 @@ function PerpPortfolioContentComponent({
   }
 
   const chartPanel = (
-    <YStack flex={1} gap="$3">
+    <YStack flex={1} gap={isMobile ? '$2' : '$3'}>
       {/* Controls */}
       {isMobile ? (
-        <YStack gap="$2">
-          <XStack
-            width="100%"
-            justifyContent="space-between"
-            alignItems="center"
-            gap="$2"
-            flexWrap="wrap"
-          >
-            <XStack alignItems="center" gap="$2" flexShrink={1}>
-              <SegmentControl
-                h={28}
-                value={chartType}
-                onChange={handleChartTypeChange}
-                options={mobileChartTypeOptions}
-                segmentControlItemStyleProps={{
-                  px: '$2.5',
-                  py: '$1',
-                }}
-              />
-              {pnlTypeSelector}
-            </XStack>
-            <SegmentControl
-              h={28}
-              value={timePeriod}
-              onChange={handleTimePeriodChange}
-              options={mobileTimePeriodOptions}
-              flexShrink={0}
-              slotBackgroundColor="$transparent"
-              activeBackgroundColor="$bgActive"
-              activeTextColor="$text"
-              inactiveTextColor="$textSubdued"
-              segmentControlItemStyleProps={{
-                h: 28,
-                minWidth: MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH,
-                px: '$1.5',
-                py: '$0',
-                borderRadius: '$full',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            />
-          </XStack>
-        </YStack>
+        <XStack alignItems="center" gap="$2" flexWrap="wrap">
+          <SegmentControl
+            h={28}
+            value={chartType}
+            onChange={handleChartTypeChange}
+            options={mobileChartTypeOptions}
+            segmentControlItemStyleProps={{
+              px: '$2.5',
+              py: '$1',
+            }}
+          />
+          {pnlTypeSelector}
+        </XStack>
       ) : (
         <YStack gap="$2">
           <XStack
@@ -899,11 +870,16 @@ function PerpPortfolioContentComponent({
 
       {/* Chart — negative mr shifts chart right so plot area aligns with controls */}
       {isChartLoading ? (
-        <Skeleton height={chartHeight} borderRadius="$2" />
+        <Skeleton
+          flex={isMobile ? undefined : 1}
+          height={isMobile ? chartHeight : undefined}
+          borderRadius="$2"
+        />
       ) : null}
       {showFundingEmptyState ? (
         <YStack
-          height={chartHeight}
+          flex={isMobile ? undefined : 1}
+          height={isMobile ? chartHeight : undefined}
           alignItems="center"
           justifyContent="center"
           px="$6"
@@ -972,7 +948,11 @@ function PerpPortfolioContentComponent({
             lineWidth={3}
             showPriceScale
             showHorzGridLines={isBaselineChart}
-            priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
+            priceScaleMargins={
+              isMobile
+                ? CHART_PRICE_SCALE_MARGINS_MOBILE
+                : CHART_PRICE_SCALE_MARGINS
+            }
             priceScaleEntireTextOnly={!isBaselineChart}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
@@ -985,6 +965,29 @@ function PerpPortfolioContentComponent({
             locale={intl.locale}
           />
         </YStack>
+      ) : null}
+
+      {isMobile ? (
+        <SegmentControl
+          fullWidth
+          h={28}
+          value={timePeriod}
+          onChange={handleTimePeriodChange}
+          options={mobileTimePeriodOptions}
+          slotBackgroundColor="$transparent"
+          activeBackgroundColor="$bgActive"
+          activeTextColor="$text"
+          inactiveTextColor="$textSubdued"
+          segmentControlItemStyleProps={{
+            h: 28,
+            minWidth: MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH,
+            px: '$1.5',
+            py: '$0',
+            borderRadius: '$full',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
       ) : null}
 
       {/* Selected chart summary */}
@@ -1177,7 +1180,7 @@ function PerpPortfolioContentComponent({
 
   // ─── Stats ──────────────────────────────────────────────────────────────────
   const statsPanel = (
-    <YStack gap="$3">
+    <YStack gap={isMobile ? '$3' : '$2'}>
       {/* Account Health */}
       <SectionBlock>
         <XStack justifyContent="space-between" alignItems="center">
@@ -1468,7 +1471,7 @@ function PerpPortfolioContentComponent({
       <YStack flex={6} flexBasis={0} overflow="visible" zIndex={1}>
         {chartPanel}
       </YStack>
-      <YStack flex={4} flexBasis={0} gap="$3">
+      <YStack flex={4} flexBasis={0} gap="$2">
         {portfolioValueBlock}
         {contextualStatsPanel}
       </YStack>

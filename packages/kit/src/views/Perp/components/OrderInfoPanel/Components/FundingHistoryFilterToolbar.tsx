@@ -21,6 +21,7 @@ import type {
 } from '../fundingHistoryDisplay';
 
 interface IFundingHistoryFilterToolbarProps {
+  isMobile?: boolean;
   sideFilter: IFundingHistorySideFilter;
   marketFilter: string | undefined;
   marketOptions: IFundingHistoryMarketOption[];
@@ -32,10 +33,12 @@ function FundingHistoryFilterTrigger({
   label,
   isOpen,
   testID,
+  maxWidth = 160,
 }: {
   label: string;
   isOpen: boolean;
   testID: string;
+  maxWidth?: number;
 }) {
   return (
     <XStack
@@ -45,7 +48,7 @@ function FundingHistoryFilterTrigger({
       cursor="pointer"
       userSelect="none"
       hitSlop={8}
-      maxWidth={160}
+      maxWidth={maxWidth}
     >
       <SizableText size="$bodyMdMedium" numberOfLines={1}>
         {label}
@@ -60,11 +63,13 @@ function FundingHistoryFilterTrigger({
 }
 
 function FundingHistoryFilterOption({
+  isMobile,
   label,
   selected,
   testID,
   onPress,
 }: {
+  isMobile?: boolean;
   label: string;
   selected: boolean;
   testID: string;
@@ -73,9 +78,9 @@ function FundingHistoryFilterOption({
   return (
     <XStack
       testID={testID}
-      minHeight={28}
+      minHeight={isMobile ? 44 : 28}
       width="100%"
-      px="$2"
+      px={isMobile ? '$3' : '$2'}
       alignItems="center"
       borderRadius="$2"
       cursor="pointer"
@@ -85,7 +90,7 @@ function FundingHistoryFilterOption({
       onPress={onPress}
     >
       <SizableText
-        size="$bodySm"
+        size={isMobile ? '$bodyMd' : '$bodySm'}
         color={selected ? '$text' : '$textSubdued'}
         numberOfLines={1}
       >
@@ -96,6 +101,7 @@ function FundingHistoryFilterOption({
 }
 
 function FundingHistoryFilterToolbar({
+  isMobile,
   sideFilter,
   marketFilter,
   marketOptions,
@@ -143,7 +149,11 @@ function FundingHistoryFilterToolbar({
     : undefined;
 
   return (
-    <XStack mr="$3" gap="$4" alignItems="center">
+    <XStack
+      mr={isMobile ? undefined : '$3'}
+      gap={isMobile ? '$3' : '$4'}
+      alignItems="center"
+    >
       <Popover
         title={sideLabel}
         showHeader={false}
@@ -156,15 +166,17 @@ function FundingHistoryFilterToolbar({
             label={selectedSideLabel ?? sideLabel}
             isOpen={sideOpen}
             testID="perps-funding-history-side-filter"
+            maxWidth={isMobile ? 140 : 160}
           />
         }
         renderContent={({ closePopover }) => (
-          <YStack p="$1" gap="$0.5">
+          <YStack p={isMobile ? '$2' : '$1'} gap={isMobile ? '$1' : '$0.5'}>
             {sideOptions.map((option) => {
               const selected = option.value === sideFilter;
               return (
                 <FundingHistoryFilterOption
                   key={option.value}
+                  isMobile={isMobile}
                   testID={`perps-funding-history-side-${option.value}`}
                   label={option.label}
                   selected={selected}
@@ -203,10 +215,15 @@ function FundingHistoryFilterToolbar({
             }
             isOpen={marketOpen}
             testID="perps-funding-history-market-filter"
+            maxWidth={isMobile ? 140 : 160}
           />
         }
         renderContent={({ closePopover }) => (
-          <YStack p="$1.5" gap="$1" maxHeight={320}>
+          <YStack
+            p={isMobile ? '$2' : '$1.5'}
+            gap={isMobile ? '$2' : '$1'}
+            maxHeight={320}
+          >
             <SearchBar
               value={marketSearchText}
               onChangeText={setMarketSearchText}
@@ -214,16 +231,17 @@ function FundingHistoryFilterToolbar({
                 id: ETranslations.global_search,
               })}
               testID="perps-funding-history-market-search"
-              size="small"
+              size={isMobile ? 'medium' : 'small'}
             />
             <ScrollView
               maxHeight={260}
               flexShrink={1}
               showsVerticalScrollIndicator={false}
             >
-              <YStack gap="$0.5">
+              <YStack gap={isMobile ? '$1' : '$0.5'}>
                 {!marketSearchText.trim() ? (
                   <FundingHistoryFilterOption
+                    isMobile={isMobile}
                     testID="perps-funding-history-market-all"
                     label={intl.formatMessage({
                       id: ETranslations.global_all,
@@ -240,6 +258,7 @@ function FundingHistoryFilterToolbar({
                   return (
                     <FundingHistoryFilterOption
                       key={option.coin}
+                      isMobile={isMobile}
                       testID={`perps-funding-history-market-${option.coin}`}
                       label={option.label}
                       selected={selected}
@@ -252,9 +271,9 @@ function FundingHistoryFilterToolbar({
                 })}
                 {filteredMarketOptions.length === 0 && marketSearchText ? (
                   <SizableText
-                    px="$2"
+                    px={isMobile ? '$3' : '$2'}
                     py="$3"
-                    size="$bodySm"
+                    size={isMobile ? '$bodyMd' : '$bodySm'}
                     color="$textSubdued"
                   >
                     {intl.formatMessage({

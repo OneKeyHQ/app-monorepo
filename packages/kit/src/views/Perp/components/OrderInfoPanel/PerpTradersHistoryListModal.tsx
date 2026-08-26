@@ -29,6 +29,12 @@ import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDeposit
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
+import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
+import {
+  type IFundingHistoryMarketOption,
+  type IFundingHistorySideFilter,
+  reconcileFundingHistoryMarketOptions,
+} from './fundingHistoryDisplay';
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpFundingHistoryList } from './List/PerpFundingHistoryList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
@@ -74,6 +80,8 @@ function TabHeader({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      bounces={false}
+      flexGrow={0}
       bg="$bgApp"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
@@ -92,6 +100,7 @@ function TabHeader({
             onPress={() => onTabChange(tab.name)}
           >
             <SizableText
+              numberOfLines={1}
               size="$headingXs"
               textTransform="none"
               letterSpacing={0}
@@ -118,8 +127,38 @@ export function PerpTradersHistoryListModal() {
   const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
+  const [fundingHistorySideFilter, setFundingHistorySideFilter] =
+    useState<IFundingHistorySideFilter>('all');
+  const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
+    string | undefined
+  >();
+  const [fundingHistoryMarketOptions, setFundingHistoryMarketOptions] =
+    useState<IFundingHistoryMarketOption[]>([]);
   const { isUnifoldDepositTrackerAvailable, safeRecipient } =
     useUnifoldDepositTrackerAvailability();
+
+  useEffect(() => {
+    if (
+      fundingHistoryMarketFilter &&
+      !fundingHistoryMarketOptions.some(
+        (option) => option.coin === fundingHistoryMarketFilter,
+      )
+    ) {
+      setFundingHistoryMarketFilter(undefined);
+    }
+  }, [fundingHistoryMarketFilter, fundingHistoryMarketOptions]);
+
+  const handleFundingHistoryMarketOptionsChange = useCallback(
+    (nextOptions: IFundingHistoryMarketOption[]) => {
+      setFundingHistoryMarketOptions((currentOptions) =>
+        reconcileFundingHistoryMarketOptions({
+          currentOptions,
+          nextOptions,
+        }),
+      );
+    },
+    [],
+  );
 
   const handleViewCryptoDeposits = useCallback(() => {
     if (!safeRecipient) {
@@ -197,9 +236,29 @@ export function PerpTradersHistoryListModal() {
                 enabledTabs={['history', 'fills']}
               />
             ) : null}
-            {activeTab === 'Funding' ? (
-              <PerpFundingHistoryList isMobile useTabsList={false} isActive />
-            ) : null}
+            <YStack
+              display={activeTab === 'Funding' ? 'flex' : 'none'}
+              flex={1}
+            >
+              <XStack justifyContent="flex-start" px="$5" py="$2">
+                <FundingHistoryFilterToolbar
+                  isMobile
+                  sideFilter={fundingHistorySideFilter}
+                  marketFilter={fundingHistoryMarketFilter}
+                  marketOptions={fundingHistoryMarketOptions}
+                  onSideFilterChange={setFundingHistorySideFilter}
+                  onMarketFilterChange={setFundingHistoryMarketFilter}
+                />
+              </XStack>
+              <PerpFundingHistoryList
+                isMobile
+                useTabsList={false}
+                isActive={activeTab === 'Funding'}
+                sideFilter={fundingHistorySideFilter}
+                marketFilter={fundingHistoryMarketFilter}
+                onMarketOptionsChange={handleFundingHistoryMarketOptionsChange}
+              />
+            </YStack>
             {activeTab === 'Account' ? (
               <PerpAccountList
                 isMobile
