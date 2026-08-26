@@ -337,6 +337,30 @@ export function TradingViewPerpsV2(
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
 
+  // OK-59100: on iOS this flag gates both the header pan gesture and the tab
+  // scroller, and nothing ever reset it — a stray `open` arriving before the
+  // chart is live never receives its matching `close` and locks scrolling for
+  // the rest of the session (fail-closed). Accept `open` only once the chart
+  // reports ready; a reload invalidates any pending open state anyway.
+  const isChartContentReadyRef = useRef(isChartContentReady);
+  isChartContentReadyRef.current = isChartContentReady;
+  const guardedInteractionOverlayOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen && !isChartContentReadyRef.current) {
+        return;
+      }
+      onInteractionOverlayOpenChange?.(isOpen);
+    },
+    [onInteractionOverlayOpenChange],
+  );
+  // Any transition out of ready (reload, navigation, render-process loss)
+  // discards overlay state the chart can no longer close on its own.
+  useEffect(() => {
+    if (!isChartContentReady) {
+      onInteractionOverlayOpenChange?.(false);
+    }
+  }, [isChartContentReady, onInteractionOverlayOpenChange]);
+
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
     if (prevWebviewKeyRef.current !== _webviewKey) {
@@ -664,7 +688,7 @@ export function TradingViewPerpsV2(
     onOrderPriceUpdate,
     onChartOrderIntent,
     onTouchScroll,
-    onInteractionOverlayOpenChange,
+    onInteractionOverlayOpenChange: guardedInteractionOverlayOpenChange,
   });
 
   // Chart lines management (liquidation, position, orders)

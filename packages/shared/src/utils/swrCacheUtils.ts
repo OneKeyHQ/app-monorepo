@@ -310,7 +310,6 @@ const NS = {
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
-  swapStockPositionsMetadata: 'swapStockPositionsMetadata',
   borrowMarkets: 'borrowMarkets',
   borrowReserves: 'borrowReserves',
   borrowHealthFactor: 'borrowHealthFactor',
@@ -666,8 +665,6 @@ export const swrKeys = {
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
-  swapStockPositionsMetadata: ({ scope }: { scope: string }) =>
-    [NS.swapStockPositionsMetadata, 'v1', scope].join(':'),
   borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
   borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
     buildBorrowScopedSWRKey(NS.borrowReserves, params),
