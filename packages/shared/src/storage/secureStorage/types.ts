@@ -34,7 +34,9 @@ export const SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX = `[${SECURE_STORAGE_PER
 // single `<Name>: ` rendering of the main-side error name. Anchoring here —
 // instead of a bare `includes` — keeps wrapper messages that merely EMBED
 // the prefix deeper inside (e.g. "X read failed: [ ... ]") from being
-// mistaken for the label itself.
+// mistaken for the label itself. The NAME is interpolated unescaped, so it
+// must remain word characters only ([A-Za-z0-9_]) — a rename introducing
+// regex metacharacters would silently change this pattern's meaning.
 export const SECURE_STORAGE_PERMANENT_READ_ERROR_MESSAGE_REGEX = new RegExp(
   `^(?:\\w+: )?\\[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}\\]`,
 );
