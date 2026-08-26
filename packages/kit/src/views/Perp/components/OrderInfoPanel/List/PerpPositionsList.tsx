@@ -370,7 +370,7 @@ function PerpPositionsList({
           width="100%"
           borderBottomWidth="$px"
           borderBottomColor="$borderSubdued"
-          bg="$bgSubtle"
+          bg="$bgApp"
         >
           <ScrollView
             horizontal

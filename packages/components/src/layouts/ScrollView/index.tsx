@@ -61,6 +61,7 @@ function BaseScrollView(
     children,
     onScroll,
     contentContainerStyle = {},
+    testID,
     ...props
   }: IScrollViewProps,
   forwardedRef: ForwardedRef<IScrollViewRef>,
@@ -98,6 +99,8 @@ function BaseScrollView(
       contentContainerStyle={contentStyle}
       scrollEventThrottle={30}
       onScroll={handleScroll}
+      // Preserve testID because RNW drops Tamagui's data-testid rewrite.
+      testID={testID}
       {...restProps}
       refreshControl={platformEnv.isNative ? props.refreshControl : undefined}
     >

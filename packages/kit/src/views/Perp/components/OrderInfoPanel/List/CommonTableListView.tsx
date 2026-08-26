@@ -450,7 +450,7 @@ export function CommonTableListView<T>({
   emptySubMessage = 'Data will appear here',
   ListEmptyComponent,
   minTableWidth: _minTableWidth,
-  headerBgColor = '$bgSubtle',
+  headerBgColor = '$bgApp',
   headerTextColor = '$textSubdued',
   borderColor = '$borderSubdued',
   enablePagination = true,
@@ -904,6 +904,7 @@ export function CommonTableListView<T>({
           columns drift apart. */}
       <ScrollView
         ref={headerScrollViewRef}
+        testID="perp-desktop-table-header"
         style={{ flex: 1 }}
         horizontal
         scrollEnabled={false}
@@ -914,6 +915,7 @@ export function CommonTableListView<T>({
         }}
       >
         <XStack
+          testID="perp-desktop-table-header-content"
           flex={1}
           py="$2"
           pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
@@ -943,6 +945,7 @@ export function CommonTableListView<T>({
     <XStack flex={1}>
       <ScrollView
         ref={scrollViewRef}
+        testID="perp-desktop-table-body"
         style={{
           flex: 1,
         }}
@@ -950,7 +953,8 @@ export function CommonTableListView<T>({
         showsHorizontalScrollIndicator
         nestedScrollEnabled
         onScroll={handleDesktopBodyScroll}
-        scrollEventThrottle={16}
+        // RNW drops throttled scroll events without a trailing emit.
+        scrollEventThrottle={1}
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
           flexGrow: 1,
@@ -1032,7 +1036,7 @@ export function CommonTableListView<T>({
   );
 
   return (
-    <YStack flex={1}>
+    <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
       <ScrollView
         style={{
