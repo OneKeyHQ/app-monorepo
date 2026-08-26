@@ -3633,10 +3633,13 @@ class ServiceAccount extends ServiceBase {
         // standard session, so reading it after getPassphraseState would
         // clobber the hidden session and cost extra device round trips to
         // re-establish it (see getFeaturesForHwWalletCreate). Known-V2 devices
-        // are excluded — their flow always reads live state by design. An
-        // unknown-protocol device that turns out V2 pays one redundant read,
-        // but that class is practically empty: V2 device records have always
-        // stored connectProtocol since the protocol field was introduced.
+        // are excluded because openWalletSession reads authoritative live status
+        // and emits DEVICE.STATE. The flow below waits for that event to persist
+        // and reuses its post-unlock snapshot; createHWWalletBase falls back to a
+        // live state read only when no snapshot was persisted. An unknown-protocol
+        // device that turns out V2 pays one redundant read, but that class is
+        // practically empty: V2 device records have always stored connectProtocol
+        // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
         const hiddenWalletVendorProfile = getVendorProfile(
