@@ -65,6 +65,7 @@ import ServiceBase from '../ServiceBase';
 import {
   buildNotificationPermissionRecoveryResult,
   buildNotificationPermissionRecoveryStateTransition,
+  resolveNotificationPermissionRecoveryLastPermission,
 } from './notificationPermissionRecovery';
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
@@ -594,12 +595,21 @@ export default class ServiceNotification extends ServiceBase {
       pushEnabled,
       queryFailed,
     });
+    let registrationFailed = false;
 
     if (
       !queryFailed &&
       currentPermission &&
       checkSequence === this.notificationPermissionRecoveryCheckSequence
     ) {
+      if (stateTransition.shouldRegisterClient) {
+        try {
+          await this.registerClientWithOverrideAllAccountsImmediate();
+        } catch {
+          registrationFailed = true;
+        }
+      }
+
       await notificationsAtom.set((value) => {
         if (
           checkSequence !== this.notificationPermissionRecoveryCheckSequence
@@ -609,21 +619,20 @@ export default class ServiceNotification extends ServiceBase {
         return perfUtils.buildNewValueIfChanged(value, {
           ...value,
           permissionRecoveryDismissedAt: stateTransition.nextDismissedAt,
-          permissionRecoveryLastPermission: currentPermission,
+          permissionRecoveryLastPermission:
+            resolveNotificationPermissionRecoveryLastPermission({
+              currentPermission,
+              previousPermission,
+              registrationFailed,
+            }),
         });
       });
-
-      if (
-        checkSequence === this.notificationPermissionRecoveryCheckSequence &&
-        stateTransition.shouldRegisterClient
-      ) {
-        void this.registerClientWithOverrideAllAccounts();
-      }
     }
 
     defaultLogger.notification.common.permissionRecoveryCheck({
       ...result,
       platform: this.getNotificationPermissionRecoveryPlatform(),
+      registrationFailed,
       source,
     });
     return result;
@@ -661,14 +670,6 @@ export default class ServiceNotification extends ServiceBase {
       if (!isTestMode) {
         await this.openPermissionSettings();
       }
-    }
-
-    if (
-      !isTestMode &&
-      permissionBefore !== ENotificationPermission.granted &&
-      permissionDetail.permission === ENotificationPermission.granted
-    ) {
-      void this.registerClientWithOverrideAllAccounts();
     }
 
     const result = {

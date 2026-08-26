@@ -9,6 +9,18 @@ import {
 
 export const NOTIFICATION_PERMISSION_RECOVERY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+export function resolveNotificationPermissionRecoveryLastPermission({
+  currentPermission,
+  previousPermission,
+  registrationFailed,
+}: {
+  currentPermission: ENotificationPermission;
+  previousPermission: ENotificationPermission | undefined;
+  registrationFailed: boolean;
+}) {
+  return registrationFailed ? previousPermission : currentPermission;
+}
+
 export function buildNotificationPermissionRecoveryStateTransition({
   currentPermission,
   dismissedAt,

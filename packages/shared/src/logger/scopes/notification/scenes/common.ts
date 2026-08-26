@@ -151,6 +151,7 @@ export class CommonScene extends BaseScene {
   permissionRecoveryCheck(
     params: INotificationPermissionRecoveryResult & {
       platform: 'ios' | 'android' | 'other';
+      registrationFailed: boolean;
       source: string;
     },
   ) {

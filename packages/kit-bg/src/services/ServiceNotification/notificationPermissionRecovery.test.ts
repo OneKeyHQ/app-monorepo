@@ -7,6 +7,7 @@ import {
   NOTIFICATION_PERMISSION_RECOVERY_COOLDOWN_MS,
   buildNotificationPermissionRecoveryResult,
   buildNotificationPermissionRecoveryStateTransition,
+  resolveNotificationPermissionRecoveryLastPermission,
 } from './notificationPermissionRecovery';
 
 const checkedAt = 1_000_000;
@@ -171,4 +172,23 @@ describe('buildNotificationPermissionRecoveryStateTransition', () => {
       ).toBe(false);
     },
   );
+});
+
+describe('resolveNotificationPermissionRecoveryLastPermission', () => {
+  it('commits granted only after registration succeeds', () => {
+    expect(
+      resolveNotificationPermissionRecoveryLastPermission({
+        currentPermission: ENotificationPermission.granted,
+        previousPermission: ENotificationPermission.denied,
+        registrationFailed: false,
+      }),
+    ).toBe(ENotificationPermission.granted);
+    expect(
+      resolveNotificationPermissionRecoveryLastPermission({
+        currentPermission: ENotificationPermission.granted,
+        previousPermission: ENotificationPermission.denied,
+        registrationFailed: true,
+      }),
+    ).toBe(ENotificationPermission.denied);
+  });
 });
