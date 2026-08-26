@@ -1104,6 +1104,8 @@ function ConnectYourDevicePage({
           const showCheckingDeviceDialog = () =>
             backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
               connectId,
+              deviceType: item.device?.deviceType ?? undefined,
+              deviceName: item.device?.name ?? undefined,
             });
           checkingDialogOpened = true;
           if (platformEnv.isNativeIOS) {
