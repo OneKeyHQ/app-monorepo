@@ -304,8 +304,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     spender: approveSpender,
   });
 
-  // Scaled-UI (rebase) tokens: keep the current+delta sum on display basis
-  // (the delta is display-basis from decode). See AssetsTokenApproval.
+  // Keep scaled-token allowance arithmetic on the display basis.
   const displayAllowanceParsed = useMemo(
     () =>
       tokenRebaseUtils.applyBalanceMultiplier({
@@ -402,11 +401,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         >
           {content}
         </SizableText>
-        {/* Scaled-UI (rebase) tokens: this legacy editor re-encodes the
-          display-basis allowance as raw units; fail-closed, same policy as
-          component.isEditable in the SignatureConfirm stack. Gate via
-          isScalingBalanceMultiplier — never truthiness (multiplier '1' must
-          not block). */}
+        {/* The legacy editor cannot safely encode scaled display amounts. */}
         {!tokenRebaseUtils.isScalingBalanceMultiplier(
           approveBalanceMultiplier,
         ) ? (
@@ -439,15 +434,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
 
   useEffect(() => {
     if (approveInfoInit.current || originalApproveAmount === '') return;
-    // For scaled-UI tokens this seeds a DISPLAY-basis originalAllowance;
-    // safe only because the sole reader (legacy ApproveEditor reset) is
-    // behind the isScalingBalanceMultiplier-gated edit button above.
-    // Caveat: the sendConfirm-context updateTokenApproveInfo is
-    // last-write-wins with no guard (unlike signatureConfirm's
-    // first-write-wins), so if multiple approve detail views ever share one
-    // sendConfirm context, a NON-scaling token's Reset could replay this
-    // display-basis value — and the vault guard would not catch it (it keys
-    // on that token's address). Keep this seeding gated if that ever changes.
+    // Scaling-token reset is unreachable because editing is disabled above.
     updateTokenApproveInfo({
       originalAllowance: originalApproveAmount,
       originalIsUnlimited: approveIsMax,

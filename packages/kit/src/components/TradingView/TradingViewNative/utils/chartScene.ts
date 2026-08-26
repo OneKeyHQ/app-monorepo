@@ -772,6 +772,12 @@ export function buildTradingViewNativeChartScene({
     x: CHART_HORIZONTAL_PADDING,
     y: 0,
   };
+  const mainChartClip = {
+    height: mainChartBottom,
+    width,
+    x: 0,
+    y: 0,
+  };
 
   commands.push({
     kind: 'line',
@@ -1031,6 +1037,7 @@ export function buildTradingViewNativeChartScene({
         })
       : null;
   if (visiblePriceExtrema) {
+    commands.push({ kind: 'clip', rect: mainChartClip });
     const extrema = visiblePriceExtrema.low
       ? [visiblePriceExtrema.high, visiblePriceExtrema.low]
       : [visiblePriceExtrema.high];
@@ -1069,6 +1076,7 @@ export function buildTradingViewNativeChartScene({
         );
       }
     }
+    commands.push({ kind: 'restore' });
   }
 
   const crosshairPointIndex =

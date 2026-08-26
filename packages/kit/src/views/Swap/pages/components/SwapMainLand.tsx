@@ -1146,6 +1146,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           >
             <SwapProviderMirror storeName={storeName}>
               <PreSwapDialogContent
+                isSwapPro={focusSwapPro}
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
                 rebuildReviewWithSlippage={rebuildReviewWithSlippage}

@@ -61,7 +61,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.onekeyUserId ||
+          purchaseSdkUtils.generateRevenueCatAnonymousAppUserId(),
       );
       return { apiKey, isSandboxKey };
     },

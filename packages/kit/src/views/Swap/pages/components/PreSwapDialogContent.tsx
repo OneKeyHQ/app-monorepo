@@ -75,7 +75,11 @@ import {
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
-import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  invalidateSwapReviewForSlippageChange,
+  shouldShowSwapReviewToAmountSkeleton,
+} from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
@@ -96,10 +100,12 @@ interface IPreSwapDialogContentProps {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  isSwapPro?: boolean;
   rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,
   ) => Promise<void> | void;
+  disableSaveSlippageForFutureOrders?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -111,8 +117,10 @@ const PreSwapDialogContent = ({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  isSwapPro,
   rebuildReviewWithSlippage,
   saveSlippageForFutureOrders,
+  disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
@@ -638,6 +646,19 @@ const PreSwapDialogContent = ({
     swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
     !showResultContent,
   );
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (supportSlippageRebuild) {
+      void handleSaveSlippage('current', NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE);
+      return;
+    }
+
+    setSwapSteps((prev) =>
+      invalidateSwapReviewForSlippageChange({
+        reviewState: prev,
+        slippagePercentage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    );
+  }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
   const showMobileSlippageEditor =
     platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
 
@@ -693,6 +714,9 @@ const PreSwapDialogContent = ({
         <HeightTransition initialHeight={355}>
           <Stack pt="$2">
             <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                disableSaveSlippageForFutureOrders
+              }
               initialValue={preSwapData.slippage ?? 0}
               savingScope={slippageSavingScope}
               showTitle={false}
@@ -818,6 +842,11 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
+                    onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
+                    nativeBtcMinSlippageSaving={
+                      slippageSavingScope === 'current'
+                    }
+                    isSwapPro={isSwapPro}
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label
@@ -826,6 +855,7 @@ const PreSwapDialogContent = ({
                     slippageEditor={
                       supportSlippageRebuild
                         ? {
+                            disableSaveSlippageForFutureOrders,
                             open: slippageEditorOpen,
                             savingScope: slippageSavingScope,
                             onOpenChange: handleSlippageEditorOpenChange,
