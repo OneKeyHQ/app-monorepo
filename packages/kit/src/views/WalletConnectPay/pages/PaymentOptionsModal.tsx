@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   NumberSizeableText,
   Page,
@@ -25,6 +26,7 @@ import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/route
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  WC_PAY_PROGRESS_DAMAGED_MESSAGE,
   shouldRefuseWcPayOptionUpfront,
 } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
@@ -272,10 +274,12 @@ function PaymentOptionsPage() {
   // this signal existed a close there cancelled nothing — the pipeline kept
   // running headless and completed a payment the user believed dismissed.
   // The signal is only ever consulted before signing, so aborting can never
-  // lose an in-flight broadcast — and the executor retires it entirely once
-  // an action of the attempt has broadcast, carrying the sequence through
-  // confirmPayment even if this page is already gone, so closing can never
-  // strand an on-chain payment unconfirmed.
+  // lose an in-flight broadcast — and once an action of the attempt has
+  // broadcast, the executor stops aborting on it: it ends the sequence at
+  // the next UI boundary and returns the results produced so far, so
+  // handlePay still submits the broadcast txid to confirmPayment even when
+  // this page is already gone, and no context-free confirm modal is pushed
+  // at the user from a dismissed flow.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
   useEffect(
     () => () => {
@@ -730,6 +734,33 @@ function PaymentOptionsPage() {
           failure: classifyWcPayInlineFailure({ stage: 'send', error }),
           optionId: selectedOption.id,
           accountKey: indexedAccountId ?? accountId ?? '',
+        });
+      } else if (
+        (error as Error | undefined)?.message ===
+        WC_PAY_PROGRESS_DAMAGED_MESSAGE
+      ) {
+        // Deterministically corrupt stored progress: without an escape this
+        // payment+option+account stays refused until the 48h storage TTL.
+        // The discard is user-confirmed and only reachable when the record
+        // is provably undecodable — a readable record carrying a txid can
+        // never surface this message (see getStoredActionResults), so this
+        // path cannot delete real duplicate-payment evidence.
+        Dialog.show({
+          // copy pending product i18n keys
+          title: 'Payment progress damaged',
+          description:
+            'The progress saved for this payment on this device is damaged and cannot be resumed. Discard it to start this payment over.',
+          onConfirmText: 'Discard and start over',
+          onConfirm: async () => {
+            await backgroundApiProxy.serviceWalletConnectPay.discardActionResultsFrom(
+              {
+                paymentId: payResult.paymentId,
+                optionId: selectedOption.id,
+                accountKey: indexedAccountId ?? accountId ?? '',
+                fromIndex: 0,
+              },
+            );
+          },
         });
       } else if (!(error instanceof WcPayUserCancelledError)) {
         // user-intent cancellation (dismissed a confirm modal or the collect

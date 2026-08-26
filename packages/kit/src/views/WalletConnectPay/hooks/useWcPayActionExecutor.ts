@@ -124,13 +124,15 @@ export function useWcPayActionExecutor() {
       // flow unmounts. Checked before the resume probes, at the top of every
       // action, right before each confirm modal is pushed, and (on the
       // inline path) immediately before signing — never after signing, where
-      // cancelling could lose an in-flight broadcast. The signal retires
-      // entirely once an action of THIS run has broadcast a transaction:
-      // from then on the sequence must run to completion so the on-chain
-      // result still reaches confirmPayment — cancelling may stop work that
-      // has not started, never abandon a payment already sent. An aborted
-      // signal ends the flow with WcPayUserCancelledError, which callers
-      // treat as a silent end.
+      // cancelling could lose an in-flight broadcast. Before any broadcast,
+      // an aborted signal ends the flow with WcPayUserCancelledError, which
+      // callers treat as a silent end. Once an action of THIS run has
+      // broadcast a transaction the signal stops aborting: an aborted-late
+      // sequence instead RETURNS the result prefix at the next UI boundary,
+      // so the caller still submits the on-chain result to confirmPayment
+      // and no context-free confirm modal is pushed from a page that is
+      // gone. Cancelling may stop work that has not started, never abandon
+      // a payment already sent.
       cancelSignal?: AbortSignal;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
@@ -228,6 +230,19 @@ export function useWcPayActionExecutor() {
           throw new WcPayUserCancelledError('User canceled payment');
         }
       };
+      // Post-retirement close handling. Retiring the signal keeps the
+      // sequence alive, but a MULTI-action sequence can only advance by
+      // pushing another confirm modal — and the signal fires exactly when
+      // the page is gone, so that modal would appear with no payment
+      // context and its most likely dismissal would strand the broadcast
+      // all the same. When the signal fired after retirement, stop BEFORE
+      // the next UI step and return the results collected so far: the
+      // caller submits this prefix to confirmPayment (the server accepts
+      // non-final submissions and keeps settling server-side), so the
+      // broadcast txid always reaches the server, and the remaining
+      // actions stay re-enterable through the durable progress record.
+      const isStoppedAfterBroadcast = () =>
+        hasBroadcastInThisRun && Boolean(cancelSignal?.aborted);
       throwIfCancelled();
 
       // resuming with recorded progress: re-verify the last recorded action
@@ -311,8 +326,14 @@ export function useWcPayActionExecutor() {
         // probes above (waitForTxMined can block for minutes) or between
         // actions; nothing has been signed for action i yet AND no earlier
         // action of this run has broadcast (throwIfCancelled retires once
-        // one has), so ending here abandons no on-chain result
+        // one has), so ending here abandons no pending confirmPayment
+        // obligation. A RESUMED run whose broadcasts all happened in a
+        // PREVIOUS run may still cancel here: those txids are durably
+        // recorded and re-enterable, unlike this run's un-submitted results.
         throwIfCancelled();
+        if (isStoppedAfterBroadcast()) {
+          return results;
+        }
         // terminate the whole sequence the moment the deadline passes;
         // progress persisted via onActionComplete keeps already-broadcast
         // transactions safe for the (server-driven) expired/failed settling
@@ -401,7 +422,11 @@ export function useWcPayActionExecutor() {
                             index: i,
                           }
                         : undefined,
-                      cancelSignal,
+                      // the executor's own checker rather than the raw
+                      // signal, so the retirement rule travels with it (a
+                      // bare-signal check would re-arm cancellation for a
+                      // Phase 2 multi-action inline run)
+                      throwIfCancelled,
                       onPhase: inlineController.onPhase,
                     }),
                 });
@@ -425,7 +450,12 @@ export function useWcPayActionExecutor() {
             // the async prep above (account resolution, tx preparation, a
             // possible inline fallback) may span a page close; re-check so a
             // confirm modal is never pushed onto a stack whose owner is gone
+            // — cancelling before a broadcast exists, stopping with the
+            // collected prefix after one does
             throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             let txid: string;
             try {
               txid = await new Promise<string>((resolve, reject) => {
@@ -518,6 +548,12 @@ export function useWcPayActionExecutor() {
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data
             if (i < actions.length - 1) {
+              // the mined-wait serves only the follow-up signing; when the
+              // page is gone that signing will not be requested — return
+              // the prefix now instead of blocking on it for minutes
+              if (isStoppedAfterBroadcast()) {
+                return results;
+              }
               const { isReverted } =
                 await backgroundApiProxy.serviceWalletConnectPay.waitForTxMined(
                   {
@@ -540,6 +576,9 @@ export function useWcPayActionExecutor() {
             const message = extractWcPayTypedDataMessage(parsed);
             // re-check after the async prep above (see eth_sendTransaction)
             throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -581,6 +620,9 @@ export function useWcPayActionExecutor() {
             });
             // re-check after the async prep above (see eth_sendTransaction)
             throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -624,6 +666,9 @@ export function useWcPayActionExecutor() {
               );
             // re-check after the async prep above (see eth_sendTransaction)
             throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             const rawTx = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxConfirm,

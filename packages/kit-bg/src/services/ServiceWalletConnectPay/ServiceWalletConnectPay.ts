@@ -11,6 +11,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  WC_PAY_PROGRESS_DAMAGED_MESSAGE,
   shouldRefuseWcPayWithoutDurableProgress,
 } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
@@ -28,6 +29,10 @@ import type {
   IWcPayPreBroadcastRecord,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
+import {
+  WC_PAY_PROGRESS_CORRUPT_ERROR,
+  WC_PAY_PROGRESS_UNREADABLE_ERROR,
+} from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
 
@@ -41,7 +46,10 @@ import {
   wcPaySolanaTxToEncodedTx,
 } from './solPayUtils';
 
-import type { IWcPayBroadcastMeta } from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
+import type {
+  IWcPayBroadcastMeta,
+  IWcPayStoredProgress,
+} from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 
 /**
  * Validate the whole action list before it reaches the executor. Actions run
@@ -335,23 +343,39 @@ class ServiceWalletConnectPay extends ServiceBase {
     accountKey: string;
     actions: IWcPayAction[];
   }): Promise<string[]> {
-    let record;
+    let record: IWcPayStoredProgress | undefined;
     try {
       record = await this.backgroundApi.simpleDb.walletConnectPay.getProgress({
         paymentId,
         optionId,
         accountKey,
       });
-    } catch {
-      // the stored record exists but could not be read (locked keychain,
-      // transient secure-storage failure): it may hold a broadcast txid, so
-      // starting a fresh attempt could pay twice. Refuse this attempt and
-      // keep the record — same policy as the broadcast-beyond-hole case
-      // below; the server-side final state or the TTL still cleans it up.
-      // copy pending product i18n keys
-      throw new OneKeyError(
-        'This payment cannot be resumed safely on this device',
-      );
+    } catch (error) {
+      // the rewrites below intentionally hide raw storage detail from the
+      // UI; keep the true cause in the log
+      console.error('wcPay getProgress failed', error);
+      const message = (error as Error | undefined)?.message;
+      if (message === WC_PAY_PROGRESS_CORRUPT_ERROR) {
+        // deterministic corruption: re-reading can never heal it, so the
+        // refusal carries the distinct message the UI maps to an explicit
+        // user-confirmed discard (discardActionResultsFrom fromIndex 0) —
+        // the only deletion path open to an undecodable record
+        throw new OneKeyError(WC_PAY_PROGRESS_DAMAGED_MESSAGE);
+      }
+      if (message === WC_PAY_PROGRESS_UNREADABLE_ERROR) {
+        // transient read failure (locked keychain, platform hiccup): the
+        // record may hold a broadcast txid, so starting a fresh attempt
+        // could pay twice. Refuse this attempt and keep the record — same
+        // policy as the broadcast-beyond-hole case below; a later attempt,
+        // the server-side final state, or the TTL resolves it.
+        // copy pending product i18n keys
+        throw new OneKeyError(
+          'This payment cannot be resumed safely on this device',
+        );
+      }
+      // anything else (e.g. an index-cleanup write failing inside
+      // getProgress) is not a resume-safety verdict; surface it as-is
+      throw error;
     }
     if (!record?.entries?.length) {
       return [];

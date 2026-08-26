@@ -5,6 +5,7 @@ import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
@@ -94,11 +95,17 @@ export const clearUpdateSettings = () => {
   store.delete(EDesktopStoreKeys.UpdateSettings);
 };
 
+// Failures must THROW, never collapse into the absent-value `undefined`:
+// callers (e.g. the WalletConnect Pay durable-progress store) need to tell
+// "no ciphertext stored" from "cannot read right now" — treating a decrypt
+// failure (key rotation, Linux keyring change, copied config dir) as absent
+// makes them destroy still-intact encrypted records. Only a genuinely
+// missing value returns undefined.
 export const getSecureItem = (key: string) => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   const item = store.get(EDesktopStoreKeys.EncryptedData, {});
   const value = item[key];
@@ -107,24 +114,30 @@ export const getSecureItem = (key: string) => {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
     } catch (_e) {
-      logger.error(`failed to decrypt ${key}`);
-      return undefined;
+      logger.error(`failed to decrypt ${key}`, _e);
+      throw new OneKeyLocalError('failed to decrypt secure item');
     }
   }
+  return undefined;
 };
 
+// Same contract on the write side: a swallowed encrypt/persist failure lets
+// callers believe the payload landed (WalletConnect Pay writes its plaintext
+// index only after this succeeds — a silent failure here would leave an
+// index whose missing ciphertext later reads as confirmed-absent).
 export const setSecureItem = (key: string, value: string): void => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   try {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
   } catch (_e) {
-    logger.error(`failed to encrypt ${key}`);
+    logger.error(`failed to encrypt ${key}`, _e);
+    throw new OneKeyLocalError('failed to encrypt secure item');
   }
 };
 

@@ -4,6 +4,14 @@ import { EWcPayActionMethod, type IWcPayAction } from './payTypes';
 export const WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE =
   'On-chain payments are not supported on this platform';
 
+// Surfaced by getStoredActionResults when the stored progress payload is
+// deterministically corrupt (decodes but is provably not a record). The UI
+// matches this exact message to offer the user-confirmed discard escape —
+// without it the payment option stays refused until the storage TTL.
+// copy pending product i18n keys
+export const WC_PAY_PROGRESS_DAMAGED_MESSAGE =
+  'Saved progress for this payment is damaged and cannot be resumed';
+
 /**
  * True when the action list contains an irreversible on-chain transfer.
  * Sign-only methods (typed data, personal_sign, Solana sign-only) are

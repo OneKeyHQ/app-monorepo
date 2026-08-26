@@ -27,7 +27,6 @@ import {
 } from './wcPayInlineBalanceUtils';
 import {
   WC_PAY_INLINE_POST_SIGN_FLAG,
-  WcPayUserCancelledError,
   classifyWcPayInlineFailure,
 } from './wcPayInlineUtils';
 
@@ -143,7 +142,7 @@ export async function wcPayInlineSendTx({
   sourceInfo,
   expiryMs,
   wcPayPreBroadcastRecord,
-  cancelSignal,
+  throwIfCancelled,
   onPhase,
 }: {
   networkId: string;
@@ -154,16 +153,14 @@ export async function wcPayInlineSendTx({
   expiryMs?: number;
   wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   // pre-sign cancellation boundary (page unmounted): checked on entry and at
-  // the last pre-sign gate, never after signing — see the executor's note
-  cancelSignal?: AbortSignal;
+  // the last pre-sign gate, never after signing. Supplied by the executor as
+  // its own checker — not a bare AbortSignal — so the executor's retirement
+  // rule (a broadcast in the run disables cancellation) applies here
+  // unchanged when Phase 2 admits multi-action inline sequences
+  throwIfCancelled?: () => void;
   onPhase?: (phase: IWcPayInlinePhase) => void;
 }): Promise<IWcPayInlineSendResult> {
-  const throwIfCancelled = () => {
-    if (cancelSignal?.aborted) {
-      throw new WcPayUserCancelledError('User canceled payment');
-    }
-  };
-  throwIfCancelled();
+  throwIfCancelled?.();
   onPhase?.('estimating');
 
   // Parity with TxConfirmActions: an externally originated send is blocked
@@ -445,7 +442,7 @@ export async function wcPayInlineSendTx({
   // background enforces between signing and broadcast, covering signing
   // sessions (hardware especially) that outlive this check. The cancel check
   // sits here too: past this point the attempt must run to completion.
-  throwIfCancelled();
+  throwIfCancelled?.();
   if (isWcPayExpired(expiryMs)) {
     // copy pending product i18n keys
     throw new OneKeyLocalError('This payment has expired');
