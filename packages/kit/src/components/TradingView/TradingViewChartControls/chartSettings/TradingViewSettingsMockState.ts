@@ -1733,6 +1733,34 @@ export function getDefaultTradingViewIndicatorIdForScope(
   );
 }
 
+export function resetTradingViewSettingsMockIndicator(
+  state: ITradingViewIndicatorSettingsValue,
+  defaultState: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
+): ITradingViewIndicatorSettingsValue {
+  const currentIndicator = state.indicators.find(
+    (indicator) => indicator.id === indicatorId,
+  );
+  const defaultIndicator = defaultState.indicators.find(
+    (indicator) => indicator.id === indicatorId,
+  );
+  if (!currentIndicator || !defaultIndicator) {
+    return state;
+  }
+
+  return {
+    ...state,
+    indicators: state.indicators.map((indicator) =>
+      indicator.id === indicatorId
+        ? {
+            ...defaultIndicator,
+            active: currentIndicator.active,
+          }
+        : indicator,
+    ),
+  };
+}
+
 export function toggleTradingViewSettingsMockIndicator(
   state: ITradingViewIndicatorSettingsValue,
   indicatorId: string,

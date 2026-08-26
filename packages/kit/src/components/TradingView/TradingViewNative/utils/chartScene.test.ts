@@ -917,4 +917,47 @@ describe('TradingViewNative shared chart scene', () => {
       y2: 220,
     });
   });
+
+  it('clips price extrema markers at the sub-indicator boundary', () => {
+    const subIndicatorPanes =
+      createTradingViewNativeSubIndicatorRenderSnapshots({
+        configs: [{ id: 'RSI', indicator: 'RSI' }],
+        points: POINTS,
+      }).map(({ pane }) => pane);
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      priceRangeScale: 0.9,
+      subIndicatorPanes,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.08,
+      width: 320,
+    });
+    const lowMarkerIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        command.text === '97.00',
+    );
+    const lowMarker = scene.commands[lowMarkerIndex];
+    const extremaClip = scene.commands
+      .slice(0, lowMarkerIndex)
+      .findLast((command) => command.kind === 'clip');
+
+    expect(lowMarker).toMatchObject({ kind: 'text', text: '97.00' });
+    expect(extremaClip).toEqual({
+      kind: 'clip',
+      rect: { height: 160, width: 320, x: 0, y: 0 },
+    });
+    if (lowMarker?.kind === 'text' && extremaClip?.kind === 'clip') {
+      expect(lowMarker.y).toBeGreaterThan(extremaClip.rect.height);
+    }
+    expect(scene.commands[lowMarkerIndex + 1]).toEqual({ kind: 'restore' });
+  });
 });

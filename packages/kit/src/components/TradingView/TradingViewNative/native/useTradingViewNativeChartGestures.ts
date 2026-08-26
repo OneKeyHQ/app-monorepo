@@ -1,23 +1,36 @@
 import { useMemo } from 'react';
 
 import { Gesture } from 'react-native-gesture-handler';
-import { cancelAnimation, withDecay } from 'react-native-reanimated';
+import {
+  cancelAnimation,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE,
 } from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
 import {
   getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePointIndexAtX,
   getTradingViewNativeRelativePinchScale,
 } from '../utils/chartViewport';
 import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
-import { getTradingViewNativeVisibleSubIndicatorPaneCount } from '../utils/subIndicatorRender';
+import {
+  getTradingViewNativeSubIndicatorLegendHitRegions,
+  getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
+} from '../utils/subIndicatorRender';
 
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
+import type { ITradingViewNativeSkiaResources } from './chartSkiaRenderer';
+import type { ITradingViewNativeSubIndicator } from '../utils/chartIndicators';
 import type { GestureType } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -29,20 +42,29 @@ export function useTradingViewNativeChartGestures({
   decayOffset,
   isClickInteractionEnabled,
   isCrosshairEnabled,
+  onSubIndicatorSettingsPress,
   priceAxisResetGesture,
   priceAxisScaleGesture,
   priceAxisWidth,
+  resources,
   timeAxisHeight,
 }: {
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
   isCrosshairEnabled: boolean;
+  onSubIndicatorSettingsPress: (
+    indicator: ITradingViewNativeSubIndicator,
+  ) => void;
   priceAxisResetGesture: GestureType;
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
+  resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight?: number;
 }) {
+  const pressedSubIndicatorSettingsTarget =
+    useSharedValue<ITradingViewNativeSubIndicator | null>(null);
+
   return useMemo(() => {
     const isMainPriceAxisTouch = (x: number, y: number) => {
       'worklet';
@@ -83,6 +105,43 @@ export function useTradingViewNativeChartGestures({
       };
     };
 
+    const getSubIndicatorSettingsTarget = (x: number, y: number) => {
+      'worklet';
+
+      const runtime = chartRuntime.value;
+      const chartWidth = getTradingViewNativeChartWidth(
+        runtime.size.width,
+        priceAxisWidth.value,
+      );
+      const priceAxisX =
+        TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
+      const crosshairPointIndex =
+        runtime.crosshair.visible && isCrosshairEnabled
+          ? getTradingViewNativePointIndexAtX({
+              initialRightOffset: runtime.viewport.initialRightOffset,
+              offset: runtime.viewport.offset,
+              pointCount: runtime.points.length,
+              priceAxisX,
+              x: runtime.crosshair.x,
+              zoomScale: runtime.viewport.zoomScale,
+            })
+          : null;
+      const pointIndex = crosshairPointIndex ?? runtime.points.length - 1;
+      const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
+        height: runtime.size.height,
+        measureTextWidth: (text) =>
+          resources.value.fonts.legend.measureText(text).width,
+        panes: runtime.subIndicatorPanes,
+        pointIndex,
+        priceAxisX,
+      });
+      return getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x,
+        y,
+      });
+    };
+
     const crosshairGesture = Gesture.Pan()
       .enabled(isCrosshairEnabled)
       .activateAfterLongPress(TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION)
@@ -120,6 +179,33 @@ export function useTradingViewNativeChartGestures({
           cancelAnimation(decayOffset);
           updateCrosshair(event.x, event.y);
         }
+      });
+
+    const subIndicatorSettingsGesture = Gesture.Tap()
+      .maxDistance(TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE)
+      .onTouchesDown((event, stateManager) => {
+        'worklet';
+
+        const touch = event.changedTouches[0];
+        pressedSubIndicatorSettingsTarget.value = touch
+          ? getSubIndicatorSettingsTarget(touch.x, touch.y)
+          : null;
+        if (pressedSubIndicatorSettingsTarget.value === null) {
+          stateManager.fail();
+        }
+      })
+      .onEnd((_event, success) => {
+        'worklet';
+
+        const indicator = pressedSubIndicatorSettingsTarget.value;
+        if (success && indicator) {
+          scheduleOnRN(onSubIndicatorSettingsPress, indicator);
+        }
+      })
+      .onFinalize(() => {
+        'worklet';
+
+        pressedSubIndicatorSettingsTarget.value = null;
       });
 
     const panGesture = Gesture.Pan()
@@ -325,6 +411,7 @@ export function useTradingViewNativeChartGestures({
       });
 
     return Gesture.Exclusive(
+      subIndicatorSettingsGesture,
       crosshairGesture,
       priceAxisResetGesture,
       tapCrosshairGesture,
@@ -335,9 +422,12 @@ export function useTradingViewNativeChartGestures({
     decayOffset,
     isClickInteractionEnabled,
     isCrosshairEnabled,
+    onSubIndicatorSettingsPress,
+    pressedSubIndicatorSettingsTarget,
     priceAxisResetGesture,
     priceAxisScaleGesture,
     priceAxisWidth,
+    resources,
     timeAxisHeight,
   ]);
 }

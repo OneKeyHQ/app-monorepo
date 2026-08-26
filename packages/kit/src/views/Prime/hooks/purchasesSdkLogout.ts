@@ -1,3 +1,4 @@
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 let logoutPurchasesSdkPromise: Promise<boolean> | undefined;
@@ -13,7 +14,7 @@ async function logoutPurchasesSdkInternal(): Promise<boolean> {
       return true;
     }
     await purchases.changeUser(
-      Purchases.generateRevenueCatAnonymousAppUserId(),
+      purchaseSdkUtils.generateRevenueCatAnonymousAppUserId(),
     );
     return true;
   } catch (e) {

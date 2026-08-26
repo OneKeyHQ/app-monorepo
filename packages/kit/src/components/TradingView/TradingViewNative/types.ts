@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tradingViewNative';
+
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
@@ -66,9 +68,40 @@ export type ITradingViewNativeInitialRightOffset =
       value: number;
     };
 
+export interface ITradingViewNativePriceChartAnchor {
+  type: 'price';
+  price: number;
+}
+
+export interface ITradingViewNativeReferenceLineComponent {
+  id: string;
+  type: 'referenceLine';
+  props: {
+    anchor: ITradingViewNativePriceChartAnchor;
+    color: string;
+    interactive: false;
+    style: ITradingViewNativeChartLineStyle;
+    title: string;
+  };
+}
+
+export interface ITradingViewNativeChartComponentGroup {
+  id: string;
+  type: 'group';
+  children: readonly ITradingViewNativeChartComponentNode[];
+}
+
+export type ITradingViewNativeChartLeafComponent =
+  ITradingViewNativeReferenceLineComponent;
+
+export type ITradingViewNativeChartComponentNode =
+  | ITradingViewNativeChartComponentGroup
+  | ITradingViewNativeChartLeafComponent;
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;

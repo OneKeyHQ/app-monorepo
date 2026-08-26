@@ -7,6 +7,7 @@ import {
   Button,
   DebugRenderTracker,
   Icon,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -268,7 +269,9 @@ function PerpOrderInfoPanel() {
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
-        <XStack>
+        {/* Scroll instead of clipping when the pane is narrower than the tab
+            list (OK-61160). */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {ORDER_INFO_TABS.map((name) => (
             <TabBarItem
               key={name}
@@ -277,7 +280,7 @@ function PerpOrderInfoPanel() {
               onPress={handleTabPress}
             />
           ))}
-        </XStack>
+        </ScrollView>
         {activeTab === 'Balances' ? (
           <XStack mr="$3" alignItems="center">
             <HideSmallSpotHoldingsCheckbox />

@@ -107,6 +107,7 @@ function createScene(
     crosshairPointIndex: null,
     customPaintStyles: {},
     priceAxisWidth: 40,
+    subIndicatorLegendHitRegions: [],
     viewport,
     visiblePointRange: { endIndex: 0, startIndex: 0 },
     ...overrides,
