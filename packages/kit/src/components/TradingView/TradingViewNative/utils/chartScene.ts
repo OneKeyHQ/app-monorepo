@@ -87,14 +87,17 @@ import {
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeSubIndicatorCrosshairValueText,
   getTradingViewNativeSubIndicatorPaneLayouts,
-  getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeSubIndicatorPaneStackLayout,
 } from './subIndicatorRender';
 
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
 } from './chartRuntime';
-import type { ITradingViewNativeSubIndicatorRenderPane } from './subIndicatorRender';
+import type {
+  ITradingViewNativeSubIndicatorLegendHitRegion,
+  ITradingViewNativeSubIndicatorRenderPane,
+} from './subIndicatorRender';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartType,
@@ -269,6 +272,7 @@ export interface ITradingViewNativeChartScene {
   crosshairPointIndex: number | null;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   priceAxisWidth: number;
+  subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
   viewport: ITradingViewNativeChartRuntimeViewport;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
@@ -592,11 +596,12 @@ export function buildTradingViewNativeChartScene({
     pointCount: points.length,
     zoomScale,
   });
-  const subIndicatorPaneStackHeight =
-    getTradingViewNativeSubIndicatorPaneStackHeight({
+  const subIndicatorPaneStackLayout =
+    getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
       paneCount: visibleSubIndicatorPanes.length,
     });
+  const subIndicatorPaneStackHeight = subIndicatorPaneStackLayout.height;
   const customPaintStyles: Record<
     string,
     ITradingViewNativeChartScenePaintStyle
@@ -702,6 +707,7 @@ export function buildTradingViewNativeChartScene({
     crosshairPointIndex: null,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
+    subIndicatorLegendHitRegions: [],
     viewport: normalizedViewport,
     visiblePointRange,
   };
@@ -753,8 +759,8 @@ export function buildTradingViewNativeChartScene({
   const subIndicatorLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
     endIndex: visiblePointRange.endIndex,
     panes: visibleSubIndicatorPanes,
-    stackBottom: timeAxisY,
-    stackTop: mainChartBottom,
+    stackBottom: subIndicatorPaneStackLayout.bottom,
+    stackTop: subIndicatorPaneStackLayout.top,
     startIndex: visiblePointRange.startIndex,
   });
   const getPointX = (index: number) =>
@@ -1324,19 +1330,21 @@ export function buildTradingViewNativeChartScene({
     }
   }
 
-  appendTradingViewNativeSubIndicatorLegendCommands({
-    commands,
-    layouts: subIndicatorLayouts,
-    measureTextWidth,
-    pointIndex: legendPointIndex,
-    priceAxisX,
-  });
+  const subIndicatorLegendHitRegions =
+    appendTradingViewNativeSubIndicatorLegendCommands({
+      commands,
+      layouts: subIndicatorLayouts,
+      measureTextWidth,
+      pointIndex: legendPointIndex,
+      priceAxisX,
+    });
 
   return {
     commands,
     crosshairPointIndex,
     customPaintStyles,
     priceAxisWidth: resolvedPriceAxisWidth,
+    subIndicatorLegendHitRegions,
     viewport: normalizedViewport,
     visiblePointRange,
   };

@@ -1,3 +1,4 @@
+// cspell:ignore dmi macd
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -11,6 +12,10 @@ import {
   getTradingViewNativeSubIndicatorPaneStackHeight,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
+import {
+  getTradingViewNativeSubIndicatorLegendHitRegions,
+  getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+} from './legend';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 
 const POINTS: IMarketTokenKLineDataPoint[] = Array.from(
@@ -94,5 +99,87 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     expect(
       getTradingViewNativeSubIndicatorPaneLayoutAtY(layouts, 120),
     ).toBeNull();
+  });
+
+  it('resolves settings taps only inside each visible legend target', () => {
+    const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [
+        { id: 'hidden', indicator: 'VOL', isVisible: false },
+        { id: 'rsi', indicator: 'RSI' },
+        { id: 'macd', indicator: 'MACD' },
+      ],
+      points: POINTS,
+    }).map(({ pane }) => pane);
+    const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
+      height: 400,
+      measureTextWidth: (text) => text.length * 6,
+      panes,
+      pointIndex: POINTS.length - 1,
+      priceAxisX: 300,
+    });
+    const rsiRegion = regions.find(({ indicator }) => indicator === 'RSI');
+    const macdRegion = regions.find(({ indicator }) => indicator === 'MACD');
+    expect(rsiRegion).toBeDefined();
+    expect(macdRegion).toBeDefined();
+    if (!rsiRegion || !macdRegion) {
+      return;
+    }
+
+    expect(
+      getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x: rsiRegion.rect.x + rsiRegion.rect.width,
+        y: rsiRegion.rect.y + rsiRegion.rect.height / 2,
+      }),
+    ).toBe('RSI');
+    expect(
+      getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x: macdRegion.rect.x + 1,
+        y: macdRegion.rect.y + 1,
+      }),
+    ).toBe('MACD');
+    expect(
+      getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x: rsiRegion.rect.x + rsiRegion.rect.width + 1,
+        y: rsiRegion.rect.y + rsiRegion.rect.height / 2,
+      }),
+    ).toBeNull();
+    expect(
+      getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x: 20,
+        y: 300,
+      }),
+    ).toBeNull();
+  });
+
+  it('uses the full wrapped legend background as the settings target', () => {
+    const panes = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'dmi', indicator: 'DMI' }],
+      points: POINTS,
+    }).map(({ pane }) => pane);
+    const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
+      height: 300,
+      measureTextWidth: (text) => text.length * 6,
+      panes,
+      pointIndex: POINTS.length - 1,
+      priceAxisX: 190,
+    });
+    const region = regions[0];
+    expect(region).toBeDefined();
+    if (!region) {
+      return;
+    }
+
+    expect(region.rect.height).toBeGreaterThan(24);
+    expect(
+      getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
+        regions,
+        x: region.rect.x + 1,
+        y: region.rect.y + region.rect.height - 1,
+      }),
+    ).toBe('DMI');
   });
 });

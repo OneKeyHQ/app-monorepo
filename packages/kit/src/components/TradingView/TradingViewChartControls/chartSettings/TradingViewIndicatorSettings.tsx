@@ -8,6 +8,7 @@ import {
   getTradingViewSettingsMockIndicatorsByScope,
   normalizeTradingViewActiveSubIndicators,
   normalizeTradingViewMaxActiveSubIndicatorCount,
+  resetTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockLine,
   updateTradingViewSettingsMockIndicatorOpacity,
@@ -33,6 +34,8 @@ export type ITradingViewIndicatorSettingsProps = {
   createDefaultValue?: () => ITradingViewIndicatorSettingsValue;
   /** Set to null to allow any number of active sub-indicators. */
   maxActiveSubIndicatorCount?: number | null;
+  displayMode?: 'focused' | 'full';
+  initialIndicatorId?: string;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
@@ -73,6 +76,8 @@ export function TradingViewIndicatorSettings({
   defaultValue,
   createDefaultValue = createTradingViewIndicatorSettingsValue,
   maxActiveSubIndicatorCount = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
+  displayMode = 'full',
+  initialIndicatorId,
   isSubmitting = false,
   onChange,
   onConfirm,
@@ -124,13 +129,19 @@ export function TradingViewIndicatorSettings({
       ),
     [normalizedMaxActiveSubIndicatorCount, settingsValue],
   );
+  const initialIndicator = normalizedSettingsValue.indicators.find(
+    (indicator) => indicator.id === initialIndicatorId,
+  );
+  const initialIndicatorScope = initialIndicator?.scope ?? 'main';
   const [selectedIndicatorScope, setSelectedIndicatorScope] =
-    useState<ITradingViewSettingsMockIndicatorScope>('main');
-  const [selectedIndicatorId, setSelectedIndicatorId] = useState(() =>
-    getDefaultTradingViewIndicatorIdForScope(
-      normalizedSettingsValue.indicators,
-      'main',
-    ),
+    useState<ITradingViewSettingsMockIndicatorScope>(initialIndicatorScope);
+  const [selectedIndicatorId, setSelectedIndicatorId] = useState(
+    () =>
+      initialIndicator?.id ??
+      getDefaultTradingViewIndicatorIdForScope(
+        normalizedSettingsValue.indicators,
+        initialIndicatorScope,
+      ),
   );
   const [isConfirming, setIsConfirming] = useState(false);
   const submitInProgress = isSubmitting || isConfirming;
@@ -163,6 +174,18 @@ export function TradingViewIndicatorSettings({
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
   const handleReset = useCallback(() => {
+    if (displayMode === 'focused') {
+      const defaultSettingsValue = createDefaultValue();
+      updateSettingsValue((currentValue) =>
+        resetTradingViewSettingsMockIndicator(
+          currentValue,
+          defaultSettingsValue,
+          effectiveSelectedIndicatorId,
+        ),
+      );
+      return;
+    }
+
     const nextValue = normalizeTradingViewActiveSubIndicators(
       createDefaultValue(),
       undefined,
@@ -185,6 +208,8 @@ export function TradingViewIndicatorSettings({
     }
   }, [
     createDefaultValue,
+    displayMode,
+    effectiveSelectedIndicatorId,
     normalizedMaxActiveSubIndicatorCount,
     selectedIndicatorId,
     selectedIndicatorScope,
@@ -266,6 +291,7 @@ export function TradingViewIndicatorSettings({
 
   return (
     <OkxIndicatorSettingsDialog
+      displayMode={displayMode}
       value={normalizedSettingsValue}
       maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}
       selectedIndicatorScope={selectedIndicatorScope}

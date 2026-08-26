@@ -1,4 +1,5 @@
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -7,6 +8,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -44,8 +46,14 @@ const OKX_INDICATOR_HEADER_HEIGHT = 49;
 const OKX_INDICATOR_BODY_HEIGHT = 418;
 const OKX_INDICATOR_FOOTER_HEIGHT = 62;
 const OKX_INDICATOR_SIDEBAR_WIDTH = 184;
+const OKX_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT =
+  OKX_INDICATOR_HEADER_HEIGHT +
+  OKX_INDICATOR_BODY_HEIGHT +
+  OKX_INDICATOR_FOOTER_HEIGHT;
+const OKX_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
 
 function OkxIndicatorContent({
+  compact,
   indicator,
   onToggleLine,
   onLinePeriodChange,
@@ -56,6 +64,7 @@ function OkxIndicatorContent({
   onOpacityColorChange,
   onParameterChange,
 }: {
+  compact: boolean;
   indicator: ITradingViewSettingsMockIndicator | undefined;
   onToggleLine: (lineId: string, enabled: boolean) => void;
   onLinePeriodChange: (lineId: string, period: number) => void;
@@ -85,8 +94,21 @@ function OkxIndicatorContent({
   const parameterRows = groupOkxIndicatorParameters(indicator.parameters);
 
   return (
-    <ScrollView h={OKX_INDICATOR_BODY_HEIGHT} showsVerticalScrollIndicator>
-      <YStack pt={31} pb={34} pl={31} pr={33} bg={OKX_CHART_BG}>
+    <ScrollView
+      testID="trading-view-indicator-settings-content"
+      h={compact ? undefined : OKX_INDICATOR_BODY_HEIGHT}
+      flex={compact ? 1 : undefined}
+      minHeight={0}
+      showsVerticalScrollIndicator
+    >
+      <YStack
+        pt={compact ? 20 : 31}
+        pb={34}
+        px={compact ? 16 : undefined}
+        pl={compact ? undefined : 31}
+        pr={compact ? undefined : 33}
+        bg={OKX_CHART_BG}
+      >
         <SizableText
           mb={22}
           fontSize={16}
@@ -99,6 +121,7 @@ function OkxIndicatorContent({
         {parameterRows.map((parameters) => (
           <OkxIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}
+            compact={compact}
             parameters={parameters}
             onChange={onParameterChange}
           />
@@ -106,6 +129,7 @@ function OkxIndicatorContent({
         {indicator.lines.map((line, index) => (
           <OkxIndicatorLineRow
             key={line.id}
+            compact={compact}
             line={line}
             colorPickerPlacement={
               parameterRows.length + index <= 2 ? 'bottom' : 'top'
@@ -119,6 +143,7 @@ function OkxIndicatorContent({
         ))}
         {indicator.showOpacity !== false ? (
           <OkxIndicatorOpacitySlider
+            compact={compact}
             value={indicator.opacity}
             label={intl.formatMessage({
               id: ETranslations.market_chart_indicator_transparency__label,
@@ -152,6 +177,7 @@ function OkxIndicatorContent({
 }
 
 export function OkxIndicatorSettingsDialog({
+  displayMode,
   value,
   maxActiveSubIndicatorCount,
   selectedIndicatorScope,
@@ -174,6 +200,7 @@ export function OkxIndicatorSettingsDialog({
   onClose,
   isSubmitting = false,
 }: {
+  displayMode: 'focused' | 'full';
   value: ITradingViewIndicatorSettingsValue;
   maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
@@ -207,12 +234,31 @@ export function OkxIndicatorSettingsDialog({
   isSubmitting?: boolean;
 }) {
   const intl = useIntl();
+  const isFocused = displayMode === 'focused';
+  const { height: windowHeight } = useWindowDimensions();
+  const { bottom: safeAreaBottom, top: safeAreaTop } = useSafeAreaInsets();
+  const focusedMaxHeight = Math.max(
+    windowHeight -
+      safeAreaTop -
+      safeAreaBottom -
+      OKX_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
+    0,
+  );
 
   return (
     <YStack
       testID="trading-view-indicator-settings-okx-dialog"
-      w={OKX_INDICATOR_SETTINGS_WIDTH}
-      h={OKX_INDICATOR_SETTINGS_HEIGHT}
+      w={isFocused ? '100%' : OKX_INDICATOR_SETTINGS_WIDTH}
+      maxWidth="100%"
+      h={
+        isFocused
+          ? Math.min(
+              OKX_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT,
+              focusedMaxHeight,
+            )
+          : OKX_INDICATOR_SETTINGS_HEIGHT
+      }
+      maxHeight={isFocused ? focusedMaxHeight : '100%'}
       overflow="hidden"
       borderWidth={1}
       borderColor={OKX_CHART_BORDER}
@@ -221,7 +267,8 @@ export function OkxIndicatorSettingsDialog({
     >
       <XStack
         h={OKX_INDICATOR_HEADER_HEIGHT}
-        px={24}
+        flexShrink={0}
+        px={isFocused ? 16 : 24}
         alignItems="center"
         justifyContent="space-between"
         borderBottomWidth={1}
@@ -236,6 +283,7 @@ export function OkxIndicatorSettingsDialog({
           {intl.formatMessage({ id: ETranslations.market_indicators })}
         </SizableText>
         <Stack
+          testID="trading-view-indicator-settings-close"
           w={28}
           h={28}
           alignItems="center"
@@ -248,40 +296,53 @@ export function OkxIndicatorSettingsDialog({
           <Icon name="CrossedSmallOutline" size="$5" color="$icon" />
         </Stack>
       </XStack>
-      <YStack pointerEvents={isSubmitting ? 'none' : 'auto'}>
-        <OkxIndicatorScopeTabs
-          value={selectedIndicatorScope}
-          indicators={value.indicators}
-          maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
-          onChange={onScopeChange}
-        />
-        <XStack h={OKX_INDICATOR_BODY_HEIGHT} minHeight={0}>
-          <Stack
-            w={OKX_INDICATOR_SIDEBAR_WIDTH}
-            minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-            maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-            flexShrink={0}
-            position="relative"
-            zIndex={1}
-            bg={OKX_CHART_BG}
-          >
-            <OkxIndicatorSidebar
-              indicators={visibleIndicators}
-              selectedIndicatorId={selectedIndicatorId}
-              onSelect={onSelectIndicator}
-              onToggle={onToggleIndicator}
-            />
+      <YStack
+        flex={1}
+        minHeight={0}
+        pointerEvents={isSubmitting ? 'none' : 'auto'}
+      >
+        {isFocused ? null : (
+          <OkxIndicatorScopeTabs
+            value={selectedIndicatorScope}
+            indicators={value.indicators}
+            maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
+            onChange={onScopeChange}
+          />
+        )}
+        <XStack
+          testID="trading-view-indicator-settings-body"
+          h={isFocused ? undefined : OKX_INDICATOR_BODY_HEIGHT}
+          flex={isFocused ? 1 : undefined}
+          minHeight={0}
+        >
+          {isFocused ? null : (
             <Stack
-              position="absolute"
-              top={0}
-              right={0}
-              bottom={0}
-              w={1}
-              zIndex={2}
-              bg={OKX_CHART_DIVIDER}
-              pointerEvents="none"
-            />
-          </Stack>
+              w={OKX_INDICATOR_SIDEBAR_WIDTH}
+              minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
+              maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
+              flexShrink={0}
+              position="relative"
+              zIndex={1}
+              bg={OKX_CHART_BG}
+            >
+              <OkxIndicatorSidebar
+                indicators={visibleIndicators}
+                selectedIndicatorId={selectedIndicatorId}
+                onSelect={onSelectIndicator}
+                onToggle={onToggleIndicator}
+              />
+              <Stack
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                w={1}
+                zIndex={2}
+                bg={OKX_CHART_DIVIDER}
+                pointerEvents="none"
+              />
+            </Stack>
+          )}
           <Stack
             flex={1}
             minWidth={0}
@@ -291,6 +352,7 @@ export function OkxIndicatorSettingsDialog({
             bg={OKX_CHART_BG}
           >
             <OkxIndicatorContent
+              compact={isFocused}
               indicator={selectedIndicator}
               onToggleLine={onToggleLine}
               onLinePeriodChange={onLinePeriodChange}
@@ -306,10 +368,11 @@ export function OkxIndicatorSettingsDialog({
       </YStack>
       <XStack
         h={OKX_INDICATOR_FOOTER_HEIGHT}
+        flexShrink={0}
         alignItems="center"
         justifyContent="flex-end"
         gap={12}
-        pr={28}
+        pr={isFocused ? 16 : 28}
         borderTopWidth={1}
         borderTopColor={OKX_CHART_BORDER}
         bg={OKX_CHART_BG}

@@ -33,6 +33,7 @@ import {
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
+import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
@@ -541,6 +542,24 @@ export const TradingViewNativeContainer = memo(
       },
       [setIndicatorSettings],
     );
+    const handleIndicatorSettingsPress = useCallback(
+      (indicator?: ITradingViewNativeAnyIndicator) => {
+        showTradingViewNativeIndicatorSettingsDialog({
+          displayMode:
+            nativeControlsLayoutMode === 'desktop' ? 'full' : 'focused',
+          initialIndicatorId: indicator,
+          intl,
+          onConfirm: setIndicatorSettings,
+          value: indicatorSettingsValue,
+        });
+      },
+      [
+        indicatorSettingsValue,
+        intl,
+        nativeControlsLayoutMode,
+        setIndicatorSettings,
+      ],
+    );
 
     const handleCalendarPanelSubmit = useCallback(
       (payload: ICalendarPanelSubmitPayload) => {
@@ -643,7 +662,6 @@ export const TradingViewNativeContainer = memo(
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           activeIndicatorValues={activeIndicatorValues}
-          indicatorSettingsValue={indicatorSettingsValue}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
           isFullscreen={isNativeChartFullscreen}
@@ -652,7 +670,7 @@ export const TradingViewNativeContainer = memo(
           onChartSwitch={onChartSwitch}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
-          onIndicatorSettingsConfirm={setIndicatorSettings}
+          onIndicatorSettingsPress={handleIndicatorSettingsPress}
           onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
@@ -674,6 +692,7 @@ export const TradingViewNativeContainer = memo(
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}
+            onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
             onViewportRequestApplied={handleViewportRequestApplied}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}
             candleLabels={candleLabels}

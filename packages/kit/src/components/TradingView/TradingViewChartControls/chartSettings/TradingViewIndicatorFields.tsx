@@ -34,6 +34,8 @@ import type {
 import type { PointerEvent } from 'react-native';
 
 const OKX_INDICATOR_FIELD_LABEL_WIDTH = 136;
+const OKX_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
+const OKX_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;
 const OKX_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] = [
   'solid',
   'medium',
@@ -315,9 +317,11 @@ function OkxIndicatorNumberInput({
 }
 
 export function OkxIndicatorParameterRow({
+  compact = false,
   parameters,
   onChange,
 }: {
+  compact?: boolean;
   parameters: ITradingViewSettingsMockNumberParam[];
   onChange: (parameterId: string, value: number) => void;
 }) {
@@ -327,9 +331,16 @@ export function OkxIndicatorParameterRow({
   }
 
   return (
-    <XStack h={48} alignItems="center">
+    <XStack
+      h={compact ? undefined : 48}
+      minHeight={48}
+      py={compact ? 8 : undefined}
+      rowGap={compact ? 8 : undefined}
+      flexWrap={compact ? 'wrap' : 'nowrap'}
+      alignItems="center"
+    >
       <SizableText
-        w={OKX_INDICATOR_FIELD_LABEL_WIDTH}
+        w={compact ? '100%' : OKX_INDICATOR_FIELD_LABEL_WIDTH}
         fontSize={14}
         lineHeight={18}
         color={OKX_CHART_TEXT}
@@ -374,6 +385,7 @@ export function groupOkxIndicatorParameters(
 }
 
 export function OkxIndicatorLineRow({
+  compact = false,
   line,
   colorPickerPlacement,
   onToggleLine,
@@ -382,6 +394,7 @@ export function OkxIndicatorLineRow({
   onSecondaryStyleChange,
   onColorChange,
 }: {
+  compact?: boolean;
   line: ITradingViewSettingsMockLine;
   colorPickerPlacement: 'bottom' | 'top';
   onToggleLine: (lineId: string, enabled: boolean) => void;
@@ -411,8 +424,18 @@ export function OkxIndicatorLineRow({
   const secondaryStyleOptions = [solidLineLabel, dashedLineLabel];
 
   return (
-    <XStack h={48} alignItems="center">
-      <XStack w={OKX_INDICATOR_FIELD_LABEL_WIDTH} alignItems="center">
+    <XStack
+      h={compact ? undefined : 48}
+      minHeight={48}
+      py={compact ? 8 : undefined}
+      rowGap={compact ? 8 : undefined}
+      flexWrap={compact ? 'wrap' : 'nowrap'}
+      alignItems="center"
+    >
+      <XStack
+        w={compact ? '100%' : OKX_INDICATOR_FIELD_LABEL_WIDTH}
+        alignItems="center"
+      >
         {showCheckbox ? (
           <OkxChartCheckbox
             checked={line.enabled}
@@ -445,7 +468,13 @@ export function OkxIndicatorLineRow({
         </Stack>
       ) : null}
       {showColor ? (
-        <Stack ml={line.colorOffset ?? (showPeriod || showStyle ? 8 : 0)}>
+        <Stack
+          ml={
+            compact
+              ? 8
+              : (line.colorOffset ?? (showPeriod || showStyle ? 8 : 0))
+          }
+        >
           <OkxChartColorPicker
             placement={line.colorPickerPlacement ?? colorPickerPlacement}
             align="right"
@@ -484,6 +513,7 @@ export function OkxIndicatorLineRow({
 }
 
 export function OkxIndicatorOpacitySlider({
+  compact = false,
   value,
   label,
   upColor,
@@ -491,6 +521,7 @@ export function OkxIndicatorOpacitySlider({
   onChange,
   onColorChange,
 }: {
+  compact?: boolean;
   value: number;
   label: string;
   upColor: string;
@@ -506,6 +537,10 @@ export function OkxIndicatorOpacitySlider({
   const [isSliderDragging, setIsSliderDragging] = useState(false);
   const isCurrentPointActive = isSliderHovered || isSliderDragging;
   const currentPointSize = isCurrentPointActive ? 12 : 8;
+  const sliderWidth = compact
+    ? OKX_INDICATOR_COMPACT_SLIDER_WIDTH
+    : OKX_INDICATOR_DEFAULT_SLIDER_WIDTH;
+  const sliderTouchWidth = sliderWidth + 16;
   const handleSliderPointerMove = useCallback(
     (event: PointerEvent) => {
       const currentTarget = event.currentTarget as unknown as {
@@ -515,10 +550,10 @@ export function OkxIndicatorOpacitySlider({
       const pointerX = bounds
         ? event.nativeEvent.pageX - bounds.left
         : event.nativeEvent.offsetX;
-      const currentPointX = 8 + (value / 100) * 370;
+      const currentPointX = 8 + (value / 100) * sliderWidth;
       setIsSliderHovered(Math.abs(pointerX - currentPointX) <= 8);
     },
-    [value],
+    [sliderWidth, value],
   );
 
   return (
@@ -545,12 +580,12 @@ export function OkxIndicatorOpacitySlider({
         </XStack>
       </XStack>
       <XStack h={34} position="relative" alignItems="center">
-        <Stack w={370} h={2} position="relative" bg="$borderStrong">
-          <Stack w={(value / 100) * 370} h={2} bg="$text" />
+        <Stack w={sliderWidth} h={2} position="relative" bg="$borderStrong">
+          <Stack w={(value / 100) * sliderWidth} h={2} bg="$text" />
         </Stack>
         <SizableText
           testID="trading-view-indicator-opacity-value"
-          ml={28}
+          ml={compact ? 12 : 28}
           fontSize={14}
           lineHeight={18}
           color={OKX_CHART_TEXT}
@@ -561,7 +596,7 @@ export function OkxIndicatorOpacitySlider({
           <Stack
             key={point}
             position="absolute"
-            left={(point / 100) * 370 - 4}
+            left={(point / 100) * sliderWidth - 4}
             top={13}
             w={8}
             h={8}
@@ -574,7 +609,7 @@ export function OkxIndicatorOpacitySlider({
         ))}
         <Stack
           position="absolute"
-          left={(value / 100) * 370 - currentPointSize / 2}
+          left={(value / 100) * sliderWidth - currentPointSize / 2}
           top={17 - currentPointSize / 2}
           w={currentPointSize}
           h={currentPointSize}
@@ -588,7 +623,7 @@ export function OkxIndicatorOpacitySlider({
           position="absolute"
           top={0}
           left={-8}
-          w={386}
+          w={sliderTouchWidth}
           h={34}
           opacity={0.001}
           cursor="pointer"
@@ -598,7 +633,7 @@ export function OkxIndicatorOpacitySlider({
         >
           <Slider
             testID="trading-view-indicator-opacity-slider"
-            w={386}
+            w={sliderTouchWidth}
             h={34}
             min={0}
             max={100}
@@ -610,7 +645,7 @@ export function OkxIndicatorOpacitySlider({
           />
         </Stack>
       </XStack>
-      <XStack w={370} justifyContent="space-between">
+      <XStack w={sliderWidth} justifyContent="space-between">
         <SizableText fontSize={12} lineHeight={14} color={OKX_CHART_TEXT}>
           0
         </SizableText>

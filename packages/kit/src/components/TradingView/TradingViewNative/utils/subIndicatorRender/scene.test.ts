@@ -85,6 +85,22 @@ describe('TradingViewNative sub-indicator scene', () => {
         (command) => command.kind === 'text' && command.text === 'RSI',
       ),
     ).toBe(true);
+    const legendBackgroundIndex = commands.findIndex(
+      (command) =>
+        command.kind === 'rect' && command.paint === 'legendBackground',
+    );
+    const legendTitleIndex = commands.findIndex(
+      (command) => command.kind === 'text' && command.text === 'RSI',
+    );
+    expect(commands[legendBackgroundIndex]).toMatchObject({
+      height: 24,
+      kind: 'rect',
+      paint: 'legendBackground',
+      width: expect.any(Number),
+      x: 4,
+      y: 244,
+    });
+    expect(legendBackgroundIndex).toBeLessThan(legendTitleIndex);
     expect(Object.keys(customPaintStyles)).toEqual(
       expect.arrayContaining([
         expect.stringContaining(':band:upper'),
@@ -159,7 +175,7 @@ describe('TradingViewNative sub-indicator scene', () => {
       const legendCommand = commands.find(
         (command) =>
           command.kind === 'text' &&
-          command.text.startsWith('Histogram ') &&
+          command.text === 'Histogram' &&
           command.customPaintId === palettePaintId,
       );
       const legendPaint = palettePaintId
@@ -326,7 +342,7 @@ describe('TradingViewNative sub-indicator scene', () => {
         commands.some(
           (command) =>
             command.kind === 'text' &&
-            command.text.startsWith('Histogram ') &&
+            command.text === 'Histogram' &&
             command.customPaintId === legendPaintId,
         ),
       ).toBe(true);
@@ -505,9 +521,7 @@ describe('TradingViewNative sub-indicator scene', () => {
     for (const series of visibleSeries) {
       expect(
         legendCommands.some(
-          (command) =>
-            command.kind === 'text' &&
-            command.text.startsWith(`${series.title} `),
+          (command) => command.kind === 'text' && command.text === series.title,
         ),
       ).toBe(true);
     }

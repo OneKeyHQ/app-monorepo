@@ -1,7 +1,6 @@
 import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
 } from '../../chartConstants';
@@ -12,6 +11,7 @@ import {
   getTradingViewNativeSubIndicatorY,
 } from './coordinates';
 import { getTradingViewNativeSubIndicatorPaneLayoutAtY } from './layout';
+import { getTradingViewNativeSubIndicatorLegendLayouts } from './legend';
 
 import type { ITradingViewNativeSubIndicatorPaneLayout } from './layout';
 import type {
@@ -716,77 +716,75 @@ export function appendTradingViewNativeSubIndicatorLegendCommands({
 }) {
   'worklet';
 
-  for (const layout of layouts) {
-    if (layout.height >= TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE + 6) {
-      const left = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + 4;
-      const rowHeight = TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE + 2;
-      let baselineY = Math.min(layout.top + rowHeight, layout.bottom);
-      let x = left;
-      commands.push({
-        kind: 'clip',
-        rect: {
-          height: layout.height,
-          width: Math.max(
-            priceAxisX - TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-            0,
-          ),
-          x: TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-          y: layout.top,
-        },
-      });
-      commands.push({
-        font: 'legend',
-        kind: 'text',
-        paint: 'axisText',
-        text: layout.pane.shortTitle,
-        x,
-        y: baselineY,
-      });
-      x += measureTextWidth(layout.pane.shortTitle, 'legend') + 8;
-      for (const series of layout.pane.series) {
-        const value = series.values[pointIndex];
-        if (
-          series.style.visible &&
-          value !== null &&
-          value !== undefined &&
-          Number.isFinite(value)
-        ) {
-          const text = `${series.title} ${formatTradingViewNativeSubIndicatorValue(
-            value,
-            layout.pane.format,
-          )}`;
-          const textWidth = measureTextWidth(text, 'legend');
-          if (x > left && x + textWidth > priceAxisX) {
-            x = left;
-            baselineY += rowHeight;
-          }
-          if (baselineY > layout.bottom) {
-            break;
-          }
-          const pointPaintId = getSeriesPointPaintId({
-            index: pointIndex,
-            layout,
-            series,
+  const legendLayouts = getTradingViewNativeSubIndicatorLegendLayouts({
+    layouts,
+    measureTextWidth: (text) => measureTextWidth(text, 'legend'),
+    pointIndex,
+    priceAxisX,
+  });
+  for (const legendLayout of legendLayouts) {
+    commands.push(
+      { kind: 'clip', rect: legendLayout.clipRect },
+      {
+        ...legendLayout.backgroundRect,
+        kind: 'rect',
+        paint: 'legendBackground',
+      },
+    );
+    for (const { segment, series } of legendLayout.textEntries) {
+      const textBaselineY = segment.textBaselineY ?? legendLayout.textBaselineY;
+      if (!series) {
+        if (segment.label) {
+          commands.push({
+            font: 'legend',
+            kind: 'text',
+            paint: 'axisText',
+            text: segment.label,
+            x: segment.labelX,
+            y: textBaselineY,
           });
-          const legendPaintId =
-            series.style.type === 'line'
-              ? `${pointPaintId}:legend`
-              : pointPaintId;
+        }
+      } else {
+        const pointPaintId = getSeriesPointPaintId({
+          index: pointIndex,
+          layout: legendLayout.paneLayout,
+          series,
+        });
+        const legendPaintId =
+          series.style.type === 'line'
+            ? `${pointPaintId}:legend`
+            : pointPaintId;
+        if (segment.label) {
           commands.push({
             customPaintId: legendPaintId,
             font: 'legend',
             kind: 'text',
             paint: 'axisText',
-            text,
-            x,
-            y: baselineY,
+            text: segment.label,
+            x: segment.labelX,
+            y: textBaselineY,
           });
-          x += textWidth + 8;
+        }
+        if (segment.value) {
+          commands.push({
+            customPaintId: legendPaintId,
+            font: 'legend',
+            kind: 'text',
+            paint: 'axisText',
+            text: segment.value,
+            x: segment.valueX,
+            y: textBaselineY,
+          });
         }
       }
-      commands.push({ kind: 'restore' });
     }
+    commands.push({ kind: 'restore' });
   }
+
+  return legendLayouts.map(({ backgroundRect, paneLayout }) => ({
+    indicator: paneLayout.pane.indicator,
+    rect: backgroundRect,
+  }));
 }
 
 export function getTradingViewNativeSubIndicatorCrosshairValueText({
