@@ -381,6 +381,52 @@ describe('LocalDb DeviceState persistence', () => {
     expect(persisted.settings.autoLockDelayMs).toBe(300_000);
   });
 
+  it('persists complete V1 device-info versions without matching changedKeys', async () => {
+    const current = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.16.1',
+    });
+    current.protocol = 'V1';
+    current.identity.firmwareType = EFirmwareType.Universal;
+    current.versions.ble = '2.3.4';
+    current.versions.bootloader = '2.8.2';
+    current.securityElements = {
+      se01: { type: 'old-type', state: 'old-state' },
+    };
+
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.21.0',
+    });
+    incoming.protocol = 'V1';
+    incoming.identity.firmwareType = EFirmwareType.BitcoinOnly;
+    incoming.versions.ble = '2.3.7';
+    incoming.versions.bootloader = '2.8.4';
+    incoming.securityElements = {
+      se01: { type: 'new-type', state: 'new-state' },
+    };
+    const db = new DeviceStateTestLocalDb(current);
+
+    await db.updateDeviceState({
+      connectId: 'ABC-DEF',
+      state: incoming,
+      revision: incoming.revision,
+      source: 'device-info',
+      changedKeys: ['status.unlocked'],
+    });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.versions).toEqual(incoming.versions);
+    expect(persisted.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
+    expect(persisted.securityElements).toEqual(incoming.securityElements);
+  });
+
   it('ignores an event older than the persisted state', async () => {
     const current = createState({
       revision: 3,

@@ -11,7 +11,73 @@ import {
   getProtocolV2ResourceReleaseId,
   hasProtocolV2FirmwareUpdateTarget,
   isPro2SafeOSFirmwareUpdate,
+  selectFirmwareUpdateDetectStatus,
 } from './utils';
+
+describe('firmware update detect status reconciliation', () => {
+  const staleStatus = {
+    DEVICE_USB: {
+      connectId: 'DEVICE_USB',
+      hasUpgrade: true,
+      toVersion: '4.18.0',
+      toFirmwareType: undefined,
+      toVersionBle: undefined,
+    },
+  };
+
+  it('uses a resolved background snapshot instead of stale main state', () => {
+    expect(
+      selectFirmwareUpdateDetectStatus({
+        connectId: 'DEVICE_USB',
+        persistedStatus: staleStatus,
+        snapshot: {
+          requestedConnectId: 'DEVICE_USB',
+          resolved: true,
+          connectIds: ['DEVICE_USB', 'device_ble'],
+          status: undefined,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps persisted state until the background runtime has checked', () => {
+    expect(
+      selectFirmwareUpdateDetectStatus({
+        connectId: 'DEVICE_USB',
+        persistedStatus: staleStatus,
+        snapshot: {
+          requestedConnectId: 'DEVICE_USB',
+          resolved: false,
+          connectIds: ['DEVICE_USB'],
+        },
+      }),
+    ).toEqual(staleStatus.DEVICE_USB);
+  });
+
+  it('finds a persisted transport alias without case-sensitive key matching', () => {
+    expect(
+      selectFirmwareUpdateDetectStatus({
+        connectId: 'device_usb',
+        persistedStatus: staleStatus,
+        snapshot: undefined,
+      }),
+    ).toEqual(staleStatus.DEVICE_USB);
+  });
+
+  it('ignores a snapshot returned for the previously selected device', () => {
+    expect(
+      selectFirmwareUpdateDetectStatus({
+        connectId: 'DEVICE_USB',
+        persistedStatus: staleStatus,
+        snapshot: {
+          requestedConnectId: 'OTHER_DEVICE',
+          resolved: true,
+          connectIds: ['OTHER_DEVICE'],
+        },
+      }),
+    ).toEqual(staleStatus.DEVICE_USB);
+  });
+});
 
 describe('getFirmwareUpdateUSBPreflightParams', () => {
   it('uses the release device identity and Protocol V2 mode', async () => {

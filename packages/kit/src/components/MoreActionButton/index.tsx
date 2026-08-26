@@ -44,7 +44,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
-  useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -82,6 +81,7 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
+import { useFirmwareUpdateDetectStatus } from '../../views/FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
@@ -103,6 +103,12 @@ const LazyHomeFirmwareUpdateReminder = lazy(async () => {
   const { HomeFirmwareUpdateReminder } =
     await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder');
   return { default: HomeFirmwareUpdateReminder };
+});
+
+const LazyHomeFirmwareUpdateDetect = lazy(async () => {
+  const { HomeFirmwareUpdateDetect } =
+    await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateDetect');
+  return { default: HomeFirmwareUpdateDetect };
 });
 
 const LazyPrimeUserBadge = lazy(async () => {
@@ -735,26 +741,7 @@ const useIsShowRedDot = () => {
 const useIsNeedUpgradeFirmware = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-  const { result } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-    const detectResult = detectStatus?.[connectId];
-    const shouldUpdate =
-      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const detectInfo =
-      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
-        {
-          connectId,
-        },
-      );
-    return {
-      shouldUpdate,
-      detectResult,
-    };
-  }, [connectId, detectStatus]);
-
-  return result?.shouldUpdate;
+  return useFirmwareUpdateDetectStatus(connectId)?.hasUpgrade;
 };
 
 const useIsShowWalletXfpStatus = () => {
@@ -1675,6 +1662,11 @@ function MoreActionButtonCmp() {
 export function MoreActionButton() {
   return (
     <MoreActionProvider>
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <LazyHomeFirmwareUpdateDetect />
+        </Suspense>
+      )}
       <MoreActionButtonCmp />
     </MoreActionProvider>
   );

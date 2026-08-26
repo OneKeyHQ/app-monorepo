@@ -5,10 +5,39 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type {
   ICheckAllFirmwareReleaseResult,
+  IFirmwareUpdateDetectStatusSnapshot,
+  IFirmwareUpdatesDetectStatus,
   IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
 import type { IntlShape } from 'react-intl';
+
+export function selectFirmwareUpdateDetectStatus({
+  connectId,
+  persistedStatus,
+  snapshot,
+}: {
+  connectId: string;
+  persistedStatus: IFirmwareUpdatesDetectStatus | undefined;
+  snapshot: IFirmwareUpdateDetectStatusSnapshot | undefined;
+}) {
+  const persistedDetectStatus =
+    persistedStatus?.[connectId] ??
+    Object.entries(persistedStatus ?? {}).find(
+      ([persistedConnectId]) =>
+        persistedConnectId.toLowerCase() === connectId.toLowerCase(),
+    )?.[1];
+  if (
+    snapshot &&
+    snapshot.requestedConnectId.toLowerCase() !== connectId.toLowerCase()
+  ) {
+    return persistedDetectStatus;
+  }
+  if (snapshot?.resolved) {
+    return snapshot.status;
+  }
+  return persistedDetectStatus;
+}
 
 export async function getFirmwareUpdateUSBPreflightParams(
   result: ICheckAllFirmwareReleaseResult | undefined,

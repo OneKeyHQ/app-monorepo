@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   mergeDeviceStateEvent,
@@ -240,6 +240,64 @@ describe('deviceStateUtils', () => {
     });
 
     expect(merged.settings.language).toBe('en');
+  });
+
+  it('uses V1 device-info versions as an authoritative snapshot', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.protocol = 'V1';
+    currentState.identity.firmwareType = EFirmwareType.Universal;
+    currentState.versions.firmware = '4.16.1';
+    currentState.versions.ble = '2.3.4';
+    currentState.versions.bootloader = '2.8.2';
+    currentState.securityElements = {
+      se01: { type: 'old-type', state: 'old-state' },
+    };
+    currentState.verification = { firmwareHash: 'old-firmware-hash' };
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.identity.firmwareType = EFirmwareType.BitcoinOnly;
+    incomingState.versions.firmware = '4.21.0';
+    incomingState.versions.ble = '2.3.7';
+    incomingState.versions.bootloader = '2.8.4';
+    incomingState.securityElements = {
+      se01: { type: 'new-type', state: 'new-state' },
+    };
+    incomingState.verification = { firmwareHash: 'new-firmware-hash' };
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'device-info',
+    });
+
+    expect(merged.versions).toEqual(incomingState.versions);
+    expect(merged.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
+    expect(merged.securityElements).toEqual(incomingState.securityElements);
+    expect(merged.verification).toEqual(incomingState.verification);
+  });
+
+  it('uses V1 initialize version and capability sections as authoritative', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.protocol = 'V1';
+    currentState.versions.firmware = '4.16.1';
+    currentState.capabilities = ['Capability_Bitcoin'];
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.versions.firmware = '4.21.0';
+    incomingState.capabilities = ['Capability_BLE'];
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.unlocked'],
+      source: 'initialize',
+    });
+
+    expect(merged.versions).toEqual(incomingState.versions);
+    expect(merged.capabilities).toEqual(incomingState.capabilities);
   });
 
   it('keeps sparse patch semantics for non-settings-read events', () => {

@@ -1583,7 +1583,6 @@ export function ConnectYourDevicePage() {
           });
           await showFirmwareVerifyDialog({
             device,
-            features,
             onContinue: async ({ checked }: { checked: boolean }) => {
               setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {

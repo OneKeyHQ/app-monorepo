@@ -9,7 +9,7 @@ export function createActiveAccountFirmwareUpdateDetector({
   let started = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const runDetection = async (continueAfterThrottle: boolean) => {
+  const runDetection = async (hasScheduledThrottle: boolean) => {
     let result: IDetectActiveAccountFirmwareUpdatesResult;
     try {
       result = await detect();
@@ -23,14 +23,17 @@ export function createActiveAccountFirmwareUpdateDetector({
 
     if (
       result.status !== 'busy' &&
-      (!continueAfterThrottle || result.status !== 'throttled')
+      (result.status !== 'throttled' || hasScheduledThrottle)
     ) {
       return;
     }
 
+    const nextHasScheduledThrottle =
+      hasScheduledThrottle || result.status === 'throttled';
+
     retryTimer = setTimeout(() => {
       retryTimer = undefined;
-      void runDetection(true);
+      void runDetection(nextHasScheduledThrottle);
     }, result.retryAfterMs);
   };
 

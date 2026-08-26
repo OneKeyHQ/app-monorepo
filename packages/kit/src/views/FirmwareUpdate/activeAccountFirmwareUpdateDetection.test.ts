@@ -32,7 +32,7 @@ describe('createActiveAccountFirmwareUpdateDetector', () => {
     expect(detect).toHaveBeenCalledTimes(3);
   });
 
-  it('does not turn an initially throttled detection into periodic polling', async () => {
+  it('retries an initially throttled detection once without periodic polling', async () => {
     const detect = jest
       .fn()
       .mockResolvedValue({ status: 'throttled', retryAfterMs: 5000 });
@@ -42,7 +42,7 @@ describe('createActiveAccountFirmwareUpdateDetector', () => {
     await Promise.resolve();
     await jest.advanceTimersByTimeAsync(5000);
 
-    expect(detect).toHaveBeenCalledTimes(1);
+    expect(detect).toHaveBeenCalledTimes(2);
   });
 
   it('cancels a retry when the home route loses focus', async () => {

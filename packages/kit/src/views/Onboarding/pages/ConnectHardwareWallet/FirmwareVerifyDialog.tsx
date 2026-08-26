@@ -37,12 +37,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type {
-  IDeviceVerifyVersionCompareResult,
-  IOneKeyDeviceFeatures,
-} from '@onekeyhq/shared/types/device';
+import type { IDeviceVerifyVersionCompareResult } from '@onekeyhq/shared/types/device';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import {
+  shouldRetryFirmwareVerification,
+  shouldVerifyFirmwareHash,
+} from './firmwareVerifyUtils';
+
+import type { OnekeyFeatures, SearchDevice } from '@onekeyfe/hd-core';
 
 const AUTO_CLOSE_DELAY_MS = 1200;
 
@@ -85,10 +87,12 @@ export enum EFirmwareAuthenticationDialogContentType {
 
 function useFirmwareVerifyBase({
   device,
+  firmwareVerificationFeatures,
   skipDeviceCancel,
   useNewProcess,
 }: {
   device: SearchDevice | IDBDevice;
+  firmwareVerificationFeatures?: OnekeyFeatures;
   skipDeviceCancel?: boolean;
   useNewProcess?: boolean;
 }) {
@@ -149,21 +153,24 @@ function useFirmwareVerifyBase({
         );
       }
 
-      if (useNewProcess) {
-        // verify firmware hash
-        const latestFeatures =
-          await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
-            {
-              connectId: device?.connectId ?? '',
-              deviceType: device.deviceType,
-            },
-          );
+      if (
+        shouldVerifyFirmwareHash({
+          certificateVerified: authResult.verified,
+          useNewProcess,
+        })
+      ) {
         const verifyResult =
           await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
             deviceType: device.deviceType,
-            onekeyFeatures: latestFeatures,
+            onekeyFeatures: firmwareVerificationFeatures,
           });
         console.log('=====>>>> verifyResult: ', verifyResult);
+        if (!verifyResult) {
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+          );
+          return;
+        }
         setVersionCompareResult(verifyResult);
         const hasUnverifiedFirmware = Object.entries(verifyResult).some(
           ([, value]: [string, { isMatch: boolean }]) => !value.isMatch,
@@ -246,7 +253,13 @@ function useFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, dialogInstance, skipDeviceCancel, useNewProcess]);
+  }, [
+    device,
+    dialogInstance,
+    firmwareVerificationFeatures,
+    skipDeviceCancel,
+    useNewProcess,
+  ]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -686,7 +699,9 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.global_network_error,
                 })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
+                {errorObj.code ? (
+                  <SizableText>{`(${errorObj.code})`}</SizableText>
+                ) : null}
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -824,7 +839,9 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.device_auth_temporarily_unavailable,
                 })}
-                <SizableText>{`(${errorObj.code})`}</SizableText>
+                {errorObj.code ? (
+                  <SizableText>{`(${errorObj.code})`}</SizableText>
+                ) : null}
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -940,12 +957,14 @@ export function FirmwareAuthenticationDialogContent({
   onContinue,
   onDevSkipVerificationPress,
   device,
+  firmwareVerificationFeatures,
   skipDeviceCancel,
   useNewProcess,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   onDevSkipVerificationPress?: () => void;
   device: SearchDevice | IDBDevice;
+  firmwareVerificationFeatures?: OnekeyFeatures;
   skipDeviceCancel?: boolean;
   useNewProcess?: boolean;
 }) {
@@ -959,6 +978,7 @@ export function FirmwareAuthenticationDialogContent({
     versionCompareResult,
   } = useFirmwareVerifyBase({
     device,
+    firmwareVerificationFeatures,
     skipDeviceCancel,
     useNewProcess,
   });
@@ -979,6 +999,12 @@ export function FirmwareAuthenticationDialogContent({
     onDevSkipVerificationPress?.();
   }, [onDevSkipVerificationPress]);
 
+  const handleRetryPress = useCallback(async () => {
+    reset();
+    setContentType(EFirmwareAuthenticationDialogContentType.verifying);
+    await verify();
+  }, [reset, setContentType, verify]);
+
   const content = useMemo(() => {
     const propsMap: Record<
       IFirmwareAuthenticationState,
@@ -998,20 +1024,24 @@ export function FirmwareAuthenticationDialogContent({
         },
       },
       error: {
-        onPress: async () => {
-          reset();
-          setContentType(EFirmwareAuthenticationDialogContentType.verifying);
-          await verify();
-        },
+        onPress: handleRetryPress,
       },
     };
+
+    const onActionPress = shouldRetryFirmwareVerification({
+      verificationTemporarilyUnavailable:
+        contentType ===
+        EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+    })
+      ? handleRetryPress
+      : propsMap[result].onPress;
 
     return (
       <EnumBasicDialogContentContainer
         useNewProcess={useNewProcess}
         errorObj={errorObj}
         contentType={contentType}
-        onActionPress={propsMap[result].onPress}
+        onActionPress={onActionPress}
         onContinuePress={handleContinuePress}
         onDevSkipVerificationPress={handleDevSkipVerificationPress}
         certificateResult={result}
@@ -1027,9 +1057,7 @@ export function FirmwareAuthenticationDialogContent({
     handleDevSkipVerificationPress,
     versionCompareResult,
     onContinue,
-    reset,
-    setContentType,
-    verify,
+    handleRetryPress,
   ]);
 
   return (
@@ -1046,7 +1074,6 @@ export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
-      features,
       onVerified,
       onContinue,
       onDevSkipVerificationPress,
@@ -1054,7 +1081,6 @@ export function useFirmwareVerifyDialog() {
       dialogHost = Dialog,
     }: {
       device: SearchDevice | IDBDevice;
-      features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
       onClose: () => Promise<void> | void;
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
@@ -1086,13 +1112,20 @@ export function useFirmwareVerifyDialog() {
 
       setIsLoading(true);
       let shouldUseNewAuthenticateVersion = false;
+      let firmwareVerificationFeatures: OnekeyFeatures | undefined;
       try {
-        console.log('====> features: ', features);
-        // use old features to quick check if need new version
+        firmwareVerificationFeatures =
+          await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
+            {
+              connectId: device.connectId ?? '',
+              deviceType: device.deviceType,
+            },
+          );
         shouldUseNewAuthenticateVersion =
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
             {
-              features,
+              deviceType: device.deviceType,
+              onekeyFeatures: firmwareVerificationFeatures,
             },
           );
         console.log(
@@ -1116,6 +1149,7 @@ export function useFirmwareVerifyDialog() {
           <FirmwareAuthenticationDialogContent
             skipDeviceCancel
             device={device}
+            firmwareVerificationFeatures={firmwareVerificationFeatures}
             onContinue={async ({ checked }) => {
               await onVerified?.({ checked });
               await firmwareAuthenticationDialog.close();
