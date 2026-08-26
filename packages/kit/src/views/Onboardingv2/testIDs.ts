@@ -120,6 +120,10 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Pick your device
+  pickYourDeviceLegacyOptionBtn: (key: string) =>
+    `onboarding-pick-your-device-legacy-${key}-btn`,
+
   // Connect your device
   connectYourDeviceTroubleshootingBtn:
     'onboarding-connect-your-device-troubleshooting-btn',
