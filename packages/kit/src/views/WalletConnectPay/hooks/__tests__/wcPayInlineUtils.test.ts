@@ -5,8 +5,17 @@ import type {
 
 import {
   EWcPayInlineFailureKind,
+  WC_PAY_INLINE_POST_SIGN_FLAG,
   classifyWcPayInlineFailure,
   getWcPayInlinePlan,
+  isWcPayInlinePostSignError,
+  runWcPayInlineAttempts,
+} from '../wcPayInlineUtils';
+
+import type {
+  IWcPayInlineFailure,
+  IWcPayInlineSendResult,
+  IWcPayInlineStage,
 } from '../wcPayInlineUtils';
 
 const SENDER = '0x1111111111111111111111111111111111111111';
@@ -183,5 +192,189 @@ describe('classifyWcPayInlineFailure', () => {
     expect(
       classifyWcPayInlineFailure({ stage: 'send', error: undefined }).message,
     ).toBe('Something went wrong');
+  });
+
+  it('marks the estimate stage retryable and every other stage not', () => {
+    const stages: IWcPayInlineStage[] = [
+      'estimate',
+      'balance',
+      'precheck',
+      'prepare',
+      'send',
+    ];
+    const retryable = stages.filter(
+      (stage) =>
+        classifyWcPayInlineFailure({ stage, error: new Error('x') }).retryable,
+    );
+    expect(retryable).toEqual(['estimate']);
+  });
+});
+
+describe('isWcPayInlinePostSignError', () => {
+  it('detects a tagged error', () => {
+    const error = new Error('broadcast rejected');
+    (error as unknown as Record<string, unknown>)[
+      WC_PAY_INLINE_POST_SIGN_FLAG
+    ] = true;
+    expect(isWcPayInlinePostSignError(error)).toBe(true);
+  });
+
+  it('rejects an untagged error and non-object throws', () => {
+    expect(isWcPayInlinePostSignError(new Error('expired'))).toBe(false);
+    expect(isWcPayInlinePostSignError('user rejected')).toBe(false);
+    expect(isWcPayInlinePostSignError(undefined)).toBe(false);
+    expect(isWcPayInlinePostSignError(null)).toBe(false);
+  });
+});
+
+describe('runWcPayInlineAttempts', () => {
+  const feeFailure: IWcPayInlineFailure = {
+    kind: EWcPayInlineFailureKind.FeeEstimateFailed,
+    message: 'rpc down',
+    retryable: true,
+  };
+  const balanceFailure: IWcPayInlineFailure = {
+    kind: EWcPayInlineFailureKind.InsufficientBalance,
+    message: 'not enough USDC',
+    retryable: false,
+  };
+  // Decisions are consumed in order; the last one repeats for every further
+  // failure, so a single argument means "always decide this".
+  const buildController = (
+    ...decisions: ('retry' | 'fallback' | 'abort')[]
+  ) => {
+    const onInlineFailure = jest.fn<
+      Promise<'retry' | 'fallback' | 'abort'>,
+      [IWcPayInlineFailure]
+    >();
+    decisions.forEach((decision, index) => {
+      if (index === decisions.length - 1) {
+        onInlineFailure.mockResolvedValue(decision);
+      } else {
+        onInlineFailure.mockResolvedValueOnce(decision);
+      }
+    });
+    return { onPhase: jest.fn(), onInlineFailure };
+  };
+
+  it('returns the txid of a successful attempt', async () => {
+    const controller = buildController('fallback');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'ok', txid: '0xabc' });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'ok',
+      txid: '0xabc',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(controller.onInlineFailure).not.toHaveBeenCalled();
+  });
+
+  it('re-runs the attempt when a fee-estimate failure is retried', async () => {
+    const controller = buildController('retry', 'fallback');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValueOnce({ status: 'inlineError', failure: feeFailure })
+      .mockResolvedValueOnce({ status: 'ok', txid: '0xdef' });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'ok',
+      txid: '0xdef',
+    });
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(controller.onInlineFailure).toHaveBeenCalledTimes(1);
+    expect(controller.onInlineFailure).toHaveBeenCalledWith(feeFailure);
+  });
+
+  it('falls back after a single attempt when the fee failure is not retried', async () => {
+    const controller = buildController('fallback');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'inlineError', failure: feeFailure });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'fallback',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts when the controller aborts on insufficient balance', async () => {
+    const controller = buildController('abort');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'inlineError', failure: balanceFailure });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'abort',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops retrying once the retry budget is spent', async () => {
+    const controller = buildController('retry');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'inlineError', failure: feeFailure });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'fallback',
+    });
+    // the default budget is 2 RE-RUNS, so three attempts in total
+    expect(run).toHaveBeenCalledTimes(3);
+  });
+
+  it('honours an explicit retry budget', async () => {
+    const controller = buildController('retry');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'inlineError', failure: feeFailure });
+
+    await expect(
+      runWcPayInlineAttempts({ controller, run, maxRetries: 0 }),
+    ).resolves.toEqual({ status: 'fallback' });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('degrades a retry of a non-retryable failure to a fallback, running once', async () => {
+    const controller = buildController('retry');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'inlineError', failure: balanceFailure });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'fallback',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes a pipeline fallback result through the controller too', async () => {
+    const controller = buildController('fallback');
+    const failure: IWcPayInlineFailure = {
+      kind: EWcPayInlineFailureKind.PreSignBlocked,
+      message: 'wallet not backed up',
+      retryable: false,
+    };
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockResolvedValue({ status: 'fallback', failure });
+
+    await expect(runWcPayInlineAttempts({ controller, run })).resolves.toEqual({
+      status: 'fallback',
+    });
+    expect(controller.onInlineFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it('propagates a thrown pipeline error without consulting the controller', async () => {
+    const controller = buildController('fallback');
+    const thrown = new Error('signing failed');
+    const run = jest
+      .fn<Promise<IWcPayInlineSendResult>, []>()
+      .mockRejectedValue(thrown);
+
+    await expect(runWcPayInlineAttempts({ controller, run })).rejects.toBe(
+      thrown,
+    );
+    expect(controller.onInlineFailure).not.toHaveBeenCalled();
   });
 });

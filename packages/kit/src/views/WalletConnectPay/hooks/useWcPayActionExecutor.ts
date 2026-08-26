@@ -24,6 +24,7 @@ import { isWcPayExpired } from '@onekeyhq/shared/src/walletConnect/payExpiryUtil
 import {
   EWcPayActionMethod,
   type IWcPayAction,
+  type IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -31,6 +32,11 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+
+import { wcPayInlineSendTx } from './wcPayInlineSendTx';
+import { getWcPayInlinePlan, runWcPayInlineAttempts } from './wcPayInlineUtils';
+
+import type { IWcPayInlineController } from './wcPayInlineUtils';
 
 // small pause so a finished confirm modal fully dismisses before the next one
 const MODAL_TRANSITION_MS = 300;
@@ -74,6 +80,8 @@ export function useWcPayActionExecutor() {
       completedResults,
       expiryMs,
       progressContext,
+      option,
+      inlineController,
       onActionComplete,
       onActionInvalidated,
     }: {
@@ -98,6 +106,16 @@ export function useWcPayActionExecutor() {
       // (broadcastDeadline, background-enforced), so an on-chain transfer
       // can never start once the deadline has passed.
       expiryMs?: number;
+      // the payment option the user selected. Required by the inline path
+      // both as the order to re-prove the transaction against and as the
+      // source of the expected paying account.
+      option?: IWcPayOption;
+      // observer/decider for the inline path. Supplying it together with
+      // `option` opts this call into the headless send; the gate that decides
+      // whether a given action sequence is actually eligible
+      // (getWcPayInlinePlan) still runs per action. Absent — as for every
+      // caller today — the executor behaves exactly as before.
+      inlineController?: IWcPayInlineController;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
       // an already-broadcast transaction is never sent twice. Callers must
@@ -304,6 +322,59 @@ export function useWcPayActionExecutor() {
                       : undefined,
                 },
               );
+            // Inline path: run the headless pipeline instead of pushing the
+            // confirm modal. It receives the very unsignedTx the modal would
+            // have shown — pinned nonce included — so an invalidated
+            // re-execution keeps its nonce here too. Nothing is caught: a
+            // thrown pipeline error (post-sign tagged or pre-sign untagged)
+            // must reach the page, which owns the recovery decision.
+            if (inlineController && option) {
+              // getWcPayInlinePlan validates actions[0] while this loop
+              // executes actions[i]; the two coincide only because the gate
+              // requires actions.length === 1. Phase 2 multi-action inlining
+              // must re-gate per action rather than reuse this call.
+              const plan = getWcPayInlinePlan({ actions, option });
+              if (plan.mode === 'inline') {
+                const inlineOutcome = await runWcPayInlineAttempts({
+                  controller: inlineController,
+                  run: () =>
+                    wcPayInlineSendTx({
+                      networkId,
+                      accountId: account.id,
+                      unsignedTx,
+                      option,
+                      sourceInfo: buildWcPaySourceInfo({
+                        method,
+                        params: parsed,
+                        scope: 'ethereum',
+                      }),
+                      expiryMs,
+                      // identical construction to the modal path below: the
+                      // durable-progress identity must not differ by route
+                      wcPayPreBroadcastRecord: progressContext
+                        ? {
+                            ...progressContext,
+                            action: actions[i],
+                            index: i,
+                          }
+                        : undefined,
+                      onPhase: inlineController.onPhase,
+                    }),
+                });
+                if (inlineOutcome.status === 'ok') {
+                  results.push(inlineOutcome.txid);
+                  await persistActionResult(i, inlineOutcome.txid);
+                  // the plan gate admits single-action sequences only, so
+                  // this is always the last action and the Permit2
+                  // mined-wait below can never apply
+                  break;
+                }
+                if (inlineOutcome.status === 'abort') {
+                  throw new WcPayUserCancelledError('User canceled payment');
+                }
+                // fallback: continue into the standard confirm modal below
+              }
+            }
             let txid: string;
             try {
               txid = await new Promise<string>((resolve, reject) => {

@@ -25,39 +25,23 @@ import {
   fetchWcPayInlineBalances,
   findWcPayInlineBalanceShortfall,
 } from './wcPayInlineBalanceUtils';
-import { classifyWcPayInlineFailure } from './wcPayInlineUtils';
+import {
+  WC_PAY_INLINE_POST_SIGN_FLAG,
+  classifyWcPayInlineFailure,
+} from './wcPayInlineUtils';
 
 import type {
-  IWcPayInlineFailure,
+  IWcPayInlinePhase,
+  IWcPayInlineSendResult,
   IWcPayInlineStage,
 } from './wcPayInlineUtils';
 
-/**
- * Progress of the headless pipeline, reported so the inline UI can label the
- * step in flight.
- *
- * - `estimating`: wallet-backup gate, account resolution and fee estimation.
- * - `checking`: balance fetch and the pre-send guards (precheck, preActions,
- *   fee-overflow verify) — two network round-trips that were previously
- *   invisible under `estimating`.
- * - `signing`: covers signing AND broadcasting. `signAndSendTransaction` is a
- *   single atomic background call, so there is no observable moment between
- *   the two; the UI must label this phase accordingly.
- * - `recording`: post-broadcast bookkeeping (signature record, local history).
- *   The transfer is already on its way by the time this is emitted.
- */
-export type IWcPayInlinePhase =
-  | 'estimating'
-  | 'checking'
-  | 'signing'
-  | 'recording';
-
-/**
- * Property set on any error thrown at or after signing. Mirrors the tagged
- * -property convention in `useWcPayActionExecutor` (an error subclass is not
- * usable here: lint caps error classes per file and OneKeyError types `name`).
- */
-export const WC_PAY_INLINE_POST_SIGN_FLAG = '$$wcPayInlinePostSign';
+// The types and the post-sign flag are declared beside the pure decision
+// helpers so that module can express the attempts loop — and classify a thrown
+// error — without importing this one; re-exported here because this is where
+// they are produced.
+export type { IWcPayInlinePhase, IWcPayInlineSendResult };
+export { WC_PAY_INLINE_POST_SIGN_FLAG };
 
 /**
  * Tags an error as having happened at or after signing. Objects are tagged in
@@ -78,11 +62,6 @@ function markWcPayInlinePostSignError(error: unknown): unknown {
   (tagged as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG] = true;
   return tagged;
 }
-
-export type IWcPayInlineSendResult =
-  | { status: 'ok'; txid: string }
-  | { status: 'fallback'; failure: IWcPayInlineFailure }
-  | { status: 'inlineError'; failure: IWcPayInlineFailure };
 
 type IWcPayInlineDisposition = 'fallback' | 'inlineError';
 
@@ -141,6 +120,12 @@ function pickWcPayInlineFeePreset<T>(values: T[] | undefined): T | undefined {
  * signing — callers must classify it stage 'send' and route retries through
  * the recovery machinery, never re-sign. Untagged throws are pre-sign
  * (expiry, final recheck, account/network binding) and nothing was signed.
+ *
+ * MUTATES the passed `unsignedTx`: `updateUnSignedTxBeforeSending` writes the
+ * nonce and fee fields into that object and returns the same reference, so a
+ * repeated call does not start from a clean tx. Only a failure raised before
+ * that point (fee estimation) leaves the tx untouched enough to re-run — see
+ * the retry precondition in `runWcPayInlineAttempts`.
  *
  * Not reentrant: the caller serializes calls (the `isPaying` guard). Two
  * concurrent calls could not double-pay — both resolve the same nonce, so at

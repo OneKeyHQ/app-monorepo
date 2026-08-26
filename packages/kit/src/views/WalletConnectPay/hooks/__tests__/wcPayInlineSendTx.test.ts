@@ -9,11 +9,11 @@ import type {
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
+import { wcPayInlineSendTx } from '../wcPayInlineSendTx';
 import {
-  WC_PAY_INLINE_POST_SIGN_FLAG,
-  wcPayInlineSendTx,
-} from '../wcPayInlineSendTx';
-import { EWcPayInlineFailureKind } from '../wcPayInlineUtils';
+  EWcPayInlineFailureKind,
+  isWcPayInlinePostSignError,
+} from '../wcPayInlineUtils';
 
 // Every background method the pipeline touches must exist here: a missing one
 // throws a TypeError inside a stage's try/catch and would be silently
@@ -503,16 +503,12 @@ describe('wcPayInlineSendTx', () => {
     const postSignError = await callInlineSend().catch(
       (error: unknown) => error,
     );
-    expect(
-      (postSignError as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG],
-    ).toBe(true);
+    expect(isWcPayInlinePostSignError(postSignError)).toBe(true);
 
     const preSignError = await callInlineSend({
       expiryMs: Date.now() - 1000,
     }).catch((error: unknown) => error);
-    expect(
-      (preSignError as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG],
-    ).toBeUndefined();
+    expect(isWcPayInlinePostSignError(preSignError)).toBe(false);
   });
 
   it('tags a missing txid as post-sign: the transfer may already be on chain', async () => {
@@ -523,9 +519,7 @@ describe('wcPayInlineSendTx', () => {
     const error = await callInlineSend().catch((e: unknown) => e);
 
     expect((error as Error).message).toContain('Missing transaction id');
-    expect(
-      (error as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG],
-    ).toBe(true);
+    expect(isWcPayInlinePostSignError(error)).toBe(true);
   });
 
   it('keeps the txid when the post-broadcast bookkeeping fails', async () => {
