@@ -9958,7 +9958,7 @@ __metadata:
     react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
     react-native-markdown-display: "npm:7.0.2"
     react-native-root-siblings: "npm:^5.0.1"
-    react-native-svg: "npm:15.15.1"
+    react-native-svg: "npm:15.15.4"
   languageName: unknown
   linkType: soft
 
@@ -10107,7 +10107,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
-    "@babel/core": "npm:^7.29.7"
+    "@babel/core": "npm:7.29.7"
     "@backpackapp-io/react-native-toast": "npm:0.14.0"
     "@expo-google-fonts/inter": "npm:^0.2.3"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"

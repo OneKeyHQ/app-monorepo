@@ -58,6 +58,19 @@ index b035eaf..f9068fb 100644
  }
  export function areDOMRectsEqual(r1, r2) {
    // There are 4 more fields, but checking these should suffice
+diff --git a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
+index 3546fd2..6d73e8d 100644
+--- a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
++++ b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
+@@ -24,7 +24,7 @@ export default class JSReanimated extends ReanimatedModule {
+       // React Native Web 0.19+ no longer provides setNativeProps function,
+       // so we need to update DOM nodes directly.
+       updatePropsDOM(component, rawStyles, isAnimatedProps);
+-    } else if (Object.keys(component.props).length > 0) {
++    } else if (component.props && Object.keys(component.props).length > 0) {
+       Object.keys(component.props).forEach(key => {
+         if (!rawStyles[key]) {
+           return;
 diff --git a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
 index 3a09187..ffaf1d0 100644
 --- a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
@@ -100,3 +113,16 @@ index 5c97018..3ef92d7 100644
  }
  
  export function areDOMRectsEqual(r1: DOMRect, r2: DOMRect) {
+diff --git a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
+index f180dfd..96eeb6a 100644
+--- a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
++++ b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
+@@ -67,7 +67,7 @@ export default class JSReanimated extends ReanimatedModule<ReanimatedModuleProxy
+       // React Native Web 0.19+ no longer provides setNativeProps function,
+       // so we need to update DOM nodes directly.
+       updatePropsDOM(component, rawStyles, isAnimatedProps);
+-    } else if (Object.keys(component.props).length > 0) {
++    } else if (component.props && Object.keys(component.props).length > 0) {
+       Object.keys(component.props).forEach((key) => {
+         if (!rawStyles[key]) {
+           return;
