@@ -241,7 +241,15 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+        });
+        if (reason !== 'userCancelled') {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
       } finally {
         // will block stripe modal
