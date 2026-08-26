@@ -2,7 +2,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -29,7 +28,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { findChartTypeOption } from '../../../TradingViewChartControls/utils/NativeChartControlsShared';
 import {
   type ICalendarPanelSubmitPayload,
   type ITradingViewNativeChartTypeControlMode,
@@ -56,6 +54,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
+import { resolveTradingViewStorageNamespace } from './tradingViewStorageNamespace';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -350,47 +349,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       },
     });
   }, []);
-  const chartTypeBeforeForceRef = useRef<number | undefined>(undefined);
-  useLayoutEffect(() => {
-    if (!forceCandlestickChart) {
-      return;
-    }
-
-    return () => {
-      const chartTypeBeforeForce = chartTypeBeforeForceRef.current;
-      chartTypeBeforeForceRef.current = undefined;
-      if (chartTypeBeforeForce === undefined) {
-        return;
-      }
-      webRef.current?.sendMessageViaInjectedScript({
-        type: TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE,
-        payload: {
-          chartType: chartTypeBeforeForce,
-        },
-      });
-    };
-  }, [forceCandlestickChart]);
-  useEffect(() => {
-    if (!forceCandlestickChart || !nativeChartControlsConfig) {
-      return;
-    }
-    const candlestickChartType = findChartTypeOption(
-      nativeChartControlsConfig.chartTypes,
-      'candle',
-    );
-    if (
-      candlestickChartType &&
-      candlestickChartType.value !== nativeChartControlsConfig.activeChartType
-    ) {
-      chartTypeBeforeForceRef.current ??=
-        nativeChartControlsConfig.activeChartType;
-      handleNativeChartTypeChange(candlestickChartType.value);
-    }
-  }, [
-    forceCandlestickChart,
-    handleNativeChartTypeChange,
-    nativeChartControlsConfig,
-  ]);
   const handleNativeResetLayout = useCallback(() => {
     webRef.current?.sendMessageViaInjectedScript({
       type: TRADINGVIEW_RESET_LAYOUT_MESSAGE,
@@ -530,7 +488,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace = storageNamespace?.trim() || 'market';
+    const finalStorageNamespace = resolveTradingViewStorageNamespace({
+      storageNamespace,
+      forceCandlestickChart,
+    });
 
     return {
       decimal: decimal?.toString(),
@@ -548,6 +509,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     enableNativeChartControls,
     enableNativeIntervalSelector,
+    forceCandlestickChart,
     networkId,
     storageNamespace,
     tokenAddress,
