@@ -1,3 +1,6 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
 import primePaymentUtils from './primePaymentUtils';
 
 /*
@@ -132,6 +135,31 @@ describe('primePaymentUtils', () => {
         reason: 'paymentFailed',
         errorCode: undefined,
         errorMessage: undefined,
+      });
+    });
+
+    it('classifies OneKeyLocalError as clientError', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError(
+          new OneKeyLocalError('Offering not found'),
+        ),
+      ).toEqual({
+        reason: 'clientError',
+        errorCode: '-99999',
+        errorMessage: 'Offering not found',
+      });
+    });
+
+    it('classifies a deserialized OneKeyLocalError via className', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError({
+          className: EOneKeyErrorClassNames.OneKeyLocalError,
+          message: 'PrimeAuth native not ready!',
+        }),
+      ).toEqual({
+        reason: 'clientError',
+        errorCode: undefined,
+        errorMessage: 'PrimeAuth native not ready!',
       });
     });
   });

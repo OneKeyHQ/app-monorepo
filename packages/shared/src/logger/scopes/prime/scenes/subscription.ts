@@ -21,7 +21,10 @@ export type IOneKeyIdLoginMethod = 'email' | 'google' | 'apple' | 'oauth';
 // Failure classification for a purchase attempt that never became a
 // subscription. RevenueCat server events only cover post-purchase lifecycle,
 // so the attempt-level outcome is client-only signal.
-export type IPrimeSubscribeFailedReason = 'userCancelled' | 'paymentFailed';
+export type IPrimeSubscribeFailedReason =
+  | 'userCancelled'
+  | 'paymentFailed'
+  | 'clientError';
 
 export type IPrimeManageSubscriptionTarget =
   | 'infiniPage'
@@ -480,7 +483,7 @@ export class PrimeSubscriptionScene extends BaseScene {
    * to keep event volume bounded.
    */
   @LogToLocal()
-  @LogToServer()
+  @LogToServer({ level: 'info', waitForServer: true })
   public onekeyIdIdentityLinked({ onekeyUserId }: { onekeyUserId: string }) {
     return { onekeyUserId };
   }

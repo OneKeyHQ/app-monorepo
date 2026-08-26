@@ -3017,6 +3017,16 @@ describe('SimpleDbEntityPrime.markIdentityLinkReported', () => {
     expect(setRawDataSpy).not.toHaveBeenCalled();
   });
 
+  test('peeking due does not write the timestamp', async () => {
+    const { entity, setRawDataSpy } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+    expect(setRawDataSpy).not.toHaveBeenCalled();
+  });
+
   test('re-reports after the TTL elapses', async () => {
     const now = Date.now();
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
@@ -3083,6 +3093,20 @@ describe('SimpleDbEntityPrime.markPrimeProfileReported', () => {
       isPrimeActive: false,
       reportedAt: now,
     });
+  });
+
+  test('peeking due does not write the profile snapshot', async () => {
+    const { entity, setRawDataSpy } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: false,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toBe(true);
+    expect(setRawDataSpy).not.toHaveBeenCalled();
   });
 
   test('suppresses unchanged values within the TTL without touching storage', async () => {

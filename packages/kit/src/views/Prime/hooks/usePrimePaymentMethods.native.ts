@@ -20,6 +20,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -169,7 +170,6 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
       const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
       if (localIsActive) {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         defaultLogger.prime.subscription.primeRestorePurchaseResult({
           result: 'success',
         });
@@ -178,6 +178,15 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             id: ETranslations.prime_restore_successful,
           }),
         });
+        try {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
+            reason: `restorePurchases user-info refresh failed: ${getSanitizedErrorLogText(
+              error,
+            )}`,
+          });
+        }
       } else {
         defaultLogger.prime.subscription.primeRestorePurchaseResult({
           result: 'noPurchases',

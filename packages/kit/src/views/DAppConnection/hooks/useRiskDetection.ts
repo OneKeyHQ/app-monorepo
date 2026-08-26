@@ -17,13 +17,14 @@ import {
 } from '@onekeyhq/shared/types/discovery';
 
 import {
+  getSiteScanRiskWarningAccountKey,
   isPrimeActiveFromPersist,
   shouldStartSiteScanRiskWarningAttempt,
 } from './siteScanRiskWarning';
 
 import type { Verify } from '@walletconnect/types';
 
-let siteScanRiskWarnedReportedThisSession = false;
+let siteScanRiskWarnedReportedUserId: string | undefined;
 
 function overrideSecurityLevel(
   base: IHostSecurity | undefined,
@@ -151,16 +152,18 @@ function useRiskDetection({
   // risk warning. Read the persist atom once (no subscription, no token
   // refresh) so this shared connection/sign hook gains no new re-render
   // source and non-Prime users skip the event without a bg auth hop.
-  // Session-level emit flag bounds volume across stacked DApp modals; no
-  // URL/domain is reported.
-  const siteScanRiskWarnedTrackedRef = useRef(false);
+  // Session-level emit flag is keyed by OneKey user so an account switch in
+  // the same JS runtime can still report; no URL/domain is reported.
+  const siteScanRiskWarnedTrackedUserIdRef = useRef<string | undefined>(
+    undefined,
+  );
   const siteScanRiskWarnedInFlightRef = useRef(false);
   useEffect(() => {
     if (
       !shouldStartSiteScanRiskWarningAttempt({
         riskLevel,
-        sessionReported: siteScanRiskWarnedReportedThisSession,
-        instanceTracked: siteScanRiskWarnedTrackedRef.current,
+        sessionReportedUserId: siteScanRiskWarnedReportedUserId,
+        instanceTrackedUserId: siteScanRiskWarnedTrackedUserIdRef.current,
         inFlight: siteScanRiskWarnedInFlightRef.current,
       })
     ) {
@@ -170,14 +173,18 @@ function useRiskDetection({
     void (async () => {
       try {
         const persist = await primePersistAtom.get();
+        const currentUserId = getSiteScanRiskWarningAccountKey(
+          persist.onekeyUserId,
+        );
         if (
           !isPrimeActiveFromPersist(persist) ||
-          siteScanRiskWarnedReportedThisSession
+          siteScanRiskWarnedReportedUserId === currentUserId ||
+          siteScanRiskWarnedTrackedUserIdRef.current === currentUserId
         ) {
           return;
         }
-        siteScanRiskWarnedTrackedRef.current = true;
-        siteScanRiskWarnedReportedThisSession = true;
+        siteScanRiskWarnedTrackedUserIdRef.current = currentUserId;
+        siteScanRiskWarnedReportedUserId = currentUserId;
         defaultLogger.prime.usage.siteScanRiskWarned({
           featureName: EPrimeFeatures.BlockaidSiteScan,
           riskLevel,

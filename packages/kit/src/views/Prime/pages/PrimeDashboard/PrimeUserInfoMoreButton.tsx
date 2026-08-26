@@ -144,6 +144,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           'Unable to manage this subscription because its channel is missing or unsupported, and no management URL was provided.',
       });
     } catch (error) {
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'unresolved',
+      });
       errorToastUtils.toastIfError(error);
       errorToastUtils.showToastOfError(error);
     } finally {
@@ -260,6 +263,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
        the server state lags). */}
       {isPrime ? (
         <ActionList.Item
+          testID={PrimeTestIDs.manageSubscriptionMenuItem}
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}

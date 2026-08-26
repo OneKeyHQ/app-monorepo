@@ -10,16 +10,14 @@ describe('shouldStartSiteScanRiskWarningAttempt', () => {
     expect(
       shouldStartSiteScanRiskWarningAttempt({
         riskLevel: EHostSecurityLevel.High,
-        sessionReported: false,
-        instanceTracked: false,
+        sessionReportedUserId: undefined,
         inFlight: false,
       }),
     ).toBe(true);
     expect(
       shouldStartSiteScanRiskWarningAttempt({
         riskLevel: EHostSecurityLevel.Unknown,
-        sessionReported: false,
-        instanceTracked: false,
+        sessionReportedUserId: undefined,
         inFlight: false,
       }),
     ).toBe(false);
@@ -29,11 +27,29 @@ describe('shouldStartSiteScanRiskWarningAttempt', () => {
     expect(
       shouldStartSiteScanRiskWarningAttempt({
         riskLevel: EHostSecurityLevel.Medium,
-        sessionReported: false,
-        instanceTracked: false,
+        sessionReportedUserId: undefined,
         inFlight: true,
       }),
     ).toBe(false);
+  });
+
+  it('blocks the same account but allows another account in the same session', () => {
+    expect(
+      shouldStartSiteScanRiskWarningAttempt({
+        riskLevel: EHostSecurityLevel.High,
+        sessionReportedUserId: 'user-a',
+        currentUserId: 'user-a',
+        inFlight: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartSiteScanRiskWarningAttempt({
+        riskLevel: EHostSecurityLevel.High,
+        sessionReportedUserId: 'user-a',
+        currentUserId: 'user-b',
+        inFlight: false,
+      }),
+    ).toBe(true);
   });
 });
 

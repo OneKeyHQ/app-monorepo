@@ -273,16 +273,9 @@ function PrimeGlobalEffectAfterAuthReady() {
               },
             )}`,
           });
-          // Guarded bg-side clear (authStateWriteMutex + in-lock re-read):
-          // a raw clearAuthTokens here could interleave with an in-flight
-          // OAuth login commit and wipe its freshly written
-          // authSessionSource — a wiped KeylessOAuth source is never
-          // re-inferred, orphaning a still-valid keyless session.
-          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
-            {
-              callerName: 'PrimeGlobalEffect',
-            },
-          );
+          // The no-token fetch branch clears guarded auth state and is the
+          // guaranteed trigger for never-logged-in membership attributes.
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
         }
       } catch (error) {
         defaultLogger.prime.subscription.onekeyIdStateTrace({

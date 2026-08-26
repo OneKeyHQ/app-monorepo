@@ -2,6 +2,8 @@
 
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -16,6 +18,8 @@ const mockGetAppUserID = jest.fn<Promise<string>, []>();
 const mockGetOfferings = jest.fn<Promise<unknown>, []>();
 const mockLogIn = jest.fn<Promise<void>, [string]>();
 const mockPurchasePackage = jest.fn<Promise<unknown>, [unknown]>();
+const mockRestorePurchases = jest.fn<Promise<unknown>, []>();
+const mockPrimeRestorePurchaseErrorTrace = jest.fn<void, [unknown]>();
 const mockSetMixpanelDistinctID = jest.fn<Promise<void>, [string]>();
 const mockSetAttributes = jest.fn<Promise<void>, [Record<string, string>]>();
 const mockPrimeSubscribeFailed = jest.fn<void, [unknown]>();
@@ -55,6 +59,7 @@ jest.mock('react-native-purchases', () => ({
     getOfferings: () => mockGetOfferings(),
     logIn: (onekeyUserId: string) => mockLogIn(onekeyUserId),
     purchasePackage: (offering: unknown) => mockPurchasePackage(offering),
+    restorePurchases: () => mockRestorePurchases(),
     setLogLevel: jest.fn(async () => undefined),
     setMixpanelDistinctID: (instanceId: string) =>
       mockSetMixpanelDistinctID(instanceId),
@@ -113,6 +118,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
           mockPrimeSubscribeFailedLocal(params),
         primeRestorePurchaseResult: (params: unknown) =>
           mockPrimeRestorePurchaseResult(params),
+        onekeyIdStateTrace: (params: unknown) =>
+          mockPrimeRestorePurchaseErrorTrace(params),
       },
     },
   },
@@ -142,6 +149,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceApp: {
       hideDialogLoading: () => mockHideDialogLoading(),
+      showDialogLoading: jest.fn(async () => undefined),
     },
     servicePrime: {
       apiFetchPrimeUserInfo: () => mockFetchPrimeUserInfo(),
@@ -515,5 +523,58 @@ describe('usePrimePaymentMethods native purchase', () => {
       ),
     );
     expect(errorToastUtils.toastIfError).toHaveBeenCalled();
+  });
+
+  it('reports clientError when a pre-purchase OneKeyLocalError is thrown', async () => {
+    mockGetOfferings.mockResolvedValue({ current: { availablePackages: [] } });
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    await expect(
+      act(async () => {
+        await result.current.purchasePackageNative?.({
+          subscriptionPeriod: 'P1Y',
+        });
+      }),
+    ).rejects.toThrow(OneKeyLocalError);
+
+    await waitFor(() =>
+      expect(mockPrimeSubscribeFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: 'iap',
+          subscriptionPeriod: 'P1Y',
+          reason: 'clientError',
+          errorMessage: 'Offering not found',
+        }),
+      ),
+    );
+  });
+
+  it('reports restore success even when user-info refresh fails', async () => {
+    mockRestorePurchases.mockResolvedValue({
+      entitlements: { active: { Prime: { isActive: true } } },
+    });
+    mockFetchPrimeUserInfo.mockRejectedValueOnce(
+      new Error('prime user info unavailable'),
+    );
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    await act(async () => {
+      await result.current.restorePurchases?.();
+    });
+
+    expect(mockPrimeRestorePurchaseResult).toHaveBeenCalledWith({
+      result: 'success',
+    });
+    expect(Toast.success).toHaveBeenCalled();
+    expect(mockPrimeRestorePurchaseResult).not.toHaveBeenCalledWith({
+      result: 'failed',
+    });
+    expect(mockPrimeRestorePurchaseErrorTrace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: expect.stringContaining('user-info refresh failed'),
+      }),
+    );
   });
 });

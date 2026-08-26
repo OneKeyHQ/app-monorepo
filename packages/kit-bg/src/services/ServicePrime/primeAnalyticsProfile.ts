@@ -41,3 +41,20 @@ export function shouldDropStalePrimeProfileReport({
     clearLastHandled: lastHandledKey === expectedKey,
   };
 }
+
+export async function emitAnalyticsAfterDue({
+  isDue,
+  emit,
+  persist,
+}: {
+  isDue: () => Promise<boolean>;
+  emit: () => Promise<void>;
+  persist: () => Promise<void>;
+}): Promise<boolean> {
+  if (!(await isDue())) {
+    return false;
+  }
+  await emit();
+  await persist();
+  return true;
+}

@@ -1,5 +1,8 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import {
   buildPrimeAnalyticsProfileSnapshot,
+  emitAnalyticsAfterDue,
   shouldDropStalePrimeProfileReport,
 } from './primeAnalyticsProfile';
 
@@ -69,5 +72,55 @@ describe('shouldDropStalePrimeProfileReport', () => {
         lastHandledKey: 'true:true',
       }),
     ).toEqual({ drop: true, clearLastHandled: false });
+  });
+});
+
+describe('emitAnalyticsAfterDue', () => {
+  it('persists only after emit succeeds', async () => {
+    const emit = jest.fn(async () => undefined);
+    const persist = jest.fn(async () => undefined);
+
+    await expect(
+      emitAnalyticsAfterDue({
+        isDue: async () => true,
+        emit,
+        persist,
+      }),
+    ).resolves.toBe(true);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(emit.mock.invocationCallOrder[0]).toBeLessThan(
+      persist.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not persist when emit throws', async () => {
+    const persist = jest.fn(async () => undefined);
+
+    await expect(
+      emitAnalyticsAfterDue({
+        isDue: async () => true,
+        emit: async () => {
+          throw new OneKeyLocalError('network failed');
+        },
+        persist,
+      }),
+    ).rejects.toThrow('network failed');
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('skips emit and persist when the report is not due', async () => {
+    const emit = jest.fn(async () => undefined);
+    const persist = jest.fn(async () => undefined);
+
+    await expect(
+      emitAnalyticsAfterDue({
+        isDue: async () => false,
+        emit,
+        persist,
+      }),
+    ).resolves.toBe(false);
+    expect(emit).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
   });
 });

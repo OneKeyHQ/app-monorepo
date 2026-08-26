@@ -9,19 +9,36 @@ export function isSiteScanRiskWarningLevel(
   );
 }
 
+export function getSiteScanRiskWarningAccountKey(
+  onekeyUserId: string | undefined,
+): string {
+  return onekeyUserId ?? '';
+}
+
 export function shouldStartSiteScanRiskWarningAttempt({
   riskLevel,
-  sessionReported,
-  instanceTracked,
+  sessionReportedUserId,
+  currentUserId,
+  instanceTrackedUserId,
   inFlight,
 }: {
   riskLevel: EHostSecurityLevel;
-  sessionReported: boolean;
-  instanceTracked: boolean;
+  sessionReportedUserId: string | undefined;
+  currentUserId?: string;
+  instanceTrackedUserId?: string;
   inFlight: boolean;
 }): boolean {
-  if (sessionReported || instanceTracked || inFlight) {
+  if (inFlight) {
     return false;
+  }
+  if (currentUserId !== undefined) {
+    const accountKey = getSiteScanRiskWarningAccountKey(currentUserId);
+    if (
+      sessionReportedUserId === accountKey ||
+      instanceTrackedUserId === accountKey
+    ) {
+      return false;
+    }
   }
   return isSiteScanRiskWarningLevel(riskLevel);
 }

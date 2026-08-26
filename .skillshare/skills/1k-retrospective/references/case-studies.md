@@ -199,3 +199,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `PrimeGlobalEffectView` logged logout at handler entry, then separately local-traced stale events. Background already emits `onekeyIdInvalidToken` for the server signal.
 **Fix**: Remove the server logout emit; log a local `onekeyIdStateTrace` only after the stale gate when the handler actually proceeds.
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a reserved server event must stay behind the same skip gate as the handler body)
+
+## Case: Prime profile/identity TTL written before analytics delivery
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — a failed or out-of-order `updateUserProfile` POST left membership attributes missing for up to 7 days, and `onekeyIdIdentityLinked` could skip after a fire-and-forget emit.
+**Root Cause**: `markPrimeProfileReported` / `markIdentityLinkReported` persisted the TTL before the network send, and `updateUserProfile` / `@LogToServer()` did not await delivery. `lastHandledPrimeProfileKey` was also set before persist, so the same session would not retry.
+**Fix**: Peek due without writing; await `updateUserProfileAsync` / `@LogToServer({ waitForServer: true })`; record the TTL only after success; set `lastHandledPrimeProfileKey` after the cycle completes.
+**Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup or send feeding a state-advancing step must report its outcome); Section 5: No race conditions in async operations
+
+## Case: Native restore success rewritten as failed by user-info refresh
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (native main runtime)
+**Symptom**: Review on PR #13008 — RevenueCat restore already had an active Prime entitlement, but a later `apiFetchPrimeUserInfo()` throw reported `primeRestorePurchaseResult({ result: 'failed' })` and skipped the success toast.
+**Root Cause**: Success tracking sat after the user-info refresh inside one try/catch, so a transient server/network error rewrote a real store restore as failed.
+**Fix**: Emit success and show the success toast after the local entitlement check; wrap the user-info refresh in its own try and keep the failure as a local state trace.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a success signal must stay behind the same store-outcome gate, not a later refresh)
+
+## Case: Bind/restore login committed without identity or profile analytics
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — `apiBindLegacyOneKeyIdOAuth` and auth-state restore wrote `isLoggedIn: true` through `updatePrimeAtomByOneKeyIdAccount` but never emitted `onekeyIdIdentityLinked` or membership profile attributes when the later user-info refresh failed or was skipped.
+**Root Cause**: Identity/profile reporting was only attached to `updatePrimeAtomByServerUserInfo` / `updatePrimeAtomByOAuthLoginResponse`, not the shared OneKey-account commit path.
+**Fix**: After `primePersistAtom.set`, the account commit path also tracks the identity link and enqueues the membership profile report.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (every login-commit writer needs the same analytics pair)

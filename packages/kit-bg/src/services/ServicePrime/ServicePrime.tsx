@@ -102,6 +102,7 @@ import {
 
 import {
   buildPrimeAnalyticsProfileSnapshot,
+  emitAnalyticsAfterDue,
   shouldDropStalePrimeProfileReport,
 } from './primeAnalyticsProfile';
 import {
@@ -421,17 +422,24 @@ class ServicePrime extends ServiceBase {
       if (this.identityLinkReportedUserIds.has(onekeyUserId)) {
         return;
       }
+      const now = Date.now();
+      await emitAnalyticsAfterDue({
+        isDue: () =>
+          this.backgroundApi.simpleDb.prime.isIdentityLinkDue({
+            onekeyUserId,
+            now,
+          }),
+        emit: () =>
+          defaultLogger.prime.subscription.onekeyIdIdentityLinked({
+            onekeyUserId,
+          }) as unknown as Promise<void>,
+        persist: () =>
+          this.backgroundApi.simpleDb.prime.recordIdentityLinkReported({
+            onekeyUserId,
+            now,
+          }),
+      });
       this.identityLinkReportedUserIds.add(onekeyUserId);
-      const { shouldReport } =
-        await this.backgroundApi.simpleDb.prime.markIdentityLinkReported({
-          onekeyUserId,
-          now: Date.now(),
-        });
-      if (shouldReport) {
-        defaultLogger.prime.subscription.onekeyIdIdentityLinked({
-          onekeyUserId,
-        });
-      }
     } catch (error) {
       if (onekeyUserId) {
         this.identityLinkReportedUserIds.delete(onekeyUserId);
@@ -495,15 +503,19 @@ class ServicePrime extends ServiceBase {
     isPrimeActive: boolean;
     profileKey: string;
   }) {
-    const { shouldReport } =
-      await this.backgroundApi.simpleDb.prime.markPrimeProfileReported({
-        isOneKeyIdLoggedIn,
-        isPrimeActive,
-        now: Date.now(),
-      });
-    if (!shouldReport) {
+    const now = Date.now();
+    const due = await this.backgroundApi.simpleDb.prime.isPrimeProfileDue({
+      isOneKeyIdLoggedIn,
+      isPrimeActive,
+      now,
+    });
+    if (!due) {
       return;
     }
+    // Web LastActivityTracker inits analytics after a 3s delay. Wait so a
+    // startup false:false report is not dropped, then re-read so a login
+    // that landed during the wait still wins.
+    await analytics.whenInitialized();
     const confirmed = await this.readPrimeAnalyticsProfileSnapshot();
     if (
       this.dropStalePrimeProfileSnapshot({
@@ -513,9 +525,14 @@ class ServicePrime extends ServiceBase {
     ) {
       return;
     }
-    analytics.updateUserProfile({
+    await analytics.updateUserProfileAsync({
       isOneKeyIdLoggedIn: confirmed.isOneKeyIdLoggedIn,
       isPrimeActive: confirmed.isPrimeActive,
+    });
+    await this.backgroundApi.simpleDb.prime.recordPrimeProfileReported({
+      isOneKeyIdLoggedIn: confirmed.isOneKeyIdLoggedIn,
+      isPrimeActive: confirmed.isPrimeActive,
+      now,
     });
   }
 
@@ -527,9 +544,6 @@ class ServicePrime extends ServiceBase {
       if (this.lastHandledPrimeProfileKey === profileKey) {
         return;
       }
-      // Mark before persist so overlapping startup/login calls skip a second
-      // full-entity write. Clear on failure so this session can retry.
-      this.lastHandledPrimeProfileKey = profileKey;
       const latest = await this.readPrimeAnalyticsProfileSnapshot();
       if (
         this.dropStalePrimeProfileSnapshot({
@@ -540,6 +554,9 @@ class ServicePrime extends ServiceBase {
         return;
       }
       await this.persistAndEmitPrimeProfile(latest);
+      // Only mark handled after a successful peek/emit/persist cycle so a
+      // failed POST can retry in this session.
+      this.lastHandledPrimeProfileKey = latest.profileKey;
     } catch (error) {
       if (profileKey && this.lastHandledPrimeProfileKey === profileKey) {
         this.lastHandledPrimeProfileKey = undefined;
@@ -4115,6 +4132,11 @@ class ServicePrime extends ServiceBase {
       );
       if (tombstoneRepair.handled) {
         this.resetSourceLessOneKeyIdRecoveryRetry();
+        if (!tombstoneRepair.cleared) {
+          // Already-logged-out / never-logged-in: setPrimePersistAtomNotLoggedIn
+          // was skipped, so this is the guaranteed false:false profile trigger.
+          this.enqueuePrimeProfileAnalyticsReport();
+        }
         return { cleared: tombstoneRepair.cleared };
       }
     }
@@ -4618,6 +4640,11 @@ class ServicePrime extends ServiceBase {
         isLoggedInOnServer: true,
       };
     });
+
+    void this.trackOneKeyIdIdentityLinked({
+      onekeyUserId: onekeyAccount.onekeyUserId,
+    });
+    this.enqueuePrimeProfileAnalyticsReport();
   }
 
   /**

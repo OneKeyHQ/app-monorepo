@@ -683,6 +683,43 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     return rawData.identityLifecycleRevision ?? 0;
   }
 
+  async isIdentityLinkDue({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return isAnalyticsReportDue({
+      reportedAt: rawData?.identityLinkReportedAtByUserId?.[onekeyUserId],
+      now,
+      ttlMs: IDENTITY_LINK_REPORT_TTL_MS,
+    });
+  }
+
+  async recordIdentityLinkReported({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => {
+      const reportedAtByUserId = {
+        ...data?.identityLinkReportedAtByUserId,
+        [onekeyUserId]: now,
+      };
+      const prunedEntries = Object.entries(reportedAtByUserId)
+        .toSorted(([, a], [, b]) => b - a)
+        .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
+      return {
+        ...data,
+        identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
+      };
+    });
+  }
+
   /**
    * Check-and-mark for the onekeyIdIdentityLinked analytics event.
    * Returns shouldReport=true (and records the timestamp) when the link for
@@ -699,29 +736,54 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     onekeyUserId: string;
     now: number;
   }): Promise<{ shouldReport: boolean }> {
-    const rawData = await this.getRawData();
-    const shouldReport = isAnalyticsReportDue({
-      reportedAt: rawData?.identityLinkReportedAtByUserId?.[onekeyUserId],
-      now,
-      ttlMs: IDENTITY_LINK_REPORT_TTL_MS,
-    });
+    const shouldReport = await this.isIdentityLinkDue({ onekeyUserId, now });
     if (!shouldReport) {
       return { shouldReport };
     }
-    await this.setRawData((data) => {
-      const reportedAtByUserId = {
-        ...data?.identityLinkReportedAtByUserId,
-        [onekeyUserId]: now,
-      };
-      const prunedEntries = Object.entries(reportedAtByUserId)
-        .toSorted(([, a], [, b]) => b - a)
-        .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
-      return {
-        ...data,
-        identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
-      };
-    });
+    await this.recordIdentityLinkReported({ onekeyUserId, now });
     return { shouldReport };
+  }
+
+  async isPrimeProfileDue({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    const prev = rawData?.analyticsPrimeProfileReport;
+    return (
+      !prev ||
+      prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
+      prev.isPrimeActive !== isPrimeActive ||
+      isAnalyticsReportDue({
+        reportedAt: prev.reportedAt,
+        now,
+        ttlMs: PRIME_PROFILE_REPORT_TTL_MS,
+      })
+    );
+  }
+
+  async recordPrimeProfileReported({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => ({
+      ...data,
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn,
+        isPrimeActive,
+        reportedAt: now,
+      },
+    }));
   }
 
   /**
@@ -742,28 +804,19 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     isPrimeActive: boolean;
     now: number;
   }): Promise<{ shouldReport: boolean }> {
-    const rawData = await this.getRawData();
-    const prev = rawData?.analyticsPrimeProfileReport;
-    const shouldReport =
-      !prev ||
-      prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
-      prev.isPrimeActive !== isPrimeActive ||
-      isAnalyticsReportDue({
-        reportedAt: prev.reportedAt,
-        now,
-        ttlMs: PRIME_PROFILE_REPORT_TTL_MS,
-      });
+    const shouldReport = await this.isPrimeProfileDue({
+      isOneKeyIdLoggedIn,
+      isPrimeActive,
+      now,
+    });
     if (!shouldReport) {
       return { shouldReport };
     }
-    await this.setRawData((data) => ({
-      ...data,
-      analyticsPrimeProfileReport: {
-        isOneKeyIdLoggedIn,
-        isPrimeActive,
-        reportedAt: now,
-      },
-    }));
+    await this.recordPrimeProfileReported({
+      isOneKeyIdLoggedIn,
+      isPrimeActive,
+      now,
+    });
     return { shouldReport };
   }
 

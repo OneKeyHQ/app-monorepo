@@ -159,7 +159,9 @@ describe('PrimeSubscriptionScene sanitized event payloads', () => {
     );
     expect(call?.[1]).toEqual([{ onekeyUserId: 'user-uuid-1' }]);
     expect(call?.[2]).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: 'server' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'server', waitForServer: true }),
+      ]),
     );
   });
 });
