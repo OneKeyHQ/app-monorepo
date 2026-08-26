@@ -47,6 +47,13 @@ function getPerpDexDescriptionId(dexLabel?: string) {
   }
 }
 
+// TODO(OK-61073): replace with ETranslations.perp_io_market__desc once the key
+// is created in Lokalise. Hardcoded English ships the badge in the 6.5 hot
+// update, which cannot wait for a translation round.
+const UNTRANSLATED_PERP_DEX_DESCRIPTIONS: Record<string, string> = {
+  io: 'io identifies markets from the Entropy HIP-3 DEX on Hyperliquid, including pre-IPO AI companies and listed technology equities.',
+};
+
 const PerpDexBadge = memo(
   ({
     compact,
@@ -58,14 +65,15 @@ const PerpDexBadge = memo(
     testID?: string;
   }) => {
     const intl = useIntl();
+    const label = dexLabel?.toLowerCase();
     const descriptionId = getPerpDexDescriptionId(dexLabel);
+    const description = descriptionId
+      ? intl.formatMessage({ id: descriptionId })
+      : UNTRANSLATED_PERP_DEX_DESCRIPTIONS[label ?? ''];
 
-    if (!descriptionId || !dexLabel) {
+    if (!label || !description) {
       return null;
     }
-
-    const label = dexLabel.toLowerCase();
-    const description = intl.formatMessage({ id: descriptionId });
     const badgeText = (
       <SizableText color="$textInfo" fontSize={10} lineHeight={16}>
         {label}

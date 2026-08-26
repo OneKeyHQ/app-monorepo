@@ -46,7 +46,14 @@ export const HIP3_ASSET_ID_STRIDE = 10_000;
 export const SUB_DEX_LIST = [
   { prefix: 'xyz', hlDexIndex: 1 },
   { prefix: 'para', hlDexIndex: 8 },
+  { prefix: 'io', hlDexIndex: 10 },
 ] as const;
+
+// `xyz` is the only prefix that ever shipped separator-free deep links, from
+// before encodeCoinForUrl kept the separator. Every prefix registered since
+// always encodes one, so a bare-prefix match on them is only a guess — and one
+// that collides with real main-DEX symbols (`io` shadows `IOTA`).
+export const LEGACY_SEPARATOR_FREE_DEX_PREFIXES: readonly string[] = ['xyz'];
 
 export const DEX_SEPARATOR = ':';
 
