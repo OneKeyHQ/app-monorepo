@@ -168,6 +168,15 @@ export class DeviceStageBurstScope {
   /** The active burst's third-party vendor — drives the ✓ done beat. */
   private activeVendor: EHardwareVendor | undefined;
 
+  /**
+   * The step a UI-side runner authored (the authenticity flow's beats).
+   * While one is on stage, the SDK's generic events must not demote it:
+   * progress ticks and ButtonRequests are exactly what the authored card
+   * is already narrating. Input asks (PIN, passphrase) still play — and
+   * return here when answered, not to a generic processing beat.
+   */
+  private authoredAuthStep: IDeviceStageStepValue | undefined;
+
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
   ) {
@@ -199,6 +208,7 @@ export class DeviceStageBurstScope {
     }
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
+      this.authoredAuthStep = undefined;
       const prev = await deviceStageAtom.get();
       const stageStillOn = prev && prev.step !== 'off';
       // A follow-up wrapper inside the grace window rejoins the visible
@@ -228,7 +238,17 @@ export class DeviceStageBurstScope {
    * Opens a UI-held burst spanning a whole flow. Returns the token the
    * holder must present to close it.
    */
-  async beginExplicit(params: IDeviceStageBurstBeginParams = {}) {
+  async beginExplicit(
+    params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
+  ) {
+    // Still holding: nothing to open. Refresh who is on stage at most.
+    if (
+      params.reuseToken !== undefined &&
+      params.reuseToken === this.explicitToken
+    ) {
+      await this.mergeDeviceIdentity(params);
+      return params.reuseToken;
+    }
     this.explicitSeq += 1;
     const token = this.explicitSeq;
     this.explicitToken = token;
@@ -260,6 +280,7 @@ export class DeviceStageBurstScope {
       return;
     }
     this.confirmContent = undefined;
+    this.authoredAuthStep = undefined;
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
     const reason = params.error
@@ -309,6 +330,12 @@ export class DeviceStageBurstScope {
       action === EHardwareUiStateAction.CLOSE_UI_WINDOW ||
       action === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW;
     if (isCloseEvent) {
+      if (this.authoredAuthStep) {
+        // A call ended inside an authored flow: the runner narrates what
+        // comes next, the stage stays on its beat meanwhile.
+        await this.setStep(this.authoredAuthStep, { connectId });
+        return;
+      }
       if (this.depth > 0) {
         await this.setStep('processing', { connectId });
       } else {
@@ -326,6 +353,15 @@ export class DeviceStageBurstScope {
     }
     const step = ACTION_TO_STEP[action];
     if (!step) {
+      return;
+    }
+    if (
+      this.authoredAuthStep &&
+      (step === 'processing' || step === 'confirm' || step === 'connecting')
+    ) {
+      // Progress ticks and the device's ButtonRequest during an authored
+      // flow ARE the authored card's own story ("confirm on your device
+      // to verify…") — never a step change.
       return;
     }
     this.clearOffTimer();
@@ -475,6 +511,7 @@ export class DeviceStageBurstScope {
       return;
     }
     this.clearOffTimer();
+    this.authoredAuthStep = AUTH_STEPS.has(step) ? step : undefined;
     await this.setStep(step, extras);
   }
 
@@ -488,7 +525,7 @@ export class DeviceStageBurstScope {
     if (!prev || prev.step === 'off') {
       return;
     }
-    await this.setStep('processing', {});
+    await this.setStep(this.authoredAuthStep ?? 'processing', {});
   }
 
   /** User dismissed the stage: the exit is already under way — drop burst
@@ -499,6 +536,7 @@ export class DeviceStageBurstScope {
     this.explicitToken = undefined;
     this.confirmContent = undefined;
     this.activeVendor = undefined;
+    this.authoredAuthStep = undefined;
     await this.forceOff({ force: true });
   }
 
