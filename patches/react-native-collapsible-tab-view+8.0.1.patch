@@ -1356,3 +1356,37 @@ index 00fbafc..c8a4639 100644
  }
  
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>
+diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
+--- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
+@@ -117,7 +117,5 @@ export const Container = React.memo(
+       const contentInset = React.useMemo(() => {
+-        if (allowHeaderOverscroll) return 0
+-
+-        // necessary for the refresh control on iOS to be positioned underneath the header
+-        // this also adjusts the scroll bars to clamp underneath the header area
+-        return IS_IOS ? (headerHeight || 0) + (tabBarHeight || 0) : 0
++        // RN 0.85+ Fabric does not reliably apply the native contentInset prop
++        // on iOS. Use the same content-padding strategy as Android instead.
++        return 0
+       }, [headerHeight, tabBarHeight, allowHeaderOverscroll])
+diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+--- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
+@@ -216,15 +216,12 @@ export function useCollapsibleStyle(): CollapsibleStyle {
+     () => ({
+       style: { width },
+       contentContainerStyle: {
+         minHeight:
+           IS_IOS && !allowHeaderOverscroll
+             ? containerHeightWithMinHeader - (tabBarHeight || 0)
+             : containerHeightWithMinHeader + (headerHeight || 0),
+-        paddingTop:
+-          IS_IOS && !allowHeaderOverscroll
+-            ? 0
+-            : (headerHeight || 0) + (tabBarHeight || 0),
++        paddingTop: (headerHeight || 0) + (tabBarHeight || 0),
+       },
+       progressViewOffset:
+         // on iOS we need the refresh control to be at the top if overscrolling
+         IS_IOS && allowHeaderOverscroll
