@@ -9,7 +9,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { assertLedgerAttestationRelayUrl } from '@onekeyhq/shared/src/hardware/ledgerAttestationRelayUrl';
 import {
   matchAccountNamesByAddress,
   type IThirdPartyAccountNameCandidatesResult,
@@ -19,7 +18,6 @@ import {
   type IThirdPartyAccountNameSourceInventoryResult,
   type IThirdPartyAccountNameSourceStatus,
 } from '@onekeyhq/shared/src/hardware/thirdPartyAccountNameSync';
-import type { IThirdPartyDeviceAuthenticityResult } from '@onekeyhq/shared/src/hardware/thirdPartyDeviceAuthenticity';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -29,10 +27,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
-import { getEndpointInfo } from '../../endpoints';
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
@@ -1304,84 +1300,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ) => Promise<{ success: boolean; payload: unknown }>;
     };
     return hw.getLedgerFirmwareVersion(params.connectId);
-  }
-
-  // Device attestation for diagnostics and reward proof collection. Reward
-  // issuance must be decided by the production backend from the raw Trezor
-  // proof or a backend-owned Ledger relay session, never from this client's
-  // verified flag.
-  @backgroundMethod()
-  async thirdPartyHardwareVerifyDeviceAuthenticity(params: {
-    vendor: EHardwareVendor;
-    connectId: string;
-    dbDeviceId?: string;
-    challenge?: string;
-    ledgerGenuineCheckWebSocketUrl?: string;
-  }): Promise<Response<IThirdPartyDeviceAuthenticityResult>> {
-    if (
-      params.vendor === EHardwareVendor.ledger &&
-      params.ledgerGenuineCheckWebSocketUrl
-    ) {
-      const { endpoint } = await getEndpointInfo({
-        name: EServiceEndpointEnum.Rebate,
-      });
-      assertLedgerAttestationRelayUrl({
-        relayUrl: params.ledgerGenuineCheckWebSocketUrl,
-        rebateEndpoint: endpoint,
-      });
-    } else if (params.ledgerGenuineCheckWebSocketUrl) {
-      throw new OneKeyLocalError(
-        'Ledger attestation relay cannot be used for this vendor',
-      );
-    }
-    await this.ensureAdaptersInitialized(params.vendor);
-    const adapter = this.getThirdPartyAdapter(params.vendor);
-    if (!adapter) {
-      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
-    }
-    const hw = adapter.hw as unknown as {
-      verifyDeviceAuthenticity: (
-        connectId: string,
-        options?: {
-          challenge?: string;
-          ledgerGenuineCheckWebSocketUrl?: string;
-        },
-      ) => Promise<Response<IThirdPartyDeviceAuthenticityResult>>;
-    };
-    const verify = (connectId: string) =>
-      hw.verifyDeviceAuthenticity(connectId, {
-        challenge: params.challenge,
-        ledgerGenuineCheckWebSocketUrl: params.ledgerGenuineCheckWebSocketUrl,
-      });
-    const dbDevice = params.dbDeviceId
-      ? await localDb.getDevice(params.dbDeviceId)
-      : undefined;
-    if (params.dbDeviceId && !dbDevice) {
-      throw new OneKeyLocalError('The selected device could not be found');
-    }
-    if (dbDevice && dbDevice.vendor !== params.vendor) {
-      throw new OneKeyLocalError(
-        'The selected device vendor does not match the verification vendor',
-      );
-    }
-    if (params.vendor === EHardwareVendor.trezor && dbDevice) {
-      const verifySelectedDevice = async (connectId: string) => {
-        const connected = await this.connectTrezorAndVerifyDeviceIdentity({
-          device: dbDevice,
-          connectId,
-        });
-        if (!connected.success) {
-          return connected;
-        }
-        return verify(connectId);
-      };
-      return callTrezorWithBleFallback(
-        dbDevice,
-        verifySelectedDevice,
-        buildTrezorBleFallbackOptions(this.backgroundApi),
-      );
-    }
-    return verify(params.connectId);
   }
 
   /**
