@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
-index b029312..e216831 100644
+index b029312..24fe25a 100644
 --- a/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
 +++ b/node_modules/@tamagui/focus-scope/dist/cjs/FocusScope.js
 @@ -43,11 +43,11 @@ function useFocusScope(props, forwardedRef) {
@@ -16,25 +16,8 @@ index b029312..e216831 100644
      paused: !1,
      pause() {
        this.paused = !0;
-@@ -65,7 +65,15 @@ function useFocusScope(props, forwardedRef) {
-       container.contains(target) ? (target?.addEventListener("blur", handleBlur, { signal: controller.signal }), lastFocusedElementRef.current = target) : focus(lastFocusedElementRef.current, { select: !0 });
-     }
-     function handleFocusOut(event) {
--      controller.abort(), !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-+      controller.abort();
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return;
-+      !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-     }
-     function handleBlur() {
-       lastFocusedElementRef.current = container;
 diff --git a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
-index 0ceee7f..05cd3af 100644
+index 0ceee7f..917e660 100644
 --- a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
 +++ b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.js
 @@ -18,11 +18,11 @@ function useFocusScope(props, forwardedRef) {
@@ -51,25 +34,8 @@ index 0ceee7f..05cd3af 100644
      paused: !1,
      pause() {
        this.paused = !0;
-@@ -40,7 +40,15 @@ function useFocusScope(props, forwardedRef) {
-       container.contains(target) ? (target?.addEventListener("blur", handleBlur, { signal: controller.signal }), lastFocusedElementRef.current = target) : focus(lastFocusedElementRef.current, { select: !0 });
-     }
-     function handleFocusOut(event) {
--      controller.abort(), !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-+      controller.abort();
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return;
-+      !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-     }
-     function handleBlur() {
-       lastFocusedElementRef.current = container;
 diff --git a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
-index 882a822..d0dc968 100644
+index 882a822..b8da710 100644
 --- a/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
 +++ b/node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs
 @@ -29,11 +29,11 @@ function useFocusScope(props, forwardedRef) {
@@ -86,25 +52,8 @@ index 882a822..d0dc968 100644
      focusScope = React.useRef({
        paused: !1,
        pause() {
-@@ -56,7 +56,15 @@ function useFocusScope(props, forwardedRef) {
-       });
-     }
-     function handleFocusOut(event) {
--      controller.abort(), !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, {
-+      controller.abort();
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return;
-+      !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, {
-         select: !0
-       }));
-     }
 diff --git a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
-index 0ceee7f..05cd3af 100644
+index 0ceee7f..917e660 100644
 --- a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
 +++ b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.js
 @@ -18,11 +18,11 @@ function useFocusScope(props, forwardedRef) {
@@ -121,25 +70,8 @@ index 0ceee7f..05cd3af 100644
      paused: !1,
      pause() {
        this.paused = !0;
-@@ -40,7 +40,15 @@ function useFocusScope(props, forwardedRef) {
-       container.contains(target) ? (target?.addEventListener("blur", handleBlur, { signal: controller.signal }), lastFocusedElementRef.current = target) : focus(lastFocusedElementRef.current, { select: !0 });
-     }
-     function handleFocusOut(event) {
--      controller.abort(), !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-+      controller.abort();
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return;
-+      !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, { select: !0 }));
-     }
-     function handleBlur() {
-       lastFocusedElementRef.current = container;
 diff --git a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
-index 882a822..d0dc968 100644
+index 882a822..b8da710 100644
 --- a/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
 +++ b/node_modules/@tamagui/focus-scope/dist/jsx/FocusScope.mjs
 @@ -29,11 +29,11 @@ function useFocusScope(props, forwardedRef) {
@@ -156,25 +88,8 @@ index 882a822..d0dc968 100644
      focusScope = React.useRef({
        paused: !1,
        pause() {
-@@ -56,7 +56,15 @@ function useFocusScope(props, forwardedRef) {
-       });
-     }
-     function handleFocusOut(event) {
--      controller.abort(), !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, {
-+      controller.abort();
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return;
-+      !(focusScope.paused || !container) && (container.contains(event.relatedTarget) || focus(lastFocusedElementRef.current, {
-         select: !0
-       }));
-     }
 diff --git a/node_modules/@tamagui/focus-scope/src/FocusScope.tsx b/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
-index 155a652..0510ce2 100644
+index 155a652..eceff05 100644
 --- a/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
 +++ b/node_modules/@tamagui/focus-scope/src/FocusScope.tsx
 @@ -50,11 +50,11 @@ export function useFocusScope(
@@ -191,17 +106,3 @@ index 155a652..0510ce2 100644
  
    const focusScope = React.useRef({
      paused: false,
-@@ -87,6 +87,13 @@ export function useFocusScope(
- 
-     function handleFocusOut(event: FocusEvent) {
-       controller.abort()
-+      // OneKey patch: a null relatedTarget means focus moved into another
-+      // browsing context (e.g. a password manager's inline-menu iframe such as
-+      // 1Password), the window itself lost focus, or the focused node was
-+      // removed. Radix's FocusScope deliberately skips re-focusing in this
-+      // case; pulling focus back starts a focus war with the password manager
-+      // and leaves inputs inside the dialog unfocusable.
-+      if (event.relatedTarget === null) return
-       if (focusScope.paused || !container) return
-       if (!container.contains(event.relatedTarget as HTMLElement | null)) {
-         focus(lastFocusedElementRef.current, { select: true })
