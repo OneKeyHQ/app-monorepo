@@ -11,6 +11,10 @@ import type {
 } from '../TradingViewChartControls/chartSettings';
 
 type IDialogConfig = {
+  floatingPanelProps: {
+    maxWidth: number | string;
+    width: number | string;
+  };
   renderContent: ReactElement<ITradingViewIndicatorSettingsProps>;
 };
 
@@ -46,9 +50,20 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
       formatMessage: ({ id }) => id,
     };
 
-    showTradingViewNativeIndicatorSettingsDialog({ intl, onConfirm, value });
+    showTradingViewNativeIndicatorSettingsDialog({
+      displayMode: 'focused',
+      initialIndicatorId: 'RSI',
+      intl,
+      onConfirm,
+      value,
+    });
     const props = mockShowDialog.mock.calls[0][0].renderContent.props;
     expect(props.maxActiveSubIndicatorCount).toBeNull();
+    expect(props.displayMode).toBe('focused');
+    expect(props.initialIndicatorId).toBe('RSI');
+    expect(mockShowDialog.mock.calls[0][0].floatingPanelProps).toEqual(
+      expect.objectContaining({ maxWidth: '100%', width: '100%' }),
+    );
 
     await props.onConfirm?.(value);
     expect(onConfirm).toHaveBeenCalledTimes(1);

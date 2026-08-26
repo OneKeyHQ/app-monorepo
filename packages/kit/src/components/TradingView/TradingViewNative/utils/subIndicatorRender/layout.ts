@@ -23,6 +23,12 @@ export interface ITradingViewNativeSubIndicatorPaneLayout {
   top: number;
 }
 
+export interface ITradingViewNativeSubIndicatorPaneStackLayout {
+  bottom: number;
+  height: number;
+  top: number;
+}
+
 export function getTradingViewNativeVisibleSubIndicatorPaneCount(
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
 ) {
@@ -56,6 +62,31 @@ export function getTradingViewNativeSubIndicatorPaneStackHeight({
     normalizedPaneCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
     availableHeight,
   );
+}
+
+export function getTradingViewNativeSubIndicatorPaneStackLayout({
+  height,
+  paneCount,
+}: {
+  height: number;
+  paneCount: number;
+}): ITradingViewNativeSubIndicatorPaneStackLayout {
+  'worklet';
+
+  const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
+  const bottom = Math.max(
+    normalizedHeight - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    0,
+  );
+  const stackHeight = getTradingViewNativeSubIndicatorPaneStackHeight({
+    height: normalizedHeight,
+    paneCount,
+  });
+  return {
+    bottom,
+    height: stackHeight,
+    top: bottom - stackHeight,
+  };
 }
 
 export function getTradingViewNativeSubIndicatorPaneLayouts({

@@ -8,6 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapReviewActions } from '../../hooks/useSwapReviewActions';
+import { isSwapReviewConfirmBlocked } from '../../utils/swapReviewRebuildStateMachine';
 import {
   ESwapReviewApproveTransactionSource,
   type ISwapReviewAdapter,
@@ -65,6 +66,8 @@ function SwapReviewDialogContent({
     preSwapBeforeStepActions,
     preSwapStepsStart,
     rebuildReviewWithSlippage,
+    reviewRebuildState,
+    resetUncommittedReviewRebuildError,
   } = useSwapReviewActions({
     adapter,
     approveTransactionSource,
@@ -75,12 +78,17 @@ function SwapReviewDialogContent({
       disableGlobalApproveSync={disableGlobalApproveSync}
       disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       onConfirm={() => {
+        if (isSwapReviewConfirmBlocked(reviewRebuildState.phase)) {
+          return;
+        }
         onConfirm(onConfirmStart);
       }}
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
       rebuildReviewWithSlippage={rebuildReviewWithSlippage}
+      reviewRebuildState={reviewRebuildState}
+      resetUncommittedReviewRebuildError={resetUncommittedReviewRebuildError}
       saveSlippageForFutureOrders={adapter.saveSlippageForFutureOrders}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
