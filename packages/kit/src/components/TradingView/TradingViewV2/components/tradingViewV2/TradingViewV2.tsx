@@ -2,6 +2,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -344,6 +345,26 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       },
     });
   }, []);
+  const chartTypeBeforeForceRef = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!forceCandlestickChart) {
+      return;
+    }
+
+    return () => {
+      const chartTypeBeforeForce = chartTypeBeforeForceRef.current;
+      chartTypeBeforeForceRef.current = undefined;
+      if (chartTypeBeforeForce === undefined) {
+        return;
+      }
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE,
+        payload: {
+          chartType: chartTypeBeforeForce,
+        },
+      });
+    };
+  }, [forceCandlestickChart]);
   useEffect(() => {
     if (!forceCandlestickChart || !nativeChartControlsConfig) {
       return;
@@ -356,6 +377,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       candlestickChartType &&
       candlestickChartType.value !== nativeChartControlsConfig.activeChartType
     ) {
+      chartTypeBeforeForceRef.current ??=
+        nativeChartControlsConfig.activeChartType;
       handleNativeChartTypeChange(candlestickChartType.value);
     }
   }, [

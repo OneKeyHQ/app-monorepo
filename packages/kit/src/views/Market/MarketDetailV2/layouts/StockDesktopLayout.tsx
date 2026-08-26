@@ -17,6 +17,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketAccountPortfolioItem,
   IMarketStockInfo,
@@ -89,6 +90,14 @@ function StockPageHeader({
   const { tokenDetail, networkId, isNative } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
   const stock = tokenDetail?.stock;
+  const tokenActionIdentity =
+    networkId && tokenDetail?.address && tokenDetail.symbol
+      ? {
+          networkId,
+          address: tokenDetail.address,
+          symbol: tokenDetail.symbol,
+        }
+      : undefined;
 
   return (
     <XStack
@@ -155,22 +164,22 @@ function StockPageHeader({
         }
       />
 
-      {networkId ? (
+      {tokenActionIdentity ? (
         <XStack alignItems="center" gap="$4">
           {showFavoriteButton ? (
             <MarketStarV2
-              chainId={networkId}
-              contractAddress={tokenDetail?.address ?? ''}
+              chainId={tokenActionIdentity.networkId}
+              contractAddress={tokenActionIdentity.address}
               size="small"
               customIconSize="$5"
               from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenDetail?.symbol ?? ''}
+              tokenSymbol={tokenActionIdentity.symbol}
               isNative={isNative}
             />
           ) : null}
           <ShareButton
-            networkId={networkId}
-            address={tokenDetail?.address ?? ''}
+            networkId={tokenActionIdentity.networkId}
+            address={tokenActionIdentity.address}
             isNative={isNative}
             useIconButton
             size="small"
@@ -325,27 +334,43 @@ function StockChartModeControl({
   );
 }
 
-function StockChart({ marketTradingView }: { marketTradingView: ReactNode }) {
+function StockChart({
+  marketTradingView,
+  priceMode,
+  isChartFullscreen,
+}: {
+  marketTradingView: ReactNode;
+  priceMode: IStockPriceMode;
+  isChartFullscreen: boolean;
+}) {
   const [mode, setMode] = useState<IStockChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
 
   if (mode === 'pro') {
     return (
-      <Stack width="100%" height={360} position="relative" overflow="hidden">
+      <Stack
+        width="100%"
+        height={isChartFullscreen ? undefined : 360}
+        flex={isChartFullscreen ? 1 : undefined}
+        position="relative"
+        overflow="hidden"
+      >
         {marketTradingView}
-        <XStack
-          testID="stock-chart-mode-control-pro"
-          position="absolute"
-          top={4}
-          right={190}
-          zIndex={10}
-          height={32}
-          width={114}
-          bg="$bgApp"
-          alignItems="center"
-        >
-          <StockChartModeControl mode={mode} onChange={setMode} />
-        </XStack>
+        {isChartFullscreen ? null : (
+          <XStack
+            testID="stock-chart-mode-control-pro"
+            position="absolute"
+            top={4}
+            right={190}
+            zIndex={10}
+            height={32}
+            width={114}
+            bg="$bgApp"
+            alignItems="center"
+          >
+            <StockChartModeControl mode={mode} onChange={setMode} />
+          </XStack>
+        )}
       </Stack>
     );
   }
@@ -391,7 +416,7 @@ function StockChart({ marketTradingView }: { marketTradingView: ReactNode }) {
         </XStack>
         <StockChartModeControl mode={mode} onChange={setMode} />
       </XStack>
-      <StockSimpleChart range={range} />
+      <StockSimpleChart range={range} priceMode={priceMode} />
     </YStack>
   );
 }
@@ -753,6 +778,7 @@ function StockAnalystRatings() {
 }
 
 function StockAbout() {
+  const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
@@ -766,7 +792,7 @@ function StockAbout() {
   const about = stockDetail?.about ?? stock?.about;
   const employeeCount = Number(about?.employees);
   const formattedEmployees = Number.isFinite(employeeCount)
-    ? employeeCount.toLocaleString('en-US')
+    ? intl.formatNumber(employeeCount)
     : STAT_FALLBACK_VALUE;
 
   return (
@@ -827,11 +853,15 @@ export function StockDesktopLayout({
   swapToken,
   portfolioData,
   showFavoriteButton,
+  isChartFullscreen,
+  chartFullscreenZIndex,
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   portfolioData: IMarketAccountPortfolioItem[];
   showFavoriteButton: boolean;
+  isChartFullscreen: boolean;
+  chartFullscreenZIndex: number;
 }) {
   const [priceMode, setPriceMode] = useState<IStockPriceMode>('share');
 
@@ -873,11 +903,30 @@ export function StockDesktopLayout({
             <Stack
               testID="stock-token-detail-tradingview"
               width="100%"
-              height={360}
+              height={isChartFullscreen ? undefined : 360}
               overflow="hidden"
               bg="$bgApp"
+              zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
+              style={
+                isChartFullscreen
+                  ? {
+                      position: 'fixed',
+                      left: 0,
+                      top: 0,
+                      right: 0,
+                      bottom: platformEnv.isWeb ? 40 : 0,
+                    }
+                  : undefined
+              }
             >
-              <StockChart marketTradingView={marketTradingView} />
+              {isChartFullscreen && platformEnv.isDesktop ? (
+                <Stack height={48} bg="$bgApp" flexShrink={0} />
+              ) : null}
+              <StockChart
+                marketTradingView={marketTradingView}
+                priceMode={priceMode}
+                isChartFullscreen={isChartFullscreen}
+              />
             </Stack>
           </YStack>
           <StockOverview portfolioData={portfolioData} />

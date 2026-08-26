@@ -177,7 +177,8 @@ export function DesktopLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const { selectedTokenVariant, stockId } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
   const isNative =
@@ -275,7 +276,9 @@ export function DesktopLayout({
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
-          forcedChartType={isStockToken ? 'candlestick' : undefined}
+          forcedChartType={
+            shouldUseStockDesktopLayout ? 'candlestick' : undefined
+          }
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
@@ -306,7 +309,7 @@ export function DesktopLayout({
         nativeControlsLayoutMode="desktop"
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
-        forceCandlestickChart={isStockToken}
+        forceCandlestickChart={shouldUseStockDesktopLayout}
         onChartSwitch={onChartSwitch}
         onNativeChartFullscreenChange={handleChartFullscreenChange}
       />
@@ -316,14 +319,14 @@ export function DesktopLayout({
     handleTradingViewTouchScroll,
     isChartFullscreen,
     isTradingViewNative,
-    isStockToken,
+    shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
     onChartSwitch,
     tradingViewNativeSource,
   ]);
 
-  if (isStockToken && !isChartFullscreen) {
+  if (shouldUseStockDesktopLayout) {
     return (
       <Stack
         ref={scrollContainerRef as any}
@@ -335,6 +338,8 @@ export function DesktopLayout({
           swapToken={swapToken}
           portfolioData={portfolioData}
           showFavoriteButton={showFavoriteButton}
+          isChartFullscreen={isChartFullscreen}
+          chartFullscreenZIndex={chartFullscreenZIndex}
         />
       </Stack>
     );

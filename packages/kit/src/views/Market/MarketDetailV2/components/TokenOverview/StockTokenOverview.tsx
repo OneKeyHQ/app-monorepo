@@ -38,11 +38,7 @@ export function StockTokenOverview() {
   const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
     useStockSecurityStats(stock);
 
-  if ((!tokenDetail && !stockDetail) || !isStockToken) {
-    return <TokenOverviewSkeleton />;
-  }
-
-  if (isStockDetailError) {
+  if (isStockDetailError && !stock) {
     return (
       <YStack
         minHeight={240}
@@ -65,6 +61,10 @@ export function StockTokenOverview() {
         </Button>
       </YStack>
     );
+  }
+
+  if ((!tokenDetail && !stockDetail) || !isStockToken) {
+    return <TokenOverviewSkeleton />;
   }
 
   const ratings = stockDetail?.analystRatings;

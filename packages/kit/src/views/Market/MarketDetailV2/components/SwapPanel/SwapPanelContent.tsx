@@ -457,7 +457,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         >
           <XStack alignItems="center" gap="$1">
             <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
-            <SizableText size="$bodyMd">Est received</SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.provider_sort_item_received,
+              })}
+            </SizableText>
           </XStack>
           {stockEstimatedReceiveContent}
         </XStack>

@@ -56,6 +56,8 @@ type IStockTokenVariantsRequestResult = {
   failed?: boolean;
 };
 
+const STOCK_DETAIL_POLLING_INTERVAL_MS = 6000;
+
 export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
   return Boolean(
     variant.tradingEnabled &&
@@ -67,8 +69,14 @@ export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
 
 export function StockDetailProvider({
   stockId,
+  initialNetworkId,
+  initialTokenAddress,
   children,
-}: PropsWithChildren<{ stockId?: string }>) {
+}: PropsWithChildren<{
+  stockId?: string;
+  initialNetworkId?: string;
+  initialTokenAddress?: string;
+}>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
 
@@ -92,7 +100,11 @@ export function StockDetailProvider({
     [normalizedStockId],
     {
       watchLoading: true,
-      checkIsFocused: false,
+      pollingInterval: normalizedStockId
+        ? STOCK_DETAIL_POLLING_INTERVAL_MS
+        : undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
@@ -120,7 +132,11 @@ export function StockDetailProvider({
     [normalizedStockId],
     {
       watchLoading: true,
-      checkIsFocused: false,
+      pollingInterval: normalizedStockId
+        ? STOCK_DETAIL_POLLING_INTERVAL_MS
+        : undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
@@ -147,14 +163,26 @@ export function StockDetailProvider({
     );
     if (hasCurrentToken) return;
 
+    const routeToken = tokenVariants.find(
+      (item) =>
+        isStockTokenVariantTradable(item) &&
+        item.networkId === initialNetworkId &&
+        item.contractAddress === initialTokenAddress,
+    );
     const defaultToken = tokenVariants.find(
       (item) =>
         item.tokenId === tokenVariantResult?.defaultTokenId &&
         isStockTokenVariantTradable(item),
     );
     const firstTradableToken = tokenVariants.find(isStockTokenVariantTradable);
-    setSelectedTokenId(defaultToken?.tokenId ?? firstTradableToken?.tokenId);
+    setSelectedTokenId(
+      routeToken?.tokenId ??
+        defaultToken?.tokenId ??
+        firstTradableToken?.tokenId,
+    );
   }, [
+    initialNetworkId,
+    initialTokenAddress,
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,

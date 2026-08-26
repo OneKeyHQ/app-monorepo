@@ -142,6 +142,58 @@ describe('StockDetailProvider', () => {
     });
   });
 
+  it('prefers the token variant selected by the stock route', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [
+        {
+          tokenId: 'aapl-xstock',
+          issuer: 'xstock',
+          networkId: 'sol--101',
+          contractAddress: 'AAPLx',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+        {
+          tokenId: 'aapl-ondo',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId="sol--101"
+        initialTokenAddress="AAPLx"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.selectedTokenId).toBe('aapl-xstock');
+    });
+  });
+
   it('exposes a retryable detail error without treating it as empty data', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockRejectedValueOnce(
       new Error('utility unavailable'),
