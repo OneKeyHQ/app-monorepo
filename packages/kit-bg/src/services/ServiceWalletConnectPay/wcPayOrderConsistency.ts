@@ -77,7 +77,14 @@ function toAmountBN(value: string | undefined): BigNumber | undefined {
   return new BigNumber(value);
 }
 
-function isEmptyCalldata(data: string | undefined): boolean {
+/**
+ * Whether calldata carries no call at all, i.e. the tx is a plain native
+ * transfer. Exported because the inline send pipeline splits its balance check
+ * on the same native/ERC20 boundary this validator uses: two copies of the
+ * predicate could drift and have the pipeline check the wrong asset class
+ * against the amount this file validated.
+ */
+export function isWcPayEmptyCalldata(data: string | undefined): boolean {
   if (!data) {
     return true;
   }
@@ -195,7 +202,7 @@ export function checkWcPayEvmTxMatchesOrder({
     return { ok: false, reason: 'invalid value format' };
   }
 
-  if (isEmptyCalldata(data)) {
+  if (isWcPayEmptyCalldata(data)) {
     if (!valueAmount.isEqualTo(orderAmount)) {
       return { ok: false, reason: 'native amount mismatch' };
     }
