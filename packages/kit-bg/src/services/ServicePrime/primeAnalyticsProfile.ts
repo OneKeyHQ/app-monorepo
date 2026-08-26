@@ -110,7 +110,6 @@ async function sendOneKeyIdIdentityLinked({
     }
     const now = Date.now();
     if (!(await simpleDb.isIdentityLinkDue({ onekeyUserId, now }))) {
-      identityLinkReportedThisSession.add(onekeyUserId);
       return;
     }
     await waitForAnalyticsInitialized();
@@ -168,7 +167,6 @@ async function reportPrimeProfileToAnalytics(simpleDb: IPrimeAnalyticsStore) {
         now,
       }))
     ) {
-      lastHandledPrimeProfileKey = snapshot.profileKey;
       return;
     }
     // Web LastActivityTracker inits analytics after a 3s delay. Wait so a

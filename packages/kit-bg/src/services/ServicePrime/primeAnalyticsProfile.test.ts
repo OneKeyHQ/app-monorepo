@@ -145,6 +145,24 @@ describe('trackOneKeyIdIdentityLinked', () => {
     expect(simpleDb.recordIdentityLinkReported).not.toHaveBeenCalled();
   });
 
+  it('re-checks due after a not-due result so a later TTL expiry can report', async () => {
+    const simpleDb = createStore({ identityDue: false });
+
+    await trackOneKeyIdIdentityLinked({
+      simpleDb,
+      onekeyUserId: 'user-1',
+    });
+    simpleDb.isIdentityLinkDue.mockResolvedValue(true);
+    await trackOneKeyIdIdentityLinked({
+      simpleDb,
+      onekeyUserId: 'user-1',
+    });
+
+    expect(simpleDb.isIdentityLinkDue).toHaveBeenCalledTimes(2);
+    expect(mockReportIdentity).toHaveBeenCalledTimes(1);
+    expect(simpleDb.recordIdentityLinkReported).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for analytics init before sending the identity event', async () => {
     const simpleDb = createStore({ identityDue: true });
 
@@ -269,6 +287,18 @@ describe('enqueuePrimeProfileAnalyticsReport', () => {
 
     await enqueuePrimeProfileAnalyticsReport({ simpleDb });
 
+    expect(mockUpdateUserProfileAsync).toHaveBeenCalledTimes(1);
+    expect(simpleDb.recordPrimeProfileReported).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-checks due after a not-due result so a later TTL expiry can report', async () => {
+    const simpleDb = createStore({ profileDue: false });
+
+    await enqueuePrimeProfileAnalyticsReport({ simpleDb });
+    simpleDb.isPrimeProfileDue.mockResolvedValue(true);
+    await enqueuePrimeProfileAnalyticsReport({ simpleDb });
+
+    expect(simpleDb.isPrimeProfileDue).toHaveBeenCalledTimes(2);
     expect(mockUpdateUserProfileAsync).toHaveBeenCalledTimes(1);
     expect(simpleDb.recordPrimeProfileReported).toHaveBeenCalledTimes(1);
   });
