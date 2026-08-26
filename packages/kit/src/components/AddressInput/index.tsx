@@ -35,6 +35,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressBadge,
   IAddressValidateStatus,
+  ICexSupportedInfo,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 import {
@@ -124,6 +125,9 @@ export type IAddressInputValue = {
     translationId?: ETranslations;
   };
   similarAddress?: string;
+  addressLabel?: string;
+  addressBadges?: IAddressBadge[];
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 type IAddressInputActionsLayout = 'default' | 'recipient';
@@ -175,6 +179,8 @@ type IAddressInputProps = Omit<
   enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
+  // Required by badges on stag. Native tokens must send "".
+  tokenAddress?: string;
 };
 
 export type IAddressQueryResult = {
@@ -203,6 +209,7 @@ export type IAddressQueryResult = {
   addressNote?: string;
   addressMemo?: string;
   similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -422,6 +429,7 @@ export function AddressInput(props: IAddressInputProps) {
     ignoreSimilarAddressInAddressBook,
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
+    tokenAddress = '',
     ...rest
   } = props;
   const intl = useIntl();
@@ -449,6 +457,9 @@ export function AddressInput(props: IAddressInputProps) {
   >(undefined);
 
   const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
+  const prevTokenAddressRef = useRef(tokenAddress);
+  const tokenAddressRef = useRef(tokenAddress);
+  tokenAddressRef.current = tokenAddress;
 
   const setResolveAddress = useCallback((text: string) => {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
@@ -520,7 +531,10 @@ export function AddressInput(props: IAddressInputProps) {
         }
 
         const result = await queryAddressWithFallback(params);
-        if (result.input === textRef.current) {
+        if (
+          result.input === textRef.current &&
+          (params.tokenAddress ?? '') === tokenAddressRef.current
+        ) {
           setQueryResult(result);
         }
       } finally {
@@ -530,9 +544,8 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
-  // Query address validation when text changes
-  useEffect(() => {
-    void queryAddress({
+  const buildBadgeQueryParams = useCallback(
+    (): IQueryCheckAddressArgs => ({
       address: inputText,
       networkId,
       accountId,
@@ -545,23 +558,46 @@ export function AddressInput(props: IAddressInputProps) {
       enableAllowListValidation,
       ignoreSimilarAddressInAddressBook,
       enableCheckSimilarAddressInAddressBook,
+      tokenAddress,
+    }),
+    [
+      accountId,
+      enableAddressBook,
+      enableAddressContract,
+      enableAddressInteractionStatus,
+      enableAllowListValidation,
+      enableCheckSimilarAddressInAddressBook,
+      enableNameResolve,
+      enableVerifySendFundToSelf,
+      enableWalletName,
+      ignoreSimilarAddressInAddressBook,
+      inputText,
+      networkId,
+      tokenAddress,
+    ],
+  );
+
+  useEffect(() => {
+    if (prevTokenAddressRef.current === tokenAddress) {
+      return;
+    }
+    prevTokenAddressRef.current = tokenAddress;
+    if (!textRef.current) {
+      return;
+    }
+    // Drop stale badges/cexSupportedInfo so Next cannot proceed on the
+    // previous token while the new /badges request is in flight.
+    setQueryResult({});
+    onChange?.({
+      raw: textRef.current,
+      pending: true,
     });
-  }, [
-    inputText,
-    networkId,
-    accountId,
-    enableNameResolve,
-    enableAddressBook,
-    enableWalletName,
-    enableAddressInteractionStatus,
-    enableAddressContract,
-    enableVerifySendFundToSelf,
-    enableAllowListValidation,
-    refreshNum,
-    queryAddress,
-    ignoreSimilarAddressInAddressBook,
-    enableCheckSimilarAddressInAddressBook,
-  ]);
+  }, [onChange, tokenAddress]);
+
+  // Query address validation when text changes
+  useEffect(() => {
+    void queryAddress(buildBadgeQueryParams());
+  }, [buildBadgeQueryParams, queryAddress, refreshNum]);
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
@@ -572,37 +608,10 @@ export function AddressInput(props: IAddressInputProps) {
       prevIsFocused.current !== undefined &&
       prevIsFocused.current !== isFocused
     ) {
-      void queryAddress({
-        address: inputText,
-        networkId,
-        accountId,
-        enableAddressBook,
-        enableAddressInteractionStatus,
-        enableNameResolve,
-        enableWalletName,
-        enableVerifySendFundToSelf,
-        enableAddressContract,
-        enableAllowListValidation,
-        ignoreSimilarAddressInAddressBook,
-      });
+      void queryAddress(buildBadgeQueryParams());
     }
     prevIsFocused.current = isFocused;
-  }, [
-    inputText,
-    networkId,
-    accountId,
-    enableNameResolve,
-    enableAddressBook,
-    enableWalletName,
-    enableAddressInteractionStatus,
-    enableAddressContract,
-    enableVerifySendFundToSelf,
-    enableAllowListValidation,
-    refreshNum,
-    queryAddress,
-    isFocused,
-    ignoreSimilarAddressInAddressBook,
-  ]);
+  }, [buildBadgeQueryParams, isFocused, queryAddress, refreshNum]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -614,6 +623,9 @@ export function AddressInput(props: IAddressInputProps) {
         pending: false,
         isContract: queryResult.isContract,
         similarAddress: queryResult.similarAddress,
+        addressLabel: queryResult.addressLabel,
+        addressBadges: queryResult.addressBadges,
+        cexSupportedInfo: queryResult.cexSupportedInfo,
       });
     } else {
       const translationId = getAddressValidateTranslationId(
@@ -631,6 +643,9 @@ export function AddressInput(props: IAddressInputProps) {
         },
         isContract: queryResult.isContract,
         similarAddress: queryResult.similarAddress,
+        addressLabel: queryResult.addressLabel,
+        addressBadges: queryResult.addressBadges,
+        cexSupportedInfo: queryResult.cexSupportedInfo,
       });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange]);

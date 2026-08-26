@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
@@ -87,6 +88,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -1427,6 +1429,10 @@ function SendAmountInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: false,
+            tokenAddress: getBadgeQueryTokenAddress({
+              isNFT,
+              tokenAddress: tokenInfo?.address,
+            }),
           });
 
         const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -1454,9 +1460,11 @@ function SendAmountInputContainer() {
     [
       currentAccountId,
       enableAllowListValidation,
+      isNFT,
       networkId,
       recipientAddress,
       sendMode,
+      tokenInfo?.address,
     ],
     { watchLoading: true, alwaysSetState: true, debounced: 300 },
   );
@@ -2666,6 +2674,10 @@ function SendAmountInputContainer() {
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
+        tokenAddress: getBadgeQueryTokenAddress({
+          isNFT,
+          tokenAddress: tokenInfo?.address,
+        }),
       });
 
     const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -2695,6 +2707,18 @@ function SendAmountInputContainer() {
       }
     }
 
+    if (!isNFT && !isLightningNetwork) {
+      const canProceed = await confirmCexDepositIfUnsupported({
+        intl,
+        cexSupportedInfo: queryResult.cexSupportedInfo,
+        badges: queryResult.addressBadges,
+        addressLabel: queryResult.addressLabel,
+      });
+      if (!canProceed) {
+        return undefined;
+      }
+    }
+
     return {
       recipientAddress: resolvedRecipientAddress,
       recipientIsContract:
@@ -2705,9 +2729,12 @@ function SendAmountInputContainer() {
     enableAllowListValidation,
     getRecipientValidateMessage,
     intl,
+    isLightningNetwork,
+    isNFT,
     networkId,
     recipientAddress,
     recipientIsContract,
+    tokenInfo?.address,
   ]);
 
   const confirmPrivateSendValueDrop = useCallback(
