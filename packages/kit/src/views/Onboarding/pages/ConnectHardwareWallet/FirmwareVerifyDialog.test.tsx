@@ -54,6 +54,26 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+let legacyHardwareUiActive = false;
+jest.mock('@onekeyhq/shared/src/hardware/deviceStageOwnership', () => ({
+  isLegacyHardwareUiActive: () => legacyHardwareUiActive,
+}));
+
+const mockRunDeviceStageFirmwareVerify = jest.fn(
+  async (
+    _params: unknown,
+  ): Promise<{ checked: boolean; closed?: boolean }> => ({
+    checked: true,
+  }),
+);
+
+jest.mock('./useDeviceStageFirmwareVerify', () => ({
+  useDeviceStageFirmwareVerify: () => ({
+    runDeviceStageFirmwareVerify: (params: unknown) =>
+      mockRunDeviceStageFirmwareVerify(params),
+  }),
+}));
+
 jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   __esModule: true,
   default: {
@@ -73,9 +93,14 @@ import {
 describe('useFirmwareVerifyDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    legacyHardwareUiActive = false;
   });
 
   it('keeps the first close intent when the dialog closes more than once', async () => {
+    // The legacy dialog is switched off by default now (the DeviceStage
+    // plays the check); this asserts its own close idempotency, so it
+    // names the path it exercises.
+    legacyHardwareUiActive = true;
     let onDialogClose:
       | ((extra?: { flag?: string }) => Promise<void>)
       | undefined;
@@ -113,5 +138,60 @@ describe('useFirmwareVerifyDialog', () => {
       deviceType: 'pro2',
       skipDeviceCancel: true,
     });
+  });
+
+  it('does not cancel the device again when the stage run ends without a verdict', async () => {
+    // The stage answers a dismissal with its own cancel, and abort codes
+    // must not cancel at all — so this close carries the skip flag.
+    mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({
+      checked: false,
+      closed: true,
+    });
+    const onClose = jest.fn();
+    const onContinue = jest.fn();
+    const { result } = renderHook(() => useFirmwareVerifyDialog());
+
+    await act(async () => {
+      await result.current.showFirmwareVerifyDialog({
+        device: {
+          connectId: 'connect-id',
+          deviceType: 'pro2',
+        } as IDBDevice,
+        features: undefined,
+        onContinue,
+        onClose,
+      });
+    });
+
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockCloseHardwareUiStateDialog).toHaveBeenCalledWith({
+      connectId: 'connect-id',
+      deviceType: 'pro2',
+      skipDeviceCancel: true,
+    });
+  });
+
+  it('carries the stage verdict through to the caller', async () => {
+    mockRunDeviceStageFirmwareVerify.mockResolvedValueOnce({ checked: true });
+    const onContinue = jest.fn();
+    const onVerified = jest.fn();
+    const { result } = renderHook(() => useFirmwareVerifyDialog());
+
+    await act(async () => {
+      await result.current.showFirmwareVerifyDialog({
+        device: {
+          connectId: 'connect-id',
+          deviceType: 'pro2',
+        } as IDBDevice,
+        features: undefined,
+        onContinue,
+        onVerified,
+        onClose: jest.fn(),
+      });
+    });
+
+    expect(onVerified).toHaveBeenCalledWith({ checked: true });
+    expect(onContinue).toHaveBeenCalledWith({ checked: true });
   });
 });
