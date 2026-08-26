@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -16,18 +14,12 @@ import type {
   EModalWalletConnectPayRoutes,
   IModalWalletConnectPayParamList,
 } from '@onekeyhq/shared/src/routes';
-import {
-  EWcPayStatus,
-  type IWcPayConfirmResult,
-} from '@onekeyhq/shared/src/walletConnect/payTypes';
+import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useWcPayResultPolling } from '../hooks/useWcPayResultPolling';
 
 import type { RouteProp } from '@react-navigation/core';
-
-const DEFAULT_POLL_MS = 3000;
-const MAX_POLL_COUNT = 60;
 
 export function PaymentResultModal() {
   const intl = useIntl();
@@ -40,58 +32,13 @@ export function PaymentResultModal() {
       >
     >();
   const { paymentId, optionId, signatures, initialResult } = route.params;
-  const [result, setResult] = useState<IWcPayConfirmResult>(initialResult);
-  // polling gave up without a final status; the payment may still settle
-  // later, so don't fake a Failed status — just let the user leave
-  const [pollExhausted, setPollExhausted] = useState(false);
-
-  useEffect(() => {
-    if (result.isFinal) {
-      return;
-    }
-    let cancelled = false;
-    let pollCount = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const poll = async () => {
-      if (cancelled) {
-        return;
-      }
-      if (pollCount >= MAX_POLL_COUNT) {
-        setPollExhausted(true);
-        return;
-      }
-      pollCount += 1;
-      try {
-        const next =
-          await backgroundApiProxy.serviceWalletConnectPay.confirmPayment({
-            paymentId,
-            optionId,
-            signatures,
-          });
-        if (cancelled) {
-          return;
-        }
-        setResult(next);
-        if (!next.isFinal) {
-          timer = setTimeout(poll, next.pollInMs ?? DEFAULT_POLL_MS);
-        }
-      } catch {
-        if (!cancelled) {
-          timer = setTimeout(poll, DEFAULT_POLL_MS);
-        }
-      }
-    };
-
-    timer = setTimeout(poll, result.pollInMs ?? DEFAULT_POLL_MS);
-    return () => {
-      cancelled = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentId, optionId, signatures]);
+  const { result, pollExhausted } = useWcPayResultPolling({
+    paymentId,
+    optionId,
+    signatures,
+    initialResult,
+    enabled: true,
+  });
 
   const renderStatus = () => {
     if (result.status === EWcPayStatus.Succeeded) {
