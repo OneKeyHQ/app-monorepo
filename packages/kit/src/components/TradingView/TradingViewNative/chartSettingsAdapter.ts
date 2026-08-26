@@ -10,6 +10,8 @@ import {
 
 import { createTradingViewChartSettingsValue } from '../TradingViewChartControls/chartSettings';
 
+import { isTradingViewNativeChartTypePreference } from './utils/chartType';
+
 import type { ITradingViewChartSettingsValue } from '../TradingViewChartControls/chartSettings';
 
 type ITradingViewNativeCandlePart =
@@ -94,10 +96,13 @@ export function normalizeTradingViewNativeChartSettings(
   const grid = isRecord(record.grid) ? record.grid : {};
   const crossLine = isRecord(record.crossLine) ? record.crossLine : {};
   const shouldMigrateThemeColors =
-    record.schemaVersion !== TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION;
+    typeof record.schemaVersion !== 'number' || record.schemaVersion < 2;
 
   const normalizedSettings: ITradingViewNativeChartSettings = {
     schemaVersion: TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    chartType: isTradingViewNativeChartTypePreference(record.chartType)
+      ? record.chartType
+      : fallback.chartType,
     candles: {
       body: normalizeCandlePartSettings(candles.body, fallback.candles.body),
       border: normalizeCandlePartSettings(
@@ -349,15 +354,19 @@ export function getTradingViewChartSettingsValue(
 }
 
 export function getTradingViewNativeChartSettings({
+  currentSettings,
   value,
 }: {
   currentSettings: ITradingViewNativeChartSettings;
   value: ITradingViewChartSettingsValue;
 }): ITradingViewNativeChartSettings {
   const fallback = createTradingViewNativeChartSettings();
+  const normalizedCurrentSettings =
+    normalizeTradingViewNativeChartSettings(currentSettings);
 
   return {
     schemaVersion: fallback.schemaVersion,
+    chartType: normalizedCurrentSettings.chartType,
     candles: {
       body: getCandlePartSettings({
         fallback: fallback.candles.body,
