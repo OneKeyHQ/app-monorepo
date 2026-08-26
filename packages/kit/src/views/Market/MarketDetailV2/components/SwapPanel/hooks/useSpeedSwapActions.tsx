@@ -1819,10 +1819,8 @@ export function useSpeedSwapActions(props: {
       customPriorityFee,
     }) => {
       const snapshot = reviewExecutionSnapshotRef.current;
-      if (snapshot?.kind !== 'swap' || !snapshot.buildRes?.supportRebuildTx) {
-        throw new OneKeyLocalError(
-          'Current market swap quote does not support rebuilding.',
-        );
+      if (snapshot?.kind !== 'swap') {
+        throw new OneKeyLocalError('Current market review is not a swap.');
       }
 
       const frozenQuoteResult = snapshot.quoteResult;
