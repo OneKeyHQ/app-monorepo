@@ -11,6 +11,7 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
 import {
+  syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
@@ -70,6 +71,7 @@ import type {
 } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -172,6 +174,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
@@ -222,6 +226,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onChartError,
     onChartReady,
     onVisualReady,
+    onLoadEnd,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -433,6 +438,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       payload: {},
     });
   }, []);
+  const handleChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+  }, []);
 
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
@@ -459,6 +467,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onChartReady: handleChartReady,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
@@ -514,6 +523,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useTradingViewUrl({
       additionalParams,
       disabledFeatures,
+      theme,
     });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
@@ -559,6 +569,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartType: activeKLineResolution,
     symbol: chartSymbol,
   });
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
@@ -675,6 +689,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [onLoadStart, resetInteractionLocks],
   );
 
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      syncTradingViewTheme(webRef.current, latestThemeRef.current);
+      onLoadEnd?.(event);
+    },
+    [onLoadEnd],
+  );
+
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
@@ -766,7 +788,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     () =>
       shouldDeferWebRuntime ? null : (
         <TradingViewRuntimeView
-          key={`${theme}:${tradingViewUrlWithParams}`}
+          key={tradingViewUrlWithParams}
           containerProps={{ bg: '$bgApp' }}
           containerStyle={tradingViewWebViewStyleProps.containerStyle}
           style={tradingViewWebViewStyleProps.style}
@@ -779,6 +801,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           onVisualReady={onVisualReady}
           onWebViewRef={handleWebViewRef}
           allowsBackForwardNavigationGestures={false}
+          onLoadEnd={handleLoadEnd}
           onLoadStart={handleLoadStart}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           displayProgressBar={false}
@@ -794,6 +817,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       ),
     [
       customReceiveHandler,
+      handleLoadEnd,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
@@ -801,7 +825,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       onChartReady,
       onVisualReady,
       shouldDeferWebRuntime,
-      theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],

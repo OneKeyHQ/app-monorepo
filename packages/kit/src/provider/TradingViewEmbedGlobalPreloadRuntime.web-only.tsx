@@ -8,6 +8,7 @@ import {
   preloadTradingViewEmbedBootstrapAssets,
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
 import { migrateLegacyTradingViewStorage } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web';
+import { useThemeVariant } from '../hooks/useThemeVariant';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
@@ -26,7 +27,8 @@ async function runImmediatePreload(
 }
 
 export function TradingViewEmbedGlobalPreloadRuntime() {
-  const { baseUrl, finalUrl } = useTradingViewUrl();
+  const theme = useThemeVariant();
+  const { baseUrl, finalUrl } = useTradingViewUrl({ theme });
 
   useEffect(() => {
     let isLocalRuntime = false;

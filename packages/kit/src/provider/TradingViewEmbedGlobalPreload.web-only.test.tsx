@@ -20,6 +20,10 @@ jest.mock('../components/TradingView/hooks/useTradingViewUrl', () => ({
   }),
 }));
 
+jest.mock('../hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
+}));
+
 jest.mock(
   '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web',
   () => ({
