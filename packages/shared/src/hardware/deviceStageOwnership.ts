@@ -60,3 +60,18 @@ export function shouldLegacyContainerRaiseHardwareErrorDialog({
   }
   return !stageIsShowing;
 }
+
+/**
+ * Whether the legacy popup surfaces the DeviceStage replaced are still in
+ * play.
+ *
+ * They are switched off rather than deleted for the duration of this
+ * integration: the code that used to drive them stays compiled,
+ * type-checked and reviewable next to what replaced it, and flipping this
+ * one function brings the old behavior back in a single step while the
+ * replacement is still being proven on real devices. The cleanup pass
+ * after the PR lands removes this switch and everything behind it.
+ */
+export function isLegacyHardwareUiActive(): boolean {
+  return false;
+}
