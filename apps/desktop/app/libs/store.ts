@@ -6,6 +6,7 @@ import logger from 'electron-log/main';
 import Store from 'electron-store';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
@@ -115,7 +116,20 @@ export const getSecureItem = (key: string) => {
       return result;
     } catch (_e) {
       logger.error(`failed to decrypt ${key}`, _e);
-      throw new OneKeyLocalError('failed to decrypt secure item');
+      // encryption IS available (checked above) yet this value does not
+      // decrypt: the blob was sealed with a different safeStorage key, which
+      // no retry on this installation can fix. Label it permanent so
+      // consumers of re-obtainable values (supabase sessions) may map it to
+      // absent; the environmental !available failure above stays unlabeled
+      // (transient).
+      const decryptError = new OneKeyLocalError(
+        'failed to decrypt secure item',
+      );
+      // through the Error base type: OneKey errors type `name` as their
+      // class-name enum, while this label is a cross-layer structural
+      // identity (see SECURE_STORAGE_PERMANENT_READ_ERROR_NAME)
+      (decryptError as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+      throw decryptError;
     }
   }
   return undefined;

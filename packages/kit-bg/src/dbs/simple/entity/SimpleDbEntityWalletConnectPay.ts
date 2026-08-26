@@ -155,13 +155,17 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     }
   }
 
-  // `strictCiphertext` is for explicit, user/flow-initiated discards: there
-  // a swallowed removeSecureItem failure followed by the index delete would
-  // orphan the ciphertext where getProgress (index-driven) and the TTL
+  // The index entry for a key is only ever deleted AFTER its ciphertext
+  // removal succeeded: deleting the index over a still-present ciphertext
+  // would orphan the payload where getProgress (index-driven) and the TTL
   // sweep can never reach it again — while saveActionResult still reads it
   // by key and keeps refusing writes, closing the damaged-record escape
-  // permanently. Best-effort remains right for background cleanup (TTL,
-  // orphan index), where the index delete hiding a leftover is acceptable.
+  // permanently. The two modes differ only in how a ciphertext-removal
+  // failure surfaces: `strictCiphertext` (explicit, user/flow-initiated
+  // discards) rethrows so the caller sees the discard did not happen;
+  // best-effort (background cleanup: TTL, orphan index, final states)
+  // swallows the failure but KEEPS that key's index entry, so the next
+  // sweep retries the removal instead of stranding the ciphertext.
   private async removeProgressByKeys(
     progressKeys: string[],
     options?: { strictCiphertext?: boolean },
@@ -169,26 +173,30 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     if (!progressKeys.length) {
       return;
     }
-    // ciphertext first so a failure never leaves payload without its index
+    const removedKeys: string[] = [];
     await Promise.all(
       progressKeys.map(async (key) => {
         try {
           await appStorage.secureStorage.removeSecureItem(
             buildSecurePayloadKey(key),
           );
+          removedKeys.push(key);
         } catch (error) {
           if (options?.strictCiphertext) {
-            // fail the discard loudly instead of deleting the index over a
-            // still-present ciphertext (see the note above)
+            // fail the discard loudly instead of leaving the user with a
+            // record that silently refused to go away (see the note above)
             throw error;
           }
-          // removal is best-effort; the index delete below still hides it
+          // best-effort: keep this key's index entry for a later retry
         }
       }),
     );
+    if (!removedKeys.length) {
+      return;
+    }
     await this.setRawData((rawData) => {
       const progress = { ...rawData?.progress };
-      for (const key of progressKeys) {
+      for (const key of removedKeys) {
         delete progress[key];
       }
       return { progress };
