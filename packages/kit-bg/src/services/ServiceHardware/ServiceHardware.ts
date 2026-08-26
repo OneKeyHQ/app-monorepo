@@ -1336,8 +1336,19 @@ class ServiceHardware extends ServiceBase {
     }
 
     if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-      newPayload.firmwareProgress = originEvent.payload.progress;
-      newPayload.firmwareProgressType = originEvent.payload.progressType;
+      const firmwareProgressPayload =
+        originEvent.payload as typeof originEvent.payload & {
+          installTargetId?: number;
+          installPhase?: 'prepare' | 'install' | 'verify';
+          installPhaseProgress?: number;
+        };
+      newPayload.firmwareProgress = firmwareProgressPayload.progress;
+      newPayload.firmwareProgressType = firmwareProgressPayload.progressType;
+      newPayload.firmwareInstallTargetId =
+        firmwareProgressPayload.installTargetId;
+      newPayload.firmwareInstallPhase = firmwareProgressPayload.installPhase;
+      newPayload.firmwareInstallPhaseProgress =
+        firmwareProgressPayload.installPhaseProgress;
     }
 
     if (originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS) {
@@ -1563,6 +1574,12 @@ class ServiceHardware extends ServiceBase {
                           previousState?.payload?.firmwareProgress,
                         firmwareProgressType:
                           previousState?.payload?.firmwareProgressType,
+                        firmwareInstallTargetId:
+                          previousState?.payload?.firmwareInstallTargetId,
+                        firmwareInstallPhase:
+                          previousState?.payload?.firmwareInstallPhase,
+                        firmwareInstallPhaseProgress:
+                          previousState?.payload?.firmwareInstallPhaseProgress,
                       };
                     }
                     return {

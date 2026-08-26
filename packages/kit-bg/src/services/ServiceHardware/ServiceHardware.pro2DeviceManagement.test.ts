@@ -1255,6 +1255,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         },
         progress: 25,
         progressType: 'transferData',
+        installTargetId: 10,
+        installPhase: 'install',
+        installPhaseProgress: 45,
       },
     });
 
@@ -1270,6 +1273,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       payload: {
         firmwareProgress: 25,
         firmwareProgressType: 'transferData',
+        firmwareInstallTargetId: 10,
+        firmwareInstallPhase: 'install',
+        firmwareInstallPhaseProgress: 45,
       },
     });
   });
@@ -1319,6 +1325,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         },
         progress: 0,
         progressType: 'installingFirmware',
+        installTargetId: 10,
+        installPhase: 'prepare',
+        installPhaseProgress: 0,
       },
     });
     const progressUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
@@ -1333,6 +1342,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       payload: {
         firmwareProgress: 0,
         firmwareProgressType: 'installingFirmware',
+        firmwareInstallTargetId: 10,
+        firmwareInstallPhase: 'prepare',
+        firmwareInstallPhaseProgress: 0,
         firmwareTipData: { message: 'ConfirmOnDevice' },
       },
     });
