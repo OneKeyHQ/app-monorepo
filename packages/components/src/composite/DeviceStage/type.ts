@@ -93,6 +93,11 @@ export type IDeviceStageStep =
  * EHardwareVendor in @onekeyhq/shared/types/device. */
 export type IDeviceStageVendor = 'ledger' | 'trezor';
 
+/** The transport a burst rides. Desktop runs USB and Bluetooth side by
+ * side, so the connecting wait tells them apart; which one is the
+ * driver's knowledge, never looked up here. */
+export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+
 /**
  * What went wrong, in stage vocabulary. Each reason picks the failure copy
  * and the label of the single recovery action; the mapping from concrete
@@ -183,6 +188,13 @@ export interface IDeviceStageProps {
   /** `deviceNotFound`'s single action — the person has reconnected and
    * unlocked the device; the driver retries. Omitted, no button. */
   onDeviceNotFoundRetry?: () => void;
+  /** `deviceNotFound`'s self-check exit, the current UI's own pair with
+   * Contact-us below: the driver opens the troubleshooting article (the
+   * hardware help URL, or the vendor's own). Omitted, no button. */
+  onDeviceNotFoundTroubleshoot?: () => void;
+  /** The pair's second half — the live driver raises Intercom, the way
+   * the current UI's dialog does. Omitted, no button. */
+  onDeviceNotFoundSupport?: () => void;
   /** `btcHighIndex`'s single action — proceed with the non-standard
    * index, one device confirmation per path. Omitted, no button. */
   onBtcHighIndexConfirm?: () => void;
@@ -196,6 +208,17 @@ export interface IDeviceStageProps {
    * the teach-first intro keep their own words.
    */
   deviceName?: string;
+  /**
+   * The transport this burst rides. `bluetooth` puts the Bluetooth
+   * badge — the icon with its ripple — in the capsule's device seat for
+   * the waiting beats (`connecting` and `processing` alike), in place
+   * of the replica thumbnail: one glance says the wait is wireless
+   * (desktop runs USB and Bluetooth side by side, and support reads it
+   * off a screenshot). `usb` (and omitted) keeps the replica — the
+   * plugged-in device standing there IS the wired look. The vendor
+   * track ignores it: that seat wears the product shot.
+   */
+  connectionType?: IDeviceStageConnectionType;
   /**
    * The person's way out of the stage. Given, the surface wears its close
    * button and follows a downward drag; absent, it cannot be dismissed at
