@@ -42,5 +42,10 @@ proof.
 - cancel/failure or missing-data behavior
 - account/network change while a request is in flight, when applicable
 - refresh/pending/history agreement after success
+- foreground refresh racing a scheduled post-action refresh: UI cancellation
+  must not cancel the background owner or cross-write another account's cache
+- All Networks partial refresh: only the matching account/network slice is
+  replaced, successful siblings and aggregates remain coherent, and stale
+  imported/watching/external account events are rejected
 
 Report checks actually run and any unavailable runtime or service evidence.

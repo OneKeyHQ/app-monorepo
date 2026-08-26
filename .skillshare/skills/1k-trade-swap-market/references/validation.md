@@ -22,8 +22,12 @@ yarn agent:check --profile commit
 
 - Quote/provider: change amount, token, network, or provider while requests are
   in flight; prove only the current actionable quote wins.
+- Cross-network request: prove distinct signer/receiver in both directions,
+  omit absent optional params, and preserve identity through build.
 - Review/build: enter review, change outer page state, and prove the confirmed
   snapshot and build payload remain frozen and consistent.
+- Review rebuild: delay build and fee independently; prove UI and Confirm follow
+  the intended phase, focus loss preserves active work, and stale work cannot publish.
 - Handoff: start from the real source entry, record its one-shot params, then
   prove Swap owns settled selection and execution after mount.
 - Cold start/flicker: capture first meaningful and settled frames, including
@@ -34,6 +38,10 @@ yarn agent:check --profile commit
   reconnect, the same identities must return and repair may resume.
 - New channel: prove happy path, one provider failure/stale response, one
   terminal status, and restart/replay behavior.
+- Multi-network positions: include delayed and failed requests; prove successful
+  rows are actionable, owner keys agree, and partials are not persisted complete.
+- Startup graph: compare the final Native main/background report with its budget;
+  do not raise the threshold or infer success from one missing module.
 
 ## Platform Proof
 

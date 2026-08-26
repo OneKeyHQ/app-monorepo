@@ -59,3 +59,19 @@ verified if a wrong token/tab/icon flashes before the final state settles.
 Restored channel-owned execution type and asset selection must win over an
 ordinary Swap default initializer; resolve ownership before any default path
 writes shared selection state.
+
+## Multi-Network Position Readiness
+
+For multi-network positions, key requests/runtime entries by account, canonical
+network scope, currency, and capability with one locale-independent owner-key
+canonicalizer. Publish each network only after authoritative metadata is ready;
+unfinished or failed siblings stay absent. Use one bounded deduplicated queue
+for current-tab priority and off-tab prefetch, rejecting stale generations.
+Persist only complete success; partial runtime results are not cold-start truth.
+
+## Native Startup Graph Boundary
+
+Native bootstrap state/actions are startup roots. Load page-only orchestration
+from the page path and inject it into a thin action entry. Keep atoms in `main`
+and requests behind the background proxy. Prove the final artifact; a missing
+module alone is insufficient.

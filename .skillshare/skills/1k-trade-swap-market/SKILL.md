@@ -44,10 +44,14 @@ implementation snapshot.
   and Bridge surface must not erase Bridge, Limit, Stock, or provider semantics.
 - Guard async results with account, network, token, provider, receiver, amount,
   request/event, and execution identity. Older work cannot update new state.
+- Cross-network flows preserve distinct source signer and target receiver
+  identities through quote, review, rebuild, build, analytics, and history.
 - A provider error is terminal only when the current quote event cannot still
   produce an actionable quote. Preserve manual provider intent.
 - Review uses a frozen snapshot. It must not reread mutable page atoms after
   the user enters confirmation.
+- Review executable, fee, and Confirm readiness are separate; a build response
+  alone cannot authorize confirmation.
 - Missing fee, rate, ETA, limit, or finality means unknown/unavailable unless
   the current contract explicitly defines zero.
 - txid, order id, route id, and provider id have different roles. Define local

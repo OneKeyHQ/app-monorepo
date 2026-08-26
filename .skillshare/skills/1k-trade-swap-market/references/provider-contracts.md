@@ -21,6 +21,17 @@ A data-only channel must not create transaction or history state. A response
 shape that does not fit an existing variant should get a typed adapter instead
 of conditionals spread through UI components.
 
+## Request Shape And Capability Fallbacks
+
+Resolve source signer and target receiver independently and preserve both
+through execution and persisted semantics.
+
+Omit absent optional fields when the API defines absence; do not serialize an
+empty string that may be parsed as an invalid supplied value.
+
+Preserve the intent of source/provider filters and narrow fallbacks to the
+proven direction. If capability and policy conflict, identify the server gap.
+
 ## Quote Selection
 
 Bind each result to the active request/event and full trade identity. When
@@ -39,6 +50,11 @@ Freeze the chosen quote, assets, accounts, receiver, provider, fees, rate,
 slippage, limits, risk text, and setup requirements. Confirmation must not
 read changing page atoms. After send/order submission, create the correct
 pending/history identity before relying on status polling.
+
+For rebuild, model request identity, executable readiness, fee readiness, error,
+and Confirm authority. The UI may expose a safe executable snapshot earlier,
+but the execution boundary stays guarded. Host cleanup treats every phase as
+in-flight work, and late results cannot restore an invalidated review.
 
 ## History, Replay, And Repair
 

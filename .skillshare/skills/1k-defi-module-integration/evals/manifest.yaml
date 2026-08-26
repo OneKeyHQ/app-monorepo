@@ -1,0 +1,8 @@
+skill: 1k-defi-module-integration
+version: 1
+pass_threshold: 85
+critical_fail_policy: zero
+cases:
+  - cases/action-refresh-cache-race.yaml
+  - cases/all-network-refresh-ownership.yaml
+  - cases/cached-position-action-authority.yaml

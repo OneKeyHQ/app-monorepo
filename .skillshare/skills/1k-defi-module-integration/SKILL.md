@@ -52,6 +52,9 @@ implementation snapshot as product truth.
   success, failure, and cancel terminal must release duplicate-submit state.
 - Refresh only the affected account/network after a successful
   position-changing outcome; reject stale results after owner changes.
+- Key foreground fetch, post-action refresh, cache writes, and event merges by
+  account/network and isolate cancellation. All Networks merges only the
+  matching slice; cache may seed display, never action or portfolio readiness.
 - Native Earn is hosted by Discovery. AssetDetails modal routes must carry
   their own account context rather than assuming a Home provider is mounted.
 
