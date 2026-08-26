@@ -15,6 +15,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useNetInfo,
 } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -40,6 +41,7 @@ import {
   RiskFactorCard,
 } from '../components/RiskCheckShared';
 import { executeAddressRiskCheck } from '../hooks/useCheckAddressRisk';
+import { getAddressRiskCheckPendingMessageIds } from '../utils/addressRiskCheckResultUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -369,6 +371,11 @@ function AddressRiskCheckResultContent({
 
 function AddressRiskCheckPending({ isFailed }: { isFailed: boolean }) {
   const intl = useIntl();
+  const { isInternetReachable } = useNetInfo();
+  const messageIds = getAddressRiskCheckPendingMessageIds({
+    isFailed,
+    isInternetReachable,
+  });
 
   return (
     <Page>
@@ -401,16 +408,12 @@ function AddressRiskCheckPending({ isFailed }: { isFailed: boolean }) {
           <YStack gap="$2" alignItems="center" maxWidth={360}>
             <SizableText size="$headingLg" textAlign="center">
               {intl.formatMessage({
-                id: isFailed
-                  ? ETranslations.address_risk_check_level_failed__title
-                  : ETranslations.address_risk_check_level_checking__title,
+                id: messageIds.title,
               })}
             </SizableText>
             <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
               {intl.formatMessage({
-                id: isFailed
-                  ? ETranslations.address_risk_check_level_failed__desc
-                  : ETranslations.address_risk_check_loading__desc,
+                id: messageIds.description,
               })}
             </SizableText>
           </YStack>
