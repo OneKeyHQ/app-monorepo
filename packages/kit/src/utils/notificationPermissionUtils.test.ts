@@ -24,9 +24,14 @@ const mockOpenPermissionSettings: jest.Mock<
   unknown[]
 > = jest.fn();
 
-const mockPlatformEnv: { isWebDappMode: boolean; isDesktop: boolean } = {
+const mockPlatformEnv: {
+  isWebDappMode: boolean;
+  isDesktop: boolean;
+  isNativeIOS: boolean;
+} = {
   isWebDappMode: false,
   isDesktop: false,
+  isNativeIOS: true,
 };
 
 // Factories must reference the mocks lazily: they run while the module under
@@ -39,6 +44,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     },
     get isDesktop() {
       return mockPlatformEnv.isDesktop;
+    },
+    get isNativeIOS() {
+      return mockPlatformEnv.isNativeIOS;
     },
   },
 }));
@@ -73,12 +81,22 @@ const denied = {
 };
 
 describe('resolveOsNotificationPermissionAction', () => {
+  it('leaves Android on its existing notification permission flow', () => {
+    const androidPermissionContext = {
+      permission: denied,
+      isNativeIOS: false,
+    };
+
+    expect(
+      resolveOsNotificationPermissionAction(androidPermissionContext),
+    ).toBe('none');
+  });
+
   it('requests the system prompt while authorization is still undetermined', () => {
     expect(
       resolveOsNotificationPermissionAction({
         permission: undetermined,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe('request');
   });
@@ -87,8 +105,7 @@ describe('resolveOsNotificationPermissionAction', () => {
     expect(
       resolveOsNotificationPermissionAction({
         permission: denied,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe('openSettings');
   });
@@ -97,63 +114,53 @@ describe('resolveOsNotificationPermissionAction', () => {
     expect(
       resolveOsNotificationPermissionAction({
         permission: granted,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe('none');
   });
 
-  it('ignores the unknowable desktop permission even when it reports default', () => {
-    expect(
-      resolveOsNotificationPermissionAction({
-        permission: undetermined,
-        isDesktop: true,
-        isWebDappMode: false,
-      }),
-    ).toBe('none');
-  });
-
-  it('skips web dapp mode and unsupported or missing permission payloads', () => {
-    expect(
-      resolveOsNotificationPermissionAction({
-        permission: denied,
-        isDesktop: false,
-        isWebDappMode: true,
-      }),
-    ).toBe('none');
+  it('skips unsupported or missing permission payloads', () => {
     expect(
       resolveOsNotificationPermissionAction({
         permission: { isSupported: false, permission: denied.permission },
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe('none');
     expect(
       resolveOsNotificationPermissionAction({
         permission: undefined,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe('none');
   });
 });
 
 describe('isOsNotificationPermissionPending', () => {
+  it('does not wait for OS permission outside iOS', () => {
+    const androidPermissionContext = {
+      permission: undefined,
+      isLoading: true,
+      isNativeIOS: false,
+    };
+
+    expect(isOsNotificationPermissionPending(androidPermissionContext)).toBe(
+      false,
+    );
+  });
+
   it('waits while the OS permission has not been read yet', () => {
     expect(
       isOsNotificationPermissionPending({
         permission: undefined,
         isLoading: undefined,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe(true);
     expect(
       isOsNotificationPermissionPending({
         permission: undefined,
         isLoading: true,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe(true);
   });
@@ -163,35 +170,14 @@ describe('isOsNotificationPermissionPending', () => {
       isOsNotificationPermissionPending({
         permission: undefined,
         isLoading: false,
-        isDesktop: false,
-        isWebDappMode: false,
+        isNativeIOS: true,
       }),
     ).toBe(false);
     expect(
       isOsNotificationPermissionPending({
         permission: undetermined,
         isLoading: true,
-        isDesktop: false,
-        isWebDappMode: false,
-      }),
-    ).toBe(false);
-  });
-
-  it('does not wait on desktop or web dapp mode, where the CTA is always Test', () => {
-    expect(
-      isOsNotificationPermissionPending({
-        permission: undefined,
-        isLoading: true,
-        isDesktop: true,
-        isWebDappMode: false,
-      }),
-    ).toBe(false);
-    expect(
-      isOsNotificationPermissionPending({
-        permission: undefined,
-        isLoading: true,
-        isDesktop: false,
-        isWebDappMode: true,
+        isNativeIOS: true,
       }),
     ).toBe(false);
   });
@@ -200,6 +186,7 @@ describe('isOsNotificationPermissionPending', () => {
 describe('getOsNotificationPermissionSafe', () => {
   beforeEach(() => {
     mockGetPermissionWithoutLog.mockReset();
+    mockPlatformEnv.isNativeIOS = true;
   });
 
   it('returns undefined instead of throwing when the provider cannot report permission', async () => {
@@ -216,6 +203,7 @@ describe('recoverOsNotificationPermission', () => {
     mockOpenPermissionSettings.mockReset();
     mockPlatformEnv.isWebDappMode = false;
     mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
   });
 
   it('only requests authorization when the OS status is still undetermined', async () => {
@@ -264,6 +252,7 @@ describe('canSendOsNotificationTest', () => {
     mockOpenPermissionSettings.mockReset();
     mockPlatformEnv.isWebDappMode = false;
     mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
   });
 
   it('sends the test without prompting when the OS permission is granted', async () => {
@@ -289,11 +278,13 @@ describe('canSendOsNotificationTest', () => {
     expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
   });
 
-  it('still sends the test on desktop where OS permission cannot be resolved', async () => {
+  it('keeps the existing Test behavior outside iOS', async () => {
+    mockPlatformEnv.isNativeIOS = false;
     mockPlatformEnv.isDesktop = true;
     mockGetPermissionWithoutLog.mockResolvedValue(undetermined);
 
     await expect(canSendOsNotificationTest()).resolves.toBe(true);
+    expect(mockGetPermissionWithoutLog).not.toHaveBeenCalled();
     expect(mockRequestPermission).not.toHaveBeenCalled();
   });
 });
@@ -304,6 +295,7 @@ describe('isNotificationFullyEnabled', () => {
     mockGetPermission.mockReset();
     mockPlatformEnv.isWebDappMode = false;
     mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
   });
 
   it('returns false when the master switch is off', async () => {

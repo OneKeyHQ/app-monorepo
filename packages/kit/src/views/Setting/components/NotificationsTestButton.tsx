@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   type IOsNotificationPermissionAction,
   canSendOsNotificationTest,
@@ -45,20 +46,27 @@ export function useNotificationHelperCta() {
   const reloadPermission = useCallback(() => {
     void run();
   }, [run]);
-  useHandleAppStateActive(reloadPermission);
+  const isNativeIOS = !!platformEnv.isNativeIOS;
+  useHandleAppStateActive(isNativeIOS ? reloadPermission : undefined);
 
-  const isDesktop = !!platformEnv.isDesktop;
-  const isWebDappMode = !!platformEnv.isWebDappMode;
+  const isFocused = useRouteIsFocused();
+  const wasFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    const wasFocused = wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (isNativeIOS && isFocused && !wasFocused) {
+      reloadPermission();
+    }
+  }, [isFocused, isNativeIOS, reloadPermission]);
+
   const isPending = isOsNotificationPermissionPending({
     permission,
     isLoading,
-    isDesktop,
-    isWebDappMode,
+    isNativeIOS,
   });
   const action = resolveOsNotificationPermissionAction({
     permission,
-    isDesktop,
-    isWebDappMode,
+    isNativeIOS,
   });
 
   const sendTestNotification = useCallback(async () => {

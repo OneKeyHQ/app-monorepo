@@ -19,18 +19,16 @@ export type IOsNotificationPermissionAction =
 
 // iOS shows the system prompt only the first time requestAuthorization runs
 // (status still notDetermined). After a deny, the prompt never returns and
-// Settings is the only recovery path. Desktop always reports `default`, so
-// never treat it as a missing OS grant.
+// Settings is the only recovery path. Other platforms keep their existing
+// notification permission flows.
 export function resolveOsNotificationPermissionAction({
   permission,
-  isDesktop,
-  isWebDappMode,
+  isNativeIOS,
 }: {
   permission: INotificationPermissionDetail | undefined;
-  isDesktop: boolean;
-  isWebDappMode: boolean;
+  isNativeIOS: boolean;
 }): IOsNotificationPermissionAction {
-  if (isWebDappMode || isDesktop) {
+  if (!isNativeIOS) {
     return 'none';
   }
   if (!permission?.isSupported) {
@@ -45,22 +43,20 @@ export function resolveOsNotificationPermissionAction({
   return 'request';
 }
 
-// Native/extension first paint has `permission === undefined`. Treating that
-// as `'none'` flashes Test before Enable / Go to Settings. Stay pending until
-// the read finishes (`isLoading === false`) or a payload arrives. Desktop and
-// web dapp always show Test, so they skip the wait.
+// The iOS first paint has `permission === undefined`. Treating that as `'none'`
+// flashes Test before Enable / Go to Settings. Stay pending until the read
+// finishes (`isLoading === false`) or a payload arrives. Other platforms keep
+// their existing Test / permission-guide behavior and skip this state machine.
 export function isOsNotificationPermissionPending({
   permission,
   isLoading,
-  isDesktop,
-  isWebDappMode,
+  isNativeIOS,
 }: {
   permission: INotificationPermissionDetail | undefined;
   isLoading: boolean | undefined;
-  isDesktop: boolean;
-  isWebDappMode: boolean;
+  isNativeIOS: boolean;
 }): boolean {
-  if (isWebDappMode || isDesktop) {
+  if (!isNativeIOS) {
     return false;
   }
   return permission === undefined && isLoading !== false;
@@ -69,6 +65,9 @@ export function isOsNotificationPermissionPending({
 export async function getOsNotificationPermissionSafe(): Promise<
   INotificationPermissionDetail | undefined
 > {
+  if (!platformEnv.isNativeIOS) {
+    return undefined;
+  }
   try {
     return await backgroundApiProxy.serviceNotification.getPermissionWithoutLog();
   } catch {
@@ -82,8 +81,7 @@ function currentOsPermissionAction(
 ): IOsNotificationPermissionAction {
   return resolveOsNotificationPermissionAction({
     permission,
-    isDesktop: !!platformEnv.isDesktop,
-    isWebDappMode: !!platformEnv.isWebDappMode,
+    isNativeIOS: !!platformEnv.isNativeIOS,
   });
 }
 

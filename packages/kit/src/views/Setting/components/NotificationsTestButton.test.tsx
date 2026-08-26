@@ -11,6 +11,9 @@ const mockShowNotification: jest.Mock<Promise<unknown>, unknown[]> = jest.fn();
 const mockRecover: jest.Mock<Promise<unknown>, unknown[]> = jest.fn();
 const mockCanSend: jest.Mock<Promise<boolean>, unknown[]> = jest.fn();
 const mockReload: jest.Mock<Promise<void>, unknown[]> = jest.fn();
+const mockUseHandleAppStateActive: jest.Mock<void, unknown[]> = jest.fn();
+
+let mockRouteIsFocused = true;
 
 let mockPermission:
   | {
@@ -24,8 +27,7 @@ let mockPermission:
 let mockIsLoading: boolean | undefined = false;
 
 const mockPlatformEnv = {
-  isDesktop: false,
-  isWebDappMode: false,
+  isNativeIOS: true,
 };
 
 jest.mock('react-intl', () => ({
@@ -63,17 +65,19 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useHandleAppStateActive', () => ({
-  useHandleAppStateActive: jest.fn(),
+  useHandleAppStateActive: (...args: unknown[]) =>
+    mockUseHandleAppStateActive(...args),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockRouteIsFocused,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
-    get isDesktop() {
-      return mockPlatformEnv.isDesktop;
-    },
-    get isWebDappMode() {
-      return mockPlatformEnv.isWebDappMode;
+    get isNativeIOS() {
+      return mockPlatformEnv.isNativeIOS;
     },
   },
 }));
@@ -113,8 +117,10 @@ describe('NotificationsTestButton', () => {
     mockRecover.mockReset();
     mockCanSend.mockReset();
     mockReload.mockReset();
-    mockPlatformEnv.isDesktop = false;
-    mockPlatformEnv.isWebDappMode = false;
+    mockReload.mockResolvedValue(undefined);
+    mockUseHandleAppStateActive.mockReset();
+    mockRouteIsFocused = true;
+    mockPlatformEnv.isNativeIOS = true;
     mockPermission = {
       isSupported: true,
       permission: ENotificationPermission.granted,
@@ -180,6 +186,43 @@ describe('NotificationsTestButton', () => {
     expect(queryByTestId('setting-intl-btn')).toBeNull();
   });
 
+  it('keeps the existing Test action on Android', () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPermission = {
+      isSupported: true,
+      permission: ENotificationPermission.denied,
+    };
+    const { queryByTestId, getByTestId } = render(<NotificationsTestButton />);
+
+    expect(queryByTestId('setting-notification-permission-btn')).toBeNull();
+    expect(getByTestId('setting-intl-btn').textContent).toBe(
+      ETranslations.global_test,
+    );
+  });
+
+  it('reloads permission after the route regains focus', async () => {
+    const { rerender } = render(<NotificationsTestButton />);
+
+    expect(mockReload).not.toHaveBeenCalled();
+    mockRouteIsFocused = false;
+    rerender(<NotificationsTestButton />);
+    mockRouteIsFocused = true;
+    rerender(<NotificationsTestButton />);
+
+    await waitFor(() => expect(mockReload).toHaveBeenCalledTimes(1));
+  });
+
+  it('reloads permission when the app returns from background', () => {
+    render(<NotificationsTestButton />);
+
+    const onActive = mockUseHandleAppStateActive.mock.calls.at(-1)?.[0] as
+      | (() => void)
+      | undefined;
+    onActive?.();
+
+    expect(mockReload).toHaveBeenCalledTimes(1);
+  });
+
   it('sends the preview automatically after Enable is granted', async () => {
     mockPermission = {
       isSupported: true,
@@ -196,6 +239,7 @@ describe('NotificationsTestButton', () => {
 
     await waitFor(() => {
       expect(mockRecover).toHaveBeenCalledTimes(1);
+      expect(mockReload).toHaveBeenCalledTimes(1);
       expect(mockShowNotification).toHaveBeenCalledTimes(1);
     });
   });
