@@ -7,7 +7,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { showEnableTradingStepsDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingStepsDialog';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
@@ -3552,6 +3551,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
     const info = await perpsActiveAccountIsAgentReadyAtom.get();
     if (info.isAgentReady === false) {
+      const { showEnableTradingStepsDialog } =
+        await import('@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingStepsDialog');
       const accountStatus = await perpsActiveAccountStatusAtom.get();
       void showEnableTradingStepsDialog({
         accountStatus,
