@@ -43,8 +43,8 @@ import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
+  devSettingsPersistAtom,
   deviceStageAtom,
-  deviceStageEnabledAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
@@ -502,7 +502,10 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async setDeviceStageEnabled({ enabled }: { enabled: boolean }) {
-    await deviceStageEnabledAtom.set(enabled);
+    await devSettingsPersistAtom.set((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, deviceStageEnabled: enabled },
+    }));
     if (!enabled) {
       await this.deviceStageBurst.userClose();
     }
