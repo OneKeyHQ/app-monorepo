@@ -139,6 +139,8 @@ export function invalidateSwapReviewForSlippageChange({
   };
 }
 
+import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
+
 export type ISwapReviewGasInfoEntry = {
   encodeTx: IEncodedTx;
   gasInfo: ISwapGasInfo;
@@ -275,6 +277,13 @@ export type ISwapReviewAdapter = {
     slippagePercentage: number;
     networkFeeLevel?: ESwapNetworkFeeLevel;
     customPriorityFee?: ISwapReviewCustomPriorityFee;
+    isCurrent: () => boolean;
+    onPhaseChange: (
+      phase:
+        | ESwapReviewRebuildPhase.BuildingTransaction
+        | ESwapReviewRebuildPhase.PreparingExecution,
+    ) => void;
+    onExecutionReady: (reviewState: ISwapReviewState) => void;
   }) => Promise<ISwapReviewState>;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,

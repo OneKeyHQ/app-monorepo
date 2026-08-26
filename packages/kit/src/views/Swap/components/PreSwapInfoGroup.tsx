@@ -254,7 +254,8 @@ const PreSwapInfoGroup = ({
           value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
-        {preSwapData.stepBeforeActionsLoading ? (
+        {preSwapData.stepBeforeActionsLoading ||
+        preSwapData.estimateNetworkFeeLoading ? (
           <Skeleton width="$10" height="$4" />
         ) : (
           <NumberSizeableText
@@ -277,6 +278,7 @@ const PreSwapInfoGroup = ({
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
+    preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,
   ]);
 
