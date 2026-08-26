@@ -11,8 +11,9 @@ import type {
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
+  devSettingsPersistAtom,
   deviceStageAtom,
-  deviceStageEnabledAtom,
+  readDeviceStageEnabled,
 } from '../../states/jotai/atoms';
 
 import type {
@@ -155,7 +156,7 @@ export class DeviceStageBurstScope {
   }
 
   async isEnabled() {
-    return deviceStageEnabledAtom.get();
+    return readDeviceStageEnabled(await devSettingsPersistAtom.get());
   }
 
   private clearOffTimer() {
