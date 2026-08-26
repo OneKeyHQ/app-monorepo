@@ -14,7 +14,7 @@ import {
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { EBorrowDataStatus, isBorrowDataLoading } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
@@ -22,6 +22,9 @@ import { useBorrowReserves } from '../hooks/useBorrowReserves';
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
 const BORROW_STALE_TTL = BORROW_POLLING_INTERVAL;
 const BORROW_DERIVE_TYPE_REFRESH_DELAY_MS = 300;
+// How long a "settled with nothing to show" status is held back before the
+// cards are allowed to swap their skeleton for the real empty copy.
+const BORROW_EMPTY_STATE_HOLD_MS = 200;
 
 export const BorrowDataGate = ({
   children,
@@ -39,6 +42,7 @@ export const BorrowDataGate = ({
     markets,
     isLoading: marketsLoading,
     refetchMarkets,
+    hasSettled: marketsSettled,
   } = useBorrowMarkets({ isActive: isViewActive });
   const market = useMemo(() => markets?.[0], [markets]);
   const borrowNetworkIds = useMemo(() => {
@@ -112,6 +116,14 @@ export const BorrowDataGate = ({
   const reservesResultRef = useRef<IBorrowReserveItem | undefined>(undefined);
   const forceRefreshCounterRef = useRef(0);
   const lastForceRefreshCounterRef = useRef(0);
+  // Whether a reserves request has actually finished for the current fetch key,
+  // successfully or not. The runner below bails out early (no key yet, view
+  // inactive, account not ready) and that no-op settle leaves isLoading false
+  // with no result, which is not the same as a finished-but-empty load.
+  const reservesSettledRef = useRef(false);
+  // Mirrors what consumers currently see; BorrowProvider starts at
+  // LoadingMarkets.
+  const publishedStatusRef = useRef(EBorrowDataStatus.LoadingMarkets);
   const wasActiveRef = useRef(isViewActive);
   const prevReservesDataRef = useRef<IBorrowReserveItem | null>(null);
 
@@ -139,6 +151,7 @@ export const BorrowDataGate = ({
     prevFetchKeyRef.current = fetchKey;
     lastReservesUpdatedAtRef.current = null;
     reservesResultRef.current = undefined;
+    reservesSettledRef.current = false;
   }
 
   // Reset staleness on modal dismiss so revalidateOnFocus triggers a fresh fetch.
@@ -184,18 +197,26 @@ export const BorrowDataGate = ({
       const hasNoCache = reservesResultRef.current === undefined;
       const shouldFetch = shouldForceRefresh || isStale || hasNoCache;
       if (!shouldFetch) {
+        // Fresh cache means an earlier request already landed for this key.
+        reservesSettledRef.current = true;
         return reservesResultRef.current;
       }
       lastForceRefreshCounterRef.current = forceRefreshCounterRef.current;
-      const result = await fetchReserves({
-        provider: marketProvider,
-        networkId: marketNetworkId,
-        marketAddress,
-        accountId,
-      });
-      reservesResultRef.current = result;
-      lastReservesUpdatedAtRef.current = Date.now();
-      return result;
+      try {
+        const result = await fetchReserves({
+          provider: marketProvider,
+          networkId: marketNetworkId,
+          marketAddress,
+          accountId,
+        });
+        reservesResultRef.current = result;
+        lastReservesUpdatedAtRef.current = Date.now();
+        return result;
+      } finally {
+        // In `finally` so a failed request also counts as settled and the cards
+        // fall through to the real empty state instead of spinning forever.
+        reservesSettledRef.current = true;
+      }
     },
     [
       fetchKey,
@@ -227,10 +248,24 @@ export const BorrowDataGate = ({
   const dataStatus = useMemo(() => {
     if (!isViewActive) return EBorrowDataStatus.Idle;
     if (marketsLoading) {
-      if (!market) return EBorrowDataStatus.LoadingMarkets;
+      // Refreshing means "keep what is already on screen". With no reserves
+      // rendered yet there is nothing to keep, and since Refreshing is not a
+      // loading status the cards would paint their empty copy for the frame —
+      // mirror the reserves branch below and stay in a loading status.
+      if (!market || !prevReservesDataRef.current) {
+        return EBorrowDataStatus.LoadingMarkets;
+      }
       return EBorrowDataStatus.Refreshing;
     }
-    if (!market || !fetchKey) return EBorrowDataStatus.Idle;
+    // The markets runner bails out with an empty list while the view is
+    // inactive, so an empty `markets` is only a settled result once a real
+    // request has finished (a failed one counts, so errors still reach the
+    // empty state rather than spinning).
+    if (!market || !fetchKey) {
+      return marketsSettled
+        ? EBorrowDataStatus.Idle
+        : EBorrowDataStatus.LoadingMarkets;
+    }
     if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
 
     if (reservesLoading) {
@@ -247,10 +282,19 @@ export const BorrowDataGate = ({
       return EBorrowDataStatus.Ready;
     }
 
-    return EBorrowDataStatus.Idle;
+    // Not loading and no result: either the request finished with nothing (an
+    // error, or a genuinely empty market — a settled state the cards should
+    // render), or the runner bailed out early and its no-op settle flipped
+    // isLoading to false before the real request ever started. Only the first
+    // is Idle; publishing the second as Idle is what flashed the empty copy in
+    // the middle of a load.
+    return reservesSettledRef.current
+      ? EBorrowDataStatus.Idle
+      : EBorrowDataStatus.LoadingReserves;
   }, [
     isViewActive,
     marketsLoading,
+    marketsSettled,
     market,
     fetchKey,
     shouldWaitForAccount,
@@ -272,6 +316,32 @@ export const BorrowDataGate = ({
   }, [market, setMarket]);
 
   useEffect(() => {
+    // Belt and braces for the empty-state flash. Every hole found so far was
+    // the same shape: a status that reads as "settled" arrives for a frame or
+    // two while nothing has been rendered yet, and each card dutifully paints
+    // its real empty copy before the next load starts. Rather than enumerate
+    // every runner that can settle early, hold such a status briefly — if a
+    // load starts in the meantime the timer is cancelled and the loading status
+    // goes out immediately, and a genuinely empty result is delayed by an
+    // interval no one can perceive. Ready is never held: it always carries a
+    // result, and prevReservesDataRef still lags it by one commit here.
+    const isSettledWithNothingToShow =
+      !isBorrowDataLoading(dataStatus) &&
+      dataStatus !== EBorrowDataStatus.Ready &&
+      !prevReservesDataRef.current;
+
+    if (
+      isSettledWithNothingToShow &&
+      isBorrowDataLoading(publishedStatusRef.current)
+    ) {
+      const timer = setTimeout(() => {
+        publishedStatusRef.current = dataStatus;
+        setBorrowDataStatus(dataStatus);
+      }, BORROW_EMPTY_STATE_HOLD_MS);
+      return () => clearTimeout(timer);
+    }
+
+    publishedStatusRef.current = dataStatus;
     setBorrowDataStatus(dataStatus);
   }, [dataStatus, setBorrowDataStatus]);
 
@@ -292,10 +362,7 @@ export const BorrowDataGate = ({
 
   // Sync reserves to Context using IAsyncData format
   useEffect(() => {
-    const isLoading =
-      dataStatus === EBorrowDataStatus.LoadingMarkets ||
-      dataStatus === EBorrowDataStatus.WaitingForAccount ||
-      dataStatus === EBorrowDataStatus.LoadingReserves;
+    const isLoading = isBorrowDataLoading(dataStatus);
 
     // Determine the data to set
     let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
