@@ -13,15 +13,12 @@ import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import type { ITradingViewIndicatorSettingsValue } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { ITradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 import {
   type ITradingViewNativeAnyIndicator,
@@ -33,7 +30,6 @@ interface ITradingViewNativeChartControlsContainerProps {
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   enableNativeChartSettings?: boolean;
-  indicatorSettingsValue: ITradingViewIndicatorSettingsValue;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
@@ -46,9 +42,7 @@ interface ITradingViewNativeChartControlsContainerProps {
     indicator: ITradingViewNativeAnyIndicator,
     desiredActive: boolean,
   ) => void;
-  onIndicatorSettingsConfirm: (
-    value: ITradingViewNativeIndicatorSettings,
-  ) => void | Promise<void>;
+  onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
   ) => void;
@@ -62,7 +56,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     activeIndicatorValues,
     calendarAvailableTimeRange,
     enableNativeChartSettings = false,
-    indicatorSettingsValue,
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
@@ -72,7 +65,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     onChartSwitch,
     onIntervalChange,
     onIndicatorChange,
-    onIndicatorSettingsConfirm,
+    onIndicatorSettingsPress,
     onIndicatorSelectionConfirm,
     onCalendarPanelOpen,
     onCalendarPanelSubmit,
@@ -143,11 +136,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     );
     const showIndicatorsDialog = useCallback(() => {
       if (layoutMode === 'desktop') {
-        showTradingViewNativeIndicatorSettingsDialog({
-          intl,
-          onConfirm: onIndicatorSettingsConfirm,
-          value: indicatorSettingsValue,
-        });
+        onIndicatorSettingsPress();
         return;
       }
 
@@ -167,13 +156,11 @@ export const TradingViewNativeChartControlsContainer = memo(
       });
     }, [
       handleIndicatorSelect,
-      indicatorSettingsValue,
       indicators,
       indicatorsTitle,
-      intl,
       layoutMode,
       maxSelectableSubIndicatorCount,
-      onIndicatorSettingsConfirm,
+      onIndicatorSettingsPress,
       onIndicatorSelectionConfirm,
     ]);
 
