@@ -202,9 +202,12 @@ export const STEP_TEXT: Record<
   unlockDevice: { title: ETranslations.hardware_third_party_device_locked },
   done: { title: ETranslations.global_done },
   pairingCode: { title: ETranslations.trezor_thp_pairing__title },
+  // The current UI's Device-not-connected dialog, verbatim — same title,
+  // same lead-in question; the card's whole body matches it word for
+  // word (the button pair included, see the panel).
   deviceNotFound: {
-    title: ETranslations.device_stage_connect_device__title,
-    sub: ETranslations.device_stage_connect_device__desc,
+    title: ETranslations.device_not_connected,
+    sub: ETranslations.troubleshooting_show_helper_cta_label,
   },
   btcHighIndex: {
     title: ETranslations.hardware_third_party_btc_high_index_confirm_title,
