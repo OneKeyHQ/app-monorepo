@@ -122,10 +122,15 @@ export function useWcPayActionExecutor() {
       inlineController?: IWcPayInlineController;
       // pre-sign cancellation boundary, fired when the page that started the
       // flow unmounts. Checked before the resume probes, at the top of every
-      // action, and (on the inline path) immediately before signing — never
-      // after signing, where cancelling could lose an in-flight broadcast.
-      // An aborted signal ends the flow with WcPayUserCancelledError, which
-      // callers treat as a silent end.
+      // action, right before each confirm modal is pushed, and (on the
+      // inline path) immediately before signing — never after signing, where
+      // cancelling could lose an in-flight broadcast. The signal retires
+      // entirely once an action of THIS run has broadcast a transaction:
+      // from then on the sequence must run to completion so the on-chain
+      // result still reaches confirmPayment — cancelling may stop work that
+      // has not started, never abandon a payment already sent. An aborted
+      // signal ends the flow with WcPayUserCancelledError, which callers
+      // treat as a silent end.
       cancelSignal?: AbortSignal;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
@@ -205,10 +210,20 @@ export function useWcPayActionExecutor() {
       };
 
       // cancellation is a pre-sign concept only: checked before the resume
-      // probes, at the top of every action and immediately before inline
-      // signing. Never consulted after signing — an in-flight broadcast must
-      // settle and be recorded no matter what the page did.
+      // probes, at the top of every action, right before each confirm modal
+      // is pushed, and immediately before inline signing. Never consulted
+      // after signing — an in-flight broadcast must settle and be recorded
+      // no matter what the page did. And once THIS run has broadcast a
+      // transaction the signal is retired for the rest of the sequence:
+      // cancelling mid-sequence would strand a tx that is already on chain
+      // — confirmPayment would never run and the merchant payment could
+      // never confirm. Cancellation may end work that has not started; it
+      // must never abandon a produced result.
+      let hasBroadcastInThisRun = false;
       const throwIfCancelled = () => {
+        if (hasBroadcastInThisRun) {
+          return;
+        }
         if (cancelSignal?.aborted) {
           throw new WcPayUserCancelledError('User canceled payment');
         }
@@ -294,8 +309,9 @@ export function useWcPayActionExecutor() {
       for (let i = effectiveStartIndex; i < actions.length; i += 1) {
         // the page owning this flow may have unmounted during the resume
         // probes above (waitForTxMined can block for minutes) or between
-        // actions; nothing has been signed for action i yet, so ending here
-        // is safe
+        // actions; nothing has been signed for action i yet AND no earlier
+        // action of this run has broadcast (throwIfCancelled retires once
+        // one has), so ending here abandons no on-chain result
         throwIfCancelled();
         // terminate the whole sequence the moment the deadline passes;
         // progress persisted via onActionComplete keeps already-broadcast
@@ -390,6 +406,9 @@ export function useWcPayActionExecutor() {
                     }),
                 });
                 if (inlineOutcome.status === 'ok') {
+                  // an on-chain result now exists: retire the cancel signal
+                  // so the rest of the sequence (and confirmPayment) runs
+                  hasBroadcastInThisRun = true;
                   results.push(inlineOutcome.txid);
                   await persistActionResult(i, inlineOutcome.txid);
                   // the plan gate admits single-action sequences only, so
@@ -403,6 +422,10 @@ export function useWcPayActionExecutor() {
                 // fallback: continue into the standard confirm modal below
               }
             }
+            // the async prep above (account resolution, tx preparation, a
+            // possible inline fallback) may span a page close; re-check so a
+            // confirm modal is never pushed onto a stack whose owner is gone
+            throwIfCancelled();
             let txid: string;
             try {
               txid = await new Promise<string>((resolve, reject) => {
@@ -482,6 +505,9 @@ export function useWcPayActionExecutor() {
               }
               throw error;
             }
+            // an on-chain result now exists: retire the cancel signal so
+            // the remaining actions (and confirmPayment) always run
+            hasBroadcastInThisRun = true;
             results.push(txid);
             // the txid was already durably recorded by the background
             // between signing and broadcast (wcPayPreBroadcastRecord above);
@@ -512,6 +538,8 @@ export function useWcPayActionExecutor() {
           }
           case EWcPayActionMethod.EthSignTypedDataV4: {
             const message = extractWcPayTypedDataMessage(parsed);
+            // re-check after the async prep above (see eth_sendTransaction)
+            throwIfCancelled();
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -551,6 +579,8 @@ export function useWcPayActionExecutor() {
                 accountAddress: account.address,
               }),
             });
+            // re-check after the async prep above (see eth_sendTransaction)
+            throwIfCancelled();
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -592,6 +622,8 @@ export function useWcPayActionExecutor() {
                   encodedTx,
                 },
               );
+            // re-check after the async prep above (see eth_sendTransaction)
+            throwIfCancelled();
             const rawTx = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxConfirm,

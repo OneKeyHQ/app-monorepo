@@ -272,7 +272,10 @@ function PaymentOptionsPage() {
   // this signal existed a close there cancelled nothing — the pipeline kept
   // running headless and completed a payment the user believed dismissed.
   // The signal is only ever consulted before signing, so aborting can never
-  // lose an in-flight broadcast.
+  // lose an in-flight broadcast — and the executor retires it entirely once
+  // an action of the attempt has broadcast, carrying the sequence through
+  // confirmPayment even if this page is already gone, so closing can never
+  // strand an on-chain payment unconfirmed.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
   useEffect(
     () => () => {
@@ -417,9 +420,30 @@ function PaymentOptionsPage() {
   const areOptionsRefusedOnPlatform = shouldRefuseWcPayOptionUpfront({
     supportsDurableProgress,
   });
-  const selectedOption: IWcPayOption | undefined = areOptionsRefusedOnPlatform
-    ? undefined
-    : (options.find((option) => option.id === selectedOptionId) ?? options[0]);
+  // The post-sign failure state is terminal for the option/account choice:
+  // its banner is the safety exit back into the recovery machinery, and
+  // drifting to another target must not discard it (see handlePay).
+  const isSendFailedLocked =
+    inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed;
+  // While SendFailed-locked the selection is PINNED to the attempt that
+  // failed instead of drifting with the account-scoped option list: an
+  // account switch re-fetches options, and the `?? options[0]` fallback
+  // would silently land on a differently-targeted option — leaving every
+  // control disabled at once (list locked, Continue mismatch-blocked,
+  // banner not clearable). Pinning resolves to undefined when the failed
+  // option is not in the current account's list; Continue stays disabled
+  // and the banner tells the user to switch back.
+  const selectedOption: IWcPayOption | undefined = (() => {
+    if (areOptionsRefusedOnPlatform) {
+      return undefined;
+    }
+    if (isSendFailedLocked) {
+      return options.find((option) => option.id === inlineFailure?.optionId);
+    }
+    return (
+      options.find((option) => option.id === selectedOptionId) ?? options[0]
+    );
+  })();
   const hasPayableOption = options.length > 0 && !areOptionsRefusedOnPlatform;
   // The effective deadline is the earliest of the payment-level and the
   // selected option's expiry; the countdown, the Continue gate and every
@@ -745,11 +769,12 @@ function PaymentOptionsPage() {
   const inlineFailureCopy = inlineFailure
     ? getWcPayInlineFailureCopy(inlineFailure.failure)
     : undefined;
-  // The post-sign failure state is terminal for the option/account choice:
-  // its banner is the safety exit back into the recovery machinery, and
-  // drifting to another target must not discard it (see handlePay).
-  const isSendFailedLocked =
-    inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed;
+  // With the selection pinned (see selectedOption above) the only drift
+  // left is the signing account — plus a pinned option missing from the
+  // current account's list, which surfaces as selectedOption === undefined
+  // and keeps the option check below true. Retry must stay disabled until
+  // the user is back on the exact attempt that failed; the banner explains
+  // the way out.
   const isSendFailedTargetMismatch =
     isSendFailedLocked &&
     !!inlineFailure &&
@@ -1057,6 +1082,13 @@ function PaymentOptionsPage() {
               <SizableText size="$bodyMd" color="$textCritical">
                 {inlineFailureCopy.guidance}
               </SizableText>
+              {isSendFailedTargetMismatch ? (
+                <SizableText size="$bodyMd" color="$textCritical">
+                  {/* copy pending product i18n keys */}
+                  Switch back to the account you paid with to retry this
+                  payment.
+                </SizableText>
+              ) : null}
             </YStack>
           ) : null}
         </Page.FooterActions>

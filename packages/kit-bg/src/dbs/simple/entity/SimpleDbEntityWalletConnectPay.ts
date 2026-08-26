@@ -103,22 +103,42 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     }
   }
 
+  // Read outcome of the encrypted entries payload. 'absent' is a CONFIRMED
+  // "no ciphertext stored" — the only verdict on which callers may clean up
+  // the index. 'unreadable' means a payload may exist but could not be
+  // read or decoded right now (locked keychain, transient platform failure,
+  // decrypt garbage): deleting on it would destroy the txid evidence that
+  // guards against paying a merchant twice, so callers must fail the
+  // operation instead and leave the record for a later attempt, the
+  // server-side final state, or the TTL.
   private async readSecureEntries(
     progressKey: string,
-  ): Promise<IWcPayStoredActionEntry[] | undefined> {
+  ): Promise<
+    | { status: 'ok'; entries: IWcPayStoredActionEntry[] }
+    | { status: 'absent' }
+    | { status: 'unreadable' }
+  > {
+    let payload: string | undefined | null;
     try {
-      const payload = await appStorage.secureStorage.getSecureItem(
+      payload = await appStorage.secureStorage.getSecureItem(
         buildSecurePayloadKey(progressKey),
       );
-      if (!payload) {
-        return undefined;
-      }
-      const entries = JSON.parse(payload) as IWcPayStoredActionEntry[];
-      return Array.isArray(entries) ? entries : undefined;
     } catch {
-      // a payload that fails to decrypt is unrecoverable; callers treat it
-      // as absent
-      return undefined;
+      // a throwing read says nothing about whether ciphertext exists
+      return { status: 'unreadable' };
+    }
+    if (!payload) {
+      return { status: 'absent' };
+    }
+    try {
+      const entries = JSON.parse(payload) as IWcPayStoredActionEntry[];
+      // present-but-undecodable is indistinguishable from a transient
+      // decrypt failure on some platforms; never report it as absent
+      return Array.isArray(entries)
+        ? { status: 'ok', entries }
+        : { status: 'unreadable' };
+    } catch {
+      return { status: 'unreadable' };
     }
   }
 
@@ -162,13 +182,23 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       await this.removeProgressByKeys([key]);
       return undefined;
     }
-    const entries = await this.readSecureEntries(key);
-    if (!entries?.length) {
-      // index without readable payload cannot be resumed; drop the leftover
+    const read = await this.readSecureEntries(key);
+    if (read.status === 'unreadable') {
+      // the ciphertext exists but cannot be read right now. Deleting here
+      // would destroy a possibly txid-bearing record on a transient
+      // secure-storage failure; refuse the read instead — the caller
+      // (getStoredActionResults) surfaces it as a cannot-resume error and
+      // the record stays for a later attempt, the final state, or the TTL
+      throw new OneKeyError(
+        'WalletConnect Pay progress record is not readable',
+      );
+    }
+    if (read.status === 'absent' || !read.entries.length) {
+      // confirmed-empty payload: the index is an orphan; drop the leftover
       await this.removeProgressByKeys([key]);
       return undefined;
     }
-    return { ...meta, entries };
+    return { ...meta, entries: read.entries };
   }
 
   /**
@@ -190,8 +220,13 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     const now = Date.now();
     for (const [key, meta] of Object.entries(data?.progress ?? {})) {
       if (now - meta.updatedAt <= PROGRESS_TTL_MS) {
-        const entries = await this.readSecureEntries(key);
-        const entry = entries?.find((item) => item?.result === txid);
+        // an unreadable record simply cannot match; skip it (best-effort
+        // scan) rather than fail the whole lookup
+        const read = await this.readSecureEntries(key);
+        const entry =
+          read.status === 'ok'
+            ? read.entries.find((item) => item?.result === txid)
+            : undefined;
         if (entry?.broadcastMeta) {
           return entry.broadcastMeta;
         }
@@ -235,16 +270,25 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     await this.removeProgressByKeys(expiredKeys);
 
     const key = buildProgressKey({ paymentId, optionId, accountKey });
-    const entries = [...((await this.readSecureEntries(key)) ?? [])];
+    const existingRead = await this.readSecureEntries(key);
+    if (existingRead.status === 'unreadable') {
+      // never rebuild over ciphertext that exists but cannot be read: at
+      // index 0 the write below would overwrite (destroy) it, and at later
+      // indexes the contiguity check would refuse anyway. Failing closed
+      // costs one retry; overwriting destroys duplicate-payment evidence
+      throw new OneKeyError(
+        'WalletConnect Pay progress record is not readable',
+      );
+    }
+    const entries = [
+      ...(existingRead.status === 'ok' ? existingRead.entries : []),
+    ];
     // Contiguity invariant: entries must form a dense prefix. Writing past a
     // missing earlier index would serialize a `null` hole, and a record with
     // a hole cannot be resumed by index alignment. Failing here instead is
     // the established policy (see ServiceSend's pre-broadcast record):
     // failing closed costs one retry, while a hole next to an
     // already-broadcast txid destroys the only duplicate-payment evidence.
-    // This also covers the readSecureEntries failure mode where the array
-    // above was rebuilt empty: refusing the write keeps the intact
-    // ciphertext (and any recorded txid in it) on disk.
     for (let i = 0; i < index; i += 1) {
       if (!entries[i]) {
         throw new OneKeyError(
@@ -294,7 +338,21 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
     fromIndex: number;
   }): Promise<void> {
     const key = buildProgressKey({ paymentId, optionId, accountKey });
-    const entries = (await this.readSecureEntries(key)) ?? [];
+    const read = await this.readSecureEntries(key);
+    if (read.status === 'unreadable') {
+      if (fromIndex > 0) {
+        // cannot slice entries that cannot be read; refuse rather than
+        // delete a record whose tail may hold a broadcast txid
+        throw new OneKeyError(
+          'WalletConnect Pay progress record is not readable',
+        );
+      }
+      // fromIndex 0 is an explicit discard of the whole record — an
+      // unreadable one included
+      await this.removeProgressByKeys([key]);
+      return;
+    }
+    const entries = read.status === 'ok' ? read.entries : [];
     const kept = entries.slice(0, Math.max(0, fromIndex));
     if (!kept.length) {
       await this.removeProgressByKeys([key]);

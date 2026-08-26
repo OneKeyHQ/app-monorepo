@@ -335,12 +335,24 @@ class ServiceWalletConnectPay extends ServiceBase {
     accountKey: string;
     actions: IWcPayAction[];
   }): Promise<string[]> {
-    const record =
-      await this.backgroundApi.simpleDb.walletConnectPay.getProgress({
+    let record;
+    try {
+      record = await this.backgroundApi.simpleDb.walletConnectPay.getProgress({
         paymentId,
         optionId,
         accountKey,
       });
+    } catch {
+      // the stored record exists but could not be read (locked keychain,
+      // transient secure-storage failure): it may hold a broadcast txid, so
+      // starting a fresh attempt could pay twice. Refuse this attempt and
+      // keep the record — same policy as the broadcast-beyond-hole case
+      // below; the server-side final state or the TTL still cleans it up.
+      // copy pending product i18n keys
+      throw new OneKeyError(
+        'This payment cannot be resumed safely on this device',
+      );
+    }
     if (!record?.entries?.length) {
       return [];
     }
