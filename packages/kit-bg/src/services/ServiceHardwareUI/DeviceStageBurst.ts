@@ -458,6 +458,8 @@ export class DeviceStageBurstScope {
     step: IDeviceStageStepValue,
     extras: {
       connectId?: string;
+      deviceType?: IDeviceStageState['deviceType'];
+      deviceName?: string;
       payload?: IHardwareUiPayload;
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
