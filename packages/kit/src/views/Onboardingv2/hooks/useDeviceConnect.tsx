@@ -46,7 +46,6 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { buildBleBondError } from '../../../components/Hardware/HardwareDialog';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
@@ -258,20 +257,9 @@ export function useDeviceConnect({
           ) {
             return;
           }
-          if (
-            platformEnv.isNative &&
-            (code === HardwareErrorCode.BleDeviceBondError ||
-              code === HardwareErrorCode.BlePeerRemovedPairingInformation)
-          ) {
-            await hardwareUiStateDialogLifecycle.closeAndWait(() =>
-              backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState(),
-            );
-            Dialog.show(buildBleBondError(intl));
-          } else {
-            Toast.error({
-              title: message || 'DeviceConnectError',
-            });
-          }
+          Toast.error({
+            title: message || 'DeviceConnectError',
+          });
         }
         defaultLogger.hardware.sdkLog.connectError({
           connectId: device.connectId ?? '',
@@ -283,7 +271,7 @@ export function useDeviceConnect({
         throw error;
       }
     },
-    [ensureStopScan, intl, setCurrentDevice],
+    [ensureStopScan, setCurrentDevice],
   );
 
   const ensureActiveConnection = useCallback(
