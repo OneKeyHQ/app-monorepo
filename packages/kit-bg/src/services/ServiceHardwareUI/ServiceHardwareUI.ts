@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,6 +38,7 @@ import type {
   IDeviceStageAuthChecklistItem,
   IDeviceStageAuthFailureReasonValue,
   IDeviceStageConfirmContent,
+  IDeviceStageErrorReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
 import localDb from '../../dbs/local/localDb';
@@ -559,6 +561,22 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStageNoteInputSubmitted() {
     await this.deviceStageBurst.noteInputSubmitted();
+  }
+
+  /**
+   * Lands an error outcome on the stage from a UI-side runner (the
+   * authenticity check above all) — for failures that are not the run's
+   * own verdict, like a wrong PIN at the unlock that precedes it.
+   */
+  @backgroundMethod()
+  async deviceStageNoteError({
+    connectId,
+    errorReason,
+  }: {
+    connectId?: string;
+    errorReason?: IDeviceStageErrorReasonValue;
+  }) {
+    await this.deviceStageBurst.noteStep('error', { connectId, errorReason });
   }
 
   /** The hidden-wallet teach card was read: on to the entry. The card's
@@ -1296,6 +1314,16 @@ class ServiceHardwareUI extends ServiceBase {
           ...hardwareError.payload,
           connectId: hardwareError.payload?.connectId ?? connectId,
         };
+      }
+      // OK-59934 hard rule #2 (失败不外溢): the stage lands hardware
+      // failures as its error outcome, so the same failure must not also
+      // toast. Cleared here in bg, before the error crosses the bridge —
+      // toastIfError respects an explicit boolean and will not re-arm it.
+      if (
+        !isLegacyHardwareUiActive() &&
+        isHardwareError({ error: error as IOneKeyError })
+      ) {
+        (error as IOneKeyError).autoToast = false;
       }
       if (
         isHardwareErrorByCode({

@@ -45,6 +45,7 @@ const SERVER_CODES_UNAVAILABLE = new Set([10_105, 10_106, 10_107]);
 const SILENT_CODES = new Set<unknown>([
   HardwareErrorCode.ActionCancelled,
   HardwareErrorCode.CallQueueActionCancelled,
+  HardwareErrorCode.PinCancelled,
   HardwareErrorCode.NewFirmwareForceUpdate,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
 ]);
@@ -229,6 +230,16 @@ export function useDeviceStageFirmwareVerify() {
         } catch (error) {
           const err = error as IOneKeyError;
           if (SILENT_CODES.has(err?.code)) {
+            return 'aborted';
+          }
+          // A wrong PIN fails the unlock, not the authenticity check — no
+          // verdict was reached. It lands as the stage's own error notice
+          // (accurate words, self-dismissing), never as an authFailure.
+          if (err?.code === HardwareErrorCode.PinInvalid) {
+            await serviceHardwareUI.deviceStageNoteError({
+              connectId,
+              errorReason: 'pinInvalid',
+            });
             return 'aborted';
           }
           let reason: IDeviceStageAuthFailureReasonValue = 'unknown';
