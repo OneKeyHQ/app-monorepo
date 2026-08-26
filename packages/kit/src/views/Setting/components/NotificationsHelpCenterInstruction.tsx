@@ -11,43 +11,32 @@ import {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import type { FormatXMLElementFn } from 'intl-messageformat';
-
-function NotificationsHelpCenterInstruction() {
+function NotificationsHelpCenterInstruction({
+  size = '$bodyMd',
+}: {
+  size?: '$bodySm' | '$bodyMd';
+}) {
   const intl = useIntl();
-  const renderAnchor: FormatXMLElementFn<string, any> = useCallback(
-    (chunks: string[]) => (
-      <SizableText
-        size="$bodyMd"
-        color="$textInteractive"
-        cursor="pointer"
-        onPress={() => {
-          if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: NOTIFICATIONS_HELP_CENTER_URL });
-          } else {
-            openUrlExternal(NOTIFICATIONS_HELP_CENTER_URL);
-          }
-        }}
-        hoverStyle={{
-          color: '$textInteractiveHover',
-        }}
-      >
-        {chunks}
-      </SizableText>
-    ),
-    [],
-  );
+  const handlePress = useCallback(() => {
+    if (platformEnv.isDesktop || platformEnv.isNative) {
+      openUrlInDiscovery({ url: NOTIFICATIONS_HELP_CENTER_URL });
+    } else {
+      openUrlExternal(NOTIFICATIONS_HELP_CENTER_URL);
+    }
+  }, []);
 
   return (
-    <SizableText maxWidth="$96" size="$bodyMd" color="$textSubdued">
-      {intl.formatMessage(
-        {
-          id: ETranslations.notifications_test_action_desc,
-        },
-        {
-          tag: renderAnchor,
-        },
-      )}
+    <SizableText
+      accessibilityRole="link"
+      alignSelf="flex-start"
+      size={size}
+      color="$textInteractive"
+      cursor="pointer"
+      onPress={handlePress}
+      pressStyle={{ opacity: 0.8 }}
+      hoverStyle={{ color: '$textInteractiveHover' }}
+    >
+      {intl.formatMessage({ id: ETranslations.menu_visit_help_center })}
     </SizableText>
   );
 }

@@ -3,11 +3,121 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+import {
+  ENotificationPermission,
+  type INotificationPermissionDetail,
+} from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import type { IAppNavigation } from '../hooks/useAppNavigation';
+
+export type IOsNotificationPermissionAction =
+  | 'none'
+  | 'request'
+  | 'openSettings';
+
+// iOS shows the system prompt only the first time requestAuthorization runs
+// (status still notDetermined). After a deny, the prompt never returns and
+// Settings is the only recovery path. Desktop always reports `default`, so
+// never treat it as a missing OS grant.
+export function resolveOsNotificationPermissionAction({
+  permission,
+  isDesktop,
+  isWebDappMode,
+}: {
+  permission: INotificationPermissionDetail | undefined;
+  isDesktop: boolean;
+  isWebDappMode: boolean;
+}): IOsNotificationPermissionAction {
+  if (isWebDappMode || isDesktop) {
+    return 'none';
+  }
+  if (!permission?.isSupported) {
+    return 'none';
+  }
+  if (permission.permission === ENotificationPermission.granted) {
+    return 'none';
+  }
+  if (permission.permission === ENotificationPermission.denied) {
+    return 'openSettings';
+  }
+  return 'request';
+}
+
+// Native/extension first paint has `permission === undefined`. Treating that
+// as `'none'` flashes Test before Enable / Go to Settings. Stay pending until
+// the read finishes (`isLoading === false`) or a payload arrives. Desktop and
+// web dapp always show Test, so they skip the wait.
+export function isOsNotificationPermissionPending({
+  permission,
+  isLoading,
+  isDesktop,
+  isWebDappMode,
+}: {
+  permission: INotificationPermissionDetail | undefined;
+  isLoading: boolean | undefined;
+  isDesktop: boolean;
+  isWebDappMode: boolean;
+}): boolean {
+  if (isWebDappMode || isDesktop) {
+    return false;
+  }
+  return permission === undefined && isLoading !== false;
+}
+
+export async function getOsNotificationPermissionSafe(): Promise<
+  INotificationPermissionDetail | undefined
+> {
+  try {
+    return await backgroundApiProxy.serviceNotification.getPermissionWithoutLog();
+  } catch {
+    // Native/provider permission reads can throw when the module is unavailable.
+    return undefined;
+  }
+}
+
+function currentOsPermissionAction(
+  permission: INotificationPermissionDetail | undefined,
+): IOsNotificationPermissionAction {
+  return resolveOsNotificationPermissionAction({
+    permission,
+    isDesktop: !!platformEnv.isDesktop,
+    isWebDappMode: !!platformEnv.isWebDappMode,
+  });
+}
+
+// Do not reuse enableNotificationPermissions() here: after a fresh deny it
+// immediately opens Settings. notDetermined should only requestAuthorization.
+export async function recoverOsNotificationPermission(
+  knownPermission?: INotificationPermissionDetail,
+): Promise<INotificationPermissionDetail | undefined> {
+  const permission =
+    knownPermission ?? (await getOsNotificationPermissionSafe());
+  const action = currentOsPermissionAction(permission);
+  if (action === 'none') {
+    return permission;
+  }
+  try {
+    if (action === 'request') {
+      return await backgroundApiProxy.serviceNotification.requestPermission();
+    }
+    await backgroundApiProxy.serviceNotification.openPermissionSettings();
+    return await getOsNotificationPermissionSafe();
+  } catch {
+    // requestPermission / openPermissionSettings can throw from the native module.
+    return permission;
+  }
+}
+
+export async function canSendOsNotificationTest(): Promise<boolean> {
+  const permission = await getOsNotificationPermissionSafe();
+  if (currentOsPermissionAction(permission) === 'none') {
+    return true;
+  }
+  const recovered = await recoverOsNotificationPermission(permission);
+  return recovered?.permission === ENotificationPermission.granted;
+}
 
 // Notifications are considered "fully enabled" only when the OneKey master
 // switch (pushEnabled) is on AND the system permission is granted. Either one
