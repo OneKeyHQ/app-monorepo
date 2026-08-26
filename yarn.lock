@@ -10169,6 +10169,7 @@ __metadata:
     expo-sharing: "npm:~57.0.13"
     expo-splash-screen: "npm:~57.0.7"
     expo-web-browser: "npm:~57.0.2"
+    hermes-compiler: "npm:250829098.0.16"
     https-browserify: "npm:^1.0.0"
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"

@@ -66,11 +66,15 @@ private enum BackgroundThreadBridge {
       return
     }
 
-    cls.perform(
-      NSSelectorFromString("installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithEntryURL:"),
-      with: host,
-      with: entryURL
+    let selector = NSSelectorFromString(
+      "installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithEntryURL:"
     )
+    guard cls.responds(to: selector) else {
+      NitroModuleBridge.logInfo("BackgroundThread", "ordered startup selector unavailable, skip")
+      return
+    }
+
+    cls.perform(selector, with: host, with: entryURL)
   }
 }
 

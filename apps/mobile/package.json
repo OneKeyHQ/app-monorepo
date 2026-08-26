@@ -52,6 +52,7 @@
     "@storybook/addon-ondevice-controls": "10.4.7",
     "@storybook/react-native": "10.4.7",
     "detox": "^20.46.3",
+    "hermes-compiler": "250829098.0.16",
     "rimraf": "3.0.2"
   },
   "dependencies": {
