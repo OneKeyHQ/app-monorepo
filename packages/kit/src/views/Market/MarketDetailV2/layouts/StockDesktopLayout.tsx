@@ -37,6 +37,7 @@ import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
   StockAnalystGauge,
+  parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
 import {
   type IStockSimpleChartRange,
@@ -974,6 +975,19 @@ function StockAnalystRatings() {
   const { stockDetail, isStockDetailLoading } = useStockDetail();
   const ratings = stockDetail?.analystRatings;
   const isLoading = isStockDetailLoading && !stockDetail;
+  // Parsed here rather than inside the gauge: the dial needs the counts for the
+  // needle and the footer reports the same total.
+  const ratingCounts = useMemo(
+    () => parseStockAnalystRatingCounts(stockDetail?.underlyingMeta),
+    [stockDetail?.underlyingMeta],
+  );
+  const lastUpdatedText = ratings?.updatedAt
+    ? format(ratings.updatedAt, 'MMM d, yyyy')
+    : STAT_FALLBACK_VALUE;
+  const footerText =
+    ratingCounts.total > 0
+      ? `${ratingCounts.total} ratings, Last Updated: ${lastUpdatedText}`
+      : `Last Updated: ${lastUpdatedText}`;
 
   return (
     <YStack
@@ -987,7 +1001,7 @@ function StockAnalystRatings() {
       {isLoading ? (
         <XStack
           testID="stock-detail-analyst-ratings-skeleton"
-          gap="$6"
+          gap="$8"
           alignItems="center"
           py="$2"
         >
@@ -1004,11 +1018,8 @@ function StockAnalystRatings() {
           </YStack>
         </XStack>
       ) : (
-        <XStack gap="$6" alignItems="center" py="$2" pr="$2">
-          <StockAnalystGauge
-            ratings={ratings}
-            ratingCountsSource={stockDetail?.underlyingMeta}
-          />
+        <XStack gap="$8" alignItems="center" py="$2" pr="$2">
+          <StockAnalystGauge ratings={ratings} ratingCounts={ratingCounts} />
           <YStack flex={1} minWidth={0} justifyContent="center">
             {[
               {
@@ -1075,10 +1086,7 @@ function StockAnalystRatings() {
         </XStack>
       )}
       <SizableText size="$bodySm" color="$textDisabled">
-        Last Updated:{' '}
-        {ratings?.updatedAt
-          ? format(ratings.updatedAt, 'MMM d, yyyy')
-          : STAT_FALLBACK_VALUE}
+        {footerText}
       </SizableText>
     </YStack>
   );
