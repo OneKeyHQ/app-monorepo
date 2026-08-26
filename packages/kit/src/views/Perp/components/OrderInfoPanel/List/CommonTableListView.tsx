@@ -33,10 +33,7 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
-import {
-  FixedColumnShadowOverlay,
-  SimpleEdgeShadowOverlay,
-} from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
+import { FixedColumnShadowOverlay } from '@onekeyhq/kit/src/components/FixedColumnShadowOverlay';
 import {
   SHADOW_CONSTANTS,
   getWebClipPath,
@@ -813,10 +810,9 @@ export function CommonTableListView<T>({
       <Stack
         flex={1}
         position="relative"
-        onLayout={(event) => handleMobileTraceLayout('listWithShadow', event)}
+        onLayout={(event) => handleMobileTraceLayout('listContainer', event)}
       >
         {ListContent}
-        <SimpleEdgeShadowOverlay isDark={isDark} position="right" />
       </Stack>
     );
 

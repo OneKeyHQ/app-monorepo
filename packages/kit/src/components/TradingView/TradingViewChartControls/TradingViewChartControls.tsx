@@ -541,7 +541,11 @@ export const TradingViewChartControls = memo(
             opacity={isControlsReady ? 1 : 0}
             pointerEvents={isControlsReady ? 'auto' : 'none'}
           >
-            <XStack flex={1} minWidth={0} alignItems="center">
+            <XStack
+              flex={onRightControlPress ? undefined : 1}
+              minWidth={0}
+              alignItems="center"
+            >
               {intervalSelector}
             </XStack>
 
@@ -571,6 +575,7 @@ export const TradingViewChartControls = memo(
             gap="$2"
             alignItems="center"
             justifyContent="flex-end"
+            pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             accessibilityRole={onRightControlPress ? 'button' : undefined}
             accessibilityLabel={rightControlLabel}
             cursor={onRightControlPress ? 'pointer' : undefined}
