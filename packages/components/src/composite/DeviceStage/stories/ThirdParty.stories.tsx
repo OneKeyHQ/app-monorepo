@@ -109,6 +109,9 @@ function ThirdPartyStage(props: IDeviceStageProps) {
   }, [go, stopSim]);
   const handlePairingSubmit = useCallback(() => go('processing'), [go]);
   const handleNotFoundRetry = useCallback(() => go('searching'), [go]);
+  // The live driver opens the vendor's own help URL / raises Intercom.
+  const handleNotFoundTroubleshoot = useCallback(() => {}, []);
+  const handleNotFoundSupport = useCallback(() => {}, []);
   const handleHighIndexConfirm = useCallback(() => go('confirmOnDevice'), [go]);
   // The vendor passphrase's "Enter on device": the person continues on
   // the Trezor itself, so the flow falls back to the passive confirm
@@ -137,12 +140,16 @@ function ThirdPartyStage(props: IDeviceStageProps) {
       btcHighIndexAccountIndex: 100,
       onPairingSubmit: handlePairingSubmit,
       onDeviceNotFoundRetry: handleNotFoundRetry,
+      onDeviceNotFoundTroubleshoot: handleNotFoundTroubleshoot,
+      onDeviceNotFoundSupport: handleNotFoundSupport,
       onBtcHighIndexConfirm: handleHighIndexConfirm,
       onInstallConfirm: startInstall,
     }),
     [
       handleHighIndexConfirm,
       handleNotFoundRetry,
+      handleNotFoundSupport,
+      handleNotFoundTroubleshoot,
       handlePairingSubmit,
       installActiveIndex,
       installProgress,

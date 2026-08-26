@@ -47,6 +47,7 @@ import {
 
 import { PassphraseForm, PinPad } from './AppInputs';
 import { AuthChecklist, AuthFailureCard } from './AuthPanels';
+import { BluetoothBadge } from './BluetoothBadge';
 import { CardValue } from './CardValue';
 import {
   COMPACT_PORT_HEIGHT,
@@ -431,6 +432,7 @@ export function DeviceStage({
   step,
   deviceType,
   deviceName,
+  connectionType,
   onClose,
   confirmDetails,
   confirmMessage,
@@ -465,6 +467,8 @@ export function DeviceStage({
   btcHighIndexAccountIndex,
   onPairingSubmit,
   onDeviceNotFoundRetry,
+  onDeviceNotFoundTroubleshoot,
+  onDeviceNotFoundSupport,
   onBtcHighIndexConfirm,
   onInstallConfirm,
 }: IDeviceStageProps) {
@@ -1152,8 +1156,10 @@ export function DeviceStage({
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
   // vendor's product shot for the device beats, the ✓ for `done`, the ✗
-  // for the notice.
-  const capsuleGlyphRef = useRef<'device' | 'done' | 'error'>('device');
+  // for the notice, the Bluetooth badge for the wireless waits.
+  const capsuleGlyphRef = useRef<'device' | 'done' | 'error' | 'bluetooth'>(
+    'device',
+  );
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
@@ -1166,8 +1172,19 @@ export function DeviceStage({
     );
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
+    } else if (vendor) {
+      capsuleGlyphRef.current = step === 'done' ? 'done' : 'device';
     } else {
-      capsuleGlyphRef.current = vendor && step === 'done' ? 'done' : 'device';
+      // The wireless waits — connecting and processing alike — wear the
+      // Bluetooth badge in the device seat: the replica steps aside
+      // through the seat gate below, the way it does for the notice's
+      // ✗. The wired wait IS the replica: the plugged-in device
+      // standing there.
+      capsuleGlyphRef.current =
+        (step === 'connecting' || step === 'processing') &&
+        connectionType === 'bluetooth'
+          ? 'bluetooth'
+          : 'device';
     }
   }
   const capsuleText = capsuleTextRef.current;
@@ -1176,7 +1193,8 @@ export function DeviceStage({
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the
   // exit keeps whatever the capsule last showed.
-  const capsuleSeatCleared = capsuleGlyph === 'error';
+  const capsuleSeatCleared =
+    capsuleGlyph === 'error' || capsuleGlyph === 'bluetooth';
   useEffect(() => {
     const target = capsuleSeatCleared ? 0 : 1;
     if (reducedMotion || sceneEntryInstant) {
@@ -1517,20 +1535,59 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.deviceNotFound.tail}>
-          {onDeviceNotFoundRetry ? (
-            <Button
-              testID="device-stage-device-not-found-confirm"
-              variant="primary"
-              size="large"
-              onPress={onDeviceNotFoundRetry}
-            >
-              {intl.formatMessage({ id: ETranslations.global_confirm })}
-            </Button>
+          {onDeviceNotFoundRetry ||
+          onDeviceNotFoundTroubleshoot ||
+          onDeviceNotFoundSupport ? (
+            <YStack gap="$2">
+              {onDeviceNotFoundRetry ? (
+                <Button
+                  testID="device-stage-device-not-found-confirm"
+                  variant="primary"
+                  size="large"
+                  onPress={onDeviceNotFoundRetry}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_confirm })}
+                </Button>
+              ) : null}
+              {/* The current UI's own self-check pair: the help-center
+                  article (open-in — it leaves the app) and Support. */}
+              {onDeviceNotFoundTroubleshoot ? (
+                <Button
+                  testID="device-stage-device-not-found-troubleshoot"
+                  size="large"
+                  icon="OpenOutline"
+                  onPress={onDeviceNotFoundTroubleshoot}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.self_troubleshooting,
+                  })}
+                </Button>
+              ) : null}
+              {onDeviceNotFoundSupport ? (
+                <Button
+                  testID="device-stage-device-not-found-contact-us"
+                  size="large"
+                  icon="HelpSupportOutline"
+                  onPress={onDeviceNotFoundSupport}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.settings_contact_us,
+                  })}
+                </Button>
+              ) : null}
+            </YStack>
           ) : null}
         </View>
       </YStack>
     ),
-    [deviceNotFoundText, intl, onDeviceNotFoundRetry, panelMeasureHandlers],
+    [
+      deviceNotFoundText,
+      intl,
+      onDeviceNotFoundRetry,
+      onDeviceNotFoundSupport,
+      onDeviceNotFoundTroubleshoot,
+      panelMeasureHandlers,
+    ],
   );
   const btcHighIndexPanel = useMemo(
     () => (
@@ -1740,8 +1797,10 @@ export function DeviceStage({
           capsule's words swap. The vendor track fills the same box
           itself — a product shot, or the ✓ on `done` — since those
           devices have no replica to seat here. The notice fills it with
-          the failure ✗ on both tracks — the seat gate clears the
-          replica for it. */}
+          the failure ✗ on both tracks, and the wireless waits
+          (connecting and processing) with the Bluetooth badge — the
+          seat gate clears the replica for both (the wired waits keep
+          the replica: the plugged-in device itself). */}
         <Stack
           width={CAPSULE_ROW.thumbBox}
           height={CAPSULE_ROW.thumbBox}
@@ -1753,6 +1812,9 @@ export function DeviceStage({
           ) : null}
           {capsuleGlyph === 'error' ? (
             <Icon name="XCircleSolid" size="$6" color="$iconCritical" />
+          ) : null}
+          {capsuleGlyph === 'bluetooth' ? (
+            <BluetoothBadge paused={pose !== 'capsule'} />
           ) : null}
           {capsuleGlyph === 'device' && vendorImageSource ? (
             <Image
