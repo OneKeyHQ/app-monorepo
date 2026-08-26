@@ -39,3 +39,24 @@ export function isDeviceStageOwnedHardwareUiAction({
   }
   return STAGE_OWNED_ACTIONS.has(action);
 }
+
+/**
+ * Whether the legacy container should still raise its hardware-error
+ * dialog. One failure, one surface: when the stage is on it lands the
+ * failure itself as its error outcome, but plenty of hardware work never
+ * opens a stage burst at all — device search, the firmware update
+ * workflow, calls outside any wrapper — and those failures would go
+ * unseen if this dialog stood down unconditionally.
+ */
+export function shouldLegacyContainerRaiseHardwareErrorDialog({
+  errorType,
+  stageIsShowing,
+}: {
+  errorType: string | undefined;
+  stageIsShowing: boolean;
+}): boolean {
+  if (errorType !== 'DeviceNotFound') {
+    return false;
+  }
+  return !stageIsShowing;
+}
