@@ -10019,7 +10019,6 @@ __metadata:
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@sentry/electron": "npm:7.8.0"
-    "@sentry/node-native": "npm:10.39.0"
     "@stoprocent/noble": "npm:2.3.16"
     "@types/adm-zip": "npm:^0"
     "@types/electron-localshortcut": "npm:^3.1.0"
@@ -15245,17 +15244,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sentry-internal/node-native-stacktrace@npm:^0.3.0":
-  version: 0.3.0
-  resolution: "@sentry-internal/node-native-stacktrace@npm:0.3.0"
-  dependencies:
-    detect-libc: "npm:^2.0.4"
-    node-abi: "npm:^3.73.0"
-    node-gyp: "npm:latest"
-  checksum: 10/e16bee8d8e53e524d23ac29a2214b8b34c3989b625f609f909082e8e1484d711f922b687496dd63755de57956a5884a6aaddbca0c0685fb57e99e753b6629505
-  languageName: node
-  linkType: hard
-
 "@sentry-internal/replay-canvas@npm:10.39.0":
   version: 10.39.0
   resolution: "@sentry-internal/replay-canvas@npm:10.39.0"
@@ -15577,17 +15565,6 @@ __metadata:
     "@opentelemetry/semantic-conventions":
       optional: true
   checksum: 10/63f3913d41cdd90d0b542896ab32e3c3e6c1ede5251cf5b32184043faf7530fa1e09be33ffe56768627b6ff94cc4b02a2ec38d9d18de68602e548d4fb87a8363
-  languageName: node
-  linkType: hard
-
-"@sentry/node-native@npm:10.39.0":
-  version: 10.39.0
-  resolution: "@sentry/node-native@npm:10.39.0"
-  dependencies:
-    "@sentry-internal/node-native-stacktrace": "npm:^0.3.0"
-    "@sentry/core": "npm:10.39.0"
-    "@sentry/node": "npm:10.39.0"
-  checksum: 10/012fb21afabf21f36ec9ad5c29069858a137ef7271afe640f64d22ecd5bc763574f8d6d738ab4a00a567376b2d014ceafb3566715a7208137ba7757f5cb3bf5e
   languageName: node
   linkType: hard
 
@@ -27386,7 +27363,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"detect-libc@npm:^2.0.3, detect-libc@npm:^2.0.4":
+"detect-libc@npm:^2.0.3":
   version: 2.1.2
   resolution: "detect-libc@npm:2.1.2"
   checksum: 10/b736c8d97d5d46164c0d1bed53eb4e6a3b1d8530d460211e2d52f1c552875e706c58a5376854e4e54f8b828c9cada58c855288c968522eb93ac7696d65970766
