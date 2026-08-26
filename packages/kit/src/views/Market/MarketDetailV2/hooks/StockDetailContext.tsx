@@ -4,12 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
@@ -79,6 +81,9 @@ export function StockDetailProvider({
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
+  const successfulTokenVariantsRef = useRef(
+    new Map<string, IStockTokenVariantsRequestResult>(),
+  );
 
   const {
     result: stockDetailResult,
@@ -120,13 +125,22 @@ export function StockDetailProvider({
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
             { stockId: normalizedStockId },
           );
-        return {
+        const result = {
           stockId: normalizedStockId,
           items: response.items,
           defaultTokenId: response.defaultTokenId,
         };
+        successfulTokenVariantsRef.current.set(normalizedStockId, result);
+        return result;
       } catch (_error) {
-        return { stockId: normalizedStockId, items: [], failed: true };
+        const cachedResult =
+          successfulTokenVariantsRef.current.get(normalizedStockId);
+        return {
+          stockId: normalizedStockId,
+          items: cachedResult?.items ?? [],
+          defaultTokenId: cachedResult?.defaultTokenId,
+          failed: true,
+        };
       }
     },
     [normalizedStockId],
@@ -156,18 +170,26 @@ export function StockDetailProvider({
       setSelectedTokenId(undefined);
       return;
     }
+    if (tokenVariantResult?.failed) return;
 
     const hasCurrentToken = tokenVariants.some(
-      (item) =>
-        item.tokenId === selectedTokenId && isStockTokenVariantTradable(item),
+      (item) => item.tokenId === selectedTokenId,
     );
     if (hasCurrentToken) return;
 
     const routeToken = tokenVariants.find(
       (item) =>
         isStockTokenVariantTradable(item) &&
-        item.networkId === initialNetworkId &&
-        item.contractAddress === initialTokenAddress,
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: item.networkId,
+            contractAddress: item.contractAddress,
+          },
+          token2: {
+            networkId: initialNetworkId,
+            contractAddress: initialTokenAddress,
+          },
+        }),
     );
     const defaultToken = tokenVariants.find(
       (item) =>
@@ -186,6 +208,7 @@ export function StockDetailProvider({
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
+    tokenVariantResult?.failed,
     tokenVariants,
   ]);
 

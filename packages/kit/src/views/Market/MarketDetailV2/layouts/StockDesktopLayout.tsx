@@ -229,6 +229,7 @@ function StockPriceHeader({
           <MarketTokenPrice
             size="$heading4xl"
             price={price ?? '--'}
+            cacheKey={`stock-${stockId ?? 'unknown'}-${priceMode}`}
             tokenName={stockDetail?.name ?? tokenDetail?.name ?? ''}
             tokenSymbol={
               stockDetail?.symbol ?? tokenDetail?.symbol ?? stockId ?? ''
