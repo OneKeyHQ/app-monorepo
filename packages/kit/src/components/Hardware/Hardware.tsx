@@ -18,6 +18,7 @@ import {
   Toast,
   XStack,
   YStack,
+  passwordManagerIgnoreProps,
   useTheme,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
@@ -869,6 +870,7 @@ export function ConfirmPassphrase({
         $gtMd={{
           size: 'medium',
         }}
+        {...passwordManagerIgnoreProps}
         placeholder={intl.formatMessage({
           id: ETranslations.global_enter_passphrase,
         })}
