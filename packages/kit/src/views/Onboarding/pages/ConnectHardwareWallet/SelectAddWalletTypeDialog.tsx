@@ -3,8 +3,12 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function SelectAddWalletTypeDialogContent({
   onAddStandardWalletPress,
@@ -81,10 +85,29 @@ export function useSelectAddWalletTypeDialog() {
   const showSelectAddWalletTypeDialog = useCallback(async (): Promise<
     'Standard' | 'Hidden' | undefined
   > => {
-    // OK-59934: the hardware interaction now plays on the DeviceStage,
-    // which lives in its own portal, never remounts per action and never
-    // intercepts taps — so the iOS dismiss-and-wait this used to need is
-    // gone (it would also have broken the burst holding the flow).
+    // iOS-only: dismiss the hardware-UI dialog before mounting this one.
+    // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same
+    // useOverlayZIndex stack. The hardware DialogContainer remounts on every
+    // atom action transition, so its Sheet.Overlay can end up above this
+    // dialog's Frame on iOS and intercept taps even though the wallet-type
+    // buttons appear visually on top. skipDeviceCancel:true keeps the BLE
+    // session alive; the hardware dialog naturally returns when the SDK
+    // emits its next UI event.
+    // OK-59934: the DeviceStage lives in its own portal, never remounts
+    // per action and never intercepts taps, so this dismiss-and-wait is
+    // not needed for it (and would break the burst holding the flow). It
+    // stays for the legacy surface until the cleanup pass.
+    if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
+      await hardwareUiStateDialogLifecycle.closeAndWait(() =>
+        backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: undefined,
+          skipDeviceCancel: true,
+          skipDelayClose: true,
+          reason: 'open SelectAddWalletTypeDialog',
+        }),
+      );
+    }
+
     return new Promise((resolve) => {
       const onCloseFn = async () => {
         setIsLoading(false);

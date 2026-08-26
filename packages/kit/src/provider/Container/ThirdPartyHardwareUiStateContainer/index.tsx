@@ -27,6 +27,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EThirdPartyHardwareUiAction,
+  isThirdPartyToastAction,
   thirdPartyAppInstallAtom,
   thirdPartyBatchInstallAtom,
   thirdPartyHardwareUiStateAtom,
@@ -39,6 +40,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -678,8 +680,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const [appInstallState] = useThirdPartyAppInstallAtom();
 
-  // OK-59934: the DeviceStage install steps replace this dialog.
-  const dialogActive = false && !!appInstallState;
+  // OK-59934: the DeviceStage install steps replace this dialog; it is
+  // switched off rather than deleted until the cleanup pass.
+  const dialogActive = isLegacyHardwareUiActive() && !!appInstallState;
   useEffect(() => {
     if (dialogActive) {
       // reuse the open dialog; cancel any pending close
@@ -733,13 +736,20 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   );
 
   // OK-59934: the DeviceStage plays the whole third-party rail, so this
-  // container's toast and request dialogs stay silent. The Trezor BLE
-  // binding dialog (rendered imperatively below) and the permission
-  // dialog are the exceptions — both are outside the stage's scope.
-  const isToastAction = false;
+  // container's toast and request dialogs stay silent — switched off, not
+  // deleted, until the cleanup pass. The Trezor BLE binding dialog
+  // (rendered imperatively below) and the permission dialog are the
+  // exceptions: both are outside the stage's scope and always render.
+  const legacyActive = isLegacyHardwareUiActive();
+  const isToastAction =
+    legacyActive && isThirdPartyToastAction(uiState?.action);
   const isTrezorBleBinding =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding;
-  const isDialogAction = false;
+  const isDialogAction =
+    legacyActive &&
+    !!uiState &&
+    !isThirdPartyToastAction(uiState?.action) &&
+    !isTrezorBleBinding;
 
   // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);
