@@ -32,11 +32,13 @@ const reviewSlippagePresets = [
 ];
 
 export function SwapReviewSlippageEditor({
+  disableSaveSlippageForFutureOrders = false,
   initialValue,
   savingScope,
   showTitle = true,
   onSave,
 }: {
+  disableSaveSlippageForFutureOrders?: boolean;
   initialValue: number;
   savingScope?: ISwapReviewSlippageSaveScope;
   showTitle?: boolean;
@@ -120,7 +122,7 @@ export function SwapReviewSlippageEditor({
         size={controlSize}
         borderRadius={platformEnv.isNative ? '$3' : '$2'}
         variant="secondary"
-        disabled={isSaveDisabled}
+        disabled={isSaveDisabled || disableSaveSlippageForFutureOrders}
         loading={savingScope === 'future'}
         onPress={() => handleSave('future')}
       >

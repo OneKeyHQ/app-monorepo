@@ -621,6 +621,7 @@ export interface ISwapPreSwapData {
   minToAmount?: string;
   needFetchGas?: boolean;
   swapBuildLoading?: boolean;
+  requiresSlippageRebuildOnConfirm?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
   stepBeforeActionsError?: boolean;
@@ -636,6 +637,7 @@ export interface ISwapPreSwapData {
   swapBuildResultData?: {
     swapInfo?: ISwapTxInfo;
     orderId?: string;
+    slippagePercentage?: number;
     skipSendTransAction?: boolean;
     encodedTx?: IEncodedTx;
     transferInfo?: ITransferInfo;

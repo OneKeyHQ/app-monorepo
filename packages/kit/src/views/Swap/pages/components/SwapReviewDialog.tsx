@@ -28,6 +28,7 @@ type ISwapReviewDialogProps = {
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
     config: {
@@ -42,6 +43,7 @@ function SwapReviewDialogContent({
   adapter,
   approveTransactionSource,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   defaultCustomPriorityFee,
   defaultNetworkFeeLevel,
   showCustomNetworkFeeOption,
@@ -51,6 +53,7 @@ function SwapReviewDialogContent({
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
@@ -70,9 +73,9 @@ function SwapReviewDialogContent({
   return (
     <PreSwapDialogContent
       disableGlobalApproveSync={disableGlobalApproveSync}
+      disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       onConfirm={() => {
-        onConfirmStart?.();
-        onConfirm();
+        onConfirm(onConfirmStart);
       }}
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
@@ -96,6 +99,7 @@ export function SwapReviewDialog({
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
     config: {
@@ -128,6 +132,9 @@ export function SwapReviewDialog({
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
             disableGlobalApproveSync={disableGlobalApproveSync}
+            disableSaveSlippageForFutureOrders={
+              disableSaveSlippageForFutureOrders
+            }
             defaultNetworkFeeLevel={defaultNetworkFeeLevel}
             defaultCustomPriorityFee={defaultCustomPriorityFee}
             showCustomNetworkFeeOption={showCustomNetworkFeeOption}

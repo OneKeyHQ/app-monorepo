@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -242,7 +243,7 @@ export function useSwapReviewActions({
     ],
   );
 
-  const rebuildReviewWithSlippage = useCallback(
+  const rebuildReviewStateWithSlippage = useCallback(
     async (slippagePercentage: number) => {
       const frozenQuoteResult = swapStepsStateRef.current.quoteResult;
       const rebuildReview = adapterRef.current.rebuildReview;
@@ -277,6 +278,7 @@ export function useSwapReviewActions({
           throw new OneKeyLocalError('Swap review changed while rebuilding');
         }
         replaceReviewState(reviewState);
+        return reviewState;
       } catch (error) {
         if (
           requestId === rebuildReviewRequestIdRef.current &&
@@ -295,6 +297,13 @@ export function useSwapReviewActions({
       }
     },
     [replaceReviewState, setSwapSteps],
+  );
+
+  const rebuildReviewWithSlippage = useCallback(
+    async (slippagePercentage: number) => {
+      await rebuildReviewStateWithSlippage(slippagePercentage);
+    },
+    [rebuildReviewStateWithSlippage],
   );
 
   const preSwapStepsStart = useCallback(
@@ -536,9 +545,35 @@ export function useSwapReviewActions({
     updateStep,
   ]);
 
-  const onConfirm = useCallback(() => {
-    void preSwapStepsStart();
-  }, [preSwapStepsStart]);
+  const onConfirm = useCallback(
+    (onConfirmStart?: () => void) => {
+      const confirm = async () => {
+        const currentReviewState = swapStepsStateRef.current;
+        if (currentReviewState.preSwapData.requiresSlippageRebuildOnConfirm) {
+          const slippagePercentage = currentReviewState.preSwapData.slippage;
+          if (typeof slippagePercentage !== 'number') {
+            throw new OneKeyLocalError(
+              'Invalidated swap review is missing slippage',
+            );
+          }
+          const rebuiltReviewState =
+            await rebuildReviewStateWithSlippage(slippagePercentage);
+          onConfirmStart?.();
+          await preSwapStepsStart(rebuiltReviewState);
+          return;
+        }
+
+        onConfirmStart?.();
+        await preSwapStepsStart();
+      };
+
+      void confirm().catch((error) => {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      });
+    },
+    [preSwapStepsStart, rebuildReviewStateWithSlippage],
+  );
 
   return {
     onConfirm,

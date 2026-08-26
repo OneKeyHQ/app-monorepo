@@ -41,6 +41,7 @@ import {
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
+  EMarketPresetKey,
   EMarketPresetTradeSide,
   getMarketNonPresetSlippageValue,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
@@ -644,6 +645,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
           renderContent: (
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
+              disableSaveSlippageForFutureOrders={
+                marketPresetSettings.enabled &&
+                marketPresetSettings.selectedPresetKey === EMarketPresetKey.AUTO
+              }
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
               showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}

@@ -108,6 +108,7 @@ function createReviewState({
 function createAdapter(): jest.Mocked<IMarketSwapReviewAdapter> {
   return {
     prepareReview: jest.fn(),
+    rebuildReview: jest.fn(),
     sendApproveTx: jest.fn(),
     sendSwapTx: jest.fn(),
     sendWrappedTx: jest.fn(),
@@ -271,6 +272,106 @@ describe('useMarketSwapReviewActions', () => {
         networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
       }),
     );
+  });
+
+  it('rebuilds an invalidated slippage review before starting confirmation', async () => {
+    const adapter = createAdapter();
+    const rebuildReview = jest.fn();
+    adapter.rebuildReview = rebuildReview;
+    const onConfirmStart = jest.fn();
+    const rebuiltGasInfos = [
+      {
+        encodeTx: { data: '0xrebuilt' } as never,
+        gasInfo: {} as never,
+      },
+    ];
+    const rebuiltReviewState = createReviewState({
+      steps: [
+        {
+          type: ESwapStepType.SEND_TX,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+      quoteResult: createQuoteResult({
+        slippage: 1,
+      }),
+      preSwapData: {
+        slippage: 1,
+        swapBuildResultData: {
+          orderId: 'rebuilt-order',
+        },
+        netWorkFee: {
+          gasFeeFiatValue: '1.23',
+          gasInfos: rebuiltGasInfos,
+        },
+      },
+    });
+    rebuildReview.mockResolvedValue(rebuiltReviewState);
+    adapter.sendSwapTx.mockImplementation(async (params) => {
+      params?.onBroadcast?.({ txHash: '0xswap' });
+    });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            quoteResult: createQuoteResult({
+              slippage: 1,
+            }),
+            preSwapData: {
+              slippage: 1,
+              swapBuildResultData: undefined,
+              netWorkFee: undefined,
+              requiresSlippageRebuildOnConfirm: true,
+            },
+          }),
+        ),
+      },
+    );
+
+    act(() => {
+      result.current.actions.onConfirm(onConfirmStart);
+    });
+
+    await waitFor(() => {
+      expect(adapter.sendSwapTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gasInfos: rebuiltGasInfos,
+          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+        }),
+      );
+    });
+    expect(rebuildReview).toHaveBeenCalledWith({
+      slippagePercentage: 1,
+      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      customPriorityFee: undefined,
+    });
+    expect(onConfirmStart).toHaveBeenCalledTimes(1);
+    expect(onConfirmStart.mock.invocationCallOrder[0]).toBeLessThan(
+      adapter.sendSwapTx.mock.invocationCallOrder[0],
+    );
+    expect(result.current.swapSteps.preSwapData).toEqual(
+      expect.objectContaining({
+        slippage: 1,
+      }),
+    );
+    expect(
+      result.current.swapSteps.preSwapData.requiresSlippageRebuildOnConfirm,
+    ).toBeUndefined();
   });
 
   it('keeps preSwapStepsStart stable across swap step updates', async () => {
