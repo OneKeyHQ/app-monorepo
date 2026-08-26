@@ -269,6 +269,18 @@ export function DesktopLayout({
       tokenDetail?.symbol,
     ],
   );
+  // The stock detail layout has no toolbar row of its own in Pro: it lays the
+  // Simple/Pro switch over the trailing edge of this widget's control row
+  // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
+  // own trailing controls — the chart-source dropdown and the expand toggle —
+  // are dropped there to make room for it. Every other assembly keeps both.
+  const hideChartTrailingControls = isStockToken && !isChartFullscreen;
+  const stockAwareChartSwitch = hideChartTrailingControls
+    ? undefined
+    : onChartSwitch;
+  const stockAwareFullscreenChange = hideChartTrailingControls
+    ? undefined
+    : handleChartFullscreenChange;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ? (
@@ -281,8 +293,12 @@ export function DesktopLayout({
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
           isChartSwitchDisabled={!marketTradingViewParams}
-          onChartSwitch={onChartSwitch}
-          onNativeChartFullscreenChange={handleChartFullscreenChange}
+          // The stock layout embeds the widget flush in its own chart block, so
+          // the control row's inset would push the first interval clear of the
+          // plot's leading edge instead of sitting over it.
+          nativeControlsFlushHorizontalInset={hideChartTrailingControls}
+          onChartSwitch={stockAwareChartSwitch}
+          onNativeChartFullscreenChange={stockAwareFullscreenChange}
         />
       ) : null;
     }
@@ -307,19 +323,20 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={isStockToken}
-        onChartSwitch={onChartSwitch}
-        onNativeChartFullscreenChange={handleChartFullscreenChange}
+        onChartSwitch={stockAwareChartSwitch}
+        onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
     );
   }, [
-    handleChartFullscreenChange,
     handleTradingViewTouchScroll,
+    hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
     isStockToken,
     marketTradingViewParams,
     networkId,
-    onChartSwitch,
+    stockAwareChartSwitch,
+    stockAwareFullscreenChange,
     tradingViewNativeSource,
   ]);
 

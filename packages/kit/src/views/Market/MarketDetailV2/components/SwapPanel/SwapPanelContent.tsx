@@ -30,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { StockTokenInfoPopover } from '../StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '../TokenSelector/StockTokenVariantSelector';
 
 import { ActionButton } from './components/ActionButton';
@@ -393,12 +394,15 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           )}
         </XStack>
 
+        {/* Figma 25672:54925: 44 tall, inset 4 on the left so the variant
+            trigger's hover pill can bleed back over the panel padding. */}
         <XStack
           testID="stock-trade-target"
           height={44}
+          pl="$1"
           alignItems="center"
           justifyContent="space-between"
-          gap="$3"
+          gap="$2"
         >
           <StockTokenVariantSelector portfolioData={portfolioData} />
           <XStack alignItems="center" justifyContent="flex-end" gap="$3">
@@ -409,7 +413,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               currency="$"
               size="$bodyLgMedium"
             />
-            <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
+            <StockTokenInfoPopover />
           </XStack>
         </XStack>
 

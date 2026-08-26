@@ -21,9 +21,111 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../hooks/StockDetailContext';
-import { STAT_FALLBACK_VALUE } from '../../utils/statValue';
-import { getStockEventMetadataRows } from '../../utils/stockPublicDataUtils';
+import {
+  STAT_FALLBACK_VALUE,
+  formatCurrencyStatValue,
+} from '../../utils/statValue';
+import { formatDirectPercentValue } from '../../utils/stockPublicDataUtils';
 import { STOCK_DETAIL_HORIZONTAL_GUTTER } from '../stockDesktopLayoutConstants';
+
+const STOCK_EVENT_ROW_HEIGHT = 72;
+const STOCK_EVENT_CALENDAR_SIZE = 56;
+// The detail column is padded by 3px so its collapsed height (3 + 24 + 6 + 20 +
+// 3) matches the 56px calendar block sitting next to it.
+const STOCK_EVENT_DETAIL_VERTICAL_PADDING = 3;
+
+type IFormatDate = ReturnType<typeof useFormatDate>['formatDate'];
+
+type IStockEventDetailLine = {
+  key: string;
+  text: string;
+};
+
+/**
+ * Labels are sentence case to match the design ("EPS estimate", not "Eps
+ * Estimated"). Keys the backend sends but the design never spelled out fall
+ * back to a camelCase split so they still render as one `Label: value` line.
+ */
+const STOCK_EVENT_METADATA_LABELS: Record<string, string> = {
+  epsEstimated: 'EPS estimate',
+  epsActual: 'EPS actual',
+  revenueEstimated: 'Revenue estimate',
+  revenueActual: 'Revenue actual',
+  dividendPerShare: 'Dividend per share',
+  adjustedDividendPerShare: 'Adjusted dividend per share',
+  dividendYield: 'Dividend yield',
+  declarationDate: 'Declaration date',
+  recordDate: 'Record date',
+  paymentDate: 'Payment date',
+  frequency: 'Frequency',
+  lastUpdated: 'Last updated',
+};
+
+const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
+  'epsEstimated',
+  'epsActual',
+  'revenueEstimated',
+  'revenueActual',
+  'dividendPerShare',
+  'adjustedDividendPerShare',
+]);
+
+const STOCK_EVENT_PERCENT_METADATA_KEYS = new Set(['dividendYield']);
+
+const STOCK_EVENT_DATE_METADATA_KEYS = new Set([
+  'declarationDate',
+  'recordDate',
+  'paymentDate',
+  'lastUpdated',
+]);
+
+function getStockEventMetadataLabel(key: string) {
+  return (
+    STOCK_EVENT_METADATA_LABELS[key] ??
+    key
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .replace(/^./, (character) => character.toUpperCase())
+  );
+}
+
+function formatStockEventMetadataValue(
+  key: string,
+  value: string | number,
+  formatDate: IFormatDate,
+) {
+  if (STOCK_EVENT_CURRENCY_METADATA_KEYS.has(key)) {
+    return formatCurrencyStatValue(value);
+  }
+  if (STOCK_EVENT_PERCENT_METADATA_KEYS.has(key)) {
+    return formatDirectPercentValue(value);
+  }
+  if (STOCK_EVENT_DATE_METADATA_KEYS.has(key) && typeof value === 'string') {
+    return formatDate(value, { hideTimeForever: true }) || value;
+  }
+  return String(value);
+}
+
+/**
+ * The expanded design lists every metadata field as its own `Label: value`
+ * line inside the detail column, so there is no row cap here.
+ */
+function getStockEventDetailLines(
+  event: IMarketStockEvent,
+  formatDate: IFormatDate,
+): IStockEventDetailLine[] {
+  if (!event.metadata) return [];
+  return Object.entries(event.metadata).flatMap(([key, value]) => {
+    if (value === null || value === undefined || value === '') return [];
+    const label = getStockEventMetadataLabel(key);
+    const formattedValue = formatStockEventMetadataValue(
+      key,
+      value,
+      formatDate,
+    );
+    return [{ key, text: `${label}: ${formattedValue}` }];
+  });
+}
 
 function getStockEventTitle(event: IMarketStockEvent) {
   if (event.type === 'earnings') return 'Earnings';
@@ -51,76 +153,87 @@ function StockEventRow({
   event: IMarketStockEvent;
   isPast: boolean;
 }) {
-  const { format } = useFormatDate();
+  const { format, formatDate } = useFormatDate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const metadataRows = getStockEventMetadataRows(event);
+  const detailLines = getStockEventDetailLines(event, formatDate);
 
   return (
-    <YStack opacity={isPast ? 0.62 : 1} gap="$3">
+    <YStack opacity={isPast ? 0.62 : 1}>
       <XStack
         testID={`stock-event-${event.id}`}
-        minHeight={52}
-        alignItems="center"
-        gap="$3.5"
+        minHeight={STOCK_EVENT_ROW_HEIGHT}
+        alignItems="flex-start"
+        gap="$4"
+        py="$2"
         cursor="pointer"
         hoverStyle={{ opacity: 0.8 }}
         pressStyle={{ opacity: 0.8 }}
         onPress={() => setIsExpanded((value) => !value)}
       >
         <YStack
-          width={52}
-          height={52}
-          borderRadius="$3"
+          width={STOCK_EVENT_CALENDAR_SIZE}
+          height={STOCK_EVENT_CALENDAR_SIZE}
+          borderRadius="$2"
           bg="$bgSubdued"
           alignItems="center"
           justifyContent="center"
-          gap="$0.5"
           flexShrink={0}
         >
-          <SizableText size="$bodyMdMedium">
-            {format(event.date, 'd')}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$headingMd">{format(event.date, 'd')}</SizableText>
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
             {format(event.date, 'MMM')}
           </SizableText>
         </YStack>
-        <YStack flex={1} minWidth={0} gap="$1.5">
+        <YStack
+          flex={1}
+          minWidth={0}
+          gap="$1.5"
+          py={STOCK_EVENT_DETAIL_VERTICAL_PADDING}
+        >
           <XStack alignItems="center" gap="$2">
-            <SizableText size="$bodyMdMedium">
+            <SizableText size="$headingLg">
               {getStockEventTitle(event)}
             </SizableText>
             {event.status === 'scheduled' ? (
-              <Stack px="$2" py="$0.5" borderRadius="$1" bg="$bgInfoSubdued">
-                <SizableText size="$bodyXsMedium" color="$textInfo">
+              <Stack
+                px="$2"
+                py="$0.5"
+                minWidth={36}
+                alignItems="center"
+                justifyContent="center"
+                borderRadius="$1"
+                bg="$bgInfoSubdued"
+              >
+                <SizableText size="$bodySmMedium" color="$textInfo">
                   Upcoming
                 </SizableText>
               </Stack>
             ) : null}
           </XStack>
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {getStockEventDescription(event)}
-          </SizableText>
-        </YStack>
-        <Icon
-          name={
-            isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-          }
-          size="$4"
-          color="$iconSubdued"
-        />
-      </XStack>
-      {isExpanded && metadataRows.length > 0 ? (
-        <YStack pl={66} gap="$2">
-          {metadataRows.map((row) => (
-            <XStack key={row.key} justifyContent="space-between" gap="$4">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {row.label}
+          {isExpanded && detailLines.length > 0 ? (
+            detailLines.map((line) => (
+              <SizableText key={line.key} size="$bodyMd" color="$textSubdued">
+                {line.text}
               </SizableText>
-              <SizableText size="$bodySmMedium">{row.value}</SizableText>
-            </XStack>
-          ))}
+            ))
+          ) : (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {getStockEventDescription(event)}
+            </SizableText>
+          )}
         </YStack>
-      ) : null}
+        {/* The chevron keeps its own 16px vertical padding so it stays near the
+        title row instead of centering against the expanded detail lines. */}
+        <XStack alignItems="center" py="$4" flexShrink={0}>
+          <Icon
+            name={
+              isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+            }
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </XStack>
     </YStack>
   );
 }
@@ -172,13 +285,13 @@ export function StockEventsSection() {
       testID="stock-detail-events"
       px={STOCK_DETAIL_HORIZONTAL_GUTTER}
       py="$8"
-      gap="$5"
+      gap="$4"
     >
       <SizableText size="$headingXl">Events</SizableText>
       {isLoading && events.length === 0 ? (
         <YStack gap="$5">
-          <Skeleton width="100%" height={52} />
-          <Skeleton width="100%" height={52} />
+          <Skeleton width="100%" height={STOCK_EVENT_ROW_HEIGHT} />
+          <Skeleton width="100%" height={STOCK_EVENT_ROW_HEIGHT} />
         </YStack>
       ) : null}
       {!isLoading && result.status === 'error' ? (
@@ -210,23 +323,19 @@ export function StockEventsSection() {
           </SizableText>
         </YStack>
       ) : null}
-      {upcomingEvents.length > 0 ? (
-        <YStack gap="$5">
+      {events.length > 0 ? (
+        <YStack gap="$2">
           {upcomingEvents.map((event) => (
             <StockEventRow key={event.id} event={event} isPast={false} />
           ))}
-        </YStack>
-      ) : null}
-      {pastEvents.length > 0 ? (
-        <YStack gap="$3">
-          <SizableText size="$bodySm" color="$textSubdued">
-            Past events
-          </SizableText>
-          <YStack gap="$5">
-            {pastEvents.map((event) => (
-              <StockEventRow key={event.id} event={event} isPast />
-            ))}
-          </YStack>
+          {pastEvents.length > 0 ? (
+            <SizableText size="$bodyMd" color="$textSubdued" pt="$2">
+              Past events
+            </SizableText>
+          ) : null}
+          {pastEvents.map((event) => (
+            <StockEventRow key={event.id} event={event} isPast />
+          ))}
         </YStack>
       ) : null}
     </YStack>

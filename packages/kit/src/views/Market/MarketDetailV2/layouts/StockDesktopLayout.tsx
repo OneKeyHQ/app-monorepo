@@ -1,20 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   Icon,
+  NumberSizeableText,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
+import {
+  type IMarketPriceSource,
+  useMarketPriceSourceAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type {
@@ -25,6 +33,11 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
+import {
+  STOCK_ANALYST_GAUGE_HEIGHT,
+  STOCK_ANALYST_GAUGE_WIDTH,
+  StockAnalystGauge,
+} from '../components/StockAnalystGauge';
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
@@ -39,28 +52,37 @@ import {
   formatCurrencyStatValue,
   formatMarketCapValue,
   formatPercentValue,
+  formatPriceChangeDisplay,
   formatRatioValue,
 } from '../utils/statValue';
 import {
   STOCK_ABOUT_IPO_DATE_LABEL,
+  buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
-  getStockAnalystConsensus,
 } from '../utils/stockPublicDataUtils';
 
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
 import {
   STOCK_DETAIL_COLUMN_GAP,
-  STOCK_DETAIL_CONTENT_OFFSET,
-  STOCK_DETAIL_CONTENT_WIDTH,
+  STOCK_DETAIL_CONTENT_MAX_WIDTH,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
-  STOCK_DETAIL_MAIN_WIDTH,
   STOCK_DETAIL_TRADE_PANEL_WIDTH,
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
-type IStockPriceMode = 'share' | 'token';
 type IStockChartMode = 'simple' | 'pro';
+
+// Height of the whole chart block, and of the toolbar row that leads it in
+// Simple mode (Figma 25476:88857 / 25476:88858).
+const STOCK_CHART_HEIGHT = 360;
+const STOCK_CHART_TOOLBAR_HEIGHT = 40;
+// Pro drops the toolbar row and lays the Simple/Pro switch over the trailing
+// edge of the TradingView widget's own interval row instead. Both that row and
+// the Simple toolbar inset their contents by 4px from the top of the chart
+// block, so one offset puts the switch on the widget's line in Pro and leaves
+// it in exactly the same place when the mode is toggled.
+const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
 
 const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
   '1H',
@@ -93,7 +115,7 @@ function StockPageHeader({
   return (
     <XStack
       testID="stock-token-detail-header"
-      width={STOCK_DETAIL_CONTENT_WIDTH}
+      width="100%"
       height={72}
       px={STOCK_DETAIL_HORIZONTAL_GUTTER}
       py="$3"
@@ -111,9 +133,19 @@ function StockPageHeader({
             gap="$3.5"
             minWidth={0}
             cursor="pointer"
-            borderRadius="$3"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.6 }}
+            // Hovering paints a rounded-full pill that reaches 8px past the
+            // content horizontally and 4px vertically. Each negative margin is
+            // cancelled by matching padding, so the row itself never moves.
+            ml={-8}
+            mr={-8}
+            my={-4}
+            pl={8}
+            pr={8}
+            py={4}
+            borderRadius="$full"
+            borderCurve="continuous"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
           >
             <Token
               size="xl"
@@ -125,21 +157,14 @@ function StockPageHeader({
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack minWidth={0} justifyContent="center">
-              <XStack alignItems="center" gap="$1.5">
-                <SizableText size="$headingXl" numberOfLines={1}>
-                  {stockDetail?.symbol ||
-                    stock?.underlyingAssetTicker ||
-                    stock?.title ||
-                    tokenDetail?.symbol ||
-                    stockId ||
-                    ''}
-                </SizableText>
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  size="$4"
-                  color="$iconSubdued"
-                />
-              </XStack>
+              <SizableText size="$headingXl" numberOfLines={1}>
+                {stockDetail?.symbol ||
+                  stock?.underlyingAssetTicker ||
+                  stock?.title ||
+                  tokenDetail?.symbol ||
+                  stockId ||
+                  ''}
+              </SizableText>
               <SizableText
                 size="$bodyMdMedium"
                 color="$textSubdued"
@@ -151,13 +176,20 @@ function StockPageHeader({
                   ''}
               </SizableText>
             </YStack>
+            {/* Figma 25277:10352: the chevron closes the whole pill and is
+                centered on it, not tucked beside the ticker. */}
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
           </XStack>
         }
       />
 
-      {networkId ? (
+      {networkId || stockId ? (
         <XStack alignItems="center" gap="$4">
-          {showFavoriteButton ? (
+          {showFavoriteButton && networkId ? (
             <MarketStarV2
               chainId={networkId}
               contractAddress={tokenDetail?.address ?? ''}
@@ -172,6 +204,9 @@ function StockPageHeader({
             networkId={networkId}
             address={tokenDetail?.address ?? ''}
             isNative={isNative}
+            // Share the stock listing itself, not the token variant that
+            // happens to be selected on the page.
+            stockId={stockId}
             useIconButton
             size="small"
           />
@@ -181,32 +216,142 @@ function StockPageHeader({
   );
 }
 
-function StockPriceHeader({
+// The design shows the move with two decimals ("+$9.46") while the derived and
+// scrubbed figures carry full precision, so clamp for display — but only above
+// one cent, sub-cent moves keep the price formatter's adaptive precision.
+function roundPriceChangeForDisplay(value: BigNumber) {
+  return value.abs().gte(0.01) ? value.decimalPlaces(2) : value;
+}
+
+// Live headline price. Split out of the header so the scrub branch can render a
+// plain figure without ever reaching MarketTokenPrice's cache.
+function StockLivePrice({
+  price,
   priceMode,
-  onPriceModeChange,
+  isSharePrice,
 }: {
-  priceMode: IStockPriceMode;
-  onPriceModeChange: (mode: IStockPriceMode) => void;
+  price?: string;
+  priceMode: IMarketPriceSource;
+  isSharePrice: boolean;
 }) {
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
+
+  if (!price) {
+    // MarketTokenPrice caches by name+symbol and only accepts a newer
+    // `lastUpdated`, so feeding it a placeholder while the feed is still
+    // loading stamps '--' with the current clock and the real price that
+    // arrives afterwards (carrying an older quote timestamp) can never
+    // replace it. Hold the placeholder outside the cache instead.
+    return <SizableText size="$heading4xl">{STAT_FALLBACK_VALUE}</SizableText>;
+  }
+
+  return (
+    <MarketTokenPrice
+      size="$heading4xl"
+      price={price}
+      // MarketTokenPrice de-dupes by name+symbol and keeps whichever price
+      // carries the newest timestamp. Both modes describe the same instrument,
+      // so under one key the token price wins in share mode too — give each
+      // mode its own cache entry.
+      tokenName={`${stockDetail?.name ?? tokenDetail?.name ?? ''}:${priceMode}`}
+      tokenSymbol={stockDetail?.symbol ?? tokenDetail?.symbol ?? stockId ?? ''}
+      lastUpdated={
+        isSharePrice
+          ? stockDetail?.quoteUpdatedAt
+          : tokenDetail?.lastUpdated?.toString()
+      }
+    />
+  );
+}
+
+function StockPriceHeader({
+  priceMode,
+  onPriceModeChange,
+  hoverPoint,
+}: {
+  priceMode: IMarketPriceSource;
+  onPriceModeChange: (mode: IMarketPriceSource) => void;
+  // Set while the pointer scrubs the simple chart: the header then reads the
+  // point under the crosshair instead of the live quote.
+  hoverPoint?: IStockPriceLineChartHoverPoint;
+}) {
+  const { tokenDetail } = useTokenDetail();
+  const { stockDetail, selectedTokenVariant } = useStockDetail();
   const isSharePrice = priceMode === 'share';
   const price = isSharePrice ? stockDetail?.price : tokenDetail?.price;
-  const priceChange = isSharePrice
+  const priceChangePercent = isSharePrice
     ? stockDetail?.priceChange24hPercent
     : tokenDetail?.priceChange24hPercent;
+  const reportedPriceChangeValue = isSharePrice
+    ? stockDetail?.priceChange24hValue
+    : undefined;
+  // Only the share feed reports the absolute move. Everywhere else it is
+  // derived from the percentage and the price shown next to it, so the two
+  // figures on the line can never disagree.
+  const priceChangeValue = useMemo(() => {
+    if (reportedPriceChangeValue) {
+      const reported = new BigNumber(reportedPriceChangeValue);
+      if (reported.isFinite()) {
+        return roundPriceChangeForDisplay(reported);
+      }
+    }
+    if (price === undefined || priceChangePercent === undefined) {
+      return undefined;
+    }
+    const priceBN = new BigNumber(price);
+    const percentBN = new BigNumber(priceChangePercent);
+    if (!priceBN.isFinite() || !percentBN.isFinite()) {
+      return undefined;
+    }
+    const ratio = percentBN.dividedBy(100).plus(1);
+    if (ratio.isZero() || !ratio.isFinite()) {
+      return undefined;
+    }
+    return roundPriceChangeForDisplay(priceBN.minus(priceBN.dividedBy(ratio)));
+  }, [price, priceChangePercent, reportedPriceChangeValue]);
+  const { color: priceChangeColor } =
+    formatPriceChangeDisplay(priceChangePercent);
   const stockStatus = useMemo<IMarketStockInfo | undefined>(() => {
     if (!stockDetail) return tokenDetail?.stock;
-    return {
-      subtitle: stockDetail.name,
-      sourceLogoUri: stockDetail.logoUrl,
-      isOpen: stockDetail.marketStatus?.isOpen,
-      description:
-        stockDetail.marketStatus?.reason ??
-        stockDetail.marketStatus?.session ??
-        undefined,
-    };
-  }, [stockDetail, tokenDetail?.stock]);
+    // The public stock feed describes the underlying listing and carries no
+    // issuer, so the badge's source has to come from the token wrapping it —
+    // without one `resolveUSMarketStatusVariant` returns no variant and the
+    // badge renders nothing at all.
+    return buildStockInfoFromPublicDetail(stockDetail, {
+      source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
+      isPaused:
+        tokenDetail?.stock?.isPaused ??
+        selectedTokenVariant?.tradingHours?.isPaused,
+    });
+  }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
+
+  // Scrubbing only redirects the two figures on the price line: the headline
+  // becomes the hovered price and the move beside it is measured from the first
+  // point of the range, both in the places they already occupy. The
+  // market-status badge stays put, and the moment being read is answered by the
+  // label that follows the crosshair inside the plot. The scrub price is
+  // rendered outside MarketTokenPrice on purpose — that component caches by
+  // name+symbol and would poison the live quote.
+  const { color: hoverChangeColor } = formatPriceChangeDisplay(
+    hoverPoint?.changePercent,
+  );
+  const hoverChangeValue = useMemo(() => {
+    if (!hoverPoint?.changeValue) {
+      return undefined;
+    }
+    const value = new BigNumber(hoverPoint.changeValue);
+    return value.isFinite()
+      ? roundPriceChangeForDisplay(value).toFixed()
+      : undefined;
+  }, [hoverPoint?.changeValue]);
+  const changeValueText = hoverPoint
+    ? hoverChangeValue
+    : priceChangeValue?.toFixed();
+  const changePercentText = hoverPoint
+    ? hoverPoint.changePercent
+    : priceChangePercent;
+  const changeColor = hoverPoint ? hoverChangeColor : priceChangeColor;
 
   return (
     <XStack
@@ -217,34 +362,55 @@ function StockPriceHeader({
     >
       <YStack flex={1} gap="$2">
         <XStack alignItems="baseline" gap="$3.5">
-          <MarketTokenPrice
-            size="$heading4xl"
-            price={price ?? '--'}
-            tokenName={stockDetail?.name ?? tokenDetail?.name ?? ''}
-            tokenSymbol={
-              stockDetail?.symbol ?? tokenDetail?.symbol ?? stockId ?? ''
-            }
-            lastUpdated={
-              isSharePrice
-                ? stockDetail?.quoteUpdatedAt
-                : tokenDetail?.lastUpdated?.toString()
-            }
-          />
-          <PriceChangePercentage size="$bodyLgMedium">
-            {priceChange ?? '--'}
-          </PriceChangePercentage>
+          {hoverPoint ? (
+            <NumberSizeableText
+              testID="stock-price-hover-value"
+              size="$heading4xl"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              {hoverPoint.price}
+            </NumberSizeableText>
+          ) : (
+            <StockLivePrice
+              price={price}
+              priceMode={priceMode}
+              isSharePrice={isSharePrice}
+            />
+          )}
+          <XStack alignItems="baseline" gap="$1.5">
+            {changeValueText ? (
+              <NumberSizeableText
+                testID="stock-price-change-value"
+                size="$bodyLgMedium"
+                color={changeColor}
+                formatter="price"
+                formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+              >
+                {changeValueText}
+              </NumberSizeableText>
+            ) : null}
+            <XStack alignItems="baseline">
+              {changeValueText ? (
+                <SizableText size="$bodyLgMedium" color={changeColor}>
+                  (
+                </SizableText>
+              ) : null}
+              <PriceChangePercentage size="$bodyLgMedium">
+                {changePercentText ?? '--'}
+              </PriceChangePercentage>
+              {changeValueText ? (
+                <SizableText size="$bodyLgMedium" color={changeColor}>
+                  )
+                </SizableText>
+              ) : null}
+            </XStack>
+          </XStack>
         </XStack>
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      <XStack
-        mt="$1"
-        width={191}
-        height={38}
-        py="$1"
-        gap="$0.5"
-        alignItems="center"
-      >
+      <XStack width={191} height={38} py="$1" gap="$0.5" alignItems="center">
         <Button
           testID="stock-price-mode-share"
           width={94}
@@ -289,8 +455,10 @@ function StockChartModeControl({
   mode: IStockChartMode;
   onChange: (mode: IStockChartMode) => void;
 }) {
+  // Figma 25476:88969: Simple (62) and Pro (40) sit 2px apart, exactly like the
+  // range selector on the other end of the toolbar.
   return (
-    <XStack height={32} alignItems="center" gap="$3">
+    <XStack height={32} alignItems="center" gap="$0.5">
       <Button
         testID="stock-chart-mode-simple"
         width={62}
@@ -325,175 +493,201 @@ function StockChartModeControl({
   );
 }
 
-function StockChart({ marketTradingView }: { marketTradingView: ReactNode }) {
+function StockChart({
+  marketTradingView,
+  priceMode,
+  onHoverChange,
+}: {
+  marketTradingView: ReactNode;
+  priceMode: IMarketPriceSource;
+  onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+}) {
   const [mode, setMode] = useState<IStockChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
+  const isSimpleMode = mode === 'simple';
 
-  if (mode === 'pro') {
-    return (
-      <Stack width="100%" height={360} position="relative" overflow="hidden">
-        {marketTradingView}
-        <XStack
-          testID="stock-chart-mode-control-pro"
-          position="absolute"
-          top={4}
-          right={190}
-          zIndex={10}
-          height={32}
-          width={114}
-          bg="$bgApp"
-          alignItems="center"
-        >
-          <StockChartModeControl mode={mode} onChange={setMode} />
-        </XStack>
-      </Stack>
-    );
-  }
-
+  // Simple leads the chart with its own toolbar row (Figma 25476:88858): range
+  // selector on the left, Simple/Pro on the right.
+  //
+  // Pro has no toolbar row of its own — a second row above the widget wasted a
+  // line and read as detached from the chart. The widget takes the full block
+  // and the switch is laid over the trailing edge of the widget's own interval
+  // row, so both modes show it on the same line and the chart body below never
+  // shifts between them.
   return (
-    <YStack width="100%" height={360} gap="$4">
-      <XStack
-        width="100%"
-        height={40}
-        py="$1"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <XStack width={214} alignItems="center" gap="$0.5">
-          {STOCK_SIMPLE_CHART_RANGES.map((item) => {
-            const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
-            return (
-              <Stack
-                key={item}
-                width={itemWidth}
-                minWidth={itemWidth}
-                height={32}
-                flexShrink={0}
-              >
-                <Button
-                  testID={`stock-chart-range-${item}`}
-                  width="100%"
+    <YStack
+      width="100%"
+      height={STOCK_CHART_HEIGHT}
+      gap={isSimpleMode ? '$4' : '$0'}
+      position="relative"
+    >
+      {isSimpleMode ? (
+        <XStack
+          testID="stock-chart-toolbar"
+          width="100%"
+          height={STOCK_CHART_TOOLBAR_HEIGHT}
+          py="$1"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <XStack width={214} alignItems="center" gap="$0.5">
+            {STOCK_SIMPLE_CHART_RANGES.map((item) => {
+              const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
+              return (
+                <Stack
+                  key={item}
+                  width={itemWidth}
                   minWidth={itemWidth}
                   height={32}
-                  m="$0"
-                  px="$2"
-                  borderWidth={0}
-                  size="small"
-                  variant={range === item ? 'secondary' : 'tertiary'}
-                  borderRadius="$full"
-                  onPress={() => setRange(item)}
+                  flexShrink={0}
                 >
-                  {item}
-                </Button>
-              </Stack>
-            );
-          })}
+                  <Button
+                    testID={`stock-chart-range-${item}`}
+                    width="100%"
+                    minWidth={itemWidth}
+                    height={32}
+                    m="$0"
+                    px="$2"
+                    borderWidth={0}
+                    size="small"
+                    variant={range === item ? 'secondary' : 'tertiary'}
+                    borderRadius="$full"
+                    onPress={() => setRange(item)}
+                  >
+                    {item}
+                  </Button>
+                </Stack>
+              );
+            })}
+          </XStack>
+          <Stack testID="stock-chart-mode-control">
+            <StockChartModeControl mode={mode} onChange={setMode} />
+          </Stack>
         </XStack>
-        <StockChartModeControl mode={mode} onChange={setMode} />
-      </XStack>
-      <StockSimpleChart range={range} />
+      ) : null}
+      {isSimpleMode ? (
+        <StockSimpleChart
+          range={range}
+          priceMode={priceMode}
+          onHoverChange={onHoverChange}
+        />
+      ) : (
+        <>
+          <Stack flex={1} minWidth={0} overflow="hidden">
+            {marketTradingView}
+          </Stack>
+          <Stack
+            testID="stock-chart-mode-control-pro"
+            position="absolute"
+            top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
+            right={0}
+            // The widget's control row is a horizontal scroller that now runs
+            // the full width; an opaque backdrop keeps a long toolbar from
+            // showing through the switch instead of ending behind it.
+            bg="$bgApp"
+            pl="$2"
+            zIndex={4}
+          >
+            <StockChartModeControl mode={mode} onChange={setMode} />
+          </Stack>
+        </>
+      )}
     </YStack>
   );
 }
 
+// Design ships a 3 x 4 grid of twelve figures. The four financial metrics in
+// the last rows are not part of the public stock payload yet, so they fall back
+// to `--` until the backend requirement lands.
 function StockOverviewGrid() {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
-  const { stockDetail, isStockDetailError, retryStockDetail } =
-    useStockDetail();
+  const {
+    stockDetail,
+    isStockDetailLoading,
+    isStockDetailError,
+    retryStockDetail,
+  } = useStockDetail();
   const stock = tokenDetail?.stock;
   const marketCap = stockDetail?.marketCap ?? stock?.marketCap;
-  const dividendPerShare =
-    stockDetail?.dividendPerShareTtm ?? stock?.dividendPerShare;
 
   const items = useMemo(
-    () =>
-      [
-        {
-          label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
-          value: formatCurrencyStatValue(marketCap),
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_dividend_yield,
-          }),
-          value: formatPercentValue(
-            stockDetail?.dividendYieldTtm ??
-              stock?.tradingActivity?.dividendYield,
-          ),
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_pe_ttm,
-          }),
-          value: formatRatioValue(
-            stockDetail?.peRatio ?? stock?.tradingActivity?.peRatio,
-          ),
-        },
-        {
-          label: 'Dividend per share',
-          value: formatCurrencyStatValue(dividendPerShare),
-        },
-        {
-          label: 'EPS TTM',
-          value: stockDetail?.epsTtm
-            ? formatCurrencyStatValue(stockDetail.epsTtm)
-            : STAT_FALLBACK_VALUE,
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_24h_volume,
-          }),
-          value: formatCurrencyStatValue(
-            stockDetail?.volume24h ?? stock?.assetAnalysis?.volume24h,
-          ),
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_turnover_rate,
-          }),
-          value: formatDirectPercentValue(
-            stockDetail?.turnoverRate24h ?? stock?.assetAnalysis?.turnoverRate,
-          ),
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_52_week_high,
-          }),
-          value: formatCurrencyStatValue(
-            stockDetail?.weekHigh52 ?? stock?.assetAnalysis?.weekHigh52,
-          ),
-        },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_52_week_low,
-          }),
-          value: formatCurrencyStatValue(
-            stockDetail?.weekLow52 ?? stock?.assetAnalysis?.weekLow52,
-          ),
-        },
-        {
-          label: 'Shares outstanding',
-          value: formatMarketCapValue(
-            stockDetail?.sharesOutstanding ?? stock?.sharesOutstanding,
-          ),
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.dexmarket_stock_pb }),
-          value: formatRatioValue(
-            stockDetail?.pbRatio ?? stock?.tradingActivity?.pbRatio,
-          ),
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.dexmarket_stock_ps }),
-          value: formatRatioValue(
-            stockDetail?.psRatio ?? stock?.tradingActivity?.psRatio,
-          ),
-        },
-      ].filter((item): item is { label: string; value: string } =>
-        Boolean(item),
-      ),
-    [dividendPerShare, intl, marketCap, stock, stockDetail],
+    () => [
+      {
+        label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+        value: formatCurrencyStatValue(marketCap),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_dividend_yield,
+        }),
+        value: formatPercentValue(
+          stockDetail?.dividendYieldTtm ??
+            stock?.tradingActivity?.dividendYield,
+        ),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_pe_ttm,
+        }),
+        value: formatRatioValue(
+          stockDetail?.peRatio ?? stock?.tradingActivity?.peRatio,
+        ),
+      },
+      {
+        label: 'EPS',
+        value: formatCurrencyStatValue(stockDetail?.epsTtm),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_24h_volume,
+        }),
+        value: formatCurrencyStatValue(
+          stockDetail?.volume24h ?? stock?.assetAnalysis?.volume24h,
+        ),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_turnover_rate,
+        }),
+        value: formatDirectPercentValue(
+          stockDetail?.turnoverRate24h ?? stock?.assetAnalysis?.turnoverRate,
+        ),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_52_week_high,
+        }),
+        value: formatCurrencyStatValue(
+          stockDetail?.weekHigh52 ?? stock?.assetAnalysis?.weekHigh52,
+        ),
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_52_week_low,
+        }),
+        value: formatCurrencyStatValue(
+          stockDetail?.weekLow52 ?? stock?.assetAnalysis?.weekLow52,
+        ),
+      },
+      {
+        label: 'Net income (FY)',
+        value: formatCurrencyStatValue(stockDetail?.netIncomeFy),
+      },
+      {
+        label: 'Revenue (FY)',
+        value: formatCurrencyStatValue(stockDetail?.revenueFy),
+      },
+      {
+        label: 'Shares float',
+        value: formatMarketCapValue(stockDetail?.sharesFloat),
+      },
+      {
+        label: 'Beta (1Y)',
+        value: formatRatioValue(stockDetail?.beta1y),
+      },
+    ],
+    [intl, marketCap, stock, stockDetail],
   );
 
   if (isStockDetailError) {
@@ -513,6 +707,32 @@ function StockOverviewGrid() {
           {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>
       </YStack>
+    );
+  }
+
+  // Only the very first load shows skeletons; a refetch keeps the values that
+  // are already on screen instead of blanking the whole grid.
+  if (isStockDetailLoading && !stockDetail) {
+    return (
+      <XStack
+        testID="stock-detail-stats-skeleton"
+        height={288}
+        flexWrap="wrap"
+        rowGap="$6"
+      >
+        {items.map((item) => (
+          <YStack
+            key={item.label}
+            width="33.33%"
+            height={54}
+            pr="$2.5"
+            gap="$1.5"
+          >
+            <Skeleton width={88} height={16} />
+            <Skeleton width={120} height={24} />
+          </YStack>
+        ))}
+      </XStack>
     );
   }
 
@@ -536,14 +756,125 @@ function StockOverviewGrid() {
   );
 }
 
+type IStockPnlDisplay = {
+  color: '$text' | '$textSuccess' | '$textCritical';
+  amount: string;
+  percent?: string;
+};
+
+// PnL arrives as plain decimal strings; anything non-numeric means the backend
+// has no figure for this position and the column is dropped instead of showing
+// a fabricated zero.
+function buildStockPnlDisplay(
+  usdValue?: string,
+  percentValue?: string,
+): IStockPnlDisplay | undefined {
+  const amountBN = new BigNumber(usdValue ?? '');
+  if (!amountBN.isFinite()) {
+    return undefined;
+  }
+
+  let color: IStockPnlDisplay['color'] = '$text';
+  if (amountBN.gt(0)) {
+    color = '$textSuccess';
+  } else if (amountBN.lt(0)) {
+    color = '$textCritical';
+  }
+
+  const percentBN = new BigNumber(percentValue ?? '');
+  const percent = percentBN.isFinite()
+    ? `(${percentBN.gt(0) ? '+' : ''}${percentBN.toFixed(2)}%)`
+    : undefined;
+
+  // Kept as a plain decimal string: the `price` formatter renders it with the
+  // sign and full precision, unlike the abbreviating `marketCap` one used for
+  // the statistics grid.
+  return { color, amount: amountBN.toFixed(), percent };
+}
+
+function StockPositionPnlCell({
+  label,
+  display,
+}: {
+  label: string;
+  display: IStockPnlDisplay;
+}) {
+  return (
+    <YStack gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <XStack alignItems="baseline" gap="$1.5">
+        <NumberSizeableText
+          size="$headingMd"
+          color={display.color}
+          formatter="price"
+          formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+        >
+          {display.amount}
+        </NumberSizeableText>
+        {display.percent ? (
+          <SizableText size="$bodyMd" color={display.color}>
+            {display.percent}
+          </SizableText>
+        ) : null}
+      </XStack>
+    </YStack>
+  );
+}
+
+function StockPositionRow({
+  position,
+}: {
+  position: IMarketAccountPortfolioItem;
+}) {
+  const pnl = position.pnl?.isPnlSupported ? position.pnl : undefined;
+  const totalPnl = buildStockPnlDisplay(pnl?.totalPnlUsd, pnl?.totalPnlPercent);
+  const unrealizedPnl = buildStockPnlDisplay(
+    pnl?.unrealizedPnlUsd,
+    pnl?.unrealizedPnlPercent,
+  );
+
+  return (
+    <YStack testID={`stock-position-${position.tokenAddress}`} gap="$3" py="$2">
+      <SizableText size="$bodyMdMedium">{position.symbol}</SizableText>
+      <XStack gap="$8" rowGap="$4" flexWrap="wrap">
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Holding
+          </SizableText>
+          <SizableText size="$headingMd">
+            {position.amount} {position.symbol}
+          </SizableText>
+        </YStack>
+        <YStack gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            Value
+          </SizableText>
+          <SizableText size="$headingMd">
+            {formatCurrencyStatValue(position.totalPrice)}
+          </SizableText>
+        </YStack>
+        {totalPnl ? (
+          <StockPositionPnlCell label="Total PnL" display={totalPnl} />
+        ) : null}
+        {unrealizedPnl ? (
+          <StockPositionPnlCell
+            label="Unrealized PnL"
+            display={unrealizedPnl}
+          />
+        ) : null}
+      </XStack>
+    </YStack>
+  );
+}
+
 function StockPosition({
   portfolioData,
 }: {
   portfolioData: IMarketAccountPortfolioItem[];
 }) {
-  const position = portfolioData[0];
-
-  if (!position) {
+  if (portfolioData.length === 0) {
     return (
       <YStack py="$12" alignItems="center" gap="$2">
         <Icon name="WalletOutline" size="$8" color="$iconSubdued" />
@@ -552,25 +883,17 @@ function StockPosition({
     );
   }
 
+  // One row per token variant: the same listing can be held through several
+  // wrapped tokens, and only rendering the first one hid the rest.
   return (
-    <XStack gap="$8" py="$2">
-      <YStack gap="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Amount
-        </SizableText>
-        <SizableText size="$headingMd">
-          {position.amount} {position.symbol}
-        </SizableText>
-      </YStack>
-      <YStack gap="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          Value
-        </SizableText>
-        <SizableText size="$headingMd">
-          {formatCurrencyStatValue(position.totalPrice)}
-        </SizableText>
-      </YStack>
-    </XStack>
+    <YStack gap="$5">
+      {portfolioData.map((position) => (
+        <StockPositionRow
+          key={`${position.accountAddress}-${position.tokenAddress}`}
+          position={position}
+        />
+      ))}
+    </YStack>
   );
 }
 
@@ -629,8 +952,10 @@ function StockOverview({
           })}
         </Button>
       </XStack>
-      <YStack height={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
-        <YStack height={336} py="$6">
+      {/* The overview grid fills these exact heights; the position tab can hold
+      more rows than that, so the block grows instead of clipping them. */}
+      <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
+        <YStack minHeight={336} py="$6">
           {activeTab === 'overview' ? (
             <StockOverviewGrid />
           ) : (
@@ -642,107 +967,114 @@ function StockOverview({
   );
 }
 
+const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
+
 function StockAnalystRatings() {
   const { format } = useFormatDate();
-  const { stockDetail } = useStockDetail();
+  const { stockDetail, isStockDetailLoading } = useStockDetail();
   const ratings = stockDetail?.analystRatings;
-  let consensusColor: '$textSuccess' | '$textCritical' | '$textSubdued' =
-    '$textSubdued';
-  if (ratings?.consensus === 'Buy') {
-    consensusColor = '$textSuccess';
-  } else if (ratings?.consensus === 'Sell') {
-    consensusColor = '$textCritical';
-  }
+  const isLoading = isStockDetailLoading && !stockDetail;
 
   return (
     <YStack
       testID="stock-detail-analyst-ratings"
       minHeight={216}
       px={STOCK_DETAIL_HORIZONTAL_GUTTER}
-      py="$6"
-      gap="$5"
+      py="$8"
+      gap="$4"
     >
       <SizableText size="$headingXl">Analyst ratings</SizableText>
-      <XStack gap="$5" alignItems="center">
-        <YStack
-          width={88}
-          height={88}
-          borderRadius="$full"
+      {isLoading ? (
+        <XStack
+          testID="stock-detail-analyst-ratings-skeleton"
+          gap="$6"
           alignItems="center"
-          justifyContent="center"
-          bg={ratings ? '$bgSuccessSubdued' : '$bgSubdued'}
-          gap="$1"
+          py="$2"
         >
-          <SizableText
-            testID="stock-analyst-consensus"
-            size="$bodyMdMedium"
-            color={consensusColor}
-          >
-            {getStockAnalystConsensus(ratings)}
-          </SizableText>
-          {ratings ? (
-            <SizableText size="$bodyXs" color="$textSubdued">
-              Consensus
-            </SizableText>
-          ) : null}
-        </YStack>
-        <YStack flex={1} gap="$3">
-          {[
-            {
-              label: 'Buy',
-              value: ratings?.buy,
-              barColor: '$bgSuccessStrong',
-            },
-            {
-              label: 'Hold',
-              value: ratings?.hold,
-              barColor: '$neutral8',
-            },
-            {
-              label: 'Sell',
-              value: ratings?.sell,
-              barColor: '$bgCriticalStrong',
-            },
-          ].map((item) => {
-            const barWidth = Math.min(
-              100,
-              Math.max(0, Number(item.value) || 0),
-            );
-            return (
-              <XStack key={item.label} height={18} alignItems="center" gap="$3">
-                <SizableText size="$bodySm" width={30}>
-                  {item.label}
-                </SizableText>
-                <Stack
-                  flex={1}
-                  height={4}
-                  borderRadius="$full"
-                  bg="$neutral5"
-                  overflow="hidden"
+          <Skeleton
+            width={STOCK_ANALYST_GAUGE_WIDTH}
+            height={STOCK_ANALYST_GAUGE_HEIGHT}
+          />
+          {/* Three 24px bars with 12px gaps add up to the 96px the loaded
+          bars occupy, so the section does not jump when data lands. */}
+          <YStack flex={1} gap="$3">
+            <Skeleton width="100%" height={24} />
+            <Skeleton width="100%" height={24} />
+            <Skeleton width="100%" height={24} />
+          </YStack>
+        </XStack>
+      ) : (
+        <XStack gap="$6" alignItems="center" py="$2" pr="$2">
+          <StockAnalystGauge
+            ratings={ratings}
+            ratingCountsSource={stockDetail?.underlyingMeta}
+          />
+          <YStack flex={1} minWidth={0} justifyContent="center">
+            {[
+              {
+                label: 'Buy',
+                value: ratings?.buy,
+                barColor: '$bgSuccessStrong',
+              },
+              {
+                label: 'Hold',
+                value: ratings?.hold,
+                barColor: '$neutral8',
+              },
+              {
+                label: 'Sell',
+                value: ratings?.sell,
+                barColor: '$bgCriticalStrong',
+              },
+            ].map((item) => {
+              const barWidth = Math.min(
+                100,
+                Math.max(0, Number(item.value) || 0),
+              );
+              return (
+                <XStack
+                  key={item.label}
+                  height={STOCK_ANALYST_BAR_ROW_HEIGHT}
+                  alignItems="center"
+                  gap="$3"
                 >
+                  <SizableText size="$bodyMdMedium" width={32}>
+                    {item.label}
+                  </SizableText>
                   <Stack
-                    testID={`stock-analyst-${item.label.toLowerCase()}-bar`}
-                    width={`${barWidth}%`}
-                    height="100%"
+                    flex={1}
+                    minWidth={0}
+                    height={4}
                     borderRadius="$full"
-                    bg={item.barColor}
-                  />
-                </Stack>
-                <SizableText
-                  testID={`stock-analyst-${item.label.toLowerCase()}`}
-                  size="$bodyMd"
-                  width={56}
-                  textAlign="right"
-                  color="$textSubdued"
-                >
-                  {formatDirectPercentValue(item.value)}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </YStack>
-      </XStack>
-      <SizableText size="$bodyXs" color="$textDisabled">
+                    bg="$neutral5"
+                    overflow="hidden"
+                  >
+                    <Stack
+                      testID={`stock-analyst-${item.label.toLowerCase()}-bar`}
+                      width={`${barWidth}%`}
+                      height="100%"
+                      borderRadius="$full"
+                      bg={item.barColor}
+                    />
+                  </Stack>
+                  <SizableText
+                    testID={`stock-analyst-${item.label.toLowerCase()}`}
+                    size="$bodyMdMedium"
+                    minWidth={48}
+                    textAlign="right"
+                    color="$textSubdued"
+                    flexShrink={0}
+                    numberOfLines={1}
+                  >
+                    {formatDirectPercentValue(item.value)}
+                  </SizableText>
+                </XStack>
+              );
+            })}
+          </YStack>
+        </XStack>
+      )}
+      <SizableText size="$bodySm" color="$textDisabled">
         Last Updated:{' '}
         {ratings?.updatedAt
           ? format(ratings.updatedAt, 'MMM d, yyyy')
@@ -752,10 +1084,16 @@ function StockAnalystRatings() {
   );
 }
 
+// react-native-web does not fire `onTextLayout` reliably, so the toggle is
+// gated on a character count that approximates two lines at this section width
+// instead of measuring the rendered text.
+const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
+
 function StockAbout() {
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const stock = tokenDetail?.stock;
   const ticker =
     stockDetail?.symbol ||
@@ -768,15 +1106,20 @@ function StockAbout() {
   const formattedEmployees = Number.isFinite(employeeCount)
     ? employeeCount.toLocaleString('en-US')
     : STAT_FALLBACK_VALUE;
+  const description =
+    about?.description ??
+    stockDetail?.introduction ??
+    'Company information is not available.';
+  const canExpandDescription =
+    description.length > STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
   return (
     <YStack
       testID="stock-detail-about"
-      height={238}
       px={STOCK_DETAIL_HORIZONTAL_GUTTER}
       pb="$3"
     >
-      <YStack height={226} py="$8" gap="$6">
+      <YStack py="$8" gap="$6">
         <SizableText size="$headingXl">About {ticker}</SizableText>
         <XStack height={46}>
           <YStack flex={1} pr="$2.5" gap="$1.5">
@@ -812,11 +1155,27 @@ function StockAbout() {
             </SizableText>
           </YStack>
         </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
-          {about?.description ??
-            stockDetail?.introduction ??
-            'Company information is not available.'}
-        </SizableText>
+        <YStack gap="$2" alignItems="flex-start">
+          <SizableText
+            testID="stock-about-description"
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={isDescriptionExpanded ? undefined : 2}
+          >
+            {description}
+          </SizableText>
+          {canExpandDescription ? (
+            <Button
+              testID="stock-about-description-toggle"
+              size="small"
+              variant="tertiary"
+              alignSelf="flex-start"
+              onPress={() => setIsDescriptionExpanded((value) => !value)}
+            >
+              {isDescriptionExpanded ? 'Show Less' : 'Show More'}
+            </Button>
+          ) : null}
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -833,30 +1192,33 @@ export function StockDesktopLayout({
   portfolioData: IMarketAccountPortfolioItem[];
   showFavoriteButton: boolean;
 }) {
-  const [priceMode, setPriceMode] = useState<IStockPriceMode>('share');
+  const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
+  const handlePriceModeChange = useCallback(
+    (source: IMarketPriceSource) => setPriceSource({ source }),
+    [setPriceSource],
+  );
+  // Lives here rather than inside the chart so the price header above it can
+  // follow the crosshair; the chart clears it on pointer-out and on unmount.
+  const [chartHoverPoint, setChartHoverPoint] = useState<
+    IStockPriceLineChartHoverPoint | undefined
+  >(undefined);
 
   return (
     <Stack
       testID="stock-token-detail-desktop"
       width="100%"
-      minHeight={2241}
-      pl={STOCK_DETAIL_CONTENT_OFFSET}
+      maxWidth={STOCK_DETAIL_CONTENT_MAX_WIDTH}
+      alignSelf="center"
       py="$5"
     >
       <StockPageHeader showFavoriteButton={showFavoriteButton} />
       <XStack
         testID="stock-token-detail-columns"
-        width={STOCK_DETAIL_CONTENT_WIDTH}
-        minHeight={2129}
+        width="100%"
         alignItems="flex-start"
         gap={STOCK_DETAIL_COLUMN_GAP}
       >
-        <YStack
-          testID="stock-token-detail-main"
-          width={STOCK_DETAIL_MAIN_WIDTH}
-          minHeight={2129}
-          minWidth={0}
-        >
+        <YStack testID="stock-token-detail-main" flex={1} minWidth={0}>
           <YStack
             testID="stock-token-detail-chart"
             width="100%"
@@ -868,16 +1230,21 @@ export function StockDesktopLayout({
           >
             <StockPriceHeader
               priceMode={priceMode}
-              onPriceModeChange={setPriceMode}
+              onPriceModeChange={handlePriceModeChange}
+              hoverPoint={chartHoverPoint}
             />
             <Stack
               testID="stock-token-detail-tradingview"
               width="100%"
-              height={360}
+              height={STOCK_CHART_HEIGHT}
               overflow="hidden"
               bg="$bgApp"
             >
-              <StockChart marketTradingView={marketTradingView} />
+              <StockChart
+                marketTradingView={marketTradingView}
+                priceMode={priceMode}
+                onHoverChange={setChartHoverPoint}
+              />
             </Stack>
           </YStack>
           <StockOverview portfolioData={portfolioData} />
@@ -890,7 +1257,6 @@ export function StockDesktopLayout({
         <Stack
           testID="stock-token-detail-trade"
           width={STOCK_DETAIL_TRADE_PANEL_WIDTH}
-          minHeight={2129}
           pt="$6"
           px={STOCK_DETAIL_HORIZONTAL_GUTTER}
           flexShrink={0}

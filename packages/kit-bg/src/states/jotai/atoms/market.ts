@@ -115,3 +115,22 @@ export const {
   name: EAtomNames.marketTradingViewIndicatorSettingsPersistAtom,
   initialValue: createTradingViewNativeIndicatorSettings(),
 });
+
+export type IMarketPriceSource = 'share' | 'token';
+
+export interface IMarketPriceSourceAtom {
+  source: IMarketPriceSource;
+}
+
+// Which price series the stock detail page shows: the underlying share or the
+// tokenized instrument. Global state because more than one surface reads it —
+// the price header renders the figures and the chart has to plot the matching
+// series, otherwise the header and the chart contradict each other.
+// Deliberately not persisted: every visit starts on the share price the page
+// is named after.
+export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
+  globalAtom<IMarketPriceSourceAtom>({
+    persist: false,
+    name: EAtomNames.marketPriceSourceAtom,
+    initialValue: { source: 'share' },
+  });

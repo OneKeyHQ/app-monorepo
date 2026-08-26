@@ -1,6 +1,9 @@
-export const STOCK_DETAIL_CONTENT_OFFSET = 'calc(9.583333333vw - 73px)';
-export const STOCK_DETAIL_CONTENT_WIDTH = '86.111111111vw';
-export const STOCK_DETAIL_HORIZONTAL_GUTTER = '1.388888889vw';
-export const STOCK_DETAIL_MAIN_WIDTH = '57.777777778vw';
-export const STOCK_DETAIL_COLUMN_GAP = '1.666666667vw';
-export const STOCK_DETAIL_TRADE_PANEL_WIDTH = '26.666666667vw';
+// Desktop stock detail runs on the same fixed content frame as the crypto
+// detail page: a 1240 column band centered in the viewport instead of a
+// viewport-relative (vw) band that kept growing on wide screens. The trade
+// panel is fixed, so the left column takes whatever is left of the frame:
+// 1240 - 24 - 384 = 832.
+export const STOCK_DETAIL_CONTENT_MAX_WIDTH = 1240;
+export const STOCK_DETAIL_HORIZONTAL_GUTTER = 20;
+export const STOCK_DETAIL_COLUMN_GAP = 24;
+export const STOCK_DETAIL_TRADE_PANEL_WIDTH = 384;

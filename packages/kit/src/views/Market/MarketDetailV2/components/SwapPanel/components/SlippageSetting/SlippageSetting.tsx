@@ -4,9 +4,9 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   Icon,
+  IconButton,
   SizableText,
   XStack,
 } from '@onekeyhq/components';
@@ -79,8 +79,11 @@ export function SlippageSetting({
   }, [slippageItem, intl, autoDefaultValue]);
 
   if (variant === 'header') {
+    // Figma 25672:54914 - the trading widget header action is an icon-only
+    // button: 20 glyph, circular hover background, layout box tight to the
+    // glyph. `Button` pads it out to 40x28 with an 18 glyph, so use IconButton.
     return (
-      <Button
+      <IconButton
         testID="market-stock-trade-settings"
         size="small"
         variant="tertiary"

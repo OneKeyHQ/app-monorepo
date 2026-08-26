@@ -179,4 +179,43 @@ describe('StockDetailProvider', () => {
       expect(result.current.stockDetail?.stockId).toBe('AAPL');
     });
   });
+
+  it('keeps the last loaded detail when a refresh fails', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValueOnce({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.stockDetail?.stockId).toBe('AAPL');
+    });
+
+    // A failing refresh (the polling tick takes the same path) must leave the
+    // loaded page alone instead of flipping it to the error state.
+    serviceMarketV2.fetchMarketStockDetail.mockRejectedValue(
+      new Error('utility unavailable'),
+    );
+    await act(async () => {
+      await result.current.retryStockDetail();
+    });
+
+    expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(2);
+    expect(result.current.stockDetail?.stockId).toBe('AAPL');
+    expect(result.current.isStockDetailError).toBe(false);
+  });
 });

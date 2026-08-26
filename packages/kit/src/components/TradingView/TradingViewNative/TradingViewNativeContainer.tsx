@@ -151,6 +151,7 @@ export const TradingViewNativeContainer = memo(
     initialRightOffset,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    nativeControlsFlushHorizontalInset,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     isChartSwitchDisabled,
@@ -665,6 +666,7 @@ export const TradingViewNativeContainer = memo(
           activeIndicatorValues={activeIndicatorValues}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
+          flushDesktopControls={nativeControlsFlushHorizontalInset}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
           isChartSwitchDisabled={isChartSwitchDisabled}

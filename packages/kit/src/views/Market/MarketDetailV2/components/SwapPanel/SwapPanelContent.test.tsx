@@ -71,6 +71,10 @@ jest.mock('../TokenSelector/StockTokenVariantSelector', () => ({
   ),
 }));
 
+jest.mock('../StockTokenInfo/StockTokenInfoPopover', () => ({
+  StockTokenInfoPopover: () => <div data-testid="stock-token-info-popover" />,
+}));
+
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
   BaseMarketTokenPrice: () => <div data-testid="market-token-price" />,
 }));

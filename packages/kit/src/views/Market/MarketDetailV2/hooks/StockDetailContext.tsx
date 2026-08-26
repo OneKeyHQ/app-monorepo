@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { PropsWithChildren } from 'react';
@@ -43,6 +44,11 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   setSelectedTokenId: () => undefined,
 });
 
+// The detail endpoint carries the quote the header renders, so it has to keep
+// refreshing while the page stays open. 15s: a stock quote does not need the
+// 6s cadence the on-chain token detail polls at.
+const STOCK_DETAIL_POLLING_INTERVAL = 15 * 1000;
+
 type IStockDetailRequestResult = {
   stockId?: string;
   data?: IMarketStockPublicDetail | null;
@@ -71,6 +77,11 @@ export function StockDetailProvider({
 }: PropsWithChildren<{ stockId?: string }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
+  // Last value the detail endpoint actually returned, so a failed polling tick
+  // can fall back to it instead of blanking the page.
+  const lastStockDetailRef = useRef<IStockDetailRequestResult | undefined>(
+    undefined,
+  );
 
   const {
     result: stockDetailResult,
@@ -84,15 +95,29 @@ export function StockDetailProvider({
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
             stockId: normalizedStockId,
           });
-        return { stockId: normalizedStockId, data };
+        const result = { stockId: normalizedStockId, data };
+        lastStockDetailRef.current = result;
+        return result;
       } catch (_error) {
+        // A polling tick that fails must not turn a loaded page into an error
+        // page: keep the last good payload and retry silently on the next
+        // tick. Only a stock we never loaded surfaces the retryable error.
+        const lastStockDetail = lastStockDetailRef.current;
+        if (lastStockDetail?.stockId === normalizedStockId) {
+          return lastStockDetail;
+        }
         return { stockId: normalizedStockId, failed: true };
       }
     },
     [normalizedStockId],
     {
       watchLoading: true,
+      // Kept false so the first fetch still runs while a modal sits above the
+      // route; usePromiseResult already parks polling ticks while the app is
+      // in the background, so this does not keep a hidden page fetching.
       checkIsFocused: false,
+      pollingInterval: STOCK_DETAIL_POLLING_INTERVAL,
+      revalidateOnReconnect: true,
     },
   );
 
