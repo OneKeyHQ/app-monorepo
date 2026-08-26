@@ -137,6 +137,7 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import {
   hasInFlightSwapReviewWork,
@@ -1244,14 +1245,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       stock: swapNetworks
         .filter((item) => !!item.supportStock)
         .toSorted((left, right) =>
-          left.networkId.localeCompare(right.networkId),
+          compareSwapProPositionNetworkIds(left.networkId, right.networkId),
         ),
       swap: swapNetworks
         .filter(
           (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
         )
         .toSorted((left, right) =>
-          left.networkId.localeCompare(right.networkId),
+          compareSwapProPositionNetworkIds(left.networkId, right.networkId),
         ),
     };
     for (const key of ['stock', 'swap'] as const) {

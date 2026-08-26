@@ -92,6 +92,8 @@ import {
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
 } from '../utils/swapProAccountUtils';
+import { buildSwapProPositionsNetworkIdsKey } from '../utils/swapProPositionsKeyUtils';
+import { loadSwapProPositions } from '../utils/swapProPositionsLoader';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   getSwapAnalyticsTokenListType,
@@ -1547,6 +1549,7 @@ export function useSwapPositionsSupportTokenListAction() {
         positionCurrencyId,
         {
           forceRefresh: options?.forceRefresh,
+          positionLoader: loadSwapProPositions,
           stockOnly: options?.stockOnly,
           additionalSupportNetworkScopes: options?.additionalNetworkScopes?.map(
             (scope) => ({
@@ -1595,11 +1598,9 @@ export function useSwapProSupportNetworksTokenList(
     if (!supportNetworksReady) {
       return '';
     }
-    return networkList
-      .map((item) => item.networkId)
-      .filter(Boolean)
-      .toSorted()
-      .join(',');
+    return buildSwapProPositionsNetworkIdsKey(
+      networkList.map((item) => item.networkId),
+    );
   }, [networkList, supportNetworksReady]);
   const positionOwnerKey = useMemo(
     () =>

@@ -13,6 +13,7 @@ import {
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
+import { loadSwapProPositions } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import { swapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { getSwapStableTokenKey } from '@onekeyhq/kit/src/views/Swap/utils/swapStableCoinUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -4799,6 +4800,7 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
     await waitFor(() => {
@@ -4902,6 +4904,7 @@ describe('useSwapActions', () => {
         undefined,
         'usd',
         {
+          positionLoader: loadSwapProPositions,
           additionalSupportNetworkScopes: [
             {
               stockOnly: true,
@@ -4976,6 +4979,7 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
 
@@ -5040,6 +5044,7 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
 
@@ -5081,6 +5086,7 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
 
