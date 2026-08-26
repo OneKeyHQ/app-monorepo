@@ -1078,7 +1078,12 @@ export function useFirmwareVerifyDialog() {
         return;
       }
 
+      let hasHandledClose = false;
       const onCloseFn = async (extra?: { flag?: string }) => {
+        if (hasHandledClose) {
+          return;
+        }
+        hasHandledClose = true;
         await onClose?.();
         setIsLoading(false);
         if (device.connectId) {
