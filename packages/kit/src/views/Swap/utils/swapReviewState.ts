@@ -18,6 +18,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
+
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
 
 type INativeBtcSwapTokenIdentity = Pick<ISwapToken, 'isNative' | 'networkId'>;
@@ -138,8 +140,6 @@ export function invalidateSwapReviewForSlippageChange({
     },
   };
 }
-
-import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export type ISwapReviewGasInfoEntry = {
   encodeTx: IEncodedTx;
