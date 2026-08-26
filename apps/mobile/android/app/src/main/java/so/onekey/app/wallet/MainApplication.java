@@ -264,7 +264,7 @@ public class MainApplication extends Application implements ReactApplication {
     appLaunchMs = System.currentTimeMillis();
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
 
-    // Log zygote→onCreate delay (API 24+, minSdk=24). This is the window
+    // Log zygote→onCreate delay (API 26+, minSdk=26). This is the window
     // between process fork and our first Java code running: ART/dex2oat,
     // class loading, Application allocation.
     try {
