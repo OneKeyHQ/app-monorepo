@@ -1020,7 +1020,6 @@ function ConnectYourDevicePage({
   EOnboardingPagesV2.ConnectYourDevice
 >) {
   const { deviceType: deviceTypeItems, vendor } = routeParams?.params || {};
-  console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const intl = useIntl();
