@@ -21,7 +21,6 @@ import {
   Popover,
   SegmentControl,
   SizableText,
-  Toast,
   Video,
   XStack,
   YStack,
@@ -1075,6 +1074,7 @@ function ConnectYourDevicePage({
       let detectedConnectProtocol: HardwareConnectProtocol | undefined;
       let connectedDevice = item.device;
       let checkingDialogOpened = false;
+      let stageOutcomeError: unknown;
       let checkingDialogClosed = false;
       const closeCheckingDeviceDialog = () =>
         backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -1084,6 +1084,15 @@ function ConnectYourDevicePage({
           deviceResetToHome: false,
         });
       try {
+        // One hold for the whole preflight, every transport: without it
+        // the stage's exit is a race between the SDK's trailing progress
+        // ticks and its close event (the capsule could outlive this
+        // page), and a hardware failure would have no surface to land on.
+        await beginStageBurst({
+          connectId,
+          deviceType: item.device?.deviceType ?? undefined,
+          deviceName: item.device?.name ?? undefined,
+        });
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
           item.vendor === EHardwareVendor.ledger ||
@@ -1112,14 +1121,6 @@ function ConnectYourDevicePage({
               deviceName: item.device?.name ?? undefined,
             });
           checkingDialogOpened = true;
-          // One hold for the preflight: without it the stage's exit is a
-          // race between the SDK's trailing progress ticks and its close
-          // event, and the capsule can outlive this page (OK-59934).
-          await beginStageBurst({
-            connectId,
-            deviceType: item.device?.deviceType ?? undefined,
-            deviceName: item.device?.name ?? undefined,
-          });
           if (platformEnv.isNativeIOS) {
             await hardwareUiStateDialogLifecycle.openAndWait(
               showCheckingDeviceDialog,
@@ -1165,7 +1166,7 @@ function ConnectYourDevicePage({
         });
       } catch (error) {
         if (isOneKeyHardwareError(error)) {
-          const { code, message } = error;
+          const { code } = error;
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.BlePermissionError ||
@@ -1173,15 +1174,18 @@ function ConnectYourDevicePage({
           ) {
             return;
           }
-          Toast.error({
-            title: message || 'DeviceConnectError',
-          });
-        } else {
-          console.error('connectDevice error:', get(error, 'message', ''));
+          // The stage lands hardware failures as its own outcome (失败不
+          // 外溢); the toast stays only for what the stage is not
+          // carrying.
+          stageOutcomeError = error;
+          return;
         }
+        console.error('connectDevice error:', get(error, 'message', ''));
       } finally {
-        // The preflight is over either way — the stage leaves with it.
-        void endStageBurst();
+        // The preflight is over either way — the stage leaves with it,
+        // and a hardware failure (a wrong unlock PIN above all) leaves AS
+        // its outcome notice rather than a toast.
+        void endStageBurst({ error: stageOutcomeError });
         if (!checkingDialogClosed) {
           if (platformEnv.isNativeIOS && checkingDialogOpened) {
             try {
