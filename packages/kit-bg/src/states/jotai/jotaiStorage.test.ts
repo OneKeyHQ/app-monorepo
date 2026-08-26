@@ -181,6 +181,29 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(legacyStorage.multiGet).not.toHaveBeenCalled();
   });
 
+  it('resets an inconsistent Jotai target without restoring stale legacy data', async () => {
+    migrationLedger.set('jotai-storage-v1', 'complete-v1');
+    mmkvInstance.set('g_states_v5:aAtom', '"partial"');
+    legacyData.set('g_states_v5:aAtom', '"stale"');
+    const storage = createStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('./jotaiStorage') as typeof import('./jotaiStorage');
+
+    await expect(
+      storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY),
+    ).rejects.toThrow('MMKV migration marker is missing');
+    await mod.resetNativeJotaiStorageAfterMigrationMismatch();
+
+    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
+      'jotai-storage-v1',
+      'resetting-v1',
+    );
+    expect(legacyData.has('g_states_v5:aAtom')).toBe(false);
+    expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
+    expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
   it('reset removes legacy Jotai keys and leaves an empty migrated store', async () => {
     mmkvInstance.set(MIGRATION_KEY, '1');
     mmkvInstance.set('g_states_v5:aAtom', '1');
@@ -268,6 +291,30 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       'fallback',
     );
     expect(legacyStorage.multiGet).not.toHaveBeenCalled();
+  });
+
+  it('enumerates and clears native entries through the Jotai storage owner', async () => {
+    mmkvInstance.set(MIGRATION_KEY, '1');
+    jest.resetModules();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('./jotaiStorage') as typeof import('./jotaiStorage');
+    const storage = mod.onekeyJotaiStorage as any;
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    await storage.setItem('g_states_v5:aAtom', { value: true });
+    await storage.setItem('g_states_v5:bAtom', 2);
+
+    const entries = await mod.getNativeJotaiStorageEntries();
+
+    expect(entries).toEqual(
+      new Map<string, unknown>([
+        ['g_states_v5:aAtom', { value: true }],
+        ['g_states_v5:bAtom', 2],
+      ]),
+    );
+    await expect(mod.clearNativeJotaiStorageForReset()).resolves.toBe(2);
+    expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
+    expect(mmkvInstance.getString('g_states_v5:bAtom')).toBeUndefined();
+    expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
   });
 });
 

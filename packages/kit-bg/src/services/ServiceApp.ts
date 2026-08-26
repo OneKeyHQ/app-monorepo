@@ -616,17 +616,9 @@ class ServiceApp extends ServiceBase {
           await globalStatesStorage.clear();
         }
       } else {
-        // Native: Filter and remove keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allKeys = await appStorage.getAllKeys();
-        const globalStatesKeys = allKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-
-        if (globalStatesKeys.length > 0) {
-          await appStorage.multiRemove(globalStatesKeys);
-        }
-        clearedKeysCount = globalStatesKeys.length;
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        clearedKeysCount = await clearNativeJotaiStorageForReset();
       }
 
       defaultLogger.setting.page.clearDataStep('globalStatus-clear');
@@ -750,13 +742,32 @@ class ServiceApp extends ServiceBase {
           allKeys = await globalStatesStorage.getAllKeys();
         }
       } else {
-        // Native: Filter keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allAppStorageKeys = await appStorage.getAllKeys();
-        allKeys = allAppStorageKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-        storage = appStorage;
+        const { getNativeJotaiStorageEntries } =
+          await import('../states/jotai/jotaiStorage');
+        const entries = await getNativeJotaiStorageEntries();
+        if (!entries || entries.size === 0) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        const firstEntry = entries.entries().next();
+        if (firstEntry.done) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        return {
+          isEmpty: false,
+          key: firstEntry.value[0],
+          value: firstEntry.value[1],
+          totalKeys: entries.size,
+        };
       }
 
       if (allKeys.length === 0 || !storage) {

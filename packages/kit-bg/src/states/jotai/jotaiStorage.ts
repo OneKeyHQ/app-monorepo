@@ -17,6 +17,7 @@ import {
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from '@onekeyhq/shared/src/storage/nativeStorageMigrationModule';
+import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { atomsConfig } from './atomNames';
@@ -117,6 +118,12 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
+  private getBusinessKeys() {
+    return this.mmkv
+      .getAllKeys()
+      .filter((key) => key !== MMKV_MIGRATION_COMPLETE_KEY);
+  }
+
   private async finishInterruptedReset(): Promise<void> {
     const legacy = this.getLegacyAsyncStorage();
     const legacyKeys = (await legacy.getAllKeys()).filter((key) =>
@@ -215,7 +222,7 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       }
       if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
         throw new OneKeyLocalError(
-          'Jotai MMKV migration marker is missing after migration completed',
+          createNativeStorageMigrationInconsistentErrorMessage('jotai'),
         );
       }
 
@@ -265,7 +272,8 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     return this.migrationPromise;
   }
 
-  async clearAllForReset(): Promise<void> {
+  async clearAllForReset(): Promise<number> {
+    const clearedKeysCount = this.getBusinessKeys().length;
     this.migrationReady = false;
     this.migrationPromise = undefined;
     try {
@@ -275,18 +283,31 @@ class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       );
       await this.finishInterruptedReset();
       this.migrationPromise = Promise.resolve();
+      return clearedKeysCount;
     } catch (error) {
       this.migrationPromise = undefined;
       throw error;
     }
   }
 
+  async resetAfterMigrationMismatch(): Promise<void> {
+    const ledger = await getNativeStorageMigrationLedger(
+      JOTAI_MIGRATION_LEDGER_KEY,
+    );
+    const markerComplete =
+      this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
+    if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE || markerComplete) {
+      throw new OneKeyLocalError(
+        'Jotai migration repair is no longer applicable',
+      );
+    }
+    await this.clearAllForReset();
+  }
+
   async getAllEntries(): Promise<Map<string, any> | null> {
     this.assertMigrated();
     const map = new Map<string, any>();
-    const keys = this.mmkv
-      .getAllKeys()
-      .filter((k) => k !== MMKV_MIGRATION_COMPLETE_KEY);
+    const keys = this.getBusinessKeys();
     for (const key of keys) {
       const raw = this.mmkv.getString(key);
       if (raw !== undefined) {
@@ -383,13 +404,44 @@ function createJotaiStorage() {
 
 export const onekeyJotaiStorage = createJotaiStorage();
 
-export async function clearNativeJotaiStorageForReset() {
+export async function getNativeJotaiStorageEntries(): Promise<ReadonlyMap<
+  string,
+  unknown
+> | null> {
+  if (
+    platformEnv.isNativeBackgroundThread &&
+    'getAllEntries' in onekeyJotaiStorage
+  ) {
+    return await (onekeyJotaiStorage as JotaiStorageNativeMMKV).getAllEntries();
+  }
+  return null;
+}
+
+export async function clearNativeJotaiStorageForReset(): Promise<number> {
   if (
     platformEnv.isNativeBackgroundThread &&
     'clearAllForReset' in onekeyJotaiStorage
   ) {
-    await (onekeyJotaiStorage as JotaiStorageNativeMMKV).clearAllForReset();
+    return await (
+      onekeyJotaiStorage as JotaiStorageNativeMMKV
+    ).clearAllForReset();
   }
+  return 0;
+}
+
+export async function resetNativeJotaiStorageAfterMigrationMismatch(): Promise<void> {
+  if (
+    platformEnv.isNativeBackgroundThread &&
+    'resetAfterMigrationMismatch' in onekeyJotaiStorage
+  ) {
+    await (
+      onekeyJotaiStorage as JotaiStorageNativeMMKV
+    ).resetAfterMigrationMismatch();
+    return;
+  }
+  throw new OneKeyLocalError(
+    'Jotai migration repair is restricted to the native background runtime',
+  );
 }
 
 export function buildJotaiStorageKey(name: IAtomNameKeys) {

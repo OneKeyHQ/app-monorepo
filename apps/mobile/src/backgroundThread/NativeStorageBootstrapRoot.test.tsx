@@ -5,16 +5,25 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 const mockBootstrapResolvers: Array<() => void> = [];
+const mockBootstrapRejectors: Array<(error: Error) => void> = [];
 const mockBootstrapNativeStorage = jest.fn<
   Promise<void>,
   [{ force?: boolean }]
 >(
   () =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       mockBootstrapResolvers.push(resolve);
+      mockBootstrapRejectors.push(reject);
     }),
 );
 const mockHideNativeStorageBootstrapSplash = jest.fn();
+const mockCallNativeStorage = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
+
+jest.mock('@onekeyhq/shared/src/storage/nativeStorageBridge', () => ({
+  callNativeStorage: (request: unknown) => mockCallNativeStorage(request),
+}));
 
 jest.mock('react-native', () => ({
   ActivityIndicator: ({ testID }: { testID?: string }) => (
@@ -104,7 +113,39 @@ describe('NativeStorageBootstrapRoot', () => {
     expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
 
     await act(async () => {
-      mockBootstrapResolvers[1]?.();
+      mockBootstrapRejectors[1]?.(
+        new Error(
+          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
+        ),
+      );
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Local storage needs repair')).toBeTruthy();
+    expect(screen.queryByTestId('native-storage-migration-retry')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('native-storage-migration-repair'));
+    expect(
+      screen.getByTestId('native-storage-migration-repair-confirm'),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByTestId('native-storage-migration-repair-confirm'),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockCallNativeStorage).toHaveBeenCalledWith({
+      scope: 'recovery',
+      operation: 'resetMigrationTarget',
+      target: 'appStorage',
+    });
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([
+      [{ force: false }],
+      [{ force: true }],
+      [{ force: true }],
+    ]);
+
+    await act(async () => {
+      mockBootstrapResolvers[2]?.();
       await Promise.resolve();
     });
     expect(screen.getByTestId('business-app')).toBeTruthy();

@@ -40,6 +40,51 @@ export type INativeStorageBootstrapSnapshot = {
   devSettings: INativeSyncStorageEntry[];
 };
 
+export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
+
+const NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX =
+  'Native storage migration target is inconsistent:';
+
+export function createNativeStorageMigrationInconsistentErrorMessage(
+  target: INativeStorageMigrationRecoveryTarget,
+) {
+  const detail =
+    target === 'appStorage'
+      ? 'App-storage MMKV migration marker is missing after migration completed'
+      : 'Jotai MMKV migration marker is missing after migration completed';
+  return `${NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX}${target}; ${detail}`;
+}
+
+export function getNativeStorageMigrationRecoveryTarget(
+  error: unknown,
+): INativeStorageMigrationRecoveryTarget | undefined {
+  let message = '';
+  if (error instanceof Error) {
+    message = error.message;
+  } else if (typeof error === 'string') {
+    message = error;
+  } else if (error && typeof error === 'object' && 'message' in error) {
+    const candidate = (error as { message?: unknown }).message;
+    message = typeof candidate === 'string' ? candidate : '';
+  }
+  const markerIndex = message.indexOf(
+    NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX,
+  );
+  if (markerIndex < 0) {
+    return undefined;
+  }
+  const target = message.slice(
+    markerIndex + NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX.length,
+  );
+  if (target.startsWith('appStorage')) {
+    return 'appStorage';
+  }
+  if (target.startsWith('jotai')) {
+    return 'jotai';
+  }
+  return undefined;
+}
+
 export type INativeStorageContractViolation = {
   apiName: string;
   id: string;
@@ -126,6 +171,11 @@ export type INativeSyncStorageRequest =
 export type INativeStorageRequest =
   | INativeAsyncStorageRequest
   | INativeSyncStorageRequest
+  | {
+      scope: 'recovery';
+      operation: 'resetMigrationTarget';
+      target: INativeStorageMigrationRecoveryTarget;
+    }
   | { scope: 'bootstrap' };
 
 export type INativeStorageCall = (

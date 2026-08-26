@@ -483,6 +483,18 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @backgroundMethod()
   async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    if (
+      request.scope === 'recovery' &&
+      request.operation === 'resetMigrationTarget' &&
+      request.target === 'jotai'
+    ) {
+      const { resetNativeJotaiStorageAfterMigrationMismatch } =
+        await import('../states/jotai/jotaiStorage');
+      await resetNativeJotaiStorageAfterMigrationMismatch();
+      this.allAtoms = jotaiInit();
+      await this.allAtoms;
+      return undefined;
+    }
     if (request.scope === 'bootstrap') {
       // Bootstrap does not release the UI until Jotai's separate legacy
       // namespace and the general app-storage namespace are both migrated.

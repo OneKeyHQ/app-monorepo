@@ -12,13 +12,16 @@ import {
 import { getLegacyAsyncStorageForMigration } from './legacyAsyncStorageMigration';
 import {
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+  NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   acknowledgeNativeStorageRecoveryAction,
   getNativeStorageMigrationCapacity,
   getNativeStorageMigrationLedger,
   peekNativeStorageRecoveryAction,
+  setNativeStorageMigrationLedger,
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
+import { createNativeStorageMigrationInconsistentErrorMessage } from './nativeStorageTypes';
 import {
   getNativeSWRCachePersistence,
   isNativeSWRCachePhysicalKey,
@@ -317,16 +320,44 @@ async function assertAppStorageMigrationCapacity(mmkv: IMMKVInstance) {
   }
 }
 
+async function finishInterruptedAppStorageReset(mmkv: IMMKVInstance) {
+  clearAppStorageUserKeys(mmkv);
+  mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  mmkv.trim();
+  await clearLegacyAppStorageData();
+
+  mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
+  if (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1') {
+    throw new OneKeyLocalError(
+      'App-storage reset migration marker verification failed',
+    );
+  }
+  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  await setNativeStorageMigrationLedgerComplete(
+    APP_STORAGE_MIGRATION_LEDGER_KEY,
+  );
+}
+
 async function migrateAppStorageFromLegacy() {
   const startedAt = Date.now();
   const mmkv = getAppStorageMMKV();
   const ledger = await getNativeStorageMigrationLedger(
     APP_STORAGE_MIGRATION_LEDGER_KEY,
   );
-  if (ledger !== null && ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
+  if (
+    ledger !== null &&
+    ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
+    ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
+  ) {
     throw new OneKeyLocalError(
       'AsyncStorage migration ledger has an unsupported version',
     );
+  }
+  if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING) {
+    logMigration('resuming interrupted app-storage reset');
+    await finishInterruptedAppStorageReset(mmkv);
+    return;
   }
   const targetMarkerComplete =
     mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1';
@@ -343,7 +374,7 @@ async function migrateAppStorageFromLegacy() {
   }
   if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
     throw new OneKeyLocalError(
-      'App-storage MMKV migration marker is missing after migration completed',
+      createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
     );
   }
 
@@ -453,6 +484,39 @@ export function ensureNativeAppStorageMigrated() {
   return appStorageMigrationPromise;
 }
 
+async function resetAppStorageAfterMigrationMismatch() {
+  const mmkv = getAppStorageMMKV();
+  const ledger = await getNativeStorageMigrationLedger(
+    APP_STORAGE_MIGRATION_LEDGER_KEY,
+  );
+  const markerComplete =
+    mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1';
+  if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE || markerComplete) {
+    throw new OneKeyLocalError(
+      'App-storage migration repair is no longer applicable',
+    );
+  }
+
+  await setNativeStorageMigrationLedger(
+    APP_STORAGE_MIGRATION_LEDGER_KEY,
+    NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
+  );
+  await finishInterruptedAppStorageReset(mmkv);
+  appStorageMigrationPromise = Promise.resolve();
+}
+
+function enqueueAppStorageMigrationReset() {
+  const execution = asyncStorageRequestChain.then(
+    () => resetAppStorageAfterMigrationMismatch(),
+    () => resetAppStorageAfterMigrationMismatch(),
+  );
+  asyncStorageRequestChain = execution.then(
+    () => undefined,
+    () => undefined,
+  );
+  return execution;
+}
+
 function defineEnumerableValue(
   target: Record<string, unknown>,
   key: string,
@@ -557,12 +621,7 @@ async function applyAppStorageChanges(
   }
 }
 
-async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
-  clearAppStorageUserKeys(mmkv);
-  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-
-  // clear() is used by the explicit app-reset flow. Remove the legacy copy as
-  // well so clearing MMKV cannot be followed by stale-data resurrection.
+async function clearLegacyAppStorageData() {
   const legacy = getLegacyAsyncStorageForMigration();
   const legacyKeys = getMigratableLegacyKeys(await legacy.getAllKeys());
   for (
@@ -574,6 +633,15 @@ async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
       legacyKeys.slice(offset, offset + LEGACY_READ_CHUNK_SIZE),
     );
   }
+}
+
+async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
+  clearAppStorageUserKeys(mmkv);
+  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+
+  // clear() is used by the explicit app-reset flow. Remove the legacy copy as
+  // well so clearing MMKV cannot be followed by stale-data resurrection.
+  await clearLegacyAppStorageData();
 }
 
 async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
@@ -1022,6 +1090,16 @@ export async function executeNativeStorageRequest(
       return enqueueAsyncStorageRequest(request);
     case 'syncStorage':
       return executeSyncStorageRequest(request);
+    case 'recovery':
+      if (
+        request.operation === 'resetMigrationTarget' &&
+        request.target === 'appStorage'
+      ) {
+        return enqueueAppStorageMigrationReset();
+      }
+      throw new OneKeyLocalError(
+        'Jotai migration recovery must be handled by its storage owner',
+      );
     case 'bootstrap':
       return buildBootstrapSnapshot();
     default: {

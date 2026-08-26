@@ -1,5 +1,5 @@
-import { useEffect, useReducer } from 'react';
-import type { ComponentType } from 'react';
+import { useEffect, useReducer, useState } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import {
   ActivityIndicator,
@@ -10,13 +10,19 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBridge';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+
 import { bootstrapNativeStorage } from './bootstrapNativeStorage';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
 
 let AppComponent: ComponentType | undefined;
 let bootstrapError: Error | undefined;
 let bootstrapErrorTitle = 'Storage initialization failed';
+let bootstrapRecoveryTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let bootstrapPromise: Promise<void> | undefined;
+let storageRepairPromise: Promise<void> | undefined;
 let bootstrapGeneration = 0;
 const subscribers = new Set<() => void>();
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MS = 65_000;
@@ -67,6 +73,7 @@ function startBootstrap(force = false) {
   }
   const generation = (bootstrapGeneration += 1);
   bootstrapError = undefined;
+  bootstrapRecoveryTarget = undefined;
   notifySubscribers();
   let stage: 'app' | 'storage' = 'storage';
   const nextPromise = bootstrapNativeStorageWithTimeout(force)
@@ -98,6 +105,7 @@ function startBootstrap(force = false) {
       }
       bootstrapError =
         error instanceof Error ? error : new Error(String(error));
+      bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
       bootstrapErrorTitle =
         stage === 'storage'
           ? 'Storage initialization failed'
@@ -112,6 +120,36 @@ function startBootstrap(force = false) {
     });
   bootstrapPromise = nextPromise;
   return bootstrapPromise;
+}
+
+function startStorageRepair(target: INativeStorageMigrationRecoveryTarget) {
+  if (storageRepairPromise) {
+    return storageRepairPromise;
+  }
+  bootstrapError = undefined;
+  bootstrapRecoveryTarget = undefined;
+  notifySubscribers();
+  const nextPromise = callNativeStorage<void>({
+    scope: 'recovery',
+    operation: 'resetMigrationTarget',
+    target,
+  })
+    .then(() => startBootstrap(true))
+    .catch((error: unknown) => {
+      bootstrapError =
+        error instanceof Error ? error : new Error(String(error));
+      bootstrapErrorTitle = 'Storage repair failed';
+      bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
+      hideNativeStorageBootstrapSplash();
+    })
+    .finally(() => {
+      if (storageRepairPromise === nextPromise) {
+        storageRepairPromise = undefined;
+      }
+      notifySubscribers();
+    });
+  storageRepairPromise = nextPromise;
+  return storageRepairPromise;
 }
 
 void startBootstrap();
@@ -142,6 +180,9 @@ const styles = StyleSheet.create({
 
 export function NativeStorageBootstrapRoot() {
   const [, rerender] = useReducer((value: number) => value + 1, 0);
+  const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
+    INativeStorageMigrationRecoveryTarget | undefined
+  >();
   const isDarkMode = useColorScheme() === 'dark';
   useEffect(() => {
     subscribers.add(rerender);
@@ -155,10 +196,11 @@ export function NativeStorageBootstrapRoot() {
     return <App />;
   }
   if (bootstrapError) {
-    return (
-      <View style={[styles.container, styles.errorContainer]}>
-        <Text style={styles.title}>{bootstrapErrorTitle}</Text>
-        <Text style={styles.message}>{bootstrapError.message}</Text>
+    const recoveryTarget = bootstrapRecoveryTarget;
+    const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
+    let recoveryAction: ReactNode;
+    if (!recoveryTarget) {
+      recoveryAction = (
         <Pressable
           accessibilityRole="button"
           onPress={() => void startBootstrap(true)}
@@ -167,6 +209,58 @@ export function NativeStorageBootstrapRoot() {
         >
           <Text style={styles.retryText}>Retry</Text>
         </Pressable>
+      );
+    } else if (isConfirmingRepair) {
+      recoveryAction = (
+        <>
+          <Text style={styles.message}>
+            This removes the affected local state and its stale AsyncStorage
+            copy. Continue?
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setRepairConfirmationTarget(undefined);
+              void startStorageRepair(recoveryTarget);
+            }}
+            style={styles.retryButton}
+            testID="native-storage-migration-repair-confirm"
+          >
+            <Text style={styles.retryText}>Confirm reset</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setRepairConfirmationTarget(undefined)}
+            style={styles.retryButton}
+            testID="native-storage-migration-repair-cancel"
+          >
+            <Text style={styles.retryText}>Cancel</Text>
+          </Pressable>
+        </>
+      );
+    } else {
+      recoveryAction = (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setRepairConfirmationTarget(recoveryTarget)}
+          style={styles.retryButton}
+          testID="native-storage-migration-repair"
+        >
+          <Text style={styles.retryText}>Reset local storage</Text>
+        </Pressable>
+      );
+    }
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.title}>
+          {recoveryTarget ? 'Local storage needs repair' : bootstrapErrorTitle}
+        </Text>
+        <Text style={styles.message}>
+          {recoveryTarget
+            ? 'The migrated local storage is incomplete and cannot be used safely.'
+            : bootstrapError.message}
+        </Text>
+        {recoveryAction}
       </View>
     );
   }

@@ -69,6 +69,9 @@ const mockLegacyStorage = {
 const mockSetMigrationLedgerComplete = jest.fn(async (key: string) => {
   mockMigrationLedger.set(key, 'complete-v1');
 });
+const mockSetMigrationLedger = jest.fn(async (key: string, value: string) => {
+  mockMigrationLedger.set(key, value);
+});
 const mockAcknowledgeRecoveryAction = jest.fn(async (action: string) => {
   if (mockRecoveryAction !== action) {
     return false;
@@ -90,12 +93,14 @@ jest.mock('./legacyAsyncStorageMigration', () => ({
 }));
 jest.mock('./nativeStorageMigrationModule', () => ({
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE: 'complete-v1',
+  NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING: 'resetting-v1',
   acknowledgeNativeStorageRecoveryAction: mockAcknowledgeRecoveryAction,
   getNativeStorageMigrationCapacity: mockGetMigrationStorageCapacity,
   getNativeStorageMigrationLedger: jest.fn(
     async (key: string) => mockMigrationLedger.get(key) ?? null,
   ),
   peekNativeStorageRecoveryAction: jest.fn(async () => mockRecoveryAction),
+  setNativeStorageMigrationLedger: mockSetMigrationLedger,
   setNativeStorageMigrationLedgerComplete: mockSetMigrationLedgerComplete,
   syncNativeStorageMMKV: jest.fn(async () => undefined),
 }));
@@ -306,6 +311,52 @@ describe('nativeStorageExecutor', () => {
       }),
     ).rejects.toThrow('MMKV migration marker is missing');
     expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
+  });
+
+  it('resets an inconsistent app-storage target without restoring stale legacy data', async () => {
+    mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+    mockAppMMKV.set('app:key', 'partial-mmkv-value');
+    mockLegacyData.set('key', 'stale-legacy-value');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'resetMigrationTarget',
+      target: 'appStorage',
+    });
+
+    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
+      'app-storage-v1',
+      'resetting-v1',
+    );
+    expect(mockLegacyData.size).toBe(0);
+    expect(mockAppMMKV.getAllKeys()).toEqual([MIGRATION_KEY]);
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'key',
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it('finishes an interrupted app-storage reset before serving business reads', async () => {
+    mockMigrationLedger.set('app-storage-v1', 'resetting-v1');
+    mockAppMMKV.set('app:key', 'partial-mmkv-value');
+    mockLegacyData.set('key', 'stale-legacy-value');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'key',
+      }),
+    ).resolves.toBeNull();
+    expect(mockLegacyData.size).toBe(0);
+    expect(mockAppMMKV.getAllKeys()).toEqual([MIGRATION_KEY]);
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
   });
 
   it('supports empty keys and removes legacy data during explicit clear', async () => {
