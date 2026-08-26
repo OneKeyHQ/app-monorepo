@@ -45,6 +45,7 @@ import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   HyperLiquidAgentSecretSession,
   hyperLiquidAgentSecretSession,
+  shouldUseHyperLiquidAgentPasswordEncryption,
 } from '../dbs/local/hyperLiquidAgentSecret';
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -420,7 +421,7 @@ async function describeLocalSecretEnvelopeRecordEncryption({
   const deferredToHyperLiquidPasswordMigration =
     shouldDeferHyperLiquidPlaintextLseMigration({
       candidate,
-      isNative: detectLocalSecretEnvelopeRuntimePlatform() === 'native',
+      usePasswordEncryption: shouldUseHyperLiquidAgentPasswordEncryption(),
     });
   let migrationNote: string;
   if (deferredToHyperLiquidPasswordMigration) {
@@ -1496,6 +1497,9 @@ class ServiceE2E extends ServiceBase {
       const configuredLayerKinds = config.layerAdapters.map(
         (adapter) => adapter.kind,
       );
+      const usePasswordEncryption =
+        shouldUseHyperLiquidAgentPasswordEncryption();
+      summary.passwordEncryptionUsed = usePasswordEncryption;
       const runtimeMatches = reporter.check(
         'Config',
         'Runtime platform matches expected',
@@ -1566,14 +1570,16 @@ class ServiceE2E extends ServiceBase {
         legacySourceStored,
       );
 
-      if (runtimePlatform === 'native') {
+      if (!usePasswordEncryption) {
         const migratedCredential = await localDb.getHyperLiquidAgentCredential({
           agentName: credential.agentName,
           userAddress: credential.userAddress,
         });
         reporter.check(
           'Migration',
-          'Native legacy read returns the Agent credential',
+          runtimePlatform === 'native'
+            ? 'Native legacy read returns the Agent credential'
+            : 'Web DApp legacy read wraps and returns the Agent credential',
           hyperLiquidAgentCredentialsEqual(migratedCredential, credential),
         );
       } else {
@@ -1607,10 +1613,9 @@ class ServiceE2E extends ServiceBase {
       }
 
       const envelope = parseLocalSecretEnvelopeV1(storedCredential.credential);
-      const expectedInnerPrefix =
-        runtimePlatform === 'native'
-          ? LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential
-          : LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential;
+      const expectedInnerPrefix = usePasswordEncryption
+        ? LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentPasswordEncryptedCredential
+        : LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential;
       const credentialLayerKinds = getLocalSecretEnvelopeLayerKinds(envelope);
       const privateKeyAbsentFromEnvelope =
         !storedCredential.credential.includes(credential.privateKey);
@@ -1700,11 +1705,14 @@ class ServiceE2E extends ServiceBase {
         signatureVerified,
       );
 
-      if (runtimePlatform === 'native') {
+      if (!usePasswordEncryption) {
+        summary.sessionRestored = false;
         reporter.skip(
           'Session',
           'Password-session checks',
-          'Native uses the device-bound LSE chain; restart is covered by the native harness',
+          runtimePlatform === 'native'
+            ? 'Native uses the device-bound LSE chain; restart is covered by the native harness'
+            : 'Web DApp uses passwordless LSE(HLP)',
         );
       } else {
         const supportsSessionRestore =

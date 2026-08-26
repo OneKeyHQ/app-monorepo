@@ -1988,25 +1988,78 @@ class ServiceAccount extends ServiceBase {
       return false;
     }
 
-    // Check if the deleted wallet is in the address record's wallets
-    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
-      return true;
+    const addressOwners = Object.entries(addressRecord.wallets);
+    const isDeletedOwner = ([walletId, accountOrIndexedAccountId]: [
+      string,
+      string,
+    ]) =>
+      Boolean(
+        (deletedInfo.walletId && walletId === deletedInfo.walletId) ||
+        (deletedInfo.accountId &&
+          accountOrIndexedAccountId === deletedInfo.accountId) ||
+        (deletedInfo.indexedAccountId &&
+          accountOrIndexedAccountId === deletedInfo.indexedAccountId),
+      );
+
+    if (!addressOwners.some(isDeletedOwner)) {
+      return false;
     }
 
-    // Check if any of the wallet values match deleted account/indexedAccount IDs
-    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
-      const walletValues = Object.values(addressRecord.wallets);
+    for (const [walletId, accountOrIndexedAccountId] of addressOwners) {
+      if (isDeletedOwner([walletId, accountOrIndexedAccountId])) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
       if (
-        (deletedInfo.accountId &&
-          walletValues.includes(deletedInfo.accountId)) ||
-        (deletedInfo.indexedAccountId &&
-          walletValues.includes(deletedInfo.indexedAccountId))
+        !wallet ||
+        localDb.isTempWalletRemoved({ wallet }) ||
+        accountUtils.isWalletDeprecatedOrMocked(wallet)
       ) {
-        return true;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const [account, indexedAccount] = await Promise.all([
+        localDb.getAccountSafe({ accountId: accountOrIndexedAccountId }),
+        localDb.getIndexedAccountSafe({ id: accountOrIndexedAccountId }),
+      ]);
+      if (account || indexedAccount) {
+        return false;
       }
     }
 
-    return false;
+    return true;
+  }
+
+  @backgroundMethod()
+  async removeHyperLiquidAgentCredentialsByUserAddresses({
+    userAddresses,
+  }: {
+    userAddresses: string[];
+  }): Promise<number> {
+    const normalizedUserAddresses = new Set(
+      userAddresses
+        .map((address) => address.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (!normalizedUserAddresses.size) {
+      return 0;
+    }
+
+    const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+    const credentialsToDelete = allCredentials.filter((credential) => {
+      try {
+        return normalizedUserAddresses.has(
+          this.extractUserAddressFromCredentialId(credential.id).toLowerCase(),
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (credentialsToDelete.length) {
+      await localDb.removeCredentials({ credentials: credentialsToDelete });
+    }
+    return credentialsToDelete.length;
   }
 
   @backgroundMethod()

@@ -332,20 +332,18 @@ async function runLocalSecretEnvelopeFlow(page, rendererUrl) {
   const agentSummary = agentMigrationResult.summary || {};
   assert.equal(agentSummary.legacySourceStored, true);
   assert.equal(agentSummary.rawCredentialIsLse, true);
-  assert.equal(agentSummary.expectedInnerPrefix, '|HLE|');
-  assert.equal(agentSummary.migratedInnerPrefix, '|HLE|');
+  assert.equal(agentSummary.expectedInnerPrefix, '|HLP|');
+  assert.equal(agentSummary.migratedInnerPrefix, '|HLP|');
   assert.deepEqual(agentSummary.credentialLayerKinds, ['indexeddb-cryptokey']);
   assert.equal(agentSummary.credentialStrength, 'profile-bound');
   assert.equal(agentSummary.privateKeyAbsentFromEnvelope, true);
   assert.equal(agentSummary.readBackMatches, true);
   assert.equal(agentSummary.signatureVerified, true);
+  assert.equal(agentSummary.passwordEncryptionUsed, false);
   assert.equal(agentSummary.sessionRestored, false);
-  assert.equal(agentSummary.lockedSigningBlocked, true);
-  assert.equal(agentSummary.wrongPasswordSigningBlocked, true);
-  assert.equal(agentSummary.signingAfterUnlockAgainVerified, true);
 
   log(
-    'local secret envelope web self-test passed (indexeddb-cryptokey + restore + HL Agent migration)',
+    'local secret envelope web self-test passed (indexeddb-cryptokey + restore + passwordless HL Agent migration)',
   );
 }
 

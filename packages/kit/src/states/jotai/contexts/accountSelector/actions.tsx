@@ -594,11 +594,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       payload: {
         num: number;
         selectedAccount: IAccountSelectorSelectedAccount;
+        forceReload?: boolean;
       },
     ): Promise<IAccountSelectorActiveAccountInfo> =>
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount } = payload;
+        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
@@ -611,6 +612,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         };
         if (
+          !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
             storageInitDone: get(accountSelectorStorageInitDoneAtom()),
             selectedAccount,
@@ -3864,6 +3866,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneUrl,
             num,
           });
+
+          if (
+            isSelectedWalletRemoved &&
+            isSelectedAccountIdentityIncomplete(selectedAccountNew)
+          ) {
+            // A network-only selection is the final empty state after removing
+            // the last wallet, so it must replace the stale active account.
+            await this.reloadActiveAccountInfo.call(set, {
+              num,
+              selectedAccount: selectedAccountNew,
+              forceReload: true,
+            });
+          }
 
           if (
             selectedAccount.walletId !== selectedAccountNew.walletId &&
