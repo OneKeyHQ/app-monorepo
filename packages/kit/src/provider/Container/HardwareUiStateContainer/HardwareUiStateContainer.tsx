@@ -46,6 +46,7 @@ import {
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   isDeviceStageOwnedHardwareUiAction,
+  isLegacyHardwareUiActive,
   shouldLegacyContainerRaiseHardwareErrorDialog,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -488,11 +489,13 @@ function HardwareUiStateContainerCmpControlled() {
   const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
   const stageIsShowingRef = useRef(stageIsShowing);
   stageIsShowingRef.current = stageIsShowing;
-  const stageOwnsAction = isDeviceStageOwnedHardwareUiAction({
-    action: state?.action,
-    eventType: state?.payload?.eventType,
-    firmwareUpdateRunning,
-  });
+  const stageOwnsAction =
+    !isLegacyHardwareUiActive() &&
+    isDeviceStageOwnedHardwareUiAction({
+      action: state?.action,
+      eventType: state?.payload?.eventType,
+      firmwareUpdateRunning,
+    });
 
   const { serviceHardwareUI } = backgroundApiProxy;
 
