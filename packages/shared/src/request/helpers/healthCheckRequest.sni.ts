@@ -226,6 +226,7 @@ export async function healthCheckRequest(
     });
 
     if (!sniResponse) {
+      const fallbackAllowed = method === 'GET';
       logHealthCheckSniDecision('warn', {
         hostname,
         method,
@@ -237,10 +238,17 @@ export async function healthCheckRequest(
             : 'confirmed_direct',
         hasSelectedIp: true,
         selectedIpHash: hashForLog(selectedIp),
-        decision: 'fetch',
-        reason: 'sni_null_response',
+        decision: fallbackAllowed ? 'fetch' : 'throw',
+        reason: fallbackAllowed
+          ? 'sni_null_response'
+          : 'sni_null_response_non_idempotent',
         durationMs: Date.now() - startedAt,
       });
+      if (!fallbackAllowed) {
+        throw new OneKeyLocalError(
+          '[HealthCheck] SNI POST returned no response; fallback disabled to avoid replay',
+        );
+      }
       return await fallbackToFetch(normalizedConfig);
     }
 
@@ -286,7 +294,8 @@ export async function healthCheckRequest(
       throw error;
     }
 
-    logHealthCheckSniDecision('warn', {
+    const fallbackAllowed = method === 'GET';
+    logHealthCheckSniDecision(fallbackAllowed ? 'warn' : 'error', {
       hostname,
       method,
       sniSupported,
@@ -297,12 +306,15 @@ export async function healthCheckRequest(
           : 'confirmed_direct',
       hasSelectedIp: true,
       selectedIpHash: hashForLog(selectedIp),
-      decision: 'fetch',
-      reason: 'sni_error',
+      decision: fallbackAllowed ? 'fetch' : 'throw',
+      reason: fallbackAllowed ? 'sni_error' : 'sni_error_non_idempotent',
       errorCode: getErrorCode(error),
       errorMessage: getErrorMessage(error),
       durationMs: Date.now() - startedAt,
     });
+    if (!fallbackAllowed) {
+      throw error;
+    }
     return fallbackToFetch(normalizedConfig);
   }
 }

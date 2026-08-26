@@ -139,4 +139,44 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  test('does not replay POST when SNI returns no response', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+
+    await expect(
+      healthCheckRequest({
+        url: 'https://api.example.com/health',
+        method: 'POST',
+      }),
+    ).rejects.toThrow('fallback disabled to avoid replay');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not replay POST after an ambiguous SNI error', async () => {
+    const error = new Error('connection lost after write');
+    mockedSniRequest.mockRejectedValue(error);
+
+    await expect(
+      healthCheckRequest({
+        url: 'https://api.example.com/health',
+        method: 'POST',
+      }),
+    ).rejects.toBe(error);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('keeps the GET fallback after a non-fail-closed SNI error', async () => {
+    mockedSniRequest.mockRejectedValue(new Error('connection lost'));
+
+    await expect(
+      healthCheckRequest({ url: 'https://api.example.com/health' }),
+    ).resolves.toEqual({
+      status: 204,
+      ok: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
