@@ -41,17 +41,19 @@ export function useDeviceStageBurst() {
     [endBurst],
   );
 
-  /** Opens a hold only if this holder has none — the parts of a flow that
-   * can also run on their own each ensure the hold without ever
-   * superseding the one an outer part already opened. */
+  /** Opens a hold only if this holder has none that is still live. The
+   * token is presented to the background, which is the authority: a hold
+   * the person already dismissed (the stage's own close ends it there)
+   * is reopened rather than silently assumed. */
   const ensureBurst = useCallback(
     async (params: IDeviceStageBurstBeginParams = {}) => {
-      if (tokenRef.current !== undefined) {
-        return;
-      }
-      await beginBurst(params);
+      tokenRef.current =
+        await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
+          ...params,
+          reuseToken: tokenRef.current,
+        });
     },
-    [beginBurst],
+    [],
   );
 
   const endBurstRef = useRef(endBurst);
