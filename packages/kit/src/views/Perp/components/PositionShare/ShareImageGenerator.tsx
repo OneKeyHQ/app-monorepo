@@ -37,6 +37,10 @@ function toCanvasFont(size: number, weight: string | number = 'bold'): string {
   return `${weight} ${size}px MiSans, system-ui, -apple-system, sans-serif`;
 }
 
+// A stalled CDN response fires neither load nor error, so without a deadline the
+// whole card generation would hang. Mirrors the native capture timeout.
+const IMAGE_LOAD_TIMEOUT_MS = 3000;
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   if (imageCache.has(src)) {
     return Promise.resolve(imageCache.get(src) ?? null);
@@ -44,12 +48,23 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 
   return new Promise((resolve) => {
     const img = new Image();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (result: HTMLImageElement | null) => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      img.onload = null;
+      img.onerror = null;
+      resolve(result);
+    };
+    timer = setTimeout(() => settle(null), IMAGE_LOAD_TIMEOUT_MS);
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       imageCache.set(src, img);
-      resolve(img);
+      settle(img);
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => settle(null);
     img.src = src;
   });
 }
@@ -66,7 +81,9 @@ export const ShareImageGenerator = forwardRef<
       config,
       referralQrCodeUrl,
       referralDisplayText,
-      isReferralReady = true,
+      // Kept so this signature stays interchangeable with the native generator.
+      // Readiness no longer gates drawing: the referral block always paints.
+      isReferralReady: _isReferralReady,
     },
     ref,
   ) => {
@@ -291,7 +308,9 @@ export const ShareImageGenerator = forwardRef<
           }
         }
 
-        if (SHOW_REFERRAL_CODE && isReferralReady) {
+        // Always painted: referralQrCodeUrl carries a working default, so
+        // waiting for the invite code would only delay the card.
+        if (SHOW_REFERRAL_CODE) {
           const rectHeight = layout.referralHeight;
           const rectY = size - rectHeight;
           const rectWidth = size;
@@ -351,14 +370,7 @@ export const ShareImageGenerator = forwardRef<
         }
         return '';
       }
-    }, [
-      data,
-      config,
-      referralQrCodeUrl,
-      referralDisplayText,
-      isReferralReady,
-      intl,
-    ]);
+    }, [data, config, referralQrCodeUrl, referralDisplayText, intl]);
 
     useImperativeHandle(ref, () => ({ generate }));
 

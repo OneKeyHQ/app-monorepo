@@ -172,6 +172,59 @@ describe('Analytics tier', () => {
     );
   });
 
+  it('waits for profile delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.updateUserProfileAsync({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        distinctId: 'instance-id',
+        attributes: expect.objectContaining({
+          isOneKeyIdLoggedIn: false,
+          isPrimeActive: false,
+        }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.updateUserProfileAsync({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+      }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed profile delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(
+      analytics.updateUserProfileAsync({ isOneKeyIdLoggedIn: false }),
+    ).rejects.toThrow('Analytics is not initialized');
+  });
+
+  it('resolves whenInitialized after init and immediately when already ready', async () => {
+    const analytics = new Analytics();
+    let initialized = false;
+    const pending = analytics.whenInitialized().then(() => {
+      initialized = true;
+    });
+
+    expect(initialized).toBe(false);
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    await pending;
+    expect(initialized).toBe(true);
+
+    await expect(analytics.whenInitialized()).resolves.toBeUndefined();
+  });
+
   it('sends events with the medium fallback when tier enrichment fails', async () => {
     mockGetDeviceCpuTier.mockImplementationOnce(() => {
       throw new OneKeyLocalError('segment runtime mismatch');

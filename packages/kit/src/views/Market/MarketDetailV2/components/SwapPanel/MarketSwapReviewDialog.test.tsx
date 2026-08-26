@@ -87,6 +87,7 @@ describe('MarketSwapReviewDialog', () => {
         onDone={onDone}
         onConfirmStart={onConfirmStart}
         adapter={adapter}
+        disableSaveSlippageForFutureOrders
         reviewState={reviewState}
       />,
     );
@@ -98,6 +99,7 @@ describe('MarketSwapReviewDialog', () => {
       reviewState,
       storeName: EJotaiContextStoreNames.marketSwapReview,
       disableGlobalApproveSync: true,
+      disableSaveSlippageForFutureOrders: true,
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
       accountSelectorConfig: {
         config: {

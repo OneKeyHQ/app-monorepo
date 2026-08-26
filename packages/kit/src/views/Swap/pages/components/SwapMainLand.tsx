@@ -224,8 +224,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const { selectFromToken, selectToToken, quoteAction, cleanQuoteInterval } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    quoteAction,
+    selectFromToken,
+    selectFromTokenByUser,
+    selectToTokenByUser,
+  } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -238,7 +243,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapStepData] = useSwapStepsAtom();
-  const { setSwapProSelectToken } = useSwapActions().current;
+  const { selectSwapProToken } = useSwapActions().current;
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const swapProFromToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
@@ -632,7 +637,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         token2: toTokenPair,
       });
       void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
-      void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
+      void selectToTokenByUser(toTokenPair, { skipCheckEqualToken });
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
         tokenListType: getSwapAnalyticsTokenListType({
@@ -640,7 +645,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         }),
       });
     },
-    [selectFromToken, selectToToken, swapTypeSwitch],
+    [selectFromToken, selectToTokenByUser, swapTypeSwitch],
   );
   const onOpenProviderList = useCallback(() => {
     dismissKeyboard();
@@ -1141,6 +1146,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           >
             <SwapProviderMirror storeName={storeName}>
               <PreSwapDialogContent
+                isSwapPro={focusSwapPro}
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
                 rebuildReviewWithSlippage={rebuildReviewWithSlippage}
@@ -1206,7 +1212,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         return;
       }
       if (focusSwapPro) {
-        void setSwapProSelectToken(token);
+        void selectSwapProToken(token);
       } else {
         if (
           equalTokenNoCaseSensitive({
@@ -1216,7 +1222,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ) {
           setSwapSelectToToken(swapFromTokenRef.current);
         }
-        void selectFromToken(token);
+        void selectFromTokenByUser(token);
         scrollViewRef.current?.scrollTo({
           y: 0,
           animated: true,
@@ -1225,8 +1231,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [
       focusSwapPro,
-      selectFromToken,
-      setSwapProSelectToken,
+      selectFromTokenByUser,
+      selectSwapProToken,
       setSwapSelectToToken,
     ],
   );

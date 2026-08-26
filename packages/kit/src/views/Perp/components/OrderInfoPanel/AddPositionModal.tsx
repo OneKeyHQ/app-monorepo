@@ -603,11 +603,14 @@ const AddPositionForm = memo(
           tpTriggerPx,
           slTriggerPx,
         } as const;
-        const placeOrder = async () => {
+        try {
           await actions.current.placeOrderByCoin(orderParams);
           onClose();
-        };
-        await placeOrder();
+        } catch {
+          // placeOrderByCoin already reports the failure through withToast,
+          // which localizes the HyperLiquid rejection; toasting error.message
+          // here repeated the same rejection in raw English.
+        }
       } catch (error) {
         Toast.error({
           title:

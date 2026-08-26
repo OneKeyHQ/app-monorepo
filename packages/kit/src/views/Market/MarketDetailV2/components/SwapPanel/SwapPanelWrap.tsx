@@ -41,6 +41,7 @@ import {
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
+  EMarketPresetKey,
   EMarketPresetTradeSide,
   getMarketNonPresetSlippageValue,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
@@ -285,6 +286,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     quoteError,
     quoteReadyForReview,
     quoteNeedsRefresh,
+    quoteRefreshActionActive,
     refreshMarketQuote,
     paymentTokenPrice,
     swapNativeTokenReserveGas,
@@ -643,6 +645,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
           renderContent: (
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
+              disableSaveSlippageForFutureOrders={
+                marketPresetSettings.enabled &&
+                marketPresetSettings.selectedPresetKey === EMarketPresetKey.AUTO
+              }
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
               showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}
@@ -776,7 +782,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
         marketPresetSettings.isLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
       }
-      isRefreshQuote={quoteNeedsRefresh}
+      isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}

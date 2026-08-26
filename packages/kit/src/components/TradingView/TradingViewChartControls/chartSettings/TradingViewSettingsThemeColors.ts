@@ -96,6 +96,7 @@ export function useTradingViewSettingsThemeColors(): ITradingViewSettingsThemeCo
   const positiveSubduedValue = theme.green6.val;
   const quaternaryValue = theme.pink9.val;
   const quinaryValue = theme.cyan9.val;
+  const referenceLineValue = theme.textDisabled.val;
   const warningValue = theme.amber9.val;
 
   return useMemo(() => {
@@ -131,6 +132,8 @@ export function useTradingViewSettingsThemeColors(): ITradingViewSettingsThemeCo
         flatten(positiveSubduedValue),
       [TRADING_VIEW_NATIVE_THEME_COLORS.quaternary]: flatten(quaternaryValue),
       [TRADING_VIEW_NATIVE_THEME_COLORS.quinary]: flatten(quinaryValue),
+      [TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine]:
+        flatten(referenceLineValue),
       [TRADING_VIEW_NATIVE_THEME_COLORS.warning]: flatten(warningValue),
     };
   }, [
@@ -150,6 +153,7 @@ export function useTradingViewSettingsThemeColors(): ITradingViewSettingsThemeCo
     positiveSubduedValue,
     quaternaryValue,
     quinaryValue,
+    referenceLineValue,
     warningValue,
   ]);
 }

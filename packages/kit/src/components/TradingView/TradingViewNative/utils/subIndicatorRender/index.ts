@@ -23,9 +23,16 @@ export {
   getTradingViewNativeSubIndicatorY,
 } from './coordinates';
 export {
+  getTradingViewNativeSubIndicatorLegendHitRegions,
+  getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+  getTradingViewNativeSubIndicatorLegendLayouts,
+} from './legend';
+export {
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeSubIndicatorPaneStackLayout,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
 export { getTradingViewNativeSubIndicatorValueRange } from './range';
 export {
@@ -44,6 +51,11 @@ export type {
 } from './calculationCache';
 export type { ITradingViewNativeSubIndicatorRenderSnapshot } from './pipeline';
 export type { ITradingViewNativeSubIndicatorPaneLayout } from './layout';
+export type {
+  ITradingViewNativeSubIndicatorLegendHitRegion,
+  ITradingViewNativeSubIndicatorLegendLayout,
+  ITradingViewNativeSubIndicatorLegendTextEntry,
+} from './legend';
 export type {
   ITradingViewNativeSubIndicatorAutoScale,
   ITradingViewNativeSubIndicatorBandDefinition,

@@ -23,9 +23,28 @@ jest.mock('@onekeyhq/core/src/secret', () => {
   return {
     ...actual,
     decryptRevealableSeed: jest.fn(),
+    encryptRevealableSeed: jest.fn(),
     ensureSensitiveTextEncoded: jest.fn(),
+    mnemonicFromEntropy: jest.fn(),
+    mnemonicToRevealableSeed: jest.fn(),
+    revealEntropyToMnemonic: jest.fn(),
+    validateMnemonic: jest.fn(() => true),
   };
 });
+
+const mockNonDbKdfParams = {
+  kdfBackend: 'webcrypto' as const,
+  enablePbkdf2Cache: true,
+};
+
+jest.mock('@onekeyhq/shared/src/appCrypto/modules/pbkdf2', () => ({
+  getPbkdf2KdfParamsForNonDbTx: jest.fn(() => mockNonDbKdfParams),
+  getPbkdf2KdfParamsForNonDbTxNoCache: jest.fn(),
+  getPbkdf2InvocationByProbeId: jest.fn(),
+  clearPbkdf2InvocationByProbeId: jest.fn(),
+  getPbkdf2BackendForCurrentPlatform: jest.fn(),
+  isWebCryptoPbkdf2Supported: jest.fn(),
+}));
 
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
   const actual = jest.requireActual<
@@ -46,8 +65,10 @@ jest.mock('../../dbs/local/localDb', () => ({
     clearStoreCachedData: jest.fn(),
     createHDWallet: jest.fn(),
     getAllWallets: jest.fn(),
+    getCredentialInner: jest.fn(),
     getWalletSafe: jest.fn(),
     removeWallet: jest.fn(),
+    updateWalletsHashAndXfp: jest.fn(),
   },
 }));
 
@@ -90,7 +111,13 @@ jest.mock('../ServicePrimeCloudSync/keylessCloudSyncUtils', () => ({
   },
 }));
 
-import { decryptRevealableSeed } from '@onekeyhq/core/src/secret';
+import {
+  decryptRevealableSeed,
+  encryptRevealableSeed,
+  mnemonicFromEntropy,
+  mnemonicToRevealableSeed,
+  revealEntropyToMnemonic,
+} from '@onekeyhq/core/src/secret';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 
 import localDb from '../../dbs/local/localDb';
@@ -146,6 +173,130 @@ describe('ServiceAccount Keyless removal phase', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('encrypts a new HD seed with the non-transaction KDF backend before persistence', async () => {
+    const callOrder: string[] = [];
+    const revealableSeed = {
+      entropyWithLangPrefixed: 'english:00010203',
+      seed: 'seed-hex',
+    };
+    jest.mocked(mnemonicToRevealableSeed).mockReturnValue(revealableSeed);
+    jest.mocked(revealEntropyToMnemonic).mockReturnValue('test mnemonic words');
+    jest.mocked(encryptRevealableSeed).mockImplementation(async () => {
+      callOrder.push('encrypt');
+      return 'encrypted-revealable-seed';
+    });
+
+    const service = new ServiceAccount({
+      backgroundApi: {
+        servicePassword: {
+          promptPasswordVerify: jest.fn(async () => ({
+            password: 'encoded-password',
+          })),
+        },
+      },
+    });
+    jest.spyOn(service, 'validateMnemonic').mockResolvedValue({
+      mnemonic: 'test mnemonic words',
+      mnemonicType: undefined as never,
+    });
+    jest
+      .spyOn(service, 'generateAllHdAndQrWalletsHashAndXfp')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'hdWalletHashAndXfpBuilder').mockResolvedValue({
+      hash: 'wallet-hash',
+      xfp: 'wallet-xfp',
+    });
+    jest.spyOn(service, 'createHDWalletWithRs').mockImplementation(async () => {
+      callOrder.push('persist');
+      return {
+        wallet: keylessWallet,
+        indexedAccount: undefined,
+        isOverrideWallet: false,
+      };
+    });
+
+    await service.createHDWallet({
+      mnemonic: 'encoded-mnemonic',
+      isKeylessWallet: true,
+      keylessDetailsInfo: keylessWallet.keylessDetailsInfo,
+    });
+
+    expect(encryptRevealableSeed).toHaveBeenCalledWith({
+      ...mockNonDbKdfParams,
+      rs: revealableSeed,
+      password: 'encoded-password',
+    });
+    expect(callOrder).toEqual(['encrypt', 'persist']);
+  });
+
+  test('encrypts a supplied revealable seed with the non-transaction KDF backend', async () => {
+    const revealableSeed = {
+      entropyWithLangPrefixed: 'english:00010203',
+      seed: 'seed-hex',
+    };
+    jest.mocked(revealEntropyToMnemonic).mockReturnValue('test mnemonic words');
+    jest
+      .mocked(encryptRevealableSeed)
+      .mockResolvedValue('encrypted-revealable-seed');
+
+    const service = new ServiceAccount({ backgroundApi: {} });
+    jest
+      .spyOn(service, 'generateAllHdAndQrWalletsHashAndXfp')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'hdWalletHashAndXfpBuilder').mockResolvedValue({
+      hash: 'wallet-hash',
+      xfp: 'wallet-xfp',
+    });
+    jest.spyOn(service, 'createHDWalletWithRs').mockResolvedValue({
+      wallet: keylessWallet,
+      indexedAccount: undefined,
+      isOverrideWallet: false,
+    });
+
+    await service.createHDWalletWithRevealableSeed({
+      revealableSeed,
+      password: 'encoded-password',
+    });
+
+    expect(encryptRevealableSeed).toHaveBeenCalledWith({
+      ...mockNonDbKdfParams,
+      rs: revealableSeed,
+      password: 'encoded-password',
+    });
+  });
+
+  test('uses the non-transaction KDF backend when repairing missing wallet metadata', async () => {
+    const wallet = {
+      ...keylessWallet,
+      id: 'hd-1',
+      isKeyless: false,
+      hash: undefined,
+      xfp: undefined,
+    };
+    jest.mocked(localDb).getCredentialInner.mockResolvedValue({
+      id: wallet.id,
+      credential: 'encrypted-revealable-seed',
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- This imported helper is stateless.
+    jest.mocked(mnemonicFromEntropy).mockResolvedValue('test mnemonic words');
+    const service = new ServiceAccount({ backgroundApi: {} });
+    jest.spyOn(service, 'hdWalletHashAndXfpBuilder').mockResolvedValue({
+      hash: 'wallet-hash',
+      xfp: 'wallet-xfp',
+    });
+
+    await service.generateHDWalletMissingHashAndXfp({
+      password: 'encoded-password',
+      hdWallets: [wallet],
+    });
+
+    expect(mnemonicFromEntropy).toHaveBeenCalledWith(
+      'encrypted-revealable-seed',
+      'encoded-password',
+      mockNonDbKdfParams,
+    );
   });
 
   test('commits all authoritative Keyless creation resources inside the lifecycle critical section', async () => {
@@ -252,6 +403,16 @@ describe('ServiceAccount Keyless removal phase', () => {
     expect(bumpIdentityLifecycleRevision).toHaveBeenCalledTimes(1);
     expect(syncNowKeyless).toHaveBeenCalledTimes(1);
     expect(updateClientBasicAppInfoDebounced).toHaveBeenCalledTimes(1);
+    expect(decryptRevealableSeed).toHaveBeenCalledWith({
+      ...mockNonDbKdfParams,
+      rs: 'encrypted-revealable-seed',
+      password: 'encoded-password',
+    });
+    expect(
+      jest.mocked(localDb).createHDWallet.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      jest.mocked(decryptRevealableSeed).mock.invocationCallOrder[0],
+    );
   });
 
   test('returns after child cascade and parent-row deletion without running post-delete side effects', async () => {

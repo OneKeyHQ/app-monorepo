@@ -89,6 +89,45 @@ function pickBalanceMultiplier(
   );
 }
 
+// Decode-side multiplier resolution: prefer the send-page snapshot
+// (transferPayload.tokenInfo) when it refers to the decoded token — it is
+// the exact snapshot that rendered the amount the user confirmed, per the
+// same-snapshot contract above. The snapshot wins WHOLESALE on an address
+// match, even when its multiplier is undefined ("what the user saw" may
+// legitimately have had no multiplier). Fall back to the freshly fetched
+// token (getToken) for dApp/external txs that never populated the payload.
+// The snapshot deliberately wins WITHOUT validity filtering (unlike
+// pickBalanceMultiplier): apply/convert pass invalid values through
+// unchanged, so an invalid snapshot value keeps decode and send in
+// agreement, while falling back to a VALID fetched multiplier would
+// manufacture a decode/send divergence.
+// Case sensitivity is per-chain: EVM hex and TON addresses (raw `0:<hex>`
+// vs friendly casing, see ton/Vault.ts) compare case-insensitively via the
+// flag; only Solana base58 mints are case-sensitive and must NOT set it.
+// Empty-string addresses (EVM native sentinel) are never a match key.
+function pickDecodeBalanceMultiplier({
+  snapshotToken,
+  fetchedToken,
+  tokenAddress,
+  addressCaseInsensitive,
+}: {
+  snapshotToken: { address?: string; balanceMultiplier?: string } | undefined;
+  fetchedToken: { balanceMultiplier?: string } | undefined;
+  tokenAddress: string;
+  addressCaseInsensitive?: boolean;
+}): string | undefined {
+  const snapshotAddress = snapshotToken?.address;
+  if (snapshotAddress) {
+    const matches = addressCaseInsensitive
+      ? snapshotAddress.toLowerCase() === tokenAddress.toLowerCase()
+      : snapshotAddress === tokenAddress;
+    if (matches) {
+      return snapshotToken?.balanceMultiplier;
+    }
+  }
+  return fetchedToken?.balanceMultiplier;
+}
+
 // raw parsed amount -> display amount
 function applyBalanceMultiplier(params: {
   amount: string;
@@ -309,6 +348,7 @@ export default {
   removeBalanceMultiplier,
   convertDisplayAmountToRawAmount,
   pickBalanceMultiplier,
+  pickDecodeBalanceMultiplier,
   normalizeTokenDetailItemsBalanceMultiplier,
   normalizeAccountTokensRespBalanceMultiplier,
 };

@@ -37,6 +37,19 @@ describe('resolveMarketTradeActionState', () => {
     ).toEqual({ shouldDisable: false, shouldJumpToSwap: true });
   });
 
+  it('refreshes an expired quote instead of falling back or blocking on balance', () => {
+    expect(
+      resolveMarketTradeActionState({
+        supportSpeedSwap: false,
+        isAccountNetworkSupported: false,
+        isBalanceAvailable: true,
+        isInsufficientBalance: true,
+        isWrapped: false,
+        isRefreshQuote: true,
+      }),
+    ).toEqual({ shouldDisable: false, shouldJumpToSwap: false });
+  });
+
   it('disables insufficient ordinary pairs instead of falling back to Swap', () => {
     expect(
       resolveMarketTradeActionState({

@@ -3,11 +3,11 @@ import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
-  OKX_CHART_BG,
-  OKX_CHART_BORDER,
-  OKX_CHART_DOWN,
-  OKX_CHART_TEXT,
-  OKX_CHART_UP,
+  TRADING_VIEW_CHART_BG,
+  TRADING_VIEW_CHART_BORDER,
+  TRADING_VIEW_CHART_DOWN,
+  TRADING_VIEW_CHART_TEXT,
+  TRADING_VIEW_CHART_UP,
 } from './TradingViewSettingsShared';
 
 import type {
@@ -15,10 +15,10 @@ import type {
   ITradingViewChartSettingsPriceColorMode,
 } from './TradingViewSettingsMockState';
 
-const OKX_COLOR_SETTING_PANEL_WIDTH = 423;
-const OKX_COLOR_SETTING_PANEL_HEIGHT = 374;
+const TRADING_VIEW_COLOR_SETTING_PANEL_WIDTH = 423;
+const TRADING_VIEW_COLOR_SETTING_PANEL_HEIGHT = 374;
 
-export function OkxChartColorSettingsPanel({
+export function TradingViewChartColorSettingsPanel({
   colorMode,
   priceColorMode,
   onColorModeChange,
@@ -40,14 +40,14 @@ export function OkxChartColorSettingsPanel({
       position="absolute"
       top={55}
       left={390}
-      w={OKX_COLOR_SETTING_PANEL_WIDTH}
-      h={OKX_COLOR_SETTING_PANEL_HEIGHT}
+      w={TRADING_VIEW_COLOR_SETTING_PANEL_WIDTH}
+      h={TRADING_VIEW_COLOR_SETTING_PANEL_HEIGHT}
       overflow="hidden"
       zIndex={40}
       borderWidth={1}
       borderColor="$borderStrong"
       borderRadius={7}
-      bg={OKX_CHART_BG}
+      bg={TRADING_VIEW_CHART_BG}
       pointerEvents={isDisabled ? 'none' : 'auto'}
     >
       <XStack
@@ -56,13 +56,13 @@ export function OkxChartColorSettingsPanel({
         alignItems="center"
         justifyContent="space-between"
         borderBottomWidth={1}
-        borderBottomColor={OKX_CHART_BORDER}
+        borderBottomColor={TRADING_VIEW_CHART_BORDER}
       >
         <SizableText
           fontSize={16}
           lineHeight={22}
           fontWeight="700"
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           颜色设置
         </SizableText>
@@ -82,17 +82,21 @@ export function OkxChartColorSettingsPanel({
 
       <YStack px={24} py={26} gap={24}>
         <YStack gap={12}>
-          <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+          <SizableText
+            fontSize={14}
+            lineHeight={18}
+            color={TRADING_VIEW_CHART_TEXT}
+          >
             颜色模式
           </SizableText>
           <XStack gap={17}>
-            <OkxChartColorModeCard
+            <TradingViewChartColorModeCard
               label="现代"
               selected={colorMode === 'modern'}
               variant="modern"
               onPress={() => onColorModeChange('modern')}
             />
-            <OkxChartColorModeCard
+            <TradingViewChartColorModeCard
               label="经典"
               selected={colorMode === 'classic'}
               variant="classic"
@@ -102,18 +106,22 @@ export function OkxChartColorSettingsPanel({
         </YStack>
 
         <YStack gap={12}>
-          <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+          <SizableText
+            fontSize={14}
+            lineHeight={18}
+            color={TRADING_VIEW_CHART_TEXT}
+          >
             涨跌颜色
           </SizableText>
           <XStack gap={17}>
-            <OkxChartPriceColorButton
+            <TradingViewChartPriceColorButton
               label="绿涨红跌"
               selected={priceColorMode === 'greenUpRedDown'}
               upIconColor="$iconSuccess"
               downIconColor="$iconCritical"
               onPress={() => onPriceColorModeChange('greenUpRedDown')}
             />
-            <OkxChartPriceColorButton
+            <TradingViewChartPriceColorButton
               label="红涨绿跌"
               selected={priceColorMode === 'redUpGreenDown'}
               upIconColor="$iconCritical"
@@ -127,7 +135,7 @@ export function OkxChartColorSettingsPanel({
   );
 }
 
-function OkxChartColorModeCard({
+function TradingViewChartColorModeCard({
   label,
   selected,
   variant,
@@ -147,27 +155,35 @@ function OkxChartColorModeCard({
       borderWidth={1}
       borderColor={selected ? '$borderActive' : '$borderStrong'}
       borderRadius={6}
-      bg={OKX_CHART_BG}
+      bg={TRADING_VIEW_CHART_BG}
       cursor="pointer"
       onPress={onPress}
     >
-      <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+      <SizableText
+        fontSize={14}
+        lineHeight={18}
+        color={TRADING_VIEW_CHART_TEXT}
+      >
         {label}
       </SizableText>
-      <OkxChartMiniCandles variant={variant} />
+      <TradingViewChartMiniCandles variant={variant} />
     </YStack>
   );
 }
 
-function OkxChartMiniCandles({ variant }: { variant: 'modern' | 'classic' }) {
+function TradingViewChartMiniCandles({
+  variant,
+}: {
+  variant: 'modern' | 'classic';
+}) {
   const bullishColor =
     variant === 'modern'
       ? TRADING_VIEW_NATIVE_THEME_COLORS.brand
-      : OKX_CHART_UP;
+      : TRADING_VIEW_CHART_UP;
   const bearishColor =
     variant === 'modern'
       ? TRADING_VIEW_NATIVE_THEME_COLORS.quaternary
-      : OKX_CHART_DOWN;
+      : TRADING_VIEW_CHART_DOWN;
   const candles = [
     { h: 28, body: 17, color: bullishColor },
     { h: 16, body: 8, color: bearishColor },
@@ -199,7 +215,7 @@ function OkxChartMiniCandles({ variant }: { variant: 'modern' | 'classic' }) {
   );
 }
 
-function OkxChartPriceColorButton({
+function TradingViewChartPriceColorButton({
   label,
   selected,
   upIconColor,
@@ -222,11 +238,15 @@ function OkxChartPriceColorButton({
       borderWidth={1}
       borderColor={selected ? '$borderActive' : '$borderStrong'}
       borderRadius={6}
-      bg={OKX_CHART_BG}
+      bg={TRADING_VIEW_CHART_BG}
       cursor="pointer"
       onPress={onPress}
     >
-      <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+      <SizableText
+        fontSize={14}
+        lineHeight={18}
+        color={TRADING_VIEW_CHART_TEXT}
+      >
         {label}
       </SizableText>
       <XStack gap={2} alignItems="center">
