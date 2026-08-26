@@ -8,15 +8,19 @@ import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMo
 import type { ITradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
 type IMockIndicatorSettingsDialogProps = {
+  displayMode: 'focused' | 'full';
   maxActiveSubIndicatorCount: number | null;
   onConfirm?: () => void | Promise<void>;
+  onReset: () => void;
+  selectedIndicatorId: string;
+  selectedIndicatorScope: 'main' | 'sub';
   value: ITradingViewIndicatorSettingsValue;
 };
 
 const mockIndicatorSettingsDialog = jest.fn<null, [unknown]>(() => null);
 
 jest.mock('./TradingViewIndicatorContent', () => ({
-  OkxIndicatorSettingsDialog: (props: unknown) =>
+  TradingViewIndicatorSettingsDialog: (props: unknown) =>
     mockIndicatorSettingsDialog(props),
 }));
 
@@ -80,5 +84,89 @@ describe('TradingViewIndicatorSettings', () => {
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(getActiveSubIndicatorCount(onConfirm.mock.calls[0][0])).toBe(5);
+  });
+
+  it('opens on the requested indicator', () => {
+    const value = createTradingViewIndicatorSettingsValue();
+    const target = value.indicators.find(
+      (indicator) => indicator.scope === 'sub',
+    );
+    expect(target).toBeDefined();
+    if (!target) {
+      return;
+    }
+
+    render(
+      <TradingViewIndicatorSettings
+        displayMode="focused"
+        initialIndicatorId={target.id}
+        value={value}
+      />,
+    );
+
+    const props = mockIndicatorSettingsDialog.mock.calls.at(-1)?.[0] as
+      | IMockIndicatorSettingsDialogProps
+      | undefined;
+    expect(props).toEqual(
+      expect.objectContaining({
+        displayMode: 'focused',
+        selectedIndicatorId: target.id,
+        selectedIndicatorScope: 'sub',
+      }),
+    );
+  });
+
+  it('resets only the focused indicator and keeps it active', () => {
+    const value = createTradingViewIndicatorSettingsValue();
+    const target = value.indicators.find(
+      (indicator) => indicator.scope === 'sub',
+    );
+    const preservedIndicator = value.indicators.find(
+      (indicator) => indicator.id !== target?.id,
+    );
+    expect(target).toBeDefined();
+    expect(preservedIndicator).toBeDefined();
+    if (!target || !preservedIndicator) {
+      return;
+    }
+    target.active = true;
+    target.lines[0].color = '#123456';
+    preservedIndicator.lines[0].color = '#654321';
+    const expectedDefaultTarget =
+      createTradingViewIndicatorSettingsValue().indicators.find(
+        (indicator) => indicator.id === target.id,
+      );
+    expect(expectedDefaultTarget).toBeDefined();
+
+    render(
+      <TradingViewIndicatorSettings
+        createDefaultValue={createTradingViewIndicatorSettingsValue}
+        displayMode="focused"
+        initialIndicatorId={target.id}
+        value={value}
+      />,
+    );
+
+    act(() => {
+      const props = mockIndicatorSettingsDialog.mock.calls.at(-1)?.[0] as
+        | IMockIndicatorSettingsDialogProps
+        | undefined;
+      props?.onReset();
+    });
+
+    const nextProps = mockIndicatorSettingsDialog.mock.calls.at(-1)?.[0] as
+      | IMockIndicatorSettingsDialogProps
+      | undefined;
+    const resetTarget = nextProps?.value.indicators.find(
+      (indicator) => indicator.id === target.id,
+    );
+    const preservedTarget = nextProps?.value.indicators.find(
+      (indicator) => indicator.id === preservedIndicator.id,
+    );
+    expect(resetTarget).toEqual({
+      ...expectedDefaultTarget,
+      active: true,
+    });
+    expect(preservedTarget).toEqual(preservedIndicator);
   });
 });
