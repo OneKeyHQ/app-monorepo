@@ -99,4 +99,35 @@ describe('desktop secure storage IPC error labeling', () => {
     expect(thrown.name).not.toBe(SECURE_STORAGE_PERMANENT_READ_ERROR_NAME);
     expect(thrown.message).toBe('safeStorage is not available');
   });
+
+  it('does not label a message that merely MENTIONS the bare sentinel name', async () => {
+    // pins the bare-name -> anchored-prefix tightening: this message would
+    // match a naive includes(NAME) matcher and must not be labeled
+    installProxyRejectingWith(
+      buildRendererRejection(
+        new Error(
+          `retry after ${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME} seen earlier`,
+        ),
+      ),
+    );
+
+    const thrown = await readAndCatch();
+    expect(thrown.name).not.toBe(SECURE_STORAGE_PERMANENT_READ_ERROR_NAME);
+  });
+
+  it('does not label a wrapper message that EMBEDS the bracketed prefix mid-string', async () => {
+    // pins the anchor: an includes(PREFIX) matcher would still label this
+    installProxyRejectingWith(
+      buildRendererRejection(
+        new Error(
+          `Supabase secure storage read failed: ${buildSecureStoragePermanentReadErrorMessage(
+            'failed to decrypt secure item',
+          )}`,
+        ),
+      ),
+    );
+
+    const thrown = await readAndCatch();
+    expect(thrown.name).not.toBe(SECURE_STORAGE_PERMANENT_READ_ERROR_NAME);
+  });
 });

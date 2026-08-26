@@ -2,8 +2,8 @@ import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 
 import {
+  SECURE_STORAGE_PERMANENT_READ_ERROR_MESSAGE_REGEX,
   SECURE_STORAGE_PERMANENT_READ_ERROR_NAME,
-  SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX,
 } from './types';
 
 import type { ISecureStorage, ISecureStorageSetOptions } from './types';
@@ -33,15 +33,16 @@ const getSecureItem = async (key: string) => {
     // (SupabaseStorage) can structurally match it again — without this, a
     // permanently unreadable value would forever classify as transient
     // and its owner could never fall back to re-obtaining it.
-    // Matched on the BRACKETED transport prefix, never the bare name: a
-    // message that merely mentions the constant must not read as the label
-    // (a false permanent verdict maps a recoverable value to absent). The
-    // prefix is not required at position 0 — the IPC unwrap may leave the
-    // main-side error name in front of it.
+    // Matched on the ANCHORED transport shape (bracketed prefix at the
+    // start, optionally behind one `<Name>: ` rendering), never the bare
+    // name and never a bare `includes`: a message that merely mentions —
+    // or a wrapper that embeds — the sentinel must not read as the label,
+    // because a false permanent verdict maps a recoverable value to
+    // absent.
     const message = (error as Error | undefined)?.message;
     if (
       typeof message === 'string' &&
-      message.includes(SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX)
+      SECURE_STORAGE_PERMANENT_READ_ERROR_MESSAGE_REGEX.test(message)
     ) {
       (error as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
     }

@@ -755,9 +755,12 @@ function PaymentOptionsPage() {
       ) {
         // Deterministically corrupt stored progress: without an escape this
         // payment+option+account stays refused until the 48h storage TTL.
-        // The discard is user-confirmed and only reachable when the record
-        // is provably undecodable — a readable record carrying a txid can
-        // never surface this message (see getStoredActionResults), so this
+        // The discard is user-confirmed and only reachable on a CONTENT
+        // verdict: the payload was read and decoded and is provably not a
+        // record the store ever wrote (arrays only), so it cannot carry a
+        // real txid. Read FAILURES — content unknown, possibly an intact
+        // txid-bearing record — classify as unreadable, never corrupt, and
+        // can never reach this discard (see readSecureEntries), so this
         // path cannot delete real duplicate-payment evidence.
         //
         // Never from a dead page: the fetches above can outlive a close

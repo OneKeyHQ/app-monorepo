@@ -29,6 +29,16 @@ export const SECURE_STORAGE_PERMANENT_READ_ERROR_NAME =
 // recoverable value to "absent".
 export const SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX = `[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}]`;
 
+// The only two message shapes the transport produces: the bracketed prefix
+// at position 0 (an `Error:`-stripped or JSON-restored tail), or behind a
+// single `<Name>: ` rendering of the main-side error name. Anchoring here —
+// instead of a bare `includes` — keeps wrapper messages that merely EMBED
+// the prefix deeper inside (e.g. "X read failed: [ ... ]") from being
+// mistaken for the label itself.
+export const SECURE_STORAGE_PERMANENT_READ_ERROR_MESSAGE_REGEX = new RegExp(
+  `^(?:\\w+: )?\\[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}\\]`,
+);
+
 export function buildSecureStoragePermanentReadErrorMessage(
   detail: string,
 ): string {
