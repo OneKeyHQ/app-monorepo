@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -32,6 +33,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -83,6 +85,9 @@ export enum EFirmwareAuthenticationDialogContentType {
   unofficial_firmware_detected = 'unofficial_firmware_detected',
   defective_firmware_detected = 'defective_firmware_detected',
 }
+
+const FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG =
+  'firmwareVerifySkipDeviceCancel';
 
 function useFirmwareVerifyBase({
   device,
@@ -205,10 +210,14 @@ function useFirmwareVerifyBase({
         case HardwareErrorCode.ActionCancelled:
         case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
-          void dialogInstance.close();
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
           break;
         case HardwareErrorCode.BleUnavailableWhileUsbConnected:
-          void dialogInstance.close();
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
           break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
@@ -1053,9 +1062,9 @@ export function useFirmwareVerifyDialog() {
       features,
       onVerified,
       onContinue,
-      onDevSkipVerificationPress: _onDevSkipVerificationPress,
+      onDevSkipVerificationPress,
       onClose,
-      dialogHost: _dialogHost = Dialog,
+      dialogHost = Dialog,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
@@ -1075,18 +1084,77 @@ export function useFirmwareVerifyDialog() {
         return;
       }
 
-      const onCloseFn = async () => {
+      let hasHandledClose = false;
+      const onCloseFn = async (extra?: { flag?: string }) => {
+        if (hasHandledClose) {
+          return;
+        }
+        hasHandledClose = true;
         await onClose?.();
         setIsLoading(false);
         if (device.connectId) {
           await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
             {
               connectId: device.connectId,
-              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
+              skipDeviceCancel:
+                extra?.flag === FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+              deviceType: device.deviceType,
             },
           );
         }
       };
+
+      // OK-59934: the stage replaced this dialog. The dialog itself is
+      // kept (not deleted) until the integration is proven on real
+      // devices — isLegacyHardwareUiActive() is the single step back.
+      if (isLegacyHardwareUiActive()) {
+        setIsLoading(true);
+        let shouldUseNewAuthenticateVersion = false;
+        try {
+          console.log('====> features: ', features);
+          // use old features to quick check if need new version
+          shouldUseNewAuthenticateVersion =
+            await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
+              {
+                features,
+              },
+            );
+          console.log(
+            'shouldUseNewAuthenticateVersion: ====>>>: ',
+            shouldUseNewAuthenticateVersion,
+          );
+        } catch (error) {
+          await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
+          throw error;
+        } finally {
+          // await backgroundApiProxy.serviceApp.hideDialogLoading();
+        }
+        const firmwareAuthenticationDialog = dialogHost.show({
+          tone: 'success',
+          icon: 'DocumentSearch2Outline',
+          title: ' ',
+          description: ' ',
+          dismissOnOverlayPress: false,
+          showFooter: false,
+          renderContent: (
+            <FirmwareAuthenticationDialogContent
+              skipDeviceCancel
+              device={device}
+              onContinue={async ({ checked }) => {
+                await onVerified?.({ checked });
+                await firmwareAuthenticationDialog.close({
+                  flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+                });
+                await onContinue({ checked });
+              }}
+              onDevSkipVerificationPress={onDevSkipVerificationPress || noop}
+              useNewProcess={shouldUseNewAuthenticateVersion}
+            />
+          ),
+          onClose: onCloseFn,
+        });
+        return;
+      }
 
       setIsLoading(true);
       try {
@@ -1096,7 +1164,10 @@ export function useFirmwareVerifyDialog() {
           skipDeviceCancel: true,
         });
         if (result.closed) {
-          await onCloseFn();
+          // The run ended with no verdict: either an abort code that must
+          // not cancel the device, or a dismissal the stage already
+          // answered with its own cancel. Either way, do not cancel twice.
+          await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
           return;
         }
         await onVerified?.({ checked: result.checked });
