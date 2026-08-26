@@ -1016,6 +1016,7 @@ function BasePerpTokenSelectorContent() {
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          searchQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems

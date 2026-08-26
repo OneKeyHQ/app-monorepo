@@ -267,6 +267,18 @@ describe('tokenSelectorTabs', () => {
     ).toEqual(['SOL', 'BTC', 'MU']);
   });
 
+  it('searches all perps instead of limiting results to the active category tab', () => {
+    const searchFilteredItems = [{ tokenName: 'BTC' }, { tokenName: 'UBTC' }];
+
+    expect(
+      getPerpTokenSelectorDynamicTabItems({
+        items: searchFilteredItems,
+        tokens: ['ETH', 'SOL'],
+        searchQuery: 'btc',
+      }).map((item) => item.tokenName),
+    ).toEqual(['BTC', 'UBTC']);
+  });
+
   it('uses sorted-list order for dynamic tab items after a header sort', () => {
     const volumeSortedItems = [
       { tokenName: 'BTC', volume24h: 100 },
