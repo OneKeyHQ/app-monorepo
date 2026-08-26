@@ -1221,9 +1221,23 @@ export default class ServicePassword extends ServiceBase {
     }));
   }
 
+  private async setDesktopAppSessionUnlocked(unlocked: boolean): Promise<void> {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    try {
+      await globalThis.desktopApiProxy.security.setAppSessionUnlocked(unlocked);
+    } catch {
+      defaultLogger.app.error.log(
+        'Desktop app session unlock marker update failed',
+      );
+    }
+  }
+
   @backgroundMethod()
   async unLockApp() {
     await this.setAppUnlockStateAtoms();
+    await this.setDesktopAppSessionUnlocked(true);
     try {
       await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
     } catch {
@@ -1254,6 +1268,7 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
+    await this.setDesktopAppSessionUnlocked(false);
     await this.clearCachedPassword();
     try {
       await localDb.setHyperLiquidAgentSecretSessionUnlocked(false);

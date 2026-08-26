@@ -11,6 +11,7 @@ import {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms/hardware';
 import {
   appIsLocked,
   hyperLiquidAgentPasswordStatusAtom,
@@ -335,5 +336,94 @@ describe('ServicePassword', () => {
       isPasswordSet: true,
       requiresPasswordSetupOrVerify: false,
     });
+  });
+
+  it('marks the Desktop process session unlocked after app unlock', async () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    const originalDesktopApiProxyDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'desktopApiProxy',
+    );
+    const setAppSessionUnlocked = jest.fn(
+      async (_unlocked: boolean) => undefined,
+    );
+    platformEnv.isDesktop = true;
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        security: { setAppSessionUnlocked },
+      } as unknown as typeof globalThis.desktopApiProxy,
+    });
+    const dispatchUnlockJob = jest.fn(async () => undefined);
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    servicePassword.backgroundApi = {
+      serviceApp: { dispatchUnlockJob },
+    } as unknown as ServicePassword['backgroundApi'];
+
+    try {
+      await servicePassword.unLockApp();
+
+      expect(setAppSessionUnlocked).toHaveBeenCalledWith(true);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+      if (originalDesktopApiProxyDescriptor) {
+        Object.defineProperty(
+          globalThis,
+          'desktopApiProxy',
+          originalDesktopApiProxyDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+      }
+    }
+  });
+
+  it('marks the Desktop process session locked before app lock completes', async () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    const originalDesktopApiProxyDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'desktopApiProxy',
+    );
+    const setAppSessionUnlocked = jest.fn(
+      async (_unlocked: boolean) => undefined,
+    );
+    platformEnv.isDesktop = true;
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        security: { setAppSessionUnlocked },
+      } as unknown as typeof globalThis.desktopApiProxy,
+    });
+    const servicePassword = Object.create(
+      ServicePassword.prototype,
+    ) as ServicePassword;
+    servicePassword.backgroundApi = {
+      serviceV4Migration: {
+        isAtMigrationPage: jest.fn(async () => false),
+      },
+    } as unknown as ServicePassword['backgroundApi'];
+    jest.spyOn(servicePassword, 'clearCachedPassword').mockResolvedValue();
+    jest
+      .spyOn(firmwareUpdateWorkflowRunningAtom, 'get')
+      .mockResolvedValue(false);
+
+    try {
+      await servicePassword.lockApp({ manual: false });
+
+      expect(setAppSessionUnlocked).toHaveBeenCalledWith(false);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+      if (originalDesktopApiProxyDescriptor) {
+        Object.defineProperty(
+          globalThis,
+          'desktopApiProxy',
+          originalDesktopApiProxyDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+      }
+    }
   });
 });
