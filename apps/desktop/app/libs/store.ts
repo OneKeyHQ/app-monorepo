@@ -6,7 +6,10 @@ import logger from 'electron-log/main';
 import Store from 'electron-store';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import {
+  SECURE_STORAGE_PERMANENT_READ_ERROR_NAME,
+  buildSecureStoragePermanentReadErrorMessage,
+} from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
@@ -130,7 +133,9 @@ export const getSecureItem = (key: string) => {
       // consumers only. Assigned through the Error base type: OneKey errors
       // type `name` as their class-name enum.
       const decryptError = new OneKeyLocalError(
-        `[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}] failed to decrypt secure item`,
+        buildSecureStoragePermanentReadErrorMessage(
+          'failed to decrypt secure item',
+        ),
       );
       (decryptError as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
       throw decryptError;

@@ -20,6 +20,21 @@ export type ISecureStorageSetOptions = {
 export const SECURE_STORAGE_PERMANENT_READ_ERROR_NAME =
   'SecureStoragePermanentReadError';
 
+// The bracketed prefix is the label's TRANSPORT form — the single source of
+// the sentinel format shared by the producer (desktop main), the
+// renderer-side matcher, and the tests. Matchers must anchor on this
+// bracketed prefix, never on the bare name: a message that merely mentions
+// the constant (a wrapping error, a nested cause, diagnostics) must not be
+// mistaken for the label, because a false permanent verdict maps a
+// recoverable value to "absent".
+export const SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX = `[${SECURE_STORAGE_PERMANENT_READ_ERROR_NAME}]`;
+
+export function buildSecureStoragePermanentReadErrorMessage(
+  detail: string,
+): string {
+  return `${SECURE_STORAGE_PERMANENT_READ_ERROR_PREFIX} ${detail}`;
+}
+
 export interface ISecureStorage {
   setSecureItemWithBiometrics(
     key: string,

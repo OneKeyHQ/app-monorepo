@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha256';
 
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
   WC_PAY_PROGRESS_CORRUPT_ERROR,
@@ -113,11 +114,13 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
   // platform hiccup, a decrypt error — every platform adapter reports those
   // by throwing): the record may heal on a later read, so callers must fail
   // the operation and leave it for a later attempt, the server-side final
-  // state, or the TTL. 'corrupt' is DETERMINISTIC damage — the payload was
-  // read and decrypted but is provably not a record this store ever wrote
-  // (saveActionResult only ever serializes arrays) — re-reading can never
-  // heal it, so callers surface the explicit user-confirmed discard escape
-  // instead of silently locking the option until the TTL. Neither failure
+  // state, or the TTL. 'corrupt' is DETERMINISTIC damage — either the
+  // payload was read and decrypted but is provably not a record this store
+  // ever wrote (saveActionResult only ever serializes arrays), or the
+  // platform adapter positively labeled the read failure permanent (desktop
+  // decrypt-of-existing-value) — re-reading can never heal it, so callers
+  // surface the explicit user-confirmed discard escape instead of silently
+  // locking the option until the TTL. Neither failure
   // verdict may trigger deletion by itself: only an explicit
   // fromIndex-0 discard (user-confirmed) removes an undecodable record.
   private async readSecureEntries(
@@ -133,8 +136,20 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       payload = await appStorage.secureStorage.getSecureItem(
         buildSecurePayloadKey(progressKey),
       );
-    } catch {
-      // a throwing read says nothing about whether ciphertext exists
+    } catch (error) {
+      // a failure the platform adapter POSITIVELY labeled permanent (the
+      // desktop decrypt-of-existing-value, re-tagged across IPC) can never
+      // heal on a later read: classify it as deterministic damage so the
+      // user-confirmed discard escape opens instead of refusing every
+      // attempt until the TTL
+      if (
+        (error as Error | undefined)?.name ===
+        SECURE_STORAGE_PERMANENT_READ_ERROR_NAME
+      ) {
+        return { status: 'corrupt' };
+      }
+      // an unlabeled throwing read says nothing about whether ciphertext
+      // exists or whether a retry can heal it
       return { status: 'unreadable' };
     }
     if (!payload) {
