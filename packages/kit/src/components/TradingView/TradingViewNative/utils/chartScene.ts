@@ -41,6 +41,8 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
 
+import { appendTradingViewNativeChartComponentCommands } from './chartComponentScene';
+import { getTradingViewNativeChartComponentPriceAxisLabel } from './chartComponentTree';
 import {
   type ITradingViewNativeIndicatorPaint,
   type ITradingViewNativeIndicatorSeries,
@@ -100,6 +102,7 @@ import type {
 } from './subIndicatorRender';
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativePriceScaleMode,
 } from '../types';
@@ -220,6 +223,7 @@ export type ITradingViewNativeChartSceneCommand =
 
 export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
+  chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings?: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -514,6 +518,7 @@ function appendLegendCommands({
 
 export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
+  chartComponents = [],
   chartSettings,
   chartType,
   crosshair,
@@ -556,6 +561,8 @@ export function buildTradingViewNativeChartScene({
     const subIndicatorAxisLabel = getTradingViewNativeSubIndicatorAxisLabel(
       visibleSubIndicatorPanes,
     );
+    const chartComponentPriceAxisLabel =
+      getTradingViewNativeChartComponentPriceAxisLabel(chartComponents);
     const widestSecondaryAxisLabel =
       subIndicatorAxisLabel.length > volumeAxisLabel.length
         ? subIndicatorAxisLabel
@@ -567,9 +574,12 @@ export function buildTradingViewNativeChartScene({
           : resolvedCurrentPriceLabel,
         'priceAxis',
       ),
-      widestPriceLabelWidth: measureTextWidth(
-        getTradingViewNativePriceAxisLabel(points),
-        'priceAxis',
+      widestPriceLabelWidth: Math.max(
+        measureTextWidth(
+          getTradingViewNativePriceAxisLabel(points),
+          'priceAxis',
+        ),
+        measureTextWidth(chartComponentPriceAxisLabel, 'priceAxis'),
       ),
       widestVolumeLabelWidth: measureTextWidth(
         widestSecondaryAxisLabel,
@@ -1188,6 +1198,21 @@ export function buildTradingViewNativeChartScene({
     );
   }
 
+  const chartComponentCommandLayers =
+    appendTradingViewNativeChartComponentCommands({
+      commands,
+      components: chartComponents,
+      customPaintStyles,
+      maxPrice,
+      measureTextWidth,
+      minPrice,
+      priceAxisX,
+      priceChartHeight,
+      priceScaleMode: resolvedPriceScaleMode,
+      showYAxis,
+      width,
+    });
+
   const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
     labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
     maxPrice,
@@ -1196,6 +1221,7 @@ export function buildTradingViewNativeChartScene({
     priceChartHeight,
     priceScaleMode: resolvedPriceScaleMode,
   });
+  const currentPriceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   if (currentPriceLayout && (chartSettings?.options.latestPrice ?? true)) {
     const direction = isTradingViewNativePriceUp(latestPoint) ? 'up' : 'down';
     commands.push({
@@ -1210,7 +1236,7 @@ export function buildTradingViewNativeChartScene({
       y2: currentPriceLayout.lineY,
     });
     if (showYAxis) {
-      commands.push(
+      currentPriceLabelCommands.push(
         {
           ...(chartSettings
             ? { customPaintId: LATEST_PRICE_LABEL_PAINT_IDS[direction] }
@@ -1237,6 +1263,12 @@ export function buildTradingViewNativeChartScene({
       );
     }
   }
+
+  commands.push(
+    ...chartComponentCommandLayers.priceLabelCommands,
+    ...currentPriceLabelCommands,
+    ...chartComponentCommandLayers.textLabelCommands,
+  );
 
   if (crosshairPoint && crosshairX !== null && crosshairY !== null) {
     const crosshairPrice = getTradingViewNativePriceAtY({
