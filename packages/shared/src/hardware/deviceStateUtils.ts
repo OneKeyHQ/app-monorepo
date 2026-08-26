@@ -78,12 +78,20 @@ export function mergeDeviceStateEvent({
   const isAuthoritativeV1DeviceSnapshot =
     incomingState.protocol === 'V1' &&
     (source === 'initialize' || source === 'device-info');
+  const authoritativeV1VersionKeys = isAuthoritativeV1DeviceSnapshot
+    ? Object.entries(incomingState.versions ?? {}).flatMap(([field, value]) =>
+        typeof value === 'string' && value && value !== '0.0.0'
+          ? [`versions.${field}`]
+          : [],
+      )
+    : [];
+  const hasAuthoritativeV1Versions = authoritativeV1VersionKeys.length > 0;
   const authoritativeKeys = [
     ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
-    ...(isAuthoritativeV1DeviceSnapshot
+    ...authoritativeV1VersionKeys,
+    ...(hasAuthoritativeV1Versions
       ? [
           'identity.firmwareType',
-          'versions',
           'securityElements',
           'verification',
           'capabilities',

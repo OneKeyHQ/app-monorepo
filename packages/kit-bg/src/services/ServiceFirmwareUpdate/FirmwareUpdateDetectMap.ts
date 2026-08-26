@@ -131,6 +131,34 @@ export class FirmwareUpdateDetectMap {
     );
   }
 
+  private prepareCanonicalDetectCache({
+    connectId,
+    connectIds = [connectId],
+  }: {
+    connectId: string;
+    connectIds?: string[];
+  }) {
+    const aliases = this.normalizeConnectIds([connectId, ...connectIds]);
+    const canonicalCache = this.detectMapCache[connectId]
+      ? {
+          ...this.detectMapCache[connectId],
+          updateInfo: this.detectMapCache[connectId]?.updateInfo
+            ? { ...this.detectMapCache[connectId]?.updateInfo }
+            : undefined,
+        }
+      : undefined;
+    const normalizedAliases = new Set(
+      aliases.map((alias) => alias.toLowerCase()),
+    );
+    for (const [cacheConnectId, cache] of Object.entries(this.detectMapCache)) {
+      if (cache && normalizedAliases.has(cacheConnectId.toLowerCase())) {
+        cache.updateInfo = undefined;
+        cache.detectResultResolved = true;
+      }
+    }
+    return { aliases, canonicalCache };
+  }
+
   private buildDetectStatus({
     connectId,
     detectCache,
@@ -222,25 +250,29 @@ export class FirmwareUpdateDetectMap {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'allIsUpToDate',
       );
+    const { aliases, canonicalCache } = this.prepareCanonicalDetectCache({
+      connectId,
+      connectIds,
+    });
     if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
-        ...this.detectMapCache[connectId],
+        ...canonicalCache,
         detectResultResolved: true,
         updateInfo: {
-          ...this.detectMapCache[connectId]?.updateInfo,
+          ...canonicalCache?.updateInfo,
           firmware: updateInfo,
         },
       };
     } else {
       this.detectMapCache[connectId] = {
-        ...this.detectMapCache[connectId],
+        ...canonicalCache,
         detectResultResolved: true,
         updateInfo: undefined,
       };
     }
     await this.updateDetectStatusAtom({
       connectId,
-      connectIds,
+      connectIds: aliases,
     });
   }
 
@@ -257,25 +289,29 @@ export class FirmwareUpdateDetectMap {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'allIsUpToDate',
       );
+    const { aliases, canonicalCache } = this.prepareCanonicalDetectCache({
+      connectId,
+      connectIds,
+    });
     if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
-        ...this.detectMapCache[connectId],
+        ...canonicalCache,
         detectResultResolved: true,
         updateInfo: {
-          ...this.detectMapCache[connectId]?.updateInfo,
+          ...canonicalCache?.updateInfo,
           ble: updateInfo,
         },
       };
     } else {
       this.detectMapCache[connectId] = {
-        ...this.detectMapCache[connectId],
+        ...canonicalCache,
         detectResultResolved: true,
         updateInfo: undefined,
       };
     }
     await this.updateDetectStatusAtom({
       connectId,
-      connectIds,
+      connectIds: aliases,
     });
   }
 
@@ -292,8 +328,12 @@ export class FirmwareUpdateDetectMap {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
   }) {
+    const { aliases, canonicalCache } = this.prepareCanonicalDetectCache({
+      connectId,
+      connectIds,
+    });
     this.detectMapCache[connectId] = {
-      ...this.detectMapCache[connectId],
+      ...canonicalCache,
       detectResultResolved: true,
       updateInfo: hasUpgrade
         ? {
@@ -303,7 +343,7 @@ export class FirmwareUpdateDetectMap {
           }
         : undefined,
     };
-    await this.updateDetectStatusAtom({ connectId, connectIds });
+    await this.updateDetectStatusAtom({ connectId, connectIds: aliases });
   }
 
   async deleteUpdateInfo({
@@ -313,19 +353,12 @@ export class FirmwareUpdateDetectMap {
     connectId: string;
     connectIds?: string[];
   }) {
-    const aliases = this.normalizeConnectIds([connectId, ...connectIds]);
-    const normalizedAliases = new Set(
-      aliases.map((alias) => alias.toLowerCase()),
-    );
-    for (const [cacheConnectId, cache] of Object.entries(this.detectMapCache)) {
-      if (cache && normalizedAliases.has(cacheConnectId.toLowerCase())) {
-        // Keep throttling metadata while clearing the obsolete update result.
-        cache.updateInfo = undefined;
-        cache.detectResultResolved = true;
-      }
-    }
+    const { aliases, canonicalCache } = this.prepareCanonicalDetectCache({
+      connectId,
+      connectIds,
+    });
     this.detectMapCache[connectId] = {
-      ...this.detectMapCache[connectId],
+      ...canonicalCache,
       detectResultResolved: true,
       updateInfo: undefined,
     };

@@ -300,6 +300,35 @@ describe('deviceStateUtils', () => {
     expect(merged.capabilities).toEqual(incomingState.capabilities);
   });
 
+  it('does not replace persisted V1 versions with an incomplete snapshot', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.protocol = 'V1';
+    currentState.identity.firmwareType = EFirmwareType.BitcoinOnly;
+    currentState.versions.firmware = '4.21.0';
+    currentState.versions.ble = '2.3.7';
+    currentState.versions.bootloader = '2.8.4';
+    currentState.capabilities = ['Capability_Bitcoin'];
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.protocol = 'V1';
+    incomingState.identity.firmwareType = EFirmwareType.Universal;
+    incomingState.versions.firmware = '0.0.0';
+    incomingState.versions.ble = null;
+    incomingState.versions.bootloader = null;
+    incomingState.capabilities = [];
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['status.mode'],
+      source: 'device-info',
+    });
+
+    expect(merged.versions).toEqual(currentState.versions);
+    expect(merged.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
+    expect(merged.capabilities).toEqual(currentState.capabilities);
+  });
+
   it('keeps sparse patch semantics for non-settings-read events', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
     currentState.settings.brightness = 30;

@@ -12,12 +12,16 @@ import { selectFirmwareUpdateDetectStatus } from '../utils';
 
 export function useFirmwareUpdateDetectStatus(connectId: string | undefined) {
   const [persistedStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-  const { result: snapshot, run } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-    return backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectStatus(
-      { connectId },
-    );
-  }, [connectId]);
+  const { result: snapshot, run } = usePromiseResult(
+    async () => {
+      if (!connectId) return undefined;
+      return backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectStatus(
+        { connectId },
+      );
+    },
+    [connectId],
+    { checkIsFocused: false },
+  );
 
   useEffect(() => {
     const refresh = ({ connectIds }: { connectIds: string[] }) => {

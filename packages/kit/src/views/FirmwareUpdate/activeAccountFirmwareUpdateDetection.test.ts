@@ -45,6 +45,35 @@ describe('createActiveAccountFirmwareUpdateDetector', () => {
     expect(detect).toHaveBeenCalledTimes(2);
   });
 
+  it('retries a failed detection once without periodic polling', async () => {
+    const detect = jest
+      .fn()
+      .mockResolvedValue({ status: 'failed', retryAfterMs: 5000 });
+    const detector = createActiveAccountFirmwareUpdateDetector({ detect });
+
+    detector.start();
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(5000);
+
+    expect(detect).toHaveBeenCalledTimes(2);
+    await jest.runOnlyPendingTimersAsync();
+    expect(detect).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a rejected detection once', async () => {
+    const detect = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('RPC failed'))
+      .mockResolvedValueOnce({ status: 'finished' });
+    const detector = createActiveAccountFirmwareUpdateDetector({ detect });
+
+    detector.start();
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(5000);
+
+    expect(detect).toHaveBeenCalledTimes(2);
+  });
+
   it('cancels a retry when the home route loses focus', async () => {
     const detect = jest
       .fn()

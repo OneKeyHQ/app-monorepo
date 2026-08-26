@@ -151,7 +151,7 @@ export type IStartUpdateWorkflowV2Result = {
 
 export type IDetectActiveAccountFirmwareUpdatesResult =
   | {
-      status: 'busy' | 'throttled';
+      status: 'busy' | 'failed' | 'throttled';
       retryAfterMs: number;
     }
   | {
@@ -631,8 +631,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       dbDevice,
     });
     const detectConnectId = detectIdentity.connectId;
-    const exclusiveResult =
-      await this.backgroundApi.serviceHardwareUI.tryRunExclusiveOneKeyOperation(
+    const exclusiveResult = await this.backgroundApi.serviceHardwareUI
+      .tryRunExclusiveOneKeyOperation(
         async (): Promise<IDetectActiveAccountFirmwareUpdatesResult> => {
           const showBootloaderUpdateModal = () => {
             appEventBus.emit(
@@ -653,10 +653,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
               ),
             };
           }
-          this.detectMap.updateLastDetectAt({
-            connectId: detectConnectId,
-          });
-
           const compatibleConnectId =
             await this.backgroundApi.serviceHardware.getCompatibleConnectId({
               hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
@@ -680,14 +676,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 code: [HardwareErrorCode.DeviceNotFound],
               })
             ) {
-              // ignore
-              return { status: 'finished' };
+              return {
+                status: 'failed',
+                retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
+              };
             }
             throw error;
           }
 
           if (isBootloaderMode) {
             showBootloaderUpdateModal();
+            this.detectMap.updateLastDetectAt({
+              connectId: detectConnectId,
+            });
           } else if (features) {
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
@@ -728,6 +729,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 firmware.hasUpgrade || ble.hasUpgrade || hasProtocolV2Update,
               ),
             });
+            this.detectMap.updateLastDetectAt({
+              connectId: detectConnectId,
+            });
+          } else {
+            return {
+              status: 'failed',
+              retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
+            };
           }
           return { status: 'finished' };
         },
@@ -735,7 +744,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
           deviceKey:
             dbDevice?.id || dbDevice?.deviceId || dbDevice?.uuid || connectId,
         },
-      );
+      )
+      .catch((error: unknown) => {
+        serviceHardwareUtils.hardwareLog(
+          'detectActiveAccountFirmwareUpdates failed',
+          error,
+        );
+        return undefined;
+      });
+    if (!exclusiveResult) {
+      return {
+        status: 'failed',
+        retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
+      };
+    }
     if (!exclusiveResult.acquired) {
       return {
         status: 'busy',

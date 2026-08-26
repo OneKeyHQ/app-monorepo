@@ -472,6 +472,55 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       }),
     );
   });
+
+  it('does not consume the throttle when the release check fails', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_USB_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('ONEKEY_USB_ID'),
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation: jest.fn(
+            async (operation: () => Promise<unknown>) => ({
+              acquired: true as const,
+              result: await operation(),
+            }),
+          ),
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.detectMap.firstDetectAt =
+      Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
+    jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
+      isBootloaderMode: false,
+      features: {} as IOneKeyDeviceFeatures,
+      error: undefined,
+    });
+    jest
+      .spyOn(deviceUtils, 'getFirmwareType')
+      .mockResolvedValue(EFirmwareType.Universal);
+    jest
+      .spyOn(service, 'baseCheckAllFirmwareRelease')
+      .mockRejectedValue(new Error('Release request failed'));
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_USB_ID',
+      }),
+    ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+    expect(
+      service.detectMap.detectMapCache.ONEKEY_USB_ID?.lastDetectAt,
+    ).toBeUndefined();
+  });
 });
 
 describe('ServiceFirmwareUpdate firmware detect status', () => {
@@ -581,6 +630,122 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
         device_ble: { connectId: 'device_ble', hasUpgrade: true },
       }),
     ).toBeUndefined();
+  });
+
+  it('replaces stale alias updates before publishing a resolved result', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.device_ble = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'device_ble',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.21.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+
+    await service.detectMap.resolveUpdateInfo({
+      connectId: 'DEVICE_USB',
+      connectIds: ['DEVICE_USB', 'device_ble'],
+      hasUpgrade: false,
+    });
+
+    expect(
+      service.detectMap.detectMapCache.device_ble.updateInfo,
+    ).toBeUndefined();
+    expect(
+      service.detectMap.getDetectStatus({
+        connectId: 'DEVICE_USB',
+        connectIds: ['DEVICE_USB', 'device_ble'],
+      }),
+    ).toEqual({
+      requestedConnectId: 'DEVICE_USB',
+      resolved: true,
+      connectIds: ['DEVICE_USB', 'device_ble'],
+      status: undefined,
+    });
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => unknown;
+    expect(
+      updater({
+        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
+        device_ble: { connectId: 'device_ble', hasUpgrade: true },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps canonical component results while replacing stale alias updates', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.device_ble = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'device_ble',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.20.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+    const firmware = {
+      connectId: 'DEVICE_USB',
+      hasUpgrade: true,
+      hasUpgradeForce: false,
+      fromVersion: '4.21.0',
+      toVersion: '4.23.0',
+      firmwareType: 'firmware',
+    } as IFirmwareUpdateInfo;
+    const ble = {
+      connectId: 'DEVICE_USB',
+      hasUpgrade: true,
+      hasUpgradeForce: false,
+      fromVersion: '2.3.7',
+      toVersion: '2.4.0',
+      firmwareType: 'ble',
+    } as IBleFirmwareUpdateInfo;
+
+    await service.detectMap.updateFirmwareUpdateInfo({
+      connectId: 'DEVICE_USB',
+      connectIds: ['DEVICE_USB', 'device_ble'],
+      updateInfo: firmware,
+    });
+    await service.detectMap.updateBleFirmwareUpdateInfo({
+      connectId: 'DEVICE_USB',
+      connectIds: ['DEVICE_USB', 'device_ble'],
+      updateInfo: ble,
+    });
+
+    expect(
+      service.detectMap.detectMapCache.device_ble.updateInfo,
+    ).toBeUndefined();
+    expect(service.detectMap.detectMapCache.DEVICE_USB?.updateInfo).toEqual({
+      firmware,
+      ble,
+    });
+    expect(
+      service.detectMap.getDetectStatus({
+        connectId: 'DEVICE_USB',
+        connectIds: ['DEVICE_USB', 'device_ble'],
+      }).status,
+    ).toMatchObject({
+      hasUpgrade: true,
+      toVersion: '4.23.0',
+      toVersionBle: '2.4.0',
+    });
   });
 
   it('preserves persisted status while a detect result is unresolved', async () => {
