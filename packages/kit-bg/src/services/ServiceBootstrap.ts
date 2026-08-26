@@ -2,9 +2,14 @@ import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecor
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
+import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
+import {
+  passwordAtom,
+  passwordPersistAtom,
+} from '../states/jotai/atoms/password';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -64,6 +69,23 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
+    if (platformEnv.isExtension || platformEnv.isDesktop) {
+      try {
+        const { restored, unlocked } =
+          await localDb.restoreHyperLiquidAgentSecretSession();
+        const { appLockDuration } = await passwordPersistAtom.get();
+        if (unlocked && isNeverLockDuration(appLockDuration)) {
+          await passwordAtom.set((value) => ({ ...value, unLock: true }));
+        } else if (restored) {
+          await localDb.clearHyperLiquidAgentSecretSession();
+        }
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'hyperLiquidAgentSessionRestore (FAILED)',
+          0,
+        );
+      }
+    }
     try {
       await this.timed('identityLifecycle.recoverInterruptedOperations', () =>
         recoverInterruptedIdentityLifecycleOperations(this.backgroundApi),

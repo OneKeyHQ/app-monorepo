@@ -408,10 +408,16 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             });
 
           if (!allowanceResponse?.isApproved) {
+            // Stamp the same snapshot multiplier the transfers carry so the
+            // review card re-derives the display-basis approve amount and
+            // the approve editors keep failing closed on scaled tokens.
             const baseTokenInfo = {
               ...tokenInfo,
               isNative: !!tokenInfo.isNative,
               name: tokenInfo.name ?? tokenInfo.symbol,
+              ...(tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+                ? { balanceMultiplier: rebaseMultiplier }
+                : {}),
             };
 
             // USDT-like tokens require reset approval first
