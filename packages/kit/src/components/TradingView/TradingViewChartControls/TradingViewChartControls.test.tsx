@@ -99,18 +99,27 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   XStack: ({
     accessibilityLabel,
+    alignSelf,
     children,
+    flex,
     onPress,
+    pr,
     testID,
   }: {
     accessibilityLabel?: string;
+    alignSelf?: string;
     children?: ReactNode;
+    flex?: number;
     onPress?: (event: unknown) => void;
+    pr?: string;
     testID?: string;
   }) =>
     onPress ? (
       <button
         aria-label={accessibilityLabel}
+        data-align-self={alignSelf}
+        data-flex={flex}
+        data-pr={pr}
         data-testid={testID}
         onClick={onPress}
         type="button"
@@ -118,7 +127,13 @@ jest.mock('@onekeyhq/components', () => ({
         {children}
       </button>
     ) : (
-      <div aria-label={accessibilityLabel} data-testid={testID}>
+      <div
+        aria-label={accessibilityLabel}
+        data-align-self={alignSelf}
+        data-flex={flex}
+        data-pr={pr}
+        data-testid={testID}
+      >
         {children}
       </div>
     ),
@@ -366,6 +381,7 @@ describe('TradingView chart controls', () => {
     const { getByTestId } = render(
       <TradingViewChartControls
         {...BASE_PROPS}
+        compactMobileLayout
         rightControl={<span>Chevron</span>}
         rightControlLabel="Close chart"
         onRightControlPress={handleClose}
@@ -374,9 +390,15 @@ describe('TradingView chart controls', () => {
 
     fireEvent.click(getByTestId('interval-selector'));
     expect(handleClose).not.toHaveBeenCalled();
+    expect(
+      getByTestId('interval-selector').parentElement?.getAttribute('data-flex'),
+    ).toBeNull();
 
     const closeArea = getByTestId('trading-view-native-chart-close');
     expect(closeArea.getAttribute('aria-label')).toBe('Close chart');
+    expect(closeArea.getAttribute('data-flex')).toBe('1');
+    expect(closeArea.getAttribute('data-align-self')).toBe('stretch');
+    expect(closeArea.getAttribute('data-pr')).toBe('$2');
     fireEvent.click(closeArea);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
