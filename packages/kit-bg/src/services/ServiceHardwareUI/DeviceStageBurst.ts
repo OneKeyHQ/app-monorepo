@@ -466,6 +466,7 @@ export class DeviceStageBurstScope {
       confirmDescription?: string;
       confirmDescriptionDanger?: boolean;
       inputError?: string;
+      errorReason?: IDeviceStageErrorReasonValue;
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
     } = {},
@@ -498,7 +499,7 @@ export class DeviceStageBurstScope {
     this.explicitToken = undefined;
     this.confirmContent = undefined;
     this.activeVendor = undefined;
-    await this.forceOff();
+    await this.forceOff({ force: true });
   }
 
   /** Refreshes who is on stage without touching the step or the beat —
@@ -537,9 +538,16 @@ export class DeviceStageBurstScope {
     }, delayMs);
   }
 
-  private async forceOff() {
+  private async forceOff(options: { force?: boolean } = {}) {
     const prev = await deviceStageAtom.get();
     if (!prev || prev.step === 'off') {
+      return;
+    }
+    // An error outcome owns its own exit: the notice form leaves through
+    // onClose after its readable hold, the ask form waits for the person.
+    // A scheduled off (burst end racing in behind the outcome) must not
+    // cut either short; only the user's dismissal forces through.
+    if (prev.step === 'error' && !options.force) {
       return;
     }
     await deviceStageAtom.set({
