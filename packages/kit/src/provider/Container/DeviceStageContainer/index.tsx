@@ -10,7 +10,6 @@ import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/Hardw
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useDeviceStageAtom,
-  useDeviceStageEnabledAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -396,10 +395,6 @@ function DeviceStageContainerCmp() {
 }
 
 function BasicDeviceStageContainer() {
-  const [enabled] = useDeviceStageEnabledAtom();
-  if (!enabled) {
-    return null;
-  }
   return <DeviceStageContainerCmp />;
 }
 

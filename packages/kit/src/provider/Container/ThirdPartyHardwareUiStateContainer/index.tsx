@@ -27,11 +27,9 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EThirdPartyHardwareUiAction,
-  isThirdPartyToastAction,
   thirdPartyAppInstallAtom,
   thirdPartyBatchInstallAtom,
   thirdPartyHardwareUiStateAtom,
-  useDeviceStageEnabledAtom,
   useThirdPartyAppInstallAtom,
   useThirdPartyBatchInstallAtom,
   useThirdPartyHardwareUiStateAtom,
@@ -681,8 +679,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const [appInstallState] = useThirdPartyAppInstallAtom();
 
   // OK-59934: the DeviceStage install steps replace this dialog.
-  const [deviceStageEnabledForInstall] = useDeviceStageEnabledAtom();
-  const dialogActive = !deviceStageEnabledForInstall && !!appInstallState;
+  const dialogActive = false && !!appInstallState;
   useEffect(() => {
     if (dialogActive) {
       // reuse the open dialog; cancel any pending close
@@ -735,20 +732,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     [],
   );
 
-  // OK-59934: while the DeviceStage driver is on, the toast and the
-  // request dialogs are muted (the stage replaces them). The Trezor BLE
-  // binding dialog and the permission dialog stay — both are explicitly
-  // outside the stage's scope.
-  const [deviceStageEnabled] = useDeviceStageEnabledAtom();
-  const isToastAction =
-    !deviceStageEnabled && isThirdPartyToastAction(uiState?.action);
+  // OK-59934: the DeviceStage plays the whole third-party rail, so this
+  // container's toast and request dialogs stay silent. The Trezor BLE
+  // binding dialog (rendered imperatively below) and the permission
+  // dialog are the exceptions — both are outside the stage's scope.
+  const isToastAction = false;
   const isTrezorBleBinding =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding;
-  const isDialogAction =
-    !deviceStageEnabled &&
-    !!uiState &&
-    !isThirdPartyToastAction(uiState?.action) &&
-    !isTrezorBleBinding;
+  const isDialogAction = false;
 
   // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);

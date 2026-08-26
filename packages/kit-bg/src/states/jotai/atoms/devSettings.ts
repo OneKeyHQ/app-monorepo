@@ -35,9 +35,6 @@ export interface ITestAccount {
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
-  // OK-59934 rollout gate: play hardware interactions on the DeviceStage
-  // and mute the legacy hardware dialogs/toasts it replaces.
-  deviceStageEnabled?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?:
     | boolean
@@ -160,7 +157,6 @@ export const {
     enabled: !!platformEnv.isDev || !!platformEnv.isE2E,
     settings: {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
-      deviceStageEnabled: false,
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
       enableMockHighTxFee: false,
@@ -277,23 +273,3 @@ export const {
     disabledJPush: false,
   },
 });
-
-/**
- * OK-59934 rollout gate. It lives in dev settings rather than a runtime
- * atom of its own so a tester can flip it once and keep it across app
- * restarts, and reach it from every platform's Dev mode page instead of
- * a console.
- */
-export function readDeviceStageEnabled(
-  devSettings: IDevSettingsPersistAtom | undefined,
-): boolean {
-  if (!devSettings?.enabled) {
-    return false;
-  }
-  return Boolean(devSettings.settings?.deviceStageEnabled);
-}
-
-export function useDeviceStageEnabledAtom(): [boolean] {
-  const [devSettings] = useDevSettingsPersistAtom();
-  return [readDeviceStageEnabled(devSettings)];
-}

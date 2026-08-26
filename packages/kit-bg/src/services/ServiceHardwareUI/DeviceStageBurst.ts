@@ -1,6 +1,7 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
@@ -11,9 +12,8 @@ import type {
 import {
   EHardwareUiStateAction,
   EThirdPartyHardwareUiAction,
-  devSettingsPersistAtom,
   deviceStageAtom,
-  readDeviceStageEnabled,
+  firmwareUpdateWorkflowRunningAtom,
 } from '../../states/jotai/atoms';
 
 import type {
@@ -155,8 +155,13 @@ export class DeviceStageBurstScope {
     this.confirmContent = content;
   }
 
+  /**
+   * The stage plays every hardware interaction it owns — except while the
+   * firmware update workflow runs, which drives its own full page and
+   * stays outside the stage's scope.
+   */
   async isEnabled() {
-    return readDeviceStageEnabled(await devSettingsPersistAtom.get());
+    return !(await firmwareUpdateWorkflowRunningAtom.get());
   }
 
   private clearOffTimer() {
@@ -290,6 +295,14 @@ export class DeviceStageBurstScope {
       } else {
         this.scheduleOff();
       }
+      return;
+    }
+    if (
+      !isDeviceStageOwnedHardwareUiAction({
+        action,
+        eventType: payload?.eventType,
+      })
+    ) {
       return;
     }
     const step = ACTION_TO_STEP[action];
