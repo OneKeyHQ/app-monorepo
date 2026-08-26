@@ -606,11 +606,11 @@ export default class ServiceNotification extends ServiceBase {
         ) {
           return value;
         }
-        return {
+        return perfUtils.buildNewValueIfChanged(value, {
           ...value,
           permissionRecoveryDismissedAt: stateTransition.nextDismissedAt,
           permissionRecoveryLastPermission: currentPermission,
-        };
+        });
       });
 
       if (
@@ -1600,6 +1600,7 @@ export default class ServiceNotification extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({
         hour: 1,
       }),
+      promise: true,
     },
   );
 
