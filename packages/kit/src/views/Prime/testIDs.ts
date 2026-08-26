@@ -3,6 +3,7 @@ export const PrimeTestIDs = {
   primeHeaderBtn: 'headerRightPrimeButton', // preserve existing
   userInfoMoreBtn: 'prime-user-info-more-btn',
   redemptionMenuItem: 'prime-redemption-menu-item',
+  manageSubscriptionMenuItem: 'prime-manage-subscription-menu-item',
   redemptionCodeInput: 'prime-redemption-code-input',
   redemptionSuccess: 'prime-redemption-success',
 

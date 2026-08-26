@@ -85,10 +85,16 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       target: ReturnType<typeof getPrimeSubscriptionManagementTarget>,
     ) => {
       if (target.type === 'infini') {
+        defaultLogger.prime.subscription.primeManageSubscriptionClick({
+          target: 'infiniPage',
+        });
         navigation.push(EPrimePages.PrimeInfiniSubscription);
         return true;
       }
       if (target.type === 'external') {
+        defaultLogger.prime.subscription.primeManageSubscriptionClick({
+          target: 'externalUrl',
+        });
         openUrlUtils.openUrlExternal(target.url);
         return true;
       }
@@ -125,6 +131,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       if (openTarget(resolvedTarget)) {
         return;
       }
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'unresolved',
+      });
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.prime_manage_subscription,
@@ -135,6 +144,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           'Unable to manage this subscription because its channel is missing or unsupported, and no management URL was provided.',
       });
     } catch (error) {
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'unresolved',
+      });
       errorToastUtils.toastIfError(error);
       errorToastUtils.showToastOfError(error);
     } finally {
@@ -251,6 +263,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
        the server state lags). */}
       {isPrime ? (
         <ActionList.Item
+          testID={PrimeTestIDs.manageSubscriptionMenuItem}
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}
