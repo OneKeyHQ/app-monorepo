@@ -5,10 +5,7 @@ import { useIntl } from 'react-intl';
 import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  type ISwapProPositionNetworkStatus,
-  useSwapProEnableCurrentSymbolAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -74,7 +71,7 @@ interface ISwapProPositionsListProps {
   onSearchClick?: () => void;
   filterToken?: ISwapToken[];
   cachedTokenList?: ISwapToken[];
-  positionNetworkStatuses: Record<string, ISwapProPositionNetworkStatus>;
+  positionNetworkStatuses: Record<string, boolean>;
   hasPositionOwner: boolean;
   hasCachedTokenSnapshot?: boolean;
   isLiveTokenListForCurrentOwner: boolean;
@@ -321,7 +318,7 @@ const SwapProPositionsList = ({
             onPress={onTokenPress}
             disabled={
               shouldUseCachedTokenList &&
-              positionNetworkStatuses[item.networkId] !== 'ready'
+              positionNetworkStatuses[item.networkId] !== true
             }
             pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
           />

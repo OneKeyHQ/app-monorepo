@@ -3141,10 +3141,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (!positionOwnerKey) {
         set(swapProPositionsCurrentOwnerKeyAtom(), '');
         set(swapProPositionsDataOwnerKeyAtom(), '');
-        set(swapProPositionNetworkStatesAtom(), {
-          ownerKey: '',
-          statusByNetworkId: {},
-        });
+        set(swapProPositionNetworkStatesAtom(), {});
         set(swapProSupportNetworksTokenListAtom(), []);
         return;
       }
@@ -3179,58 +3176,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ...previousRequestIds,
         [positionOwnerKey]: requestId,
       }));
-      set(swapProPositionNetworkStatesAtom(), {
-        ownerKey: positionOwnerKey,
-        statusByNetworkId: Object.fromEntries(
-          supportNetworks.map(
-            (network) => [network.networkId, 'loading'] as const,
-          ),
-        ),
-      });
+      set(swapProPositionNetworkStatesAtom(), {});
       const isLatestOwnerRequest = () =>
         get(swapProPositionsRequestIdsAtom())[positionOwnerKey] === requestId;
       const isCurrentOwner = () =>
         get(swapProPositionsCurrentOwnerKeyAtom()) === positionOwnerKey;
-      const setNetworkStatus = (
-        networkId: string,
-        status: 'ready' | 'error',
-      ) => {
-        if (!isLatestOwnerRequest()) {
+      const markNetworkReady = (networkId: string) => {
+        if (!isLatestOwnerRequest() || !isCurrentOwner()) {
           return;
         }
-        set(swapProPositionNetworkStatesAtom(), (currentState) => {
-          if (currentState.ownerKey !== positionOwnerKey) {
-            return currentState;
-          }
-          return {
-            ...currentState,
-            statusByNetworkId: {
-              ...currentState.statusByNetworkId,
-              [networkId]: status,
-            },
-          };
-        });
-      };
-      const markLoadingNetworksAs = (status: 'ready' | 'error') => {
-        if (!isLatestOwnerRequest()) {
-          return;
-        }
-        set(swapProPositionNetworkStatesAtom(), (currentState) => {
-          if (currentState.ownerKey !== positionOwnerKey) {
-            return currentState;
-          }
-          return {
-            ...currentState,
-            statusByNetworkId: Object.fromEntries(
-              Object.entries(currentState.statusByNetworkId).map(
-                ([networkId, currentStatus]) => [
-                  networkId,
-                  currentStatus === 'loading' ? status : currentStatus,
-                ],
-              ),
-            ),
-          };
-        });
+        set(swapProPositionNetworkStatesAtom(), (currentState) => ({
+          ...currentState,
+          [networkId]: true,
+        }));
       };
       const settleRequestFailure = () => {
         const hasCachedPositionEntry = Boolean(
@@ -3295,7 +3253,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             },
           });
         });
-        setNetworkStatus(networkId, 'ready');
+        markNetworkReady(networkId);
       };
       try {
         const {
@@ -3307,7 +3265,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           swapSupportNetworks: supportNetworks,
         });
         if (supportAccountsFetchFailed) {
-          markLoadingNetworksAs('error');
           settleRequestFailure();
           return;
         }
@@ -3327,27 +3284,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               accountId,
             } = networkDataString;
             return async () => {
-              try {
-                const tokens =
-                  await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-                    networkId: accountNetworkId,
-                    accountNetworkId,
-                    accountAddress: apiAddress,
-                    accountId,
-                    onlyAccountTokens: true,
-                    isAllNetworkFetchAccountTokens: true,
-                    throwOnError: true,
-                    currency: positionCurrencyId,
-                    protocol: ESwapTabSwitchType.SWAP,
-                  });
-                updateNetworkPositions(accountNetworkId, tokens);
-                return tokens;
-              } catch (error) {
-                if (isLatestOwnerRequest()) {
-                  setNetworkStatus(accountNetworkId, 'error');
-                }
-                throw error;
-              }
+              const tokens =
+                await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+                  networkId: accountNetworkId,
+                  accountNetworkId,
+                  accountAddress: apiAddress,
+                  accountId,
+                  onlyAccountTokens: true,
+                  isAllNetworkFetchAccountTokens: true,
+                  throwOnError: true,
+                  currency: positionCurrencyId,
+                  protocol: ESwapTabSwitchType.SWAP,
+                });
+              updateNetworkPositions(accountNetworkId, tokens);
+              return tokens;
             };
           });
 
@@ -3378,17 +3328,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             set(swapProSupportNetworksTokenListAtom(), sortedResult);
             set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
           }
-          markLoadingNetworksAs('ready');
         } else if (isLatestOwnerRequest()) {
           updatePositionsCache([]);
           if (isCurrentOwner()) {
             set(swapProSupportNetworksTokenListAtom(), []);
             set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
           }
-          markLoadingNetworksAs('ready');
         }
       } catch (error) {
-        markLoadingNetworksAs('error');
         settleRequestFailure();
         console.error('swapPro__loadPositions error', error);
       } finally {

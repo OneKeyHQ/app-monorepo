@@ -858,20 +858,10 @@ export const {
   use: useSwapProPositionsDataOwnerKeyAtom,
 } = contextAtom<string>('');
 
-export type ISwapProPositionNetworkStatus = 'loading' | 'ready' | 'error';
-
-export type ISwapProPositionNetworkStates = {
-  ownerKey: string;
-  statusByNetworkId: Record<string, ISwapProPositionNetworkStatus>;
-};
-
 export const {
   atom: swapProPositionNetworkStatesAtom,
   use: useSwapProPositionNetworkStatesAtom,
-} = contextAtom<ISwapProPositionNetworkStates>({
-  ownerKey: '',
-  statusByNetworkId: {},
-});
+} = contextAtom<Record<string, boolean>>({});
 
 export const { atom: swapProTokenBalanceRequestIdAtom } =
   contextAtom<number>(0);

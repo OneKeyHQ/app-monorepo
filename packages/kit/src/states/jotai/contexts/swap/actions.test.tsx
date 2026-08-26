@@ -4805,11 +4805,7 @@ describe('useSwapActions', () => {
     });
 
     expect(store.get(swapProPositionNetworkStatesAtom())).toEqual({
-      ownerKey,
-      statusByNetworkId: {
-        'evm--1': 'ready',
-        'evm--56': 'loading',
-      },
+      'evm--1': true,
     });
     expect(
       store
@@ -4830,11 +4826,8 @@ describe('useSwapActions', () => {
     });
 
     expect(store.get(swapProPositionNetworkStatesAtom())).toEqual({
-      ownerKey,
-      statusByNetworkId: {
-        'evm--1': 'ready',
-        'evm--56': 'ready',
-      },
+      'evm--1': true,
+      'evm--56': true,
     });
     expect(store.get(swapProPositionsDataOwnerKeyAtom())).toBe(ownerKey);
   });

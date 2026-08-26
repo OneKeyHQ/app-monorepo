@@ -67,6 +67,7 @@ import {
   useSwapProInputAmountAtom,
   useSwapProPositionNetworkStatesAtom,
   useSwapProPositionsCacheAtom,
+  useSwapProPositionsCurrentOwnerKeyAtom,
   useSwapProPositionsDataOwnerKeyAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
@@ -1564,6 +1565,8 @@ export function useSwapProSupportNetworksTokenList(
     [swapProPositionsCache],
   );
   const [swapProPositionsDataOwnerKey] = useSwapProPositionsDataOwnerKeyAtom();
+  const [swapProPositionsCurrentOwnerKey] =
+    useSwapProPositionsCurrentOwnerKeyAtom();
   const [swapProPositionNetworkStates] = useSwapProPositionNetworkStatesAtom();
   const { updateSwapProPositionTokenBalances } = useSwapActions().current;
   const { syncTokensToPosition } = useSwapTokenPairBalanceSyncForPosition();
@@ -1616,10 +1619,14 @@ export function useSwapProSupportNetworksTokenList(
     : [];
   const positionNetworkStatuses = useMemo(
     () =>
-      swapProPositionNetworkStates.ownerKey === positionOwnerKey
-        ? swapProPositionNetworkStates.statusByNetworkId
+      swapProPositionsCurrentOwnerKey === positionOwnerKey
+        ? swapProPositionNetworkStates
         : {},
-    [positionOwnerKey, swapProPositionNetworkStates],
+    [
+      positionOwnerKey,
+      swapProPositionNetworkStates,
+      swapProPositionsCurrentOwnerKey,
+    ],
   );
   const swapProSelectTokenRef = useRef(swapSelectToken);
   if (swapProSelectTokenRef.current !== swapSelectToken) {
