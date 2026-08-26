@@ -179,7 +179,6 @@ type IAddressInputProps = Omit<
   enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
-  // Required by badges on stag. Native tokens must send "".
   tokenAddress?: string;
 };
 
@@ -544,7 +543,7 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
-  const buildBadgeQueryParams = useCallback(
+  const buildQueryAddressParams = useCallback(
     (): IQueryCheckAddressArgs => ({
       address: inputText,
       networkId,
@@ -596,8 +595,8 @@ export function AddressInput(props: IAddressInputProps) {
 
   // Query address validation when text changes
   useEffect(() => {
-    void queryAddress(buildBadgeQueryParams());
-  }, [buildBadgeQueryParams, queryAddress, refreshNum]);
+    void queryAddress(buildQueryAddressParams());
+  }, [buildQueryAddressParams, queryAddress, refreshNum]);
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
@@ -608,24 +607,27 @@ export function AddressInput(props: IAddressInputProps) {
       prevIsFocused.current !== undefined &&
       prevIsFocused.current !== isFocused
     ) {
-      void queryAddress(buildBadgeQueryParams());
+      void queryAddress(buildQueryAddressParams());
     }
     prevIsFocused.current = isFocused;
-  }, [buildBadgeQueryParams, isFocused, queryAddress, refreshNum]);
+  }, [buildQueryAddressParams, isFocused, queryAddress, refreshNum]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
+    const badgeFields = {
+      isContract: queryResult.isContract,
+      similarAddress: queryResult.similarAddress,
+      addressLabel: queryResult.addressLabel,
+      addressBadges: queryResult.addressBadges,
+      cexSupportedInfo: queryResult.cexSupportedInfo,
+    };
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
         resolved: getAddressQueryResolvedAddress(queryResult),
         pending: false,
-        isContract: queryResult.isContract,
-        similarAddress: queryResult.similarAddress,
-        addressLabel: queryResult.addressLabel,
-        addressBadges: queryResult.addressBadges,
-        cexSupportedInfo: queryResult.cexSupportedInfo,
+        ...badgeFields,
       });
     } else {
       const translationId = getAddressValidateTranslationId(
@@ -641,11 +643,7 @@ export function AddressInput(props: IAddressInputProps) {
             ? intl.formatMessage({ id: translationId })
             : undefined,
         },
-        isContract: queryResult.isContract,
-        similarAddress: queryResult.similarAddress,
-        addressLabel: queryResult.addressLabel,
-        addressBadges: queryResult.addressBadges,
-        cexSupportedInfo: queryResult.cexSupportedInfo,
+        ...badgeFields,
       });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange]);

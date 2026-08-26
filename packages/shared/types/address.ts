@@ -131,25 +131,13 @@ export enum EServerInteractedStatus {
 }
 
 /**
- * CEX token deposit/withdraw info folded into GET /wallet/v1/account/badges.
- * Field name and shape were observed on stag 2026-08-26; wallet schema is not
- * published yet. Only `depositEnable === false` alerts. `cexLabel` casing is
- * not stable (batch `binance` vs support-info `Binance`) — compare
- * case-insensitively. Extra fields stay optional until Eric freezes the schema.
+ * Folded into GET /wallet/v1/account/badges. Stag field name 2026-08-26;
+ * wallet schema is not published. Only `depositEnable === false` alerts.
+ * `cexLabel` casing is not stable — compare case-insensitively.
  */
 export type ICexSupportedInfo = {
   depositEnable?: boolean | null;
   cexLabel?: string;
-  networkId?: string;
-  tokenAddress?: string;
-  tokenName?: string;
-  depositMinAmount?: string;
-  depositConfirmations?: number;
-  withdrawEnable?: boolean | null;
-  withdrawMinAmount?: string;
-  withdrawMaxAmount?: string;
-  withdrawFee?: string;
-  withdrawConfirmations?: number;
 };
 
 export type IServerAccountBadgeResp = {

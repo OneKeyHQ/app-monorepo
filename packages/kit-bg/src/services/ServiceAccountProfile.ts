@@ -11,11 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  buildAccountBadgeQueryParams,
-  mergeCexSupportedInfo,
-  toBadgeQueryTokenAddress,
-} from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -276,14 +272,14 @@ class ServiceAccountProfile extends ServiceBase {
       const resp = await client.get<{
         data: IServerAccountBadgeResp;
       }>('/wallet/v1/account/badges', {
-        params: buildAccountBadgeQueryParams({
+        params: {
           networkId,
           fromAddress,
           toAddress,
           checkInteraction,
           xpub,
-          tokenAddress,
-        }),
+          tokenAddress: tokenAddress ?? '',
+        },
       });
       const {
         isContract,
@@ -333,7 +329,7 @@ class ServiceAccountProfile extends ServiceBase {
     checkInteractionStatus?: boolean;
     tokenAddress?: string;
   }): Promise<IAccountBadgeResult> {
-    const badgeTokenAddress = toBadgeQueryTokenAddress(tokenAddress);
+    const badgeTokenAddress = tokenAddress ?? '';
     const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${badgeTokenAddress}:${checkInteractionStatus ? '1' : '0'}`;
 
     const pending = this._pendingBadgeRequests.get(dedupKey);

@@ -148,6 +148,10 @@ function SendDataInputContainer() {
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    tokenAddress: tokenInfo?.address,
+  });
 
   const [currentAccount, setCurrentAccount] = useState({
     accountId,
@@ -435,18 +439,15 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
-      if (
-        !isNFT &&
-        !networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
-      ) {
-        const canProceed = await confirmCexDepositIfUnsupported({
-          intl,
-          cexSupportedInfo: toVal?.cexSupportedInfo,
-          badges: toVal?.addressBadges,
-          addressLabel: toVal?.addressLabel,
-        });
-        if (!canProceed) return;
-      }
+      const canProceed = await confirmCexDepositIfUnsupported({
+        intl,
+        isNFT,
+        networkId: currentAccount.networkId,
+        cexSupportedInfo: toVal?.cexSupportedInfo,
+        addressBadges: toVal?.addressBadges,
+        addressLabel: toVal?.addressLabel,
+      });
+      if (!canProceed) return;
 
       defaultLogger.transaction.send.addressInput({
         addressInputMethod: addressInputChangeType.current,
@@ -995,10 +996,7 @@ function SendDataInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: true,
-            tokenAddress: getBadgeQueryTokenAddress({
-              isNFT,
-              tokenAddress: tokenInfo?.address,
-            }),
+            tokenAddress: badgeQueryTokenAddress,
           });
         if (queryResult.validStatus !== 'valid' || queryResult.similarAddress) {
           // Address invalid — fall back to input for feedback
@@ -1015,18 +1013,15 @@ function SendDataInputContainer() {
           queryResult.validAddress ||
           selectedAddress;
 
-        if (
-          !isNFT &&
-          !networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
-        ) {
-          const canProceed = await confirmCexDepositIfUnsupported({
-            intl,
-            cexSupportedInfo: queryResult.cexSupportedInfo,
-            badges: queryResult.addressBadges,
-            addressLabel: queryResult.addressLabel,
-          });
-          if (!canProceed) return;
-        }
+        const canProceed = await confirmCexDepositIfUnsupported({
+          intl,
+          isNFT,
+          networkId: currentAccount.networkId,
+          cexSupportedInfo: queryResult.cexSupportedInfo,
+          addressBadges: queryResult.addressBadges,
+          addressLabel: queryResult.addressLabel,
+        });
+        if (!canProceed) return;
 
         defaultLogger.transaction.send.addressInput({
           addressInputMethod: addressInputChangeType.current,
@@ -1125,6 +1120,7 @@ function SendDataInputContainer() {
       enableAllowListValidation,
       isAllNetworks,
       isNFT,
+      badgeQueryTokenAddress,
       nfts,
       onCancel,
       onFail,
@@ -1350,10 +1346,7 @@ function SendDataInputContainer() {
               ignoreSimilarAddressInAddressBook
               enableCheckSimilarAddressInAddressBook
               hasQuickSelectMatches={hasQuickSelectMatches}
-              tokenAddress={getBadgeQueryTokenAddress({
-                isNFT,
-                tokenAddress: tokenInfo?.address,
-              })}
+              tokenAddress={badgeQueryTokenAddress}
             />
             {toSimilarAddress ? (
               <Alert

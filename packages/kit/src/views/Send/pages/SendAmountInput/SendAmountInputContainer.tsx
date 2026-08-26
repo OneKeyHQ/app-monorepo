@@ -847,6 +847,10 @@ function SendAmountInputContainer() {
 
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    tokenAddress: tokenInfo?.address,
+  });
 
   const onSubmitRef = useRef<() => Promise<void>>(undefined);
   const navigation = useAppNavigation();
@@ -1429,10 +1433,7 @@ function SendAmountInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: false,
-            tokenAddress: getBadgeQueryTokenAddress({
-              isNFT,
-              tokenAddress: tokenInfo?.address,
-            }),
+            tokenAddress: badgeQueryTokenAddress,
           });
 
         const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -1458,13 +1459,12 @@ function SendAmountInputContainer() {
       }
     },
     [
+      badgeQueryTokenAddress,
       currentAccountId,
       enableAllowListValidation,
-      isNFT,
       networkId,
       recipientAddress,
       sendMode,
-      tokenInfo?.address,
     ],
     { watchLoading: true, alwaysSetState: true, debounced: 300 },
   );
@@ -2674,10 +2674,7 @@ function SendAmountInputContainer() {
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
-        tokenAddress: getBadgeQueryTokenAddress({
-          isNFT,
-          tokenAddress: tokenInfo?.address,
-        }),
+        tokenAddress: badgeQueryTokenAddress,
       });
 
     const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -2707,16 +2704,16 @@ function SendAmountInputContainer() {
       }
     }
 
-    if (!isNFT && !isLightningNetwork) {
-      const canProceed = await confirmCexDepositIfUnsupported({
-        intl,
-        cexSupportedInfo: queryResult.cexSupportedInfo,
-        badges: queryResult.addressBadges,
-        addressLabel: queryResult.addressLabel,
-      });
-      if (!canProceed) {
-        return undefined;
-      }
+    const canProceed = await confirmCexDepositIfUnsupported({
+      intl,
+      isNFT,
+      networkId,
+      cexSupportedInfo: queryResult.cexSupportedInfo,
+      addressBadges: queryResult.addressBadges,
+      addressLabel: queryResult.addressLabel,
+    });
+    if (!canProceed) {
+      return undefined;
     }
 
     return {
@@ -2725,16 +2722,15 @@ function SendAmountInputContainer() {
         queryResult.isContract ?? recipientIsContract ?? false,
     };
   }, [
+    badgeQueryTokenAddress,
     currentAccountId,
     enableAllowListValidation,
     getRecipientValidateMessage,
     intl,
-    isLightningNetwork,
     isNFT,
     networkId,
     recipientAddress,
     recipientIsContract,
-    tokenInfo?.address,
   ]);
 
   const confirmPrivateSendValueDrop = useCallback(

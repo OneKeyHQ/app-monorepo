@@ -1,11 +1,9 @@
 import {
-  buildAccountBadgeQueryParams,
   getBadgeQueryTokenAddress,
   getCexDepositUnsupportedDialogCopy,
   isCexDepositExplicitlyDisabled,
   mergeCexSupportedInfo,
   pickCexDepositSupportBadge,
-  toBadgeQueryTokenAddress,
 } from './cexDepositSupportUtils';
 
 import type { IAddressBadge } from '../../types/address';
@@ -29,20 +27,15 @@ const stagSupportedBadges: IAddressBadge[] = [
   },
 ];
 
-describe('toBadgeQueryTokenAddress', () => {
+describe('getBadgeQueryTokenAddress', () => {
   it('keeps an ERC-20 contract address', () => {
     expect(
-      toBadgeQueryTokenAddress('0xdac17f958d2ee523a2206206994597c13d831ec7'),
+      getBadgeQueryTokenAddress({
+        tokenAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      }),
     ).toBe('0xdac17f958d2ee523a2206206994597c13d831ec7');
   });
 
-  it('sends empty string for native tokens and omitted values', () => {
-    expect(toBadgeQueryTokenAddress('')).toBe('');
-    expect(toBadgeQueryTokenAddress(undefined)).toBe('');
-  });
-});
-
-describe('getBadgeQueryTokenAddress', () => {
   it('sends empty string for NFT transfers', () => {
     expect(
       getBadgeQueryTokenAddress({
@@ -52,39 +45,10 @@ describe('getBadgeQueryTokenAddress', () => {
     ).toBe('');
   });
 
-  it('sends empty string for native tokens', () => {
-    expect(
-      getBadgeQueryTokenAddress({
-        isNFT: false,
-        tokenAddress: undefined,
-      }),
-    ).toBe('');
-  });
-});
-
-describe('buildAccountBadgeQueryParams', () => {
-  it('always includes tokenAddress and never omits native tokens', () => {
-    expect(
-      buildAccountBadgeQueryParams({
-        networkId: 'evm--1',
-        toAddress: '0x0022499fa1cfaf1de4f0247262a135cc757c5395',
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        networkId: 'evm--1',
-        tokenAddress: '',
-      }),
-    );
-  });
-
-  it('forwards the selected token address', () => {
-    expect(
-      buildAccountBadgeQueryParams({
-        networkId: 'evm--1',
-        toAddress: '0xto',
-        tokenAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
-      }).tokenAddress,
-    ).toBe('0xdac17f958d2ee523a2206206994597c13d831ec7');
+  it('sends empty string for native tokens and omitted values', () => {
+    expect(getBadgeQueryTokenAddress({ isNFT: false })).toBe('');
+    expect(getBadgeQueryTokenAddress({ tokenAddress: undefined })).toBe('');
+    expect(getBadgeQueryTokenAddress({ tokenAddress: '' })).toBe('');
   });
 });
 

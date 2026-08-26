@@ -5,10 +5,6 @@ import type {
 
 const CEX_BADGE_LABEL = 'cex';
 
-export function toBadgeQueryTokenAddress(tokenAddress?: string): string {
-  return tokenAddress ?? '';
-}
-
 export function getBadgeQueryTokenAddress({
   isNFT,
   tokenAddress,
@@ -19,32 +15,7 @@ export function getBadgeQueryTokenAddress({
   if (isNFT) {
     return '';
   }
-  return toBadgeQueryTokenAddress(tokenAddress);
-}
-
-export function buildAccountBadgeQueryParams({
-  networkId,
-  fromAddress,
-  toAddress,
-  checkInteraction,
-  xpub,
-  tokenAddress,
-}: {
-  networkId: string;
-  fromAddress?: string;
-  toAddress: string;
-  checkInteraction?: boolean;
-  xpub?: string;
-  tokenAddress?: string;
-}) {
-  return {
-    networkId,
-    fromAddress,
-    toAddress,
-    checkInteraction,
-    xpub,
-    tokenAddress: toBadgeQueryTokenAddress(tokenAddress),
-  };
+  return tokenAddress ?? '';
 }
 
 export function isCexDepositExplicitlyDisabled(
@@ -56,22 +27,20 @@ export function isCexDepositExplicitlyDisabled(
 export function mergeCexSupportedInfo(
   infos: Array<ICexSupportedInfo | undefined>,
 ): ICexSupportedInfo | undefined {
-  let merged: ICexSupportedInfo | undefined;
+  let first: ICexSupportedInfo | undefined;
+  let lastDisabled: ICexSupportedInfo | undefined;
+  let firstEnabled: ICexSupportedInfo | undefined;
   for (const info of infos) {
     if (info) {
-      if (!merged) {
-        merged = { ...info };
-      } else if (info.depositEnable === false) {
-        merged = { ...info };
-      } else if (
-        merged.depositEnable !== false &&
-        info.depositEnable === true
-      ) {
-        merged = { ...merged, ...info, depositEnable: true };
+      first ??= info;
+      if (info.depositEnable === false) {
+        lastDisabled = info;
+      } else if (info.depositEnable === true) {
+        firstEnabled ??= info;
       }
     }
   }
-  return merged;
+  return lastDisabled ?? firstEnabled ?? first;
 }
 
 function normalizeBadgeLabel(label?: string): string {

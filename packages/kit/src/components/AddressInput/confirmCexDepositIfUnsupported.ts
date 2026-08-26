@@ -4,6 +4,7 @@ import {
   getCexDepositUnsupportedDialogCopy,
   isCexDepositExplicitlyDisabled,
 } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAddressBadge,
   ICexSupportedInfo,
@@ -45,7 +46,10 @@ function showCexDepositUnsupportedDialog({
       onCancelText: intl.formatMessage({
         id: ETranslations.global_cancel,
       }),
-      onConfirm: () => settle(true),
+      onConfirm: async ({ close }) => {
+        settle(true);
+        await close?.();
+      },
       onCancel: () => settle(false),
       onClose: () => settle(false),
       confirmButtonProps: {
@@ -60,21 +64,28 @@ function showCexDepositUnsupportedDialog({
 
 export async function confirmCexDepositIfUnsupported({
   intl,
+  isNFT,
+  networkId,
   cexSupportedInfo,
-  badges,
+  addressBadges,
   addressLabel,
 }: {
   intl: IntlShape;
+  isNFT?: boolean;
+  networkId: string;
   cexSupportedInfo?: ICexSupportedInfo;
-  badges?: IAddressBadge[];
+  addressBadges?: IAddressBadge[];
   addressLabel?: string;
 }): Promise<boolean> {
+  if (isNFT || networkUtils.isLightningNetworkByNetworkId(networkId)) {
+    return true;
+  }
   if (!isCexDepositExplicitlyDisabled(cexSupportedInfo?.depositEnable)) {
     return true;
   }
 
   const copy = getCexDepositUnsupportedDialogCopy({
-    badges,
+    badges: addressBadges,
     cexLabel: cexSupportedInfo?.cexLabel,
     addressLabel,
   });
