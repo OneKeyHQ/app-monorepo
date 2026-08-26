@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -50,13 +50,11 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  WcPayUserCancelledError,
-  useWcPayActionExecutor,
-} from '../hooks/useWcPayActionExecutor';
+import { useWcPayActionExecutor } from '../hooks/useWcPayActionExecutor';
 import { useWcPayResultPolling } from '../hooks/useWcPayResultPolling';
 import {
   EWcPayInlineFailureKind,
+  WcPayUserCancelledError,
   classifyWcPayInlineFailure,
   isWcPayInlinePostSignError,
   nextWcPayPagePhaseAfterAttempt,
@@ -129,6 +127,19 @@ function getWcPayPayingStepLabel(step: IWcPayPagePayingStep): string {
     default:
       return 'Preparing…';
   }
+}
+
+/**
+ * A banner-surfaced failure plus the identity of the attempt that produced
+ * it. The identity matters for the post-sign kind: its Retry must re-enter
+ * the recovery machinery for the SAME payment option and account, so the
+ * page refuses to start a differently-targeted attempt while one is on
+ * screen (see the SendFailed lock below).
+ */
+interface IWcPayInlineFailureRecord {
+  failure: IWcPayInlineFailure;
+  optionId: string;
+  accountKey: string;
 }
 
 /**
@@ -254,7 +265,21 @@ function PaymentOptionsPage() {
   // failures the page keeps on screen (persistent banner) instead of toasting:
   // an insufficient balance the user resolves by switching option, and a
   // post-sign send failure whose retry must re-enter the recovery machinery
-  const [inlineFailure, setInlineFailure] = useState<IWcPayInlineFailure>();
+  const [inlineFailure, setInlineFailure] =
+    useState<IWcPayInlineFailureRecord>();
+  // Pre-sign cancellation for the attempt in flight. Aborted when this page
+  // unmounts: the pre-executor stretch ('preparing') is closable, and before
+  // this signal existed a close there cancelled nothing — the pipeline kept
+  // running headless and completed a payment the user believed dismissed.
+  // The signal is only ever consulted before signing, so aborting can never
+  // lose an in-flight broadcast.
+  const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
+  useEffect(
+    () => () => {
+      payCancelControllerRef.current?.abort();
+    },
+    [],
+  );
 
   // Mounted unconditionally (hooks order); idle until the page reaches its
   // result phase.
@@ -276,13 +301,15 @@ function PaymentOptionsPage() {
   //
   // Scoped as tightly as the risk: only while the inline pipeline is actually
   // executing, which is exactly the window where 'preparing' is NOT the step.
-  // The pre-executor stretch holds 'preparing' (pre-sign, safely closable),
-  // and the controller's onFallback puts it back to 'preparing' on every exit
-  // to the confirm modal — including the retry-exhaustion one the attempts
-  // loop takes without asking — so the lock never spans the modal phase,
-  // where it would only add a way to strand the user if executeActions never
-  // settles. Idle and result stay closable too; result matches the standalone
-  // PaymentResultModal it replaces.
+  // The pre-executor stretch holds 'preparing' and stays closable — closing
+  // there aborts the attempt through payCancelControllerRef (pre-sign, so
+  // nothing irreversible has started), rather than letting it run on
+  // headless. The controller's onFallback puts the step back to 'preparing'
+  // on every exit to the confirm modal — including the retry-exhaustion one
+  // the attempts loop takes without asking — so the lock never spans the
+  // modal phase, where it would only add a way to strand the user if
+  // executeActions never settles. Idle and result stay closable too; result
+  // matches the standalone PaymentResultModal it replaces.
   const isInlineExecuting =
     pagePhase.name === 'paying' && pagePhase.step !== 'preparing';
   usePreventRemove(isInlineExecuting, () => {
@@ -301,10 +328,18 @@ function PaymentOptionsPage() {
     indexedAccountId,
   });
 
-  // a banner reports one account's attempt; switching account makes it stale
-  // exactly like switching option does
+  // a pre-sign banner (insufficient balance) reports one account's attempt;
+  // switching account makes it stale exactly like switching option does. The
+  // post-sign banner is different: it may shadow an already-broadcast
+  // transaction, and discarding it on an account switch would re-arm Continue
+  // for a second payment from the new account while the first may still land
+  // — so it survives until its own Retry resolves the attempt
   useEffect(() => {
-    setInlineFailure(undefined);
+    setInlineFailure((prev) =>
+      prev?.failure.kind === EWcPayInlineFailureKind.SendFailed
+        ? prev
+        : undefined,
+    );
   }, [accountId, indexedAccountId]);
 
   const { result, isLoading, run } = usePromiseResult(
@@ -425,10 +460,27 @@ function PaymentOptionsPage() {
     ) {
       return;
     }
+    // A post-sign failure pins the payment to the attempt that produced it:
+    // its transaction may already be on chain, and only a retry with the
+    // same option and account re-enters the recovery machinery
+    // (stored progress is keyed by payment+option+account). Starting a
+    // differently-targeted attempt here would sign a second payment while
+    // the first may still land. The option list and the confirm button are
+    // disabled to the same rule — this is the belt to that suspenders.
+    if (
+      inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed &&
+      (selectedOption.id !== inlineFailure.optionId ||
+        (indexedAccountId ?? accountId ?? '') !== inlineFailure.accountKey)
+    ) {
+      return;
+    }
     setIsPaying(true);
     // a new attempt supersedes whatever the previous one left on screen
     setInlineFailure(undefined);
     setPagePhase({ name: 'paying', step: 'preparing' });
+    // one cancel scope per attempt; aborted by the unmount cleanup above
+    const cancelController = new AbortController();
+    payCancelControllerRef.current = cancelController;
     try {
       const { paymentId } = payResult;
       const optionId = selectedOption.id;
@@ -545,7 +597,11 @@ function PaymentOptionsPage() {
               failure.kind,
               failure.message,
             );
-            setInlineFailure(failure);
+            setInlineFailure({
+              failure,
+              optionId,
+              accountKey: progressAccountKey,
+            });
             return Promise.resolve('abort');
           }
           // everything else is a pre-sign blocker the confirm page owns; the
@@ -559,6 +615,10 @@ function PaymentOptionsPage() {
         accountId,
         indexedAccountId,
         completedResults,
+        // pre-sign cancellation boundary: fires when this page unmounts, so
+        // a close during the (closable) preparing stretch actually cancels
+        // the flow instead of letting it sign and broadcast headless
+        cancelSignal: cancelController.signal,
         // opts this call into the inline (headless) send for the action
         // shapes getWcPayInlinePlan admits; everything else still runs
         // through the confirm modal
@@ -642,7 +702,11 @@ function PaymentOptionsPage() {
         // nonce) instead of signing a second payment. The raw vault/RPC text
         // is a diagnostic only — the banner shows reviewed copy instead.
         console.error('wcPay inline post-sign failure', error);
-        setInlineFailure(classifyWcPayInlineFailure({ stage: 'send', error }));
+        setInlineFailure({
+          failure: classifyWcPayInlineFailure({ stage: 'send', error }),
+          optionId: selectedOption.id,
+          accountKey: indexedAccountId ?? accountId ?? '',
+        });
       } else if (!(error instanceof WcPayUserCancelledError)) {
         // user-intent cancellation (dismissed a confirm modal or the collect
         // form) ends the flow silently
@@ -653,6 +717,9 @@ function PaymentOptionsPage() {
         });
       }
     } finally {
+      if (payCancelControllerRef.current === cancelController) {
+        payCancelControllerRef.current = undefined;
+      }
       setIsPaying(false);
       // Covers both the failure paths above and a flow that ended without
       // reaching the result phase. Reduced through the updater rather than the
@@ -666,6 +733,7 @@ function PaymentOptionsPage() {
     isLoading,
     isPaymentActionable,
     pagePhase.name,
+    inlineFailure,
     effectiveExpiryMs,
     navigation,
     executeActions,
@@ -675,8 +743,18 @@ function PaymentOptionsPage() {
   ]);
 
   const inlineFailureCopy = inlineFailure
-    ? getWcPayInlineFailureCopy(inlineFailure)
+    ? getWcPayInlineFailureCopy(inlineFailure.failure)
     : undefined;
+  // The post-sign failure state is terminal for the option/account choice:
+  // its banner is the safety exit back into the recovery machinery, and
+  // drifting to another target must not discard it (see handlePay).
+  const isSendFailedLocked =
+    inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed;
+  const isSendFailedTargetMismatch =
+    isSendFailedLocked &&
+    !!inlineFailure &&
+    (selectedOption?.id !== inlineFailure.optionId ||
+      (indexedAccountId ?? accountId ?? '') !== inlineFailure.accountKey);
 
   // same status shapes the standalone PaymentResultModal renders, shown here
   // once the payment was submitted from this page
@@ -840,8 +918,12 @@ function PaymentOptionsPage() {
                 const networkImageUri =
                   network?.logoURI ?? display.networkIconUrl;
                 // switching option mid-flow would leave the running attempt
-                // paying for the previously selected one
-                const isDisabled = areOptionsRefusedOnPlatform || isPaying;
+                // paying for the previously selected one; after a post-sign
+                // failure the list stays locked so the recovery banner (and
+                // the pinned option it belongs to) cannot be discarded by
+                // picking another option and paying a second time
+                const isDisabled =
+                  areOptionsRefusedOnPlatform || isPaying || isSendFailedLocked;
                 return (
                   <ListItem
                     key={option.id}
@@ -849,9 +931,12 @@ function PaymentOptionsPage() {
                     disabled={isDisabled}
                     checkMark={selectedOption?.id === option.id}
                     onPress={() => {
+                      if (isDisabled) {
+                        return;
+                      }
                       if (option.id !== selectedOption?.id) {
-                        // the banner reports the previously selected option's
-                        // attempt and no longer applies
+                        // the (pre-sign) banner reports the previously
+                        // selected option's attempt and no longer applies
                         setInlineFailure(undefined);
                       }
                       setSelectedOptionId(option.id);
@@ -953,7 +1038,10 @@ function PaymentOptionsPage() {
               !isPaymentActionable ||
               !selectedOption ||
               isPaying ||
-              !!isLoading,
+              !!isLoading ||
+              // a post-sign Retry is only safe against the exact attempt the
+              // failure came from; a drifted target must not be payable
+              isSendFailedTargetMismatch,
             loading: isPaying,
           }}
         >

@@ -621,10 +621,14 @@ class ServiceSend extends ServiceBase {
         ensureBroadcastDeadline();
         // sender + nonce give the phantom-txid recovery check a
         // propagation-independent criterion (confirmed on-chain tx count vs
-        // this nonce); EVM signing guarantees both on the signed encodedTx,
-        // and WC Pay broadcast actions are EVM-only
+        // this nonce). EVM signing guarantees the nonce on the signed
+        // encodedTx (packTransaction requires it), and WC Pay broadcast
+        // actions are EVM-only. The sender is deliberately NOT read from
+        // encodedTx.from — that field is server-supplied, never validated
+        // and never part of what gets signed (the actual sender is the key
+        // behind accountId) — so the resolved signing account's address is
+        // the one eth_getTransactionCount must be asked about.
         const wcPayEvmTxFields = signedTx.encodedTx as {
-          from?: string;
           nonce?: number | string;
         } | null;
         const wcPayBroadcastNonce = new BigNumber(
@@ -634,13 +638,12 @@ class ServiceSend extends ServiceBase {
           {
             record: wcPayPreBroadcastRecord,
             txid: signedTx.txid,
-            broadcastMeta:
-              wcPayEvmTxFields?.from && wcPayBroadcastNonce.isInteger()
-                ? {
-                    sender: wcPayEvmTxFields.from,
-                    nonce: wcPayBroadcastNonce.toNumber(),
-                  }
-                : undefined,
+            broadcastMeta: wcPayBroadcastNonce.isInteger()
+              ? {
+                  sender: accountAddress,
+                  nonce: wcPayBroadcastNonce.toNumber(),
+                }
+              : undefined,
           },
         );
       }

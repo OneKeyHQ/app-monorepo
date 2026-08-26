@@ -1596,3 +1596,4 @@ otsu
 Otsu
 OTSU
 binarize
+scure

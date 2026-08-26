@@ -344,8 +344,38 @@ class ServiceWalletConnectPay extends ServiceBase {
     if (!record?.entries?.length) {
       return [];
     }
-    const isMatching = record.entries.every((entry, index) => {
-      if (!entry || !actions[index]) {
+    // saveActionResult enforces a dense prefix, but a record persisted by an
+    // older build (or a partially failed write) may still carry `null`
+    // holes. A hole is a LOCAL storage defect, not a server-side action
+    // recompute, so it must not discard the record: entries past a hole can
+    // no longer be aligned to their action index, but the contiguous prefix
+    // is still trustworthy.
+    let prefixLength = 0;
+    while (
+      prefixLength < record.entries.length &&
+      record.entries[prefixLength]
+    ) {
+      prefixLength += 1;
+    }
+    if (prefixLength < record.entries.length) {
+      const hasBroadcastBeyondHole = record.entries
+        .slice(prefixLength)
+        .some((entry) => entry?.broadcastMeta);
+      if (hasBroadcastBeyondHole) {
+        // a broadcast txid sits past the hole: resuming from the prefix
+        // would re-execute that action from scratch with a fresh nonce — a
+        // second on-chain payment. Refuse the attempt instead of deleting
+        // the txid-bearing record; the server-side final state (or the TTL)
+        // still cleans it up.
+        // copy pending product i18n keys
+        throw new OneKeyError(
+          'This payment cannot be resumed safely on this device',
+        );
+      }
+    }
+    const entries = record.entries.slice(0, prefixLength);
+    const isMatching = entries.every((entry, index) => {
+      if (!actions[index]) {
         return false;
       }
       const fingerprint = getWcPayActionFingerprint(actions[index]);
@@ -354,6 +384,8 @@ class ServiceWalletConnectPay extends ServiceBase {
       return fingerprint !== null && entry.fingerprint === fingerprint;
     });
     if (!isMatching) {
+      // fingerprint divergence means the server recomputed the action list;
+      // replaying results by position would submit wrong data silently
       await this.backgroundApi.simpleDb.walletConnectPay.removeProgress({
         paymentId,
         optionId,
@@ -361,7 +393,7 @@ class ServiceWalletConnectPay extends ServiceBase {
       });
       return [];
     }
-    return record.entries.map((entry) => entry.result);
+    return entries.map((entry) => entry.result);
   }
 
   /**

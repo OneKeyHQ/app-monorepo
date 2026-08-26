@@ -137,9 +137,14 @@ export function createProductionConfig({
                 reuseExistingChunk: true,
               },
               cryptoVendor: {
+                // 'initial' for the same reason as lodashVendor: with 'all',
+                // crypto copies used solely by async SDK chunks (e.g. the
+                // nested @noble/hashes and @scure/base bundled under
+                // @walletconnect/utils and @alephium/web3) are merged into
+                // this named chunk and dragged onto first paint.
                 test: /[\\/]node_modules[\\/](@noble|@scure|ethers|bn\.js|elliptic|hash\.js|browserify)[\\/]/,
                 name: 'vendor-crypto',
-                chunks: 'all' as const,
+                chunks: 'initial' as const,
                 priority: 20,
                 reuseExistingChunk: true,
               },

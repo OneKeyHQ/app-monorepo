@@ -1,9 +1,21 @@
 import { checkWcPayEvmActionMatchesOrder } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayOrderConsistency';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
   type IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
+
+// The flow ended without an error to report. Three sources: a user-intent
+// cancellation (dismissed a confirm modal or the collect form), a cancel
+// signal firing pre-sign (the options page unmounted while the pipeline was
+// still preparing), and an inline controller answering 'abort' — a
+// system-decided end where the page has already surfaced the reason itself
+// (insufficient balance banner) or another component owns the prompt (the
+// wallet-backup dialog). Callers should end the flow silently instead of
+// surfacing an error toast. Declared in this leaf module so the headless
+// pipeline can throw it without importing the executor hook.
+export class WcPayUserCancelledError extends OneKeyLocalError {}
 
 export type IWcPayInlinePlan =
   | { mode: 'inline' }

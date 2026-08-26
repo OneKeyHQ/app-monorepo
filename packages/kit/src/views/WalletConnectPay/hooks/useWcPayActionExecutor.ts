@@ -34,20 +34,19 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { wcPayInlineSendTx } from './wcPayInlineSendTx';
-import { getWcPayInlinePlan, runWcPayInlineAttempts } from './wcPayInlineUtils';
+import {
+  WcPayUserCancelledError,
+  getWcPayInlinePlan,
+  runWcPayInlineAttempts,
+} from './wcPayInlineUtils';
 
 import type { IWcPayInlineController } from './wcPayInlineUtils';
 
+// re-exported from its leaf module for the existing import sites
+export { WcPayUserCancelledError };
+
 // small pause so a finished confirm modal fully dismisses before the next one
 const MODAL_TRANSITION_MS = 300;
-
-// The flow ended without an error to report. Two sources: a user-intent
-// cancellation (dismissed a confirm modal or the collect form), and an inline
-// controller answering 'abort' — a system-decided end where the page has
-// already surfaced the reason itself (insufficient balance banner) or another
-// component owns the prompt (the wallet-backup dialog). Callers should end the
-// flow silently instead of surfacing an error toast.
-export class WcPayUserCancelledError extends OneKeyLocalError {}
 
 // Sign requests come from the WalletConnect Pay server / merchant, not from
 // the wallet itself, so present them through the regular external-sign
@@ -86,6 +85,7 @@ export function useWcPayActionExecutor() {
       progressContext,
       option,
       inlineController,
+      cancelSignal,
       onActionComplete,
       onActionInvalidated,
     }: {
@@ -120,6 +120,13 @@ export function useWcPayActionExecutor() {
       // (getWcPayInlinePlan) still runs per action. Absent — as for every
       // caller today — the executor behaves exactly as before.
       inlineController?: IWcPayInlineController;
+      // pre-sign cancellation boundary, fired when the page that started the
+      // flow unmounts. Checked before the resume probes, at the top of every
+      // action, and (on the inline path) immediately before signing — never
+      // after signing, where cancelling could lose an in-flight broadcast.
+      // An aborted signal ends the flow with WcPayUserCancelledError, which
+      // callers treat as a silent end.
+      cancelSignal?: AbortSignal;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
       // an already-broadcast transaction is never sent twice. Callers must
@@ -196,6 +203,17 @@ export function useWcPayActionExecutor() {
           console.error('wcPay persist action result failed', persistError);
         }
       };
+
+      // cancellation is a pre-sign concept only: checked before the resume
+      // probes, at the top of every action and immediately before inline
+      // signing. Never consulted after signing — an in-flight broadcast must
+      // settle and be recorded no matter what the page did.
+      const throwIfCancelled = () => {
+        if (cancelSignal?.aborted) {
+          throw new WcPayUserCancelledError('User canceled payment');
+        }
+      };
+      throwIfCancelled();
 
       // resuming with recorded progress: re-verify the last recorded action
       // when it broadcast a tx — including a fully completed sequence
@@ -274,6 +292,11 @@ export function useWcPayActionExecutor() {
       }
 
       for (let i = effectiveStartIndex; i < actions.length; i += 1) {
+        // the page owning this flow may have unmounted during the resume
+        // probes above (waitForTxMined can block for minutes) or between
+        // actions; nothing has been signed for action i yet, so ending here
+        // is safe
+        throwIfCancelled();
         // terminate the whole sequence the moment the deadline passes;
         // progress persisted via onActionComplete keeps already-broadcast
         // transactions safe for the (server-driven) expired/failed settling
@@ -362,6 +385,7 @@ export function useWcPayActionExecutor() {
                             index: i,
                           }
                         : undefined,
+                      cancelSignal,
                       onPhase: inlineController.onPhase,
                     }),
                 });

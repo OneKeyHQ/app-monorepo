@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -235,8 +236,35 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
 
     const key = buildProgressKey({ paymentId, optionId, accountKey });
     const entries = [...((await this.readSecureEntries(key)) ?? [])];
-    entries[index] = broadcastMeta
-      ? { fingerprint, result, broadcastMeta }
+    // Contiguity invariant: entries must form a dense prefix. Writing past a
+    // missing earlier index would serialize a `null` hole, and a record with
+    // a hole cannot be resumed by index alignment. Failing here instead is
+    // the established policy (see ServiceSend's pre-broadcast record):
+    // failing closed costs one retry, while a hole next to an
+    // already-broadcast txid destroys the only duplicate-payment evidence.
+    // This also covers the readSecureEntries failure mode where the array
+    // above was rebuilt empty: refusing the write keeps the intact
+    // ciphertext (and any recorded txid in it) on disk.
+    for (let i = 0; i < index; i += 1) {
+      if (!entries[i]) {
+        throw new OneKeyError(
+          'WalletConnect Pay progress record is not contiguous',
+        );
+      }
+    }
+    // A re-affirming write of the same result may omit broadcastMeta (the
+    // UI-side write after the confirm round-trip does); it must not erase
+    // the metadata recorded at the pre-broadcast boundary — the phantom-txid
+    // recovery check depends on it. A different result is a re-executed
+    // action: its stale metadata must not survive.
+    const existingEntry = entries[index];
+    const effectiveBroadcastMeta =
+      broadcastMeta ??
+      (existingEntry?.result === result
+        ? existingEntry?.broadcastMeta
+        : undefined);
+    entries[index] = effectiveBroadcastMeta
+      ? { fingerprint, result, broadcastMeta: effectiveBroadcastMeta }
       : { fingerprint, result };
     // payload first: an index entry must never exist without its ciphertext
     await appStorage.secureStorage.setSecureItem(
