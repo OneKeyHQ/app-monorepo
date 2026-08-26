@@ -30,6 +30,7 @@ import {
   TamaguiTheme as Theme,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDisplayCornerRadius } from '@onekeyhq/shared/src/utils/displayCornerUtils';
 
 import { IconButton } from '../../actions/IconButton';
@@ -400,8 +401,20 @@ function PanelSeat({
     [litKey, seatKey],
   );
   const style = useMemo(() => [styles.panelSeat, litStyle], [litStyle]);
+  // `pointerEvents="none"` alone cannot silence a parked seat on web: RNW
+  // inputs specify their own `pointer-events: auto`, which re-enables
+  // hit-testing under a `none` ancestor — an invisible parked input could
+  // still swallow clicks, steal focus, and stay reachable via Tab. `inert`
+  // (a web-only prop RNW forwards) blankets the whole subtree so no
+  // descendant can opt back in; `aria-hidden` hides parked seats from
+  // assistive tech on both platforms.
   return (
-    <Animated.View style={style} pointerEvents={active ? 'box-none' : 'none'}>
+    <Animated.View
+      style={style}
+      aria-hidden={!active}
+      {...(platformEnv.isNative ? null : { inert: !active })}
+      pointerEvents={active ? 'box-none' : 'none'}
+    >
       {children}
     </Animated.View>
   );
