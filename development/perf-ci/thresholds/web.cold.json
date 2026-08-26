@@ -50,7 +50,7 @@
     "swap": {
       "resourceCount": 220,
       "scriptCount": 169,
-      "jsDecodedBytes": 17500000,
+      "jsDecodedBytes": 17510000,
       "longTaskTotalMs": 1200
     },
     "defi": {
