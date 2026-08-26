@@ -186,8 +186,11 @@ export interface IEarnAvailableAssetV2 {
   enableBatch?: boolean;
 }
 
+export type IEarnBannerTheme = 'light' | 'dark';
+
 export interface IEarnPageBannerListItem {
   bannerId: string;
+  theme: IEarnBannerTheme;
   backgroundImage: string;
   icon: string;
   title: string;
