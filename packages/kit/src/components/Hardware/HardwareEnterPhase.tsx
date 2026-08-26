@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   XStack,
+  passwordManagerIgnoreProps,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -228,6 +229,7 @@ export function EnterPhase({
             <Input
               testID="hardware-ui-passphrase-input"
               secureTextEntry={secureEntry1}
+              {...passwordManagerIgnoreProps}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_enter_passphrase,
               })}

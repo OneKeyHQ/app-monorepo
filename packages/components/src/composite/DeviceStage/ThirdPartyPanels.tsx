@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { Input } from '../../forms/Input';
+import { Input, passwordManagerIgnoreProps } from '../../forms/Input';
 import {
   Button,
   Icon,
@@ -67,6 +67,10 @@ export function PairingCodeForm({
           })}
           keyboardType="number-pad"
           autoCorrect={false}
+          {...passwordManagerIgnoreProps}
+          // A numeric device code is no credential: keep autoComplete "off"
+          // on web too, overriding the shared set's "new-password".
+          autoComplete="off"
         />
         {emptyPrompt ? (
           // Refusing an empty confirm: a prompt in place of a disabled
