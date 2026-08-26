@@ -10,7 +10,7 @@ import type { ViewStyle } from 'react-native';
 import type { VideoRef } from 'react-native-video';
 
 function VideoComponent(
-  { muted, ...rawProps }: IVideoProps,
+  { muted, autoPlay, paused, ...rawProps }: IVideoProps,
   ref: ForwardedRef<IVideoRef>,
 ) {
   const videoRef = useRef<VideoRef>(null);
@@ -32,6 +32,9 @@ function VideoComponent(
       ref={videoRef}
       style={style as ViewStyle}
       muted={muted}
+      // react-native-video has no `autoPlay`; map `autoPlay={false}` to its
+      // `paused` prop so both platforms honor it.
+      paused={paused ?? (autoPlay === false ? true : undefined)}
       {...props}
     />
   );

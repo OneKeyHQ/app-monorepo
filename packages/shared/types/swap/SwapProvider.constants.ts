@@ -882,6 +882,32 @@ export const swapDefaultSetTokens: Record<
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
     },
   },
+  'evm--747474': {
+    fromToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '',
+      'name': 'Katana',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+    },
+    toToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d',
+      'name': 'Katana Network Token',
+      'symbol': 'KAT',
+      'decimals': 18,
+      'logoURI':
+        'https://coin-images.coingecko.com/coins/images/70225/large/katana-social-icon.png?1761121098',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+    },
+  },
   'evm--196': {
     fromToken: {
       'networkId': 'evm--196',

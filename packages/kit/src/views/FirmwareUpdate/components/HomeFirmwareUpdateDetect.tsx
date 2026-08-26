@@ -8,6 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { createActiveAccountFirmwareUpdateDetector } from '../activeAccountFirmwareUpdateDetection';
 
 function HomeFirmwareUpdateDetectCmp() {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -26,16 +27,24 @@ function HomeFirmwareUpdateDetectCmp() {
   );
 
   useEffect(() => {
-    if (isHardware && connectId && isFocused) {
-      // TODO check firmware update only for current device or all device?
-      // TODO only works for home scene, TODO throttle
-      // get sdk instance will register device events automatically
-      void backgroundApiProxy.serviceFirmwareUpdate.detectActiveAccountFirmwareUpdates(
-        {
-          connectId,
-        },
-      );
+    if (!isHardware || !connectId || !isFocused) {
+      return undefined;
     }
+
+    // TODO check firmware update only for current device or all device?
+    // TODO only works for home scene, TODO throttle
+    // get sdk instance will register device events automatically
+    const detector = createActiveAccountFirmwareUpdateDetector({
+      detect: () =>
+        backgroundApiProxy.serviceFirmwareUpdate.detectActiveAccountFirmwareUpdates(
+          {
+            connectId,
+          },
+        ),
+    });
+    detector.start();
+
+    return detector.cancel;
   }, [isHardware, connectId, isFocused]);
 
   return null;

@@ -2,16 +2,22 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, SetStateAction } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import {
+  createTradingViewNativeIndicatorSettingsValue,
+  getTradingViewNativeIndicatorSettings,
+} from './indicatorSettingsAdapter';
 import {
   TradingViewNativeContainer,
   updateTradingViewNativeSubIndicatorInstances,
 } from './TradingViewNativeContainer';
+import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
 import type { ITradingViewNativeDataState } from './types';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
@@ -27,12 +33,29 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
+const mockTradingViewNativeFullscreenButton = jest.fn<
+  ReactNode,
+  [{ onPress: () => void }]
+>(({ onPress }) => (
+  <button
+    aria-label="Toggle fullscreen"
+    data-testid="trading-view-native-fullscreen-toggle"
+    onClick={onPress}
+    type="button"
+  />
+));
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
 let mockViewportRequest: unknown;
+let mockInitialIndicatorSettings:
+  | ITradingViewNativeIndicatorSettings
+  | undefined;
+let mockPersistedIndicatorSettings:
+  | ITradingViewNativeIndicatorSettings
+  | undefined;
 let mockRealtimePointListener:
   | ((point: IMarketTokenKLineDataPoint) => void)
   | undefined;
@@ -89,10 +112,62 @@ jest.mock('@onekeyhq/components', () => ({
     <span>{children}</span>
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  useTheme: () => ({
+    amber9: { val: '#amber9' },
+    bgApp: { val: '#bgApp' },
+    bgSubdued: { val: '#bgSubdued' },
+    blue3: { val: '#blue3' },
+    blue9: { val: '#blue9' },
+    borderSubdued: { val: '#borderSubdued' },
+    brand9: { val: '#brand9' },
+    cyan9: { val: '#cyan9' },
+    green6: { val: '#green6' },
+    green9: { val: '#green9' },
+    neutral9: { val: '#neutral9' },
+    orange9: { val: '#orange9' },
+    pink9: { val: '#pink9' },
+    purple9: { val: '#purple9' },
+    red6: { val: '#red6' },
+    red9: { val: '#red9' },
+    textSubdued: { val: '#textSubdued' },
+  }),
   YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
     <div data-testid={testID}>{children}</div>
   ),
 }));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const tradingViewNative = jest.requireActual<
+    typeof import('@onekeyhq/shared/types/tradingViewNative')
+  >('@onekeyhq/shared/types/tradingViewNative');
+
+  return {
+    useMarketTradingViewChartSettingsPersistAtom: () =>
+      React.useState(tradingViewNative.createTradingViewNativeChartSettings),
+    useMarketTradingViewIndicatorSettingsPersistAtom: () => {
+      const [settings, setSettings] = React.useState(
+        () =>
+          mockInitialIndicatorSettings ??
+          tradingViewNative.createTradingViewNativeIndicatorSettings(),
+      );
+      const setTrackedSettings = React.useCallback(
+        (nextSettings: SetStateAction<ITradingViewNativeIndicatorSettings>) => {
+          setSettings((currentSettings) => {
+            const resolvedSettings =
+              typeof nextSettings === 'function'
+                ? nextSettings(currentSettings)
+                : nextSettings;
+            mockPersistedIndicatorSettings = resolvedSettings;
+            return resolvedSettings;
+          });
+        },
+        [],
+      );
+      return [settings, setTrackedSettings] as const;
+    },
+  };
+});
 
 jest.mock('./data/useTradingViewNativeKLine', () => ({
   useTradingViewNativeKLine: (params: {
@@ -109,6 +184,11 @@ jest.mock('./TradingViewNativeChartControlsContainer', () => ({
     mockTradingViewNativeChartControlsContainer(props),
 }));
 
+jest.mock('./TradingViewNativeFullscreenButton', () => ({
+  TradingViewNativeFullscreenButton: (props: { onPress: () => void }) =>
+    mockTradingViewNativeFullscreenButton(props),
+}));
+
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -122,6 +202,8 @@ describe('TradingViewNativeContainer', () => {
     mockVisibleTimeRange = undefined;
     mockRealtimePointListener = undefined;
     mockViewportRequest = null;
+    mockInitialIndicatorSettings = undefined;
+    mockPersistedIndicatorSettings = undefined;
   });
 
   afterEach(() => {
@@ -276,9 +358,9 @@ describe('TradingViewNativeContainer', () => {
       indicatorSeries: Array<{ key: string }>;
     };
     expect(chartProps.indicatorSeries.map(({ key }) => key)).toEqual([
-      'ema-5',
-      'ema-10',
-      'ema-20',
+      'ema-1',
+      'ema-2',
+      'ema-3',
     ]);
   });
 
@@ -366,7 +448,7 @@ describe('TradingViewNativeContainer', () => {
     expect(inactiveChartProps.subIndicatorPanes).toEqual([]);
   });
 
-  it('enforces the sub-indicator cap while keeping main indicators independent', () => {
+  it('enforces the sub-indicator selection cap while keeping main indicators independent', () => {
     const handleSubIndicatorCountChange = jest.fn();
     mockDataState = { status: 'live' };
     mockPoints = Array.from({ length: 25 }, (_, index) => ({
@@ -387,7 +469,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
-        maxNativeSubIndicatorCount={4}
+        maxSelectableSubIndicatorCount={4}
         onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
       />,
     );
@@ -395,10 +477,10 @@ describe('TradingViewNativeContainer', () => {
     const controlsProps =
       mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
         activeIndicatorValues: Set<string>;
-        maxNativeSubIndicatorCount?: number;
+        maxSelectableSubIndicatorCount?: number;
         onIndicatorChange: (indicator: string, desiredActive: boolean) => void;
       };
-    expect(controlsProps.maxNativeSubIndicatorCount).toBe(4);
+    expect(controlsProps.maxSelectableSubIndicatorCount).toBe(4);
 
     act(() => {
       controlsProps.onIndicatorChange('VOL', true);
@@ -430,9 +512,9 @@ describe('TradingViewNativeContainer', () => {
       indicatorSeries: Array<{ key: string }>;
     };
     expect(cappedChartProps.indicatorSeries.map(({ key }) => key)).toEqual([
-      'ema-5',
-      'ema-10',
-      'ema-20',
+      'ema-1',
+      'ema-2',
+      'ema-3',
     ]);
 
     act(() => {
@@ -453,6 +535,198 @@ describe('TradingViewNativeContainer', () => {
       'MFI',
     ]);
     expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(4);
+  });
+
+  it('renders a snapshot above the selection cap in every layout', () => {
+    const handleSubIndicatorCountChange = jest.fn();
+    const activeSubIndicatorIds = new Set<string>(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS,
+    );
+    const settingsValue = createTradingViewNativeIndicatorSettingsValue();
+    settingsValue.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settingsValue);
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 1,
+    }));
+
+    const { rerender } = render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        maxSelectableSubIndicatorCount={4}
+        nativeControlsLayoutMode="mobile"
+        onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
+      />,
+    );
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        activeIndicatorValues: Set<string>;
+      };
+    expect([...controlsProps.activeIndicatorValues]).toEqual(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS,
+    );
+    expect(handleSubIndicatorCountChange).toHaveBeenLastCalledWith(
+      TRADING_VIEW_NATIVE_SUB_INDICATORS.length,
+    );
+    expect(
+      mockInitialIndicatorSettings.subIndicators.filter(
+        (indicator) => indicator.active,
+      ),
+    ).toHaveLength(TRADING_VIEW_NATIVE_SUB_INDICATORS.length);
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+
+    rerender(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        nativeControlsLayoutMode="desktop"
+        onNativeSubIndicatorCountChange={handleSubIndicatorCountChange}
+      />,
+    );
+
+    const desktopChartProps = mockTradingViewNativeChart.mock.calls.at(
+      -1,
+    )?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      desktopChartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+  });
+
+  it('only removes the explicitly deselected indicator above the selection cap', () => {
+    const activeSubIndicatorIds = new Set([
+      'VOL',
+      'MACD',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+    const settingsValue = createTradingViewNativeIndicatorSettingsValue();
+    settingsValue.indicators.forEach((indicator) => {
+      if (activeSubIndicatorIds.has(indicator.id)) {
+        indicator.active = true;
+      }
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settingsValue);
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 1,
+    }));
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        maxSelectableSubIndicatorCount={4}
+      />,
+    );
+
+    const controlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onIndicatorSelectionConfirm: (selection: {
+          activeIndicatorValues: ReadonlySet<string>;
+          replaceMainIndicators: boolean;
+          replaceSubIndicators: boolean;
+        }) => void;
+      };
+    act(() => {
+      controlsProps.onIndicatorSelectionConfirm({
+        activeIndicatorValues: new Set([
+          'MA',
+          'VOL',
+          'MACD',
+          'RSI',
+          'StochRSI',
+        ]),
+        replaceMainIndicators: true,
+        replaceSubIndicators: false,
+      });
+    });
+
+    expect(
+      mockPersistedIndicatorSettings?.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'MACD', 'RSI', 'StochRSI', 'OBV']);
+    const updatedControlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        onIndicatorSelectionConfirm: (selection: {
+          activeIndicatorValues: ReadonlySet<string>;
+          replaceMainIndicators: boolean;
+          replaceSubIndicators: boolean;
+        }) => void;
+      };
+    act(() => {
+      updatedControlsProps.onIndicatorSelectionConfirm({
+        activeIndicatorValues: new Set(['MA', 'VOL', 'RSI', 'StochRSI', 'OBV']),
+        replaceMainIndicators: false,
+        replaceSubIndicators: true,
+      });
+    });
+
+    const latestControlsProps =
+      mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+        activeIndicatorValues: Set<string>;
+      };
+    expect([...latestControlsProps.activeIndicatorValues]).toEqual([
+      'MA',
+      'VOL',
+      'RSI',
+      'StochRSI',
+      'OBV',
+    ]);
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      subIndicatorPanes: Array<{ indicator: string }>;
+    };
+    expect(
+      chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'OBV']);
+    expect(
+      mockPersistedIndicatorSettings?.subIndicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => indicator.id),
+    ).toEqual(['VOL', 'RSI', 'StochRSI', 'OBV']);
   });
 
   it('preserves a sub-indicator instance and settings when visibility changes', () => {
@@ -492,7 +766,7 @@ describe('TradingViewNativeContainer', () => {
     expect(restoredInstances[0].settings).toBe(settings);
   });
 
-  it('forwards controlled fullscreen props to chart controls', () => {
+  it('forwards desktop controlled fullscreen props to chart controls', () => {
     const handleFullscreenChange = jest.fn();
     const fullscreenHeader = <div>Token info</div>;
 
@@ -506,6 +780,7 @@ describe('TradingViewNativeContainer', () => {
           realtime: 'disabled',
         }}
         isNativeChartFullscreen
+        nativeControlsLayoutMode="desktop"
         nativeChartFullscreenHeader={fullscreenHeader}
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
@@ -518,6 +793,41 @@ describe('TradingViewNativeContainer', () => {
         onFullscreenChange: handleFullscreenChange,
       }),
     );
+  });
+
+  it('renders the mobile fullscreen control over the chart', () => {
+    const handleFullscreenChange = jest.fn();
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        nativeControlsLayoutMode="mobile"
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onFullscreenChange: undefined,
+      }),
+    );
+    expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isFullscreen: false,
+        visibleSubIndicatorCount: 0,
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByTestId('trading-view-native-fullscreen-toggle'),
+    );
+    expect(handleFullscreenChange).toHaveBeenCalledWith(true);
   });
 
   it('maps calendar submissions to native viewport targets', () => {
@@ -903,6 +1213,9 @@ describe('TradingViewNativeContainer', () => {
       source: 'history',
       timestamp: historyPoint.t,
     });
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ currentPriceLabel: '100.00' }),
+    );
 
     handlePriceUpdate.mockClear();
     dateNowSpy.mockReturnValue(2500);

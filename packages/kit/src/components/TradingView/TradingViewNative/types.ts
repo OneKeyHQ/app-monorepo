@@ -4,6 +4,7 @@ import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIn
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartType = 'candlestick' | 'line';
+export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
@@ -69,7 +70,8 @@ export interface ITradingViewNativeProps {
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
-  maxNativeSubIndicatorCount?: number;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;

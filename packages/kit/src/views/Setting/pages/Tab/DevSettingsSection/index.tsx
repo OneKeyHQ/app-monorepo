@@ -129,6 +129,7 @@ import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
+import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -847,7 +848,7 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
       },
       {
         key: 'devtools',
@@ -1067,6 +1068,18 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="ApiConnectionOutline"
                         title="API Endpoint Management"
@@ -1251,9 +1264,17 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
+
+                      <SectionLoggerParityItem />
 
                       {platformEnv.isNativeAndroid ? (
                         <SectionPressItem
@@ -1453,18 +1474,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="ShieldOutline"
-                        name="disableIpTableFailover"
-                        title="禁用 IP 快速故障切换"
-                        subtitle={
-                          devSettings.settings?.disableIpTableFailover
-                            ? '域名失败时不自动切换到 IP'
-                            : '域名连续失败时自动切换到 IP (默认)'
-                        }
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1645,6 +1654,18 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        searchKeywords="Pro2 firmware boot app coprocessor resource SE force update"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
                           );
                         }}
                       />

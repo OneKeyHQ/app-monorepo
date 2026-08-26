@@ -484,6 +484,18 @@ export interface IInvitePostConfig {
         subtitle: string;
       };
     };
+    Swap?: {
+      title: string;
+      subtitle: string;
+      for_you: {
+        title: string;
+        subtitle: string;
+      };
+      for_your_friend: {
+        title: string;
+        subtitle: string;
+      };
+    };
   };
 }
 

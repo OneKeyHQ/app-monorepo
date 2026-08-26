@@ -71,6 +71,8 @@ export enum EAppEventBusNames {
   // risky-token snapshot for an owner with its OWN monotonic version (independent
   // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
   TokenListRiskyFrame = 'TokenListRiskyFrame',
+  TokenListUpdate = 'TokenListUpdate',
+  AllNetworksTokenListSettled = 'AllNetworksTokenListSettled',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -132,6 +134,8 @@ export enum EAppEventBusNames {
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
+  HardwareDeviceStateUpdate = 'HardwareDeviceStateUpdate',
+  HardwareConnectionStateUpdate = 'HardwareConnectionStateUpdate',
   UnlockApp = 'UnlockApp',
   LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
@@ -160,6 +164,7 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
   ModalNavigatorMounted = 'ModalNavigatorMounted',
@@ -176,6 +181,7 @@ export enum EAppEventBusNames {
   PerpsSubscriptionsRecovered = 'PerpsSubscriptionsRecovered',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
+  PerpShowFundingHistory = 'PerpShowFundingHistory',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',

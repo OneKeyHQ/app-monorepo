@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   Input,
@@ -9,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   OKX_CHART_BG,
@@ -31,7 +34,6 @@ import type {
 import type { PointerEvent } from 'react-native';
 
 const OKX_INDICATOR_FIELD_LABEL_WIDTH = 136;
-const OKX_LINE_STYLE_OPTIONS = ['实线', '虚线'];
 const OKX_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] = [
   'solid',
   'medium',
@@ -76,22 +78,6 @@ function OkxIndicatorLinePreview({
   }[style];
 
   return <Stack w={width} h={lineHeight} bg={color} />;
-}
-
-function getOkxIndicatorLineStyleLabel(
-  style: ITradingViewSettingsMockLineStyle | undefined,
-) {
-  if (style === 'dashed') {
-    return '虚线';
-  }
-
-  return '实线';
-}
-
-function getOkxIndicatorLineStyleFromLabel(
-  label: string,
-): ITradingViewSettingsMockLineStyle {
-  return label === '虚线' ? 'dashed' : 'solid';
 }
 
 function OkxIndicatorLineStyleSelect({
@@ -410,11 +396,19 @@ export function OkxIndicatorLineRow({
   ) => void;
   onColorChange: (lineId: string, color: string) => void;
 }) {
+  const intl = useIntl();
   const showCheckbox = line.showCheckbox !== false;
   const showPeriod = line.showPeriod !== false;
   const showStyle = line.showStyle !== false;
   const showColor = line.showColor !== false;
   const showSecondaryStyle = line.showSecondaryStyle === true;
+  const solidLineLabel = intl.formatMessage({
+    id: ETranslations.market_chart_settings__solid_line,
+  });
+  const dashedLineLabel = intl.formatMessage({
+    id: ETranslations.market_chart_indicator_dashed_line__label,
+  });
+  const secondaryStyleOptions = [solidLineLabel, dashedLineLabel];
 
   return (
     <XStack h={48} alignItems="center">
@@ -437,6 +431,7 @@ export function OkxIndicatorLineRow({
       {showPeriod ? (
         <OkxIndicatorNumberInput
           value={line.period}
+          min={1}
           onChange={(period) => onPeriodChange(line.id, period)}
         />
       ) : null}
@@ -464,14 +459,21 @@ export function OkxIndicatorLineRow({
       {showSecondaryStyle ? (
         <Stack ml={8}>
           <OkxChartSelectMock
-            value={getOkxIndicatorLineStyleLabel(line.secondaryStyle)}
+            value={
+              line.secondaryStyle === 'dashed'
+                ? dashedLineLabel
+                : solidLineLabel
+            }
             width={97}
-            options={OKX_LINE_STYLE_OPTIONS}
+            options={secondaryStyleOptions}
             showLinePreview
+            getLinePreviewVariant={(value) =>
+              value === dashedLineLabel ? 'dashed' : 'solid'
+            }
             onChange={(value) =>
               onSecondaryStyleChange(
                 line.id,
-                getOkxIndicatorLineStyleFromLabel(value),
+                value === dashedLineLabel ? 'dashed' : 'solid',
               )
             }
           />
@@ -483,12 +485,14 @@ export function OkxIndicatorLineRow({
 
 export function OkxIndicatorOpacitySlider({
   value,
+  label,
   upColor,
   downColor,
   onChange,
   onColorChange,
 }: {
   value: number;
+  label: string;
   upColor: string;
   downColor: string;
   onChange: (value: number) => void;
@@ -521,7 +525,7 @@ export function OkxIndicatorOpacitySlider({
     <YStack mt={18} gap={8}>
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
-          透明度
+          {label}
         </SizableText>
         <XStack gap={18}>
           <OkxChartSolidSwatch

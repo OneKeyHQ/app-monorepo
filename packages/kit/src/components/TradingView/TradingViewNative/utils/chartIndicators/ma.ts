@@ -1,4 +1,5 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeIndicatorSettingsItem } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   isTradingViewNativeFiniteValue,
@@ -42,10 +43,12 @@ export function calculateTradingViewNativeSimpleMovingAverage(
 
 export function buildTradingViewNativeMaSeries(
   points: readonly IMarketTokenKLineDataPoint[],
+  settings?: ITradingViewNativeIndicatorSettingsItem,
 ) {
   return buildTradingViewNativeMovingAverageSeries({
     calculate: calculateTradingViewNativeSimpleMovingAverage,
     indicator: 'MA',
     points,
+    settings,
   });
 }

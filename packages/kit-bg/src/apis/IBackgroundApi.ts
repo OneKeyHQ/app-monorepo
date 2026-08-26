@@ -41,6 +41,7 @@ import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
@@ -126,10 +127,14 @@ export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
   module: keyof IOffscreenApi;
 };
 
+export type IBackgroundAtomStates = Partial<Record<EAtomNames, any>>;
+
 export interface IBackgroundApiBridge {
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
-  getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
+  getAtomStates: (
+    atomNames?: EAtomNames[],
+  ) => Promise<{ states: IBackgroundAtomStates }>;
 
   // **** eventBus
   emitEvent<T extends keyof IAppEventBusPayload>(
@@ -202,6 +207,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
+  serviceHardwarePortfolioSync: ServiceHardwarePortfolioSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;

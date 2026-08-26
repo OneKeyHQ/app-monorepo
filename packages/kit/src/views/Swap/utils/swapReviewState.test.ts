@@ -40,11 +40,21 @@ describe('buildRebuiltSwapReviewQuoteResult', () => {
       allowanceTarget: '0xspender',
       amount: '10',
     };
+    const fromTokenInfo = {
+      networkId: 'evm--1',
+      contractAddress: '0xfrom-app',
+    };
+    const toTokenInfo = {
+      networkId: 'evm--1',
+      contractAddress: '0xto-app',
+    };
     const quoteResultCtx = { okxQuoteResultCtx: { quoteFromAmount: '10' } };
     const quoteResult = {
       fromAmount: '10',
       toAmount: '20',
       minToAmount: '19',
+      fromTokenInfo,
+      toTokenInfo,
       allowanceResult,
       quoteResultCtx,
     } as IFetchQuoteResult;
@@ -52,6 +62,14 @@ describe('buildRebuiltSwapReviewQuoteResult', () => {
       ...quoteResult,
       toAmount: '21',
       minToAmount: '20.5',
+      fromTokenInfo: {
+        ...fromTokenInfo,
+        contractAddress: '',
+      },
+      toTokenInfo: {
+        ...toTokenInfo,
+        contractAddress: '0xto-from-build-api',
+      },
       allowanceResult: undefined,
       quoteResultCtx: undefined,
     } as IFetchBuildTxResult;
@@ -67,6 +85,8 @@ describe('buildRebuiltSwapReviewQuoteResult', () => {
         toAmount: '21',
         minToAmount: '20.5',
         slippage: 1,
+        fromTokenInfo,
+        toTokenInfo,
         allowanceResult,
         quoteResultCtx,
       }),

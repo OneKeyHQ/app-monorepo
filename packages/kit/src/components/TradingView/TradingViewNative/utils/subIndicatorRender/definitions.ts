@@ -1,8 +1,6 @@
 // cspell:ignore ADXR MACD StochRSI TRIX
-import {
-  TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
-  TRADING_VIEW_NATIVE_CHART_UP_COLOR,
-} from '../../chartConstants';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from '../chartIndicators';
 
 import type {
@@ -18,10 +16,12 @@ import type {
 import type { ITradingViewNativeSubIndicator } from '../chartIndicators';
 
 const DEFAULT_AUTO_SCALE_PADDING_RATIO = 0.08;
-const DEFAULT_LINE_COLOR = '#2196F3';
-const DEFAULT_SECONDARY_LINE_COLOR = '#FF6D00';
-const DEFAULT_OSCILLATOR_COLOR = '#7E57C2';
-const DEFAULT_BAND_COLOR = '#787B86';
+const DEFAULT_LINE_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.indicatorPrimary;
+const DEFAULT_SECONDARY_LINE_COLOR =
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorSecondary;
+const DEFAULT_OSCILLATOR_COLOR =
+  TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary;
+const DEFAULT_BAND_COLOR = TRADING_VIEW_NATIVE_THEME_COLORS.band;
 
 const SOURCE_OPTIONS = [
   'open',
@@ -209,8 +209,8 @@ const DEFINITIONS = {
     palettes: [
       createPalette({
         colors: [
-          TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
-          TRADING_VIEW_NATIVE_CHART_UP_COLOR,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         ],
         id: 'volume',
         title: 'Volume direction',
@@ -218,7 +218,7 @@ const DEFINITIONS = {
     ],
     plots: [
       createPlot({
-        color: TRADING_VIEW_NATIVE_CHART_UP_COLOR,
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         id: 'volume',
         paletteId: 'volume',
         title: 'Volume',
@@ -277,14 +277,19 @@ const DEFINITIONS = {
     ],
     palettes: [
       createPalette({
-        colors: ['#26A69A', '#B2DFDB', '#FFCDD2', '#FF5252'],
+        colors: [
+          TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+          TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negativeSubdued,
+          TRADING_VIEW_NATIVE_THEME_COLORS.negative,
+        ],
         id: 'histogram',
         title: 'Histogram momentum',
       }),
     ],
     plots: [
       createPlot({
-        color: '#26A69A',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         id: 'histogram',
         paletteId: 'histogram',
         title: 'Histogram',
@@ -516,7 +521,13 @@ const DEFINITIONS = {
       }),
     ],
     palettes: [],
-    plots: [createPlot({ color: '#43A047', id: 'emv', title: 'EOM' })],
+    plots: [
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'emv',
+        title: 'EOM',
+      }),
+    ],
     scale: createAutoScale(),
     shortTitle: 'EMV',
     title: 'Ease Of Movement',
@@ -628,27 +639,31 @@ const DEFINITIONS = {
     ],
     palettes: [],
     plots: [
-      createPlot({ color: '#2196F3', id: 'plusDi', title: '+DI' }),
       createPlot({
-        color: '#FF6D00',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
+        id: 'plusDi',
+        title: '+DI',
+      }),
+      createPlot({
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.negative,
         id: 'minusDi',
         title: '-DI',
         zOrder: 11,
       }),
       createPlot({
-        color: '#FFA726',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.warning,
         id: 'dx',
         title: 'DX',
         zOrder: 12,
       }),
       createPlot({
-        color: '#F50057',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.quaternary,
         id: 'adx',
         title: 'ADX',
         zOrder: 13,
       }),
       createPlot({
-        color: '#AB47BC',
+        color: TRADING_VIEW_NATIVE_THEME_COLORS.indicatorTertiary,
         id: 'adxr',
         title: 'ADXR',
         zOrder: 14,

@@ -92,6 +92,7 @@ export enum EVaultKeyringTypes {
 }
 
 export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+export type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {

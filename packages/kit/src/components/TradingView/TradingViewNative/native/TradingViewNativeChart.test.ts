@@ -1,46 +1,11 @@
-// cspell:ignore Skia
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
-} from './TradingViewNativeChart';
+  shouldReplaceTradingViewNativeIndicatorSeries,
+} from './chartRuntimeData';
 
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
-
-jest.mock('@shopify/react-native-skia', () => ({
-  Canvas: () => null,
-  Picture: () => null,
-  useFont: jest.fn(),
-  useSVG: jest.fn(),
-}));
-
-jest.mock('react-native-gesture-handler', () => ({
-  Gesture: {},
-  GestureDetector: () => null,
-}));
-
-jest.mock('react-native-reanimated', () => ({
-  cancelAnimation: jest.fn(),
-  useAnimatedReaction: jest.fn(),
-  useDerivedValue: jest.fn(),
-  useSharedValue: jest.fn(),
-  withDecay: jest.fn(),
-}));
-
-jest.mock('react-native-worklets', () => ({
-  scheduleOnRN: jest.fn(),
-  scheduleOnUI: jest.fn(),
-}));
-
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: { isNativeAndroid: false },
-}));
-
-jest.mock('./chartSkiaRenderer', () => ({
-  createTradingViewNativeSkiaPicture: jest.fn(),
-  createTradingViewNativeSkiaResources: jest.fn(),
-}));
 
 function createPane({
   inputLength = 14,
@@ -213,5 +178,35 @@ describe('TradingViewNativeChart sub-indicator realtime updates', () => {
       }),
     ).toBe(runtimePanes);
     expect(runtimePanes[0].series[0].values).toEqual([null, 45, 50]);
+  });
+});
+
+describe('TradingViewNativeChart main-indicator updates', () => {
+  const previous = {
+    chartPictureVersion: 1,
+    pointCount: 100,
+    seriesKey: 'ma-1|ma-2',
+    settingsKey: '{"MA":{"period":5}}',
+  };
+
+  it('replaces the full series when indicator settings change', () => {
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: {
+          ...previous,
+          settingsKey: '{"MA":{"period":7}}',
+        },
+        previous,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the realtime latest-value update when settings are unchanged', () => {
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: previous,
+        previous,
+      }),
+    ).toBe(false);
   });
 });

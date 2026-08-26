@@ -19,13 +19,14 @@ import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShar
 
 import {
   canToggleTradingViewNativeIndicatorOn,
+  commitNativeIndicatorSelection,
   getIndicatorSections,
-  getNativeIndicatorSelectionUpdates,
 } from './indicatorUtils';
 
 import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
+  ITradingViewNativeIndicatorSelection,
 } from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
@@ -106,12 +107,12 @@ function IndicatorPill({
 function IndicatorGrid({
   indicators,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   const rows = useMemo(() => {
@@ -136,7 +137,7 @@ function IndicatorGrid({
               const isDisabled = !canToggleTradingViewNativeIndicatorOn({
                 indicatorValue: indicator.value,
                 activeIndicatorValues,
-                maxSubIndicatorCount,
+                maxSelectableSubIndicatorCount,
               });
 
               return (
@@ -169,13 +170,13 @@ function IndicatorSection({
   title,
   indicators,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorPress,
 }: {
   title: string;
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   if (!indicators.length) {
@@ -190,7 +191,7 @@ function IndicatorSection({
       <IndicatorGrid
         indicators={indicators}
         activeIndicatorValues={activeIndicatorValues}
-        maxSubIndicatorCount={maxSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
     </YStack>
@@ -200,14 +201,18 @@ function IndicatorSection({
 export function IndicatorListDialogContent({
   indicators,
   resetLayout,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onSelect,
+  onSelectionConfirm,
   onResetLayout,
 }: {
   indicators: ITradingViewIndicatorOption[];
   resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
   onResetLayout: () => void;
 }) {
   const intl = useIntl();
@@ -233,7 +238,7 @@ export function IndicatorListDialogContent({
         !canToggleTradingViewNativeIndicatorOn({
           indicatorValue: indicator.value,
           activeIndicatorValues: activeIndicatorValuesRef.current,
-          maxSubIndicatorCount,
+          maxSelectableSubIndicatorCount,
         })
       ) {
         return;
@@ -250,21 +255,21 @@ export function IndicatorListDialogContent({
       activeIndicatorValuesRef.current = nextValues;
       setActiveIndicatorValues(nextValues);
     },
-    [maxSubIndicatorCount],
+    [maxSelectableSubIndicatorCount],
   );
 
   const handleConfirmPress = useCallback(() => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    getNativeIndicatorSelectionUpdates({
+    commitNativeIndicatorSelection({
       indicators,
-      originalActiveIndicatorValues: originalValues,
       nextActiveIndicatorValues: nextValues,
-    }).forEach(([indicatorName, desiredActive]) => {
-      onSelect(indicatorName, desiredActive);
+      onSelect,
+      onSelectionConfirm,
+      originalActiveIndicatorValues: originalValues,
     });
     void dialog.close();
-  }, [dialog, indicators, onSelect]);
+  }, [dialog, indicators, onSelect, onSelectionConfirm]);
 
   const confirmText = intl.formatMessage({
     id: ETranslations.global_confirm,
@@ -310,7 +315,7 @@ export function IndicatorListDialogContent({
             })}
             indicators={mainIndicators}
             activeIndicatorValues={activeIndicatorValues}
-            maxSubIndicatorCount={maxSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onIndicatorPress={handleIndicatorPress}
           />
           <IndicatorSection
@@ -319,7 +324,7 @@ export function IndicatorListDialogContent({
             })}
             indicators={subIndicators}
             activeIndicatorValues={activeIndicatorValues}
-            maxSubIndicatorCount={maxSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onIndicatorPress={handleIndicatorPress}
           />
         </YStack>
@@ -335,12 +340,12 @@ export function IndicatorListDialogContent({
 function IndicatorListPopoverContent({
   indicators,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
 }) {
   const intl = useIntl();
@@ -357,7 +362,7 @@ function IndicatorListPopoverContent({
         })}
         indicators={mainIndicators}
         activeIndicatorValues={activeIndicatorValues}
-        maxSubIndicatorCount={maxSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
       <IndicatorSection
@@ -366,7 +371,7 @@ function IndicatorListPopoverContent({
         })}
         indicators={subIndicators}
         activeIndicatorValues={activeIndicatorValues}
-        maxSubIndicatorCount={maxSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onIndicatorPress={onIndicatorPress}
       />
     </YStack>
@@ -377,14 +382,14 @@ export function IndicatorPopover({
   title,
   indicators,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorPress,
   onControlInteraction,
 }: {
   title: string;
   indicators: ITradingViewIndicatorOption[];
   activeIndicatorValues: Set<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
   onControlInteraction?: () => void;
 }) {
@@ -417,7 +422,7 @@ export function IndicatorPopover({
         <IndicatorListPopoverContent
           indicators={indicators}
           activeIndicatorValues={activeIndicatorValues}
-          maxSubIndicatorCount={maxSubIndicatorCount}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           onIndicatorPress={onIndicatorPress}
         />
       }

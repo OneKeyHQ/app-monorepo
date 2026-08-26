@@ -4,6 +4,7 @@ import { TREZOR_WEBUSB_FILTERS } from '@onekeyfe/hwk-trezor-connector-webusb';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
+  buildHardwareConnectedDeviceKeys,
   getWalletHardwareConnectionKeys,
   getWebUsbConnectedDeviceKey,
   isSupportedHardwareWebUsbDevice,
@@ -86,6 +87,7 @@ describe('hardware wallet connect status utils', () => {
 
     expect(getWalletHardwareConnectionKeys(wallet)).toEqual([
       'onekey-device-id',
+      'onekey-connect-id',
     ]);
     expect(
       isWalletConnectedByHardwareStatus({
@@ -93,6 +95,72 @@ describe('hardware wallet connect status utils', () => {
         connectedDeviceKeys: new Set(['onekey-device-id']),
       }),
     ).toBe(true);
+  });
+
+  it('matches OneKey Pro 2 wallets by the USB serial identity', () => {
+    const wallet = {
+      associatedDeviceInfo: {
+        vendor: EHardwareVendor.onekey,
+        deviceId: 'pro2-wallet-device-id',
+        uuid: 'pro2-serial-number',
+        connectId: 'pro2-serial-number',
+        usbConnectId: 'pro2-serial-number',
+      },
+    };
+
+    expect(getWalletHardwareConnectionKeys(wallet)).toEqual([
+      'pro2-wallet-device-id',
+      'pro2-serial-number',
+    ]);
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet,
+        connectedDeviceKeys: new Set(['pro2-serial-number']),
+      }),
+    ).toBe(true);
+  });
+
+  it('matches a reset OneKey wallet by the connected SDK identity', () => {
+    const connectedDeviceKeys = buildHardwareConnectedDeviceKeys({
+      backgroundIdentityKeys: [
+        'stable-device-serial',
+        'reset-features-device-id',
+      ],
+      webUsbDevices: [
+        usbDevice({
+          vendorId: ONEKEY_WEBUSB_FILTER[0].vendorId ?? 0,
+          productId: ONEKEY_WEBUSB_FILTER[0].productId ?? 0,
+          serialNumber: 'pre-reset-usb-serial',
+        }),
+      ],
+    });
+    const resetWallet = {
+      associatedDeviceInfo: {
+        vendor: EHardwareVendor.onekey,
+        deviceId: 'reset-features-device-id',
+        connectId: 'stable-device-serial',
+      },
+    };
+    const otherWallet = {
+      associatedDeviceInfo: {
+        vendor: EHardwareVendor.onekey,
+        deviceId: 'other-device-id',
+        connectId: 'other-device-serial',
+      },
+    };
+
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet: resetWallet,
+        connectedDeviceKeys,
+      }),
+    ).toBe(true);
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet: otherWallet,
+        connectedDeviceKeys,
+      }),
+    ).toBe(false);
   });
 
   it('does not mark hidden wallets connected', () => {

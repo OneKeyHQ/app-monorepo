@@ -730,6 +730,7 @@ export function useSpeedSwapActions(props: {
         quoteFetching,
         quoteEventFetching,
         shouldRefreshQuote,
+        manualRefreshRequest: quoteActionLock.manualRefresh,
         hasQuoteError: Boolean(
           quoteEventError?.message ||
           selectedQuoteResult?.errorMessage ||
@@ -738,6 +739,7 @@ export function useSpeedSwapActions(props: {
       }),
     [
       quoteActionLock.actionLock,
+      quoteActionLock.manualRefresh,
       quoteEventError?.message,
       quoteEventFetching,
       quoteFetching,
@@ -787,6 +789,7 @@ export function useSpeedSwapActions(props: {
         fromTokenAmount: fromTokenAmountDebounced,
         type: ESwapTabSwitchType.SWAP,
         source: ESwapQuoteSource.MARKET,
+        manualRefresh: true,
       },
     );
   }, [
@@ -3304,7 +3307,25 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    if (!isReviewDialogOpen) {
+      appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    }
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    };
+  }, [isReviewDialogOpen, quoteEventHandler]);
+
+  useEffect(() => {
+    if (isReviewDialogOpen) {
+      cleanQuoteInterval();
+      const quoteRequestId = quoteRequestIdRef.current;
+      if (quoteRequestId) {
+        closeQuoteEvent(quoteRequestId);
+      }
+    }
+  }, [cleanQuoteInterval, closeQuoteEvent, isReviewDialogOpen]);
+
+  useEffect(() => {
     return () => {
       appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       cleanQuoteInterval();
@@ -3338,6 +3359,9 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
+    if (isReviewDialogOpen) {
+      return;
+    }
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced || 0,
     );
@@ -3390,6 +3414,7 @@ export function useSpeedSwapActions(props: {
     fromToken.contractAddress,
     fromToken.networkId,
     fromTokenAmountDebounced,
+    isReviewDialogOpen,
     isWrapped,
     netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
@@ -3480,6 +3505,7 @@ export function useSpeedSwapActions(props: {
         : undefined),
     quoteReadyForReview: quoteActionState.canReview,
     quoteNeedsRefresh: quoteActionState.canRefresh,
+    quoteRefreshActionActive: quoteActionState.isRefreshAction,
     refreshMarketQuote,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,

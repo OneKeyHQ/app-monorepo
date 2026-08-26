@@ -9,6 +9,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 
@@ -84,6 +85,7 @@ describe('TradingViewNative sub-indicator pane layout', () => {
       startIndex: 0,
     });
 
+    expect(getTradingViewNativeVisibleSubIndicatorPaneCount(panes)).toBe(1);
     expect(layouts).toHaveLength(1);
     expect(layouts[0]?.pane.instanceId).toBe('visible');
     expect(getTradingViewNativeSubIndicatorPaneLayoutAtY(layouts, 170)).toBe(
