@@ -9,6 +9,13 @@ import {
   buildNotificationPermissionRecoveryStateTransition,
   resolveNotificationPermissionRecoveryLastPermission,
 } from './notificationPermissionRecovery';
+import ServiceNotification from './ServiceNotification';
+
+jest.mock('@onekeyhq/shared/src/utils/notificationsUtils', () => ({
+  __esModule: true,
+  default: {},
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT: 20,
+}));
 
 const checkedAt = 1_000_000;
 
@@ -190,5 +197,24 @@ describe('resolveNotificationPermissionRecoveryLastPermission', () => {
         registrationFailed: true,
       }),
     ).toBe(ENotificationPermission.denied);
+  });
+});
+
+describe('registerClientWithOverrideAllAccountsImmediate', () => {
+  it('rejects when client registration fails', async () => {
+    const previousIsInBackground = globalThis.$onekeyIsInBackground;
+    globalThis.$onekeyIsInBackground = true;
+    try {
+      const service = new ServiceNotification({ backgroundApi: {} });
+      jest
+        .spyOn(service, 'registerClientWithSyncAccounts')
+        .mockRejectedValue(new Error('registration failed'));
+
+      await expect(
+        service.registerClientWithOverrideAllAccountsImmediate(),
+      ).rejects.toThrow('registration failed');
+    } finally {
+      globalThis.$onekeyIsInBackground = previousIsInBackground;
+    }
   });
 });

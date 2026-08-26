@@ -983,17 +983,16 @@ export default class ServiceNotification extends ServiceBase {
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
-    await timerUtils.setTimeoutPromised(async () => {
-      await this.registerClientWithSyncAccounts({
-        syncMethod: ENotificationPushSyncMethod.override,
-      });
-      await notificationsAtom.set((v) =>
-        perfUtils.buildNewValueIfChanged(v, {
-          ...v,
-          lastRegisterTime: Date.now(),
-        }),
-      );
+    await timerUtils.wait(0);
+    await this.registerClientWithSyncAccounts({
+      syncMethod: ENotificationPushSyncMethod.override,
     });
+    await notificationsAtom.set((v) =>
+      perfUtils.buildNewValueIfChanged(v, {
+        ...v,
+        lastRegisterTime: Date.now(),
+      }),
+    );
   }
 
   @backgroundMethod()
