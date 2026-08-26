@@ -3,6 +3,10 @@ import { sha256 } from '@noble/hashes/sha256';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import {
+  WC_PAY_PROGRESS_CORRUPT_ERROR,
+  WC_PAY_PROGRESS_UNREADABLE_ERROR,
+} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -51,16 +55,6 @@ export interface ISimpleDbWalletConnectPay {
 // normal cleanup path). Server-side payment expiry is minutes, so a record
 // this old can never be legitimately resumed.
 const PROGRESS_TTL_MS = 48 * 60 * 60 * 1000;
-
-// Error identities for the two payload-failure verdicts (see
-// readSecureEntries). Thrown by getProgress / saveActionResult /
-// truncateActionResults and matched by message in ServiceWalletConnectPay,
-// which maps them to user-facing refusals — 'unreadable' to a plain
-// try-again-later refusal, 'corrupt' to the user-confirmed discard escape.
-export const WC_PAY_PROGRESS_UNREADABLE_ERROR =
-  'WalletConnect Pay progress record is not readable';
-export const WC_PAY_PROGRESS_CORRUPT_ERROR =
-  'WalletConnect Pay progress record is corrupt';
 
 function buildProgressKey({
   paymentId,

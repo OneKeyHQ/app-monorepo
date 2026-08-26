@@ -12,6 +12,17 @@ export const WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE =
 export const WC_PAY_PROGRESS_DAMAGED_MESSAGE =
   'Saved progress for this payment is damaged and cannot be resumed';
 
+// Error identities for the two payload-failure verdicts of the durable
+// progress store (see SimpleDbEntityWalletConnectPay.readSecureEntries):
+// thrown by the entity, matched by message in ServiceWalletConnectPay. They
+// live in this shared leaf so the service never needs a VALUE import of the
+// entity module — SimpleDb entity implementations must stay lazy in the
+// background startup graph (check-bundle-architecture enforces it).
+export const WC_PAY_PROGRESS_UNREADABLE_ERROR =
+  'WalletConnect Pay progress record is not readable';
+export const WC_PAY_PROGRESS_CORRUPT_ERROR =
+  'WalletConnect Pay progress record is corrupt';
+
 /**
  * True when the action list contains an irreversible on-chain transfer.
  * Sign-only methods (typed data, personal_sign, Solana sign-only) are

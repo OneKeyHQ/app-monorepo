@@ -11,7 +11,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  WC_PAY_PROGRESS_CORRUPT_ERROR,
   WC_PAY_PROGRESS_DAMAGED_MESSAGE,
+  WC_PAY_PROGRESS_UNREADABLE_ERROR,
   shouldRefuseWcPayWithoutDurableProgress,
 } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import {
@@ -29,10 +31,6 @@ import type {
   IWcPayPreBroadcastRecord,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
-import {
-  WC_PAY_PROGRESS_CORRUPT_ERROR,
-  WC_PAY_PROGRESS_UNREADABLE_ERROR,
-} from '../../dbs/simple/entity/SimpleDbEntityWalletConnectPay';
 import ServiceBase from '../ServiceBase';
 import walletConnectClients from '../ServiceWalletConnect/walletConnectClient';
 
