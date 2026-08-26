@@ -34,7 +34,10 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import {
+  classifyFirmwareUpdateFailure,
+  toUserFacingFirmwareUpdateError,
+} from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -1901,6 +1904,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         acceptsTaskResults: boolean;
         updateFlow: 'v1' | 'v2';
         releaseResult: ICheckAllFirmwareReleaseResult;
+        startedAt: number;
         activeStartedAt: number | undefined;
         activeDurationMs: number;
         attemptCount: number;
@@ -1917,12 +1921,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     this.updateWorkflowSequence += 1;
     const workflowId = this.updateWorkflowSequence;
+    const startedAt = Date.now();
     this.updateWorkflowTracking = {
       workflowId,
       acceptsTaskResults: true,
       updateFlow,
       releaseResult,
-      activeStartedAt: Date.now(),
+      startedAt,
+      activeStartedAt: startedAt,
       activeDurationMs: 0,
       attemptCount: 0,
       retryCount: 0,
@@ -1984,17 +1990,35 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async getUpdateWorkflowTrackingInfo(): Promise<{
     retryCount: number | undefined;
     durationMs: number | undefined;
+    totalDurationMs: number | undefined;
+    transferredBytes: number | undefined;
+    totalBytes: number | undefined;
+    rateBytesPerSecond: number | undefined;
+    transferElapsedMs: number | undefined;
   }> {
     const tracking = this.updateWorkflowTracking;
+    const now = Date.now();
     const currentActiveDurationMs =
       tracking?.activeStartedAt === undefined
         ? 0
-        : Date.now() - tracking.activeStartedAt;
+        : now - tracking.activeStartedAt;
+    const [activeUiState, completedUiState] = await Promise.all([
+      hardwareUiStateAtom.get(),
+      hardwareUiStateCompletedAtom.get(),
+    ]);
+    const transferMetrics =
+      activeUiState?.payload?.firmwareTransferMetrics ??
+      completedUiState?.payload?.firmwareTransferMetrics;
     return {
       retryCount: tracking?.retryCount,
       durationMs: tracking
         ? tracking.activeDurationMs + currentActiveDurationMs
         : undefined,
+      totalDurationMs: tracking ? now - tracking.startedAt : undefined,
+      transferredBytes: transferMetrics?.transferredBytes,
+      totalBytes: transferMetrics?.totalBytes,
+      rateBytesPerSecond: transferMetrics?.rateBytesPerSecond,
+      transferElapsedMs: transferMetrics?.elapsedMs,
     };
   }
 
@@ -2033,6 +2057,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         firmwareVersions: parseFirmwareVersions(tracking.releaseResult),
         attempt,
         status,
+        failureType:
+          status === 'failed' ? classifyFirmwareUpdateFailure(err) : undefined,
         errorCode: err?.code,
         errorMessage: err?.message,
       });
@@ -2396,6 +2422,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
         status: 'success',
         retryCount: trackingInfo.retryCount,
         durationMs: trackingInfo.durationMs,
+        totalDurationMs: trackingInfo.totalDurationMs,
+        transferredBytes: trackingInfo.transferredBytes,
+        totalBytes: trackingInfo.totalBytes,
+        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
+        transferElapsedMs: trackingInfo.transferElapsedMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -2446,10 +2477,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
         fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
         toFirmwareType: updateFirmwareInfo?.toFirmwareType,
         status: 'failed',
+        failureType: classifyFirmwareUpdateFailure(err),
         errorCode: err?.code,
         errorMessage: err?.message,
         retryCount: trackingInfo.retryCount,
         durationMs: trackingInfo.durationMs,
+        totalDurationMs: trackingInfo.totalDurationMs,
+        transferredBytes: trackingInfo.transferredBytes,
+        totalBytes: trackingInfo.totalBytes,
+        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
+        transferElapsedMs: trackingInfo.transferElapsedMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(

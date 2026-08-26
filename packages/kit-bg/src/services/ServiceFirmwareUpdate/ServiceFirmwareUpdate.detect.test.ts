@@ -21,6 +21,7 @@ import {
   firmwareUpdateRetryAtom,
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
@@ -109,9 +110,11 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   hardwareUiStateAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
   hardwareUiStateCompletedAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
 }));
@@ -238,7 +241,9 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -281,7 +286,9 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     }
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -1063,6 +1070,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
       retryCount: 0,
       durationMs: 600,
+      totalDurationMs: 9000,
+      transferredBytes: undefined,
+      totalBytes: undefined,
+      rateBytesPerSecond: undefined,
+      transferElapsedMs: undefined,
     });
 
     service.resumeUpdateWorkflowTracking(workflowId);
@@ -1070,6 +1082,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
       retryCount: 0,
       durationMs: 900,
+      totalDurationMs: 9300,
+      transferredBytes: undefined,
+      totalBytes: undefined,
+      rateBytesPerSecond: undefined,
+      transferElapsedMs: undefined,
     });
   });
 
@@ -1117,7 +1134,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     expect(attemptResultSpy).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ attempt: 1, status: 'failed' }),
+      expect.objectContaining({
+        attempt: 1,
+        status: 'failed',
+        failureType: 'unknown',
+      }),
     );
     expect(attemptResultSpy).toHaveBeenNthCalledWith(
       2,
@@ -1130,6 +1151,40 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
       expect.objectContaining({ retryCount: 2 }),
     );
+  });
+
+  it('reports transfer metrics and wall-clock workflow duration', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 2_440_562,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 16_760,
+          elapsedMs: 145_620,
+        },
+      },
+    } as never);
+    jest.mocked(hardwareUiStateCompletedAtom.get).mockResolvedValue(undefined);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    });
+    nowSpy.mockReturnValue(212_960);
+
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
+      retryCount: 0,
+      durationMs: 211_960,
+      totalDurationMs: 211_960,
+      transferredBytes: 2_440_562,
+      totalBytes: 2_440_562,
+      rateBytesPerSecond: 16_760,
+      transferElapsedMs: 145_620,
+    });
   });
 
   it('keeps attempt numbers stable when analytics resolves out of order', async () => {

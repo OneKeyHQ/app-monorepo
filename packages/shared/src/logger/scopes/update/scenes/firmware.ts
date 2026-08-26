@@ -1,3 +1,4 @@
+import type { IFirmwareUpdateFailureType } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -83,6 +84,7 @@ export class FirmwareScene extends BaseScene {
     firmwareVersions: IFirmwareVersions;
     attempt: number;
     status: 'success' | 'failed';
+    failureType?: IFirmwareUpdateFailureType;
     errorCode?: string;
     errorMessage?: string;
   }) {
@@ -99,10 +101,16 @@ export class FirmwareScene extends BaseScene {
     fromFirmwareType: EFirmwareType | undefined;
     toFirmwareType: EFirmwareType | undefined;
     status: 'success' | 'failed';
+    failureType?: IFirmwareUpdateFailureType;
     errorCode?: string;
     errorMessage?: string;
     retryCount?: number;
     durationMs?: number;
+    totalDurationMs?: number;
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    transferElapsedMs?: number;
   }) {
     return params;
   }

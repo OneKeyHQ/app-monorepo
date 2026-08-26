@@ -18,6 +18,7 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 import localDb from '../../dbs/local/localDb';
 import {
   hardwareUiStateAtom,
+  hardwareUiStateCompletedAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 
@@ -775,7 +776,9 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 
     await expect(
       service.getDeviceManagementSnapshot({ connectId: 'PRO2' }),
-    ).resolves.toEqual({ state: baseState });
+    ).resolves.toEqual({
+      state: baseState,
+    });
     expect(getDeviceState).toHaveBeenNthCalledWith(1, {
       connectId: 'PRO2_USB',
       params: { scope: 'settings' },
@@ -1233,6 +1236,10 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     const replacementSdk = createInstance();
     const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
     setHardwareUiStateMock.mockClear();
+    const setCompletedUiStateMock = jest.mocked(
+      hardwareUiStateCompletedAtom.set,
+    );
+    setCompletedUiStateMock.mockClear();
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
     });
@@ -1248,6 +1255,10 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         },
         progress: 25,
         progressType: 'transferData',
+        transferredBytes: 256_000,
+        totalBytes: 1_024_000,
+        rateBytesPerSecond: 16_384,
+        elapsedMs: 15_625,
         installTargetId: 10,
         installPhase: 'install',
         installPhaseProgress: 45,
@@ -1266,9 +1277,51 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       payload: {
         firmwareProgress: 25,
         firmwareProgressType: 'transferData',
+        firmwareTransferMetrics: {
+          transferredBytes: 256_000,
+          totalBytes: 1_024_000,
+          rateBytesPerSecond: 16_384,
+          elapsedMs: 15_625,
+        },
         firmwareInstallTargetId: 10,
         firmwareInstallPhase: 'install',
         firmwareInstallPhaseProgress: 45,
+      },
+    });
+
+    const completedProgressUpdater =
+      setCompletedUiStateMock.mock.calls.at(-1)?.[0];
+    const completedProgressState =
+      typeof completedProgressUpdater === 'function'
+        ? completedProgressUpdater(undefined)
+        : completedProgressUpdater;
+
+    await replacementSdk.listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_TIP,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        data: { message: 'FirmwareUpdating' },
+      },
+    });
+
+    const completedTipUpdater = setCompletedUiStateMock.mock.calls.at(-1)?.[0];
+    const completedTipState =
+      typeof completedTipUpdater === 'function'
+        ? completedTipUpdater(completedProgressState)
+        : completedTipUpdater;
+    expect(completedTipState).toMatchObject({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: 'PRO2_USB',
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 256_000,
+          totalBytes: 1_024_000,
+          rateBytesPerSecond: 16_384,
+          elapsedMs: 15_625,
+        },
       },
     });
   });

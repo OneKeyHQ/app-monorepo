@@ -8,10 +8,30 @@ import { isHardwareErrorByCode } from './deviceErrorUtils';
 
 import type { IOneKeyError } from '../types/errorTypes';
 
+export type IFirmwareUpdateFailureType =
+  | 'cancelled'
+  | 'device_disconnected'
+  | 'download'
+  | 'transfer'
+  | 'install'
+  | 'verification'
+  | 'timeout'
+  | 'unknown';
+
 function getErrorText(error: IOneKeyError | undefined): string {
   return [error?.className, error?.name, error?.message]
     .filter((value): value is string => Boolean(value))
     .join(' ');
+}
+
+function hasFirmwareUpdateErrorCode(
+  error: IOneKeyError | undefined,
+  codes: number[],
+) {
+  const errorCode = error?.code ?? error?.payload?.code;
+  const normalizedCode =
+    typeof errorCode === 'string' ? Number(errorCode) : errorCode;
+  return typeof normalizedCode === 'number' && codes.includes(normalizedCode);
 }
 
 export function isFirmwareUpdateCancellationError(
@@ -53,8 +73,70 @@ export function isFirmwareUpdateDeviceDisconnectedError(
         HardwareErrorCode.DeviceNotFound,
         HardwareErrorCode.BridgeDeviceDisconnected,
       ],
-    }),
+    }) ||
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.DeviceNotFound,
+      HardwareErrorCode.BridgeDeviceDisconnected,
+    ]),
   );
+}
+
+export function classifyFirmwareUpdateFailure(
+  error: IOneKeyError | undefined,
+): IFirmwareUpdateFailureType {
+  if (isFirmwareUpdateCancellationError(error)) {
+    return 'cancelled';
+  }
+  if (isFirmwareUpdateDeviceDisconnectedError(error)) {
+    return 'device_disconnected';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.FirmwareUpdateDownloadFailed,
+      HardwareErrorCode.CheckDownloadFileError,
+    ])
+  ) {
+    return 'download';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.EmmcFileWriteFirmwareError,
+      HardwareErrorCode.BleWriteCharacteristicError,
+      HardwareErrorCode.BridgeNetworkError,
+    ])
+  ) {
+    return 'transfer';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.FirmwareVerificationFailed,
+      HardwareErrorCode.DefectiveFirmware,
+    ])
+  ) {
+    return 'verification';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.BridgeTimeoutError,
+      HardwareErrorCode.BleTimeoutError,
+      HardwareErrorCode.IframeTimeout,
+      HardwareErrorCode.PollingTimeout,
+    ]) ||
+    getErrorText(error).toLowerCase().includes('timeout')
+  ) {
+    return 'timeout';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.FirmwareError,
+      HardwareErrorCode.FirmwareDowngradeNotAllowed,
+      HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure,
+      HardwareErrorCode.FirmwareUpdateManuallyEnterBoot,
+    ])
+  ) {
+    return 'install';
+  }
+  return 'unknown';
 }
 
 export function shouldHideFirmwareUpdateInternalError(

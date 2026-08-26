@@ -5,6 +5,7 @@ import { DeviceDisconnectedError } from '../errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import {
+  classifyFirmwareUpdateFailure,
   isFirmwareUpdateCancellationError,
   shouldHideFirmwareUpdateInternalError,
   toUserFacingFirmwareUpdateError,
@@ -67,5 +68,21 @@ describe('firmwareUpdateErrorUtils', () => {
     expect(toUserFacingFirmwareUpdateError(error).message).toBe(
       'Firmware verification failed',
     );
+  });
+
+  it.each([
+    [HardwareErrorCode.FirmwareUpdateDownloadFailed, 'download'],
+    [HardwareErrorCode.EmmcFileWriteFirmwareError, 'transfer'],
+    [HardwareErrorCode.FirmwareError, 'install'],
+    [HardwareErrorCode.FirmwareVerificationFailed, 'verification'],
+    [HardwareErrorCode.BleTimeoutError, 'timeout'],
+  ] as const)('classifies firmware error code %s as %s', (code, expected) => {
+    expect(classifyFirmwareUpdateFailure({ code })).toBe(expected);
+  });
+
+  it('keeps unknown failures in a bounded fallback category', () => {
+    expect(
+      classifyFirmwareUpdateFailure({ message: 'unexpected failure' }),
+    ).toBe('unknown');
   });
 });

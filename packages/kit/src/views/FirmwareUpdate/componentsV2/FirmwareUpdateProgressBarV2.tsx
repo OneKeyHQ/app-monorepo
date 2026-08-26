@@ -48,6 +48,7 @@ import {
 
 import {
   calculateProgressInRange,
+  getFirmwareTransferDisplayMetrics,
   normalizeFirmwareUpdateProgressType,
 } from './firmwareUpdateProgressUtils';
 
@@ -202,6 +203,7 @@ export function FirmwareUpdateProgressBarView({
   title,
   progress,
   desc,
+  transferMetricsText,
   isDone,
   isVerified,
 }: {
@@ -209,6 +211,7 @@ export function FirmwareUpdateProgressBarView({
   title: string;
   progress: number | null | undefined;
   desc: string;
+  transferMetricsText?: string;
   isDone?: boolean;
   isVerified?: boolean;
 }) {
@@ -260,6 +263,11 @@ export function FirmwareUpdateProgressBarView({
         <SizableText size="$bodyLg" color="$textSubdued">
           {desc}
         </SizableText>
+        {transferMetricsText ? (
+          <SizableText size="$bodyMd" color="$textSubdued" mt="$1">
+            {transferMetricsText}
+          </SizableText>
+        ) : null}
       </Stack>
     </>
   );
@@ -304,7 +312,32 @@ export function FirmwareUpdateProgressBarV2({
   const firmwareProgress = progressState?.payload?.firmwareProgress;
   const firmwareProgressType = progressState?.payload?.firmwareProgressType;
   const firmwareInstallPhase = progressState?.payload?.firmwareInstallPhase;
+  const firmwareTransferMetrics =
+    progressState?.payload?.firmwareTransferMetrics ??
+    state?.payload?.firmwareTransferMetrics ??
+    completedState?.payload?.firmwareTransferMetrics;
   const firmwareTipMessage = state?.payload?.firmwareTipData?.message;
+
+  const transferMetricsText = useMemo(() => {
+    const displayMetrics = getFirmwareTransferDisplayMetrics(
+      firmwareTransferMetrics,
+    );
+    if (!displayMetrics) {
+      return undefined;
+    }
+    const transferSummary = `${displayMetrics.transferredText} / ${displayMetrics.totalText} · ${displayMetrics.speedText}`;
+    if (
+      firmwareProgressType === 'transferData' &&
+      displayMetrics.estimatedRemainingText
+    ) {
+      const estimatedTime = intl.formatMessage(
+        { id: ETranslations.perp_unifold_estimated_time__value },
+        { time: displayMetrics.estimatedRemainingText },
+      );
+      return `${transferSummary} · ${estimatedTime}`;
+    }
+    return `${transferSummary} · ${displayMetrics.elapsedText}`;
+  }, [firmwareProgressType, firmwareTransferMetrics, intl]);
 
   const firmwareProgressRef = useRef(firmwareProgress);
   firmwareProgressRef.current = firmwareProgress;
@@ -529,7 +562,9 @@ export function FirmwareUpdateProgressBarV2({
 
     const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
       result,
-      { includeComponents: devSettings.enabled },
+      {
+        includeComponents: devSettings.enabled,
+      },
     );
     if (protocolV2VersionItems.length > 0) {
       return protocolV2VersionItems.map((item) => {
@@ -719,6 +754,7 @@ export function FirmwareUpdateProgressBarV2({
         }
         progress={progress}
         desc={desc}
+        transferMetricsText={transferMetricsText}
         isDone={isDoneInternal}
         isVerified={isVerified}
       />
