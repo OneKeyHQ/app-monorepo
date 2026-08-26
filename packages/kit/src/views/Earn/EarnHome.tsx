@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  RefreshControl,
+  XStack,
+  YStack,
+  useMedia,
+  useThemeName,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -20,6 +26,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnAvailableAsset,
+  IEarnBannerTheme,
   IEarnPageBannerListItem,
 } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -64,6 +71,11 @@ const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
 
 type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 
+type IEarnPageBannerState = {
+  theme: IEarnBannerTheme;
+  list: IEarnPageBannerListItem[];
+};
+
 function BasicEarnHome({
   showHeader,
   showContent,
@@ -101,6 +113,9 @@ function BasicEarnHome({
   const wasFocusedRef = useRef(false);
   const wasHiddenByModalRef = useRef(false);
   const shouldLogEnterEarnRef = useRef(false);
+  const themeName = useThemeName();
+  const earnBannerTheme: IEarnBannerTheme =
+    themeName === 'dark' ? 'dark' : 'light';
   // Banner list is plain state rather than usePromiseResult's result, because
   // it has two independent writers and the later one must not be able to
   // resurrect an older value:
@@ -112,10 +127,13 @@ function BasicEarnHome({
   //      value, including with an empty list once the account genuinely has no
   //      banners. State also survives the re-runs that showContent triggers,
   //      so a re-entry starts from what is already on screen.
-  const [earnPageBannerList, setEarnPageBannerList] = useState<
-    IEarnPageBannerListItem[]
-  >([]);
-  const hasNetworkBannerListRef = useRef(false);
+  const [earnPageBannerState, setEarnPageBannerState] =
+    useState<IEarnPageBannerState>();
+  const earnPageBannerList =
+    earnPageBannerState?.theme === earnBannerTheme
+      ? earnPageBannerState.list
+      : [];
+  const hasNetworkBannerThemesRef = useRef(new Set<IEarnBannerTheme>());
   // usePromiseResult guards its own setResult against stale responses with a
   // nonce, but that guard runs after the method body returns — a setState made
   // inside the body is not covered by it. This hook has three triggers that do
@@ -128,35 +146,48 @@ function BasicEarnHome({
     if (!platformEnv.isNative) {
       return;
     }
+    let isCurrentTheme = true;
     void (async () => {
       const cached =
-        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache();
+        await backgroundApiProxy.serviceStaking.getEarnPageBannerListFromCache({
+          theme: earnBannerTheme,
+        });
       // The request can win this race on a warm start; its answer is the
       // current one and must not be replaced by what we read from disk.
-      if (hasNetworkBannerListRef.current || cached.length === 0) {
+      if (
+        !isCurrentTheme ||
+        hasNetworkBannerThemesRef.current.has(earnBannerTheme) ||
+        cached.length === 0
+      ) {
         return;
       }
-      setEarnPageBannerList(cached);
+      setEarnPageBannerState({ theme: earnBannerTheme, list: cached });
     })();
-  }, []);
+    return () => {
+      isCurrentTheme = false;
+    };
+  }, [earnBannerTheme]);
 
   const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
       if (!platformEnv.isNative || showContent === false) {
         return;
       }
+      const requestTheme = earnBannerTheme;
       const requestSeq = (bannerRequestSeqRef.current += 1);
       try {
         const list =
-          await backgroundApiProxy.serviceStaking.getEarnPageBannerList();
+          await backgroundApiProxy.serviceStaking.getEarnPageBannerList({
+            theme: requestTheme,
+          });
         // Set outside the staleness check: its job is to stop the simpleDb
         // seed from backfilling once the network has spoken at all, and a
         // newer request is already on its way to write the real value.
-        hasNetworkBannerListRef.current = true;
+        hasNetworkBannerThemesRef.current.add(requestTheme);
         if (requestSeq !== bannerRequestSeqRef.current) {
           return;
         }
-        setEarnPageBannerList(list);
+        setEarnPageBannerState({ theme: requestTheme, list });
       } catch {
         // Keep whatever is on screen — the cached list, or the previous
         // response. Rethrowing would take the whole Earn refresh down with it:
@@ -165,7 +196,7 @@ function BasicEarnHome({
         // request would skip the balance and portfolio refresh behind it.
       }
     },
-    [showContent],
+    [earnBannerTheme, showContent],
     {
       revalidateOnFocus: true,
     },
