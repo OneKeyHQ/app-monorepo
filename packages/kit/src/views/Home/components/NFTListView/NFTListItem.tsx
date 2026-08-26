@@ -65,6 +65,7 @@ function BasicNFTListItem(props: IProps) {
                   zIndex: 1,
                 }}
                 autoPlay={false}
+                muted
                 source={{ uri: nft.metadata?.image }}
               />
             </Stack>
