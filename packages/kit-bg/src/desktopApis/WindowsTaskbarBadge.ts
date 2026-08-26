@@ -63,6 +63,8 @@ class WindowsTaskbarBadge {
 
   private currentCount = 0;
 
+  private latestRequestedCount = 0;
+
   private currentOverlayIcon: ReturnType<
     typeof nativeImage.createFromDataURL
   > | null = null;
@@ -99,14 +101,31 @@ class WindowsTaskbarBadge {
       this.handleAccentColorChanged,
     );
     this.window = undefined;
+    this.latestRequestedCount = 0;
+    this.currentCount = 0;
     this.currentOverlayIcon = null;
   };
 
   private handleAccentColorChanged = () => {
-    if (this.currentCount > 0) {
-      void this.update(this.currentCount);
+    if (this.latestRequestedCount > 0) {
+      void this.update(this.latestRequestedCount);
     }
   };
+
+  private isLatestUpdate(window: BrowserWindow, updateVersion: number) {
+    return (
+      updateVersion === this.updateVersion &&
+      this.window === window &&
+      !window.isDestroyed()
+    );
+  }
+
+  private clearOverlay(window: BrowserWindow) {
+    this.latestRequestedCount = 0;
+    this.currentCount = 0;
+    this.currentOverlayIcon = null;
+    window.setOverlayIcon(null, '');
+  }
 
   async update(badgeNumber: number): Promise<void> {
     const count =
@@ -115,7 +134,7 @@ class WindowsTaskbarBadge {
         : 0;
     this.updateVersion += 1;
     const updateVersion = this.updateVersion;
-    this.currentCount = count;
+    this.latestRequestedCount = count;
 
     const window = this.window;
     if (!window || window.isDestroyed()) {
@@ -123,8 +142,7 @@ class WindowsTaskbarBadge {
     }
 
     if (count === 0) {
-      this.currentOverlayIcon = null;
-      window.setOverlayIcon(null, '');
+      this.clearOverlay(window);
       return;
     }
 
@@ -132,11 +150,7 @@ class WindowsTaskbarBadge {
       const dataUrl = await window.webContents.executeJavaScript(
         buildBadgeScript(count),
       );
-      if (
-        updateVersion !== this.updateVersion ||
-        this.window !== window ||
-        window.isDestroyed()
-      ) {
+      if (!this.isLatestUpdate(window, updateVersion)) {
         return;
       }
       if (
@@ -146,19 +160,26 @@ class WindowsTaskbarBadge {
         logger.warn(
           'Windows taskbar badge renderer returned invalid image data',
         );
+        this.clearOverlay(window);
         return;
       }
 
       const image = nativeImage.createFromDataURL(dataUrl);
       if (image.isEmpty()) {
         logger.warn('Windows taskbar badge renderer returned an empty image');
+        this.clearOverlay(window);
         return;
       }
 
+      this.currentCount = count;
       this.currentOverlayIcon = image;
       window.setOverlayIcon(image, this.getDescription());
     } catch (error) {
+      if (!this.isLatestUpdate(window, updateVersion)) {
+        return;
+      }
       logger.error('Failed to update Windows taskbar badge', error);
+      this.clearOverlay(window);
     }
   }
 }

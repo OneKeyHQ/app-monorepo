@@ -101,4 +101,62 @@ describe('WindowsTaskbarBadge', () => {
     );
     expect(window.setOverlayIcon).toHaveBeenLastCalledWith(null, '');
   });
+
+  test.each([
+    'executeJavaScript rejection',
+    'invalid data URL',
+    'empty native image',
+  ] as const)('clears the previous badge after %s', async (failureStage) => {
+    const window = new FakeWindow();
+    window.webContents.executeJavaScript.mockResolvedValue(
+      'data:image/png;base64,badge',
+    );
+    const badge = createBadge(window);
+
+    await badge.update(7);
+
+    if (failureStage === 'executeJavaScript rejection') {
+      window.webContents.executeJavaScript.mockRejectedValueOnce(
+        new Error('render failed'),
+      );
+    } else if (failureStage === 'invalid data URL') {
+      window.webContents.executeJavaScript.mockResolvedValueOnce('invalid');
+    } else {
+      electronMock.nativeImage.createFromDataURL.mockReturnValueOnce({
+        isEmpty: jest.fn(() => true),
+      });
+    }
+
+    await badge.update(8);
+    systemPreferences.emit('accent-color-changed', 'ffffffff');
+    window.emit('show');
+    await flushPromises();
+
+    expect(window.webContents.executeJavaScript).toHaveBeenCalledTimes(2);
+    expect(window.setOverlayIcon).toHaveBeenLastCalledWith(null, '');
+  });
+
+  test('keeps a newer badge when a stale render fails', async () => {
+    let rejectRender: ((error: Error) => void) | undefined;
+    const window = new FakeWindow();
+    window.webContents.executeJavaScript
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((_resolve, reject) => {
+            rejectRender = reject;
+          }),
+      )
+      .mockResolvedValueOnce('data:image/png;base64,badge');
+    const badge = createBadge(window);
+
+    const staleRender = badge.update(7);
+    await badge.update(8);
+    rejectRender?.(new Error('stale render failed'));
+    await staleRender;
+
+    expect(window.setOverlayIcon).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'Unread notifications: 8',
+    );
+  });
 });
