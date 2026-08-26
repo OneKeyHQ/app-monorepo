@@ -27,6 +27,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { findChartTypeOption } from '../../../TradingViewChartControls/utils/NativeChartControlsShared';
 import {
   type ICalendarPanelSubmitPayload,
   type ITradingViewNativeChartTypeControlMode,
@@ -150,6 +151,7 @@ interface IBaseTradingViewV2Props {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  forceCandlestickChart?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -216,6 +218,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    forceCandlestickChart = false,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -341,6 +344,25 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       },
     });
   }, []);
+  useEffect(() => {
+    if (!forceCandlestickChart || !nativeChartControlsConfig) {
+      return;
+    }
+    const candlestickChartType = findChartTypeOption(
+      nativeChartControlsConfig.chartTypes,
+      'candle',
+    );
+    if (
+      candlestickChartType &&
+      candlestickChartType.value !== nativeChartControlsConfig.activeChartType
+    ) {
+      handleNativeChartTypeChange(candlestickChartType.value);
+    }
+  }, [
+    forceCandlestickChart,
+    handleNativeChartTypeChange,
+    nativeChartControlsConfig,
+  ]);
   const handleNativeResetLayout = useCallback(() => {
     webRef.current?.sendMessageViaInjectedScript({
       type: TRADINGVIEW_RESET_LAYOUT_MESSAGE,

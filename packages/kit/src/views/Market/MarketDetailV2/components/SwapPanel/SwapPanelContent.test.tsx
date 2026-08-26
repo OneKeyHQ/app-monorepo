@@ -19,10 +19,20 @@ const logSwapActionMock = jest.fn();
 const tokenInputSectionMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
+  Icon: () => <span data-testid="icon" />,
+  NumberSizeableText: ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  ),
   SizableText: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
-  YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Skeleton: () => <span data-testid="skeleton" />,
+  XStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
+  YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
   Toast: {
     message: jest.fn(),
   },
@@ -55,6 +65,16 @@ jest.mock('./components/TradeTypeSelector', () => ({
   TradeTypeSelector: () => <div data-testid="trade-type" />,
 }));
 
+jest.mock('../TokenSelector/StockTokenVariantSelector', () => ({
+  StockTokenVariantSelector: () => (
+    <div data-testid="stock-token-variant-selector" />
+  ),
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
+  BaseMarketTokenPrice: () => <div data-testid="market-token-price" />,
+}));
+
 jest.mock('./components/SwapPanelTop', () => ({
   __esModule: true,
   default: () => <div data-testid="panel-top" />,
@@ -67,8 +87,10 @@ jest.mock('./components/TokenInputSection', () => ({
       (
         {
           tradeType,
+          stockDetailDesktopLayout,
         }: {
           tradeType: ESwapDirection;
+          stockDetailDesktopLayout?: boolean;
         },
         ref,
       ) => {
@@ -77,7 +99,11 @@ jest.mock('./components/TokenInputSection', () => ({
         React.useImperativeHandle(ref, () => ({
           setValue,
         }));
-        tokenInputSectionMock({ tradeType, setValue });
+        tokenInputSectionMock({
+          tradeType,
+          stockDetailDesktopLayout,
+          setValue,
+        });
         return <div data-testid="token-input" />;
       },
     ),
@@ -223,6 +249,44 @@ describe('SwapPanelContent', () => {
       paymentToken: props.swapPanel.paymentToken,
       marketToken: props.currentMarketToken,
     });
+  });
+
+  it('uses the dedicated Figma trading ticket on stock desktop detail', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.getByTestId('stock-trade-target')).toBeTruthy();
+    expect(screen.getByTestId('stock-trade-estimated-received')).toBeTruthy();
+    expect(screen.queryByTestId('market-token-selector')).toBeNull();
+    expect(screen.queryByTestId('panel-top')).toBeNull();
+    expect(screen.queryByTestId('rate-display')).toBeNull();
+
+    expect(tokenInputSectionMock).toHaveBeenCalledTimes(2);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ stockDetailDesktopLayout: true }),
+    );
+    expect(actionButtonMock).toHaveBeenCalledWith(
+      expect.objectContaining({ height: 50, borderRadius: '$full' }),
+    );
+  });
+
+  it('disables stock trading until a token variant identity is available', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    expect(props.currentMarketToken).toBeDefined();
+    if (!props.currentMarketToken) {
+      return;
+    }
+    props.currentMarketToken.networkId = '';
+    props.currentMarketToken.contractAddress = '';
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ disabled: true }),
+    );
   });
 
   it('routes wrapped pairs through the wrapped review handler', () => {

@@ -115,6 +115,7 @@ const MarketTokenSelectorRow = memo(
 
     return (
       <XStack
+        testID={MarketTestIDs.tokenRow(item.symbol)}
         onPress={handlePress}
         onPressIn={prewarmTokenImages}
         onHoverIn={prewarmTokenImages}

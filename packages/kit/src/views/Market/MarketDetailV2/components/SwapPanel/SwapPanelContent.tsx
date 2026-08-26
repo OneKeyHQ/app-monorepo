@@ -1,16 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Toast, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Skeleton,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchQuoteResult,
   ISwapNativeTokenReserveGas,
@@ -18,6 +29,8 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+
+import { StockTokenVariantSelector } from '../TokenSelector/StockTokenVariantSelector';
 
 import { ActionButton } from './components/ActionButton';
 import {
@@ -82,6 +95,8 @@ export type ISwapPanelContentProps = {
   disableNativeToken?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
+  stockDetailDesktopLayout?: boolean;
+  portfolioData?: IMarketAccountPortfolioItem[];
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -117,6 +132,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     marketPresetSettings,
     estimatePriorityFeeFiatValues,
     onCloseDialog,
+    stockDetailDesktopLayout,
+    portfolioData,
   } = props;
 
   const {
@@ -293,6 +310,207 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     resetAnalytics,
   ]);
 
+  const stockInputFiatValue = useMemo(() => {
+    if (!currentInputAmount.isFinite() || !currentInputAmount.gt(0)) {
+      return '0';
+    }
+
+    const inputTokenPrice =
+      tradeType === ESwapDirection.BUY
+        ? (paymentTokenPrice ?? new BigNumber(paymentToken?.price || 0))
+        : new BigNumber(balanceToken?.price || currentMarketToken?.price || 0);
+    if (!inputTokenPrice.isFinite() || !inputTokenPrice.gt(0)) {
+      return '0';
+    }
+
+    return currentInputAmount.multipliedBy(inputTokenPrice).toFixed();
+  }, [
+    balanceToken?.price,
+    currentInputAmount,
+    currentMarketToken?.price,
+    paymentToken?.price,
+    paymentTokenPrice,
+    tradeType,
+  ]);
+
+  const estimatedReceiveAmount = quoteResult?.toAmount;
+  const estimatedReceiveTokenSymbol =
+    quoteResult?.toTokenInfo?.symbol ??
+    (tradeType === ESwapDirection.BUY
+      ? currentMarketToken?.symbol
+      : paymentToken?.symbol);
+  let stockEstimatedReceiveContent: ReactNode = (
+    <SizableText size="$bodyMdMedium">--</SizableText>
+  );
+  if (quoteLoading) {
+    stockEstimatedReceiveContent = <Skeleton height="$5" width="$20" />;
+  } else if (estimatedReceiveAmount) {
+    stockEstimatedReceiveContent = (
+      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          formatter="balance"
+          numberOfLines={1}
+        >
+          {estimatedReceiveAmount}
+        </NumberSizeableText>
+        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          {estimatedReceiveTokenSymbol}
+        </SizableText>
+      </XStack>
+    );
+  }
+
+  if (stockDetailDesktopLayout) {
+    return (
+      <YStack gap="$4">
+        <XStack alignItems="center" justifyContent="space-between">
+          <YStack width={176}>
+            <TradeTypeSelector
+              value={tradeType}
+              onChange={setTradeType}
+              size="small"
+              preventTextWrap
+            />
+          </YStack>
+          {showMarketPresetSelector && marketPresetSettings ? (
+            <MarketPresetSelector
+              settingsButtonOnly
+              antiMEV={isMEV}
+              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+              presetSettings={marketPresetSettings}
+            />
+          ) : (
+            <SlippageSetting
+              variant="header"
+              autoDefaultValue={slippageAutoValue}
+              isMEV={!!isMEV}
+              onSlippageChange={(item) => {
+                setSlippage(item.value);
+                setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
+              }}
+            />
+          )}
+        </XStack>
+
+        <XStack
+          testID="stock-trade-target"
+          height={44}
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <StockTokenVariantSelector portfolioData={portfolioData} />
+          <XStack alignItems="center" justifyContent="flex-end" gap="$3">
+            <BaseMarketTokenPrice
+              price={currentMarketToken?.price || '--'}
+              tokenName={currentMarketToken?.name || ''}
+              tokenSymbol={currentMarketToken?.symbol || ''}
+              currency="$"
+              size="$bodyLgMedium"
+            />
+            <Icon name="InfoCircleOutline" size="$5" color="$iconSubdued" />
+          </XStack>
+        </XStack>
+
+        <TokenInputSection
+          ref={tokenBuyInputRef}
+          style={tradeType === ESwapDirection.BUY ? {} : { display: 'none' }}
+          stockDetailDesktopLayout
+          tradeType={ESwapDirection.BUY}
+          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+          onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
+          selectedToken={paymentToken}
+          selectableTokens={defaultTokens}
+          onTokenChange={(token) => setPaymentToken(token)}
+          balance={balance}
+          balanceLoading={balanceLoading}
+          fiatValue={stockInputFiatValue}
+          onMaxPress={handleBalanceClick}
+          onAmountEnterTypeChange={setAmountEnterType}
+          disableNativeToken={disableNativeToken}
+        />
+        <TokenInputSection
+          ref={tokenSellInputRef}
+          style={tradeType === ESwapDirection.SELL ? {} : { display: 'none' }}
+          stockDetailDesktopLayout
+          tradeType={ESwapDirection.SELL}
+          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+          onChange={(amount) => setSellAmount(new BigNumber(amount))}
+          selectedToken={balanceToken}
+          selectableTokens={defaultTokens}
+          onTokenChange={(token) => setPaymentToken(token)}
+          balance={balance}
+          balanceLoading={balanceLoading}
+          fiatValue={stockInputFiatValue}
+          onMaxPress={handleBalanceClick}
+          onAmountEnterTypeChange={setAmountEnterType}
+        />
+
+        <XStack
+          testID="stock-trade-estimated-received"
+          height={40}
+          px="$0.5"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$2"
+        >
+          <XStack alignItems="center" gap="$1">
+            <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
+            <SizableText size="$bodyMd">Est received</SizableText>
+          </XStack>
+          {stockEstimatedReceiveContent}
+        </XStack>
+
+        {quoteError ? (
+          <SizableText size="$bodyMd" color="$textCritical">
+            {quoteError}
+          </SizableText>
+        ) : null}
+
+        <ActionButton
+          height={50}
+          borderRadius="$full"
+          supportSpeedSwap={!!supportSpeedSwap?.enabled}
+          isAccountNetworkSupported={supportSpeedSwap.isAccountNetworkSupported}
+          onlySupportCrossChain={!!supportSpeedSwap?.onlySupportCrossChain}
+          loading={isLoading}
+          actionToken={supportSpeedSwap?.actionToken}
+          actionOtherToken={supportSpeedSwap?.actionOtherToken}
+          tradeType={tradeType}
+          onPress={actionButtonOnPress}
+          amount={currentInputAmount.toFixed()}
+          token={balanceToken}
+          paymentToken={paymentToken}
+          paymentTokenPrice={paymentTokenPrice}
+          balance={balance}
+          isWrapped={isWrapped}
+          networkId={networkId}
+          disabled={
+            isLoading ||
+            !currentMarketToken?.networkId ||
+            (!currentMarketToken?.contractAddress &&
+              !currentMarketToken?.isNative) ||
+            !!isActionDisabled ||
+            (!isRefreshQuote && !!quoteError)
+          }
+          isRefreshQuote={isRefreshQuote}
+          onSwapAction={
+            isRefreshQuote
+              ? undefined
+              : () =>
+                  logSwapAction({
+                    tradeType,
+                    networkId,
+                    paymentToken,
+                    marketToken: currentMarketToken,
+                  })
+          }
+        />
+      </YStack>
+    );
+  }
+
   return (
     <YStack gap="$4">
       {/* Trade type selector */}
@@ -419,7 +637,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       />
 
       {/* Slippage setting */}
-      {suppressStandaloneSlippage ? null : (
+      {suppressStandaloneSlippage || stockDetailDesktopLayout ? null : (
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
           isMEV={!!isMEV}

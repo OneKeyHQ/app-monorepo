@@ -23,6 +23,7 @@ import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
+import { MobileMarketStockFlatList } from '../components/MarketStockList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
@@ -35,10 +36,7 @@ import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import {
-  getDefaultMarketStockCategoryId,
-  getMarketStockCategoryRequestParam,
-} from './marketStockCategoryUtils';
+import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { shouldIgnoreProgrammaticSettlingTab } from './marketTabChangeGuards';
 import { shouldIgnoreStalePagerTabChange } from './marketTabSelectionGuards';
 import {
@@ -826,25 +824,27 @@ function MobileLayoutComponent({
         item.categoryId,
       );
       const hasCompactHeader =
-        (isStockCategory || Boolean(stockDataCategoryMap[item.categoryId])) &&
-        !(isStockCategory && stockCategories.length > 0);
+        Boolean(stockDataCategoryMap[item.categoryId]) && !isStockCategory;
 
       return (
         <Tabs.Tab key={item.categoryId} name={item.tabName}>
-          <MobileMarketTokenFlatList
-            networkId={selectedNetworkId}
-            selectedCategory={item.categoryId}
-            stockCategory={
-              isStockCategory
-                ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-                : undefined
-            }
-            timeRange={filterBarProps.timeRange}
-            hasCompactHeader={hasCompactHeader}
-            listContainerProps={listContainerProps}
-            onStockDataChange={handleStockDataChange}
-            shouldSuppressItemPress={shouldSuppressItemPress}
-          />
+          {isStockCategory ? (
+            <MobileMarketStockFlatList
+              selectedCategoryId={selectedStockCategoryId}
+              listContainerProps={listContainerProps}
+              shouldSuppressItemPress={shouldSuppressItemPress}
+            />
+          ) : (
+            <MobileMarketTokenFlatList
+              networkId={selectedNetworkId}
+              selectedCategory={item.categoryId}
+              timeRange={filterBarProps.timeRange}
+              hasCompactHeader={hasCompactHeader}
+              listContainerProps={listContainerProps}
+              onStockDataChange={handleStockDataChange}
+              shouldSuppressItemPress={shouldSuppressItemPress}
+            />
+          )}
         </Tabs.Tab>
       );
     }),

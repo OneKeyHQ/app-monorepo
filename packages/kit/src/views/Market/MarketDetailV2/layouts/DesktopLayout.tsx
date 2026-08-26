@@ -29,11 +29,14 @@ import { TokenActivityOverview } from '../components/TokenActivityOverview/Token
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { StockTradingActivity } from '../components/TokenSupplementaryInfo/StockTradingActivity';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
+import { useStockDetail } from '../hooks/StockDetailContext';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+
+import { StockDesktopLayout } from './StockDesktopLayout';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
@@ -174,6 +177,7 @@ export function DesktopLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
+  const { selectedTokenVariant, stockId } = useStockDetail();
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
   const isNative =
@@ -198,15 +202,17 @@ export function DesktopLayout({
 
   const swapToken = useMemo(
     () => ({
-      networkId,
-      contractAddress: tokenDetail?.address || '',
-      symbol: tokenDetail?.symbol || '',
+      networkId: selectedTokenVariant?.networkId || networkId,
+      contractAddress:
+        tokenDetail?.address || selectedTokenVariant?.contractAddress || '',
+      symbol: tokenDetail?.symbol || selectedTokenVariant?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
-      logoURI: tokenDetail?.logoUrl,
-      price: tokenDetail?.price,
+      logoURI: tokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
+      price: tokenDetail?.price || selectedTokenVariant?.price,
     }),
     [
       networkId,
+      selectedTokenVariant,
       tokenDetail?.address,
       tokenDetail?.symbol,
       tokenDetail?.decimals,
@@ -216,6 +222,9 @@ export function DesktopLayout({
   );
 
   const scrollContainerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo({ top: 0 });
+  }, [networkId, stockId, tokenAddress]);
   useIframeWheelPassthrough({
     disabled: isChartFullscreen || isTradingViewNative,
     scrollRef: scrollContainerRef,
@@ -266,6 +275,7 @@ export function DesktopLayout({
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          forcedChartType={isStockToken ? 'candlestick' : undefined}
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
@@ -296,6 +306,7 @@ export function DesktopLayout({
         nativeControlsLayoutMode="desktop"
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
+        forceCandlestickChart={isStockToken}
         onChartSwitch={onChartSwitch}
         onNativeChartFullscreenChange={handleChartFullscreenChange}
       />
@@ -305,13 +316,33 @@ export function DesktopLayout({
     handleTradingViewTouchScroll,
     isChartFullscreen,
     isTradingViewNative,
+    isStockToken,
     marketTradingViewParams,
     networkId,
     onChartSwitch,
     tradingViewNativeSource,
   ]);
+
+  if (isStockToken && !isChartFullscreen) {
+    return (
+      <Stack
+        ref={scrollContainerRef as any}
+        flex={1}
+        style={SCROLL_CONTAINER_STYLE}
+      >
+        <StockDesktopLayout
+          marketTradingView={marketTradingView}
+          swapToken={swapToken}
+          portfolioData={portfolioData}
+          showFavoriteButton={showFavoriteButton}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
+      testID="market-token-detail-standard-desktop"
       ref={scrollContainerRef as any}
       flex={1}
       style={SCROLL_CONTAINER_STYLE}

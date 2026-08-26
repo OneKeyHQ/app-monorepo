@@ -1,4 +1,5 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -18,8 +19,10 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,12 +33,15 @@ import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDis
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
+
+type IMarketTokenSelectorDefaultCategory = 'trending' | 'stocks';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
@@ -60,6 +66,7 @@ const SelectorTabItem = memo(
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
     return (
       <XStack
+        testID={`market-token-selector-tab-${id}`}
         py="$3"
         ml="$4"
         mr="$2"
@@ -80,12 +87,17 @@ const SelectorTabItem = memo(
 );
 SelectorTabItem.displayName = 'SelectorTabItem';
 
-function BaseMarketTokenSelectorContent() {
+function BaseMarketTokenSelectorContent({
+  defaultCategory,
+}: {
+  defaultCategory: IMarketTokenSelectorDefaultCategory;
+}) {
   const intl = useIntl();
   const route = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
+  const toMarketStockDetailPage = useToMarketStockDetailPage();
   const routeParams = route.params as
     | { showFavoriteButton?: boolean | string }
     | undefined;
@@ -96,9 +108,6 @@ function BaseMarketTokenSelectorContent() {
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
   const { isWatchlistMode } = selectorConfig;
-
-  const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
-  const [selectedCategory, setSelectedCategory] = useState('trending');
 
   const allNetworkId = ALL_NETWORK_ID;
 
@@ -112,6 +121,16 @@ function BaseMarketTokenSelectorContent() {
         name: c.name,
       }));
     }
+    if (defaultCategory === 'stocks') {
+      return [
+        {
+          id: 'stocks',
+          name: intl.formatMessage({
+            id: ETranslations.perps_token_selector_stocks,
+          }),
+        },
+      ];
+    }
     // Fallback before API responds — use i18n keys
     return [
       {
@@ -119,15 +138,46 @@ function BaseMarketTokenSelectorContent() {
         name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
       },
     ];
-  }, [apiSpotCategories, intl]);
+  }, [apiSpotCategories, defaultCategory, intl]);
+
+  const stockCategoryId = useMemo(
+    () => categories.find((category) => isMarketStockCategory(category))?.id,
+    [categories],
+  );
+  const shouldDefaultToStocks = defaultCategory === 'stocks';
+  const [startListSelect, setStartListSelect] = useState(
+    shouldDefaultToStocks ? false : isWatchlistMode,
+  );
+  const [selectedCategory, setSelectedCategory] = useState(
+    shouldDefaultToStocks && stockCategoryId ? stockCategoryId : 'trending',
+  );
+  const hasUserSelectedTabRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      !shouldDefaultToStocks ||
+      !stockCategoryId ||
+      hasUserSelectedTabRef.current
+    ) {
+      return;
+    }
+    setStartListSelect(false);
+    setSelectedCategory(stockCategoryId);
+  }, [shouldDefaultToStocks, stockCategoryId]);
+
+  const isStockSelection = Boolean(
+    !startListSelect && stockCategoryId && selectedCategory === stockCategoryId,
+  );
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } =
-    useSwapProTokenSearch(searchValueDebounce);
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
+    isStockSelection ? '' : searchValueDebounce,
+  );
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
+      hasUserSelectedTabRef.current = true;
       setStartListSelect(false);
       setSelectedCategory(categoryId);
       setSelectorConfig((prev) => ({
@@ -140,6 +190,7 @@ function BaseMarketTokenSelectorContent() {
 
   const handleStartListSelect = useCallback(
     (_id: string) => {
+      hasUserSelectedTabRef.current = true;
       setStartListSelect(true);
       setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
     },
@@ -181,8 +232,16 @@ function BaseMarketTokenSelectorContent() {
     [navigateToTokenDetail],
   );
 
+  const handleSelectStock = useCallback(
+    (stockId: string) => {
+      void closePopover?.();
+      void toMarketStockDetailPage(stockId);
+    },
+    [closePopover, toMarketStockDetailPage],
+  );
+
   return (
-    <YStack>
+    <YStack testID="market-token-selector-content">
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
@@ -232,33 +291,54 @@ function BaseMarketTokenSelectorContent() {
         )}
 
         {/* List content */}
-        <MarketTokenSelectorList
-          networkId={allNetworkId}
-          selectedCategory={selectedCategory}
-          timeRange="1h"
-          onItemPress={handleSelectToken}
-          pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-          isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
-          searchQuery={searchValueDebounce}
-          searchLoading={searchLoading}
-          searchResults={searchTokenList}
-        />
+        {isStockSelection ? (
+          <MarketStockSelectorList
+            query={searchValueDebounce}
+            onItemPress={handleSelectStock}
+          />
+        ) : (
+          <MarketTokenSelectorList
+            networkId={allNetworkId}
+            selectedCategory={selectedCategory}
+            timeRange="1h"
+            onItemPress={handleSelectToken}
+            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+            isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
+            searchQuery={searchValueDebounce}
+            searchLoading={searchLoading}
+            searchResults={searchTokenList}
+          />
+        )}
       </YStack>
     </YStack>
   );
 }
 
 // Only render content when open to avoid stale state on reopen
-function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
-  return isOpen ? <BaseMarketTokenSelectorContent /> : null;
+function MarketTokenSelectorContent({
+  isOpen,
+  defaultCategory,
+}: {
+  isOpen: boolean;
+  defaultCategory: IMarketTokenSelectorDefaultCategory;
+}) {
+  return isOpen ? (
+    <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />
+  ) : null;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
 function BaseMarketTokenSelector({
   showAddress = false,
+  variant = 'default',
+  defaultCategory = 'trending',
+  renderTrigger,
 }: {
   showAddress?: boolean;
+  variant?: 'default' | 'compact';
+  defaultCategory?: IMarketTokenSelectorDefaultCategory;
+  renderTrigger?: ReactElement;
 }) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -275,6 +355,7 @@ function BaseMarketTokenSelector({
     logoUrl = '',
     logoUrls,
   } = tokenDetail || {};
+  const isCompact = variant === 'compact';
   const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
   const stableLogoUrlsRef = useRef(logoUrls);
   const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
@@ -285,6 +366,16 @@ function BaseMarketTokenSelector({
   }
 
   const stableLogoUrls = stableLogoUrlsRef.current;
+
+  const renderSelectorContent = useCallback(
+    ({ isOpen: isOpenProp }: { isOpen?: boolean }) => (
+      <MarketTokenSelectorContentMemo
+        isOpen={isOpenProp ?? false}
+        defaultCategory={defaultCategory}
+      />
+    ),
+    [defaultCategory],
+  );
 
   // Keep the popover element stable during token detail polling.
   // `logoUrls` is often returned as a fresh array on each refresh even when
@@ -299,30 +390,66 @@ function BaseMarketTokenSelector({
         onOpenChange={setIsOpen}
         placement="bottom-start"
         renderTrigger={
-          // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
-          <XStack
-            gap="$2"
-            alignItems="center"
-            cursor="pointer"
-            bg="$bgApp"
-            px="$2"
-            py="$1.5"
-            borderRadius="$full"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-          >
-            <Token
-              size="md"
-              tokenImageUri={logoUrl}
-              tokenImageUris={stableLogoUrls}
-              networkImageUri={effectiveNetworkLogoUri}
-              fallbackIcon="CryptoCoinOutline"
-            />
-            {showAddress ? (
-              <YStack minWidth={0} flexShrink={1}>
-                <XStack alignItems="center" gap="$1">
+          renderTrigger ?? (
+            // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
+            <XStack
+              testID="market-token-selector-trigger"
+              gap="$2"
+              alignItems="center"
+              cursor="pointer"
+              bg="$bgApp"
+              pl={isCompact ? '$1' : '$2'}
+              pr={isCompact ? '$0' : '$2'}
+              py="$1.5"
+              borderRadius="$full"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <Token
+                size={isCompact ? 'sm' : 'md'}
+                tokenImageUri={logoUrl}
+                tokenImageUris={stableLogoUrls}
+                networkImageUri={effectiveNetworkLogoUri}
+                fallbackIcon="CryptoCoinOutline"
+              />
+              {showAddress ? (
+                <YStack minWidth={0} flexShrink={1}>
+                  <XStack alignItems="center" gap="$1">
+                    <SizableText
+                      size="$headingLg"
+                      color="$text"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      maxWidth="$48"
+                      flexShrink={1}
+                    >
+                      {symbol}
+                    </SizableText>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$5"
+                      color="$iconSubdued"
+                    />
+                  </XStack>
+                  {address ? (
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      pr="$1"
+                    >
+                      {accountUtils.shortenAddress({
+                        address,
+                        leadingLength: 6,
+                        trailingLength: 4,
+                      })}
+                    </SizableText>
+                  ) : null}
+                </YStack>
+              ) : (
+                <>
                   <SizableText
-                    size="$headingLg"
+                    size={isCompact ? '$headingMd' : '$heading2xl'}
                     color="$text"
                     numberOfLines={1}
                     ellipsizeMode="tail"
@@ -333,49 +460,15 @@ function BaseMarketTokenSelector({
                   </SizableText>
                   <Icon
                     name="ChevronDownSmallOutline"
-                    size="$5"
+                    size={isCompact ? '$4.5' : '$5'}
                     color="$iconSubdued"
                   />
-                </XStack>
-                {address ? (
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    pr="$1"
-                  >
-                    {accountUtils.shortenAddress({
-                      address,
-                      leadingLength: 6,
-                      trailingLength: 4,
-                    })}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            ) : (
-              <>
-                <SizableText
-                  size="$heading2xl"
-                  color="$text"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  maxWidth="$48"
-                  flexShrink={1}
-                >
-                  {symbol}
-                </SizableText>
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  size="$5"
-                  color="$iconSubdued"
-                />
-              </>
-            )}
-          </XStack>
+                </>
+              )}
+            </XStack>
+          )
         }
-        renderContent={({ isOpen: isOpenProp }) => (
-          <MarketTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
-        )}
+        renderContent={renderSelectorContent}
       />
     ),
     [
@@ -383,7 +476,10 @@ function BaseMarketTokenSelector({
       effectiveNetworkLogoUri,
       intl,
       isOpen,
+      isCompact,
       logoUrl,
+      renderTrigger,
+      renderSelectorContent,
       showAddress,
       stableLogoUrls,
       symbol,

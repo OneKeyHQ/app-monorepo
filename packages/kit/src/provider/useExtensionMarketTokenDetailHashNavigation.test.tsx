@@ -131,6 +131,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('parses market stock detail hash with an optional token variant', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?network=eth&tokenAddress=0xaapl&from=ExtensionPopup',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        network: 'eth',
+        tokenAddress: '0xaapl',
+        from: 'ExtensionPopup',
+      },
+    });
+  });
+
   it('preserves native token address when the hash includes one', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
@@ -171,6 +187,25 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
             network: 'eth',
             tokenAddress: '0xabc',
             isNative: false,
+          },
+        },
+      },
+    );
+  });
+
+  it('navigates to stock detail from current hash on mount', () => {
+    setHash('#/market/stock/AAPL');
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
           },
         },
       },

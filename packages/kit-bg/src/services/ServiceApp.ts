@@ -428,6 +428,47 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async openExtensionMarketStockDetail(params: {
+    stockId: string;
+    tokenAddress?: string;
+    network?: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    showFavoriteButton?: boolean;
+  }) {
+    const {
+      stockId,
+      tokenAddress,
+      network,
+      isNative,
+      from,
+      showFavoriteButton,
+    } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (tokenAddress) {
+      routeParams.tokenAddress = tokenAddress;
+    }
+    if (network) {
+      routeParams.network = network;
+    }
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/stock/${encodeURIComponent(stockId)}`,
+      params: routeParams,
+    });
+  }
+
+  @backgroundMethod()
   async updateLaunchTimes() {
     await simpleDb.appStatus.setRawData(
       (v): ISimpleDBAppStatus => ({

@@ -17,6 +17,10 @@ import type {
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { resolveIsStockToken } from '../utils/resolveIsStockToken';
+
+import { useStockDetail } from './StockDetailContext';
+
 interface IUseTokenDetailResult {
   tokenDetail?: IMarketTokenDetail;
   tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -31,6 +35,7 @@ interface IUseTokenDetailResult {
 }
 
 export function useTokenDetail(): IUseTokenDetailResult {
+  const { isStockRoute } = useStockDetail();
   const [tokenDetail] = useTokenDetailAtom();
   const [tokenDetailPreview] = useTokenDetailPreviewAtom();
   const [isLoading] = useTokenDetailLoadingAtom();
@@ -45,10 +50,8 @@ export function useTokenDetail(): IUseTokenDetailResult {
     [isLoading, tokenDetail],
   );
 
-  const isStockToken = useMemo(
-    () => !!tokenDetail?.stock?.underlyingAssetTicker,
-    [tokenDetail?.stock?.underlyingAssetTicker],
-  );
+  const isStockToken =
+    isStockRoute || resolveIsStockToken(tokenDetail, tokenDetailPreview);
 
   return {
     tokenDetail,

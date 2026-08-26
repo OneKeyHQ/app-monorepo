@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTheme } from '@tamagui/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -37,7 +36,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -86,7 +85,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -221,9 +219,6 @@ type IStockMarketDataRow = {
 };
 
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
-const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-const STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH = 64;
-const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
 const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
 const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
@@ -232,13 +227,6 @@ const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
-
-type IStockChartHoverData = {
-  time: number;
-  price: number;
-  x: number;
-  y: number;
-};
 
 type IStockChartState = {
   assetScope: string;
@@ -1696,11 +1684,7 @@ function StockPriceChart({
   tokenAddress?: string;
 }) {
   const intl = useIntl();
-  const theme = useTheme();
-  const [hoverData, setHoverData] = useState<IStockChartHoverData | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
   const normalizedCoinGeckoId = coinGeckoId?.trim();
-  const chartLineColor = theme.textSuccess.val;
   const rangeOptions = useMemo(
     () =>
       STOCK_CHART_RANGE_ITEMS.map((item) => ({
@@ -1713,7 +1697,6 @@ function StockPriceChart({
   const handleRangeChange = useCallback(
     (value: string | number) => {
       onRangeChange(value as IStockChartRange);
-      setHoverData(null);
     },
     [onRangeChange],
   );
@@ -1744,9 +1727,6 @@ function StockPriceChart({
     scope: '',
     status: 'pending',
   });
-  useEffect(() => {
-    setHoverData(null);
-  }, [chartScope]);
   const {
     result: chartState,
     isLoading,
@@ -1892,75 +1872,6 @@ function StockPriceChart({
       chartRetryPendingRef.current = false;
     });
   }, [retryChart]);
-  const priceFormatter = useCallback(
-    (price: number) =>
-      numberFormat(String(price), {
-        formatter: 'price',
-        formatterOptions: { currency: '$' },
-      }),
-    [],
-  );
-  const handleChartHover = useCallback(
-    ({
-      time,
-      price,
-      x,
-      y,
-    }: {
-      time?: number;
-      price?: number;
-      x?: number;
-      y?: number;
-    }) => {
-      if (
-        time !== undefined &&
-        price !== undefined &&
-        x !== undefined &&
-        y !== undefined
-      ) {
-        setHoverData({ time, price, x, y });
-      } else {
-        setHoverData(null);
-      }
-    },
-    [],
-  );
-  const tooltipPosition = useMemo(() => {
-    if (!hoverData || !chartWidth) {
-      return null;
-    }
-
-    const offset = 10;
-    const edge = 8;
-    const isLeftHalf = hoverData.x < chartWidth / 2;
-    const translateX = isLeftHalf ? 0 : -STOCK_CHART_HOVER_TOOLTIP_WIDTH;
-    const desiredLeft = isLeftHalf
-      ? hoverData.x + offset
-      : hoverData.x - offset;
-    const clampedLeft = Math.min(
-      Math.max(desiredLeft + translateX, edge),
-      chartWidth - STOCK_CHART_HOVER_TOOLTIP_WIDTH - edge,
-    );
-
-    return {
-      left: clampedLeft - translateX,
-      top: Math.max(8, hoverData.y - 56),
-      translateX,
-    };
-  }, [chartWidth, hoverData]);
-  const hoverTimeText = useMemo(() => {
-    if (!hoverData) {
-      return '';
-    }
-    return intl.formatDate(new Date(hoverData.time * 1000), {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  }, [hoverData, intl]);
-
   let chartContent: ReactNode = (
     <YStack
       testID={SwapTestIDs.stockChartEmpty}
@@ -2024,66 +1935,12 @@ function StockPriceChart({
     );
   } else if (chartData.length > 0) {
     chartContent = (
-      <YStack
+      <StockPriceLineChart
         testID={SwapTestIDs.stockChartContent}
-        position="relative"
-        h={STOCK_CHART_VISIBLE_HEIGHT}
-        onLayout={(event) => {
-          const width = event.nativeEvent.layout.width;
-          if (width !== chartWidth) {
-            setChartWidth(width);
-          }
-        }}
-      >
-        {hoverData && tooltipPosition ? (
-          <YStack
-            position="absolute"
-            top={tooltipPosition.top}
-            left={tooltipPosition.left}
-            transform={[{ translateX: tooltipPosition.translateX }]}
-            bg="$bg"
-            borderRadius="$2"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            px="$2"
-            py="$1.5"
-            zIndex={100}
-            pointerEvents="none"
-            width={STOCK_CHART_HOVER_TOOLTIP_WIDTH}
-          >
-            <SizableText size="$bodyXs" color="$textDisabled">
-              {hoverTimeText}
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-              {priceFormatter(hoverData.price)}
-            </SizableText>
-          </YStack>
-        ) : null}
-        <LightweightChart
-          data={chartData}
-          height={STOCK_CHART_VISIBLE_HEIGHT}
-          lineColor={chartLineColor}
-          lineWidth={1}
-          secondaryLineData={chartData}
-          secondaryLineColor={chartLineColor}
-          secondaryLineWidth={2}
-          seriesType="dotted-area"
-          showPriceScale
-          showLastPointMarker={false}
-          preserveChartInstanceOnDataChange
-          // Pulse the chart tail only while the market is open (live updating);
-          // it stops when the market is closed.
-          pulseLastPoint={pulseLastPoint}
-          showTimeScale
-          priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
-          priceScaleEntireTextOnly
-          priceScaleMinimumWidth={STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH}
-          priceFormatter={priceFormatter}
-          fontSize={11}
-          useTimeScaleTickMarkWithoutUnit
-          onHover={handleChartHover}
-        />
-      </YStack>
+        data={chartData}
+        height={STOCK_CHART_VISIBLE_HEIGHT}
+        pulseLastPoint={pulseLastPoint}
+      />
     );
   }
 

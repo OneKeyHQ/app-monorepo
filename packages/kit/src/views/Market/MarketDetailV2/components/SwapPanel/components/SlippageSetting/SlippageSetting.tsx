@@ -3,7 +3,13 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -16,12 +22,14 @@ export interface ISlippageSettingProps {
   autoDefaultValue?: number;
   isMEV?: boolean;
   onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
+  variant?: 'default' | 'header';
 }
 
 export function SlippageSetting({
   isMEV = false,
   autoDefaultValue = 0.5,
   onSlippageChange,
+  variant = 'default',
 }: ISlippageSettingProps) {
   const intl = useIntl();
   const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
@@ -69,6 +77,18 @@ export function SlippageSetting({
     }
     return `${slippageItem.value}%`;
   }, [slippageItem, intl, autoDefaultValue]);
+
+  if (variant === 'header') {
+    return (
+      <Button
+        testID="market-stock-trade-settings"
+        size="small"
+        variant="tertiary"
+        icon="SliderHorOutline"
+        onPress={onSlippageHandleClick}
+      />
+    );
+  }
 
   return (
     <XStack

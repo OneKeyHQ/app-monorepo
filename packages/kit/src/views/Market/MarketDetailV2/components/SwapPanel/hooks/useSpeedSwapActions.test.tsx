@@ -16,6 +16,8 @@ import {
   swapQuoteEventCompletedAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
+  swapStockExecutionTokensAtom,
+  swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import type {
   ISwapReviewGasInfoEntry,
@@ -37,6 +39,7 @@ import {
   EProtocolOfExchange,
   ESwapQuoteSource,
   ESwapStepType,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -146,6 +149,11 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    simpleDb: {
+      swapNetworksSort: {
+        setRawData: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     serviceSwap: {
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
@@ -307,6 +315,15 @@ const btcToken: ISwapToken = {
   symbol: 'BTC',
   decimals: 8,
   isNative: false,
+};
+
+const stockToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xstock',
+  symbol: 'NVDAon',
+  decimals: 18,
+  isNative: false,
+  isStock: true,
 };
 
 const ethToken: ISwapToken = {
@@ -619,6 +636,90 @@ describe('useSpeedSwapActions', () => {
     await waitFor(() => {
       expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('uses the Trade Stocks execution channel for a stock market token', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        swapType: ESwapTabSwitchType.STOCK,
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          protocol: ESwapTabSwitchType.STOCK,
+          source: ESwapQuoteSource.MARKET,
+          fromToken: expect.objectContaining({
+            contractAddress: usdcToken.contractAddress,
+          }),
+          toToken: expect.objectContaining({
+            contractAddress: stockToken.contractAddress,
+            isStock: true,
+          }),
+        }),
+      );
+    });
+
+    expect(mockSwapStore.get(swapTypeSwitchAtom())).toBe(
+      ESwapTabSwitchType.STOCK,
+    );
+    expect(mockSwapStore.get(swapStockExecutionTokensAtom())).toEqual(
+      expect.objectContaining({
+        fromToken: expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+        toToken: expect.objectContaining({
+          contractAddress: stockToken.contractAddress,
+          isStock: true,
+        }),
+      }),
+    );
+  });
+
+  it('keeps the stock token as the sell side in the Trade Stocks channel', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        tradeType: ESwapDirection.SELL,
+        swapType: ESwapTabSwitchType.STOCK,
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          protocol: ESwapTabSwitchType.STOCK,
+          source: ESwapQuoteSource.MARKET,
+          fromToken: expect.objectContaining({
+            contractAddress: stockToken.contractAddress,
+            isStock: true,
+          }),
+          toToken: expect.objectContaining({
+            contractAddress: usdcToken.contractAddress,
+          }),
+        }),
+      );
+    });
+
+    expect(mockSwapStore.get(swapStockExecutionTokensAtom())).toEqual(
+      expect.objectContaining({
+        fromToken: expect.objectContaining({
+          contractAddress: stockToken.contractAddress,
+          isStock: true,
+        }),
+        toToken: expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+      }),
+    );
   });
 
   it('pauses Market quotes while review is open and resumes after close', async () => {

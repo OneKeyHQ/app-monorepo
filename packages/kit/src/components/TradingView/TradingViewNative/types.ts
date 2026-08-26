@@ -68,6 +68,7 @@ export type ITradingViewNativeInitialRightOffset =
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  forcedChartType?: ITradingViewNativeChartType;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   /** Limits new selections without hiding sub-indicators that are already active. */

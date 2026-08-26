@@ -392,6 +392,7 @@ export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
+  swapType?: ESwapTabSwitchType;
   fromTokenAmount: string;
   slippage: number;
   antiMEV: boolean;
@@ -410,6 +411,7 @@ export function useSpeedSwapActions(props: {
     fromTokenAmount,
     tradeToken,
     tradeType,
+    swapType = ESwapTabSwitchType.SWAP,
     slippage,
     antiMEV,
     isCustomRpcUnavailable,
@@ -470,9 +472,11 @@ export function useSpeedSwapActions(props: {
     resetQuoteAction,
     cleanQuoteInterval,
     closeQuoteEvent,
+    selectStockExecutionTokens,
   } = useSwapActions().current;
   const quoteRequestIdRef = useRef(quoteActionLock.quoteRequestId);
   quoteRequestIdRef.current = quoteActionLock.quoteRequestId;
+  const stockExecutionTokenSyncIdRef = useRef(0);
   const gasAccountDecisionSnapshotsRef = useRef(
     new WeakSet<IMarketReviewExecutionSnapshot>(),
   );
@@ -667,7 +671,7 @@ export function useSpeedSwapActions(props: {
         currentAccountId: netAccountRes.result?.id,
         currentAddress: netAccountRes.result?.addressDetail.address,
         currentReceivingAddress: netAccountRes.result?.addressDetail.address,
-        currentSwapType: ESwapTabSwitchType.SWAP,
+        currentSwapType: swapType,
         fromAmount: fromTokenAmountDebounced,
         fromToken,
         quoteKind: ESwapQuoteKind.SELL,
@@ -681,6 +685,7 @@ export function useSpeedSwapActions(props: {
       netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.id,
       quoteActionLock,
+      swapType,
       toToken,
     ],
   );
@@ -787,7 +792,7 @@ export function useSpeedSwapActions(props: {
         fromToken,
         toToken,
         fromTokenAmount: fromTokenAmountDebounced,
-        type: ESwapTabSwitchType.SWAP,
+        type: swapType,
         source: ESwapQuoteSource.MARKET,
         manualRefresh: true,
       },
@@ -799,6 +804,7 @@ export function useSpeedSwapActions(props: {
     netAccountRes.result?.id,
     quoteAction,
     slippage,
+    swapType,
     toToken,
   ]);
 
@@ -1034,7 +1040,7 @@ export function useSpeedSwapActions(props: {
         buildRes,
         quoteResult,
       });
-      const swapType = getSwapExecutionTypeFromQuoteResult(
+      const executionSwapType = getSwapExecutionTypeFromQuoteResult(
         buildResFinal.result,
       );
       return buildMarketExecutionPayload({
@@ -1049,7 +1055,7 @@ export function useSpeedSwapActions(props: {
         fromAmount,
         receivingAddress: userAddress,
         slippage,
-        swapType,
+        swapType: executionSwapType,
         userAddress,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
@@ -3341,18 +3347,33 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
-    setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-    setSwapFromToken(fromTokenRef.current);
-    setSwapToToken(toTokenRef.current);
+    setSwapTypeSwitch(swapType);
+    if (swapType === ESwapTabSwitchType.STOCK) {
+      stockExecutionTokenSyncIdRef.current += 1;
+      void selectStockExecutionTokens({
+        fromToken: fromTokenRef.current,
+        toToken: toTokenRef.current,
+        syncId: stockExecutionTokenSyncIdRef.current,
+      });
+    } else {
+      setSwapFromToken(fromTokenRef.current);
+      setSwapToToken(toTokenRef.current);
+    }
     setManualSelectQuoteProvider(undefined);
   }, [
     fromToken.contractAddress,
+    fromToken.decimals,
+    fromToken.isStock,
     fromToken.networkId,
+    selectStockExecutionTokens,
     setManualSelectQuoteProvider,
     setSwapFromToken,
     setSwapToToken,
     setSwapTypeSwitch,
+    swapType,
     toToken.contractAddress,
+    toToken.decimals,
+    toToken.isStock,
     toToken.networkId,
   ]);
 
@@ -3396,7 +3417,7 @@ export function useSpeedSwapActions(props: {
           fromToken: fromTokenRef.current,
           toToken: toTokenRef.current,
           fromTokenAmount: fromTokenAmountDebounced,
-          type: ESwapTabSwitchType.SWAP,
+          type: swapType,
           source: ESwapQuoteSource.MARKET,
         },
       );
@@ -3421,6 +3442,7 @@ export function useSpeedSwapActions(props: {
     setSwapFromTokenAmount,
     slippage,
     stockIsOpen,
+    swapType,
     toToken.contractAddress,
     toToken.networkId,
   ]);

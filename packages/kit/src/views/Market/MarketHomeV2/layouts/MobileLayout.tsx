@@ -23,6 +23,7 @@ import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
+import { MobileMarketStockFlatList } from '../components/MarketStockList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
@@ -35,10 +36,7 @@ import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import {
-  getDefaultMarketStockCategoryId,
-  getMarketStockCategoryRequestParam,
-} from './marketStockCategoryUtils';
+import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { getMarketWebSecondaryHeaderHeight } from './mobileLayoutUtils';
 
 import type {
@@ -437,25 +435,30 @@ function MobileLayoutComponent({
         listContainerProps={listContainerProps}
       />
     </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          selectedCategory={item.categoryId}
-          stockCategory={
-            isMarketStockCategoryById(
-              filterBarProps.categories,
-              item.categoryId,
-            )
-              ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-              : undefined
-          }
-          timeRange={filterBarProps.timeRange}
-          listContainerProps={listContainerProps}
-          onStockDataChange={handleStockDataChange}
-        />
-      </Tabs.Tab>
-    )),
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          {isStockCategory ? (
+            <MobileMarketStockFlatList
+              selectedCategoryId={selectedStockCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          ) : (
+            <MobileMarketTokenFlatList
+              networkId={selectedNetworkId}
+              selectedCategory={item.categoryId}
+              timeRange={filterBarProps.timeRange}
+              listContainerProps={listContainerProps}
+              onStockDataChange={handleStockDataChange}
+            />
+          )}
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>

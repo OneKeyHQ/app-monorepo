@@ -99,6 +99,7 @@ type IMarketPresetSelectorProps = {
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
   variant?: ITradingWidgetMainButtonVariant;
+  settingsButtonOnly?: boolean;
 };
 
 type IDraftPresetSettings = Partial<
@@ -1547,6 +1548,7 @@ export function MarketPresetSelector({
   slippageIconName = 'SliderVerOutline',
   showAutoSlippageLabel = false,
   variant,
+  settingsButtonOnly,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1604,6 +1606,18 @@ export function MarketPresetSelector({
 
   if (!enabled || presetOptions.length === 0) {
     return null;
+  }
+
+  if (settingsButtonOnly) {
+    return (
+      <Button
+        testID="market-stock-preset-settings"
+        size="small"
+        variant="tertiary"
+        icon="SliderHorOutline"
+        onPress={openPresetDialog}
+      />
+    );
   }
 
   const slippageLabel =

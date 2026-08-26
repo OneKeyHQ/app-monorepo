@@ -27,6 +27,12 @@ const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabl
     TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
   ];
 
+const STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
+  [
+    ...MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES,
+    TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
+  ];
+
 function normalizeChartRealtimePrice(
   price: ITradingViewPriceUpdateData['price'],
 ) {
@@ -107,6 +113,7 @@ export interface IMarketTradingViewProps {
     options?: { layoutRestored?: boolean },
   ) => void;
   maxSelectableSubIndicatorCount?: number;
+  forceCandlestickChart?: boolean;
 }
 
 export const MarketTradingView = memo(
@@ -133,6 +140,7 @@ export const MarketTradingView = memo(
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
     maxSelectableSubIndicatorCount,
+    forceCandlestickChart,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -185,7 +193,12 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
-        disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
+        disabledFeatures={
+          forceCandlestickChart
+            ? STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+            : MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+        }
+        forceCandlestickChart={forceCandlestickChart}
         enableNativeChartControls
         enableNativeChartSettings
         nativeChartTypeControlMode={nativeChartTypeControlMode}

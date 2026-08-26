@@ -1,3 +1,20 @@
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+
+export function resolveMarketTradeFallbackSwapType({
+  isStock,
+  onlySupportCrossChain,
+}: {
+  isStock?: boolean;
+  onlySupportCrossChain?: boolean;
+}) {
+  if (isStock) {
+    return ESwapTabSwitchType.STOCK;
+  }
+  return onlySupportCrossChain
+    ? ESwapTabSwitchType.BRIDGE
+    : ESwapTabSwitchType.SWAP;
+}
+
 export function resolveMarketTradeActionState({
   supportSpeedSwap,
   isAccountNetworkSupported,

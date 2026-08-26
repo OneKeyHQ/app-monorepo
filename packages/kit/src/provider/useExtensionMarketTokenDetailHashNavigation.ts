@@ -18,12 +18,17 @@ type IMarketTokenDetailNavigationTarget =
   | {
       screen: ETabMarketRoutes.MarketNativeDetail;
       params: ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+    }
+  | {
+      screen: ETabMarketRoutes.MarketStockDetail;
+      params: ITabMarketParamList[ETabMarketRoutes.MarketStockDetail];
     };
 
 type IMarketTokenDetailRouteParams = Partial<
   ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
 > &
   Partial<ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail]> & {
+    stockId?: string;
     isNative?: boolean | string;
     showFavoriteButton?: boolean | string;
   };
@@ -47,7 +52,11 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   const [path, query = ''] = hashPath.split('?');
   const segments = path.replace(/^\/+|\/+$/g, '').split('/');
 
-  if (segments[0] !== 'market' || segments[1] !== 'token' || !segments[2]) {
+  if (
+    segments[0] !== 'market' ||
+    !['stock', 'token'].includes(segments[1]) ||
+    !segments[2]
+  ) {
     return undefined;
   }
 
@@ -56,6 +65,29 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const isNativeParam = searchParams.get('isNative');
     const showFavoriteButtonParam = searchParams.get('showFavoriteButton');
     const from = searchParams.get('from');
+
+    if (segments[1] === 'stock') {
+      const stockId = decodeURIComponent(segments[2]);
+      const tokenAddress = searchParams.get('tokenAddress') || undefined;
+      const network = searchParams.get('network') || undefined;
+
+      return {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: {
+          stockId,
+          ...(tokenAddress ? { tokenAddress } : undefined),
+          ...(network ? { network } : undefined),
+          ...(isNativeParam === null
+            ? undefined
+            : { isNative: isNativeParam === 'true' }),
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(showFavoriteButtonParam === null
+            ? undefined
+            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+        },
+      };
+    }
+
     const network = decodeURIComponent(segments[2]);
     const tokenAddress = segments[3]
       ? decodeURIComponent(segments[3])
@@ -107,7 +139,7 @@ function isCurrentMarketTokenDetailTarget(
       ? (route.params as IMarketTokenDetailRouteParams)
       : undefined;
 
-  if (!params || params.network !== target.params.network) {
+  if (!params) {
     return false;
   }
 
@@ -127,6 +159,18 @@ function isCurrentMarketTokenDetailTarget(
   }
 
   if (params.from !== target.params.from) {
+    return false;
+  }
+
+  if (target.screen === ETabMarketRoutes.MarketStockDetail) {
+    return (
+      params.stockId === target.params.stockId &&
+      params.network === target.params.network &&
+      params.tokenAddress === target.params.tokenAddress
+    );
+  }
+
+  if (params.network !== target.params.network) {
     return false;
   }
 

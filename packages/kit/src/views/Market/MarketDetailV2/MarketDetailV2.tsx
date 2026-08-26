@@ -30,7 +30,12 @@ import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirro
 import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
-import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
+import {
+  BtcMetadataProvider,
+  StockDetailProvider,
+  useAutoRefreshTokenDetail,
+  useStockDetail,
+} from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
 
@@ -52,7 +57,9 @@ function MarketDetail({
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
-  ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+  | ETabMarketRoutes.MarketDetailV2
+  | ETabMarketRoutes.MarketStockDetail
+  | ETabMarketRoutes.MarketNativeDetail
 > & {
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
@@ -61,17 +68,25 @@ function MarketDetail({
 }) {
   const params = route.params as
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
+    | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const network = params.network;
-  const isNative = params.isNative;
+  const { selectedTokenVariant } = useStockDetail();
+  const network =
+    selectedTokenVariant?.networkId ??
+    ('network' in params ? params.network : '') ??
+    '';
+  const isNative = 'isNative' in params ? params.isNative : false;
   const disableTrade = params.disableTrade;
   const showFavoriteButton = normalizeRouteBooleanParam(
     params.showFavoriteButton,
     true,
   );
   // For MarketNativeDetail route, tokenAddress is undefined, use empty string
-  const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ??
+    ('tokenAddress' in params ? params.tokenAddress : '') ??
+    '';
 
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
@@ -145,10 +160,14 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<
     ITabMarketParamList,
-    ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+    | ETabMarketRoutes.MarketDetailV2
+    | ETabMarketRoutes.MarketStockDetail
+    | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
   const { navigation } = props;
+  const stockId =
+    'stockId' in props.route.params ? props.route.params.stockId : undefined;
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
@@ -240,13 +259,15 @@ function MarketDetailV2(
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketDetail
-          {...props}
-          isChartFullscreen={effectiveIsChartFullscreen}
-          isTradingViewNative={isTradingViewNative}
-          onChartSwitch={handleChartSwitch}
-          onChartFullscreenChange={handleChartFullscreenChange}
-        />
+        <StockDetailProvider stockId={stockId}>
+          <MarketDetail
+            {...props}
+            isChartFullscreen={effectiveIsChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={handleChartSwitch}
+            onChartFullscreenChange={handleChartFullscreenChange}
+          />
+        </StockDetailProvider>
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

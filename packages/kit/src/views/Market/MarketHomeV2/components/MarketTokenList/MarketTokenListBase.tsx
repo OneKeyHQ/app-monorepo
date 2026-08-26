@@ -43,7 +43,11 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketTestIDs } from '../../../testIDs';
+import {
+  DESKTOP_MARKET_CONTENT_WIDTH,
+  DesktopStickyHeaderContext,
+} from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -257,6 +261,7 @@ type IMarketTokenListBaseProps = {
   enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
+  centerDesktopPortalContent?: boolean;
 };
 
 function MarketTokenListBase({
@@ -287,6 +292,7 @@ function MarketTokenListBase({
   enableWebSocket,
   rowBg,
   testID,
+  centerDesktopPortalContent = false,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -654,15 +660,17 @@ function MarketTokenListBase({
           ? (position?: { x: number; y: number }) =>
               onItemContextMenuRef.current!(item, index, position)
           : undefined,
-        rowProps:
-          showWebSocketDebugRows &&
+        rowProps: {
+          testID: MarketTestIDs.tokenRow(item.symbol),
+          ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
           !!item.address &&
           index >= debugSubscriptionRangeStart &&
           index < debugSubscriptionRangeEnd
             ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
-            : undefined,
+            : undefined),
+        },
       };
     },
     [
@@ -765,7 +773,14 @@ function MarketTokenListBase({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        <YStack
+          width={
+            centerDesktopPortalContent ? DESKTOP_MARKET_CONTENT_WIDTH : '100%'
+          }
+          mx={centerDesktopPortalContent ? 'auto' : undefined}
+          bg="$bgApp"
+          px={centerDesktopPortalContent ? '$3' : '$4'}
+        >
           {toolbar ? (
             <Stack width="100%" mb="$3">
               {toolbar}
@@ -785,6 +800,7 @@ function MarketTokenListBase({
     toolbar,
     marketTokenColumns,
     stableHandleHeaderRow,
+    centerDesktopPortalContent,
   ]);
 
   let integratedContentPaddingBottom = tabBarHeight;

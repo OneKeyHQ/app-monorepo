@@ -145,6 +145,7 @@ export const TradingViewNativeContainer = memo(
   ({
     testID,
     source,
+    forcedChartType,
     enableNativeChartSettings,
     initialRightOffset,
     maxSelectableSubIndicatorCount,
@@ -665,7 +666,7 @@ export const TradingViewNativeContainer = memo(
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
             chartSettings={chartSettings}
-            chartType={chartType}
+            chartType={forcedChartType ?? chartType}
             chartPictureVersion={chartPictureVersion}
             currentPriceLabel={currentPriceLabel}
             hasVolume={false}
