@@ -1588,6 +1588,7 @@ lookback
 # @rehookify/datepicker package name
 rehookify
 
+<<<<<<< origin/x
 # bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
 # plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)
 bstocks
@@ -1597,3 +1598,7 @@ otsu
 Otsu
 OTSU
 binarize
+=======
+# password manager brand referenced in Input suppression comment
+Dashlane
+>>>>>>> origin/claude/classic-device-design-recreation-a26297
