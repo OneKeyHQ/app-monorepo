@@ -243,10 +243,10 @@ Do NOT generate auto-fix for:
 
 After generating the report, if there are findings that meet the comment threshold, **post them immediately**. Do not ask "是否确认？" and do not wait for a follow-up message. New conversations have no memory of a verbal "以后都自动发" — this section is the source of truth.
 
-**Comment threshold**: P0 (any confidence) OR P1/P2 with 🔵 High confidence. This means:
-- All P0 findings (regardless of confidence)
-- All P1/P2 findings with 🔵 High confidence (cross-validated or confirmed from code)
-- Excludes: P3/P4 findings, and P1/P2 with 🟠 Medium or ⚪ Low confidence
+**Comment threshold**: P0/P1 (any confidence) OR P2 with 🔵 High confidence. This means:
+- All P0/P1 findings (regardless of confidence)
+- All P2 findings with 🔵 High confidence (cross-validated or confirmed from code)
+- Excludes: P3/P4 findings, and P2 with 🟠 Medium or ⚪ Low confidence
 
 1. List the qualifying findings that warrant PR comments
 2. Post them in the same turn as the report, using `ManagePullRequest` `post_comment` (path + line) when available, otherwise:
@@ -351,7 +351,7 @@ _— Auto-review by Claude_" \
 2. 测试场景
 
 ## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
-以下问题（P0，或 P1/P2 + 🔵 High 置信度）建议直接评论到 PR：
+以下问题（P0/P1 任意置信度，或 P2 + 🔵 High 置信度）建议直接评论到 PR：
 - [ ] 问题1 — `file.tsx:42`
 - [ ] 问题2 — `file.tsx:88`
 
