@@ -28,9 +28,9 @@
         <VerticalLayout name="advanced-options" visible="false" height="154">
           <Label text="{{string.welcome.scopeLabel}}" textcolor="{{color.textSecondary}}" height="24" />
           <HorizontalLayout height="47">
-            <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.recommended}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brandSoft}}" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.brandSoft}}" bordercolor="{{color.brand}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="3" />
+            <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.recommended}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brandSoft}}" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.brandSoft}}" bordercolor="{{color.brand}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="0" />
             <Control width="10" />
-            <Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="3" />
+            <Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="0" />
           </HorizontalLayout>
           <Control height="12" />
           <Label text="{{string.welcome.pathLabel}}" textcolor="{{color.textSecondary}}" height="24" />
