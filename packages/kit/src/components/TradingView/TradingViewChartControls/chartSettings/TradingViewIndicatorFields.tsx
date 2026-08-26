@@ -14,15 +14,15 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  OKX_CHART_BG,
-  OKX_CHART_SELECT_BG,
-  OKX_CHART_SELECT_BORDER,
-  OKX_CHART_TEXT,
-  OKX_LINE_PREVIEW_DASHES,
-  OkxChartCheckbox,
-  OkxChartColorPicker,
-  OkxChartSelectMock,
-  OkxChartSolidSwatch,
+  TRADING_VIEW_CHART_BG,
+  TRADING_VIEW_CHART_SELECT_BG,
+  TRADING_VIEW_CHART_SELECT_BORDER,
+  TRADING_VIEW_CHART_TEXT,
+  TRADING_VIEW_LINE_PREVIEW_DASHES,
+  TradingViewChartCheckbox,
+  TradingViewChartColorPicker,
+  TradingViewChartSelectMock,
+  TradingViewChartSolidSwatch,
 } from './TradingViewSettingsShared';
 
 import type {
@@ -33,19 +33,15 @@ import type {
 } from './TradingViewSettingsMockState';
 import type { PointerEvent } from 'react-native';
 
-const OKX_INDICATOR_FIELD_LABEL_WIDTH = 136;
-const OKX_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
-const OKX_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;
-const OKX_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] = [
-  'solid',
-  'medium',
-  'bold',
-  'extraBold',
-];
+const TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH = 136;
+const TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
+const TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;
+const TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] =
+  ['solid', 'medium', 'bold', 'extraBold'];
 
-function OkxIndicatorLinePreview({
+function TradingViewIndicatorLinePreview({
   style,
-  color = OKX_CHART_TEXT,
+  color = TRADING_VIEW_CHART_TEXT,
   width = 76,
 }: {
   style: ITradingViewSettingsMockLineStyle;
@@ -55,7 +51,7 @@ function OkxIndicatorLinePreview({
   if (style === 'dashed') {
     return (
       <XStack w={width} h={2} gap={4} alignItems="center">
-        {OKX_LINE_PREVIEW_DASHES.map((dash) => (
+        {TRADING_VIEW_LINE_PREVIEW_DASHES.map((dash) => (
           <Stack key={dash} w={6} h={1} bg={color} />
         ))}
       </XStack>
@@ -65,7 +61,7 @@ function OkxIndicatorLinePreview({
   if (style === 'dotted') {
     return (
       <XStack w={width} h={2} gap={6} alignItems="center">
-        {OKX_LINE_PREVIEW_DASHES.map((dot) => (
+        {TRADING_VIEW_LINE_PREVIEW_DASHES.map((dot) => (
           <Stack key={dot} w={2} h={2} borderRadius={1} bg={color} />
         ))}
       </XStack>
@@ -82,7 +78,7 @@ function OkxIndicatorLinePreview({
   return <Stack w={width} h={lineHeight} bg={color} />;
 }
 
-function OkxIndicatorLineStyleSelect({
+function TradingViewIndicatorLineStyleSelect({
   value,
   testID,
   onChange,
@@ -104,14 +100,16 @@ function OkxIndicatorLineStyleSelect({
         justifyContent="space-between"
         borderRadius={6}
         borderWidth={1}
-        borderColor={isOpen ? '$borderActive' : OKX_CHART_SELECT_BORDER}
-        bg={OKX_CHART_SELECT_BG}
+        borderColor={
+          isOpen ? '$borderActive' : TRADING_VIEW_CHART_SELECT_BORDER
+        }
+        bg={TRADING_VIEW_CHART_SELECT_BG}
         hoverStyle={{ borderColor: '$borderStrong', bg: '$bgStrongHover' }}
         pressStyle={{ bg: '$bgStrongActive' }}
         cursor="pointer"
         onPress={() => setIsOpen((current) => !current)}
       >
-        <OkxIndicatorLinePreview style={value} />
+        <TradingViewIndicatorLinePreview style={value} />
         <Icon
           name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
           size="$4"
@@ -129,7 +127,7 @@ function OkxIndicatorLineStyleSelect({
           bg="$bgSubdued"
           zIndex={100}
         >
-          {OKX_INDICATOR_LINE_STYLE_OPTIONS.map((option) => (
+          {TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.map((option) => (
             <XStack
               key={option}
               h={33}
@@ -143,7 +141,7 @@ function OkxIndicatorLineStyleSelect({
                 setIsOpen(false);
               }}
             >
-              <OkxIndicatorLinePreview
+              <TradingViewIndicatorLinePreview
                 style={option}
                 color="$text"
                 width={94}
@@ -156,7 +154,7 @@ function OkxIndicatorLineStyleSelect({
   );
 }
 
-function OkxIndicatorNumberInput({
+function TradingViewIndicatorNumberInput({
   value,
   min = 0,
   max = Number.POSITIVE_INFINITY,
@@ -257,7 +255,7 @@ function OkxIndicatorNumberInput({
       overflow="hidden"
       alignItems="center"
       borderRadius={6}
-      bg={OKX_CHART_SELECT_BG}
+      bg={TRADING_VIEW_CHART_SELECT_BG}
       hoverStyle={{ bg: '$bgStrongHover' }}
     >
       <Input
@@ -269,7 +267,7 @@ function OkxIndicatorNumberInput({
         selectTextOnFocus
         autoCorrect={false}
         fontSize={14}
-        color={OKX_CHART_TEXT}
+        color={TRADING_VIEW_CHART_TEXT}
         containerProps={{
           flex: 1,
           h: 32,
@@ -316,7 +314,7 @@ function OkxIndicatorNumberInput({
   );
 }
 
-export function OkxIndicatorParameterRow({
+export function TradingViewIndicatorParameterRow({
   compact = false,
   parameters,
   onChange,
@@ -340,16 +338,16 @@ export function OkxIndicatorParameterRow({
       alignItems="center"
     >
       <SizableText
-        w={compact ? '100%' : OKX_INDICATOR_FIELD_LABEL_WIDTH}
+        w={compact ? '100%' : TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH}
         fontSize={14}
         lineHeight={18}
-        color={OKX_CHART_TEXT}
+        color={TRADING_VIEW_CHART_TEXT}
       >
         {firstParameter.rowLabel ?? firstParameter.label}
       </SizableText>
       <XStack gap={8}>
         {parameters.map((parameter) => (
-          <OkxIndicatorNumberInput
+          <TradingViewIndicatorNumberInput
             key={parameter.id}
             value={parameter.value}
             min={parameter.min}
@@ -363,7 +361,7 @@ export function OkxIndicatorParameterRow({
   );
 }
 
-export function groupOkxIndicatorParameters(
+export function groupTradingViewIndicatorParameters(
   parameters: ITradingViewSettingsMockNumberParam[] = [],
 ) {
   const rows: ITradingViewSettingsMockNumberParam[][] = [];
@@ -384,7 +382,7 @@ export function groupOkxIndicatorParameters(
   return rows;
 }
 
-export function OkxIndicatorLineRow({
+export function TradingViewIndicatorLineRow({
   compact = false,
   line,
   colorPickerPlacement,
@@ -433,11 +431,11 @@ export function OkxIndicatorLineRow({
       alignItems="center"
     >
       <XStack
-        w={compact ? '100%' : OKX_INDICATOR_FIELD_LABEL_WIDTH}
+        w={compact ? '100%' : TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH}
         alignItems="center"
       >
         {showCheckbox ? (
-          <OkxChartCheckbox
+          <TradingViewChartCheckbox
             checked={line.enabled}
             onChange={(checked) => onToggleLine(line.id, checked)}
           />
@@ -446,13 +444,13 @@ export function OkxIndicatorLineRow({
           ml={showCheckbox ? 12 : 0}
           fontSize={14}
           lineHeight={18}
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           {line.label}
         </SizableText>
       </XStack>
       {showPeriod ? (
-        <OkxIndicatorNumberInput
+        <TradingViewIndicatorNumberInput
           value={line.period}
           min={1}
           onChange={(period) => onPeriodChange(line.id, period)}
@@ -460,7 +458,7 @@ export function OkxIndicatorLineRow({
       ) : null}
       {showStyle ? (
         <Stack ml={8}>
-          <OkxIndicatorLineStyleSelect
+          <TradingViewIndicatorLineStyleSelect
             value={line.style}
             testID={`trading-view-indicator-line-style-${line.id}`}
             onChange={(style) => onStyleChange(line.id, style)}
@@ -475,7 +473,7 @@ export function OkxIndicatorLineRow({
               : (line.colorOffset ?? (showPeriod || showStyle ? 8 : 0))
           }
         >
-          <OkxChartColorPicker
+          <TradingViewChartColorPicker
             placement={line.colorPickerPlacement ?? colorPickerPlacement}
             align="right"
             pattern={line.colorPattern}
@@ -487,7 +485,7 @@ export function OkxIndicatorLineRow({
       ) : null}
       {showSecondaryStyle ? (
         <Stack ml={8}>
-          <OkxChartSelectMock
+          <TradingViewChartSelectMock
             value={
               line.secondaryStyle === 'dashed'
                 ? dashedLineLabel
@@ -512,7 +510,7 @@ export function OkxIndicatorLineRow({
   );
 }
 
-export function OkxIndicatorOpacitySlider({
+export function TradingViewIndicatorOpacitySlider({
   compact = false,
   value,
   label,
@@ -538,8 +536,8 @@ export function OkxIndicatorOpacitySlider({
   const isCurrentPointActive = isSliderHovered || isSliderDragging;
   const currentPointSize = isCurrentPointActive ? 12 : 8;
   const sliderWidth = compact
-    ? OKX_INDICATOR_COMPACT_SLIDER_WIDTH
-    : OKX_INDICATOR_DEFAULT_SLIDER_WIDTH;
+    ? TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH
+    : TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH;
   const sliderTouchWidth = sliderWidth + 16;
   const handleSliderPointerMove = useCallback(
     (event: PointerEvent) => {
@@ -559,18 +557,22 @@ export function OkxIndicatorOpacitySlider({
   return (
     <YStack mt={18} gap={8}>
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+        <SizableText
+          fontSize={14}
+          lineHeight={18}
+          color={TRADING_VIEW_CHART_TEXT}
+        >
           {label}
         </SizableText>
         <XStack gap={18}>
-          <OkxChartSolidSwatch
+          <TradingViewChartSolidSwatch
             color={upColor}
             placement="top"
             align="right"
             bare
             onChange={(color) => onColorChange('up', color)}
           />
-          <OkxChartSolidSwatch
+          <TradingViewChartSolidSwatch
             color={downColor}
             placement="top"
             align="right"
@@ -588,7 +590,7 @@ export function OkxIndicatorOpacitySlider({
           ml={compact ? 12 : 28}
           fontSize={14}
           lineHeight={18}
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           {value}%
         </SizableText>
@@ -603,7 +605,7 @@ export function OkxIndicatorOpacitySlider({
             borderRadius={4}
             borderWidth={1}
             borderColor={point < value ? '$text' : '$borderStrong'}
-            bg={OKX_CHART_BG}
+            bg={TRADING_VIEW_CHART_BG}
             pointerEvents="none"
           />
         ))}
@@ -616,7 +618,7 @@ export function OkxIndicatorOpacitySlider({
           borderRadius={currentPointSize / 2}
           borderWidth={2}
           borderColor="$text"
-          bg={OKX_CHART_BG}
+          bg={TRADING_VIEW_CHART_BG}
           pointerEvents="none"
         />
         <Stack
@@ -646,10 +648,18 @@ export function OkxIndicatorOpacitySlider({
         </Stack>
       </XStack>
       <XStack w={sliderWidth} justifyContent="space-between">
-        <SizableText fontSize={12} lineHeight={14} color={OKX_CHART_TEXT}>
+        <SizableText
+          fontSize={12}
+          lineHeight={14}
+          color={TRADING_VIEW_CHART_TEXT}
+        >
           0
         </SizableText>
-        <SizableText fontSize={12} lineHeight={14} color={OKX_CHART_TEXT}>
+        <SizableText
+          fontSize={12}
+          lineHeight={14}
+          color={TRADING_VIEW_CHART_TEXT}
+        >
           100%
         </SizableText>
       </XStack>

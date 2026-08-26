@@ -20,7 +20,7 @@ type IMockIndicatorSettingsDialogProps = {
 const mockIndicatorSettingsDialog = jest.fn<null, [unknown]>(() => null);
 
 jest.mock('./TradingViewIndicatorContent', () => ({
-  OkxIndicatorSettingsDialog: (props: unknown) =>
+  TradingViewIndicatorSettingsDialog: (props: unknown) =>
     mockIndicatorSettingsDialog(props),
 }));
 

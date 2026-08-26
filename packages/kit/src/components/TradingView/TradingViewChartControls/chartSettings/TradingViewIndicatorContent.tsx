@@ -13,23 +13,23 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  OkxIndicatorLineRow,
-  OkxIndicatorOpacitySlider,
-  OkxIndicatorParameterRow,
-  groupOkxIndicatorParameters,
+  TradingViewIndicatorLineRow,
+  TradingViewIndicatorOpacitySlider,
+  TradingViewIndicatorParameterRow,
+  groupTradingViewIndicatorParameters,
 } from './TradingViewIndicatorFields';
 import {
-  OkxIndicatorScopeTabs,
-  OkxIndicatorSidebar,
+  TradingViewIndicatorScopeTabs,
+  TradingViewIndicatorSidebar,
 } from './TradingViewIndicatorNavigation';
 import {
-  OKX_CHART_BG,
-  OKX_CHART_BORDER,
-  OKX_CHART_DIVIDER,
-  OKX_CHART_DOWN,
-  OKX_CHART_TEXT,
-  OKX_CHART_TEXT_SUBDUED,
-  OKX_CHART_UP,
+  TRADING_VIEW_CHART_BG,
+  TRADING_VIEW_CHART_BORDER,
+  TRADING_VIEW_CHART_DIVIDER,
+  TRADING_VIEW_CHART_DOWN,
+  TRADING_VIEW_CHART_TEXT,
+  TRADING_VIEW_CHART_TEXT_SUBDUED,
+  TRADING_VIEW_CHART_UP,
 } from './TradingViewSettingsShared';
 
 import type {
@@ -40,19 +40,19 @@ import type {
   ITradingViewSettingsMockLineStyle,
 } from './TradingViewSettingsMockState';
 
-const OKX_INDICATOR_SETTINGS_WIDTH = 690;
-const OKX_INDICATOR_SETTINGS_HEIGHT = 570;
-const OKX_INDICATOR_HEADER_HEIGHT = 49;
-const OKX_INDICATOR_BODY_HEIGHT = 418;
-const OKX_INDICATOR_FOOTER_HEIGHT = 62;
-const OKX_INDICATOR_SIDEBAR_WIDTH = 184;
-const OKX_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT =
-  OKX_INDICATOR_HEADER_HEIGHT +
-  OKX_INDICATOR_BODY_HEIGHT +
-  OKX_INDICATOR_FOOTER_HEIGHT;
-const OKX_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
+const TRADING_VIEW_INDICATOR_SETTINGS_WIDTH = 690;
+const TRADING_VIEW_INDICATOR_SETTINGS_HEIGHT = 570;
+const TRADING_VIEW_INDICATOR_HEADER_HEIGHT = 49;
+const TRADING_VIEW_INDICATOR_BODY_HEIGHT = 418;
+const TRADING_VIEW_INDICATOR_FOOTER_HEIGHT = 62;
+const TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH = 184;
+const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT =
+  TRADING_VIEW_INDICATOR_HEADER_HEIGHT +
+  TRADING_VIEW_INDICATOR_BODY_HEIGHT +
+  TRADING_VIEW_INDICATOR_FOOTER_HEIGHT;
+const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
 
-function OkxIndicatorContent({
+function TradingViewIndicatorContent({
   compact,
   indicator,
   onToggleLine,
@@ -91,12 +91,14 @@ function OkxIndicatorContent({
     return null;
   }
 
-  const parameterRows = groupOkxIndicatorParameters(indicator.parameters);
+  const parameterRows = groupTradingViewIndicatorParameters(
+    indicator.parameters,
+  );
 
   return (
     <ScrollView
       testID="trading-view-indicator-settings-content"
-      h={compact ? undefined : OKX_INDICATOR_BODY_HEIGHT}
+      h={compact ? undefined : TRADING_VIEW_INDICATOR_BODY_HEIGHT}
       flex={compact ? 1 : undefined}
       minHeight={0}
       showsVerticalScrollIndicator
@@ -107,19 +109,19 @@ function OkxIndicatorContent({
         px={compact ? 16 : undefined}
         pl={compact ? undefined : 31}
         pr={compact ? undefined : 33}
-        bg={OKX_CHART_BG}
+        bg={TRADING_VIEW_CHART_BG}
       >
         <SizableText
           mb={22}
           fontSize={16}
           lineHeight={20}
           fontWeight="700"
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           {indicator.title}
         </SizableText>
         {parameterRows.map((parameters) => (
-          <OkxIndicatorParameterRow
+          <TradingViewIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}
             compact={compact}
             parameters={parameters}
@@ -127,7 +129,7 @@ function OkxIndicatorContent({
           />
         ))}
         {indicator.lines.map((line, index) => (
-          <OkxIndicatorLineRow
+          <TradingViewIndicatorLineRow
             key={line.id}
             compact={compact}
             line={line}
@@ -142,14 +144,16 @@ function OkxIndicatorContent({
           />
         ))}
         {indicator.showOpacity !== false ? (
-          <OkxIndicatorOpacitySlider
+          <TradingViewIndicatorOpacitySlider
             compact={compact}
             value={indicator.opacity}
             label={intl.formatMessage({
               id: ETranslations.market_chart_indicator_transparency__label,
             })}
-            upColor={indicator.opacityColors?.upColor ?? OKX_CHART_UP}
-            downColor={indicator.opacityColors?.downColor ?? OKX_CHART_DOWN}
+            upColor={indicator.opacityColors?.upColor ?? TRADING_VIEW_CHART_UP}
+            downColor={
+              indicator.opacityColors?.downColor ?? TRADING_VIEW_CHART_DOWN
+            }
             onChange={(value) => onOpacityChange(indicator.id, value)}
             onColorChange={(role, color) =>
               onOpacityColorChange(indicator.id, role, color)
@@ -158,14 +162,18 @@ function OkxIndicatorContent({
         ) : null}
         {indicator.description ? (
           <YStack mt={30} gap={10}>
-            <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+            <SizableText
+              fontSize={14}
+              lineHeight={18}
+              color={TRADING_VIEW_CHART_TEXT}
+            >
               {intl.formatMessage({ id: ETranslations.global_description })}
             </SizableText>
             <SizableText
               maxWidth={440}
               fontSize={13}
               lineHeight={20}
-              color={OKX_CHART_TEXT_SUBDUED}
+              color={TRADING_VIEW_CHART_TEXT_SUBDUED}
             >
               {indicator.description}
             </SizableText>
@@ -176,7 +184,7 @@ function OkxIndicatorContent({
   );
 }
 
-export function OkxIndicatorSettingsDialog({
+export function TradingViewIndicatorSettingsDialog({
   displayMode,
   value,
   maxActiveSubIndicatorCount,
@@ -241,44 +249,44 @@ export function OkxIndicatorSettingsDialog({
     windowHeight -
       safeAreaTop -
       safeAreaBottom -
-      OKX_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
+      TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
     0,
   );
 
   return (
     <YStack
-      testID="trading-view-indicator-settings-okx-dialog"
-      w={isFocused ? '100%' : OKX_INDICATOR_SETTINGS_WIDTH}
+      testID="trading-view-indicator-settings-dialog"
+      w={isFocused ? '100%' : TRADING_VIEW_INDICATOR_SETTINGS_WIDTH}
       maxWidth="100%"
       h={
         isFocused
           ? Math.min(
-              OKX_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT,
+              TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT,
               focusedMaxHeight,
             )
-          : OKX_INDICATOR_SETTINGS_HEIGHT
+          : TRADING_VIEW_INDICATOR_SETTINGS_HEIGHT
       }
       maxHeight={isFocused ? focusedMaxHeight : '100%'}
       overflow="hidden"
       borderWidth={1}
-      borderColor={OKX_CHART_BORDER}
+      borderColor={TRADING_VIEW_CHART_BORDER}
       borderRadius={6}
-      bg={OKX_CHART_BG}
+      bg={TRADING_VIEW_CHART_BG}
     >
       <XStack
-        h={OKX_INDICATOR_HEADER_HEIGHT}
+        h={TRADING_VIEW_INDICATOR_HEADER_HEIGHT}
         flexShrink={0}
         px={isFocused ? 16 : 24}
         alignItems="center"
         justifyContent="space-between"
         borderBottomWidth={1}
-        borderBottomColor={OKX_CHART_BORDER}
+        borderBottomColor={TRADING_VIEW_CHART_BORDER}
       >
         <SizableText
           fontSize={16}
           lineHeight={22}
           fontWeight="700"
-          color={OKX_CHART_TEXT}
+          color={TRADING_VIEW_CHART_TEXT}
         >
           {intl.formatMessage({ id: ETranslations.market_indicators })}
         </SizableText>
@@ -302,7 +310,7 @@ export function OkxIndicatorSettingsDialog({
         pointerEvents={isSubmitting ? 'none' : 'auto'}
       >
         {isFocused ? null : (
-          <OkxIndicatorScopeTabs
+          <TradingViewIndicatorScopeTabs
             value={selectedIndicatorScope}
             indicators={value.indicators}
             maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
@@ -311,21 +319,21 @@ export function OkxIndicatorSettingsDialog({
         )}
         <XStack
           testID="trading-view-indicator-settings-body"
-          h={isFocused ? undefined : OKX_INDICATOR_BODY_HEIGHT}
+          h={isFocused ? undefined : TRADING_VIEW_INDICATOR_BODY_HEIGHT}
           flex={isFocused ? 1 : undefined}
           minHeight={0}
         >
           {isFocused ? null : (
             <Stack
-              w={OKX_INDICATOR_SIDEBAR_WIDTH}
-              minWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
-              maxWidth={OKX_INDICATOR_SIDEBAR_WIDTH}
+              w={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+              minWidth={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+              maxWidth={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
               flexShrink={0}
               position="relative"
               zIndex={1}
-              bg={OKX_CHART_BG}
+              bg={TRADING_VIEW_CHART_BG}
             >
-              <OkxIndicatorSidebar
+              <TradingViewIndicatorSidebar
                 indicators={visibleIndicators}
                 selectedIndicatorId={selectedIndicatorId}
                 onSelect={onSelectIndicator}
@@ -338,7 +346,7 @@ export function OkxIndicatorSettingsDialog({
                 bottom={0}
                 w={1}
                 zIndex={2}
-                bg={OKX_CHART_DIVIDER}
+                bg={TRADING_VIEW_CHART_DIVIDER}
                 pointerEvents="none"
               />
             </Stack>
@@ -349,9 +357,9 @@ export function OkxIndicatorSettingsDialog({
             position="relative"
             zIndex={2}
             overflow="visible"
-            bg={OKX_CHART_BG}
+            bg={TRADING_VIEW_CHART_BG}
           >
-            <OkxIndicatorContent
+            <TradingViewIndicatorContent
               compact={isFocused}
               indicator={selectedIndicator}
               onToggleLine={onToggleLine}
@@ -367,15 +375,15 @@ export function OkxIndicatorSettingsDialog({
         </XStack>
       </YStack>
       <XStack
-        h={OKX_INDICATOR_FOOTER_HEIGHT}
+        h={TRADING_VIEW_INDICATOR_FOOTER_HEIGHT}
         flexShrink={0}
         alignItems="center"
         justifyContent="flex-end"
         gap={12}
         pr={isFocused ? 16 : 28}
         borderTopWidth={1}
-        borderTopColor={OKX_CHART_BORDER}
-        bg={OKX_CHART_BG}
+        borderTopColor={TRADING_VIEW_CHART_BORDER}
+        bg={TRADING_VIEW_CHART_BG}
       >
         <XStack
           testID="trading-view-indicator-settings-mock-reset"
@@ -386,7 +394,7 @@ export function OkxIndicatorSettingsDialog({
           borderRadius={18}
           borderWidth={1}
           borderColor="$borderStrong"
-          bg={OKX_CHART_BG}
+          bg={TRADING_VIEW_CHART_BG}
           cursor={isSubmitting ? 'default' : 'pointer'}
           opacity={isSubmitting ? 0.5 : 1}
           pointerEvents={isSubmitting ? 'none' : 'auto'}
@@ -394,7 +402,11 @@ export function OkxIndicatorSettingsDialog({
           pressStyle={{ bg: '$bgActive' }}
           onPress={onReset}
         >
-          <SizableText fontSize={14} lineHeight={18} color={OKX_CHART_TEXT}>
+          <SizableText
+            fontSize={14}
+            lineHeight={18}
+            color={TRADING_VIEW_CHART_TEXT}
+          >
             {intl.formatMessage({ id: ETranslations.global_reset })}
           </SizableText>
         </XStack>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { OkxIndicatorSettingsDialog } from './TradingViewIndicatorContent';
+import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import {
   TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
   createTradingViewIndicatorSettingsValue,
@@ -290,7 +290,7 @@ export function TradingViewIndicatorSettings({
   };
 
   return (
-    <OkxIndicatorSettingsDialog
+    <TradingViewIndicatorSettingsDialog
       displayMode={displayMode}
       value={normalizedSettingsValue}
       maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}

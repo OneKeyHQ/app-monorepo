@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
-import { OkxIndicatorSettingsDialog } from './TradingViewIndicatorContent';
+import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
 type IMockLayoutProps = {
@@ -46,15 +46,15 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('./TradingViewIndicatorFields', () => ({
-  OkxIndicatorLineRow: () => null,
-  OkxIndicatorOpacitySlider: () => null,
-  OkxIndicatorParameterRow: () => null,
-  groupOkxIndicatorParameters: () => [],
+  TradingViewIndicatorLineRow: () => null,
+  TradingViewIndicatorOpacitySlider: () => null,
+  TradingViewIndicatorParameterRow: () => null,
+  groupTradingViewIndicatorParameters: () => [],
 }));
 
 jest.mock('./TradingViewIndicatorNavigation', () => ({
-  OkxIndicatorScopeTabs: () => null,
-  OkxIndicatorSidebar: () => null,
+  TradingViewIndicatorScopeTabs: () => null,
+  TradingViewIndicatorSidebar: () => null,
 }));
 
 function getLayoutProps(
@@ -76,7 +76,7 @@ describe('TradingView indicator settings layout', () => {
     const selectedIndicator = value.indicators[0];
 
     render(
-      <OkxIndicatorSettingsDialog
+      <TradingViewIndicatorSettingsDialog
         displayMode="focused"
         value={value}
         maxActiveSubIndicatorCount={null}
@@ -101,7 +101,7 @@ describe('TradingView indicator settings layout', () => {
     );
 
     expect(
-      getLayoutProps(mockYStack, 'trading-view-indicator-settings-okx-dialog'),
+      getLayoutProps(mockYStack, 'trading-view-indicator-settings-dialog'),
     ).toEqual(
       expect.objectContaining({
         h: 353,
