@@ -11,6 +11,7 @@ import {
 // of app.js on cold start. It is require()'d lazily here, and initSentry() itself
 // is deferred (see app.ts) so the load happens off the synchronous module-init path.
 type ISentryMain = typeof import('@sentry/electron/main');
+type ISentryNative = typeof import('@sentry/electron/native');
 
 export const initSentry = () => {
   if (isDev) {
@@ -18,6 +19,8 @@ export const initSentry = () => {
   }
   // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
   const Sentry: ISentryMain = require('@sentry/electron/main');
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const SentryNative: ISentryNative = require('@sentry/electron/native');
   let dsn = process.env.SENTRY_DSN_DESKTOP;
   if (process.mas) {
     dsn = process.env.SENTRY_DSN_MAS;
@@ -54,7 +57,7 @@ export const initSentry = () => {
       ...defaultIntegrations.filter(
         (i) => !i.name.toLowerCase().includes('minidump'),
       ),
-      Sentry.anrIntegration({ captureStackTrace: true }),
+      SentryNative.eventLoopBlockIntegration({}),
       Sentry.childProcessIntegration({
         breadcrumbs: [
           'clean-exit',

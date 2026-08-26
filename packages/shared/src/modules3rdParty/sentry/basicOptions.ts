@@ -9,6 +9,8 @@ import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 
 export { navigationIntegration } from './navigationIntegration';
 
+// cspell:ignore Sanitizable
+
 // Check for common private key formats
 const PRIVATE_KEY_PATTERNS = [
   /^0x[a-fA-F0-9]{64}$/, // Ethereum private key (hex with 0x prefix)
@@ -96,8 +98,40 @@ const sanitizeText = (text: string): string => {
   return words.join(' ');
 };
 
+export interface ISentrySanitizableStackFrame {
+  vars?: Record<string, unknown>;
+  context_line?: string;
+  pre_context?: string[];
+  post_context?: string[];
+}
+
+export type ISentrySanitizableStacktrace = Stacktrace & {
+  frames?: ISentrySanitizableStackFrame[];
+};
+
+export interface ISentrySanitizableEvent {
+  exception?: {
+    values?: {
+      type?: string;
+      value?: string;
+      stacktrace?: ISentrySanitizableStacktrace;
+    }[];
+  };
+  breadcrumbs?: {
+    category?: string;
+    level?: string;
+  }[];
+}
+
+export type ISentrySanitizationErrorHandler = (
+  errorMessage: string,
+  stacktrace?: ISentrySanitizableStacktrace,
+) => void;
+
 // Sanitize stacktrace frames (local variables may contain sensitive data)
-const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
+const sanitizeStacktrace = (
+  stacktrace?: ISentrySanitizableStacktrace,
+): void => {
   if (!stacktrace?.frames) {
     return;
   }
@@ -206,10 +240,54 @@ const isFilterErrorAndSkipSentry = (error?: {
   return false;
 };
 
+export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
+  event: T,
+  onError: ISentrySanitizationErrorHandler,
+): T | null => {
+  if (Array.isArray(event.exception?.values)) {
+    for (let index = 0; index < event.exception.values.length; index += 1) {
+      const exceptionValue = event.exception.values[index];
+      const { type: originalType, value: originalValue } = exceptionValue;
+      try {
+        // Sanitize error message
+        if (exceptionValue.value) {
+          const newErrorText = sanitizeText(exceptionValue.value);
+          // Save error message locally
+          onError(newErrorText, exceptionValue.stacktrace);
+          exceptionValue.value = newErrorText;
+        }
+        // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
+        if (platformEnv.isWebEmbed) {
+          return event;
+        }
+        // Sanitize stacktrace (local variables, context lines)
+        sanitizeStacktrace(exceptionValue.stacktrace);
+        if (
+          isFilterErrorAndSkipSentry({
+            type: originalType,
+            value: originalValue,
+          })
+        ) {
+          return null;
+        }
+      } catch {
+        // Do nothing
+      }
+    }
+  }
+  // Filter out duplicate error messages
+  if (Array.isArray(event.breadcrumbs)) {
+    event.breadcrumbs = event.breadcrumbs.filter(
+      (e) => e.category !== 'sentry.event' && e.level !== 'error',
+    );
+  }
+  return event;
+};
+
 export const buildBasicOptions = ({
   onError,
 }: {
-  onError: (errorMessage: string, stacktrace?: Stacktrace) => void;
+  onError: ISentrySanitizationErrorHandler;
 }) =>
   ({
     enabled: true,
@@ -222,47 +300,8 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event) => {
-      if (Array.isArray(event.exception?.values)) {
-        for (let index = 0; index < event.exception.values.length; index += 1) {
-          const exceptionValue = event.exception.values[index];
-          const { type: originalType, value: originalValue } = exceptionValue;
-          try {
-            // Sanitize error message
-            if (exceptionValue.value) {
-              const newErrorText = sanitizeText(exceptionValue.value);
-              // Save error message locally
-              onError(newErrorText, exceptionValue.stacktrace);
-              exceptionValue.value = newErrorText;
-            }
-            // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
-            if (platformEnv.isWebEmbed) {
-              return;
-            }
-            // Sanitize stacktrace (local variables, context lines)
-            sanitizeStacktrace(exceptionValue.stacktrace);
-            if (
-              isFilterErrorAndSkipSentry({
-                type: originalType,
-                value: originalValue,
-              })
-            ) {
-              return null;
-            }
-          } catch {
-            // Do nothing
-          }
-        }
-      }
-      // Filter out duplicate error messages
-      if (Array.isArray(event.breadcrumbs)) {
-        event.breadcrumbs = event.breadcrumbs.filter(
-          (e) => e.category !== 'sentry.event' && e.level !== 'error',
-        );
-      }
-      return event;
-    },
-  }) as BrowserOptions;
+    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+  }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<
   typeof import('@sentry/react'),
