@@ -220,3 +220,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Identity/profile reporting was only attached to `updatePrimeAtomByServerUserInfo` / `updatePrimeAtomByOAuthLoginResponse`, not the shared OneKey-account commit path.
 **Fix**: After `primePersistAtom.set`, the account commit path also tracks the identity link and enqueues the membership profile report.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (every login-commit writer needs the same analytics pair)
+
+## Case: Identity-link races and unbounded analytics init wait
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 after the reporter extract — one login emitted `onekeyIdIdentityLinked` twice (atom commit + user-info refresh); cold-start `waitForServer` identity throws before `analytics.init`; a hung `whenInitialized()` blocked every later profile report.
+**Root Cause**: Persist-after-send deleted the session Set without an in-flight replacement; identity used `trackEventAsync` (no `cacheEvents`) without waiting for init; `whenInitialized()` has no timeout and sat on the serial profile chain.
+**Fix**: Module-level in-flight Map plus session Set (clear in-flight only); `waitForAnalyticsInitialized()` (30s) before identity and profile send; timeout logs, skips TTL, and lets the chain continue.
+**Catchable by**: Section 5: No race conditions in async operations; Section 4: Logic moved between files carries its surrounding guard/condition and scope; NEW — `waitForServer` / `trackEventAsync` callers must wait for analytics init with a bounded timeout

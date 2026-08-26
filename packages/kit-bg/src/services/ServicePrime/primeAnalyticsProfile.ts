@@ -1,8 +1,14 @@
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { primePersistAtom } from '../../states/jotai/atoms/prime';
+
+const ANALYTICS_INIT_WAIT_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
 
 export type IPrimeAnalyticsProfileSnapshot = {
   isOneKeyIdLoggedIn: boolean;
@@ -33,6 +39,8 @@ export type IPrimeAnalyticsStore = {
 
 let lastHandledPrimeProfileKey: string | undefined;
 let primeProfileReportChain: Promise<void> = Promise.resolve();
+const identityLinkInFlight = new Map<string, Promise<void>>();
+const identityLinkReportedThisSession = new Set<string>();
 
 export function buildPrimeAnalyticsProfileSnapshot({
   isLoggedIn,
@@ -57,6 +65,26 @@ export function buildPrimeAnalyticsProfileSnapshot({
 export function resetPrimeAnalyticsReporterForTests() {
   lastHandledPrimeProfileKey = undefined;
   primeProfileReportChain = Promise.resolve();
+  identityLinkInFlight.clear();
+  identityLinkReportedThisSession.clear();
+}
+
+async function waitForAnalyticsInitialized() {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      analytics.whenInitialized(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new OneKeyLocalError('Analytics init wait timeout'));
+        }, ANALYTICS_INIT_WAIT_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function readPrimeAnalyticsProfileSnapshot() {
@@ -69,25 +97,31 @@ async function readPrimeAnalyticsProfileSnapshot() {
   });
 }
 
-export async function trackOneKeyIdIdentityLinked({
+async function sendOneKeyIdIdentityLinked({
   simpleDb,
   onekeyUserId,
 }: {
   simpleDb: IPrimeAnalyticsStore;
-  onekeyUserId: string | undefined;
+  onekeyUserId: string;
 }) {
-  if (!onekeyUserId) {
-    return;
-  }
   try {
+    if (identityLinkReportedThisSession.has(onekeyUserId)) {
+      return;
+    }
     const now = Date.now();
     if (!(await simpleDb.isIdentityLinkDue({ onekeyUserId, now }))) {
+      identityLinkReportedThisSession.add(onekeyUserId);
+      return;
+    }
+    await waitForAnalyticsInitialized();
+    if (identityLinkReportedThisSession.has(onekeyUserId)) {
       return;
     }
     await defaultLogger.prime.subscription.reportOneKeyIdIdentityLinked({
       onekeyUserId,
     });
     await simpleDb.recordIdentityLinkReported({ onekeyUserId, now });
+    identityLinkReportedThisSession.add(onekeyUserId);
   } catch (error) {
     defaultLogger.prime.subscription.onekeyIdStateTrace({
       reason: `trackOneKeyIdIdentityLinked failed: ${getSanitizedErrorLogText(
@@ -95,6 +129,29 @@ export async function trackOneKeyIdIdentityLinked({
       )}`,
     });
   }
+}
+
+export function trackOneKeyIdIdentityLinked({
+  simpleDb,
+  onekeyUserId,
+}: {
+  simpleDb: IPrimeAnalyticsStore;
+  onekeyUserId: string | undefined;
+}): Promise<void> {
+  if (!onekeyUserId || identityLinkReportedThisSession.has(onekeyUserId)) {
+    return Promise.resolve();
+  }
+  const existing = identityLinkInFlight.get(onekeyUserId);
+  if (existing) {
+    return existing;
+  }
+  const task = sendOneKeyIdIdentityLinked({ simpleDb, onekeyUserId }).finally(
+    () => {
+      identityLinkInFlight.delete(onekeyUserId);
+    },
+  );
+  identityLinkInFlight.set(onekeyUserId, task);
+  return task;
 }
 
 async function reportPrimeProfileToAnalytics(simpleDb: IPrimeAnalyticsStore) {
@@ -117,7 +174,7 @@ async function reportPrimeProfileToAnalytics(simpleDb: IPrimeAnalyticsStore) {
     // Web LastActivityTracker inits analytics after a 3s delay. Wait so a
     // startup false:false report is not dropped, then re-read so a login
     // that landed during the wait still wins.
-    await analytics.whenInitialized();
+    await waitForAnalyticsInitialized();
     const confirmed = await readPrimeAnalyticsProfileSnapshot();
     if (confirmed.profileKey !== snapshot.profileKey) {
       return;

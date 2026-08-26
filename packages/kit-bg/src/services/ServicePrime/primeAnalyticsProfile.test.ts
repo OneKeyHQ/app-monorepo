@@ -100,6 +100,7 @@ describe('buildPrimeAnalyticsProfileSnapshot', () => {
 describe('trackOneKeyIdIdentityLinked', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetPrimeAnalyticsReporterForTests();
   });
 
   it('persists only after the identity event is delivered', async () => {
@@ -143,6 +144,67 @@ describe('trackOneKeyIdIdentityLinked', () => {
     expect(mockReportIdentity).not.toHaveBeenCalled();
     expect(simpleDb.recordIdentityLinkReported).not.toHaveBeenCalled();
   });
+
+  it('waits for analytics init before sending the identity event', async () => {
+    const simpleDb = createStore({ identityDue: true });
+
+    await trackOneKeyIdIdentityLinked({
+      simpleDb,
+      onekeyUserId: 'user-1',
+    });
+
+    expect(mockWhenInitialized).toHaveBeenCalled();
+    expect(mockWhenInitialized.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReportIdentity.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('dedupes concurrent and same-session identity reports for one user', async () => {
+    const simpleDb = createStore({ identityDue: true });
+
+    await Promise.all([
+      trackOneKeyIdIdentityLinked({
+        simpleDb,
+        onekeyUserId: 'user-1',
+      }),
+      trackOneKeyIdIdentityLinked({
+        simpleDb,
+        onekeyUserId: 'user-1',
+      }),
+    ]);
+    await trackOneKeyIdIdentityLinked({
+      simpleDb,
+      onekeyUserId: 'user-1',
+    });
+
+    expect(mockReportIdentity).toHaveBeenCalledTimes(1);
+    expect(simpleDb.recordIdentityLinkReported).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not persist when analytics init never completes', async () => {
+    const simpleDb = createStore({ identityDue: true });
+    mockWhenInitialized.mockImplementationOnce(
+      () => new Promise<void>(() => undefined),
+    );
+    jest.useFakeTimers();
+
+    try {
+      const report = trackOneKeyIdIdentityLinked({
+        simpleDb,
+        onekeyUserId: 'user-1',
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      await jest.advanceTimersByTimeAsync(30_000);
+      await report;
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+
+    expect(mockReportIdentity).not.toHaveBeenCalled();
+    expect(simpleDb.recordIdentityLinkReported).not.toHaveBeenCalled();
+    expect(mockStateTrace).toHaveBeenCalled();
+  });
 });
 
 describe('enqueuePrimeProfileAnalyticsReport', () => {
@@ -182,6 +244,33 @@ describe('enqueuePrimeProfileAnalyticsReport', () => {
 
     expect(simpleDb.recordPrimeProfileReported).not.toHaveBeenCalled();
     expect(mockStateTrace).toHaveBeenCalled();
+  });
+
+  it('does not persist when analytics init never completes', async () => {
+    const simpleDb = createStore({ profileDue: true });
+    mockWhenInitialized.mockImplementationOnce(
+      () => new Promise<void>(() => undefined),
+    );
+    jest.useFakeTimers();
+
+    try {
+      const report = enqueuePrimeProfileAnalyticsReport({ simpleDb });
+      await jest.advanceTimersByTimeAsync(0);
+      await jest.advanceTimersByTimeAsync(30_000);
+      await report;
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+
+    expect(mockUpdateUserProfileAsync).not.toHaveBeenCalled();
+    expect(simpleDb.recordPrimeProfileReported).not.toHaveBeenCalled();
+    expect(mockStateTrace).toHaveBeenCalled();
+
+    await enqueuePrimeProfileAnalyticsReport({ simpleDb });
+
+    expect(mockUpdateUserProfileAsync).toHaveBeenCalledTimes(1);
+    expect(simpleDb.recordPrimeProfileReported).toHaveBeenCalledTimes(1);
   });
 
   it('drops a stale snapshot after init without persisting it', async () => {
