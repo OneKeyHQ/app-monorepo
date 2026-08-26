@@ -13,7 +13,6 @@ Use directory-level orientation, then confirm current symbols with `rg`.
 | Routes and shared contracts     | `packages/shared/src/routes/swap.ts`, `packages/shared/types/swap/` |
 | Wallet/Home/Send/Earn handoffs  | source view/component plus Swap route initialization                |
 | Market speed-trade and data     | `packages/kit/src/views/Market/`, market background service         |
-| Trade positions and prefetch    | Swap state atoms/actions plus page-owned position loader/cache utils |
 | Receive-only filtering          | Receive page, AssetSelector, shared token-selector filter utils     |
 | TradingView/K-line              | TradingView component tree and market data/message handlers         |
 
@@ -28,8 +27,6 @@ rg -n "importFromToken|importToToken|swapSource|swapType|tabSwitch" \
   packages/kit packages/shared
 rg -n "history|pending|replay|repair|SimpleDbEntitySwap" \
   packages/kit packages/kit-bg packages/shared
-rg -n "PositionsOwnerKey|PositionsLoader|RuntimeData|executeBatched" \
-  packages/kit/src/views/Swap packages/kit/src/states/jotai/contexts/swap
 rg -n "ReceiveSelector|TokenSelector|hideDeFi|showDeFi" \
   packages/kit packages/shared
 rg --files packages/kit packages/kit-bg packages/shared | \

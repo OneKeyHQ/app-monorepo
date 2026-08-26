@@ -1,8 +1,0 @@
-skill: 1k-trade-swap-market
-version: 1
-pass_threshold: 85
-critical_fail_policy: zero
-cases:
-  - cases/cross-network-quote-contract.yaml
-  - cases/review-rebuild-authority.yaml
-  - cases/progressive-position-readiness.yaml

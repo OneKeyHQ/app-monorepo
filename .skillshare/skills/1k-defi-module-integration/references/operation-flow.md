@@ -46,19 +46,6 @@ After a successful position change, refresh the exact owner. Cancel or failure
 must not claim a successful refresh. Delays, quotas, and other policy values
 must come from current code/config rather than this skill.
 
-### Refresh And Cache Ownership
-
-Keep foreground request/abort, post-action refresh/retry, persistence, and event
-merge as independent lanes. Key scheduled work by account/network; UI abort
-cannot cancel post-transaction freshness. If a shared cache is broader than the
-fetched owner, persist the exact address/xpub plus network or fix the key before
-concurrent writes.
-
-For All Networks, splice one settled network into the matching owner and
-recompute from the merged protocol map. Match `indexedAccountId`, otherwise
-strict `accountId`, plus network for single-network views; wallet buckets are
-not account identity. Cache/partials cannot imply actions or complete refresh.
-
 ## Swap Handoff
 
 DeFi owns source context, risk, prefill, and return refresh. Once Swap starts a
