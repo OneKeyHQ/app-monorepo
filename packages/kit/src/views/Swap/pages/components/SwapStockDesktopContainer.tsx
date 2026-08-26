@@ -2145,14 +2145,14 @@ function StockMobilePositionsSection({
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
   const {
-    cachedPositionTokenList,
-    positionNetworkStatuses,
-    hasCachedPositionSnapshot,
-    hasPositionOwner,
-    isLiveTokenListForCurrentOwner,
+    positionLoadError,
+    positionLoading,
+    positionTokenList,
+    swapProLoadSupportNetworksTokenListRun,
   } = useSwapProSupportNetworksTokenList(
     supportNetworksList,
     supportNetworksReady,
+    { stockOnly: true },
   );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
@@ -2181,6 +2181,12 @@ function StockMobilePositionsSection({
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
     'position',
   );
+  const retryPositions = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+      forceRefresh: true,
+      stockOnly: true,
+    });
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
   return (
     <YStack mt="$2">
@@ -2243,11 +2249,10 @@ function StockMobilePositionsSection({
             onTokenPress={handlePositionPress}
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
-            cachedTokenList={cachedPositionTokenList}
-            positionNetworkStatuses={positionNetworkStatuses}
-            hasPositionOwner={hasPositionOwner}
-            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+            positionTokenList={positionTokenList}
+            positionLoadError={positionLoadError}
+            positionLoading={positionLoading}
+            onRetry={retryPositions}
             stockOnly
             hideSearch
           />

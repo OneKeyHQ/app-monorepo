@@ -13,12 +13,14 @@ import {
   shouldShowSwapAccountUnsupportedAlert,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import {
+  SWAP_PRO_POSITIONS_RUNTIME_TTL_MS,
   getValidSwapProPositionsCache,
-  shouldReuseSwapProPositionsCache,
   upsertSwapProPositionsCacheEntry,
+  upsertSwapProPositionsRuntimeEntry,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { buildStockPositionTokens } from '@onekeyhq/kit/src/views/Swap/utils/swapStockPositionsUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   currencyPersistAtom,
@@ -52,6 +54,7 @@ import {
 import {
   getSwapBridgeDefaultToToken,
   swapDefaultSetTokens,
+  swapProStockPositionsListMinValue,
   swapQuoteIntervalMaxCount,
   swapRefreshInterval,
   swapStockTokenListMaxCount,
@@ -116,15 +119,12 @@ import {
   swapNetworksIncludeAllNetworkAtom,
   swapProDirectionAtom,
   swapProInputAmountAtom,
-  swapProPositionNetworkStatesAtom,
   swapProPositionsCacheAtom,
-  swapProPositionsCurrentOwnerKeyAtom,
-  swapProPositionsDataOwnerKeyAtom,
   swapProPositionsRequestIdAtom,
   swapProPositionsRequestIdsAtom,
+  swapProPositionsRuntimeDataAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
-  swapProSupportNetworksTokenListAtom,
   swapProTokenBalanceLoadingAtom,
   swapProTokenBalanceRequestIdAtom,
   swapProTokenDetailWebsocketAtom,
@@ -3125,227 +3125,371 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       currencyId?: string,
       options?: {
         forceRefresh?: boolean;
+        stockOnly?: boolean;
+        additionalSupportNetworkScopes?: {
+          stockOnly?: boolean;
+          supportNetworks: ISwapNetwork[];
+        }[];
       },
     ) => {
       const positionCurrencyId = currencyId?.toLowerCase() ?? '';
-      const positionNetworkIdsKey = supportNetworks
-        .map((item) => item.networkId)
-        .filter(Boolean)
-        .toSorted()
-        .join(',');
-      const positionOwnerKey = buildSwapProPositionsOwnerKey({
-        accountId: indexedAccountId ?? otherWalletTypeAccountId,
-        networkIdsKey: positionNetworkIdsKey,
-        currencyId: positionCurrencyId,
-      });
-      if (!positionOwnerKey) {
-        set(swapProPositionsCurrentOwnerKeyAtom(), '');
-        set(swapProPositionsDataOwnerKeyAtom(), '');
-        set(swapProPositionNetworkStatesAtom(), {});
-        set(swapProSupportNetworksTokenListAtom(), []);
-        return;
-      }
-      set(swapProPositionsCurrentOwnerKeyAtom(), positionOwnerKey);
-      const positionsCache = getValidSwapProPositionsCache(
-        get(swapProPositionsCacheAtom()),
+      const positionAccountId = indexedAccountId ?? otherWalletTypeAccountId;
+      const requestedScopes = [
+        {
+          stockOnly: options?.stockOnly,
+          supportNetworks,
+        },
+        ...(options?.additionalSupportNetworkScopes ?? []),
+      ]
+        .map((scope) => {
+          const scopeNetworks = Array.from(
+            new Map(
+              scope.supportNetworks
+                .filter((network) => Boolean(network.networkId))
+                .map((network) => [network.networkId, network]),
+            ).values(),
+          ).toSorted((left, right) =>
+            left.networkId.localeCompare(right.networkId),
+          );
+          const networkIdsKey = scopeNetworks
+            .map((network) => network.networkId)
+            .join(',');
+          return {
+            networkIds: new Set(
+              scopeNetworks.map((network) => network.networkId),
+            ),
+            networkIdsKey,
+            ownerKey: buildSwapProPositionsOwnerKey({
+              accountId: positionAccountId,
+              networkIdsKey,
+              currencyId: positionCurrencyId,
+              stockOnly: scope.stockOnly,
+            }),
+            stockOnly: Boolean(scope.stockOnly),
+            supportNetworks: scopeNetworks,
+          };
+        })
+        .filter((scope) => Boolean(scope.ownerKey));
+      const uniqueScopes = Array.from(
+        new Map(
+          requestedScopes.map((scope) => [scope.ownerKey, scope]),
+        ).values(),
       );
-      const cachedPositionEntry = positionsCache.byOwner[positionOwnerKey];
-      const activeRequestId = get(swapProPositionsRequestIdsAtom())[
-        positionOwnerKey
-      ];
-      if (activeRequestId && !options?.forceRefresh) {
+      if (uniqueScopes.length === 0) {
         return;
       }
-      if (
-        shouldReuseSwapProPositionsCache({
-          cacheEntry: cachedPositionEntry,
-          forceRefresh: options?.forceRefresh,
-          ownerKey: positionOwnerKey,
-        }) &&
-        get(swapProPositionsDataOwnerKeyAtom()) === positionOwnerKey
-      ) {
-        // Only authoritative data loaded in this runtime may short-circuit.
-        // The persisted top-N snapshot is a display seed, never the live list.
+      const requestStartedAt = Date.now();
+      const runtimeEntries = get(swapProPositionsRuntimeDataAtom());
+      const activeRequestIds = get(swapProPositionsRequestIdsAtom());
+      const scopesToLoad = uniqueScopes.filter((scope) => {
+        if (!options?.forceRefresh && activeRequestIds[scope.ownerKey]) {
+          return false;
+        }
+        const runtimeEntry = runtimeEntries[scope.ownerKey];
+        return !(
+          !options?.forceRefresh &&
+          runtimeEntry?.status === 'success' &&
+          requestStartedAt - runtimeEntry.updatedAt <
+            SWAP_PRO_POSITIONS_RUNTIME_TTL_MS
+        );
+      });
+      if (scopesToLoad.length === 0) {
         return;
       }
-      // Requests are tracked per owner. Pro and Stock may load concurrently,
-      // but only the currently visible owner may update the shared live list.
+
       const requestId = get(swapProPositionsRequestIdAtom()) + 1;
       set(swapProPositionsRequestIdAtom(), requestId);
       set(swapProPositionsRequestIdsAtom(), (previousRequestIds) => ({
         ...previousRequestIds,
-        [positionOwnerKey]: requestId,
+        ...Object.fromEntries(
+          scopesToLoad.map((scope) => [scope.ownerKey, requestId]),
+        ),
       }));
-      set(swapProPositionNetworkStatesAtom(), {});
-      const isLatestOwnerRequest = () =>
-        get(swapProPositionsRequestIdsAtom())[positionOwnerKey] === requestId;
-      const isCurrentOwner = () =>
-        get(swapProPositionsCurrentOwnerKeyAtom()) === positionOwnerKey;
-      const markNetworkReady = (networkId: string) => {
-        if (!isLatestOwnerRequest() || !isCurrentOwner()) {
-          return;
-        }
-        set(swapProPositionNetworkStatesAtom(), (currentState) => ({
-          ...currentState,
-          [networkId]: true,
-        }));
-      };
-      const settleRequestFailure = () => {
-        const hasCachedPositionEntry = Boolean(
-          getValidSwapProPositionsCache(get(swapProPositionsCacheAtom()))
-            .byOwner[positionOwnerKey],
-        );
-        if (
-          isLatestOwnerRequest() &&
-          isCurrentOwner() &&
-          get(swapProPositionsDataOwnerKeyAtom()) !== positionOwnerKey &&
-          !hasCachedPositionEntry
-        ) {
-          // A failed first load must leave the loading surface. Keep any
-          // last-good persisted seed display-only, but do not persist this
-          // fallback as cache or mark the seed as authoritative live data.
-          set(swapProSupportNetworksTokenListAtom(), []);
-          set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
-        }
-      };
-      const updatePositionsCache = (tokens: ISwapToken[]) => {
-        if (!positionOwnerKey || !positionNetworkIdsKey) {
-          return;
-        }
-        set(swapProPositionsCacheAtom(), (prev) => {
-          const updatedAt = Date.now();
-          return upsertSwapProPositionsCacheEntry({
-            cache: prev,
+      set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
+        let nextEntries = currentEntries;
+        for (const scope of scopesToLoad) {
+          nextEntries = upsertSwapProPositionsRuntimeEntry({
+            entries: nextEntries,
             entry: {
-              ownerKey: positionOwnerKey,
-              networkIdsKey: positionNetworkIdsKey,
-              currencyId: positionCurrencyId,
-              tokens,
-              updatedAt,
+              status: 'loading',
+              tokens: [],
+              updatedAt: requestStartedAt,
             },
+            ownerKey: scope.ownerKey,
           });
-        });
-      };
-      const updateNetworkPositions = (
-        networkId: string,
-        tokens: ISwapToken[],
-      ) => {
-        if (!isLatestOwnerRequest()) {
+        }
+        return nextEntries;
+      });
+      const isLatestScopeRequest = (ownerKey: string) =>
+        get(swapProPositionsRequestIdsAtom())[ownerKey] === requestId;
+      const sortPositionTokens = (tokens: ISwapToken[]) =>
+        tokens.toSorted((left, right) =>
+          new BigNumber(right.fiatValue ?? '0').comparedTo(
+            new BigNumber(left.fiatValue ?? '0'),
+          ),
+        );
+      const publishNetworkPositions = ({
+        networkId,
+        scope,
+        tokens,
+      }: {
+        networkId: string;
+        scope: (typeof scopesToLoad)[number];
+        tokens: ISwapToken[];
+      }) => {
+        if (!isLatestScopeRequest(scope.ownerKey)) {
           return;
         }
-        set(swapProPositionsCacheAtom(), (previousCache) => {
-          const validCache = getValidSwapProPositionsCache(previousCache);
-          const previousEntry = validCache.byOwner[positionOwnerKey];
-          const previousTokens = previousEntry?.tokens ?? [];
-          return upsertSwapProPositionsCacheEntry({
-            cache: validCache,
+        set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
+          const currentEntry = currentEntries[scope.ownerKey];
+          if (!currentEntry) {
+            return currentEntries;
+          }
+          return upsertSwapProPositionsRuntimeEntry({
+            entries: currentEntries,
             entry: {
-              ownerKey: positionOwnerKey,
-              networkIdsKey: positionNetworkIdsKey,
-              currencyId: positionCurrencyId,
-              tokens: [
-                ...previousTokens.filter(
+              status: 'loading',
+              tokens: sortPositionTokens([
+                ...currentEntry.tokens.filter(
                   (token) => token.networkId !== networkId,
                 ),
                 ...tokens,
-              ],
+              ]),
               updatedAt: Date.now(),
             },
+            ownerKey: scope.ownerKey,
           });
         });
-        markNetworkReady(networkId);
       };
       try {
+        const unionSupportNetworks = Array.from(
+          new Map(
+            scopesToLoad
+              .flatMap((scope) => scope.supportNetworks)
+              .map((network) => [network.networkId, network]),
+          ).values(),
+        );
         const {
           supportAccountsFetchFailed,
           swapSupportAccounts: swapProSupportAccounts,
         } = await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
           indexedAccountId,
           otherWalletTypeAccountId,
-          swapSupportNetworks: supportNetworks,
+          swapSupportNetworks: unionSupportNetworks,
         });
         if (supportAccountsFetchFailed) {
-          settleRequestFailure();
+          set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
+            let nextEntries = currentEntries;
+            for (const scope of scopesToLoad) {
+              if (isLatestScopeRequest(scope.ownerKey)) {
+                const currentEntry = nextEntries[scope.ownerKey];
+                nextEntries = upsertSwapProPositionsRuntimeEntry({
+                  entries: nextEntries,
+                  entry: {
+                    status: 'error',
+                    tokens: currentEntry?.tokens ?? [],
+                    updatedAt: Date.now(),
+                  },
+                  ownerKey: scope.ownerKey,
+                });
+              }
+            }
+            return nextEntries;
+          });
           return;
         }
-        if (swapProSupportAccounts.length > 0) {
-          const accountAddressList = swapProSupportAccounts
-            .filter((item) => item.apiAddress)
-            .filter(
-              (item) =>
-                !networkUtils.isAllNetwork({ networkId: item.networkId }),
+        const accountAddressList = swapProSupportAccounts
+          .filter((item) => item.apiAddress)
+          .filter(
+            (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+          )
+          .toSorted((left, right) => {
+            const primaryNetworkIds = scopesToLoad[0]?.networkIds;
+            return (
+              Number(Boolean(primaryNetworkIds?.has(right.networkId))) -
+              Number(Boolean(primaryNetworkIds?.has(left.networkId)))
             );
-
-          // Create tasks as functions to delay execution until batched
-          const tasks = accountAddressList.map((networkDataString) => {
-            const {
-              apiAddress,
-              networkId: accountNetworkId,
-              accountId,
-            } = networkDataString;
-            return async () => {
-              const tokens =
-                await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-                  networkId: accountNetworkId,
-                  accountNetworkId,
-                  accountAddress: apiAddress,
-                  accountId,
-                  onlyAccountTokens: true,
-                  isAllNetworkFetchAccountTokens: true,
-                  throwOnError: true,
-                  currency: positionCurrencyId,
-                  protocol: ESwapTabSwitchType.SWAP,
-                });
-              updateNetworkPositions(accountNetworkId, tokens);
-              return tokens;
-            };
           });
+        const stockNetworkIds = new Set(
+          scopesToLoad
+            .filter((scope) => scope.stockOnly)
+            .flatMap((scope) => [...scope.networkIds]),
+        );
+        const requestLocale = stockNetworkIds.size
+          ? appLocale.getLocale()
+          : undefined;
+        const tasks = accountAddressList.map((networkDataString) => {
+          const {
+            apiAddress,
+            networkId: accountNetworkId,
+            accountId,
+          } = networkDataString;
+          return async () => {
+            const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens(
+              {
+                networkId: accountNetworkId,
+                accountNetworkId,
+                accountAddress: apiAddress,
+                accountId,
+                onlyAccountTokens: true,
+                isAllNetworkFetchAccountTokens: true,
+                throwOnError: true,
+                currency: positionCurrencyId,
+                protocol: ESwapTabSwitchType.SWAP,
+              },
+            );
+            for (const scope of scopesToLoad) {
+              if (!scope.stockOnly && scope.networkIds.has(accountNetworkId)) {
+                publishNetworkPositions({
+                  networkId: accountNetworkId,
+                  scope,
+                  tokens,
+                });
+              }
+            }
 
-          // Execute requests in batches of 3 to prevent UI thread blocking
-          const results = await this.executeBatched(tasks, 3);
-          if (!isLatestOwnerRequest()) {
-            return;
-          }
-          if (results.some((result) => result.status === 'rejected')) {
-            settleRequestFailure();
-            return;
-          }
+            let stockMetadataFailed = false;
+            let stockTokens: ISwapToken[] | undefined;
+            if (stockNetworkIds.has(accountNetworkId)) {
+              try {
+                const stockCandidateTokens = tokens.filter((token) =>
+                  new BigNumber(token.fiatValue ?? '0').gt(
+                    swapProStockPositionsListMinValue,
+                  ),
+                );
+                if (stockCandidateTokens.length === 0) {
+                  stockTokens = [];
+                } else {
+                  const response =
+                    await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
+                      {
+                        requestLocale,
+                        tokenAddressList: stockCandidateTokens.map((token) => ({
+                          contractAddress: token.contractAddress ?? '',
+                          chainId: token.networkId,
+                          isNative: !!token.isNative,
+                        })),
+                      },
+                    );
+                  stockTokens = buildStockPositionTokens({
+                    marketItems: response.list ?? [],
+                    tokens: stockCandidateTokens,
+                  });
+                  if (!stockTokens) {
+                    throw new OneKeyLocalError(
+                      'Incomplete market metadata response for Stock positions',
+                    );
+                  }
+                }
+                for (const scope of scopesToLoad) {
+                  if (
+                    scope.stockOnly &&
+                    scope.networkIds.has(accountNetworkId)
+                  ) {
+                    publishNetworkPositions({
+                      networkId: accountNetworkId,
+                      scope,
+                      tokens: stockTokens,
+                    });
+                  }
+                }
+              } catch (error) {
+                stockMetadataFailed = true;
+                console.error('swapStock__loadPositionMetadata error', error);
+              }
+            }
+            return {
+              stockMetadataFailed,
+              stockTokens,
+              tokens,
+            };
+          };
+        });
 
-          // Extract successful results and sort by fiat value
-          const sortedResult = results
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            .map((r) => (r as PromiseFulfilledResult<any>).value)
-            .filter(Boolean)
-            .flat()
-            .toSorted((a, b) => {
-              return new BigNumber(b.fiatValue ?? '0').comparedTo(
-                new BigNumber(a.fiatValue ?? '0'),
+        // One union queue keeps iOS at three in-flight position requests even
+        // while the inactive Trade tabs are being warmed in the background.
+        const results = await this.executeBatched(tasks, 3);
+        for (const scope of scopesToLoad) {
+          if (isLatestScopeRequest(scope.ownerKey)) {
+            const scopeResults = results.filter((_, index) =>
+              scope.networkIds.has(accountAddressList[index]?.networkId ?? ''),
+            );
+            const hasFailure = scopeResults.some(
+              (result) =>
+                result.status === 'rejected' ||
+                (scope.stockOnly && result.value.stockMetadataFailed),
+            );
+            const scopeTokens = sortPositionTokens(
+              scopeResults.flatMap((result) => {
+                if (result.status !== 'fulfilled') {
+                  return [];
+                }
+                return scope.stockOnly
+                  ? (result.value.stockTokens ?? [])
+                  : result.value.tokens;
+              }),
+            );
+            const completedAt = Date.now();
+            set(swapProPositionsRuntimeDataAtom(), (currentEntries) =>
+              upsertSwapProPositionsRuntimeEntry({
+                entries: currentEntries,
+                entry: {
+                  status: hasFailure ? 'error' : 'success',
+                  tokens: scopeTokens,
+                  updatedAt: completedAt,
+                },
+                ownerKey: scope.ownerKey,
+              }),
+            );
+            if (!hasFailure) {
+              set(swapProPositionsCacheAtom(), (previousCache) =>
+                upsertSwapProPositionsCacheEntry({
+                  cache: getValidSwapProPositionsCache(previousCache),
+                  entry: {
+                    ownerKey: scope.ownerKey,
+                    networkIdsKey: scope.networkIdsKey,
+                    currencyId: positionCurrencyId,
+                    tokens: scopeTokens,
+                    updatedAt: completedAt,
+                  },
+                }),
               );
-            });
-          updatePositionsCache(sortedResult);
-          if (isCurrentOwner()) {
-            set(swapProSupportNetworksTokenListAtom(), sortedResult);
-            set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
-          }
-        } else if (isLatestOwnerRequest()) {
-          updatePositionsCache([]);
-          if (isCurrentOwner()) {
-            set(swapProSupportNetworksTokenListAtom(), []);
-            set(swapProPositionsDataOwnerKeyAtom(), positionOwnerKey);
+            }
           }
         }
       } catch (error) {
-        settleRequestFailure();
+        set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
+          let nextEntries = currentEntries;
+          for (const scope of scopesToLoad) {
+            if (isLatestScopeRequest(scope.ownerKey)) {
+              const currentEntry = nextEntries[scope.ownerKey];
+              nextEntries = upsertSwapProPositionsRuntimeEntry({
+                entries: nextEntries,
+                entry: {
+                  status: 'error',
+                  tokens: currentEntry?.tokens ?? [],
+                  updatedAt: Date.now(),
+                },
+                ownerKey: scope.ownerKey,
+              });
+            }
+          }
+          return nextEntries;
+        });
         console.error('swapPro__loadPositions error', error);
       } finally {
-        if (isLatestOwnerRequest()) {
-          set(swapProPositionsRequestIdsAtom(), (previousRequestIds) => {
-            const { [positionOwnerKey]: _, ...remainingRequestIds } =
-              previousRequestIds;
-            return remainingRequestIds;
-          });
-        }
+        set(swapProPositionsRequestIdsAtom(), (previousRequestIds) =>
+          Object.fromEntries(
+            Object.entries(previousRequestIds).filter(
+              ([ownerKey, activeRequestId]) =>
+                !scopesToLoad.some(
+                  (scope) =>
+                    scope.ownerKey === ownerKey &&
+                    activeRequestId === requestId,
+                ),
+            ),
+          ),
+        );
       }
     },
   );
@@ -3362,11 +3506,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         tokens: ISwapToken[];
       },
     ) => {
-      if (
-        !positionOwnerKey ||
-        get(swapProPositionsCurrentOwnerKeyAtom()) !== positionOwnerKey ||
-        get(swapProPositionsDataOwnerKeyAtom()) !== positionOwnerKey
-      ) {
+      const runtimeEntry = get(swapProPositionsRuntimeDataAtom())[
+        positionOwnerKey
+      ];
+      if (!positionOwnerKey || !runtimeEntry) {
         return;
       }
       const mergeTokenBalances = (previousTokens: ISwapToken[]) => {
@@ -3395,7 +3538,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         return updatedTokens;
       };
-      set(swapProSupportNetworksTokenListAtom(), mergeTokenBalances);
+      set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
+        const currentEntry = currentEntries[positionOwnerKey];
+        if (!currentEntry) {
+          return currentEntries;
+        }
+        return upsertSwapProPositionsRuntimeEntry({
+          entries: currentEntries,
+          entry: {
+            ...currentEntry,
+            tokens: mergeTokenBalances(currentEntry.tokens),
+          },
+          ownerKey: positionOwnerKey,
+        });
+      });
       set(swapProPositionsCacheAtom(), (previousCache) => {
         const validPreviousCache = getValidSwapProPositionsCache(previousCache);
         const cachedEntry = validPreviousCache.byOwner[positionOwnerKey];

@@ -117,6 +117,7 @@ import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
 import { useSwapModalAutoCloseOnBroadcast } from '../../hooks/useSwapModalAutoCloseOnBroadcast';
 import {
+  useSwapPositionsSupportTokenListAction,
   useSwapProAccount,
   useSwapProErrorAlert,
   useSwapProInit,
@@ -1234,40 +1235,99 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   } = useSwapProInit();
   const [swapNetworks] = useSwapNetworksAtom();
 
-  // Filter and sort networks, then stabilize reference to prevent unnecessary re-renders
-  const swapBridgeSupportNetworksFilterAllNetRef = useRef<typeof swapNetworks>(
-    [],
-  );
-  const swapBridgeSupportNetworksFilterAllNet = useMemo(() => {
-    let filteredNetworks: typeof swapNetworks;
-    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      filteredNetworks = swapNetworks.filter(
-        (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
-      );
+  const positionSupportNetworkListsRef = useRef<{
+    stock: typeof swapNetworks;
+    swap: typeof swapNetworks;
+  }>({ stock: [], swap: [] });
+  const positionSupportNetworkLists = useMemo(() => {
+    const nextLists = {
+      stock: swapNetworks
+        .filter((item) => !!item.supportStock)
+        .toSorted((left, right) =>
+          left.networkId.localeCompare(right.networkId),
+        ),
+      swap: swapNetworks
+        .filter(
+          (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
+        )
+        .toSorted((left, right) =>
+          left.networkId.localeCompare(right.networkId),
+        ),
+    };
+    for (const key of ['stock', 'swap'] as const) {
+      if (
+        !isEqual(
+          nextLists[key].map((item) => item.networkId),
+          positionSupportNetworkListsRef.current[key].map(
+            (item) => item.networkId,
+          ),
+        )
+      ) {
+        positionSupportNetworkListsRef.current[key] = nextLists[key];
+      }
+    }
+    return positionSupportNetworkListsRef.current;
+  }, [swapNetworks]);
+  const swapBridgeSupportNetworksFilterAllNet =
+    swapTypeSwitch === ESwapTabSwitchType.STOCK
+      ? positionSupportNetworkLists.stock
+      : positionSupportNetworkLists.swap;
+  const { swapProLoadSupportNetworksTokenListRun } =
+    useSwapPositionsSupportTokenListAction();
+  const positionPrefetchScopes = useMemo(() => {
+    const scopes = [
+      {
+        key: 'swap',
+        networkList: positionSupportNetworkLists.swap,
+        ready: !fetchLoading,
+        stockOnly: false,
+      },
+      {
+        key: 'stock',
+        networkList: positionSupportNetworkLists.stock,
+        ready: !fetchLoading,
+        stockOnly: true,
+      },
+      {
+        key: 'pro',
+        networkList: SwapProSupportNetworksList,
+        ready: swapProSupportNetworksReady,
+        stockOnly: false,
+      },
+    ].filter((scope) => scope.ready && scope.networkList.length > 0);
+    let activeKey = 'swap';
+    if (focusSwapPro) {
+      activeKey = 'pro';
     } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-      filteredNetworks = swapNetworks.filter((item) => !!item.supportStock);
-    } else {
-      filteredNetworks = swapNetworks.filter((item) => !!item.supportLimit);
+      activeKey = 'stock';
     }
-
-    // Sort by networkId to ensure consistent order
-    const sortedNetworks = filteredNetworks.toSorted((a, b) =>
-      a.networkId.localeCompare(b.networkId),
-    );
-
-    // Compare networkIds to check if content actually changed
-    const currentNetworkIds = sortedNetworks.map((item) => item.networkId);
-    const prevNetworkIds = swapBridgeSupportNetworksFilterAllNetRef.current.map(
-      (item) => item.networkId,
-    );
-
-    // Only update ref if content has actually changed
-    if (!isEqual(currentNetworkIds, prevNetworkIds)) {
-      swapBridgeSupportNetworksFilterAllNetRef.current = sortedNetworks;
+    return scopes.toSorted((left, right) => {
+      if (left.key === activeKey) return -1;
+      if (right.key === activeKey) return 1;
+      return 0;
+    });
+  }, [
+    SwapProSupportNetworksList,
+    fetchLoading,
+    focusSwapPro,
+    positionSupportNetworkLists.stock,
+    positionSupportNetworkLists.swap,
+    swapProSupportNetworksReady,
+    swapTypeSwitch,
+  ]);
+  useEffect(() => {
+    const [primaryScope, ...additionalScopes] = positionPrefetchScopes;
+    if (!platformEnv.isNative || !primaryScope) {
+      return;
     }
-
-    return swapBridgeSupportNetworksFilterAllNetRef.current;
-  }, [swapNetworks, swapTypeSwitch]);
+    void swapProLoadSupportNetworksTokenListRun(primaryScope.networkList, {
+      stockOnly: primaryScope.stockOnly,
+      additionalNetworkScopes: additionalScopes.map((scope) => ({
+        networkList: scope.networkList,
+        stockOnly: scope.stockOnly,
+      })),
+    });
+  }, [positionPrefetchScopes, swapProLoadSupportNetworksTokenListRun]);
 
   useSwapProErrorAlert({
     isSwapProActive: Boolean(focusSwapPro),
