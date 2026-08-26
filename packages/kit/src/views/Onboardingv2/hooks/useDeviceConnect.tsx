@@ -575,6 +575,8 @@ export function useDeviceConnect({
         const showCheckingDeviceDialog = () =>
           backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId: device.connectId ?? '',
+            deviceType: device.deviceType ?? undefined,
+            deviceName: device.name ?? undefined,
           });
         if (platformEnv.isNativeIOS) {
           await hardwareUiStateDialogLifecycle.openAndWait(
