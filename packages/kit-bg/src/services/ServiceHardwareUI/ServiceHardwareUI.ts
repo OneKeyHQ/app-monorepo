@@ -66,7 +66,7 @@ import type {
   IHardwareUiResponseCorrelation,
   IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
-import type { UiResponseEvent } from '@onekeyfe/hd-core';
+import type { IDeviceType, UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
   allowDuringFirmwareUpdate?: boolean;
@@ -301,7 +301,19 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
+  async showCheckingDeviceDialog({
+    connectId,
+    deviceType,
+    deviceName,
+  }: {
+    connectId: string;
+    /** What the caller already knows about the device. A scan result
+     * carries both, and this beat is the stage's opening one — without
+     * them the capsule would stand there nameless until something else
+     * named the device (OK-59934). */
+    deviceType?: IDeviceType;
+    deviceName?: string;
+  }) {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
       connectId,
@@ -313,7 +325,42 @@ class ServiceHardwareUI extends ServiceBase {
         connectId,
       });
     }
-    void this.deviceStageBurst.noteStep('connecting', { connectId });
+    void this.deviceStageBurst.noteStep('connecting', {
+      connectId,
+      deviceType: await this.resolveDeviceTypeForStage({
+        deviceType,
+        deviceName,
+      }),
+      deviceName,
+    });
+  }
+
+  /**
+   * The model behind a beat that only knows a name. A OneKey advertises
+   * its model in its Bluetooth name ("Pro2 8650"), which is the only
+   * identity available while onboarding a device the database has never
+   * seen — the case where waiting for a lookup means no replica at all.
+   */
+  private async resolveDeviceTypeForStage({
+    deviceType,
+    deviceName,
+  }: {
+    deviceType?: IDeviceType;
+    deviceName?: string;
+  }): Promise<IDeviceType | undefined> {
+    if (deviceType && deviceType !== EDeviceType.Unknown) {
+      return deviceType;
+    }
+    if (!deviceName) {
+      return deviceType;
+    }
+    try {
+      const { getDeviceTypeByBleName } = await CoreSDKLoader();
+      const derived = getDeviceTypeByBleName(deviceName);
+      return derived && derived !== EDeviceType.Unknown ? derived : deviceType;
+    } catch {
+      return deviceType;
+    }
   }
 
   @backgroundMethod()
