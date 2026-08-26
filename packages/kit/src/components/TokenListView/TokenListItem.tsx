@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { Spinner, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -16,6 +17,16 @@ import TokenNameView from './TokenNameView';
 import TokenPriceChangeView from './TokenPriceChangeView';
 import TokenPriceView from './TokenPriceView';
 import TokenValueView from './TokenValueView';
+
+// Browser-only opt-in for non-virtualized token rows that stay mounted in the
+// DOM. Virtualized lists already unmount off-screen rows, so callers must enable
+// this only for confirmed plain/non-virtualized scenes.
+// `contentVisibility` / `containIntrinsicHeight` are raw CSS not present in the
+// RN style typings, hence the cast (mirrors the idiom used by Tabs/Dialog).
+const ROW_CONTENT_VISIBILITY_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicHeight: 'auto 60px',
+} as any;
 
 export type ITokenListItemProps = {
   token: IAccountToken;
@@ -31,6 +42,7 @@ export type ITokenListItemProps = {
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
   showProcessingState?: boolean;
+  enableRowContentVisibility?: boolean;
   // Caller-supplied scene prefix so this shared component produces unique
   // selectors per scene (Home, AssetList, TokenSelector, ...) instead of
   // always emitting `home-token-item-*` regardless of context.
@@ -52,9 +64,19 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     showNetworkIcon,
     withAggregateBadge,
     showProcessingState,
+    enableRowContentVisibility,
     testIDPrefix,
+    style: incomingStyle,
     ...rest
   } = props;
+
+  const rowStyle =
+    platformEnv.isRuntimeBrowser && enableRowContentVisibility
+      ? ({
+          ...ROW_CONTENT_VISIBILITY_STYLE,
+          ...(incomingStyle as object),
+        } as IListItemProps['style'])
+      : incomingStyle;
 
   // Use networkId + symbol so multi-network duplicates (e.g. USDC on Ethereum
   // vs Polygon) get distinct selectors. Fall back to `$key` when either
@@ -302,6 +324,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       gap={tableLayout ? '$3' : '$1'}
       disabled={isOtherTokenProcessing}
       opacity={isOtherTokenProcessing ? 0.5 : 1}
+      style={rowStyle}
       {...rest}
     >
       {renderFirstColumn()}

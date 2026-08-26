@@ -1120,6 +1120,7 @@ function TokenListViewCmp(props: IProps) {
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
             showProcessingState={!!exchangeFilter}
+            enableRowContentVisibility
             testIDPrefix={tokenItemTestIDPrefix}
             {...(tableLayout
               ? undefined
