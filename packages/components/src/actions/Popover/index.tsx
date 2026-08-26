@@ -139,22 +139,8 @@ const usePopoverValue = (
 
 const useContentDisplay = platformEnv.isNative
   ? () => undefined
-  : (isOpen?: boolean, keepChildrenMounted?: boolean) => {
-      const [display, setDisplay] = useState<'none' | undefined>(undefined);
-      useEffect(() => {
-        if (!keepChildrenMounted) {
-          return;
-        }
-        if (isOpen) {
-          setDisplay(undefined);
-        } else {
-          setTimeout(() => {
-            setDisplay('none');
-          }, 200);
-        }
-      }, [isOpen, keepChildrenMounted]);
-      return display;
-    };
+  : (isOpen?: boolean, keepChildrenMounted?: boolean) =>
+      keepChildrenMounted && !isOpen ? 'none' : undefined;
 
 function ModalPortalProvider({ children }: PropsWithChildren) {
   const modalNavigatorContext = useModalNavigatorContext();
@@ -373,6 +359,9 @@ function RawPopover({
   const { gtMd } = useMedia();
 
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
+  // Kept content uses display for visibility because presence transitions only
+  // complete reliably when the content mounts and unmounts.
+  const shouldAnimateContent = !props.keepChildrenMounted;
   const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
@@ -430,15 +419,17 @@ function RawPopover({
           unstyled
           display={display}
           style={transformOriginStyle}
-          enterStyle={POPOVER_ENTER_STYLE}
-          exitStyle={POPOVER_EXIT_STYLE}
+          enterStyle={shouldAnimateContent ? POPOVER_ENTER_STYLE : undefined}
+          exitStyle={shouldAnimateContent ? POPOVER_EXIT_STYLE : undefined}
           w="$96"
           bg="$bg"
           borderRadius="$3"
           $platform-web={POPOVER_PLATFORM_WEB_STYLE}
           $platform-native={POPOVER_PLATFORM_NATIVE}
-          animation="popoverQuick"
-          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          animation={shouldAnimateContent ? 'popoverQuick' : undefined}
+          animateOnly={
+            shouldAnimateContent ? ANIMATE_ONLY_OPACITY_TRANSFORM : undefined
+          }
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView

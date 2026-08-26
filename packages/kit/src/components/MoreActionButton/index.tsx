@@ -1791,6 +1791,7 @@ function MoreActionButtonCmp() {
     <Popover
       title={intl.formatMessage({ id: ETranslations.address_book_menu_title })}
       showHeader={false}
+      keepChildrenMounted
       floatingPanelProps={{
         maxWidth: 384,
         width: 384,
