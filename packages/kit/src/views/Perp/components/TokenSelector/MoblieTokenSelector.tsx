@@ -415,7 +415,8 @@ function MobileTokenSelectorModal({
     [onLoadingChange, navigation, actions, spotUniverses],
   );
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetsByDex, query: filteredQuery }] =
+    usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
@@ -1015,7 +1016,7 @@ function MobileTokenSelectorModal({
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
-          searchQuery,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1077,6 +1078,7 @@ function MobileTokenSelectorModal({
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
     assetsByDex,
     categoryTabs,

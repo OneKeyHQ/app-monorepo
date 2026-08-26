@@ -274,9 +274,19 @@ describe('tokenSelectorTabs', () => {
       getPerpTokenSelectorDynamicTabItems({
         items: searchFilteredItems,
         tokens: ['ETH', 'SOL'],
-        searchQuery: 'btc',
+        filteredQuery: 'btc',
       }).map((item) => item.tokenName),
     ).toEqual(['BTC', 'UBTC']);
+  });
+
+  it('keeps category filtering for a whitespace-only filtered query', () => {
+    expect(
+      getPerpTokenSelectorDynamicTabItems({
+        items: [{ tokenName: 'BTC' }, { tokenName: 'ETH' }],
+        tokens: ['ETH'],
+        filteredQuery: '   ',
+      }).map((item) => item.tokenName),
+    ).toEqual(['ETH']);
   });
 
   it('uses sorted-list order for dynamic tab items after a header sort', () => {

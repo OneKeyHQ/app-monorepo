@@ -299,15 +299,15 @@ function getPerpTokenSelectorDynamicTabItems<
 >({
   items,
   tokens,
-  searchQuery,
+  filteredQuery,
   useSortedItemsOrder,
 }: {
   items: T[];
   tokens: string[];
-  searchQuery?: string;
+  filteredQuery?: string;
   useSortedItemsOrder?: boolean;
 }) {
-  if (searchQuery?.trim()) {
+  if (filteredQuery?.trim()) {
     return items;
   }
 
