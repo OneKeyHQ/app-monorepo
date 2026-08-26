@@ -705,3 +705,66 @@ index 3873632..6c0683f 100644
  
              infoPlistFiles.each do |infoPlistFile|
                  # If infoPlistFile contains Pods or tests, skip it
+diff --git a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+--- a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
++++ b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+@@ -23,0 +24,4 @@
++  bool enableSchedulerDelegateInvalidation() override
++  {
++    return true;
++  }
+diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
+--- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
++++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
+@@ -504,1 +504,10 @@
+-  _reactInstance->getBufferedRuntimeExecutor()([=](jsi::Runtime &runtime) {
++  RuntimeExecutor bufferedRuntimeExecutor;
++  {
++    std::lock_guard<std::mutex> lock(_invalidationMutex);
++    if (!_valid || !_reactInstance) {
++      return;
++    }
++    bufferedRuntimeExecutor = _reactInstance->getBufferedRuntimeExecutor();
++  }
++
++  bufferedRuntimeExecutor([=](jsi::Runtime &runtime) {
+diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
+--- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
++++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
+@@ -29,0 +30 @@
++#import <atomic>
+@@ -262,0 +264 @@
++  std::atomic_bool _reloadInProgress;
+@@ -334,0 +337 @@
++    _reloadInProgress.store(false);
+@@ -621,0 +625,10 @@
++  // A second dev-server reload can arrive while the replacement runtime is
++  // still initializing (for example when `r` is pressed twice). Starting
++  // another RCTInstance in that window makes multiple Expo module registries
++  // initialize concurrently. Coalesce those duplicate requests into the
++  // reload already in progress.
++  if (_reloadInProgress.exchange(true)) {
++    RCTLogInfo(@"Ignoring duplicate reload while the replacement runtime is initializing");
++    return;
++  }
++
+@@ -643,0 +657,19 @@
++
++  // Keep the reload gate closed until the bundle has finished executing and
++  // all attached surfaces have been queued to restart. Runtime initialization
++  // alone is too early: a second reload can otherwise tear down a Scheduler
++  // that still has rendering updates queued from the replacement instance.
++  // A short quiet window after bundle execution also coalesces repeated Metro
++  // reload commands (for example pressing `r` twice) without affecting the
++  // cold-start path.
++  __weak RCTHost *weakSelf = self;
++  __weak RCTInstance *weakReloadedInstance = _instance;
++  [_instance callFunctionOnBufferedRuntimeExecutor:[weakSelf, weakReloadedInstance](facebook::jsi::Runtime &_) {
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++      RCTHost *strongSelf = weakSelf;
++      RCTInstance *strongReloadedInstance = weakReloadedInstance;
++      if (strongSelf && strongReloadedInstance && strongReloadedInstance == strongSelf->_instance) {
++        strongSelf->_reloadInProgress.store(false);
++      }
++    });
++  }];

@@ -1,0 +1,42 @@
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
+--- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
++++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
+@@ -210,15 +210,30 @@
+         // see a nil strong reference and bail out — instead of dispatching
+         // callFunctionOnBufferedRuntimeExecutor on a freed instance and
+         // crashing (EXC_BAD_ACCESS / use-after-free).
++        __weak RCTHost *weakHost = host;
+         __weak id weakInstance = instance;
+-        RPCRuntimeExecutor mainExecutor = [weakInstance](std::function<void(jsi::Runtime &)> work) {
+-            id strongInstance = weakInstance;
+-            if (!strongInstance) {
+-                return;
+-            }
+-            [strongInstance callFunctionOnBufferedRuntimeExecutor:[work](jsi::Runtime &rt) {
+-                work(rt);
+-            }];
++        RPCRuntimeExecutor mainExecutor = [weakHost, weakInstance](std::function<void(jsi::Runtime &)> work) {
++            // RCTHost invalidates and swaps its RCTInstance on the main queue.
++            // Serialize the identity check with that swap: retaining the old
++            // Objective-C wrapper is not sufficient because its C++
++            // ReactInstance may already have been reset during reload.
++            dispatch_async(dispatch_get_main_queue(), ^{
++                RCTHost *strongHost = weakHost;
++                id strongInstance = weakInstance;
++                if (!strongHost || !strongInstance) {
++                    return;
++                }
++
++                Ivar currentInstanceIvar = class_getInstanceVariable([strongHost class], "_instance");
++                id currentInstance = object_getIvar(strongHost, currentInstanceIvar);
++                if (currentInstance != strongInstance) {
++                    return;
++                }
++
++                [strongInstance callFunctionOnBufferedRuntimeExecutor:[work](jsi::Runtime &rt) {
++                    work(rt);
++                }];
++            });
+         };
+         SharedRPC::install(runtime, std::move(mainExecutor), "main");
+         // Set the integration-health flag from inside the JS-thread lambda so
