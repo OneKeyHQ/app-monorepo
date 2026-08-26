@@ -34,7 +34,7 @@
           </HorizontalLayout>
           <Control height="12" />
           <Label text="{{string.welcome.pathLabel}}" textcolor="{{color.textSecondary}}" height="24" />
-          <HorizontalLayout height="44" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,10,0">
+          <HorizontalLayout height="44" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,10,0" childvalign="vcenter">
             <Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" padding="9,0,0,0" />
             <Button name="browse" text="{{string.welcome.change}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="50" height="32" borderround="8,8" />
           </HorizontalLayout>

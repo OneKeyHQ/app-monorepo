@@ -12,7 +12,7 @@
         <Label text="{{string.options.title}}" font="1" textcolor="{{color.textPrimary}}" height="40" align="center" />
         <Label text="{{string.options.subtitle}}" textcolor="{{color.textSecondary}}" height="34" align="center" />
         <Control height="44" />
-        <HorizontalLayout height="46" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,14,0"><Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" /><Button name="browse" text="{{string.options.browse}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="46" height="34" borderround="8,8" /></HorizontalLayout>
+        <HorizontalLayout height="46" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,14,0" childvalign="vcenter"><Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" /><Button name="browse" text="{{string.options.browse}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="46" height="34" borderround="8,8" /></HorizontalLayout>
         <Control height="28" />
         <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.options.install}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
         <Control />
