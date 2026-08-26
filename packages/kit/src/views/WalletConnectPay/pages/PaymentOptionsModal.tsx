@@ -271,13 +271,28 @@ function PaymentOptionsPage() {
   // The signing window used to be covered by the pushed TxConfirm modal; the
   // inline path leaves this page on screen instead, so its own close controls
   // (header close, iOS swipe-down, backdrop) would let the user dismiss
-  // mid-signing while the payment completes anyway (the durable progress
-  // record keeps the money safe, but the user
-  // believes they cancelled). Lock ONLY the paying phase: idle stays closable,
-  // and so does result — matching the standalone PaymentResultModal it
-  // replaces. Nothing to run on an intercepted dismissal: neither the executor
-  // nor the inline pipeline can abort an in-flight signing or broadcast.
-  usePreventRemove(pagePhase.name === 'paying', () => {});
+  // mid-signing while the payment completes anyway — the durable progress
+  // record keeps the money safe, but the user believes they cancelled.
+  //
+  // Scoped as tightly as the risk: only while the inline pipeline is actually
+  // executing, which is exactly the window where 'preparing' is NOT the step.
+  // The pre-executor stretch holds 'preparing' (pre-sign, safely closable),
+  // and the controller's onFallback puts it back to 'preparing' on every exit
+  // to the confirm modal — including the retry-exhaustion one the attempts
+  // loop takes without asking — so the lock never spans the modal phase,
+  // where it would only add a way to strand the user if executeActions never
+  // settles. Idle and result stay closable too; result matches the standalone
+  // PaymentResultModal it replaces.
+  const isInlineExecuting =
+    pagePhase.name === 'paying' && pagePhase.step !== 'preparing';
+  usePreventRemove(isInlineExecuting, () => {
+    // a swallowed close gesture must not read as a frozen app; there is
+    // nothing to cancel, so say what is happening instead
+    Toast.message({
+      // copy pending product i18n keys
+      title: 'Payment in progress…',
+    });
+  });
 
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
@@ -505,9 +520,20 @@ function PaymentOptionsPage() {
       // confirm page.
       const inlineController: IWcPayInlineController = {
         onPhase: (step) => setPagePhase({ name: 'paying', step }),
+        // Single owner of the transition out of inline execution. The loop
+        // calls this on every fallback exit, including the retry-exhaustion
+        // one it decides without asking the controller — so the step label
+        // stops claiming the pipeline is running and the page unlocks before
+        // the confirm modal is pushed over it.
+        onFallback: () => setPagePhase({ name: 'paying', step: 'preparing' }),
         onInlineFailure: (failure) => {
           if (failure.kind === EWcPayInlineFailureKind.FeeEstimateFailed) {
             return Promise.resolve('retry');
+          }
+          if (failure.kind === EWcPayInlineFailureKind.WalletNotBackedUp) {
+            // the backup dialog is already on screen and owns the next step;
+            // a banner here would only repeat it in weaker words
+            return Promise.resolve('abort');
           }
           if (failure.kind === EWcPayInlineFailureKind.InsufficientBalance) {
             // the selection stays as it is: the banner describes the option
@@ -522,9 +548,8 @@ function PaymentOptionsPage() {
             setInlineFailure(failure);
             return Promise.resolve('abort');
           }
-          // the confirm modal covers the page from here; drop the inline step
-          // label so a stale one does not linger underneath it
-          setPagePhase({ name: 'paying', step: 'preparing' });
+          // everything else is a pre-sign blocker the confirm page owns; the
+          // phase transition is onFallback's job, not this branch's
           return Promise.resolve('fallback');
         },
       };

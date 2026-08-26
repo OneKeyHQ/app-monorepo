@@ -121,11 +121,13 @@ function pickWcPayInlineFeePreset<T>(values: T[] | undefined): T | undefined {
  * the recovery machinery, never re-sign. Untagged throws are pre-sign
  * (expiry, final recheck, account/network binding) and nothing was signed.
  *
- * MUTATES the passed `unsignedTx`: `updateUnSignedTxBeforeSending` writes the
- * nonce and fee fields into that object and returns the same reference, so a
- * repeated call does not start from a clean tx. Only a failure raised before
- * that point (fee estimation) leaves the tx untouched enough to re-run — see
- * the retry precondition in `runWcPayInlineAttempts`.
+ * Does NOT mutate the passed `unsignedTx`: `updateUnSignedTxBeforeSending` is
+ * a background method that clones its input (ServiceSend.updateUnsignedTx
+ * hands the vault a `cloneDeep`) and returns new objects, and on split-runtime
+ * targets the call crosses a serialization boundary as well. A repeated call
+ * therefore starts from the same clean tx this one did. Which stages may be
+ * retried is a policy decision, not a consequence of aliasing — see the
+ * retry rationale in `runWcPayInlineAttempts`.
  *
  * Not reentrant: the caller serializes calls (the `isPaying` guard). Two
  * concurrent calls could not double-pay — both resolve the same nonce, so at
@@ -154,12 +156,19 @@ export async function wcPayInlineSendTx({
   onPhase?.('estimating');
 
   // Parity with TxConfirmActions: an externally originated send is blocked
-  // while the wallet has no backup. The service raises its own dialog, so the
-  // pipeline only has to stop; the confirm page repeats the check, which keeps
-  // that prompt owned by a single place.
+  // while the wallet has no backup. `checkIsWalletNotBackedUp` SHOWS the
+  // backup dialog itself (WalletBackupPreCheckContainer answers the
+  // CheckWalletBackupStatus event by presenting it and rejecting), so by the
+  // time it returns true the user has already been told what to do and the
+  // pipeline only has to stop.
+  //
+  // Deliberately NOT a fallback: the confirm page runs the same check on
+  // mount and again in submitTxs, where a not-backed-up wallet re-raises the
+  // dialog and the submit silently returns — a page the user cannot pay from.
+  // Ending here leaves them with the one dialog that can actually resolve it.
   const backupCheck = await runWcPayInlineStage({
-    stage: 'prepare',
-    disposition: 'fallback',
+    stage: 'backup',
+    disposition: 'inlineError',
     task: () =>
       backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
         walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
@@ -170,9 +179,9 @@ export async function wcPayInlineSendTx({
   }
   if (backupCheck.value) {
     return {
-      status: 'fallback',
+      status: 'inlineError',
       failure: classifyWcPayInlineFailure({
-        stage: 'prepare',
+        stage: 'backup',
         error: new OneKeyLocalError('Wallet is not backed up'),
       }),
     };
@@ -206,9 +215,14 @@ export async function wcPayInlineSendTx({
     !accountAddress ||
     optionAddress.toLowerCase() !== accountAddress.toLowerCase()
   ) {
-    throw new OneKeyLocalError(
-      'WalletConnect Pay signing account does not match the payment option account',
+    console.error(
+      'wcPay inline account mismatch: option account',
+      optionAddress,
+      'signing account',
+      accountAddress,
     );
+    // copy pending product i18n keys
+    throw new OneKeyLocalError('This payment cannot be completed right now');
   }
 
   const estimateResult = await runWcPayInlineStage({
@@ -441,17 +455,25 @@ export async function wcPayInlineSendTx({
     option,
   });
   if (!consistency.ok) {
-    throw new OneKeyLocalError(
-      `WalletConnect Pay transaction changed after validation: ${consistency.reason}`,
+    console.error(
+      'wcPay inline transaction changed after validation:',
+      consistency.reason,
     );
+    // copy pending product i18n keys
+    throw new OneKeyLocalError('This payment cannot be completed right now');
   }
   // The validator derives the option's chain from `option.account` as well, so
   // handing it back proves nothing on its own; this is what ties the chain the
   // tx will broadcast on to the chain the order names.
   if (wcPayChainIdToNetworkId(optionCaip2ChainId) !== networkId) {
-    throw new OneKeyLocalError(
-      'WalletConnect Pay transaction targets a different network than the order',
+    console.error(
+      'wcPay inline network mismatch: order chain',
+      optionCaip2ChainId,
+      'tx network',
+      networkId,
     );
+    // copy pending product i18n keys
+    throw new OneKeyLocalError('This payment cannot be completed right now');
   }
 
   // Signing and broadcasting happen inside this one background call, so this

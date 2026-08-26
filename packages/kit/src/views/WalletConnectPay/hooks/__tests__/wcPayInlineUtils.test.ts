@@ -134,6 +134,15 @@ describe('classifyWcPayInlineFailure', () => {
     ).toBe(EWcPayInlineFailureKind.FeeEstimateFailed);
   });
 
+  it('maps the backup stage to walletNotBackedUp', () => {
+    expect(
+      classifyWcPayInlineFailure({
+        stage: 'backup',
+        error: new Error('Wallet is not backed up'),
+      }).kind,
+    ).toBe(EWcPayInlineFailureKind.WalletNotBackedUp);
+  });
+
   it('maps the balance stage to insufficientBalance', () => {
     expect(
       classifyWcPayInlineFailure({
@@ -197,6 +206,7 @@ describe('classifyWcPayInlineFailure', () => {
 
   it('marks the estimate stage retryable and every other stage not', () => {
     const stages: IWcPayInlineStage[] = [
+      'backup',
       'estimate',
       'balance',
       'precheck',
@@ -255,7 +265,7 @@ describe('runWcPayInlineAttempts', () => {
         onInlineFailure.mockResolvedValueOnce(decision);
       }
     });
-    return { onPhase: jest.fn(), onInlineFailure };
+    return { onPhase: jest.fn(), onInlineFailure, onFallback: jest.fn() };
   };
 
   it('returns the txid of a successful attempt', async () => {
@@ -270,6 +280,7 @@ describe('runWcPayInlineAttempts', () => {
     });
     expect(run).toHaveBeenCalledTimes(1);
     expect(controller.onInlineFailure).not.toHaveBeenCalled();
+    expect(controller.onFallback).not.toHaveBeenCalled();
   });
 
   it('re-runs the attempt when a fee-estimate failure is retried', async () => {
@@ -298,6 +309,7 @@ describe('runWcPayInlineAttempts', () => {
       status: 'fallback',
     });
     expect(run).toHaveBeenCalledTimes(1);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
   });
 
   it('aborts when the controller aborts on insufficient balance', async () => {
@@ -310,6 +322,7 @@ describe('runWcPayInlineAttempts', () => {
       status: 'abort',
     });
     expect(run).toHaveBeenCalledTimes(1);
+    expect(controller.onFallback).not.toHaveBeenCalled();
   });
 
   it('stops retrying once the retry budget is spent', async () => {
@@ -323,6 +336,9 @@ describe('runWcPayInlineAttempts', () => {
     });
     // the default budget is 2 RE-RUNS, so three attempts in total
     expect(run).toHaveBeenCalledTimes(3);
+    // the exhaustion exit is decided by the loop, not the controller, so this
+    // is the announcement the page has no other way to hear
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
   });
 
   it('honours an explicit retry budget', async () => {
@@ -335,6 +351,7 @@ describe('runWcPayInlineAttempts', () => {
       runWcPayInlineAttempts({ controller, run, maxRetries: 0 }),
     ).resolves.toEqual({ status: 'fallback' });
     expect(run).toHaveBeenCalledTimes(1);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
   });
 
   it('degrades a retry of a non-retryable failure to a fallback, running once', async () => {
@@ -347,6 +364,7 @@ describe('runWcPayInlineAttempts', () => {
       status: 'fallback',
     });
     expect(run).toHaveBeenCalledTimes(1);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
   });
 
   it('routes a pipeline fallback result through the controller too', async () => {
@@ -364,6 +382,7 @@ describe('runWcPayInlineAttempts', () => {
       status: 'fallback',
     });
     expect(controller.onInlineFailure).toHaveBeenCalledWith(failure);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
   });
 
   it('propagates a thrown pipeline error without consulting the controller', async () => {
@@ -377,6 +396,7 @@ describe('runWcPayInlineAttempts', () => {
       thrown,
     );
     expect(controller.onInlineFailure).not.toHaveBeenCalled();
+    expect(controller.onFallback).not.toHaveBeenCalled();
   });
 });
 

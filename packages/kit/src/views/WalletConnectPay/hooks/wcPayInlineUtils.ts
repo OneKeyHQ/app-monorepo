@@ -18,6 +18,7 @@ export type IWcPayInlinePlan =
 // drives classification, so the mapping stays stable across vault/RPC error
 // shapes (design doc §7).
 export type IWcPayInlineStage =
+  | 'backup'
   | 'estimate'
   | 'balance'
   | 'precheck'
@@ -29,7 +30,12 @@ export enum EWcPayInlineFailureKind {
   FeeEstimateFailed = 'feeEstimateFailed',
   // not transient: guide the user to another option, no blind retry (§7.2)
   InsufficientBalance = 'insufficientBalance',
-  // pre-sign blocker outside the two classes above: caller falls back (§3)
+  // the wallet has no backup: `checkIsWalletNotBackedUp` has ALREADY shown the
+  // backup dialog, so the flow only has to end. Never fall back for this — the
+  // confirm page re-shows the same dialog and its submit silently returns,
+  // leaving a page the user cannot pay from.
+  WalletNotBackedUp = 'walletNotBackedUp',
+  // pre-sign blocker outside the classes above: caller falls back (§3)
   PreSignBlocked = 'preSignBlocked',
   // post-sign: Retry re-enters the recovery machinery, never re-signs (§7.3)
   SendFailed = 'sendFailed',
@@ -176,6 +182,14 @@ export function classifyWcPayInlineFailure({
         message,
         retryable: true,
       };
+    // The backup dialog has already been raised by the check itself; the
+    // caller must end the flow rather than reroute it (see the kind's note).
+    case 'backup':
+      return {
+        kind: EWcPayInlineFailureKind.WalletNotBackedUp,
+        message,
+        retryable: false,
+      };
     // Reported by the pipeline AFTER it computes the shortfall itself (this
     // stage has no TxFeeInfo of its own to derive a kind from).
     case 'balance':
@@ -222,6 +236,17 @@ export interface IWcPayInlineController {
   onInlineFailure: (
     failure: IWcPayInlineFailure,
   ) => Promise<'retry' | 'fallback' | 'abort'>;
+  /**
+   * Called exactly once whenever the attempts loop resolves to a fallback —
+   * whether the controller asked for one or the loop degraded to it on its own
+   * (spent retry budget, or a 'retry' answered for a non-retryable failure).
+   *
+   * The controller's own decision is NOT a reliable signal for this: the
+   * exhaustion path never consults it. Anything the UI must do when inline
+   * execution ends and the confirm modal takes over belongs here, not in the
+   * `onInlineFailure` fallback branch.
+   */
+  onFallback?: () => void;
 }
 
 /**
@@ -279,6 +304,12 @@ export async function runWcPayInlineAttempts({
   maxRetries?: number;
 }): Promise<IWcPayInlineAttemptsOutcome> {
   let retries = 0;
+  // Every fallback exit funnels through here, so a new one cannot be added
+  // without announcing the transition out of inline execution.
+  const resolveFallback = (): IWcPayInlineAttemptsOutcome => {
+    controller.onFallback?.();
+    return { status: 'fallback' };
+  };
   for (;;) {
     const result = await run();
     if (result.status === 'ok') {
@@ -289,18 +320,21 @@ export async function runWcPayInlineAttempts({
       return { status: 'abort' };
     }
     // Only a fee-estimate-class failure may ever be `retryable`, and that is a
-    // precondition of this loop rather than a policy choice: `run()`
-    // re-executes with the SAME unsignedTx object, and estimation is the only
-    // stage that fails BEFORE the pipeline mutates it in place
-    // (updateUnSignedTxBeforeSending writes nonce and fee fields into the tx
-    // and hands back the same reference). A retry after any later stage would
-    // therefore re-run against an already-rewritten tx. Anyone marking another
-    // kind retryable must revisit that precondition first.
+    // deliberate policy (§7.1: fee estimation is the one stage whose failure
+    // is plausibly transient — an RPC hiccup a second attempt can clear),
+    // reinforced by conservatism: every later stage either reflects a real
+    // account state a re-run cannot change, or sits close enough to signing
+    // that blind repetition is not worth the risk. It is NOT a consequence of
+    // tx mutation — `run()` re-executes against an unsignedTx the background
+    // never writes back (updateUnSignedTxBeforeSending clones its input and
+    // returns new objects), so a repeat attempt does start from a clean tx.
+    // Anyone marking another kind retryable is changing policy, and should
+    // re-argue the transience of that stage rather than assume this one.
     if (decision !== 'retry' || !result.failure.retryable) {
-      return { status: 'fallback' };
+      return resolveFallback();
     }
     if (retries >= maxRetries) {
-      return { status: 'fallback' };
+      return resolveFallback();
     }
     retries += 1;
   }

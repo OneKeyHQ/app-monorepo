@@ -251,6 +251,16 @@ function callInlineSend(
   });
 }
 
+// The hard aborts all throw the same user-facing copy, so the assertion that
+// tells them apart is the diagnostic each one logs before throwing. Tests
+// check both: a guard firing for the wrong reason still fails.
+const GENERIC_ABORT_MESSAGE = 'This payment cannot be completed right now';
+let consoleErrorSpy: jest.SpyInstance;
+const loggedDiagnostics = () =>
+  consoleErrorSpy.mock.calls
+    .map((args: unknown[]) => args.map((arg) => String(arg)).join(' '))
+    .join('\n');
+
 beforeEach(() => {
   jest.clearAllMocks();
 
@@ -295,9 +305,30 @@ beforeEach(() => {
   api.serviceTransaction.verifyTransaction.mockResolvedValue({});
   api.serviceHistory.saveSendConfirmHistoryTxs.mockResolvedValue(undefined);
   api.serviceSignature.addItemFromSendProcess.mockResolvedValue(undefined);
+
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore();
 });
 
 describe('wcPayInlineSendTx', () => {
+  // The check shows the backup dialog itself, and the confirm page is a dead
+  // end for this state (it re-shows the dialog and its submit returns without
+  // sending), so this must never be a fallback.
+  it('ends the payment inline when the wallet is not backed up', async () => {
+    api.serviceAccount.checkIsWalletNotBackedUp.mockResolvedValue(true);
+
+    const result = await callInlineSend({});
+
+    expect(result.status).toBe('inlineError');
+    expect(
+      result.status === 'inlineError' ? result.failure.kind : undefined,
+    ).toBe(EWcPayInlineFailureKind.WalletNotBackedUp);
+    expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
+  });
+
   it('resolves with the txid on the happy path', async () => {
     const phases: string[] = [];
     const result = await callInlineSend({
@@ -447,23 +478,24 @@ describe('wcPayInlineSendTx', () => {
   it('throws when the signing account does not match the order account', async () => {
     api.serviceAccount.getAccountAddressForApi.mockResolvedValue(RECIPIENT);
 
-    await expect(callInlineSend()).rejects.toThrow(
-      'signing account does not match',
-    );
+    await expect(callInlineSend()).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(loggedDiagnostics()).toContain('account mismatch');
     expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it('throws when the order account carries an empty address segment', async () => {
     await expect(
       callInlineSend({ option: { ...option, account: 'eip155:8453:' } }),
-    ).rejects.toThrow('signing account does not match');
+    ).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(loggedDiagnostics()).toContain('account mismatch');
     expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it('throws when the send network is not the network the order names', async () => {
     await expect(callInlineSend({ networkId: 'evm--1' })).rejects.toThrow(
-      'targets a different network than the order',
+      GENERIC_ABORT_MESSAGE,
     );
+    expect(loggedDiagnostics()).toContain('network mismatch');
     expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 
@@ -473,9 +505,8 @@ describe('wcPayInlineSendTx', () => {
       buildUpdatedUnsignedTx({ value: '0x1' }),
     ]);
 
-    await expect(callInlineSend()).rejects.toThrow(
-      'WalletConnect Pay transaction changed after validation',
-    );
+    await expect(callInlineSend()).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(loggedDiagnostics()).toContain('changed after validation');
     expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 
@@ -484,7 +515,10 @@ describe('wcPayInlineSendTx', () => {
       buildUpdatedUnsignedTx({ nonce: NONCE + 1 }),
     ]);
 
-    await expect(callInlineSend()).rejects.toThrow('nonce mismatch');
+    await expect(callInlineSend()).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    // the reason still reaches the log, so this stays distinguishable from
+    // the other post-mutation rejections
+    expect(loggedDiagnostics()).toContain('nonce mismatch');
     expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 

@@ -41,8 +41,12 @@ import type { IWcPayInlineController } from './wcPayInlineUtils';
 // small pause so a finished confirm modal fully dismisses before the next one
 const MODAL_TRANSITION_MS = 300;
 
-// User-intent cancellation (dismissed a confirm modal or the collect form);
-// callers should end the flow silently instead of surfacing an error toast.
+// The flow ended without an error to report. Two sources: a user-intent
+// cancellation (dismissed a confirm modal or the collect form), and an inline
+// controller answering 'abort' — a system-decided end where the page has
+// already surfaced the reason itself (insufficient balance banner) or another
+// component owns the prompt (the wallet-backup dialog). Callers should end the
+// flow silently instead of surfacing an error toast.
 export class WcPayUserCancelledError extends OneKeyLocalError {}
 
 // Sign requests come from the WalletConnect Pay server / merchant, not from
