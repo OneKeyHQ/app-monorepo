@@ -738,6 +738,9 @@ describe('useSpeedSwapActions', () => {
     await act(async () => {
       reviewState = await result.current.rebuildMarketSwapReview({
         slippagePercentage: 1,
+        isCurrent: () => true,
+        onPhaseChange: jest.fn(),
+        onExecutionReady: jest.fn(),
       });
     });
 

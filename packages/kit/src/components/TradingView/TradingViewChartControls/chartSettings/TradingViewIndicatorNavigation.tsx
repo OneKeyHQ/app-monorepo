@@ -13,12 +13,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  OKX_CHART_BG,
-  OKX_CHART_DIVIDER,
-  OKX_CHART_SIDE_ACTIVE_BG,
-  OKX_CHART_TEXT,
-  OKX_CHART_TEXT_SUBDUED,
-  OkxChartCheckbox,
+  TRADING_VIEW_CHART_BG,
+  TRADING_VIEW_CHART_DIVIDER,
+  TRADING_VIEW_CHART_SIDE_ACTIVE_BG,
+  TRADING_VIEW_CHART_TEXT,
+  TRADING_VIEW_CHART_TEXT_SUBDUED,
+  TradingViewChartCheckbox,
 } from './TradingViewSettingsShared';
 
 import type {
@@ -26,13 +26,13 @@ import type {
   ITradingViewSettingsMockIndicatorScope,
 } from './TradingViewSettingsMockState';
 
-const OKX_INDICATOR_TABS_HEIGHT = 41;
-const OKX_INDICATOR_BODY_HEIGHT = 418;
-const OKX_INDICATOR_SIDEBAR_WIDTH = 184;
-const OKX_INDICATOR_SIDEBAR_ROW_PADDING_X = 16;
-const OKX_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
+const TRADING_VIEW_INDICATOR_TABS_HEIGHT = 41;
+const TRADING_VIEW_INDICATOR_BODY_HEIGHT = 418;
+const TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH = 184;
+const TRADING_VIEW_INDICATOR_SIDEBAR_ROW_PADDING_X = 16;
+const TRADING_VIEW_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
 
-export function OkxIndicatorScopeTabs({
+export function TradingViewIndicatorScopeTabs({
   value,
   indicators,
   maxActiveSubIndicatorCount,
@@ -68,20 +68,20 @@ export function OkxIndicatorScopeTabs({
 
   return (
     <XStack
-      h={OKX_INDICATOR_TABS_HEIGHT}
+      h={TRADING_VIEW_INDICATOR_TABS_HEIGHT}
       px={24}
       gap={24}
       alignItems="flex-end"
       borderBottomWidth={1}
-      borderBottomColor={OKX_CHART_DIVIDER}
-      bg={OKX_CHART_BG}
+      borderBottomColor={TRADING_VIEW_CHART_DIVIDER}
+      bg={TRADING_VIEW_CHART_BG}
     >
       {tabs.map((tab) => {
         const selected = value === tab.value;
         return (
           <YStack
             key={tab.value}
-            h={OKX_INDICATOR_TABS_HEIGHT}
+            h={TRADING_VIEW_INDICATOR_TABS_HEIGHT}
             justifyContent="center"
             cursor="pointer"
             onPress={() => onChange(tab.value)}
@@ -90,7 +90,11 @@ export function OkxIndicatorScopeTabs({
               fontSize={14}
               lineHeight={18}
               fontWeight={selected ? '700' : '400'}
-              color={selected ? OKX_CHART_TEXT : OKX_CHART_TEXT_SUBDUED}
+              color={
+                selected
+                  ? TRADING_VIEW_CHART_TEXT
+                  : TRADING_VIEW_CHART_TEXT_SUBDUED
+              }
             >
               {tab.label}
             </SizableText>
@@ -109,7 +113,7 @@ export function OkxIndicatorScopeTabs({
   );
 }
 
-export function OkxIndicatorSidebar({
+export function TradingViewIndicatorSidebar({
   indicators,
   selectedIndicatorId,
   onSelect,
@@ -121,8 +125,8 @@ export function OkxIndicatorSidebar({
   onToggle: (indicatorId: string, active: boolean) => void;
 }) {
   const [scrollMetrics, setScrollMetrics] = useState({
-    contentHeight: OKX_INDICATOR_BODY_HEIGHT,
-    viewportHeight: OKX_INDICATOR_BODY_HEIGHT,
+    contentHeight: TRADING_VIEW_INDICATOR_BODY_HEIGHT,
+    viewportHeight: TRADING_VIEW_INDICATOR_BODY_HEIGHT,
     scrollY: 0,
   });
   const hasScrollableContent =
@@ -145,14 +149,14 @@ export function OkxIndicatorSidebar({
 
   return (
     <Stack
-      w={OKX_INDICATOR_SIDEBAR_WIDTH}
-      h={OKX_INDICATOR_BODY_HEIGHT}
+      w={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+      h={TRADING_VIEW_INDICATOR_BODY_HEIGHT}
       position="relative"
       overflow="hidden"
     >
       <ScrollView
-        w={OKX_INDICATOR_SIDEBAR_WIDTH}
-        h={OKX_INDICATOR_BODY_HEIGHT}
+        w={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+        h={TRADING_VIEW_INDICATOR_BODY_HEIGHT}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onContentSizeChange={(_, contentHeight) =>
@@ -171,7 +175,7 @@ export function OkxIndicatorSidebar({
           }))
         }
       >
-        <YStack pt={15} pb={24} bg={OKX_CHART_BG}>
+        <YStack pt={15} pb={24} bg={TRADING_VIEW_CHART_BG}>
           {indicators.map((indicator, index) => {
             const selected = indicator.id === selectedIndicatorId;
             const previousIndicator = indicators[index - 1];
@@ -184,10 +188,10 @@ export function OkxIndicatorSidebar({
                   <SizableText
                     mt={index === 0 ? 0 : 19}
                     mb={12}
-                    px={OKX_INDICATOR_SIDEBAR_ROW_PADDING_X}
+                    px={TRADING_VIEW_INDICATOR_SIDEBAR_ROW_PADDING_X}
                     fontSize={12}
                     lineHeight={14}
-                    color={OKX_CHART_TEXT_SUBDUED}
+                    color={TRADING_VIEW_CHART_TEXT_SUBDUED}
                   >
                     {indicator.groupLabel}
                   </SizableText>
@@ -196,30 +200,36 @@ export function OkxIndicatorSidebar({
                   testID={`trading-view-indicator-sidebar-${indicator.id}`}
                   w="100%"
                   h={41}
-                  px={OKX_INDICATOR_SIDEBAR_ROW_PADDING_X}
+                  px={TRADING_VIEW_INDICATOR_SIDEBAR_ROW_PADDING_X}
                   gap={8}
                   alignItems="center"
-                  bg={selected ? OKX_CHART_SIDE_ACTIVE_BG : OKX_CHART_BG}
+                  bg={
+                    selected
+                      ? TRADING_VIEW_CHART_SIDE_ACTIVE_BG
+                      : TRADING_VIEW_CHART_BG
+                  }
                   hoverStyle={{
-                    bg: selected ? OKX_CHART_SIDE_ACTIVE_BG : '$bgHover',
+                    bg: selected
+                      ? TRADING_VIEW_CHART_SIDE_ACTIVE_BG
+                      : '$bgHover',
                   }}
                   cursor="pointer"
                   onPress={() => onSelect(indicator.id)}
                 >
-                  <OkxChartCheckbox
+                  <TradingViewChartCheckbox
                     checked={indicator.active}
                     onChange={(checked) => onToggle(indicator.id, checked)}
                   />
                   <Stack
-                    w={OKX_INDICATOR_SIDEBAR_LABEL_WIDTH}
-                    maxWidth={OKX_INDICATOR_SIDEBAR_LABEL_WIDTH}
+                    w={TRADING_VIEW_INDICATOR_SIDEBAR_LABEL_WIDTH}
+                    maxWidth={TRADING_VIEW_INDICATOR_SIDEBAR_LABEL_WIDTH}
                     flexShrink={0}
                     overflow="hidden"
                   >
                     <SizableText
                       fontSize={14}
                       lineHeight={18}
-                      color={OKX_CHART_TEXT}
+                      color={TRADING_VIEW_CHART_TEXT}
                       numberOfLines={1}
                       style={{
                         overflow: 'hidden',

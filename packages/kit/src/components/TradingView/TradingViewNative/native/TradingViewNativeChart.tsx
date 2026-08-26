@@ -19,8 +19,6 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
-import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
@@ -29,10 +27,7 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import {
-  type ITradingViewNativeIndicatorSeries,
-  getTradingViewNativeIndicatorPriceAxisLabel,
-} from '../utils/chartIndicators';
+import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartWidth,
   getTradingViewNativePriceAxisLabel,
@@ -45,8 +40,6 @@ import {
   reduceTradingViewNativeChartRuntime,
 } from '../utils/chartRuntime';
 import {
-  type ITradingViewNativeViewportRequest,
-  type ITradingViewNativeVisiblePointRange,
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
@@ -81,11 +74,7 @@ import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceSca
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
-import type {
-  ITradingViewNativeCandleLabels,
-  ITradingViewNativeChartType,
-  ITradingViewNativeInitialRightOffset,
-} from '../types';
+import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
 import type { LayoutChangeEvent } from 'react-native';
 
 const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
@@ -97,29 +86,6 @@ const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
-
-interface ITradingViewNativeChartProps {
-  candleIntervalSeconds: number;
-  chartSettings: ITradingViewNativeChartSettings;
-  chartType: ITradingViewNativeChartType;
-  chartPictureVersion: number;
-  currentPriceLabel: string;
-  hasVolume: boolean;
-  indicatorSeries: ITradingViewNativeIndicatorSeries[];
-  indicatorSeriesSettingsKey: string;
-  initialRightOffset?: ITradingViewNativeInitialRightOffset;
-  isSwitchingInterval: boolean;
-  onChartWidthChange?: (width: number) => void;
-  onViewportRequestApplied?: (requestId: number) => void;
-  onVisiblePointRangeChange?: (
-    range: ITradingViewNativeVisiblePointRange,
-  ) => void;
-  candleLabels: ITradingViewNativeCandleLabels;
-  points: IMarketTokenKLineDataPoint[];
-  subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
-  testID?: string;
-  viewportRequest?: ITradingViewNativeViewportRequest | null;
-}
 
 export const TradingViewNativeChart = memo(
   ({
@@ -134,6 +100,7 @@ export const TradingViewNativeChart = memo(
     initialRightOffset,
     isSwitchingInterval,
     onChartWidthChange,
+    onSubIndicatorSettingsPress,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
     candleLabels,
@@ -705,9 +672,11 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,
       isCrosshairEnabled: chartSettings.options.crossLine,
+      onSubIndicatorSettingsPress,
       priceAxisResetGesture,
       priceAxisScaleGesture,
       priceAxisWidth,
+      resources,
     });
     const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;
