@@ -3,10 +3,6 @@ import { useMemo } from 'react';
 import { useCalendars } from 'expo-localization';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  TRADING_VIEW_TEST_BUNDLE_HOST,
-  TRADING_VIEW_URL_TEST,
-} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -32,21 +28,10 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
-  const shouldUseTestTradingViewUrl =
-    platformEnv.isWeb &&
-    globalThis.location?.hostname === TRADING_VIEW_TEST_BUNDLE_HOST;
-
-  const baseUrl = useMemo(() => {
-    if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
-      return localTradingViewUrl;
-    }
-
-    if (shouldUseTestTradingViewUrl) {
-      return TRADING_VIEW_URL_TEST;
-    }
-
-    return getTradingViewBaseUrl({ devSettings, localTradingViewUrl });
-  }, [devSettings, localTradingViewUrl, shouldUseTestTradingViewUrl]);
+  const baseUrl = useMemo(
+    () => getTradingViewBaseUrl({ devSettings, localTradingViewUrl }),
+    [devSettings, localTradingViewUrl],
+  );
 
   const timezone = useMemo(
     () => getTradingViewTimezone(calendars),

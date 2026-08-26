@@ -143,7 +143,6 @@ export const defaultColorScheme = 'dark';
 
 export const TRADING_VIEW_URL = 'https://tradingview.onekey.so';
 export const TRADING_VIEW_URL_TEST = 'https://tradingview.onekeytest.com';
-export const TRADING_VIEW_TEST_BUNDLE_HOST = 'app-bundle.onekeytest.com';
 export const TRADING_VIEW_LOCALHOST_ORIGIN = 'http://localhost:5173';
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
