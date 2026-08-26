@@ -36,18 +36,20 @@ jest.mock('@onekeyhq/kit/src/components/MultipleClickStack', () => ({
 const mockCloseHardwareUiStateDialog = jest.fn(
   async (_params: unknown): Promise<void> => undefined,
 );
-const mockShouldAuthenticateFirmwareByHash = jest.fn(async () => true);
+const mockShouldAuthenticateFirmwareByHash = jest.fn(
+  async (_params: unknown): Promise<boolean> => true,
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardware: {
-      shouldAuthenticateFirmwareByHash: (...args: unknown[]) =>
-        mockShouldAuthenticateFirmwareByHash(...args),
+      shouldAuthenticateFirmwareByHash: (params: unknown) =>
+        mockShouldAuthenticateFirmwareByHash(params),
     },
     serviceHardwareUI: {
-      closeHardwareUiStateDialog: (...args: unknown[]) =>
-        mockCloseHardwareUiStateDialog(...args),
+      closeHardwareUiStateDialog: (params: unknown) =>
+        mockCloseHardwareUiStateDialog(params),
     },
   },
 }));
