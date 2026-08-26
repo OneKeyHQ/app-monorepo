@@ -67,6 +67,7 @@ import {
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { FoundDevicesFooter } from '../components/FoundDevicesFooter';
 import { OnboardingPage } from '../components/Layout';
@@ -1025,6 +1026,9 @@ function ConnectYourDevicePage({
     return unsubscribe;
   }, [reactNavigation]);
 
+  const { beginBurst: beginStageBurst, endBurst: endStageBurst } =
+    useDeviceStageBurst();
+
   const connectDevice = useCallback(
     async (
       item: IConnectYourDeviceItem,
@@ -1078,6 +1082,14 @@ function ConnectYourDevicePage({
               deviceName: item.device?.name ?? undefined,
             });
           checkingDialogOpened = true;
+          // One hold for the preflight: without it the stage's exit is a
+          // race between the SDK's trailing progress ticks and its close
+          // event, and the capsule can outlive this page (OK-59934).
+          await beginStageBurst({
+            connectId,
+            deviceType: item.device?.deviceType ?? undefined,
+            deviceName: item.device?.name ?? undefined,
+          });
           if (platformEnv.isNativeIOS) {
             await hardwareUiStateDialogLifecycle.openAndWait(
               showCheckingDeviceDialog,
@@ -1138,6 +1150,8 @@ function ConnectYourDevicePage({
           console.error('connectDevice error:', get(error, 'message', ''));
         }
       } finally {
+        // The preflight is over either way — the stage leaves with it.
+        void endStageBurst();
         if (!checkingDialogClosed) {
           if (platformEnv.isNativeIOS && checkingDialogOpened) {
             try {
@@ -1156,7 +1170,7 @@ function ConnectYourDevicePage({
         }
       }
     },
-    [navigation],
+    [beginStageBurst, endStageBurst, navigation],
   );
 
   let content = (
