@@ -402,6 +402,7 @@
   },
   "resolutions": {
     "@cspell/dict-data-science": "2.0.13",
+    "@ungap/structured-clone@^1.3.0": "1.3.3",
     "lodash": "4.18.1",
     "@alephium/get-extension-wallet": "3.0.4",
     "@alephium/walletconnect-provider": "3.0.4",
@@ -473,7 +474,7 @@
     "viem": "2.37.6",
     "tmp": "0.2.4",
     "node-abi": "3.94.0",
-    "node-forge": "1.3.3",
+    "node-forge": "1.4.0",
     "expo": "57.0.16",
     "react-native-svg": "15.15.4",
     "cross-env": "7.0.3",
@@ -483,6 +484,9 @@
     "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.90",
     "@onekeyfe/react-native-ble-utils": "0.1.6",
     "@isaacs/brace-expansion": "5.0.1",
+    "minimatch@^10.2.2": "10.2.6",
+    "ws@^7.5.10": "7.5.11",
+    "yaml@^2.6.1": "2.9.0",
     "fast-xml-parser": "4.5.4",
     "shell-quote": "1.8.4"
   }
