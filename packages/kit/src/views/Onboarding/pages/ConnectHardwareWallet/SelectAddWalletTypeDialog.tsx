@@ -3,11 +3,8 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function SelectAddWalletTypeDialogContent({
   onAddStandardWalletPress,
@@ -84,26 +81,10 @@ export function useSelectAddWalletTypeDialog() {
   const showSelectAddWalletTypeDialog = useCallback(async (): Promise<
     'Standard' | 'Hidden' | undefined
   > => {
-    // iOS-only: wait until the hardware Sheet has left the main runtime's
-    // FullWindowOverlay before mounting another Sheet. The background atom
-    // write can finish before the main runtime commits the close, so a fixed
-    // delay can still leave the old overlay intercepting touches.
-    // OK-59934: the DeviceStage is not the legacy DialogContainer — it does
-    // not remount per action and never steals taps, so the close-and-wait
-    // below (which would also break the burst) is only for the old surface.
-    const deviceStageEnabled =
-      await backgroundApiProxy.serviceHardwareUI.isDeviceStageEnabled();
-    if (platformEnv.isNativeIOS && !deviceStageEnabled) {
-      await hardwareUiStateDialogLifecycle.closeAndWait(() =>
-        backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: undefined,
-          skipDeviceCancel: true,
-          skipDelayClose: true,
-          reason: 'open SelectAddWalletTypeDialog',
-        }),
-      );
-    }
-
+    // OK-59934: the hardware interaction now plays on the DeviceStage,
+    // which lives in its own portal, never remounts per action and never
+    // intercepts taps — so the iOS dismiss-and-wait this used to need is
+    // gone (it would also have broken the burst holding the flow).
     return new Promise((resolve) => {
       const onCloseFn = async () => {
         setIsLoading(false);
