@@ -286,7 +286,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
 
-  it('uses the requested connectId for throttling', async () => {
+  it('uses the DB connectId for throttling after transport resolution', async () => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
       connectId: 'ONEKEY_USB_ID',
@@ -316,7 +316,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     });
     service.detectMap.firstDetectAt =
       Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
-    service.detectMap.detectMapCache.ONEKEY_BLE_ID = {
+    service.detectMap.detectMapCache.ONEKEY_USB_ID = {
       lastDetectAt: Date.now(),
     };
 
@@ -671,9 +671,9 @@ describe('ServiceFirmwareUpdate.checkAllFirmwareRelease detect status', () => {
 
     await expect(
       service.checkAllFirmwareRelease({
-        connectId: 'PRO2_USB_ID',
+        connectId: 'PRO2_BLE_ID',
         firmwareType: undefined,
-        resolvedTransportType: EHardwareTransportType.WEBUSB,
+        resolvedTransportType: EHardwareTransportType.DesktopWebBle,
         skipCancel: true,
       }),
     ).resolves.toEqual(expect.objectContaining({ hasUpgrade: true }));
@@ -713,6 +713,31 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
       requestedConnectId: 'DEVICE_USB',
       resolved: false,
       status: undefined,
+    });
+  });
+
+  it('clears the DB connectId when given a transport connectId', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'DEVICE_USB',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+    } as IDBDevice);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const deleteUpdateInfo = jest
+      .spyOn(service.detectMap, 'deleteUpdateInfo')
+      .mockResolvedValue(undefined);
+
+    await (
+      service as unknown as {
+        deleteFirmwareUpdateDetectInfo: (connectId: string) => Promise<void>;
+      }
+    ).deleteFirmwareUpdateDetectInfo('DEVICE_BLE');
+
+    expect(deleteUpdateInfo).toHaveBeenCalledWith({
+      connectId: 'DEVICE_USB',
     });
   });
 
