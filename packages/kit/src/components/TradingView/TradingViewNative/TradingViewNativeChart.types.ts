@@ -24,11 +24,18 @@ export interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  extendTimeAxisBorderToCanvasEdge?: boolean;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
+  priceAxisFontSize?: number;
+  priceAxisTickCount?: number;
+  showLegend?: boolean;
+  timeAxisFontSize?: number;
+  timeAxisHeight?: number;
+  timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
