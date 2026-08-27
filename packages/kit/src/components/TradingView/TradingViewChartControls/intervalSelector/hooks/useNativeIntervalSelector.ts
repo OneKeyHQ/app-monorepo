@@ -9,9 +9,9 @@ import {
   MAX_PREFERRED_INTERVAL_COUNT,
   MAX_VISIBLE_INTERVAL_COUNT,
   formatIntervalOptionDisplayLabel,
-  getAllIntervalOptions,
   getDefaultPreferredIntervalValues,
   getOptionsByValues,
+  getOrderedIntervalOptions,
   isIntervalOptionDisabled,
   normalizeIntervalOptions,
   readStoredPreferredIntervalValues,
@@ -112,7 +112,7 @@ export function useNativeIntervalSelector({
   );
 
   const dialogOptions = useMemo(
-    () => getAllIntervalOptions(options),
+    () => getOrderedIntervalOptions(options),
     [options],
   );
 

@@ -886,7 +886,7 @@ export function CalendarPanelPopover({
       onOpenChange={handleOpenChange}
       showHeader={false}
       usingSheet={false}
-      placement="bottom-end"
+      placement="bottom-start"
       floatingPanelProps={{
         width: 328,
       }}
