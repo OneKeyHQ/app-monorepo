@@ -114,6 +114,9 @@ export interface IMarketTradingViewProps {
   ) => void;
   maxSelectableSubIndicatorCount?: number;
   forceCandlestickChart?: boolean;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export const MarketTradingView = memo(
@@ -141,6 +144,9 @@ export const MarketTradingView = memo(
     onNativeSubIndicatorCountChange,
     maxSelectableSubIndicatorCount,
     forceCandlestickChart,
+    onChartError,
+    onChartReady,
+    onVisualReady,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -193,6 +199,9 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
+        onChartError={onChartError}
+        onChartReady={onChartReady}
+        onVisualReady={onVisualReady}
         disabledFeatures={
           forceCandlestickChart
             ? STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES

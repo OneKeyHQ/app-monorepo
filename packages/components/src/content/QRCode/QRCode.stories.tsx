@@ -35,8 +35,9 @@ export const WithLogo: Story = {
   },
 };
 
-// 'line' is the pre-OK-59643 style, kept as a rollback escape hatch. No
-// production caller passes it any more.
+// 'line' is the pre-OK-59643 style. Static codes stay dot, but air-gap UR
+// codes default back to line because some hardware scanners cannot reliably
+// decode dots.
 export const LineStyle: Story = {
   args: {
     drawType: 'line',
