@@ -92,6 +92,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  hasAuthoritativeV1DeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
   projectLegacyDeviceFeaturesFromState,
@@ -5224,22 +5225,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           );
           const hasSdkEventOrder =
             sdkInstanceEpoch !== undefined && sdkEventSequence !== undefined;
-          // An explicit V1 firmware read-back has no SDK event order. Equal
-          // metadata is still authoritative when valid device versions differ.
-          const hasEqualMetadataV1VersionChange = Boolean(
-            currentState &&
-            state.protocol === 'V1' &&
-            source === 'device-info' &&
-            changedKeys.length === 0 &&
-            Object.entries(state.versions).some(
-              ([field, value]) =>
-                typeof value === 'string' &&
-                value.length > 0 &&
-                value !== '0.0.0' &&
-                (currentState.versions as Record<string, unknown>)[field] !==
-                  value,
-            ),
-          );
+          const hasEqualMetadataV1VersionChange =
+            hasAuthoritativeV1DeviceInfoVersionChange({
+              currentState,
+              incomingState: state,
+              changedKeys,
+              source,
+            });
           const isStaleSdkEvent = Boolean(
             hasSdkEventOrder &&
             currentEventOrder &&

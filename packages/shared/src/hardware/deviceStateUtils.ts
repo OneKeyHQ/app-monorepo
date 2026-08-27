@@ -39,6 +39,32 @@ export function hasDeviceStateIdentityMismatch({
   );
 }
 
+export function hasAuthoritativeV1DeviceInfoVersionChange({
+  currentState,
+  incomingState,
+  changedKeys,
+  source,
+}: {
+  currentState?: IOneKeyDeviceState;
+  incomingState: IOneKeyDeviceState;
+  changedKeys: string[];
+  source?: string;
+}) {
+  return Boolean(
+    currentState &&
+    incomingState.protocol === 'V1' &&
+    source === 'device-info' &&
+    changedKeys.length === 0 &&
+    Object.entries(incomingState.versions).some(
+      ([field, value]) =>
+        typeof value === 'string' &&
+        value.length > 0 &&
+        value !== '0.0.0' &&
+        (currentState.versions as Record<string, unknown>)[field] !== value,
+    ),
+  );
+}
+
 function sanitizeState(state: IOneKeyDeviceState) {
   const nextState = cloneDeep(state);
   delete (nextState as unknown as { raw?: unknown }).raw;

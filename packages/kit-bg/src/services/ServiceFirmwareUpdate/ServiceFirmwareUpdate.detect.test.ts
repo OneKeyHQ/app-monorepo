@@ -1502,6 +1502,103 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     );
     expect(waitSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('reads the current V1 firmware state before persisting post-update compatibility info', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
+    const getDeviceState = jest.fn().mockResolvedValue(undefined);
+    const updateDeviceVersionAfterFirmwareUpdate = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const waitDeviceRestart = jest.fn().mockResolvedValue(undefined);
+    const withWorkflowArtifacts = jest.fn(
+      async (
+        _releaseResult: ICheckAllFirmwareReleaseResult,
+        execute: (artifacts: undefined) => Promise<void>,
+      ) => execute(undefined),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<void>) => callback(),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          setForceTransportType: jest.fn().mockResolvedValue(undefined),
+          clearForceTransportType: jest.fn().mockResolvedValue(undefined),
+          getDeviceState,
+          updateDeviceVersionAfterFirmwareUpdate,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({ artifacts: { withWorkflowArtifacts } });
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateUSBConnection').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateFullResource')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMinVersionAllowed')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateDeviceBattery').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateBridge')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'updateTasksClear').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'waitDeviceRestart')
+      .mockImplementation(waitDeviceRestart);
+    jest
+      .spyOn(
+        service as unknown as {
+          deleteFirmwareUpdateDetectInfo: (connectId: string) => Promise<void>;
+        },
+        'deleteFirmwareUpdateDetectInfo',
+      )
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'clearOnceUpdateDevSettings')
+      .mockResolvedValue(undefined);
+
+    await service.startUpdateWorkflow({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Classic,
+        originalConnectId: 'CLASSIC_USB',
+        updateInfos: {},
+      },
+    } as never);
+
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'CLASSIC_USB',
+      params: { scope: 'firmware' },
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      silentMode: true,
+    });
+    expect(waitDeviceRestart.mock.invocationCallOrder[0]).toBeLessThan(
+      getDeviceState.mock.invocationCallOrder[0],
+    );
+    expect(getDeviceState.mock.invocationCallOrder[0]).toBeLessThan(
+      updateDeviceVersionAfterFirmwareUpdate.mock.invocationCallOrder[0],
+    );
+  });
 });
 
 describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {

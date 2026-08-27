@@ -2439,6 +2439,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     actionType: 'done',
                     releaseResult: params.releaseResult,
                   });
+                  try {
+                    await this.backgroundApi.serviceHardware.getDeviceState({
+                      connectId: params.releaseResult.originalConnectId,
+                      params: { scope: 'firmware' },
+                      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                      silentMode: true,
+                    });
+                  } catch (error) {
+                    serviceHardwareUtils.hardwareLog(
+                      'refresh firmware state after update ERROR',
+                      error,
+                    );
+                  }
                   await this.deleteFirmwareUpdateDetectInfo(
                     params.releaseResult.originalConnectId,
                   );
