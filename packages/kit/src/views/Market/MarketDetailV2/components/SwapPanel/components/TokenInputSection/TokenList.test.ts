@@ -1,72 +1,132 @@
-import {
-  resolveTokenDetailsLoading,
-  shouldShowValueSortedTokenListSkeleton,
-} from './TokenList';
+/** @jest-environment jsdom */
+
+import { createElement } from 'react';
+import type { ReactNode } from 'react';
+
+import { render, screen } from '@testing-library/react';
+
+import { TokenList } from './TokenList';
+
+const mockUseActiveAccount = jest.fn();
+const mockUsePromiseResult = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
 jest.mock('@onekeyhq/components', () => ({
-  Skeleton: () => null,
-  YStack: () => null,
+  Skeleton: () => createElement('div', { 'data-testid': 'skeleton' }),
+  YStack: ({ children }: { children?: ReactNode }) =>
+    createElement('div', null, children),
 }));
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: () => null,
+  ListItem: ({ children }: { children?: ReactNode }) =>
+    createElement('div', null, children),
 }));
 jest.mock('@onekeyhq/kit/src/components/TokenListItem', () => ({
-  TokenListItem: () => null,
+  TokenListItem: () => createElement('div', { 'data-testid': 'token-row' }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: jest.fn(),
+  usePromiseResult: (...args: unknown[]): unknown => {
+    const result: unknown = mockUsePromiseResult(...args);
+    return result;
+  },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: jest.fn(),
+  useActiveAccount: (): unknown => {
+    const result: unknown = mockUseActiveAccount();
+    return result;
+  },
 }));
 jest.mock('./SwitchToTradePrompt', () => ({
   SwitchToTradePrompt: () => null,
 }));
 
 describe('TokenList loading gate', () => {
-  const settledParams = {
-    activeAccountReady: true,
-    networkAccountId: 'account-1',
-    networkAccountLoading: false,
-    shouldFetchTokenDetails: true,
-    tokenDetailsAccountId: 'account-1',
-    tokenDetailsRequestLoading: false,
+  const token = {
+    contractAddress: '0xtoken',
+    decimals: 18,
+    networkId: 'evm--1',
+    speedSwapDefaultAmount: [],
+    symbol: 'TOKEN',
   };
 
-  it('keeps the skeleton visible until the active account is ready', () => {
-    expect(
-      resolveTokenDetailsLoading({
-        ...settledParams,
-        activeAccountReady: false,
-        networkAccountId: undefined,
-        tokenDetailsAccountId: undefined,
+  function renderTokenList({
+    activeAccountReady,
+    networkAccountId,
+    sortTokensByValue = true,
+    tokenDetailsAccountId,
+  }: {
+    activeAccountReady: boolean;
+    networkAccountId?: string;
+    sortTokensByValue?: boolean;
+    tokenDetailsAccountId?: string;
+  }) {
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount: { ready: activeAccountReady },
+    });
+    mockUsePromiseResult
+      .mockReturnValueOnce({
+        isLoading: false,
+        result: networkAccountId ? { id: networkAccountId } : null,
+      })
+      .mockReturnValueOnce({
+        isLoading: false,
+        result: {
+          accountId: tokenDetailsAccountId,
+          tokens: [token],
+        },
+      });
+
+    render(
+      createElement(TokenList, {
+        onTradePress: jest.fn(),
+        sortTokensByValue,
+        tokens: [token],
       }),
-    ).toBe(true);
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps the skeleton visible until the active account is ready', () => {
+    renderTokenList({ activeAccountReady: false });
+
+    expect(screen.getAllByTestId('skeleton')).not.toHaveLength(0);
+    expect(screen.queryByTestId('token-row')).toBeNull();
   });
 
   it('keeps the skeleton visible while token details belong to another account', () => {
-    expect(
-      resolveTokenDetailsLoading({
-        ...settledParams,
-        tokenDetailsAccountId: 'account-2',
-      }),
-    ).toBe(true);
+    renderTokenList({
+      activeAccountReady: true,
+      networkAccountId: 'account-1',
+      tokenDetailsAccountId: 'account-2',
+    });
+
+    expect(screen.getAllByTestId('skeleton')).not.toHaveLength(0);
+    expect(screen.queryByTestId('token-row')).toBeNull();
   });
 
   it('shows settled value-sorted rows only after account and requests align', () => {
-    expect(resolveTokenDetailsLoading(settledParams)).toBe(false);
+    renderTokenList({
+      activeAccountReady: true,
+      networkAccountId: 'account-1',
+      tokenDetailsAccountId: 'account-1',
+    });
+
+    expect(screen.queryByTestId('skeleton')).toBeNull();
+    expect(screen.getByTestId('token-row')).toBeTruthy();
   });
 
   it('does not gate fixed-order token lists', () => {
-    expect(
-      shouldShowValueSortedTokenListSkeleton({
-        isTokenDetailsLoading: true,
-        sortTokensByValue: false,
-      }),
-    ).toBe(false);
+    renderTokenList({
+      activeAccountReady: false,
+      sortTokensByValue: false,
+    });
+
+    expect(screen.queryByTestId('skeleton')).toBeNull();
+    expect(screen.getByTestId('token-row')).toBeTruthy();
   });
 });
