@@ -1,67 +1,53 @@
-import {
-  DashText,
-  Dialog,
-  Icon,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
 
-// TODO(data): the protections payload is not exposed by the token variant API
-// yet, so the dialog ships with the design's demo rows (Figma 25348:103122).
-// Replace PROTECTION_ROWS with the backend payload once it lands.
+import { STAT_FALLBACK_VALUE } from '../../utils/statValue';
+
+// TODO(data): the token variant API does not expose a protections payload yet.
+// The rows below are only the structural catalogue of protection categories
+// from the design (Figma 25348:103122); the layout is in place, but every value
+// renders as the standard fallback until the backend ships the per-issuer
+// payload. These guarantees differ by issuer, so they must never be asserted
+// from static data.
 const PROTECTIONS_TITLE = 'Tokenholder Protections';
 
+// `kind` records how a row is meant to render once the payload lands: `flag`
+// rows resolve to a yes/no state, `report` rows to an attestation link.
 type IProtectionRow = {
   key: string;
   label: string;
-  tooltip?: string;
-} & (
-  | { kind: 'flag'; enabled: boolean }
-  | { kind: 'report'; reportLabel: string; onPress?: () => void }
-);
+  kind: 'flag' | 'report';
+};
 
 const PROTECTION_ROWS: IProtectionRow[] = [
   {
     key: 'realAssetBacking',
     kind: 'flag',
     label: 'Real Asset Backing',
-    tooltip:
-      'Each token is backed 1:1 by the underlying share held in custody.',
-    enabled: true,
   },
   {
     key: 'dividendReinvestment',
     kind: 'flag',
     label: 'Dividend Reinvestment',
-    tooltip: 'Dividends are reinvested into the underlying position.',
-    enabled: true,
   },
   {
     key: 'collateral',
     kind: 'flag',
     label: 'Security Interest in Collateral',
-    tooltip: 'Tokenholders hold a security interest in the collateral.',
-    enabled: true,
   },
   {
     key: 'bankruptcyRemote',
     kind: 'flag',
     label: 'Bankruptcy remote',
-    tooltip: 'Collateral sits in a bankruptcy-remote vehicle.',
-    enabled: true,
   },
   {
     key: 'dailyAttestation',
     kind: 'report',
     label: 'Daily attestation reports',
-    reportLabel: 'View Report',
   },
   {
     key: 'monthlyAttestation',
     kind: 'report',
     label: 'Monthly attestation reports',
-    reportLabel: 'View Report',
   },
 ];
 
@@ -69,50 +55,19 @@ function ProtectionRow({ row }: { row: IProtectionRow }) {
   return (
     <XStack minHeight={20} alignItems="center" gap="$2">
       <XStack flex={1} minWidth={0} gap="$1" alignItems="center">
-        {row.tooltip ? (
-          <DashText
-            size="$bodyMdMedium"
-            color="$textSubdued"
-            dashThickness={0.5}
-            tooltip={row.tooltip}
-            tooltipTitle={row.label}
-          >
-            {row.label}
-          </DashText>
-        ) : (
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {row.label}
-          </SizableText>
-        )}
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {row.label}
+        </SizableText>
       </XStack>
-      {row.kind === 'flag' ? (
-        <XStack gap="$1.5" alignItems="center">
-          <SizableText
-            size="$bodyMd"
-            color={row.enabled ? '$textSuccess' : '$textSubdued'}
-          >
-            {row.enabled ? 'Yes' : 'No'}
-          </SizableText>
-          <Icon
-            name={row.enabled ? 'CheckRadioSolid' : 'XCircleSolid'}
-            size="$5"
-            color={row.enabled ? '$iconSuccess' : '$iconSubdued'}
-          />
-        </XStack>
-      ) : (
-        <XStack
-          gap="$1.5"
-          alignItems="center"
-          cursor={row.onPress ? 'pointer' : undefined}
-          hoverStyle={row.onPress ? { opacity: 0.8 } : undefined}
-          onPress={row.onPress}
-        >
-          <SizableText size="$bodyMd" color="$text">
-            {row.reportLabel}
-          </SizableText>
-          <Icon name="OpenOutline" size="$5" color="$iconSubdued" />
-        </XStack>
-      )}
+      <SizableText
+        testID={`stock-protection-value-${row.key}`}
+        size="$bodyMdMedium"
+        color="$textSubdued"
+        textAlign="right"
+        flexShrink={0}
+      >
+        {STAT_FALLBACK_VALUE}
+      </SizableText>
     </XStack>
   );
 }

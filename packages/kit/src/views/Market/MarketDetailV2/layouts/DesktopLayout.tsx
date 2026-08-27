@@ -273,20 +273,18 @@ export function DesktopLayout({
   );
   // The stock detail layout has no toolbar row of its own in Pro: it lays the
   // Simple/Pro switch over the trailing edge of this widget's control row
-  // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
-  // own trailing controls — the chart-source dropdown and the expand toggle —
-  // are dropped there to make room for it. Every other assembly keeps both.
+  // (Figma 25476:88969, which shows that row ending in Simple/Pro). Only the
+  // chart-source dropdown gives up its slot for that; the expand toggle stays,
+  // because it is the sole way into fullscreen on this page, and the overlay is
+  // offset to clear it (STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET there).
   // Gated on the same condition that renders StockDesktopLayout, minus
-  // fullscreen: only that layout overlays the switch, and in fullscreen the
-  // expand toggle is the way back out, so it has to stay.
-  const hideChartTrailingControls =
+  // fullscreen: only that layout overlays the switch, and fullscreen gives the
+  // row its dropdown back.
+  const hideChartSourceControl =
     shouldUseStockDesktopLayout && !isChartFullscreen;
-  const stockAwareChartSwitch = hideChartTrailingControls
+  const stockAwareChartSwitch = hideChartSourceControl
     ? undefined
     : onChartSwitch;
-  const stockAwareFullscreenChange = hideChartTrailingControls
-    ? undefined
-    : handleChartFullscreenChange;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ? (
@@ -304,9 +302,9 @@ export function DesktopLayout({
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the
           // plot's leading edge instead of sitting over it.
-          nativeControlsFlushHorizontalInset={hideChartTrailingControls}
+          nativeControlsFlushHorizontalInset={hideChartSourceControl}
           onChartSwitch={stockAwareChartSwitch}
-          onNativeChartFullscreenChange={stockAwareFullscreenChange}
+          onNativeChartFullscreenChange={handleChartFullscreenChange}
         />
       ) : null;
     }
@@ -332,19 +330,19 @@ export function DesktopLayout({
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
         onChartSwitch={stockAwareChartSwitch}
-        onNativeChartFullscreenChange={stockAwareFullscreenChange}
+        onNativeChartFullscreenChange={handleChartFullscreenChange}
       />
     );
   }, [
+    handleChartFullscreenChange,
     handleTradingViewTouchScroll,
-    hideChartTrailingControls,
+    hideChartSourceControl,
     isChartFullscreen,
     isTradingViewNative,
     shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
     stockAwareChartSwitch,
-    stockAwareFullscreenChange,
     tradingViewNativeSource,
   ]);
 

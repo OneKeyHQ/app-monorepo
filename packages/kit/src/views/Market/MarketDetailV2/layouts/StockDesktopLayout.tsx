@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -85,6 +85,11 @@ const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 // block, so one offset puts the switch on the widget's line in Pro and leaves
 // it in exactly the same place when the mode is toggled.
 const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
+// The widget's control row keeps its own expand toggle at the trailing edge in
+// Pro, so the switch stops short of it: a small tertiary IconButton is a 20px
+// icon in 4px padding, and the overlay's own right padding draws the gap
+// between the two opaquely.
+const STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET = 28;
 
 const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
   '1H',
@@ -602,12 +607,14 @@ function StockChart({
               testID="stock-chart-mode-control-pro"
               position="absolute"
               top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
-              right={0}
+              right={STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET}
               // The widget's control row is a horizontal scroller that now runs
               // the full width; an opaque backdrop keeps a long toolbar from
-              // showing through the switch instead of ending behind it.
+              // showing through the switch instead of ending behind it, and
+              // covers the gap kept clear for the expand toggle.
               bg="$bgApp"
               pl="$2"
+              pr="$2"
               zIndex={4}
             >
               <StockChartModeControl mode={mode} onChange={setMode} />
@@ -1227,11 +1234,22 @@ export function StockDesktopLayout({
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
 }) {
+  const { stockId } = useStockDetail();
   const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
   const handlePriceModeChange = useCallback(
     (source: IMarketPriceSource) => setPriceSource({ source }),
     [setPriceSource],
   );
+  // The price source atom is global and outlives this page, so a Token Price
+  // selection would otherwise leak into the next stock opened. Every per-stock
+  // entry resets to the share price the page is named after. Keyed on stockId
+  // only (never on priceMode) so switching the toggle within one stock does not
+  // re-trigger the reset.
+  useEffect(() => {
+    setPriceSource((prev) =>
+      prev.source === 'share' ? prev : { source: 'share' },
+    );
+  }, [stockId, setPriceSource]);
   // Lives here rather than inside the chart so the price header above it can
   // follow the crosshair; the chart clears it on pointer-out and on unmount.
   const [chartHoverPoint, setChartHoverPoint] = useState<

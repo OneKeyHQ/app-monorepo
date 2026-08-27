@@ -64,6 +64,56 @@ const mockVariants: IMarketStockTokenVariant[] = [
   },
 ];
 
+// One contract address deployed on two chains. EVM issuers reach the same
+// address on several chains routinely, and this is the shape that makes an
+// address-only portfolio lookup paint one chain's balance onto the other
+// chain's row.
+const sameAddressVariants: IMarketStockTokenVariant[] = [
+  {
+    tokenId: 'aapl-ethereum',
+    issuer: 'ondo',
+    issuerLogoUrl: 'https://example.com/ondo.png',
+    symbol: 'AAPLon',
+    name: 'Apple Token',
+    logoUrl: 'https://example.com/aapl.png',
+    networkId: 'evm--1',
+    networkName: 'Ethereum',
+    networkLogoUrl: 'https://example.com/ethereum.png',
+    contractAddress: '0xSAME',
+    price: '311.29',
+    currency: 'USD',
+    status: 'active',
+    tradingEnabled: true,
+  },
+  {
+    tokenId: 'aapl-base',
+    issuer: 'ondo',
+    issuerLogoUrl: 'https://example.com/ondo.png',
+    symbol: 'AAPLon',
+    name: 'Apple Token',
+    logoUrl: 'https://example.com/aapl.png',
+    networkId: 'evm--8453',
+    networkName: 'Base',
+    networkLogoUrl: 'https://example.com/base.png',
+    // Same address, different casing, different chain.
+    contractAddress: '0xsame',
+    price: '311.85',
+    currency: 'USD',
+    status: 'active',
+    tradingEnabled: true,
+  },
+];
+
+const mockStockDetailState: {
+  tokenVariants: IMarketStockTokenVariant[];
+  selectedTokenId: string;
+  portfolioNetworkId?: string;
+} = {
+  tokenVariants: mockVariants,
+  selectedTokenId: mockVariants[0].tokenId,
+  portfolioNetworkId: mockVariants[0].networkId,
+};
+
 // NetworkAvatarBase transitively pulls backgroundApiProxy, which cannot
 // initialize inside jsdom — stub it like other suites do.
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
@@ -142,13 +192,16 @@ jest.mock('../../hooks/StockDetailContext', () => ({
   isStockTokenVariantTradable: (variant: IMarketStockTokenVariant) =>
     Boolean(variant.tradingEnabled && variant.status === 'active'),
   useStockDetail: () => ({
-    tokenVariants: mockVariants,
+    tokenVariants: mockStockDetailState.tokenVariants,
     isTokenVariantsLoading: false,
-    selectedTokenId: mockVariants[0].tokenId,
-    selectedTokenVariant: mockVariants[0],
+    selectedTokenId: mockStockDetailState.selectedTokenId,
+    selectedTokenVariant: mockStockDetailState.tokenVariants.find(
+      (item) => item.tokenId === mockStockDetailState.selectedTokenId,
+    ),
     setSelectedTokenId: setSelectedTokenIdMock,
     isTokenVariantsError: false,
     retryTokenVariants: jest.fn(),
+    portfolioNetworkId: mockStockDetailState.portfolioNetworkId,
   }),
 }));
 
@@ -156,6 +209,9 @@ describe('StockTokenVariantSelector', () => {
   beforeEach(() => {
     setSelectedTokenIdMock.mockReset();
     closePopoverMock.mockReset();
+    mockStockDetailState.tokenVariants = mockVariants;
+    mockStockDetailState.selectedTokenId = mockVariants[0].tokenId;
+    mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
   });
 
   it('renders backend variants and selects a token by tokenId', () => {
@@ -199,5 +255,71 @@ describe('StockTokenVariantSelector', () => {
 
     expect(setSelectedTokenIdMock).not.toHaveBeenCalled();
     expect(closePopoverMock).not.toHaveBeenCalled();
+  });
+
+  describe('balance attribution', () => {
+    const position = (tokenAddress: string, amount: string) => [
+      {
+        accountAddress: '0xaccount',
+        tokenAddress,
+        amount,
+        symbol: 'AAPLon',
+        tokenPrice: '311.29',
+        totalPrice: '3891.125',
+      },
+    ];
+
+    it('never lends the fetched balance to a same-address variant on another chain', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      render(
+        <StockTokenVariantSelector
+          portfolioData={position('0xSAME', '12.5')}
+        />,
+      );
+
+      // The row the portfolio was actually fetched for keeps its balance.
+      const scopedRow = screen.getByTestId('stock-token-variant-row-0');
+      expect(within(scopedRow).getByText('12.5')).toBeTruthy();
+
+      // The Base row shares the contract address but not the chain, and the
+      // payload carries no networkId to tell them apart — so it must fall back
+      // to `--` rather than borrow the Ethereum balance.
+      const otherChainRow = screen.getByTestId('stock-token-variant-row-1');
+      expect(within(otherChainRow).queryByText('12.5')).toBeNull();
+      expect(within(otherChainRow).getAllByText('--')).toHaveLength(1);
+    });
+
+    it('shows no balance at all when the selected variant left the portfolio network', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-base';
+      // Selecting a variant does not move the page's portfolio scope, which
+      // stays on the stock route's network.
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      render(
+        <StockTokenVariantSelector
+          portfolioData={position('0xSAME', '12.5')}
+        />,
+      );
+
+      expect(screen.queryByText('12.5')).toBeNull();
+      expect(screen.getAllByText('--')).toHaveLength(2);
+    });
+
+    it('ignores a portfolio payload that still describes the previous variant', () => {
+      // The portfolio poll lags a variant switch, so the payload in hand can
+      // still be the one fetched for the variant the user just left.
+      mockStockDetailState.selectedTokenId = 'aapl-bsc';
+      mockStockDetailState.portfolioNetworkId = 'evm--56';
+
+      render(
+        <StockTokenVariantSelector portfolioData={position('0x01', '0.001')} />,
+      );
+
+      expect(screen.queryByText('0.001')).toBeNull();
+    });
   });
 });

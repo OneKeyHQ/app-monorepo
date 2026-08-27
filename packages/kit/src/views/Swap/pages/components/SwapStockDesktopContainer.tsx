@@ -36,7 +36,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import {
+  type IStockPriceLineChartHoverPoint,
+  StockPriceLineChart,
+} from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -1459,9 +1462,14 @@ function StockMarketTokenHeader({
   channelStage,
   storeName,
   proAligned,
+  hoverPoint,
 }: {
   channelStage: ESwapStockChannelStage;
   storeName: EJotaiContextStoreNames;
+  // Set while the pointer scrubs the price chart below. The crosshair label
+  // inside the plot only answers "when", so the price line here is what shows
+  // the figure under the cursor (same contract as the stock detail page).
+  hoverPoint?: IStockPriceLineChartHoverPoint;
   // The mobile layout passes true so the header visually matches Pro mode's
   // token selector (see SwapProTokenSelect): symbol at $headingLg with a
   // 160px cap, and intrinsic row height instead of the fixed $13 so the
@@ -1504,10 +1512,16 @@ function StockMarketTokenHeader({
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
   const priceChange24hPercent = tokenDetail?.priceChange24hPercent;
-  const hasPriceChange24hPercent =
-    priceChange24hPercent !== undefined &&
-    priceChange24hPercent !== null &&
-    priceChange24hPercent !== '';
+  // Scrubbing redirects both figures at once: the hovered price, and the move
+  // measured from the first point of the visible range rather than the live 24h
+  // figure, so the two never describe different moments.
+  const displayPriceChangePercent = hoverPoint
+    ? hoverPoint.changePercent
+    : priceChange24hPercent;
+  const hasDisplayPriceChangePercent =
+    displayPriceChangePercent !== undefined &&
+    displayPriceChangePercent !== null &&
+    displayPriceChangePercent !== '';
   const tokenSubtitle = getStockMarketTokenSubtitle({
     currentStockSubtitle: selectedStock?.subtitle,
     tokenDetailStockSubtitle: stock?.subtitle,
@@ -1631,7 +1645,20 @@ function StockMarketTokenHeader({
         {tokenInfoContent}
       </XStack>
       <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
-        {tokenDetail ? (
+        {hoverPoint ? (
+          <NumberSizeableText
+            testID={SwapTestIDs.stockChartHoverPrice}
+            size="$bodyLg"
+            color="$text"
+            numberOfLines={1}
+            textAlign="right"
+            formatter="price"
+            formatterOptions={{ currency: '$' }}
+          >
+            {hoverPoint.price}
+          </NumberSizeableText>
+        ) : null}
+        {!hoverPoint && tokenDetail ? (
           <BaseMarketTokenPrice
             size="$bodyLg"
             color="$text"
@@ -1643,14 +1670,15 @@ function StockMarketTokenHeader({
             lastUpdated={String(tokenDetail.lastUpdated ?? '')}
             currency="$"
           />
-        ) : (
+        ) : null}
+        {!hoverPoint && !tokenDetail ? (
           <SizableText size="$bodyLg" color="$textSubdued">
             --
           </SizableText>
-        )}
-        {hasPriceChange24hPercent ? (
+        ) : null}
+        {hasDisplayPriceChangePercent ? (
           <PriceChangePercentage size="$bodySm">
-            {priceChange24hPercent}
+            {displayPriceChangePercent}
           </PriceChangePercentage>
         ) : (
           <SizableText size="$bodySm" color="$textSubdued">
@@ -1667,6 +1695,7 @@ function StockPriceChart({
   coinGeckoIdLoading,
   isNative,
   networkId,
+  onHoverChange,
   onRangeChange,
   pulseLastPoint,
   range,
@@ -1677,6 +1706,9 @@ function StockPriceChart({
   coinGeckoIdLoading: boolean;
   isNative?: boolean;
   networkId?: string;
+  // Reported straight through to the panel's price line; called with undefined
+  // when the pointer leaves the plot or the chart unmounts.
+  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
   onRangeChange: (range: IStockChartRange) => void;
   pulseLastPoint?: boolean;
   range: IStockChartRange;
@@ -1940,6 +1972,7 @@ function StockPriceChart({
         data={chartData}
         height={STOCK_CHART_VISIBLE_HEIGHT}
         pulseLastPoint={pulseLastPoint}
+        onHoverChange={onHoverChange}
       />
     );
   }
@@ -2169,6 +2202,12 @@ function StockMarketContextPanel({
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
+  // The panel owns the scrub state because the chart and the price line it
+  // redirects are siblings. The chart reports undefined on pointer-out and on
+  // unmount, so the live quote always comes back on its own.
+  const [chartHoverPoint, setChartHoverPoint] = useState<
+    IStockPriceLineChartHoverPoint | undefined
+  >(undefined);
   const chartReady =
     !!networkId && !!tokenDetail?.stock && !!tokenDetail?.symbol;
   const marketPanelLoading = isStockMarketPanelLoadingStage(
@@ -2189,6 +2228,7 @@ function StockMarketContextPanel({
         onRangeChange={setRange}
         pulseLastPoint={isMarketOpen}
         realtimeChartPoint={stockChannel.realtimeChartPoint}
+        onHoverChange={setChartHoverPoint}
       />
     );
   } else {
@@ -2220,6 +2260,7 @@ function StockMarketContextPanel({
       <StockMarketTokenHeader
         storeName={storeName}
         channelStage={stockChannel.channelStage}
+        hoverPoint={chartHoverPoint}
       />
 
       <Stack mt="$6">{chartContent}</Stack>

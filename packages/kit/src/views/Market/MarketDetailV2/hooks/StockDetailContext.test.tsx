@@ -8,16 +8,20 @@ import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
 import { StockDetailProvider, useStockDetail } from './StockDetailContext';
 
-jest.mock('@onekeyhq/components', () => ({
-  getCurrentVisibilityState: () => true,
-  onVisibilityStateChange: () => () => undefined,
-  useDeferredPromise: () => ({
-    promise: Promise.resolve(),
-    reset: jest.fn(),
-    resolve: jest.fn(),
-  }),
-  useNetInfo: () => ({ isRawInternetReachable: true }),
-}));
+jest.mock('@onekeyhq/components', () => {
+  // usePromiseResult parks the pending polling tick on this deferred promise
+  // while the route is blurred, so the focus tests below need the real
+  // implementation instead of an always-resolved stub.
+  const deferredPromiseModule =
+    // eslint-disable-next-line global-require, import/no-relative-packages, @typescript-eslint/no-var-requires
+    require('../../../../../../components/src/hooks/useDeferredPromise') as typeof import('@onekeyhq/components');
+  return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => undefined,
+    useDeferredPromise: deferredPromiseModule.useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -29,9 +33,57 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
-}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const ReactModule = require('react') as typeof import('react');
+  let currentFocus = true;
+  const listeners: Array<(value: boolean) => void> = [];
+
+  const __setFocus = (value: boolean) => {
+    if (currentFocus === value) return;
+    currentFocus = value;
+    listeners.slice().forEach((listener) => listener(value));
+  };
+  const __resetFocus = () => {
+    currentFocus = true;
+    listeners.slice().forEach((listener) => listener(true));
+  };
+
+  const useRouteIsFocused = () => {
+    const [value, setValue] = ReactModule.useState<boolean>(currentFocus);
+    ReactModule.useEffect(() => {
+      listeners.push(setValue);
+      setValue(currentFocus);
+      return () => {
+        const index = listeners.indexOf(setValue);
+        if (index >= 0) listeners.splice(index, 1);
+      };
+    }, []);
+    return value;
+  };
+
+  return { useRouteIsFocused, __setFocus, __resetFocus };
+});
+
+const focusControl = jest.requireMock(
+  '@onekeyhq/kit/src/hooks/useRouteIsFocused',
+) as {
+  __setFocus: (value: boolean) => void;
+  __resetFocus: () => void;
+};
+
+// Mirrors STOCK_DETAIL_POLLING_INTERVAL in StockDetailContext.tsx.
+const STOCK_DETAIL_POLLING_MS = 15 * 1000;
+
+// usePromiseResult defers its very first run through a setTimeout, so awaiting
+// microtasks alone would observe a not-yet-started request and report success
+// no matter how the focus gate is configured.
+const flushTaskQueues = () =>
+  act(async () => {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  });
 
 describe('StockDetailProvider', () => {
   const serviceMarketV2 = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
@@ -40,6 +92,7 @@ describe('StockDetailProvider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    focusControl.__resetFocus();
   });
 
   it('loads stock resources by stockId and selects the backend default token', async () => {
@@ -408,5 +461,140 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(2);
     expect(result.current.stockDetail?.stockId).toBe('AAPL');
     expect(result.current.isStockDetailError).toBe(false);
+  });
+
+  describe('route focus gating', () => {
+    const mockLoadedStock = () => {
+      serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+        categories: [],
+        aliases: [],
+      });
+      serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+        stockId: 'AAPL',
+        items: [],
+      });
+    };
+
+    it('holds the detail request while the route is blurred and issues it on focus', async () => {
+      mockLoadedStock();
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+      );
+      const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+      await flushTaskQueues();
+      await flushTaskQueues();
+
+      // `checkIsFocused` must stay at its default: a blurred route never starts
+      // the request, which is the same gate that keeps the polling loop parked.
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(0);
+
+      act(() => {
+        focusControl.__setFocus(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.stockDetail?.stockId).toBe('AAPL');
+      });
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(1);
+    });
+
+    it('parks the polling loop while blurred and resumes it on focus', async () => {
+      mockLoadedStock();
+      jest.useFakeTimers();
+
+      try {
+        const wrapper = ({ children }: PropsWithChildren) => (
+          <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+        );
+        renderHook(() => useStockDetail(), { wrapper });
+
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(0);
+        });
+        expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(1);
+
+        // Two polling windows with the page focused: the loop keeps ticking.
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(STOCK_DETAIL_POLLING_MS * 2);
+        });
+        const focusedCalls =
+          serviceMarketV2.fetchMarketStockDetail.mock.calls.length;
+        expect(focusedCalls).toBeGreaterThan(1);
+
+        act(() => {
+          focusControl.__setFocus(false);
+        });
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(STOCK_DETAIL_POLLING_MS * 4);
+        });
+
+        // The whole point of the fix: leaving the page behind in the navigation
+        // stack must stop the 15s quote refresh instead of running it forever.
+        expect(serviceMarketV2.fetchMarketStockDetail.mock.calls.length).toBe(
+          focusedCalls,
+        );
+
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(0);
+        });
+        const resumedCalls =
+          serviceMarketV2.fetchMarketStockDetail.mock.calls.length;
+        // Refocus re-fetches straight away — this is why `revalidateOnFocus` is
+        // not set: it would add a second polling chain for the same page.
+        expect(resumedCalls).toBeGreaterThan(focusedCalls);
+
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(STOCK_DETAIL_POLLING_MS * 2);
+        });
+        const afterResumeCalls =
+          serviceMarketV2.fetchMarketStockDetail.mock.calls.length;
+        // Exactly one chain is running again: two windows, two more ticks.
+        expect(afterResumeCalls - resumedCalls).toBe(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  it('exposes the network its portfolio data is scoped to', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL" initialNetworkId="evm--1">
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.portfolioNetworkId).toBe('evm--1');
+    });
   });
 });

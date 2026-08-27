@@ -126,8 +126,12 @@ export interface IMarketPriceSourceAtom {
 // tokenized instrument. Global state because more than one surface reads it —
 // the price header renders the figures and the chart has to plot the matching
 // series, otherwise the header and the chart contradict each other.
-// Deliberately not persisted: every visit starts on the share price the page
-// is named after.
+// Deliberately not persisted, so it never survives a restart. Not persisting is
+// not enough on its own: the atom is global and lives across navigations, so a
+// Token Price selection would carry into the next stock opened in the same
+// session. The stock detail page resets it to 'share' on entry and whenever the
+// stock changes (StockDesktopLayout), which is what makes every visit start on
+// the share price the page is named after.
 export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
   globalAtom<IMarketPriceSourceAtom>({
     persist: false,

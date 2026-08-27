@@ -31,6 +31,13 @@ type IStockDetailContextValue = {
   selectedTokenId?: string;
   selectedTokenVariant?: IMarketStockTokenVariant;
   setSelectedTokenId: (tokenId: string) => void;
+  // Network the detail page's account portfolio is fetched for. MarketDetailV2
+  // derives the token-detail store's `networkId` from the stock route's
+  // `network` param and never rewrites it when the user switches variant, so
+  // `usePortfolioData` is always scoped to this network. Consumers need it to
+  // tell whether a portfolio entry can legitimately belong to a given variant:
+  // `IMarketAccountPortfolioItem` carries no `networkId` of its own.
+  portfolioNetworkId?: string;
 };
 
 const StockDetailContext = createContext<IStockDetailContextValue>({
@@ -128,13 +135,17 @@ export function StockDetailProvider({
     [normalizedStockId],
     {
       watchLoading: true,
-      // Kept false so the first fetch still runs while a modal sits above the
-      // route; usePromiseResult already parks polling ticks while the app is
-      // in the background, so this does not keep a hidden page fetching.
-      // No `revalidateOnFocus` here on purpose: it only fires under
-      // `checkIsFocused`, and because polling never pauses on route blur the
-      // quote is already current by the time the page is focused again.
-      checkIsFocused: false,
+      // `checkIsFocused` stays at the repo default (true). It is what gates the
+      // polling loop: usePromiseResult parks the pending tick on its deferred
+      // promise while the route is blurred and releases it the moment focus
+      // returns. Setting it to false disables that whole effect, which is what
+      // kept this 15s quote refresh running for every stock detail page still
+      // sitting in the navigation stack.
+      //
+      // `revalidateOnFocus` is deliberately omitted. With `pollingInterval` set
+      // the parked tick already re-fetches immediately on refocus, while the
+      // focus-triggered run reuses the current polling nonce — so each
+      // blur/focus cycle would leave one more polling chain alive.
       pollingInterval: normalizedStockId
         ? STOCK_DETAIL_POLLING_INTERVAL
         : undefined,
@@ -175,10 +186,12 @@ export function StockDetailProvider({
     [normalizedStockId],
     {
       watchLoading: true,
+      // Same focus contract as the detail request above, and `revalidateOnFocus`
+      // is left off for the same reason: it would stack an extra polling chain
+      // on top of the one the focus gate already resumes.
       pollingInterval: normalizedStockId
         ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
         : undefined,
-      revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
@@ -280,8 +293,10 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       setSelectedTokenId: handleSetSelectedTokenId,
+      portfolioNetworkId: initialNetworkId,
     }),
     [
+      initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,
       handleSetSelectedTokenId,

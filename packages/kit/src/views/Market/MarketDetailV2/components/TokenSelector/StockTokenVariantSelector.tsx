@@ -62,13 +62,27 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
   return /^7\s*[x×]\s*24$/i.test(variant.tradingHours?.days?.trim() ?? '');
 }
 
+// `portfolioData` is a single-scope response: `usePortfolioData` queries the
+// account portfolio for exactly one (networkId, accountAddress, tokenAddress)
+// triple, the one the detail page is currently showing. Its items carry no
+// `networkId`, so matching a row on `tokenAddress` alone cannot prove the entry
+// belongs to that row's chain — and an issuer deploying the same contract
+// address on two EVM chains is enough to paint one chain's balance onto the
+// other chain's row. Only the variant that IS the fetch scope can be resolved
+// from this payload; every other row honestly shows the `--` fallback.
 function findVariantBalance({
   portfolioData,
   variant,
+  isPortfolioScope,
 }: {
   portfolioData?: IMarketAccountPortfolioItem[];
   variant: IMarketStockTokenVariant;
+  isPortfolioScope: boolean;
 }) {
+  if (!isPortfolioScope) return undefined;
+  // The address check still matters inside the scope: the portfolio poll lags a
+  // variant switch, so the payload in hand may still describe the variant the
+  // user just moved away from.
   const position = portfolioData?.find((item) =>
     equalsIgnoreCase(item.tokenAddress, variant.contractAddress),
   );
@@ -80,16 +94,22 @@ function StockTokenVariantRow({
   index,
   variant,
   selected,
+  isPortfolioScope,
   portfolioData,
   onSelect,
 }: {
   index: number;
   variant: IMarketStockTokenVariant;
   selected: boolean;
+  isPortfolioScope: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
-  const balance = findVariantBalance({ portfolioData, variant });
+  const balance = findVariantBalance({
+    portfolioData,
+    variant,
+    isPortfolioScope,
+  });
   const isTradable = isStockTokenVariantTradable(variant);
   const handlePress = useCallback(() => {
     if (isTradable) {
@@ -231,12 +251,26 @@ export function StockTokenVariantSelector({
     setSelectedTokenId,
     isTokenVariantsError,
     retryTokenVariants,
+    portfolioNetworkId,
   } = useStockDetail();
 
   const selectedIndex = useMemo(
     () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
     [selectedTokenId, tokenVariants],
   );
+
+  // The one variant `portfolioData` can describe: the selected one, and only
+  // while it lives on the network the portfolio was fetched for. Selecting a
+  // variant on another chain does not move the fetch scope (the detail page
+  // keeps the route's network), so that row has no trustworthy balance here.
+  const portfolioScopeTokenId = useMemo(() => {
+    if (!portfolioNetworkId || !selectedTokenVariant?.networkId) {
+      return undefined;
+    }
+    return selectedTokenVariant.networkId === portfolioNetworkId
+      ? selectedTokenVariant.tokenId
+      : undefined;
+  }, [portfolioNetworkId, selectedTokenVariant]);
 
   if (!selectedTokenVariant) {
     if (isTokenVariantsLoading) {
@@ -361,6 +395,7 @@ export function StockTokenVariantSelector({
                 index={index}
                 variant={variant}
                 selected={variant.tokenId === selectedTokenId}
+                isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
                 portfolioData={portfolioData}
                 onSelect={(item) => {
                   setSelectedTokenId(item.tokenId);
