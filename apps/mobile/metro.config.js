@@ -437,6 +437,37 @@ if (buildTimeEnv.enableNativeBackgroundThread) {
   };
 }
 
+// `react-native start` (community CLI) lacks @expo/cli's dev resolver layer,
+// which aliases RN's `Libraries/Utilities/HMRClient` to expo's
+// `async-require/hmr` client so the native `HMRClient.setup` callable-module
+// call and the async-require lazy-chunk loader share ONE client
+// (withMetroMultiPlatform.js in @expo/cli). Without the alias the two clients
+// split: native sets up the RN copy while expo's loadBundle asserts on its
+// own never-set-up copy, and every dev lazy chunk load dies with "Expected
+// HMRClient.setup() call at startup" behind the splash. Mirror the alias for
+// dev requests only — production bundles must keep RN's prod shim wiring.
+{
+  const prevResolveRequestForHmrAlias = config.resolver.resolveRequest;
+  const expoHmrModulePath = require.resolve('expo/src/async-require/hmr.ts', {
+    paths: [monorepoRoot],
+  });
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const result = prevResolveRequestForHmrAlias(context, moduleName, platform);
+    if (
+      context.dev &&
+      result &&
+      result.type === 'sourceFile' &&
+      result.filePath &&
+      result.filePath.endsWith(
+        `react-native${path.sep}Libraries${path.sep}Utilities${path.sep}HMRClient.js`,
+      )
+    ) {
+      return { type: 'sourceFile', filePath: expoHmrModulePath };
+    }
+    return result;
+  };
+}
+
 // ---- Optional monorepo setup for Yarn workspaces (commented) ----
 // const workspaceRoot = path.resolve(projectRoot, '../..');
 // config.watchFolders = [workspaceRoot];
@@ -461,17 +492,30 @@ config.cacheStores = ({ FileStore }) => [
   }),
 ];
 
-// Patch for lazy compilation instability: always set lazy=false in bundle requests
 const originalRewriteRequestUrl =
   config.server && config.server.rewriteRequestUrl
     ? config.server.rewriteRequestUrl
     : (url) => url;
 config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) => {
-  let rewrittenUrl = originalRewriteRequestUrl(url).replace(
-    '&lazy=true',
-    '&lazy=false',
-  );
+  let rewrittenUrl = originalRewriteRequestUrl(url);
+
+  // The RN 0.73-era "lazy compilation instability" fix forced lazy=false for
+  // every bundle request (f7962db66b). Eager-loading BOTH dev runtimes on RN
+  // 0.85 (~15k modules × 2 Hermes heaps compiling ~230MB of dev JS) pushes
+  // the app past the iOS per-process memory limit — jetsam kills the dev app
+  // at ~3.4GB right after wallet home loads (JetsamEvent-2026-08-27-210649).
+  // The main runtime now honors the client's lazy=true (Expo's dev default;
+  // its lazy chunk requests correctly pick up resolver.runtimeTarget=main
+  // below). The background bundle stays eager: its lazy chunk requests carry
+  // module paths, not the background bundle path this rewrite keys off, so
+  // lazy background modules would transform under the main resolver.
+  const isBackgroundBundleRequest =
+    rewrittenUrl.startsWith('/background.bundle') ||
+    rewrittenUrl.startsWith('/apps/mobile/background.bundle');
+  if (isBackgroundBundleRequest) {
+    rewrittenUrl = rewrittenUrl.replace('&lazy=true', '&lazy=false');
+  }
 
   if (rewrittenUrl.startsWith('/background.bundle')) {
     rewrittenUrl = rewrittenUrl.replace(

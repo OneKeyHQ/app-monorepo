@@ -182,3 +182,25 @@ index 7c183bd..fca09d0 100644
    }
  }
  
+diff --git a/node_modules/expo/src/async-require/hmr.ts b/node_modules/expo/src/async-require/hmr.ts
+index bd226af..2fde8f1 100644
+--- a/node_modules/expo/src/async-require/hmr.ts
++++ b/node_modules/expo/src/async-require/hmr.ts
+@@ -316,6 +316,17 @@ function setHMRUnavailableReason(reason: string) {
+ 
+ function registerBundleEntryPoints(client: MetroHMRClient | null) {
+   if (hmrUnavailableReason != null) {
++    // OneKey patch: `window.location.reload()` is web-only — on native
++    // `window.location` is undefined, so the original code threw
++    // "Cannot read property 'reload' of undefined" on the first lazy chunk
++    // load whenever the HMR socket was unavailable, wedging the app behind
++    // the splash. An unavailable HMR socket only costs Fast Refresh for the
++    // chunk; the chunk itself already loaded over HTTP, so on native just
++    // drop the pending registrations and continue.
++    if (process.env.EXPO_OS !== 'web') {
++      pendingEntryPoints.length = 0;
++      return;
++    }
+     // "Bundle Splitting – Metro disconnected"
+     window.location.reload();
+     return;
