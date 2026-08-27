@@ -400,11 +400,17 @@ export class DeviceStageBurstScope {
     connectId,
     payload,
     shouldClearUiState,
+    askCompleted,
   }: {
     action: string;
     connectId?: string;
     payload?: IHardwareUiPayload;
     shouldClearUiState?: boolean;
+    /** This event ends an ask the person answered on the device. The
+     * pipeline renders it as plain progress, and a progress tick may not
+     * write over an ask — so without the flag the answered card stands
+     * until something else happens to speak. */
+    askCompleted?: boolean;
   }) {
     if (!(await this.isEnabled())) {
       return;
@@ -414,6 +420,9 @@ export class DeviceStageBurstScope {
     const isCloseEvent =
       shouldClearUiState ||
       action === EHardwareUiStateAction.CLOSE_UI_WINDOW ||
+      // Demo only: the event pipeline rewrites a real PIN-window close
+      // into progress carrying `askCompleted`, so this branch never sees
+      // one from a device. The gallery feeds the raw action.
       action === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW;
     if (isCloseEvent) {
       if (outcomeOnStage) {
@@ -466,7 +475,7 @@ export class DeviceStageBurstScope {
       // on stage while the device waits for a confirmation the person
       // was never told about.
       if (
-        step === 'confirm' &&
+        (step === 'confirm' || askCompleted) &&
         current &&
         current.step !== 'off' &&
         current.step !== this.authoredAuthStep
@@ -475,11 +484,12 @@ export class DeviceStageBurstScope {
       }
       return;
     }
-    if (step === 'processing') {
+    if (step === 'processing' && !askCompleted) {
       // A progress-flavored event only refreshes a wait that is already
       // on stage. Any ask (confirm, PIN, passphrase, the teach card…)
       // outranks it — the trailing BLE tick behind a ButtonRequest must
-      // not repaint the ask the device is still making.
+      // not repaint the ask the device is still making. The one tick that
+      // IS news carries `askCompleted` and is exempt above.
       if (
         current &&
         current.step !== 'off' &&
@@ -635,7 +645,16 @@ export class DeviceStageBurstScope {
       return;
     }
     this.clearOffTimer();
-    this.authoredAuthStep = AUTH_STEPS.has(step) ? step : undefined;
+    // An ask plays OVER a narrative rather than ending it — the app-side
+    // PIN handing itself to the device (`sendEnterPinOnDeviceEvent`) is
+    // one, and forgetting there leaves the ButtonRequest that follows
+    // with no beat to come back to. Only another authored beat re-aims
+    // the narrative; anything else ends it.
+    if (AUTH_STEPS.has(step)) {
+      this.authoredAuthStep = step;
+    } else if (!ASK_STEPS.has(step)) {
+      this.authoredAuthStep = undefined;
+    }
     await this.setStep(step, extras);
   }
 
