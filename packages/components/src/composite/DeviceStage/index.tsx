@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -507,6 +507,23 @@ export function DeviceStage({
   }
   const stepRef = useRef(step);
   stepRef.current = step;
+  // The soft keyboard leaves with its step: the parked seats never
+  // unmount, so nothing blurs a text input when a step change slides its
+  // panel off show — after Confirm the keyboard would simply stand
+  // through the processing beat (Android visibly; the mechanism is the
+  // same on iOS). Any crossing away from a system-keyboard step sends it
+  // down; a refused entry keeps the step, so inline retry keeps typing.
+  const prevKeyboardStepRef = useRef(step);
+  useEffect(() => {
+    const prev = prevKeyboardStepRef.current;
+    prevKeyboardStepRef.current = step;
+    if (prev === step) {
+      return;
+    }
+    if (prev === 'passphraseOnApp' || prev === 'pairingCode') {
+      Keyboard.dismiss();
+    }
+  }, [step]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
     if (landingHapticArmedRef.current) {
