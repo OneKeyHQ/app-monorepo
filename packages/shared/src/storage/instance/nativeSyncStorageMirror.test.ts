@@ -580,7 +580,7 @@ describe('nativeSyncStorageMirror', () => {
     await bootstrapNativeSyncStorageMirrors();
 
     isReady = false;
-    for (let index = 0; index < 40; index += 1) {
+    for (let index = 0; index < 101; index += 1) {
       void storage.applySWRCachePatch?.({
         removePrefixes: [],
         removals: [],
@@ -613,7 +613,7 @@ describe('nativeSyncStorageMirror', () => {
             : '{}',
         ) as Record<string, unknown>,
       ),
-    ).toHaveLength(41);
+    ).toHaveLength(102);
   });
 
   it('applies bg broadcasts and replays them over an in-flight snapshot', async () => {

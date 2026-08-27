@@ -1,10 +1,23 @@
 /* cspell:ignore ISWR IMMKV */
+import { defaultLogger } from '../logger/logger';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
+
+import {
+  SWR_CACHE_MAX_ENTRIES,
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_SERIALIZED_CHARS,
+} from './swrCacheLimits';
 
 import type * as HL from '../../types/hyperliquid/sdk';
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
 import type { INativeSWRCachePatchIntent } from '../storage/nativeStorageTypes';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
+
+export {
+  SWR_CACHE_MAX_ENTRIES,
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_SERIALIZED_CHARS,
+};
 
 // SWR cache uses the dedicated cold-start cache MMKV instance,
 // separate from onekey-app-setting.
@@ -17,9 +30,34 @@ type ISWREntry<T = any> = {
 
 type ISWRStore = Record<string, ISWREntry>;
 
-export const SWR_CACHE_MAX_ENTRIES = 300;
-export const SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS = 1024 * 1024;
-export const SWR_CACHE_MAX_SERIALIZED_CHARS = 100 * 1024 * 1024;
+const SWR_CACHE_CAPACITY_LOG_COOLDOWN_MS = 10 * 60_000;
+const SWR_CACHE_CAPACITY_LOG_MAX_NAMESPACES = 8;
+
+export type ISWRCacheCapacityLimitReason =
+  | 'bootstrapEntryCountLimit'
+  | 'bootstrapSizeLimit'
+  | 'entryCountLimit'
+  | 'entryLimit'
+  | 'totalSizeLimit';
+
+export type ISWRCacheCapacityDrop = {
+  entrySerializedChars?: number;
+  key: string;
+  reason: ISWRCacheCapacityLimitReason;
+};
+
+type ISWRCacheCapacityLogState = {
+  affectedEntryCount: number;
+  eventCount: number;
+  lastLoggedAt?: number;
+  maxObservedEntrySerializedChars: number;
+  namespaces: Set<string>;
+};
+
+const swrCacheCapacityLogStates = new Map<
+  ISWRCacheCapacityLimitReason,
+  ISWRCacheCapacityLogState
+>();
 
 type IPrunableSWREntry = { t?: number };
 
@@ -31,6 +69,7 @@ type IPruneSWRCacheStoreOptions = {
 
 type ISerializedSWRCacheEntry<T extends IPrunableSWREntry> = {
   entry: T;
+  entrySerializedChars: number;
   index: number;
   key: string;
   pair: string;
@@ -53,6 +92,7 @@ function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
     const pair = `${JSON.stringify(key)}:${serializedEntry}`;
     return {
       entry,
+      entrySerializedChars: serializedEntry.length,
       index: 0,
       key,
       pair,
@@ -78,15 +118,22 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
   const maxSerializedChars =
     options?.maxSerializedChars ?? SWR_CACHE_MAX_SERIALIZED_CHARS;
   const removedKeys: string[] = [];
+  const capacityDrops: ISWRCacheCapacityDrop[] = [];
   const candidates: ISerializedSWRCacheEntry<T>[] = [];
 
   Object.entries(store).forEach(([key, entry], index) => {
     const serializedEntry = serializeSWRCacheEntry(key, entry);
-    if (
-      !serializedEntry ||
-      serializedEntry.serializedChars > maxEntrySerializedChars
-    ) {
+    if (!serializedEntry) {
       removedKeys.push(key);
+      return;
+    }
+    if (serializedEntry.entrySerializedChars > maxEntrySerializedChars) {
+      removedKeys.push(key);
+      capacityDrops.push({
+        entrySerializedChars: serializedEntry.entrySerializedChars,
+        key,
+        reason: 'entryLimit',
+      });
       return;
     }
     serializedEntry.index = index;
@@ -102,12 +149,22 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
   let totalSerializedChars = 2;
   for (const candidate of candidates) {
     const separatorChars = retained.length > 0 ? 1 : 0;
-    if (
-      retained.length >= maxEntries ||
+    let reason: ISWRCacheCapacityLimitReason | undefined;
+    if (retained.length >= maxEntries) {
+      reason = 'entryCountLimit';
+    } else if (
       totalSerializedChars + separatorChars + candidate.serializedChars >
-        maxSerializedChars
+      maxSerializedChars
     ) {
+      reason = 'totalSizeLimit';
+    }
+    if (reason) {
       removedKeys.push(candidate.key);
+      capacityDrops.push({
+        entrySerializedChars: candidate.entrySerializedChars,
+        key: candidate.key,
+        reason,
+      });
     } else {
       retained.push(candidate);
       totalSerializedChars += separatorChars + candidate.serializedChars;
@@ -123,6 +180,14 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
       value: entry,
       writable: true,
     });
+  });
+
+  reportSWRCacheCapacityDrops(capacityDrops, {
+    maxEntries,
+    maxEntrySerializedChars,
+    maxSerializedChars,
+    retainedEntryCount: retained.length,
+    retainedSerializedChars: totalSerializedChars,
   });
 
   return {
@@ -319,6 +384,7 @@ function evictOldestOverBudget(store: ISWRStore, removedAt: number) {
   const sorted = Object.keys(store).toSorted(
     (a, b) => (store[a].t ?? 0) - (store[b].t ?? 0),
   );
+  const capacityDrops: ISWRCacheCapacityDrop[] = [];
   let index = 0;
   while (
     index < sorted.length &&
@@ -326,11 +392,23 @@ function evictOldestOverBudget(store: ISWRStore, removedAt: number) {
       _cacheSerializedChars > SWR_CACHE_MAX_SERIALIZED_CHARS)
   ) {
     const key = sorted[index];
+    const reason: ISWRCacheCapacityLimitReason =
+      _cacheEntrySerializedChars.size > SWR_CACHE_MAX_ENTRIES
+        ? 'entryCountLimit'
+        : 'totalSizeLimit';
+    capacityDrops.push({ key, reason });
     removeCachedEntry(store, key);
     _updatedKeys.delete(key);
     _removedKeysAt.set(key, removedAt);
     index += 1;
   }
+  reportSWRCacheCapacityDrops(capacityDrops, {
+    maxEntries: SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: _cacheEntrySerializedChars.size,
+    retainedSerializedChars: _cacheSerializedChars,
+  });
 }
 
 function adoptPrunedStore(store: ISWRStore): ISWRStore {
@@ -447,12 +525,30 @@ function set<T>(key: string, data: T): void {
   const serializedEntry = serializeSWRCacheEntry(key, entry);
   if (
     !serializedEntry ||
-    serializedEntry.serializedChars > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
+    serializedEntry.entrySerializedChars > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
   ) {
     removeCachedEntry(store, key);
     _updatedKeys.delete(key);
     _removedKeysAt.set(key, now);
     _dirty = true;
+    if (serializedEntry) {
+      reportSWRCacheCapacityDrops(
+        [
+          {
+            entrySerializedChars: serializedEntry.entrySerializedChars,
+            key,
+            reason: 'entryLimit',
+          },
+        ],
+        {
+          maxEntries: SWR_CACHE_MAX_ENTRIES,
+          maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+          maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+          retainedEntryCount: _cacheEntrySerializedChars.size,
+          retainedSerializedChars: _cacheSerializedChars,
+        },
+      );
+    }
     scheduleFlush();
     return;
   }
@@ -556,6 +652,95 @@ const NS = {
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
 export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+const SWR_CACHE_SAFE_LOG_NAMESPACES = Object.values(NS);
+
+function getSafeSWRCacheLogNamespace(key: string) {
+  return (
+    SWR_CACHE_SAFE_LOG_NAMESPACES.find(
+      (namespace) => key === namespace || key.startsWith(`${namespace}:`),
+    ) ?? 'unknown'
+  );
+}
+
+export function reportSWRCacheCapacityDrops(
+  drops: readonly ISWRCacheCapacityDrop[],
+  limits: {
+    maxEntries: number;
+    maxEntrySerializedChars: number;
+    maxSerializedChars: number;
+    retainedEntryCount: number;
+    retainedSerializedChars: number;
+  },
+) {
+  if (drops.length === 0) {
+    return;
+  }
+  const dropsByReason = new Map<
+    ISWRCacheCapacityLimitReason,
+    ISWRCacheCapacityDrop[]
+  >();
+  drops.forEach((drop) => {
+    const reasonDrops = dropsByReason.get(drop.reason) ?? [];
+    reasonDrops.push(drop);
+    dropsByReason.set(drop.reason, reasonDrops);
+  });
+
+  dropsByReason.forEach((reasonDrops, reason) => {
+    let state = swrCacheCapacityLogStates.get(reason);
+    if (!state) {
+      state = {
+        affectedEntryCount: 0,
+        eventCount: 0,
+        maxObservedEntrySerializedChars: 0,
+        namespaces: new Set<string>(),
+      };
+      swrCacheCapacityLogStates.set(reason, state);
+    }
+    state.affectedEntryCount += reasonDrops.length;
+    state.eventCount += 1;
+    reasonDrops.forEach(({ entrySerializedChars, key }) => {
+      if (state.namespaces.size < SWR_CACHE_CAPACITY_LOG_MAX_NAMESPACES) {
+        state.namespaces.add(getSafeSWRCacheLogNamespace(key));
+      }
+      state.maxObservedEntrySerializedChars = Math.max(
+        state.maxObservedEntrySerializedChars,
+        entrySerializedChars ?? 0,
+      );
+    });
+
+    const now = Date.now();
+    const canLog =
+      state.lastLoggedAt === undefined ||
+      now < state.lastLoggedAt ||
+      now - state.lastLoggedAt >= SWR_CACHE_CAPACITY_LOG_COOLDOWN_MS;
+    if (!canLog) {
+      return;
+    }
+    try {
+      defaultLogger.app.perf.swrCacheCapacityLimit({
+        affectedEntryCount: state.affectedEntryCount,
+        cooldownMs: SWR_CACHE_CAPACITY_LOG_COOLDOWN_MS,
+        eventCount: state.eventCount,
+        maxEntries: limits.maxEntries,
+        maxEntrySerializedChars: limits.maxEntrySerializedChars,
+        maxObservedEntrySerializedChars: state.maxObservedEntrySerializedChars,
+        maxSerializedChars: limits.maxSerializedChars,
+        namespaces: [...state.namespaces],
+        reason,
+        retainedEntryCount: limits.retainedEntryCount,
+        retainedSerializedChars: limits.retainedSerializedChars,
+      });
+    } catch {
+      // Cache behavior must not depend on diagnostic logging availability.
+    }
+    state.lastLoggedAt = now;
+    state.affectedEntryCount = 0;
+    state.eventCount = 0;
+    state.maxObservedEntrySerializedChars = 0;
+    state.namespaces.clear();
+  });
+}
 
 type IBorrowScopedSWRKeyParams = {
   networkId: string;

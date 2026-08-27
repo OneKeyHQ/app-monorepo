@@ -1,3 +1,5 @@
+import { SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS } from '../utils/swrCacheLimits';
+
 export type INativeStorageScalar = string | number | boolean;
 
 export type INativeSyncStorageName = 'settings' | 'coldStart' | 'devSettings';
@@ -185,11 +187,8 @@ export type INativeStorageCall = (
 export const NATIVE_SYNC_STORAGE_MUTATION_EVENT =
   'onekey:native-sync-storage-mutation';
 
-const NATIVE_SWR_PATCH_MAX_ITEMS = 600;
 const NATIVE_SWR_PATCH_MAX_KEY_CHARS = 20_000;
 const NATIVE_SWR_PATCH_MAX_KEY_BYTES = 59_000;
-const NATIVE_SWR_PATCH_MAX_ENTRY_CHARS = 1024 * 1024;
-const NATIVE_SWR_PATCH_MAX_TOTAL_CHARS = 8 * 1024 * 1024;
 
 function getUtf8ByteLength(value: string) {
   let byteLength = 0;
@@ -232,27 +231,8 @@ export function parseNativeSWRCachePatchIntent(
       !isValidSWRTimestamp(patch.clearBefore)) ||
     !Array.isArray(patch.removePrefixes) ||
     !Array.isArray(patch.removals) ||
-    !Array.isArray(patch.updates) ||
-    patch.removePrefixes.length + patch.removals.length + patch.updates.length >
-      NATIVE_SWR_PATCH_MAX_ITEMS
+    !Array.isArray(patch.updates)
   ) {
-    return undefined;
-  }
-  const totalChars =
-    patch.removePrefixes.reduce(
-      (total, item) => total + (item?.prefix?.length ?? 0),
-      0,
-    ) +
-    patch.removals.reduce(
-      (total, item) => total + (item?.[0]?.length ?? 0),
-      0,
-    ) +
-    patch.updates.reduce(
-      (total, item) =>
-        total + (item?.[0]?.length ?? 0) + (item?.[1]?.length ?? 0),
-      0,
-    );
-  if (totalChars > NATIVE_SWR_PATCH_MAX_TOTAL_CHARS) {
     return undefined;
   }
   if (
@@ -277,7 +257,7 @@ export function parseNativeSWRCachePatchIntent(
         item.length === 2 &&
         isValidSWRKey(item[0]) &&
         typeof item[1] === 'string' &&
-        item[1].length <= NATIVE_SWR_PATCH_MAX_ENTRY_CHARS,
+        item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
     )
   ) {
     return undefined;
@@ -324,18 +304,6 @@ export function parseNativeSyncStorageMutation(
     candidate.operation === 'patchSWR' &&
     candidate.store === 'coldStart' &&
     Array.isArray(candidate.entries) &&
-    candidate.entries.length <= NATIVE_SWR_PATCH_MAX_ITEMS &&
-    candidate.entries.reduce<number>(
-      (total: number, item: unknown) =>
-        total +
-        (Array.isArray(item) && typeof item[0] === 'string'
-          ? item[0].length
-          : 0) +
-        (Array.isArray(item) && typeof item[1] === 'string'
-          ? item[1].length
-          : 0),
-      0,
-    ) <= NATIVE_SWR_PATCH_MAX_TOTAL_CHARS &&
     candidate.entries.every(
       (item) =>
         Array.isArray(item) &&
@@ -343,7 +311,7 @@ export function parseNativeSyncStorageMutation(
         isValidSWRKey(item[0]) &&
         (item[1] === null ||
           (typeof item[1] === 'string' &&
-            item[1].length <= NATIVE_SWR_PATCH_MAX_ENTRY_CHARS)),
+            item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS)),
     )
   ) {
     return {

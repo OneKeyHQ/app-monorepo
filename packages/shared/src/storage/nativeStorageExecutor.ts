@@ -55,6 +55,8 @@ type IMMKVInstance = {
 const APP_STORAGE_KEY_PREFIX = 'app:';
 const APP_STORAGE_MIGRATION_COMPLETE_KEY =
   '__onekey_internal_app_storage_migration_v1__';
+const APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY =
+  '__onekey_internal_app_storage_legacy_cleanup_v1__';
 const APP_STORAGE_MIGRATION_LEDGER_KEY = 'app-storage-v1';
 const APP_STORAGE_MMKV_ID = 'onekey-app-storage-v1';
 const APP_STORAGE_TRANSACTION_JOURNAL_KEY =
@@ -69,8 +71,8 @@ const SWR_CACHE_KEY = 'onekey_swr_cache';
 // An empty prefix selects the newest entries across every business namespace.
 // The count and payload caps keep the main-runtime heap copy bounded.
 const SWR_CACHE_BOOTSTRAP_KEY_PREFIXES = [''] as const;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES = 64;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS = 4 * 1024 * 1024;
+export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES = 100;
+export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS = 10 * 1024 * 1024;
 const SWR_CACHE_MAX_LEGACY_PARSE_CHARS = SWR_CACHE_MAX_SERIALIZED_CHARS * 2;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_LIMIT = 32;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_MAX_VALUE_CHARS = 8 * 1024 * 1024;
@@ -329,9 +331,15 @@ async function finishInterruptedAppStorageReset(mmkv: IMMKVInstance) {
   await clearLegacyAppStorageData();
 
   mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
+  mmkv.set(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY, '1');
   if (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1') {
     throw new OneKeyLocalError(
       'App-storage reset migration marker verification failed',
+    );
+  }
+  if (mmkv.getString(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+    throw new OneKeyLocalError(
+      'App-storage reset legacy cleanup marker verification failed',
     );
   }
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
@@ -366,6 +374,7 @@ async function migrateAppStorageFromLegacy() {
   if (targetMarkerComplete) {
     await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
     await recoverInterruptedAppStorageBatch(mmkv);
+    await ensureLegacyAppStorageCleanupComplete(mmkv);
     if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
       await setNativeStorageMigrationLedgerComplete(
         APP_STORAGE_MIGRATION_LEDGER_KEY,
@@ -416,16 +425,21 @@ async function migrateAppStorageFromLegacy() {
         );
       }
       const value = valuesByKey.get(key);
-      if (typeof value === 'string') {
-        const targetKey = encodeAppStorageKey(key);
-        mmkv.set(targetKey, value);
-        if (mmkv.getString(targetKey) !== value) {
-          throw new OneKeyLocalError(
-            `AsyncStorage migration verification failed at index=${
-              offset + index
-            }`,
-          );
-        }
+      if (typeof value !== 'string') {
+        throw new OneKeyLocalError(
+          `AsyncStorage migration returned a missing value at index=${
+            offset + index
+          }`,
+        );
+      }
+      const targetKey = encodeAppStorageKey(key);
+      mmkv.set(targetKey, value);
+      if (mmkv.getString(targetKey) !== value) {
+        throw new OneKeyLocalError(
+          `AsyncStorage migration verification failed at index=${
+            offset + index
+          }`,
+        );
       }
     }
   }
@@ -437,6 +451,7 @@ async function migrateAppStorageFromLegacy() {
     );
   }
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  await ensureLegacyAppStorageCleanupComplete(mmkv);
   await setNativeStorageMigrationLedgerComplete(
     APP_STORAGE_MIGRATION_LEDGER_KEY,
   );
@@ -642,6 +657,26 @@ async function clearLegacyAppStorageData() {
       legacyKeys.slice(offset, offset + LEGACY_READ_CHUNK_SIZE),
     );
   }
+  const remainingLegacyKeys = getMigratableLegacyKeys(
+    await legacy.getAllKeys(),
+  );
+  if (remainingLegacyKeys.length > 0) {
+    throw new OneKeyLocalError('Legacy AppStorage cleanup verification failed');
+  }
+}
+
+async function ensureLegacyAppStorageCleanupComplete(mmkv: IMMKVInstance) {
+  if (mmkv.getString(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY) === '1') {
+    return;
+  }
+  await clearLegacyAppStorageData();
+  mmkv.set(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY, '1');
+  if (mmkv.getString(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+    throw new OneKeyLocalError(
+      'App-storage legacy cleanup marker verification failed',
+    );
+  }
+  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
 }
 
 async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {

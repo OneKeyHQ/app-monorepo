@@ -1,10 +1,25 @@
 import {
+  SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
   getPerpsL2BookSnapshotCacheKeys,
   pruneSWRCacheStore,
   swrKeys,
 } from './swrCacheUtils';
+
+const mockSWRCacheCapacityLimit = jest.fn();
+
+jest.mock('../logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      perf: {
+        swrCacheCapacityLimit: (params: unknown) => {
+          mockSWRCacheCapacityLimit(params);
+        },
+      },
+    },
+  },
+}));
 
 // On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
 // while the "MMKV file" persists — exactly the cross-runtime setup under test.
@@ -299,6 +314,7 @@ describe('SWR cache cross-runtime flush merge', () => {
     fakeDiskGlobal.__swrPatches = [];
     fakeDiskGlobal.__swrFakeDisk = {};
     fakeDiskGlobal.__swrFakeDiskReadCount = 0;
+    mockSWRCacheCapacityLimit.mockReset();
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
@@ -528,7 +544,7 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   it('enforces the entry cap on the merged result', () => {
     const bulk: Record<string, { d: unknown; t: number }> = {};
-    for (let i = 0; i < 300; i += 1) {
+    for (let i = 0; i < SWR_CACHE_MAX_ENTRIES; i += 1) {
       bulk[`bulk:${i}`] = { d: i, t: 10_000 + i };
     }
     otherRuntimeFlush(bulk);
@@ -538,13 +554,13 @@ describe('SWR cache cross-runtime flush merge', () => {
     swr.flushNow();
 
     const disk = readDiskStore();
-    expect(Object.keys(disk).length).toBe(300);
+    expect(Object.keys(disk).length).toBe(SWR_CACHE_MAX_ENTRIES);
     expect(disk.fresh).toMatchObject({ d: 'kept' });
     // The oldest merged entry is the one evicted.
     expect(disk['bulk:0']).toBeUndefined();
   });
 
-  it('prunes oversized entries and keeps the newest entries within a total budget', () => {
+  it('keeps the newest entries within count and total budgets', () => {
     const result = pruneSWRCacheStore(
       {
         old: { d: 'a'.repeat(40), t: 1 },
@@ -553,7 +569,6 @@ describe('SWR cache cross-runtime flush merge', () => {
       },
       {
         maxEntries: 3,
-        maxEntrySerializedChars: 120,
         maxSerializedChars: 100,
       },
     );
@@ -566,19 +581,68 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(JSON.parse(result.serialized)).toEqual(result.store);
   });
 
-  it('uses the configured entry and total cache budgets', () => {
-    expect(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS).toBe(1024 * 1024);
+  it('uses the configured count and total cache budgets', () => {
+    expect(SWR_CACHE_MAX_ENTRIES).toBe(1000);
+    expect(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS).toBe(5 * 1024 * 1024);
     expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
   });
 
-  it('does not retain an individually oversized value', () => {
+  it('retains a value larger than the former per-entry budget', () => {
+    const swr = loadFreshRuntime();
+    const value = 'x'.repeat(1024 * 1024);
+
+    swr.set('large', value);
+
+    expect(swr.get('large')).toBe(value);
+    swr.flushNow();
+    expect(readDiskStore().large?.d).toBe(value);
+  });
+
+  it('does not retain a value beyond the per-entry budget', () => {
     const swr = loadFreshRuntime();
 
-    swr.set('oversized', 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS));
+    swr.set('too-large', 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS));
 
-    expect(swr.get('oversized')).toBeUndefined();
+    expect(swr.get('too-large')).toBeUndefined();
     swr.flushNow();
-    expect(readDiskStore().oversized).toBeUndefined();
+    expect(readDiskStore()['too-large']).toBeUndefined();
+  });
+
+  it('rate-limits and aggregates capacity logs without exposing cache keys', () => {
+    const swr = loadFreshRuntime();
+    const oversizedValue = 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS);
+
+    setNow(1000);
+    swr.set('marketHomeTokenList:first-account', oversizedValue);
+    setNow(2000);
+    swr.set('marketHomeTokenList:second-account', oversizedValue);
+
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheCapacityLimit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 1,
+        eventCount: 1,
+        namespaces: ['marketHomeTokenList'],
+        reason: 'entryLimit',
+      }),
+    );
+
+    setNow(10 * 60_000 + 1001);
+    swr.set('marketHomeTokenList:third-account', oversizedValue);
+
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledTimes(2);
+    expect(mockSWRCacheCapacityLimit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 2,
+        eventCount: 2,
+        namespaces: ['marketHomeTokenList'],
+        reason: 'entryLimit',
+      }),
+    );
+    expect(JSON.stringify(mockSWRCacheCapacityLimit.mock.calls)).not.toContain(
+      'account',
+    );
+    swr.flushNow();
   });
 
   it('reloads for a target the other runtime wrote after an unrelated reload', () => {

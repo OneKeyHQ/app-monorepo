@@ -29,6 +29,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
+import com.tencent.mmkv.MMKV;
 
 import cn.jiguang.plugins.push.JPushModule;
 import com.margelo.nitro.nativelogger.OneKeyLog;
@@ -610,6 +611,10 @@ public class MainApplication extends Application implements ReactApplication {
         // This prevents crashes in RN initialization from blocking recovery.
         return;
     }
+
+    // The migration bridge uses MMKV's Java wrapper, whose initialization
+    // state is separate from the Nitro C++ factory used by react-native-mmkv.
+    MMKV.initialize(this);
 
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);

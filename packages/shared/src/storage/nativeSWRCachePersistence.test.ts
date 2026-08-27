@@ -1,6 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
+import { SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS } from '../utils/swrCacheUtils';
+
 const mockSyncMMKV = jest.fn(async () => undefined);
+const mockSWRCacheCapacityLimit = jest.fn();
+
+jest.mock('../logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      perf: {
+        swrCacheCapacityLimit: (params: unknown) => {
+          mockSWRCacheCapacityLimit(params);
+        },
+      },
+    },
+  },
+}));
 
 jest.mock('./nativeStorageMigrationModule', () => ({
   syncNativeStorageMMKV: mockSyncMMKV,
@@ -37,6 +52,7 @@ describe('nativeSWRCachePersistence', () => {
   beforeEach(() => {
     jest.resetModules();
     mockSyncMMKV.mockClear();
+    mockSWRCacheCapacityLimit.mockReset();
   });
 
   it('migrates the legacy blob to independently stored entries', async () => {
@@ -57,6 +73,34 @@ describe('nativeSWRCachePersistence', () => {
       mmkv.getAllKeys().filter((key) => key.includes('swr_cache_v2_entry')),
     ).toHaveLength(2);
     expect(mockSyncMMKV).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs and removes a legacy entry beyond the per-entry limit', async () => {
+    const mmkv = new FakeMMKV();
+    mmkv.set(
+      'onekey_swr_cache',
+      JSON.stringify({
+        'marketHomeTokenList:account-1': {
+          d: 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS),
+          t: 1,
+        },
+      }),
+    );
+    const persistence = loadPersistence(mmkv);
+
+    await persistence.ensureMigrated();
+
+    expect(JSON.parse(persistence.readSerialized())).toEqual({});
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 1,
+        namespaces: ['marketHomeTokenList'],
+        reason: 'entryLimit',
+      }),
+    );
+    expect(JSON.stringify(mockSWRCacheCapacityLimit.mock.calls)).not.toContain(
+      'account-1',
+    );
   });
 
   it('reads a bounded key subset without loading unrelated physical values', async () => {

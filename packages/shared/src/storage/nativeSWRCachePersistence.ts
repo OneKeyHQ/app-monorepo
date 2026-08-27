@@ -1,10 +1,13 @@
+/* cspell:ignore ISWR */
 import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
 import {
+  SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
   pruneSWRCacheStore,
+  reportSWRCacheCapacityDrops,
 } from '../utils/swrCacheUtils';
 
 import { syncNativeStorageMMKV } from './nativeStorageMigrationModule';
@@ -14,6 +17,7 @@ import type {
   INativeSWRCacheCanonicalEntry,
   INativeSWRCachePatchIntent,
 } from './nativeStorageTypes';
+import type { ISWRCacheCapacityDrop } from '../utils/swrCacheUtils';
 
 type SWRCacheEntry = { t: number; [key: string]: unknown };
 type SWRCacheStore = Record<string, SWRCacheEntry>;
@@ -37,6 +41,7 @@ type IReadSerializedSubsetOptions = {
 
 type ISerializedSubsetCandidate = {
   index: number;
+  key: string;
   physicalKey: string;
   serializedChars: number;
   serializedKey: string;
@@ -102,6 +107,7 @@ function parseStore(serialized: string | undefined): SWRCacheStore {
       return {};
     }
     const store: SWRCacheStore = {};
+    const entryLimitDrops: ISWRCacheCapacityDrop[] = [];
     Object.entries(parsed as Record<string, unknown>).forEach(
       ([key, value]) => {
         let serializedEntry: string | undefined;
@@ -110,13 +116,31 @@ function parseStore(serialized: string | undefined): SWRCacheStore {
         } catch {
           serializedEntry = undefined;
         }
+        if (
+          serializedEntry &&
+          serializedEntry.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
+        ) {
+          entryLimitDrops.push({
+            entrySerializedChars: serializedEntry.length,
+            key,
+            reason: 'entryLimit',
+          });
+        }
         const entry = serializedEntry ? parseEntry(serializedEntry) : undefined;
         if (entry) {
           defineStoreEntry(store, key, entry);
         }
       },
     );
-    return pruneSWRCacheStore(store).store as SWRCacheStore;
+    const pruned = pruneSWRCacheStore(store);
+    reportSWRCacheCapacityDrops(entryLimitDrops, {
+      maxEntries: SWR_CACHE_MAX_ENTRIES,
+      maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+      maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+      retainedEntryCount: Object.keys(pruned.store).length,
+      retainedSerializedChars: pruned.serialized.length,
+    });
+    return pruned.store as SWRCacheStore;
   } catch {
     return {};
   }
@@ -184,6 +208,7 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
   }
 
   const store: SWRCacheStore = {};
+  const entryLimitDrops: ISWRCacheCapacityDrop[] = [];
   const invalidPhysicalKeys: string[] = [];
   mmkv.getAllKeys().forEach((physicalKey) => {
     if (!physicalKey.startsWith(SWR_CACHE_ENTRY_PREFIX)) {
@@ -191,6 +216,16 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
     }
     const key = physicalKey.slice(SWR_CACHE_ENTRY_PREFIX.length);
     const serialized = mmkv.getString(physicalKey);
+    if (
+      serialized &&
+      serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
+    ) {
+      entryLimitDrops.push({
+        entrySerializedChars: serialized.length,
+        key,
+        reason: 'entryLimit',
+      });
+    }
     const entry = serialized ? parseEntry(serialized) : undefined;
     if (!entry) {
       invalidPhysicalKeys.push(physicalKey);
@@ -203,6 +238,13 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
   pruned.removedKeys.forEach((key) => {
     delete store[key];
     mmkv.remove(getPhysicalEntryKey(key));
+  });
+  reportSWRCacheCapacityDrops(entryLimitDrops, {
+    maxEntries: SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: Object.keys(pruned.store).length,
+    retainedSerializedChars: pruned.serialized.length,
   });
   state.store = store;
   return store;
@@ -223,6 +265,8 @@ function readSerializedSubset(
   }
 
   const candidates: ISerializedSubsetCandidate[] = [];
+  const entryLimitDrops: ISWRCacheCapacityDrop[] = [];
+  const bootstrapSizeDrops: ISWRCacheCapacityDrop[] = [];
   const invalidPhysicalKeys: string[] = [];
   mmkv.getAllKeys().forEach((physicalKey, index) => {
     if (!physicalKey.startsWith(SWR_CACHE_ENTRY_PREFIX)) {
@@ -239,10 +283,21 @@ function readSerializedSubset(
     }
     const serializedKey = JSON.stringify(key);
     const pairSerializedChars = serializedKey.length + 1 + serialized.length;
-    if (
-      pairSerializedChars > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS ||
-      pairSerializedChars + 2 > maxSerializedChars
-    ) {
+    if (serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS) {
+      invalidPhysicalKeys.push(physicalKey);
+      entryLimitDrops.push({
+        entrySerializedChars: serialized.length,
+        key,
+        reason: 'entryLimit',
+      });
+      return;
+    }
+    if (pairSerializedChars + 2 > maxSerializedChars) {
+      bootstrapSizeDrops.push({
+        entrySerializedChars: serialized.length,
+        key,
+        reason: 'bootstrapSizeLimit',
+      });
       return;
     }
     const entry = parseEntry(serialized);
@@ -252,6 +307,7 @@ function readSerializedSubset(
     }
     candidates.push({
       index,
+      key,
       physicalKey,
       serializedChars: serialized.length,
       serializedKey,
@@ -259,15 +315,44 @@ function readSerializedSubset(
     });
   });
   invalidPhysicalKeys.forEach((key) => mmkv.remove(key));
+  const candidateSerializedChars = candidates.reduce(
+    (total, candidate, index) =>
+      total +
+      (index > 0 ? 1 : 0) +
+      candidate.serializedKey.length +
+      1 +
+      candidate.serializedChars,
+    2,
+  );
+  reportSWRCacheCapacityDrops(entryLimitDrops, {
+    maxEntries: SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: candidates.length,
+    retainedSerializedChars: candidateSerializedChars,
+  });
 
   candidates.sort(
     (left, right) =>
       right.updatedAt - left.updatedAt || right.index - left.index,
   );
   const retained: Array<ISerializedSubsetCandidate & { pair: string }> = [];
+  const bootstrapEntryCountDrops: ISWRCacheCapacityDrop[] = [];
   let totalSerializedChars = 2;
-  for (const candidate of candidates) {
+  for (
+    let candidateIndex = 0;
+    candidateIndex < candidates.length;
+    candidateIndex += 1
+  ) {
+    const candidate = candidates[candidateIndex];
     if (retained.length >= maxEntries) {
+      candidates.slice(candidateIndex).forEach((omittedCandidate) => {
+        bootstrapEntryCountDrops.push({
+          entrySerializedChars: omittedCandidate.serializedChars,
+          key: omittedCandidate.key,
+          reason: 'bootstrapEntryCountLimit',
+        });
+      });
       break;
     }
     const separatorChars = retained.length > 0 ? 1 : 0;
@@ -290,9 +375,27 @@ function readSerializedSubset(
         });
         totalSerializedChars += separatorChars + pairSerializedChars;
       }
+    } else {
+      bootstrapSizeDrops.push({
+        entrySerializedChars: candidate.serializedChars,
+        key: candidate.key,
+        reason: 'bootstrapSizeLimit',
+      });
     }
   }
   retained.sort((left, right) => left.index - right.index);
+  const bootstrapCapacityLimits = {
+    maxEntries,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars,
+    retainedEntryCount: retained.length,
+    retainedSerializedChars: totalSerializedChars,
+  };
+  reportSWRCacheCapacityDrops(
+    bootstrapEntryCountDrops,
+    bootstrapCapacityLimits,
+  );
+  reportSWRCacheCapacityDrops(bootstrapSizeDrops, bootstrapCapacityLimits);
   return `{${retained.map(({ pair }) => pair).join(',')}}`;
 }
 

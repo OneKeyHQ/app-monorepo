@@ -26,6 +26,8 @@ import { MMKV_MIGRATION_COMPLETE_KEY } from './jotaiStorageConsts';
 import type { AsyncStorage } from './types';
 
 const JOTAI_MIGRATION_LEDGER_KEY = 'jotai-storage-v1';
+const JOTAI_LEGACY_CLEANUP_COMPLETE_KEY = '__mmkv_legacy_cleanup_v1__';
+const JOTAI_STORAGE_KEY_PREFIX = 'g_states_v5:';
 
 export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   /** Safe MMKV wrapper — null/undefined guarded via createMMKVSyncStorage */
@@ -88,22 +90,56 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   private getBusinessKeys() {
     return this.mmkv
       .getAllKeys()
-      .filter((key) => key !== MMKV_MIGRATION_COMPLETE_KEY);
+      .filter(
+        (key) =>
+          key !== MMKV_MIGRATION_COMPLETE_KEY &&
+          key !== JOTAI_LEGACY_CLEANUP_COMPLETE_KEY,
+      );
   }
 
-  private async finishInterruptedReset(): Promise<void> {
+  private async clearLegacyJotaiData(): Promise<void> {
     const legacy = this.getLegacyAsyncStorage();
     const legacyKeys = (await legacy.getAllKeys()).filter((key) =>
-      key.startsWith('g_states_v5:'),
+      key.startsWith(JOTAI_STORAGE_KEY_PREFIX),
     );
     if (legacyKeys.length > 0) {
       await legacy.multiRemove(legacyKeys);
     }
+    const remainingLegacyKeys = (await legacy.getAllKeys()).filter((key) =>
+      key.startsWith(JOTAI_STORAGE_KEY_PREFIX),
+    );
+    if (remainingLegacyKeys.length > 0) {
+      throw new OneKeyLocalError('Legacy Jotai cleanup verification failed');
+    }
+  }
+
+  private async ensureLegacyCleanupComplete(): Promise<void> {
+    if (this.mmkv.getString(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY) === '1') {
+      return;
+    }
+    await this.clearLegacyJotaiData();
+    this.mmkv.set(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY, '1');
+    if (this.mmkv.getString(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+      throw new OneKeyLocalError(
+        'Jotai legacy cleanup marker verification failed',
+      );
+    }
+    await syncNativeStorageMMKV('onekey-jotai-states');
+  }
+
+  private async finishInterruptedReset(): Promise<void> {
+    await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
+    this.mmkv.set(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY, '1');
     if (this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) !== '1') {
       throw new OneKeyLocalError(
         'Jotai reset migration marker verification failed',
+      );
+    }
+    if (this.mmkv.getString(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+      throw new OneKeyLocalError(
+        'Jotai reset legacy cleanup marker verification failed',
       );
     }
     await syncNativeStorageMMKV('onekey-jotai-states');
@@ -178,6 +214,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
       if (targetMarkerComplete) {
         await syncNativeStorageMMKV('onekey-jotai-states');
+        await this.ensureLegacyCleanupComplete();
         if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
           await setNativeStorageMigrationLedgerComplete(
             JOTAI_MIGRATION_LEDGER_KEY,
@@ -237,6 +274,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         );
       }
       await syncNativeStorageMMKV('onekey-jotai-states');
+      await this.ensureLegacyCleanupComplete();
       await setNativeStorageMigrationLedgerComplete(JOTAI_MIGRATION_LEDGER_KEY);
       this.migrationReady = true;
       this.log(
