@@ -759,6 +759,7 @@ export const TradingViewNativeContainer = memo(
             indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
+            locale={intl.locale}
             priceAxisTickCount={
               isCompactDisplayMode
                 ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
