@@ -11,6 +11,12 @@ const REGISTRY_PATH = path.resolve(
 const UPDATE_HINT =
   'Run `yarn workspace @onekeyhq/mobile module-id:update --map <module-id-map.json>` and commit the registry update.';
 
+function compareModuleKeys(first, second) {
+  if (first < second) return -1;
+  if (first > second) return 1;
+  return 0;
+}
+
 function normalizeStoredModuleKey(moduleKey) {
   if (typeof moduleKey !== 'string' || moduleKey.length === 0) {
     throw new Error('Module key must be a non-empty string.');
@@ -295,6 +301,7 @@ module.exports = {
   UPDATE_HINT,
   assertValidRegistry,
   collectRegistryErrors,
+  compareModuleKeys,
   createFileToIdMap,
   getMaxModuleId,
   isPositiveSafeInteger,

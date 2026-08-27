@@ -13,7 +13,11 @@ const bundleToString = require(
 
 const devVendorConfig = require('../dev-vendor.config');
 
-const { REPO_ROOT, loadRegistry } = require('./moduleIdRegistry');
+const {
+  REPO_ROOT,
+  compareModuleKeys,
+  loadRegistry,
+} = require('./moduleIdRegistry');
 
 const MANIFEST_NAME = 'manifest.json';
 const SUPPORTED_PLATFORMS = new Set(['android', 'ios']);
@@ -155,7 +159,7 @@ function getDevVendorStubModuleId(filePath, projectRoot) {
 
 function assertSortedUniqueModules(modules) {
   const paths = modules.map((moduleRecord) => moduleRecord.path);
-  const sortedPaths = paths.toSorted();
+  const sortedPaths = paths.toSorted(compareModuleKeys);
   if (paths.some((modulePath, index) => modulePath !== sortedPaths[index])) {
     throw new Error('[devVendor] Manifest modules must be sorted by path.');
   }
@@ -174,6 +178,7 @@ function assertSortedUniqueModules(modules) {
 }
 
 function verifyManifest({
+  artifactDirectory,
   manifest,
   platform,
   projectRoot,
@@ -236,16 +241,10 @@ function verifyManifest({
     );
   }
 
-  const platformOutputDirectory = getPlatformOutputDirectory(
-    projectRoot,
-    platform,
-  );
-  for (const artifact of [
-    manifest.common.source,
-    manifest.common.bytecode,
-    manifest.common.sourceMap,
-  ]) {
-    const artifactPath = path.join(platformOutputDirectory, artifact.file);
+  const resolvedArtifactDirectory =
+    artifactDirectory ?? getPlatformOutputDirectory(projectRoot, platform);
+  for (const artifact of [manifest.common.source, manifest.common.bytecode]) {
+    const artifactPath = path.join(resolvedArtifactDirectory, artifact.file);
     if (!fs.existsSync(artifactPath)) {
       throw new Error(
         `[devVendor] Cached artifact is missing: ${artifactPath}`,
@@ -259,7 +258,12 @@ function verifyManifest({
     }
   }
   for (const moduleRecord of manifest.modules) {
-    if (!fs.existsSync(getStubPath(projectRoot, platform, moduleRecord.id))) {
+    const stubPath = path.join(
+      resolvedArtifactDirectory,
+      'stubs',
+      `${moduleRecord.id}.js`,
+    );
+    if (!fs.existsSync(stubPath)) {
       throw new Error(
         `[devVendor] External stub is missing for module ${moduleRecord.id}. Rebuild the dev vendor cache.`,
       );
@@ -421,6 +425,7 @@ module.exports = {
   MANIFEST_NAME,
   SUPPORTED_PLATFORMS,
   applyDevVendorConfig,
+  assertSortedUniqueModules,
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,

@@ -1,11 +1,19 @@
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
+const devVendorConfig = require('../../dev-vendor.config');
 const {
+  assertSortedUniqueModules,
+  computeConfigInputsDigest,
   computeFingerprint,
+  computeModulesDigest,
   getDevVendorStubModuleId,
   isDevVendorEnabled,
   isDevVendorRequest,
+  sha256,
   shouldPrependCommon,
+  verifyManifest,
 } = require('../devVendor');
 
 describe('devVendor', () => {
@@ -52,6 +60,81 @@ describe('devVendor', () => {
     expect(
       computeFingerprint({ ...fields, modulesDigest: 'changed' }),
     ).not.toBe(computeFingerprint(fields));
+  });
+
+  it('uses code-point ordering for manifest module paths', () => {
+    expect(() =>
+      assertSortedUniqueModules([
+        { id: 1, path: 'node_modules/Z.js' },
+        { id: 2, path: 'node_modules/a.js' },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertSortedUniqueModules([
+        { id: 2, path: 'node_modules/a.js' },
+        { id: 1, path: 'node_modules/Z.js' },
+      ]),
+    ).toThrow('Manifest modules must be sorted by path');
+  });
+
+  it('verifies source and bytecode from an explicit artifact directory', () => {
+    const artifactDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-dev-vendor-manifest-'),
+    );
+    const source = Buffer.from('common source');
+    const bytecode = Buffer.from('common bytecode');
+    const modules = [{ id: 4, path: 'apps/mobile/index.ts' }];
+    fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
+    fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
+    fs.mkdirSync(path.join(artifactDirectory, 'stubs'));
+    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    const fingerprintFields = {
+      schemaVersion: devVendorConfig.SCHEMA_VERSION,
+      strategyVersion: devVendorConfig.STRATEGY_VERSION,
+      platform: 'ios',
+      registryEpoch: 1,
+      configInputsDigest: computeConfigInputsDigest(),
+      modulesDigest: computeModulesDigest(modules),
+      modules,
+    };
+    const manifest = {
+      ...fingerprintFields,
+      fingerprint: computeFingerprint(fingerprintFields),
+      common: {
+        source: {
+          file: 'common.js',
+          bytes: source.length,
+          sha256: sha256(source),
+        },
+        bytecode: {
+          file: 'common.hbc',
+          bytes: bytecode.length,
+          sha256: sha256(bytecode),
+        },
+      },
+    };
+
+    try {
+      expect(
+        verifyManifest({
+          artifactDirectory,
+          manifest,
+          platform: 'ios',
+          projectRoot: '/unused',
+        }),
+      ).toBe(manifest);
+      fs.rmSync(path.join(artifactDirectory, 'stubs/4.js'));
+      expect(() =>
+        verifyManifest({
+          artifactDirectory,
+          manifest,
+          platform: 'ios',
+          projectRoot: '/unused',
+        }),
+      ).toThrow('External stub is missing for module 4');
+    } finally {
+      fs.rmSync(artifactDirectory, { force: true, recursive: true });
+    }
   });
 
   it('recognizes rewritten Metro URLs and keeps modulesOnly responses as deltas', () => {

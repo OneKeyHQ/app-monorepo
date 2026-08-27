@@ -1,8 +1,15 @@
+const os = require('os');
+const path = require('path');
+
+const fs = require('fs-extra');
+
+const { REPO_ROOT } = require('../../plugins/moduleIdRegistry');
 const {
   addObservedModulePaths,
-  normalizeFullSourceMapsForBundle,
+  createModuleRecords,
   parseArgs,
   selectClosedVendorModules,
+  verifyAndReplaceDirectory,
 } = require('../build-dev-vendor');
 const { buildModuleSignature } = require('../unionBuildHelpers');
 
@@ -74,41 +81,53 @@ describe('build-dev-vendor', () => {
     ]);
   });
 
-  it('clones every full-map JS module without changing code or graph data', () => {
-    const firstFullMap = { mappings: 'AAAA', version: 3 };
-    const secondFullMap = { mappings: 'BBBB', version: 3 };
-    const rawMap = [[1, 0, 1, 0]];
-    const first = createModule('first\nsecond');
-    first.path = '/repo/first.js';
-    first.output[0].data.lineCount = 2;
-    first.output[0].data.map = firstFullMap;
-    const second = createModule('second');
-    second.path = '/repo/second.js';
-    second.output[0].data.lineCount = 1;
-    second.output[0].data.map = rawMap;
-    const third = createModule('third');
-    third.path = '/repo/third.js';
-    third.output[0].data.lineCount = 1;
-    third.output[0].data.map = secondFullMap;
-    const originalModules = [first, second, third];
+  it('sorts manifest records with the shared code-point comparator', () => {
+    const upperKey = 'node_modules/Z.js';
+    const lowerKey = 'node_modules/a.js';
+    const records = createModuleRecords(
+      new Set([
+        path.resolve(REPO_ROOT, lowerKey),
+        path.resolve(REPO_ROOT, upperKey),
+      ]),
+      {
+        modules: { [lowerKey]: 2, [upperKey]: 1 },
+      },
+    );
 
-    const normalized = normalizeFullSourceMapsForBundle(originalModules);
-
-    expect(normalized.fullMapModulePaths).toEqual([
-      '/repo/first.js',
-      '/repo/third.js',
+    expect(records).toEqual([
+      { id: 1, path: upperKey },
+      { id: 2, path: lowerKey },
     ]);
-    expect(normalized.modules[0]).not.toBe(first);
-    expect(normalized.modules[0].output[0]).not.toBe(first.output[0]);
-    expect(normalized.modules[0].output[0].data).toMatchObject({
-      code: 'first\nsecond',
-      lineCount: 2,
-      map: null,
-    });
-    expect(normalized.modules[1]).toBe(second);
-    expect(normalized.modules[1].output[0].data.map).toBe(rawMap);
-    expect(first.output[0].data.map).toBe(firstFullMap);
-    expect(third.output[0].data.map).toBe(secondFullMap);
+  });
+
+  it('keeps the previous output when temporary artifact validation fails', async () => {
+    const testDirectory = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-dev-vendor-'),
+    );
+    const outputDirectory = path.join(testDirectory, 'output');
+    const temporaryDirectory = path.join(testDirectory, 'temporary');
+    await fs.ensureDir(outputDirectory);
+    await fs.ensureDir(temporaryDirectory);
+    await fs.writeFile(path.join(outputDirectory, 'marker'), 'previous');
+    await fs.writeFile(path.join(temporaryDirectory, 'marker'), 'invalid');
+
+    try {
+      await expect(
+        verifyAndReplaceDirectory({
+          outputDirectory,
+          temporaryDirectory,
+          verifyTemporaryDirectory: () => {
+            throw new TypeError('invalid manifest');
+          },
+        }),
+      ).rejects.toThrow('invalid manifest');
+      await expect(
+        fs.readFile(path.join(outputDirectory, 'marker'), 'utf8'),
+      ).resolves.toBe('previous');
+      await expect(fs.pathExists(temporaryDirectory)).resolves.toBe(false);
+    } finally {
+      await fs.remove(testDirectory);
+    }
   });
 
   it('keeps only equivalent static vendor modules with a closed sync graph', () => {

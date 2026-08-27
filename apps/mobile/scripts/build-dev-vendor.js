@@ -17,6 +17,7 @@ const {
   verifyManifest,
 } = require('../plugins/devVendor');
 const {
+  compareModuleKeys,
   loadRegistry,
   REPO_ROOT,
   toModuleKey,
@@ -38,9 +39,6 @@ const bundleToString = require(
 const getPrependedScripts = require(
   path.join(metroRoot, 'lib/getPrependedScripts'),
 ).default;
-const { sourceMapStringNonBlocking } = require(
-  path.join(metroRoot, 'DeltaBundler/Serializers/sourceMapString'),
-);
 
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
@@ -94,36 +92,6 @@ function addObservedModulePaths(observedModulePaths, graph, prepend) {
   for (const moduleData of prepend) {
     observedModulePaths.add(moduleData.path);
   }
-}
-
-function normalizeFullSourceMapsForBundle(modules) {
-  const fullMapModulePaths = [];
-  const normalizedModules = modules.map((moduleData) => {
-    let changed = false;
-    const output = moduleData.output.map((outputData) => {
-      const sourceMap = outputData.data?.map;
-      if (
-        !outputData.type.startsWith('js/') ||
-        sourceMap === null ||
-        sourceMap === undefined ||
-        Array.isArray(sourceMap)
-      ) {
-        return outputData;
-      }
-      changed = true;
-      return {
-        ...outputData,
-        data: {
-          ...outputData.data,
-          map: null,
-        },
-      };
-    });
-    if (!changed) return moduleData;
-    fullMapModulePaths.push(moduleData.path);
-    return { ...moduleData, output };
-  });
-  return { fullMapModulePaths, modules: normalizedModules };
 }
 
 function isJsModule(moduleData) {
@@ -296,13 +264,7 @@ function buildRunBeforePost({
 function compileHermes({ inputPath, outputPath }) {
   const result = spawnSync(
     HERMES_COMMAND,
-    [
-      '-O',
-      '-emit-binary',
-      '-output-source-map',
-      `-out=${outputPath}`,
-      inputPath,
-    ],
+    ['-O', '-emit-binary', `-out=${outputPath}`, inputPath],
     { stdio: 'inherit' },
   );
   if (result.status !== 0) {
@@ -324,7 +286,7 @@ function createModuleRecords(selectedModules, registry) {
       }
       return { id: moduleId, path: moduleKey };
     })
-    .toSorted((left, right) => left.path.localeCompare(right.path));
+    .toSorted((left, right) => compareModuleKeys(left.path, right.path));
 }
 
 async function replaceDirectoryAtomically({
@@ -348,6 +310,20 @@ async function replaceDirectoryAtomically({
   if (hadPreviousOutput) {
     await fs.remove(backupDirectory);
   }
+}
+
+async function verifyAndReplaceDirectory({
+  outputDirectory,
+  temporaryDirectory,
+  verifyTemporaryDirectory,
+}) {
+  try {
+    await verifyTemporaryDirectory(temporaryDirectory);
+  } catch (error) {
+    await fs.remove(temporaryDirectory);
+    throw error;
+  }
+  await replaceDirectoryAtomically({ outputDirectory, temporaryDirectory });
 }
 
 async function writePlatformOutput({
@@ -410,39 +386,15 @@ async function writePlatformOutput({
     post: runBeforePost,
   }).code;
 
-  const selectedGraphModules = [...selectedModules]
-    .map((absolutePath) => graph.dependencies.get(absolutePath))
-    .filter(Boolean);
-  const sourceMapInput = normalizeFullSourceMapsForBundle([
-    ...prepend,
-    ...selectedGraphModules,
-  ]);
-  if (sourceMapInput.fullMapModulePaths.length > 0) {
-    console.log(
-      `[devVendor] source map omitted full-map mappings count=${sourceMapInput.fullMapModulePaths.length} modules=${sourceMapInput.fullMapModulePaths.join(',')}`,
-    );
-  }
-  const sourceMap = await sourceMapStringNonBlocking(sourceMapInput.modules, {
-    excludeSource: false,
-    getSourceUrl: (moduleData) => moduleData.path,
-    processModuleFilter: () => true,
-    shouldAddToIgnoreList: () => false,
-  });
-
   const commonSourcePath = path.join(
     temporaryDirectory,
     devVendorConfig.commonSourceName,
-  );
-  const commonSourceMapPath = path.join(
-    temporaryDirectory,
-    devVendorConfig.commonSourceMapName,
   );
   const commonBytecodePath = path.join(
     temporaryDirectory,
     devVendorConfig.commonBytecodeName,
   );
   await fs.writeFile(commonSourcePath, commonBundle);
-  await fs.writeFile(commonSourceMapPath, sourceMap);
   compileHermes({
     inputPath: commonSourcePath,
     outputPath: commonBytecodePath,
@@ -466,11 +418,6 @@ async function writePlatformOutput({
         bytes: bytecodeBytes.length,
         sha256: sha256(bytecodeBytes),
       },
-      sourceMap: {
-        file: devVendorConfig.commonSourceMapName,
-        bytes: Buffer.byteLength(sourceMap),
-        sha256: sha256(sourceMap),
-      },
     },
     baseline: {
       backgroundGraphModules: backgroundModuleCount,
@@ -482,8 +429,19 @@ async function writePlatformOutput({
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
 
-  await replaceDirectoryAtomically({ outputDirectory, temporaryDirectory });
-  verifyManifest({ manifest, platform, projectRoot: mobileDirPath });
+  await verifyAndReplaceDirectory({
+    outputDirectory,
+    temporaryDirectory,
+    verifyTemporaryDirectory: async (artifactDirectory) =>
+      verifyManifest({
+        artifactDirectory,
+        manifest: await fs.readJson(
+          path.join(artifactDirectory, 'manifest.json'),
+        ),
+        platform,
+        projectRoot: mobileDirPath,
+      }),
+  });
   console.log(
     `[devVendor] built platform=${platform} fingerprint=${fingerprint} commonModules=${moduleRecords.length} commonJsBytes=${sourceBytes.length} commonHbcBytes=${bytecodeBytes.length} mainGraph=${mainModuleCount} backgroundGraph=${backgroundModuleCount}`,
   );
@@ -632,7 +590,8 @@ module.exports = {
   addObservedModulePaths,
   hasAsyncDependency,
   isJsModule,
-  normalizeFullSourceMapsForBundle,
   parseArgs,
+  createModuleRecords,
   selectClosedVendorModules,
+  verifyAndReplaceDirectory,
 };

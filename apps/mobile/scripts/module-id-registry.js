@@ -12,6 +12,7 @@ const {
   SCHEMA_VERSION,
   assertValidRegistry,
   collectRegistryErrors,
+  compareModuleKeys,
   getMaxModuleId,
   isPositiveSafeInteger,
   loadRegistry,
@@ -28,12 +29,6 @@ function createEmptyRegistry() {
     modules: {},
     tombstones: {},
   };
-}
-
-function compareModuleKeys(first, second) {
-  if (first < second) return -1;
-  if (first > second) return 1;
-  return 0;
 }
 
 function sortRecord(record) {

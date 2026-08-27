@@ -1,6 +1,6 @@
 const path = require('path');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const STRATEGY_VERSION = 1;
 
 const fingerprintFiles = [
@@ -22,7 +22,6 @@ module.exports = {
   SCHEMA_VERSION,
   STRATEGY_VERSION,
   commonBytecodeName: 'common.hbc',
-  commonSourceMapName: 'common.js.map',
   commonSourceName: 'common.js',
   fingerprintDirectories: ['patches'],
   fingerprintFiles,
