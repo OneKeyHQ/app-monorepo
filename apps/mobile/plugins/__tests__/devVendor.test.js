@@ -627,7 +627,7 @@ describe('devVendor', () => {
 
   it('quotes iOS bundle phase tool paths containing spaces', () => {
     const script = loadIOSMainBundlePhaseScript();
-    const invocation = script.trimEnd().split('\n').at(-1);
+    const invocation = script.slice(script.lastIndexOf('SENTRY_XCODE_SCRIPT='));
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey dev vendor xcode '),
     );
@@ -651,26 +651,37 @@ describe('devVendor', () => {
       fs.chmodSync(nodeBinary, 0o755);
       fs.writeFileSync(
         sentryScript,
-        '#!/bin/sh\nprintf "%s\\n" "$1" > "$MOCK_CAPTURE_FILE"\n',
+        '#!/bin/sh\nprintf "sentry:%s\\n" "$1" > "$MOCK_CAPTURE_FILE"\n',
       );
-      fs.writeFileSync(reactNativeScript, '');
+      fs.writeFileSync(
+        reactNativeScript,
+        '#!/bin/sh\nprintf "react-native\\n" > "$MOCK_CAPTURE_FILE"\n',
+      );
 
-      const result = spawnSync('/bin/sh', ['-c', invocation], {
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          MOCK_CAPTURE_FILE: captureFile,
-          MOCK_REACT_NATIVE_SCRIPT: reactNativeScript,
-          MOCK_SENTRY_SCRIPT: sentryScript,
-          NODE_BINARY: nodeBinary,
-        },
-      });
+      const runInvocation = (sentryDisabled) =>
+        spawnSync('/bin/sh', ['-c', invocation], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            MOCK_CAPTURE_FILE: captureFile,
+            MOCK_REACT_NATIVE_SCRIPT: reactNativeScript,
+            MOCK_SENTRY_SCRIPT: sentryScript,
+            NODE_BINARY: nodeBinary,
+            SENTRY_DISABLE_AUTO_UPLOAD: sentryDisabled ? 'true' : 'false',
+          },
+        });
 
       expect(invocation).not.toContain('`');
-      expect(result.status).toBe(0);
-      expect(result.stderr).toBe('');
+      const disabledResult = runInvocation(true);
+      expect(disabledResult.status).toBe(0);
+      expect(disabledResult.stderr).toBe('');
+      expect(fs.readFileSync(captureFile, 'utf8').trim()).toBe('react-native');
+
+      const enabledResult = runInvocation(false);
+      expect(enabledResult.status).toBe(0);
+      expect(enabledResult.stderr).toBe('');
       expect(fs.readFileSync(captureFile, 'utf8').trim()).toBe(
-        reactNativeScript,
+        `sentry:${reactNativeScript}`,
       );
     } finally {
       fs.rmSync(temporaryDirectory, { force: true, recursive: true });
