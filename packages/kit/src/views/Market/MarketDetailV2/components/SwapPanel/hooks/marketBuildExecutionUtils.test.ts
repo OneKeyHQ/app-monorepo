@@ -53,6 +53,7 @@ describe('marketBuildExecutionUtils', () => {
   it('builds transfer info for provider orders like swft', async () => {
     const result = await buildMarketExecutionPayload({
       accountId: 'account-1',
+      receivingAccountId: 'receiving-account-1',
       buildRes: createBuildRes({
         swftOrder: {
           platformAddr: '0xplatform',
@@ -63,7 +64,7 @@ describe('marketBuildExecutionUtils', () => {
       currentFromToken: fromToken,
       currentToToken: toToken,
       fromAmount: '1',
-      receivingAddress: '0xuser',
+      receivingAddress: '0xreceiver',
       slippage: 1,
       userAddress: '0xuser',
       onBuildOkxSwapEncodedTx: jest.fn(),
@@ -80,6 +81,10 @@ describe('marketBuildExecutionUtils', () => {
       }),
     );
     expect(result.encodedTx).toBeUndefined();
+    expect(result.swapInfo.receivingAddress).toBe('0xreceiver');
+    expect(result.swapInfo.receiver.accountInfo?.accountId).toBe(
+      'receiving-account-1',
+    );
   });
 
   it('supports LM Tron build payloads', async () => {
