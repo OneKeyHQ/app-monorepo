@@ -320,9 +320,16 @@ const styles = StyleSheet.create({
   },
   // Anchored to the container's horizontal center at its final width, so
   // the growing face reveals it center-out, symmetric like the reference.
+  // Stretched to the face's full frame (bottom: 0): every child seat is
+  // absolute, so without it this box lays out at height 0 — and Android's
+  // platform touch dispatch, which native-handling children (the switch)
+  // ride, stops at a zero frame even though the content draws fine.
+  // JS-driven presses survived through RN's own hit-testing, which is
+  // why only native controls went dead there.
   cardContent: {
     position: 'absolute',
     top: 0,
+    bottom: 0,
     left: '50%',
   },
   // The toolbar band over the seats, on the same centering: the grabber
