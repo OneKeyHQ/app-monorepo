@@ -59,6 +59,7 @@ import {
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
+  isMarketPresetAutoSlippage,
   isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
   shouldShowMarketPresetPriorityFeeTooltip,
@@ -1547,7 +1548,7 @@ export function MarketPresetSelector({
   estimatePriorityFeeFiatValues,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
-  showAutoSlippageLabel = false,
+  showAutoSlippageLabel = true,
   variant,
   settingsButtonOnly,
 }: IMarketPresetSelectorProps) {
@@ -1624,9 +1625,7 @@ export function MarketPresetSelector({
   }
 
   const slippageLabel =
-    resolvedVariant === 'compact' &&
-    showAutoSlippageLabel &&
-    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.AUTO
+    showAutoSlippageLabel && isMarketPresetAutoSlippage(selectedPresetKey)
       ? intl.formatMessage({ id: ETranslations.global_auto })
       : `${selectedSlippageValue}%`;
   const priorityFeeLabel = getPriorityFeeLabel({

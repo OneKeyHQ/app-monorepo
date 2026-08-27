@@ -109,12 +109,6 @@ const selectBalanceParsed = (f: ITokenFiat | undefined): string | undefined =>
     balanceMultiplier: f?.balanceMultiplier,
   });
 
-// RAW variant (no balanceMultiplier applied) — for non-display consumers
-// (e.g. swap seeds) that need the on-chain basis, not the display basis.
-const selectBalanceParsedRaw = (
-  f: ITokenFiat | undefined,
-): string | undefined => f?.balanceParsed;
-
 // Raw `balanceMultiplier` field — for consumers that gate scaled-UI-unaware
 // flows (e.g. the swap entry), not for display math.
 const selectBalanceMultiplier = (
@@ -157,19 +151,10 @@ const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
  * `balanceParsed` only — does NOT re-render on a price tick.
  *
  * Returns the DISPLAY basis (balanceParsed × balanceMultiplier; a no-op for
- * every non-rebase token). For non-display consumers that need the raw
- * on-chain basis (e.g. swap seeds), use `useTokenBalanceParsedRaw` instead.
+ * every non-rebase token).
  */
 export function useTokenBalanceParsed($key: string): string | undefined {
   return useTokenFiatField($key, selectBalanceParsed);
-}
-
-/**
- * RAW `balanceParsed` (no balanceMultiplier applied). For values handed to
- * non-display consumers (e.g. swap seeds) that expect on-chain basis.
- */
-export function useTokenBalanceParsedRaw($key: string): string | undefined {
-  return useTokenFiatField($key, selectBalanceParsedRaw);
 }
 
 /**

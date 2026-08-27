@@ -112,6 +112,7 @@ import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
+  ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
@@ -124,7 +125,6 @@ import {
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapQuoteSource,
-  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   ESwapTradeSource,
   ESwapTxHistoryStatus,
@@ -156,6 +156,7 @@ import {
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   resolveMarketQuoteActionState,
+  resolveMarketSelectedQuoteSlippage,
 } from './marketSwapBuildUtils';
 import {
   areMarketApproveAmountsEqual,
@@ -396,7 +397,7 @@ export function useSpeedSwapActions(props: {
   tradeType: ESwapDirection;
   swapType?: ESwapTabSwitchType;
   fromTokenAmount: string;
-  slippage: number;
+  slippageItem: ISwapSlippageSegmentItem;
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
@@ -414,13 +415,14 @@ export function useSpeedSwapActions(props: {
     tradeToken,
     tradeType,
     swapType = ESwapTabSwitchType.SWAP,
-    slippage,
+    slippageItem,
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     // onCloseDialog,
     stockIsOpen,
   } = props;
+  const { key: slippageMode, value: slippage } = slippageItem;
 
   const intl = useIntl();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
@@ -842,7 +844,7 @@ export function useSpeedSwapActions(props: {
 
     void quoteAction(
       {
-        key: ESwapSlippageSegmentKey.CUSTOM,
+        key: slippageMode,
         value: slippage,
       },
       userAddress,
@@ -870,6 +872,7 @@ export function useSpeedSwapActions(props: {
     quoteAction,
     receivingNetworkAccount?.addressDetail.address,
     slippage,
+    slippageMode,
     swapType,
     toToken,
   ]);
@@ -1095,6 +1098,7 @@ export function useSpeedSwapActions(props: {
       accountId,
       receivingAddress,
       receivingAccountId,
+      slippagePercentage,
     }: {
       buildRes: IFetchBuildTxResponse;
       quoteResult?: IFetchQuoteResult;
@@ -1105,6 +1109,7 @@ export function useSpeedSwapActions(props: {
       accountId: string;
       receivingAddress: string;
       receivingAccountId: string;
+      slippagePercentage: number;
     }) => {
       const buildResFinal = mergeMarketBuildResultWithQuote({
         buildRes,
@@ -1126,7 +1131,7 @@ export function useSpeedSwapActions(props: {
         receivingAccountId,
         receivingAddress,
         userAddress,
-        slippage,
+        slippage: slippagePercentage,
         swapType: executionSwapType,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
@@ -1136,7 +1141,7 @@ export function useSpeedSwapActions(props: {
           backgroundApiProxy.serviceStaking.buildInternalDappTx(params),
       });
     },
-    [intl, marketDeriveInfoRes.result?.addressEncoding, slippage],
+    [intl, marketDeriveInfoRes.result?.addressEncoding],
   );
 
   const assertLatestFromTokenBalanceSufficient = useCallback(
@@ -1286,12 +1291,20 @@ export function useSpeedSwapActions(props: {
         );
       }
 
+      const selectedQuoteSlippage = resolveMarketSelectedQuoteSlippage({
+        quoteResult: selectedQuote,
+        slippageItem: {
+          key: slippageMode,
+          value: slippage,
+        },
+      });
+
       if (selectedQuote.swapShouldSignedData) {
         const reviewBuildRes: IFetchBuildTxResponse = {
           ...(selectedQuote.quoteId ? { orderId: selectedQuote.quoteId } : {}),
           result: {
             ...selectedQuote,
-            slippage: selectedQuote.slippage ?? slippage,
+            slippage: selectedQuoteSlippage,
           },
         };
         const swapInfo: ISwapTxInfo = {
@@ -1336,7 +1349,7 @@ export function useSpeedSwapActions(props: {
           provider: selectedQuote.info.provider,
           userAddress,
           receivingAddress,
-          slippagePercentage: selectedQuote.slippage ?? slippage,
+          slippagePercentage: selectedQuoteSlippage,
           quoteResultCtx: selectedQuote.quoteResultCtx,
           accountId: fromAccount.id,
           protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
@@ -1348,10 +1361,17 @@ export function useSpeedSwapActions(props: {
           throw new OneKeyLocalError('Market swap review build failed.');
         }
 
-        const buildResFinal = mergeMarketBuildResultWithQuote({
+        const mergedBuildRes = mergeMarketBuildResultWithQuote({
           buildRes,
           quoteResult: selectedQuote,
         });
+        const buildResFinal: IFetchBuildTxResponse = {
+          ...mergedBuildRes,
+          result: {
+            ...mergedBuildRes.result,
+            slippage: mergedBuildRes.result.slippage ?? selectedQuoteSlippage,
+          },
+        };
 
         const { encodedTx, transferInfo, swapInfo } =
           await buildMarketExecutionFromBuildRes({
@@ -1364,6 +1384,7 @@ export function useSpeedSwapActions(props: {
             accountId: fromAccount.id,
             receivingAddress,
             receivingAccountId: receivingAccount.id,
+            slippagePercentage: selectedQuoteSlippage,
           });
 
         return {
@@ -1383,6 +1404,7 @@ export function useSpeedSwapActions(props: {
       fromNetworkAccount,
       receivingNetworkAccount,
       slippage,
+      slippageMode,
       toToken,
       buildMarketExecutionFromBuildRes,
       assertLatestFromTokenBalanceSufficient,
@@ -2048,6 +2070,7 @@ export function useSpeedSwapActions(props: {
           receivingAccountId:
             snapshot.swapInfo.receiver.accountInfo?.accountId ??
             snapshot.accountId,
+          slippagePercentage,
         });
 
       const nextSnapshot: IMarketReviewExecutionSnapshot = {
@@ -2936,6 +2959,15 @@ export function useSpeedSwapActions(props: {
           accountAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
         });
+        const signingSlippage =
+          signedQuoteResult.slippage ??
+          resolveMarketSelectedQuoteSlippage({
+            quoteResult: signedQuoteResult,
+            slippageItem: {
+              key: slippageMode,
+              value: slippage,
+            },
+          });
         const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
           fromToken: snapshot.swapInfo.sender.token,
           toToken: snapshot.swapInfo.receiver.token,
@@ -2946,7 +2978,7 @@ export function useSpeedSwapActions(props: {
           provider: signedQuoteResult.info.provider,
           userAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
-          slippagePercentage: signedQuoteResult.slippage ?? slippage,
+          slippagePercentage: signingSlippage,
           quoteResultCtx: signedQuoteResult.quoteResultCtx,
           accountId: snapshot.accountId,
           protocol: signedQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
@@ -2958,9 +2990,20 @@ export function useSpeedSwapActions(props: {
           throw new OneKeyLocalError('Market sign build failed.');
         }
 
+        const mergedBuildRes = mergeMarketBuildResultWithQuote({
+          buildRes,
+          quoteResult: signedQuoteResult,
+        });
+        const buildResFinal: IFetchBuildTxResponse = {
+          ...mergedBuildRes,
+          result: {
+            ...mergedBuildRes.result,
+            slippage: mergedBuildRes.result.slippage ?? signingSlippage,
+          },
+        };
         const { encodedTx, transferInfo, swapInfo, skipSendTransAction } =
           await buildMarketExecutionFromBuildRes({
-            buildRes,
+            buildRes: buildResFinal,
             quoteResult: signedQuoteResult,
             currentFromToken: snapshot.swapInfo.sender.token,
             currentToToken: snapshot.swapInfo.receiver.token,
@@ -2972,11 +3015,8 @@ export function useSpeedSwapActions(props: {
             receivingAccountId:
               snapshot.swapInfo.receiver.accountInfo?.accountId ??
               snapshot.accountId,
+            slippagePercentage: signingSlippage,
           });
-        const buildResFinal = mergeMarketBuildResultWithQuote({
-          buildRes,
-          quoteResult: signedQuoteResult,
-        });
         const buildCtx = buildResFinal.ctx as
           | {
               cowSwapOrderId?: string;
@@ -3009,6 +3049,7 @@ export function useSpeedSwapActions(props: {
             fromAmount: reviewedBuildResult.fromAmount,
             toAmount: reviewedBuildResult.toAmount,
             minToAmount: reviewedBuildResult.minToAmount,
+            slippage: reviewedBuildResult.slippage ?? signingSlippage,
           },
           buildUnsignedParams: {
             networkId: snapshot.networkId,
@@ -3068,6 +3109,7 @@ export function useSpeedSwapActions(props: {
       refreshMarketSigningQuoteResult,
       signMarketReviewQuoteResult,
       slippage,
+      slippageMode,
     ],
   );
 
@@ -3583,7 +3625,7 @@ export function useSpeedSwapActions(props: {
     ) {
       void quoteAction(
         {
-          key: ESwapSlippageSegmentKey.CUSTOM,
+          key: slippageMode,
           value: slippage,
         },
         userAddress,
@@ -3623,6 +3665,7 @@ export function useSpeedSwapActions(props: {
     resetQuoteAction,
     setSwapFromTokenAmount,
     slippage,
+    slippageMode,
     stockIsOpen,
     swapType,
     toToken.contractAddress,

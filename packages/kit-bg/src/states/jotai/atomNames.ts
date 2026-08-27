@@ -14,6 +14,7 @@ export enum EAtomNames {
   cloudBackupStatusAtom = 'cloudBackupStatusAtom',
   cloudBackupExitPreventAtom = 'cloudBackupExitPreventAtom',
   passwordAtom = 'passwordAtom',
+  hyperLiquidAgentPasswordStatusAtom = 'hyperLiquidAgentPasswordStatusAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   passwordPersistManualLockStateAtom = 'passwordPersistManualLockStateAtom',

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
@@ -32,21 +33,42 @@ export function SlippageSetting({
   variant = 'default',
 }: ISlippageSettingProps) {
   const intl = useIntl();
-  const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
-    key: ESwapSlippageSegmentKey.AUTO,
-    value: autoDefaultValue,
-  });
+  const [
+    { swapSlippagePercentageCustomValue, swapSlippagePercentageMode },
+    setSettings,
+  ] = useSettingsAtom();
+  const slippageItem = useMemo<ISwapSlippageSegmentItem>(
+    () => ({
+      key: swapSlippagePercentageMode,
+      value:
+        swapSlippagePercentageMode === ESwapSlippageSegmentKey.CUSTOM
+          ? swapSlippagePercentageCustomValue
+          : autoDefaultValue,
+    }),
+    [
+      autoDefaultValue,
+      swapSlippagePercentageCustomValue,
+      swapSlippagePercentageMode,
+    ],
+  );
 
   const slippageOnSave = useCallback(
     (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
       console.log('Slippage saved:', item);
-      setSlippageItem(item);
+      setSettings((prev) => ({
+        ...prev,
+        swapSlippagePercentageMode: item.key,
+        swapSlippagePercentageCustomValue:
+          item.key === ESwapSlippageSegmentKey.CUSTOM
+            ? item.value
+            : prev.swapSlippagePercentageCustomValue,
+      }));
       onSlippageChange?.(item);
       if (closeFn) {
         void closeFn({ flag: 'save' });
       }
     },
-    [onSlippageChange],
+    [onSlippageChange, setSettings],
   );
 
   const onSlippageHandleClick = useCallback(() => {
