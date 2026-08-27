@@ -81,6 +81,7 @@ import {
   InstallProgress,
   PairingCodeForm,
 } from './ThirdPartyPanels';
+import { WalletTypeOptions } from './WalletTypeOptions';
 
 import type { IDeviceStageProps, IDeviceStageStep } from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
@@ -174,6 +175,7 @@ const WORDS_ESTIMATED_HEIGHT = 72;
 const CARD_ARRANGEMENTS = [
   'stage',
   'pinOnApp',
+  'selectWalletType',
   'passphraseIntro',
   'passphraseOnApp',
   'showQr',
@@ -450,6 +452,7 @@ export function DeviceStage({
   onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
+  onSelectWalletType,
   onPassphraseIntroContinue,
   passphraseMode,
   onPassphraseSubmit,
@@ -1358,6 +1361,27 @@ export function DeviceStage({
       vendor,
     ],
   );
+  const selectWalletTypePanel = useMemo(
+    () => (
+      <YStack>
+        <View onLayout={panelMeasureHandlers.selectWalletType.words}>
+          <StepText
+            title={intl.formatMessage({
+              id: STEP_TEXT.selectWalletType.title,
+            })}
+            sub=""
+            animated={false}
+          />
+        </View>
+        <View onLayout={panelMeasureHandlers.selectWalletType.tail}>
+          {onSelectWalletType ? (
+            <WalletTypeOptions onSelect={onSelectWalletType} />
+          ) : null}
+        </View>
+      </YStack>
+    ),
+    [intl, onSelectWalletType, panelMeasureHandlers],
+  );
   const passphraseIntroPanel = useMemo(
     () => (
       <YStack>
@@ -1691,6 +1715,7 @@ export function DeviceStage({
     () => ({
       stage: stagePanel,
       pinOnApp: pinPanel,
+      selectWalletType: selectWalletTypePanel,
       passphraseIntro: passphraseIntroPanel,
       passphraseOnApp: passphrasePanel,
       showQr: showQrPanel,
@@ -1717,6 +1742,7 @@ export function DeviceStage({
       passphrasePanel,
       pinPanel,
       scanQrPanel,
+      selectWalletTypePanel,
       showQrPanel,
       stagePanel,
     ],
@@ -1884,4 +1910,5 @@ export type {
   IDeviceStageErrorReason,
   IDeviceStageProps,
   IDeviceStageStep,
+  IDeviceStageWalletType,
 } from './type';
