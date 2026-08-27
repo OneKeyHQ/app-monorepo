@@ -247,6 +247,55 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
     );
   });
 
+  it('uses an independent CryptoKey for each envelope', async () => {
+    const { adapter, dbName, indexedDBInstance } = buildAdapter();
+    const firstEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|HLP|first-agent',
+      recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+      strength: 'profile-bound',
+    });
+    const secondEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|HLP|second-agent',
+      recordId: 'hyperliquid-agent--0x2--OneKeyAgent1',
+      strength: 'profile-bound',
+    });
+    const firstKeyRef =
+      parseLocalSecretEnvelopeV1(firstEnvelope).wrappingLayers[0].keyRef;
+    const secondKeyRef =
+      parseLocalSecretEnvelopeV1(secondEnvelope).wrappingLayers[0].keyRef;
+
+    expect(firstKeyRef).not.toBe(secondKeyRef);
+    await deleteIndexedDbCryptoKeyForLocalSecretEnvelope({
+      dbName,
+      indexedDBInstance,
+      keyRef: firstKeyRef,
+    });
+
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: firstEnvelope,
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: secondEnvelope,
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).resolves.toBe('|HLP|second-agent');
+    await expect(
+      readIndexedDbCryptoKeyForLocalSecretEnvelope({
+        dbName,
+        indexedDBInstance,
+        keyRef: secondKeyRef,
+      }),
+    ).resolves.toBeDefined();
+  });
+
   it('returns unavailable when IndexedDB or WebCrypto is missing', async () => {
     await expect(
       isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable({
