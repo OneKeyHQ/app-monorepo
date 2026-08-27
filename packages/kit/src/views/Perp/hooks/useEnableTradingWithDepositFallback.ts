@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpsActiveAccountStatusAtom,
   perpsActiveAccountStatusAtom,
@@ -263,5 +264,15 @@ export function useFirstDepositAction() {
       handleEnableTradingPostStatus,
       runAccountScopedRequest,
     ],
+  );
+}
+
+export function useEnsureTradingEnabled() {
+  const actions = useHyperliquidActions();
+  const firstDepositAction = useFirstDepositAction();
+
+  return useCallback(
+    () => actions.current.ensureTradingEnabled(firstDepositAction),
+    [actions, firstDepositAction],
   );
 }

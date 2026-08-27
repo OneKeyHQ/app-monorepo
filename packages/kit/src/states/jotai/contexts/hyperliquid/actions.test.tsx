@@ -11,6 +11,7 @@ import {
 } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { useFirstDepositAction } from '@onekeyhq/kit/src/views/Perp/hooks/useEnableTradingWithDepositFallback';
 import {
   perpsActiveAccountIsAgentReadyAtom,
   perpsActiveAccountStatusAtom,
@@ -40,10 +41,13 @@ const mockRefreshHyperLiquidAgentPasswordStatus = jest.fn<
   }>,
   []
 >();
+const mockCheckPerpsAccountStatus = jest.fn<Promise<void>, []>();
 const mockPromptHyperLiquidAgentPasswordSetupOrVerify = jest.fn<
   Promise<void>,
   []
 >();
+const mockShowDepositWithdrawModal = jest.fn<Promise<void>, []>();
+const mockShowHyperliquidTermsDialog = jest.fn<Promise<boolean>, []>();
 const mockEnableTrading = jest.fn<
   Promise<IPerpsActiveAccountStatusAtom | undefined>,
   []
@@ -138,6 +142,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquid: {
+      checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
       enableTrading: () => mockEnableTrading(),
     },
     servicePassword: {
@@ -153,8 +158,22 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
   default: {
     toastIfError: jest.fn(),
+    withErrorAutoToast: (callback: () => Promise<unknown>) => callback(),
   },
 }));
+
+jest.mock('@onekeyhq/kit/src/views/Perp/components/HyperliquidTerms', () => ({
+  showHyperliquidTermsDialog: () => mockShowHyperliquidTermsDialog(),
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal',
+  () => ({
+    useShowDepositWithdrawModal: () => ({
+      showDepositWithdrawModal: mockShowDepositWithdrawModal,
+    }),
+  }),
+);
 
 jest.mock(
   '@onekeyhq/kit/src/views/Perp/components/Guide/perpGuideData',
@@ -218,13 +237,16 @@ describe('useHyperliquidActions.ensureTradingEnabled', () => {
       isPasswordSet: true,
       requiresPasswordSetupOrVerify: true,
     });
+    mockCheckPerpsAccountStatus.mockResolvedValue(undefined);
+    mockShowDepositWithdrawModal.mockResolvedValue(undefined);
+    mockShowHyperliquidTermsDialog.mockResolvedValue(true);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('verifies the Agent password before enabling trading', async () => {
+  it('uses the fresh, password- and terms-gated enable-trading flow', async () => {
     const passwordDeferred = createDeferred<void>();
     const enabledStatus = buildPerpsAccountStatus(true);
     const callOrder: string[] = [];
@@ -234,25 +256,43 @@ describe('useHyperliquidActions.ensureTradingEnabled', () => {
     jest
       .spyOn(perpsActiveAccountStatusAtom, 'get')
       .mockResolvedValue(buildPerpsAccountStatus(false));
+    mockCheckPerpsAccountStatus.mockImplementation(async () => {
+      callOrder.push('checkStatus');
+    });
     mockPromptHyperLiquidAgentPasswordSetupOrVerify.mockImplementation(
       async () => {
         callOrder.push('password');
         await passwordDeferred.promise;
       },
     );
+    mockShowHyperliquidTermsDialog.mockImplementation(async () => {
+      callOrder.push('terms');
+      return true;
+    });
     mockEnableTrading.mockImplementation(async () => {
       callOrder.push('enableTrading');
       return enabledStatus;
     });
 
-    const { result } = renderHook(() => useHyperliquidActions(), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({
+        actions: useHyperliquidActions(),
+        firstDepositAction: useFirstDepositAction(),
+      }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
-    await expect(
-      result.current.current.ensureTradingEnabled(),
-    ).rejects.toThrow();
+    const ensureTradingPromise =
+      result.current.actions.current.ensureTradingEnabled(
+        result.current.firstDepositAction,
+      );
+    const ensureTradingErrorPromise = ensureTradingPromise.catch(
+      (error: unknown) => error,
+    );
     await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+    expect(callOrder).toEqual(['checkStatus']);
 
     const dialogOptions = mockDialogShow.mock.calls[0]?.[0];
     const dialogContent = dialogOptions?.renderContent;
@@ -267,7 +307,8 @@ describe('useHyperliquidActions.ensureTradingEnabled', () => {
       ).toHaveBeenCalledTimes(1),
     );
     expect(mockEnableTrading).not.toHaveBeenCalled();
-    expect(callOrder).toEqual(['password']);
+    expect(mockShowHyperliquidTermsDialog).not.toHaveBeenCalled();
+    expect(callOrder).toEqual(['checkStatus', 'password']);
 
     await act(async () => {
       passwordDeferred.resolve();
@@ -275,6 +316,12 @@ describe('useHyperliquidActions.ensureTradingEnabled', () => {
     });
 
     await waitFor(() => expect(mockEnableTrading).toHaveBeenCalledTimes(1));
-    expect(callOrder).toEqual(['password', 'enableTrading']);
+    expect(await ensureTradingErrorPromise).toBeInstanceOf(Error);
+    expect(callOrder).toEqual([
+      'checkStatus',
+      'password',
+      'terms',
+      'enableTrading',
+    ]);
   });
 });

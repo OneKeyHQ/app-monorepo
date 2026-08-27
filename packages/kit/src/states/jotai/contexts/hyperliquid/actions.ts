@@ -12,7 +12,6 @@ import {
   appIsLocked,
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
-  perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetCtxDisplayAtom,
@@ -169,6 +168,7 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
+type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
@@ -3548,33 +3548,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
-    const info = await perpsActiveAccountIsAgentReadyAtom.get();
-    if (info.isAgentReady === false) {
-      const { showEnableTradingStepsDialog } =
-        await import('@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingStepsDialog');
-      const accountStatus = await perpsActiveAccountStatusAtom.get();
-      void showEnableTradingStepsDialog({
-        accountStatus,
-        onConfirm: async () => {
-          try {
-            const status =
-              await backgroundApiProxy.serviceHyperliquid.enableTrading();
-            return {
-              shouldContinue: status?.canTrade === true,
-              status,
-            };
-          } catch {
-            return {
-              shouldContinue: false,
-              status: undefined,
-            };
-          }
-        },
-      });
-      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
-    }
-  });
+  ensureTradingEnabled = contextAtomMethod(
+    async (_get, _set, runEnableTradingFlow: IRunEnableTradingFlow) => {
+      const info = await perpsActiveAccountIsAgentReadyAtom.get();
+      if (info.isAgentReady === false) {
+        await runEnableTradingFlow();
+        throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
+      }
+    },
+  );
 
   tokenSzDecimalsCache: {
     [coin: string]: number | null | undefined;
@@ -3640,7 +3622,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
           // Apply filter if specified
