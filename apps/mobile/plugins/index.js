@@ -8,8 +8,16 @@ module.exports = (config, projectRoot) => {
   });
   const { fileToIdMap } = require('./map');
   config.serializer = config.serializer || {};
-  config.serializer.createModuleIdFactory = () => (filePath) =>
-    fileToIdMap.get(filePath);
+  if (process.env.ONEKEY_DEV_VENDOR === 'true') {
+    const { getDevVendorStubModuleId } = require('./devVendor');
+    config.serializer.createModuleIdFactory = () => (filePath) => {
+      const devVendorModuleId = getDevVendorStubModuleId(filePath, projectRoot);
+      return devVendorModuleId ?? fileToIdMap.get(filePath);
+    };
+  } else {
+    config.serializer.createModuleIdFactory = () => (filePath) =>
+      fileToIdMap.get(filePath);
+  }
   if (process.env.SPLIT_BUNDLE) {
     const fs = require('fs-extra');
     const connect = require('connect');

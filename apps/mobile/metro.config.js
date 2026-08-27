@@ -366,12 +366,21 @@ if (process.env.RN_HARNESS === 'true') {
 }
 
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+
+const splitCodePlugin = require('./plugins');
+const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+if (isDevVendorEnabled()) {
+  config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
+}
 
 if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
   const configuredMaxWorkers = Number.parseInt(
@@ -484,12 +493,31 @@ config.server.rewriteRequestUrl = (url) => {
     }resolver.runtimeTarget=${runtimeTarget}`;
   }
 
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('resolver.devVendor=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.devVendor=true`;
+  }
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('unstable_transformProfile=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }unstable_transformProfile=hermes-stable`;
+  }
+
   return rewrittenUrl;
 };
 
 // Apply split code plugin, then wrap with Rozenite plugin
-const splitCodePlugin = require('./plugins');
-
 const GET_TOP_DIR_SYMBOL = 'relative_dir_symbol';
 const buildRelativeDirPath = (url, depth = 2) => {
   const symbols = Array.from({ length: depth }, () => GET_TOP_DIR_SYMBOL).join(
@@ -554,11 +582,16 @@ config.cacheVersion = [
   .filter(Boolean)
   .join('-');
 
+const metroConfigWithPlugins = applyDevVendorConfig(
+  splitCodePlugin(config, projectRoot),
+  projectRoot,
+);
+
 module.exports = withRozenite(
   // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
   // strips every storybook module from the bundle via its resolver, so normal
   // and production builds are unaffected.
-  withStorybook(splitCodePlugin(config, projectRoot), {
+  withStorybook(metroConfigWithPlugins, {
     enabled: process.env.STORYBOOK_ENABLED === 'true',
     configPath: path.resolve(projectRoot, './.rnstorybook'),
     // Explicit localhost keeps the generated storybook.requires.ts stable —
