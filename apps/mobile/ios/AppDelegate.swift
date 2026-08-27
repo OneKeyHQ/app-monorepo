@@ -1,4 +1,7 @@
-import Expo
+// Explicit access level: AppDelegate is public and inherits a public Expo type,
+// and SDK 56's generated module provider imports Expo modules as `internal`.
+// Without this the compiler reports an ambiguous implicit access level.
+public import Expo
 import React
 import ReactAppDependencyProvider
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
@@ -198,7 +201,8 @@ public class AppDelegate: ExpoAppDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-    bindReactNativeFactory(factory)
+    // SDK 56 removed the global `bindReactNativeFactory`; the factory now wires
+    // up its own ExpoReactDelegate, and the properties above keep it alive.
     RCTI18nUtil.sharedInstance().allowRTL(true)
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)

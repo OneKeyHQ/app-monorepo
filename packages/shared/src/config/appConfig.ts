@@ -108,11 +108,10 @@ export function buildReferralUrl({
 }
 
 export const EXT_RATE_URL = {
-  'chrome':
+  chrome:
     'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
-  'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
-  'edge':
-    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
+  firefox: 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
+  edge: 'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
 };
 
 const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
@@ -146,6 +145,17 @@ export const buildServiceEndpoint = ({
 export const CHAIN_SELECTOR_LOGO =
   'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';
 export const defaultColorScheme = 'dark';
+
+/**
+ * RN 0.85 reports "no system preference" as the string 'unspecified' where it
+ * used to be null. Normalize at the boundary so callers keep a
+ * light/dark-or-nothing model and `??` fallbacks keep working.
+ */
+export function normalizeSystemColorScheme(
+  scheme: string | null | undefined,
+): 'light' | 'dark' | null {
+  return scheme === 'light' || scheme === 'dark' ? scheme : null;
+}
 
 export const TRADING_VIEW_URL = 'https://tradingview.onekey.so';
 export const TRADING_VIEW_URL_TEST = 'https://tradingview.onekeytest.com';

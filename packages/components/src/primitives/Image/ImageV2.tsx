@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
@@ -18,6 +18,7 @@ import type { IImageV2Props } from './type';
 import type {
   ImageErrorEventData,
   ImageLoadEventData,
+  ImageProps,
   ImageSource,
   ImageStyle,
 } from 'expo-image';
@@ -172,7 +173,11 @@ export function ImageV2({
     ],
   );
 
-  const ImageComponent = useMemo(() => {
+  // Annotated as one component type on purpose. The animated variant's props
+  // are reanimated's deep mapped AnimatedProps<ImageProps>; leaving the memo to
+  // infer a union of that and the plain component makes the JSX below overflow
+  // the checker (TS2590). Both accept the expo-image props passed there.
+  const ImageComponent = useMemo<ComponentType<ImageProps>>(() => {
     if (animated) {
       return AnimatedExpoImage;
     }

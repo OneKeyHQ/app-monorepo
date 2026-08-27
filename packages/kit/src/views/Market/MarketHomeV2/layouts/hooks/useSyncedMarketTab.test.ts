@@ -35,8 +35,12 @@ describe('useSyncedMarketTab', () => {
       frameCallbacks.set(frameId, callback);
       return frameId;
     });
+    // RN 0.85 widened the global to cancelAnimationFrame(number | null |
+    // undefined), so the mock has to accept the nullish ids too.
     globalThis.cancelAnimationFrame = jest.fn((frameId) => {
-      frameCallbacks.delete(frameId);
+      if (typeof frameId === 'number') {
+        frameCallbacks.delete(frameId);
+      }
     });
   });
 

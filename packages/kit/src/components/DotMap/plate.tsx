@@ -273,7 +273,7 @@ const KEYTAG_NOISE_TILE_SIZE = 96;
 
 const noiseStyles = StyleSheet.create({
   noise: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.14,
     pointerEvents: 'none',
   },

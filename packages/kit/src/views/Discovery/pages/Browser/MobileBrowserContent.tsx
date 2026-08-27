@@ -20,7 +20,7 @@ import { captureViewRefs } from '../../utils/explorerUtils';
 const styles = StyleSheet.create({
   // Opacity preserves the iOS WKWebView instance when switching tabs.
   webPageLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   iosWebPageLayerVisible: {
     opacity: 1,

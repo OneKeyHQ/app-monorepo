@@ -13,6 +13,7 @@ import appGlobals from '../../appGlobals';
 import { buildBasicOptions } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
+import type { ReactNativeOptions } from '@sentry/react-native';
 
 // oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react-native';
@@ -44,7 +45,15 @@ export const initSentry = () => {
 
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...basicOptions,
+    // buildBasicOptions is typed against @sentry/browser, which resolves
+    // @sentry/core 8, while @sentry/react-native pins @sentry/core 10.37.0
+    // exactly - SDK 56 dropped the @sentry/* resolutions that used to hold
+    // both on 8, and the RN SDK cannot go back. The option shape is the same;
+    // only the two vendored copies of the types disagree, on DataCategory
+    // ('log_byte' is 10-only), PropagationContext.sampleRand and the like.
+    // Cast the shared block rather than strip its keys one at a time; every
+    // option this file sets below stays checked.
+    ...(basicOptions as ReactNativeOptions),
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,

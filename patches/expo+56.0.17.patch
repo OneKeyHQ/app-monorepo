@@ -1,0 +1,35 @@
+diff --git a/node_modules/expo/src/async-require/asyncRequireModule.ts b/node_modules/expo/src/async-require/asyncRequireModule.ts
+--- a/node_modules/expo/src/async-require/asyncRequireModule.ts
++++ b/node_modules/expo/src/async-require/asyncRequireModule.ts
+@@ -109,14 +109,29 @@
+       then(resolve, reject) {
+         return Promise.resolve(ret).then(resolve, reject);
+       },
+-    };
++      // OneKey patch: dynamic import() callers chain .catch()/.finally()
++      // directly on the returned thenable; keep the Promise surface intact.
++      catch(reject: any) {
++        return Promise.resolve(ret).then(undefined, reject);
++      },
++      finally(onFinally: any) {
++        return Promise.resolve(ret).finally(onFinally);
++      },
++    } as any;
+   } else {
+     return {
+       _result: ret,
+       then(resolve, reject) {
+         return ret.then(resolve, reject);
+       },
+-    };
++      // OneKey patch: keep the Promise surface intact (see above).
++      catch(reject: any) {
++        return ret.then(undefined, reject);
++      },
++      finally(onFinally: any) {
++        return ret.finally(onFinally);
++      },
++    } as any;
+   }
+ }
+ 

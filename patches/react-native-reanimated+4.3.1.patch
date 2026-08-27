@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
-index 0062693..07a0f0b 100644
+index 808d40e..89d9acb 100644
 --- a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
 +++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
-@@ -492,6 +492,28 @@ bool ReanimatedModuleProxy::handleEvent(
+@@ -552,6 +552,28 @@ bool ReanimatedModuleProxy::handleEvent(
  bool ReanimatedModuleProxy::handleRawEvent(const RawEvent &rawEvent, double currentTime) {
    ReanimatedSystraceSection s("ReanimatedModuleProxy::handleRawEvent");
  
@@ -59,10 +59,10 @@ index ee9e030..c610eb7 100644
  export function areDOMRectsEqual(r1, r2) {
    // There are 4 more fields, but checking these should suffice
 diff --git a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
-index 42d2c09..57dd400 100644
+index a13231f..8acd87b 100644
 --- a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
 +++ b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
-@@ -204,6 +204,9 @@ export function processColor(
+@@ -216,6 +216,9 @@ export function processColor(
    }
  
    if (result === null) {
@@ -73,10 +73,10 @@ index 42d2c09..57dd400 100644
    }
  
 diff --git a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
-index 7682466..2eef347 100644
+index b5739bf..7f40095 100644
 --- a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
 +++ b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
-@@ -29,5 +29,8 @@ export const processColorSVG: ValueProcessor<
+@@ -33,5 +33,8 @@ export const processColorSVG: ValueProcessor<
      return 'currentColor';
    }
  

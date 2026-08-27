@@ -203,6 +203,12 @@ let requestSequence = 0;
 // MAX_REMOTE_CALL_SLOT_COUNT sizing signal). Monotonically increasing.
 let maxInFlightRemoteCalls = 0;
 let transportState: IBackgroundThreadTransportState = 'idle';
+// Whether the background runtime ever signalled ready in this session. A
+// transport that breaks BEFORE first ready (e.g. the bg bundle cannot boot)
+// never owned any state, so falling back to the local backgroundApi is safe
+// and equivalent to running with the transport disabled; a transport that
+// breaks AFTER ready must keep rejecting to avoid split-brain state.
+let transportHasEverBeenReady = false;
 let queuedFlushPromise: Promise<void> | undefined;
 let remoteBrokenReason: string | undefined;
 let currentBackgroundRuntimeBootId: string | undefined;
@@ -652,8 +658,16 @@ function clearReadyTimeoutTimer() {
   readyTimeoutTimer = undefined;
 }
 
-function rejectQueuedCalls(reason: string) {
+function settleQueuedCalls(reason: string) {
   const queuedCallsSnapshot = queuedCalls.splice(0);
+  if (!transportHasEverBeenReady) {
+    // Never-ready transport: settle queued calls through the local
+    // backgroundApi rather than failing them (see transportHasEverBeenReady).
+    queuedCallsSnapshot.forEach(({ localFallback, resolve, reject }) => {
+      localFallback().then(resolve, reject);
+    });
+    return;
+  }
   const error = createTransportError(reason);
   queuedCallsSnapshot.forEach(({ reject }) => {
     reject(error);
@@ -687,7 +701,7 @@ function switchToRemoteBroken(reason: string) {
   remoteBrokenReason = reason;
   transportState = 'remote-broken';
   clearReadyTimeoutTimer();
-  rejectQueuedCalls(reason);
+  settleQueuedCalls(reason);
   rejectPendingRemoteCalls(reason);
   return true;
 }
@@ -776,7 +790,9 @@ function dispatchRemoteRequest(
   const callId = createRemoteCallId();
   const requestKey = buildBackgroundThreadRequestKey(callId);
   transportLog(
-    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+    `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${
+      'method' in request ? request.method : 'N/A'
+    }`,
   );
   const isBridgeCall = request.type === 'bridge-call';
   const timeoutMs = getRemoteRequestTimeoutMs(request);
@@ -798,8 +814,12 @@ function dispatchRemoteRequest(
         pending.reject(
           createTransportError(
             isBridgeCall
-              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
-              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
+              ? `Bridge call timeout (${
+                  timeoutMs / 1000
+                }s). request=${getRequestDebugLabel(request)}`
+              : `Background request timeout (${
+                  timeoutMs / 1000
+                }s). request=${getRequestDebugLabel(request)}`,
           ),
         );
       }
@@ -894,7 +914,7 @@ function handleRuntimeSignal() {
       // JS heap and cannot receive a reliable response anymore. Do not replay
       // generic service calls here: many are not idempotent. AsyncStorage writes
       // are the special case that owns a request-status fence and retry loop.
-      rejectQueuedCalls(reason);
+      settleQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
     }
     return;
@@ -905,6 +925,7 @@ function handleRuntimeSignal() {
   // back to ready state (#35).
   remoteBrokenReason = undefined;
   transportState = 'ready';
+  transportHasEverBeenReady = true;
   transportReadyAt = Date.now();
   const readyFromEntry = transportReadyAt - jsEntryStart;
   const readyFromStarting = transportStartingAt
@@ -938,7 +959,9 @@ function handleBackgroundThreadResponse(
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
-    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
+    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${
+      response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'
+    }`,
   );
   if (!response) {
     switchToRemoteBroken(
@@ -1183,7 +1206,9 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
       sharedRPC.write(BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY, '1');
     } catch (error) {
       transportLog(
-        `failed to advertise main capabilities: ${(error as Error)?.message || String(error)}`,
+        `failed to advertise main capabilities: ${
+          (error as Error)?.message || String(error)
+        }`,
       );
     }
   }
@@ -1192,7 +1217,9 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
     transportState = 'starting';
     transportStartingAt = Date.now();
     transportLog(
-      `transport → starting at +${transportStartingAt - jsEntryStart}ms from JS entry`,
+      `transport → starting at +${
+        transportStartingAt - jsEntryStart
+      }ms from JS entry`,
     );
   }
 
@@ -1225,7 +1252,9 @@ function ensureBackgroundRuntimeObserver() {
     transportState = 'starting';
     transportStartingAt = Date.now();
     transportLog(
-      `transport → starting (retry path) at +${transportStartingAt - jsEntryStart}ms from JS entry`,
+      `transport → starting (retry path) at +${
+        transportStartingAt - jsEntryStart
+      }ms from JS entry`,
     );
     ensureReadyTimeout();
   }
@@ -1246,14 +1275,20 @@ async function ensureTransportReady() {
   const waitUntil = Date.now() + READY_TIMEOUT_MS;
 
   while (transportState !== 'ready') {
-    if (transportState === 'remote-broken') {
-      throw createTransportError(getRemoteBrokenReason());
+    if (Date.now() >= waitUntil) {
+      // Timing out only enters remote-broken (a no-op if the state got there
+      // first); the branch below applies the never-ready-vs-broken policy in
+      // one place.
+      switchToRemoteBroken('Background runtime ready timeout');
     }
 
-    if (Date.now() >= waitUntil) {
-      const reason = 'Background runtime ready timeout';
-      switchToRemoteBroken(reason);
-      throw createTransportError(getRemoteBrokenReason(reason));
+    if (transportState === 'remote-broken') {
+      if (!transportHasEverBeenReady) {
+        // Never-ready transport: resolve quietly so callers proceed to
+        // callRemoteRequest, which routes them to the local backgroundApi.
+        return;
+      }
+      throw createTransportError(getRemoteBrokenReason());
     }
 
     await new Promise((resolve) => {
@@ -1272,12 +1307,20 @@ function callRemoteRequest(
   }
 
   if (transportState === 'remote-broken') {
+    if (!transportHasEverBeenReady) {
+      // The background runtime never came up; run on the local backgroundApi
+      // exactly like the transport-disabled path instead of failing every
+      // caller (and flooding dev with unhandled-rejection toasts).
+      return localFallback();
+    }
     return Promise.reject(createTransportError(getRemoteBrokenReason()));
   }
 
   if (transportState === 'ready') {
     transportLog(
-      `callRemoteRequest: ready, queuedFlushPromise=${!!queuedFlushPromise}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+      `callRemoteRequest: ready, queuedFlushPromise=${!!queuedFlushPromise}, type=${
+        request.type
+      }, method=${'method' in request ? request.method : 'N/A'}`,
     );
     if (queuedFlushPromise) {
       return queuedFlushPromise.then(() =>

@@ -11,7 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

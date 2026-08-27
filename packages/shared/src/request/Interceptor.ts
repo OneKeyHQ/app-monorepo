@@ -9,7 +9,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
-import { defaultColorScheme } from '../config/appConfig';
+import {
+  defaultColorScheme,
+  normalizeSystemColorScheme,
+} from '../config/appConfig';
 
 import { headerPlatform } from './InterceptorConsts';
 import requestHelper from './requestHelper';
@@ -49,7 +52,10 @@ async function resolveThemeVariantFromSettings(
   }
 
   if (!platformEnv.isExtension) {
-    return Appearance.getColorScheme() ?? defaultColorScheme;
+    return (
+      normalizeSystemColorScheme(Appearance.getColorScheme()) ??
+      defaultColorScheme
+    );
   }
 
   const fromExtStorage = await getThemeFromExtensionStorage();

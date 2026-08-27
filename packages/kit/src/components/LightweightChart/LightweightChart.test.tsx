@@ -112,8 +112,12 @@ describe('LightweightChart', () => {
       animationFrameCallbacks.set(id, callback);
       return id;
     });
+    // RN 0.85 widened the global to cancelAnimationFrame(number | null |
+    // undefined), so the mock has to accept the nullish ids too.
     globalThis.cancelAnimationFrame = jest.fn((id) => {
-      animationFrameCallbacks.delete(id);
+      if (typeof id === 'number') {
+        animationFrameCallbacks.delete(id);
+      }
     });
     globalThis.ResizeObserver = class ResizeObserverMock {
       observe() {}
