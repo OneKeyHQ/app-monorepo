@@ -492,3 +492,37 @@ w3m-modal {
     background-color: #333333;
   }
 }
+
+/* Keep header movement compositor-driven; unsupported browsers use the JS mirror. */
+@supports (animation-timeline: --x) and (timeline-scope: --x) and
+  (scroll-timeline: --x x) and (overflow: clip) and
+  (container-type: inline-size) and
+  (transform: translateX(calc(-100% + 100cqw))) {
+  [data-testid='perp-desktop-table'] {
+    timeline-scope: --perp-desktop-table-x;
+  }
+
+  [data-testid='perp-desktop-table-body'] {
+    scroll-timeline: --perp-desktop-table-x x;
+  }
+
+  [data-testid='perp-desktop-table-header'] {
+    overflow: clip !important;
+    container-type: inline-size;
+  }
+
+  /* Match the body's maximum scroll offset without JS measurement. */
+  [data-testid='perp-desktop-table-header-content'] {
+    animation: perp-desktop-table-header-x linear both;
+    animation-timeline: --perp-desktop-table-x;
+  }
+}
+
+@keyframes perp-desktop-table-header-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% + 100cqw));
+  }
+}

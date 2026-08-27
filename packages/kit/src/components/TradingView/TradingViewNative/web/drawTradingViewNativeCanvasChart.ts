@@ -28,16 +28,23 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
+  extendTimeAxisBorderToCanvasEdge: boolean;
   hasVolume: boolean;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel: string;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
+  priceAxisFontSize: number;
   priceAxisWidth: number;
+  priceAxisTickCount?: number;
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   runtimeState: ITradingViewNativeChartRuntimeState;
+  showLegend: boolean;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  timeAxisFontSize: number;
+  timeAxisHeight: number;
+  timeAxisBorderWidth?: number;
   watermarkImage: HTMLImageElement | null;
   watermarkOpacity: number;
 }
@@ -49,16 +56,23 @@ export function drawTradingViewNativeCanvasChart({
   chartSettings,
   chartType,
   colors,
+  extendTimeAxisBorderToCanvasEdge,
   hasVolume,
   candleLabels,
   currentPriceLabel,
   indicatorSeries,
   points,
+  priceAxisFontSize,
   priceAxisWidth,
+  priceAxisTickCount,
   priceRangeScale,
   priceScaleMode,
   runtimeState,
+  showLegend,
   subIndicatorPanes,
+  timeAxisFontSize,
+  timeAxisHeight,
+  timeAxisBorderWidth,
   watermarkImage,
   watermarkOpacity,
 }: IDrawTradingViewNativeCanvasChartOptions) {
@@ -87,20 +101,30 @@ export function drawTradingViewNativeCanvasChart({
     chartSettings,
     chartType,
     crosshair: runtimeState.crosshair,
+    extendTimeAxisBorderToCanvasEdge,
     hasVolume,
     height,
     indicatorSeries,
     measureTextWidth: (text, font) => {
-      context.font = getTradingViewNativeCanvasFont(font);
+      context.font = getTradingViewNativeCanvasFont(
+        font,
+        priceAxisFontSize,
+        timeAxisFontSize,
+      );
       return context.measureText(text).width;
     },
     candleLabels,
     currentPriceLabel,
     points,
+    priceAxisFontSize,
     priceAxisWidth,
+    priceAxisTickCount,
     priceRangeScale,
     priceScaleMode,
+    showLegend,
     subIndicatorPanes,
+    timeAxisFontSize,
+    timeAxisHeight,
     viewport: runtimeState.viewport,
     watermarkOpacity,
     width,
@@ -110,6 +134,9 @@ export function drawTradingViewNativeCanvasChart({
     commands: scene.commands,
     context,
     customPaintStyles: scene.customPaintStyles,
+    priceAxisFontSize,
+    timeAxisFontSize,
+    timeAxisBorderWidth,
     watermarkImage,
   });
   return scene;

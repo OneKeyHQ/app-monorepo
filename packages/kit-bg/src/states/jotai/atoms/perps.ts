@@ -1076,10 +1076,13 @@ export const {
 
 export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 
+export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  chartPosition?: IPerpsChartPosition;
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1094,6 +1097,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    chartPosition: 'top',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
@@ -1223,6 +1227,7 @@ export interface IPerpsLayoutState {
   orderBook?: {
     visible: boolean;
   };
+  chartHeight?: number;
   chartExpanded?: boolean;
   resetAt?: number;
 }
