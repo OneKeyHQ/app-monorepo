@@ -558,6 +558,15 @@ export const TradingViewNativeChart = memo(
           points: nextPoints,
           size: nextSize,
           subIndicatorPanes: nextSubIndicatorPanes,
+          timeAxisScaleGesture: {
+            ...runtime.timeAxisScaleGesture,
+            startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+              currentZoomScale: runtime.viewport.zoomScale,
+              offsetDelta,
+              startOffset: runtime.timeAxisScaleGesture.startOffset,
+              startZoomScale: runtime.timeAxisScaleGesture.startZoomScale,
+            }),
+          },
         };
       });
     }, [
@@ -639,6 +648,15 @@ export const TradingViewNativeChart = memo(
               ? runtime.pinchGesture.currentScale
               : 1,
             startOffset: nextViewport.offset,
+            startZoomScale: nextViewport.zoomScale,
+          },
+          timeAxisScaleGesture: {
+            ...runtime.timeAxisScaleGesture,
+            chartWidth,
+            startOffset: nextViewport.offset,
+            startX: runtime.timeAxisScaleGesture.isActive
+              ? runtime.timeAxisScaleGesture.currentX
+              : runtime.timeAxisScaleGesture.startX,
             startZoomScale: nextViewport.zoomScale,
           },
         };

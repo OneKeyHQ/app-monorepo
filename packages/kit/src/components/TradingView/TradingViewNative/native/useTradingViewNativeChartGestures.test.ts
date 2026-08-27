@@ -19,6 +19,7 @@ interface IMockGestureBuilder {
 }
 
 const mockTapGestures: IMockGestureBuilder[] = [];
+const mockPanGestures: IMockGestureBuilder[] = [];
 const mockScheduleOnRN = jest.mocked(scheduleOnRN);
 const mockGetSubIndicatorAtPoint = jest.mocked(
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -55,7 +56,11 @@ function mockCreateGestureBuilder(): IMockGestureBuilder {
 jest.mock('react-native-gesture-handler', () => ({
   Gesture: {
     Exclusive: jest.fn((...gestures: unknown[]) => gestures[0]),
-    Pan: jest.fn(() => mockCreateGestureBuilder()),
+    Pan: jest.fn(() => {
+      const gesture = mockCreateGestureBuilder();
+      mockPanGestures.push(gesture);
+      return gesture;
+    }),
     Pinch: jest.fn(() => mockCreateGestureBuilder()),
     Race: jest.fn((...gestures: unknown[]) => gestures[0]),
     Tap: jest.fn(() => {
@@ -125,9 +130,62 @@ function renderSettingsGesture(
   return settingsGesture as IMockGestureBuilder;
 }
 
+function renderChartGestures() {
+  const chartRuntime = {
+    value: {
+      crosshair: { visible: true, x: 0, y: 0 },
+      panGesture: { startOffset: 0, translationX: 0 },
+      pinchGesture: {
+        anchorX: 0,
+        currentScale: 1,
+        isActive: false,
+        scaleBaseline: 1,
+        startOffset: 0,
+        startZoomScale: 1,
+      },
+      points: Array.from({ length: 100 }, () => ({})),
+      size: { height: 300, width: 320 },
+      subIndicatorPanes: [],
+      timeAxisScaleGesture: {
+        chartWidth: 0,
+        currentX: 0,
+        isActive: false,
+        startOffset: 0,
+        startX: 0,
+        startZoomScale: 1,
+      },
+      viewport: { offset: 0, zoomScale: 1 },
+    },
+  };
+  const decayOffset = { value: 0 };
+  const props = {
+    chartRuntime,
+    decayOffset,
+    isClickInteractionEnabled: true,
+    isCrosshairEnabled: true,
+    onSubIndicatorSettingsPress: jest.fn(),
+    priceAxisResetGesture: {},
+    priceAxisScaleGesture: {},
+    priceAxisWidth: { value: 44 },
+    resources: {
+      value: {
+        fonts: {
+          legend: {
+            measureText: () => ({ width: 0 }),
+          },
+        },
+      },
+    },
+  } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
+
+  renderHook(() => useTradingViewNativeChartGestures(props));
+  return { chartRuntime, decayOffset };
+}
+
 describe('useTradingViewNativeChartGestures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPanGestures.length = 0;
     mockTapGestures.length = 0;
     mockGetSubIndicatorAtPoint.mockImplementation(
       ({ y }: { y: number }): 'RSI' | null => (y === 100 ? 'RSI' : null),
@@ -171,5 +229,52 @@ describe('useTradingViewNativeChartGestures', () => {
     );
     expect(mockScheduleOnRN).not.toHaveBeenCalled();
     expect(onSubIndicatorSettingsPress).not.toHaveBeenCalled();
+  });
+
+  it('scales the time range only when a horizontal drag starts on the time axis', () => {
+    const { chartRuntime, decayOffset } = renderChartGestures();
+    const contentPanGesture = mockPanGestures[1];
+    const timeAxisScaleGesture = mockPanGestures[2];
+    const failContentPan = jest.fn();
+    const failTimeAxisScale = jest.fn();
+
+    contentPanGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 280 }] },
+      { fail: failContentPan },
+    );
+    timeAxisScaleGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 280 }] },
+      { fail: failTimeAxisScale },
+    );
+    timeAxisScaleGesture.handlers.onStart?.({ x: 100 });
+    timeAxisScaleGesture.handlers.onUpdate?.({ x: 150 });
+
+    expect(failContentPan).toHaveBeenCalledTimes(1);
+    expect(failTimeAxisScale).not.toHaveBeenCalled();
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+    expect(chartRuntime.value.viewport.zoomScale).toBeGreaterThan(1);
+    expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
+    expect(chartRuntime.value.timeAxisScaleGesture).toMatchObject({
+      currentX: 150,
+      isActive: true,
+      startX: 100,
+      startZoomScale: 1,
+    });
+
+    timeAxisScaleGesture.handlers.onFinalize?.();
+    expect(chartRuntime.value.timeAxisScaleGesture.isActive).toBe(false);
+  });
+
+  it('rejects time-scale dragging outside the time axis', () => {
+    renderChartGestures();
+    const timeAxisScaleGesture = mockPanGestures[2];
+    const fail = jest.fn();
+
+    timeAxisScaleGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 200 }] },
+      { fail },
+    );
+
+    expect(fail).toHaveBeenCalledTimes(1);
   });
 });

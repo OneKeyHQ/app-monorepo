@@ -1,0 +1,90 @@
+import {
+  TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+} from '../chartConstants';
+
+import { getTradingViewNativeChartWidth } from './chartLayout';
+import { clampTradingViewNativeZoomScale } from './chartViewport';
+
+const TIME_AXIS_SCALE_MARGIN_RATIO = 0.2;
+
+export function getTradingViewNativeTimeAxisZoomScaleAfterDrag({
+  chartWidth,
+  currentX,
+  startX,
+  startZoomScale,
+}: {
+  chartWidth: number;
+  currentX: number;
+  startX: number;
+  startZoomScale: number;
+}) {
+  'worklet';
+
+  const normalizedStartZoomScale = clampTradingViewNativeZoomScale(
+    Number.isFinite(startZoomScale)
+      ? startZoomScale
+      : TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  );
+  if (
+    !Number.isFinite(chartWidth) ||
+    chartWidth <= 0 ||
+    !Number.isFinite(currentX) ||
+    !Number.isFinite(startX)
+  ) {
+    return normalizedStartZoomScale;
+  }
+
+  const normalizedStartX = Math.min(Math.max(startX, 0), chartWidth);
+  const startPoint = chartWidth - normalizedStartX;
+  const currentPoint = Math.max(chartWidth - currentX, 0);
+  const scaleMargin = chartWidth * TIME_AXIS_SCALE_MARGIN_RATIO;
+  const relativeScale =
+    (startPoint + scaleMargin) / (currentPoint + scaleMargin);
+
+  return clampTradingViewNativeZoomScale(
+    normalizedStartZoomScale * relativeScale,
+  );
+}
+
+export function isTradingViewNativeTimeAxisTouch({
+  height,
+  priceAxisWidth,
+  width,
+  x,
+  y,
+}: {
+  height: number;
+  priceAxisWidth: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
+  'worklet';
+
+  if (
+    !Number.isFinite(height) ||
+    !Number.isFinite(priceAxisWidth) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    height <= 0 ||
+    width <= 0
+  ) {
+    return false;
+  }
+
+  const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
+  const axisStartX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING;
+  const axisEndX = axisStartX + chartWidth;
+  const axisStartY = Math.max(height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT, 0);
+
+  return (
+    chartWidth > 0 &&
+    x >= axisStartX &&
+    x < axisEndX &&
+    y >= axisStartY &&
+    y <= height
+  );
+}

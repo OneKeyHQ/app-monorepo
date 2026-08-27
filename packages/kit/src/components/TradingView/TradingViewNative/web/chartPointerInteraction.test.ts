@@ -1,4 +1,7 @@
-import { getTradingViewNativePointerDragIntent } from './chartPointerInteraction';
+import {
+  getTradingViewNativePointerDragIntent,
+  getTradingViewNativeTimeAxisPointerZoomScale,
+} from './chartPointerInteraction';
 
 describe('TradingViewNative pointer drag intent', () => {
   it('keeps small legend movement pending without starting a pan', () => {
@@ -35,5 +38,46 @@ describe('TradingViewNative pointer drag intent', () => {
         startClientY: 10,
       }),
     ).toBe('pan');
+  });
+});
+
+describe('TradingViewNative time-axis pointer scaling', () => {
+  const input = {
+    chartWidth: 200,
+    isActive: false,
+    startX: 100,
+    startZoomScale: 1,
+  };
+
+  it('waits for horizontal movement beyond the drag threshold', () => {
+    expect(
+      getTradingViewNativeTimeAxisPointerZoomScale({
+        ...input,
+        currentX: 104,
+      }),
+    ).toBeNull();
+    expect(
+      getTradingViewNativeTimeAxisPointerZoomScale({
+        ...input,
+        currentX: 105,
+      }),
+    ).not.toBeNull();
+  });
+
+  it('zooms in to the right and out to the left after activation', () => {
+    expect(
+      getTradingViewNativeTimeAxisPointerZoomScale({
+        ...input,
+        currentX: 150,
+        isActive: true,
+      }),
+    ).toBeGreaterThan(1);
+    expect(
+      getTradingViewNativeTimeAxisPointerZoomScale({
+        ...input,
+        currentX: 50,
+        isActive: true,
+      }),
+    ).toBeLessThan(1);
   });
 });
